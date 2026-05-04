@@ -55,7 +55,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 ### Phases
 
-- [ ] **Phase 7: DB Foundation** — All three migrations: google_locations/google_reviews, meta_channels, conversations channel columns
+- [x] **Phase 7: DB Foundation** — All three migrations: google_locations/google_reviews, meta_channels, conversations channel columns (completed 2026-05-04)
 - [ ] **Phase 8: Reviews Admin** — Location registration, Google Places API sync, admin dashboard with sync status
 - [ ] **Phase 9: Reviews Widget** — esbuild bundle, 4 layouts, public token endpoint, embed code generation
 - [ ] **Phase 10: Meta OAuth** — Facebook Login flow, full token exchange chain, channel settings page
@@ -164,7 +164,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 7. DB Foundation | 2/3 | In Progress|  |
+| 7. DB Foundation | 2/3 | Complete    | 2026-05-04 |
 | 8. Reviews Admin | 0/? | Not started | — |
 | 9. Reviews Widget | 0/? | Not started | — |
 | 10. Meta OAuth | 0/? | Not started | — |
