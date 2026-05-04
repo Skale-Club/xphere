@@ -76,7 +76,11 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   2. Migration 019 applies cleanly: `meta_channels` table exists with RLS, `encrypted_page_access_token`, `channel_type`, `webhook_verified` columns present
   3. Migration 020 applies cleanly: `conversations` table has `channel TEXT DEFAULT 'widget'` and `channel_metadata JSONB DEFAULT '{}'` columns; all existing conversation rows have `channel = 'widget'` with no manual data migration
   4. `npx supabase db push` completes with no errors and `npm run build` passes with updated TypeScript types
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 07-01-PLAN.md — migrations 018 + 019 (google_locations, google_reviews, meta_channels tables)
+- [ ] 07-02-PLAN.md — migration 020 (add channel columns to conversations)
+- [ ] 07-03-PLAN.md — update TypeScript types in src/types/database.ts
 
 ### Phase 8: Reviews Admin
 **Goal**: Admin can register Google locations and see up to 5 live reviews pulled from the Google Places API, with sync status visible from the dashboard
@@ -160,7 +164,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 7. DB Foundation | 0/? | Not started | — |
+| 7. DB Foundation | 0/3 | Not started | — |
 | 8. Reviews Admin | 0/? | Not started | — |
 | 9. Reviews Widget | 0/? | Not started | — |
 | 10. Meta OAuth | 0/? | Not started | — |
@@ -170,4 +174,4 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 ---
 
-*Last updated: 2026-05-04 — v1.3 roadmap created*
+*Last updated: 2026-05-04 — Phase 7 planned (3 plans, 2 waves)*
