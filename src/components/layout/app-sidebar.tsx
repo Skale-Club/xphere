@@ -8,6 +8,7 @@ import {
   Phone,
   BookOpen,
   MessageSquare,
+  Star,
   ChevronUp,
   LogOut,
   Settings,
@@ -44,6 +45,7 @@ const navItems = [
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },
   { icon: MessageSquare, label: 'Chat', href: '/chat', active: true },
+  { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]
 
 function getInitials(user: User): string {

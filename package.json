@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack --port 4267",
     "build:widget": "esbuild src/widget/index.ts --bundle --minify --platform=browser --format=iife --target=es2017 --outfile=public/widget.js",
-    "build": "npm run build:widget && next build",
+    "build:reviews-widget": "esbuild src/reviews-widget/index.ts --bundle --minify --platform=browser --format=iife --target=es2017 --outfile=public/reviews-widget.js",
+    "build": "npm run build:widget && npm run build:reviews-widget && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

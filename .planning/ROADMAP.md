@@ -56,9 +56,9 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 ### Phases
 
 - [x] **Phase 7: DB Foundation** — All three migrations: google_locations/google_reviews, meta_channels, conversations channel columns (completed 2026-05-04)
-- [ ] **Phase 8: Reviews Admin** — Location registration, Google Places API sync, admin dashboard with sync status
-- [ ] **Phase 9: Reviews Widget** — esbuild bundle, 4 layouts, public token endpoint, embed code generation
-- [ ] **Phase 10: Meta OAuth** — Facebook Login flow, full token exchange chain, channel settings page
+- [x] **Phase 8: Reviews Admin** — Location registration, Google Places API sync, admin dashboard with sync status (completed 2026-05-04)
+- [x] **Phase 9: Reviews Widget** — esbuild bundle, 4 layouts, public token endpoint, embed code generation (completed 2026-05-04)
+- [x] **Phase 10: Meta OAuth** — Facebook Login flow, full token exchange chain, channel settings page (completed 2026-05-04)
 - [ ] **Phase 11: Meta Webhook** — Inbound event receiver, conversation creation, automation binding, 24h window enforcement
 - [ ] **Phase 12: Multi-Channel Inbox UI** — Channel icons, filter bar, conversation header, 24h warning, bot pause/resume
 - [ ] **Phase 13: Outbound Reply Routing** — Branch existing reply route by channel, send to Messenger/Instagram Send API
@@ -94,9 +94,9 @@ Plans:
   5. The Google Places API key is never exposed in client-side network requests; all API calls occur server-side via server actions
 **Plans**: 3 plans
 Plans:
-- [ ] 08-01-PLAN.md — RED test stubs for addLocation, syncReviews, cooldown (Wave 0)
-- [ ] 08-02-PLAN.md — server actions (addLocation, syncReviews, deleteLocation) + sidebar nav + google-logo.svg (Wave 1)
-- [ ] 08-03-PLAN.md — /reviews page, loading.tsx, AddLocationForm, LocationCard, SyncButton components (Wave 2)
+- [x] 08-01-PLAN.md — RED test stubs for addLocation, syncReviews, cooldown (Wave 0)
+- [x] 08-02-PLAN.md — server actions (addLocation, syncReviews, deleteLocation) + sidebar nav + google-logo.svg (Wave 1)
+- [x] 08-03-PLAN.md — /reviews page, loading.tsx, AddLocationForm, LocationCard, SyncButton components (Wave 2)
 
 ### Phase 9: Reviews Widget
 **Goal**: Admin can generate an embeddable script tag that renders a branded Google Reviews widget on any HTML page without auth or live API calls at render time
@@ -108,7 +108,11 @@ Plans:
   3. Admin configures primary color, star color, and dark/light theme in the dashboard; the embedded widget reflects those settings on next page load
   4. Widget displays "Powered by Google" attribution on every layout and includes author names adjacent to their review text
   5. When the token is invalid or reviews data is unavailable, the widget silently disappears — no visible error, no broken layout, no JS errors thrown to the host page
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 09-01-PLAN.md - RED test stubs for public route, widget bundle, and built asset (Wave 0)
+- [x] 09-02-PLAN.md - /api/reviews/[token] public route + reviews widget IIFE + build pipeline (Wave 1)
+- [x] 09-03-PLAN.md - /reviews dashboard embed configurator, preview, and copy snippet flow (Wave 2)
 **UI hint**: yes
 
 ### Phase 10: Meta OAuth
@@ -121,7 +125,11 @@ Plans:
   3. Admin can disconnect a channel; after disconnect, the channel disappears from the connected list and its token row is removed from `meta_channels`
   4. When a token has been revoked (simulated via developer tools), the settings page shows a reconnect prompt rather than showing the channel as active
   5. Admin can assign an existing automation to an Instagram DM channel and independently assign a different automation to the Messenger channel for the same page
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 10-01-PLAN.md - RED test stubs for Meta OAuth actions, callback route, and settings UI (Wave 0)
+- [x] 10-02-PLAN.md - Shared Meta OAuth helpers + connect/disconnect actions + callback token exchange route (Wave 1)
+- [x] 10-03-PLAN.md - /integrations/meta dashboard UI, reconnect/disconnect controls, and automation binding (Wave 2)
 **UI hint**: yes
 
 ### Phase 11: Meta Webhook
@@ -167,14 +175,14 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 7. DB Foundation | 2/3 | Complete    | 2026-05-04 |
-| 8. Reviews Admin | 0/3 | Not started | — |
-| 9. Reviews Widget | 0/? | Not started | — |
-| 10. Meta OAuth | 0/? | Not started | — |
+| 7. DB Foundation | 3/3 | Complete    | 2026-05-04 |
+| 8. Reviews Admin | 3/3 | Complete    | 2026-05-04 |
+| 9. Reviews Widget | 3/3 | Complete    | 2026-05-04 |
+| 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
 | 11. Meta Webhook | 0/? | Not started | — |
 | 12. Multi-Channel Inbox UI | 0/? | Not started | — |
 | 13. Outbound Reply Routing | 0/? | Not started | — |
 
 ---
 
-*Last updated: 2026-05-04 — Phase 8 planned (3 plans, 3 waves)*
+*Last updated: 2026-05-04 - Phase 10 complete, Phase 11 next*

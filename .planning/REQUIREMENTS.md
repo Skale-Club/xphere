@@ -10,29 +10,29 @@
 
 ### GREV — Google Reviews (Location & Capture)
 
-- [ ] **GREV-01**: Admin can register a Google location (name, address, Place ID, Maps link, category, client name)
-- [ ] **GREV-02**: System fetches up to 5 reviews from Google Places API (New) and stores them in Supabase with `fetched_at` timestamp
-- [ ] **GREV-03**: Admin can manually trigger a review refresh from the location dashboard
-- [ ] **GREV-04**: Dashboard shows last sync date, review count, and last error per location
-- [ ] **GREV-05**: System enforces minimum 24h between API fetches per location to control costs
+- [x] **GREV-01**: Admin can register a Google location (name, address, Place ID, Maps link, category, client name)
+- [x] **GREV-02**: System fetches up to 5 reviews from Google Places API (New) and stores them in Supabase with `fetched_at` timestamp
+- [x] **GREV-03**: Admin can manually trigger a review refresh from the location dashboard
+- [x] **GREV-04**: Dashboard shows last sync date, review count, and last error per location
+- [x] **GREV-05**: System enforces minimum 24h between API fetches per location to control costs
 
 ### GWDGT — Reviews Widget (Embed & Display)
 
-- [ ] **GWDGT-01**: Admin can generate an embeddable `<script>` tag with a unique per-location token for use on client sites
-- [ ] **GWDGT-02**: Widget renders reviews in 4 layouts: carousel, grid, simple list, compact block
-- [ ] **GWDGT-03**: Admin can configure widget appearance: primary color, star color, dark/light theme, show/hide photo/date/Google button, border radius, max-width
-- [ ] **GWDGT-04**: Widget loads reviews from a public token-scoped endpoint (no auth, no live Google API call at render time)
-- [ ] **GWDGT-05**: Widget displays mandatory "Powered by Google" attribution per Google API policy
-- [ ] **GWDGT-06**: Widget fails gracefully — silently hides without breaking the host page if data is unavailable
+- [x] **GWDGT-01**: Admin can generate an embeddable `<script>` tag with a unique per-location token for use on client sites
+- [x] **GWDGT-02**: Widget renders reviews in 4 layouts: carousel, grid, simple list, compact block
+- [x] **GWDGT-03**: Admin can configure widget appearance: primary color, star color, dark/light theme, show/hide photo/date/Google button, border radius, max-width
+- [x] **GWDGT-04**: Widget loads reviews from a public token-scoped endpoint (no auth, no live Google API call at render time)
+- [x] **GWDGT-05**: Widget displays mandatory "Powered by Google" attribution per Google API policy
+- [x] **GWDGT-06**: Widget fails gracefully — silently hides without breaking the host page if data is unavailable
 
 ### META — Meta Channel Connection
 
-- [ ] **META-01**: Admin can connect a Facebook Page via Meta OAuth and see its linked Instagram Professional account
-- [ ] **META-02**: System completes the full token exchange chain (short-lived → long-lived → page access token) and stores the page token encrypted with AES-256-GCM
-- [ ] **META-03**: Admin can view connected Meta channels with connection status, last sync, and active permissions
-- [ ] **META-04**: Admin can disconnect a Meta channel
-- [ ] **META-05**: System detects token expiry/revocation (error 190) and shows a reconnect prompt in channel settings
-- [ ] **META-06**: Admin can link an existing automation to a Meta channel (Instagram DM and Messenger independently)
+- [x] **META-01**: Admin can connect a Facebook Page via Meta OAuth and see its linked Instagram Professional account
+- [x] **META-02**: System completes the full token exchange chain (short-lived → long-lived → page access token) and stores the page token encrypted with AES-256-GCM
+- [x] **META-03**: Admin can view connected Meta channels with connection status, last sync, and active permissions
+- [x] **META-04**: Admin can disconnect a Meta channel
+- [x] **META-05**: System detects token expiry/revocation (error 190) and shows a reconnect prompt in channel settings
+- [x] **META-06**: Admin can link an existing automation to a Meta channel (Instagram DM and Messenger independently)
 
 ### METAEV — Meta Events & Automation
 
@@ -96,23 +96,23 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| GREV-01 | Phase 8 | Not started |
-| GREV-02 | Phase 8 | Not started |
-| GREV-03 | Phase 8 | Not started |
-| GREV-04 | Phase 8 | Not started |
-| GREV-05 | Phase 8 | Not started |
-| GWDGT-01 | Phase 9 | Not started |
-| GWDGT-02 | Phase 9 | Not started |
-| GWDGT-03 | Phase 9 | Not started |
-| GWDGT-04 | Phase 9 | Not started |
-| GWDGT-05 | Phase 9 | Not started |
-| GWDGT-06 | Phase 9 | Not started |
-| META-01 | Phase 10 | Not started |
-| META-02 | Phase 10 | Not started |
-| META-03 | Phase 10 | Not started |
-| META-04 | Phase 10 | Not started |
-| META-05 | Phase 10 | Not started |
-| META-06 | Phase 10 | Not started |
+| GREV-01 | Phase 8 | Complete |
+| GREV-02 | Phase 8 | Complete |
+| GREV-03 | Phase 8 | Complete |
+| GREV-04 | Phase 8 | Complete |
+| GREV-05 | Phase 8 | Complete |
+| GWDGT-01 | Phase 9 | Complete |
+| GWDGT-02 | Phase 9 | Complete |
+| GWDGT-03 | Phase 9 | Complete |
+| GWDGT-04 | Phase 9 | Complete |
+| GWDGT-05 | Phase 9 | Complete |
+| GWDGT-06 | Phase 9 | Complete |
+| META-01 | Phase 10 | Complete |
+| META-02 | Phase 10 | Complete |
+| META-03 | Phase 10 | Complete |
+| META-04 | Phase 10 | Complete |
+| META-05 | Phase 10 | Complete |
+| META-06 | Phase 10 | Complete |
 | METAEV-01 | Phase 11 | Not started |
 | METAEV-02 | Phase 11 | Not started |
 | METAEV-03 | Phase 11 | Not started |
@@ -125,4 +125,4 @@
 | METAINBOX-05 | Phase 12 | Not started |
 | METAINBOX-06 | Phase 12 | Not started |
 
-**Total: 27/27 requirements mapped — all pending**
+**Total: 27/27 requirements mapped — 17 complete, 10 pending**
