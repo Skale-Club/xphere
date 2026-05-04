@@ -17,6 +17,9 @@ export type UserRole = 'admin' | 'member'
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'paused' | 'completed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
 
+export type ConversationChannel = 'widget' | 'messenger' | 'instagram'
+export type MetaChannelType = 'messenger' | 'instagram'
+
 export interface Database {
   public: {
     Tables: {
@@ -446,6 +449,8 @@ export interface Database {
           visitor_email: string | null
           last_message: string | null
           memory: Record<string, unknown>
+          channel: string
+          channel_metadata: Json
         }
         Insert: {
           id?: string
@@ -463,6 +468,8 @@ export interface Database {
           visitor_email?: string | null
           last_message?: string | null
           memory?: Record<string, unknown>
+          channel?: string
+          channel_metadata?: Json
         }
         Update: {
           status?: string
@@ -474,6 +481,8 @@ export interface Database {
           visitor_email?: string | null
           last_message?: string | null
           memory?: Record<string, unknown>
+          channel?: string
+          channel_metadata?: Json
         }
         Relationships: [
           {
@@ -626,6 +635,194 @@ export interface Database {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      google_locations: {
+        Row: {
+          id: string
+          org_id: string
+          place_id: string
+          name: string
+          address: string | null
+          maps_url: string | null
+          category: string | null
+          client_name: string | null
+          review_token: string
+          fetched_at: string | null
+          last_fetch_error: string | null
+          review_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          place_id: string
+          name: string
+          address?: string | null
+          maps_url?: string | null
+          category?: string | null
+          client_name?: string | null
+          review_token?: string
+          fetched_at?: string | null
+          last_fetch_error?: string | null
+          review_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          place_id?: string
+          name?: string
+          address?: string | null
+          maps_url?: string | null
+          category?: string | null
+          client_name?: string | null
+          review_token?: string
+          fetched_at?: string | null
+          last_fetch_error?: string | null
+          review_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'google_locations_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      google_reviews: {
+        Row: {
+          id: string
+          location_id: string
+          org_id: string
+          google_review_id: string
+          author_name: string
+          author_photo_url: string | null
+          author_uri: string | null
+          rating: number
+          review_text: string | null
+          original_text: string | null
+          relative_time: string | null
+          published_at: string | null
+          google_maps_url: string | null
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          org_id: string
+          google_review_id: string
+          author_name: string
+          author_photo_url?: string | null
+          author_uri?: string | null
+          rating: number
+          review_text?: string | null
+          original_text?: string | null
+          relative_time?: string | null
+          published_at?: string | null
+          google_maps_url?: string | null
+          display_order?: number
+          created_at?: string
+        }
+        Update: {
+          author_name?: string
+          author_photo_url?: string | null
+          author_uri?: string | null
+          rating?: number
+          review_text?: string | null
+          original_text?: string | null
+          relative_time?: string | null
+          published_at?: string | null
+          google_maps_url?: string | null
+          display_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'google_reviews_location_id_fkey'
+            columns: ['location_id']
+            isOneToOne: false
+            referencedRelation: 'google_locations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'google_reviews_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      meta_channels: {
+        Row: {
+          id: string
+          org_id: string
+          channel_type: MetaChannelType
+          page_id: string
+          page_name: string | null
+          ig_account_id: string | null
+          ig_username: string | null
+          encrypted_page_access_token: string
+          token_expires_at: string | null
+          is_active: boolean
+          webhook_verified: boolean
+          last_synced_at: string | null
+          connection_error: string | null
+          automation_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          channel_type: MetaChannelType
+          page_id: string
+          page_name?: string | null
+          ig_account_id?: string | null
+          ig_username?: string | null
+          encrypted_page_access_token: string
+          token_expires_at?: string | null
+          is_active?: boolean
+          webhook_verified?: boolean
+          last_synced_at?: string | null
+          connection_error?: string | null
+          automation_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          channel_type?: MetaChannelType
+          page_name?: string | null
+          ig_account_id?: string | null
+          ig_username?: string | null
+          encrypted_page_access_token?: string
+          token_expires_at?: string | null
+          is_active?: boolean
+          webhook_verified?: boolean
+          last_synced_at?: string | null
+          connection_error?: string | null
+          automation_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meta_channels_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'meta_channels_automation_id_fkey'
+            columns: ['automation_id']
+            isOneToOne: false
+            referencedRelation: 'tool_configs'
             referencedColumns: ['id']
           }
         ]
