@@ -59,8 +59,8 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 8: Reviews Admin** — Location registration, Google Places API sync, admin dashboard with sync status (completed 2026-05-04)
 - [x] **Phase 9: Reviews Widget** — esbuild bundle, 4 layouts, public token endpoint, embed code generation (completed 2026-05-04)
 - [x] **Phase 10: Meta OAuth** — Facebook Login flow, full token exchange chain, channel settings page (completed 2026-05-04)
-- [ ] **Phase 11: Meta Webhook** — Inbound event receiver, conversation creation, automation binding, 24h window enforcement
-- [ ] **Phase 12: Multi-Channel Inbox UI** — Channel icons, filter bar, conversation header, 24h warning, bot pause/resume
+- [x] **Phase 11: Meta Webhook** — Inbound event receiver, conversation creation, automation binding, 24h window enforcement (completed 2026-05-05)
+- [x] **Phase 12: Multi-Channel Inbox UI** — Channel icons, filter bar, conversation header, 24h warning, bot pause/resume (completed 2026-05-05)
 - [ ] **Phase 13: Outbound Reply Routing** — Branch existing reply route by channel, send to Messenger/Instagram Send API
 
 ---
@@ -142,7 +142,10 @@ Plans:
   3. A test Messenger message sent to the connected page appears in the chat inbox within 5 seconds with `channel = 'messenger'`
   4. When an automation with a keyword trigger is bound to the channel and the inbound message contains that keyword, the automation fires and `executeAction` is invoked; the response is persisted to the conversation
   5. An automated reply attempt on a conversation whose last inbound message is older than 24 hours is blocked — no outbound message is sent and the admin sees the conversation marked as outside the reply window
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 11-01-PLAN.md — migration 022 (last_inbound_at + meta_channels.config) + TypeScript types + RED test stubs (Wave 0)
+- [x] 11-02-PLAN.md — /api/meta/webhook route (GET + POST) + processMetaEvent lib + tests GREEN (Wave 1)
 
 ### Phase 12: Multi-Channel Inbox UI
 **Goal**: The existing chat inbox correctly identifies the origin channel of every conversation so admins can filter, recognize, and manage widget, Instagram, and Messenger conversations from one view
@@ -154,7 +157,10 @@ Plans:
   3. Opening a Meta conversation shows the channel name and connected account name in the conversation header, alongside the current bot status (active or paused)
   4. A conversation where the 24h Meta reply window has expired shows a visible warning banner in the chat area; the banner does not appear for widget conversations
   5. Admin clicks "Pause bot" on a Meta conversation and confirms that subsequent inbound messages no longer trigger automation; clicking "Resume bot" restores automation firing
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 12-01-PLAN.md — migration 023 (bot_status column) + type extension + API route enrichment + 5 RED test stubs (Wave 0)
+- [x] 12-02-PLAN.md — ChannelIcon component + filter pills + enriched header + 24h banner + bot pause/resume + tests GREEN (Wave 1)
 **UI hint**: yes
 
 ### Phase 13: Outbound Reply Routing
@@ -167,7 +173,10 @@ Plans:
   3. Admin sends a reply in a widget conversation; behavior is identical to pre-v1.3 (persisted to DB, SSE polling picks it up) — existing widget chat is not disrupted
   4. A reply attempt on a channel whose token has been revoked returns an error in the UI rather than silently dropping the message; the admin sees a reconnect prompt
   5. Unit tests assert that for each of the three channel values (`widget`, `messenger`, `instagram`), the correct send function is invoked and no other channel's send path is reached
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 13-01-PLAN.md — sendMetaMessage lib + RED test stubs (Wave 0)
+- [ ] 13-02-PLAN.md — Modify POST handler to branch on channel + tests GREEN + build gate (Wave 1)
 
 ---
 
@@ -179,10 +188,10 @@ Plans:
 | 8. Reviews Admin | 3/3 | Complete    | 2026-05-04 |
 | 9. Reviews Widget | 3/3 | Complete    | 2026-05-04 |
 | 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
-| 11. Meta Webhook | 0/? | Not started | — |
-| 12. Multi-Channel Inbox UI | 0/? | Not started | — |
-| 13. Outbound Reply Routing | 0/? | Not started | — |
+| 11. Meta Webhook | 2/2 | Complete    | 2026-05-05 |
+| 12. Multi-Channel Inbox UI | 2/2 | Complete    | 2026-05-05 |
+| 13. Outbound Reply Routing | 1/2 | In Progress|  |
 
 ---
 
-*Last updated: 2026-05-04 - Phase 10 complete, Phase 11 next*
+*Last updated: 2026-05-05 - Phase 13 planned, 2 plans created*

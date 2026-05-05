@@ -36,20 +36,20 @@
 
 ### METAEV — Meta Events & Automation
 
-- [ ] **METAEV-01**: System receives and verifies inbound events from Instagram and Messenger via a single unified Meta webhook (HMAC-SHA256 signature verification)
-- [ ] **METAEV-02**: Inbound Meta messages create conversations in the existing chat inbox with the correct channel type (`instagram` or `messenger`)
-- [ ] **METAEV-03**: Automation bound to a Meta channel fires on incoming messages and can invoke existing action engine tools (`executeAction`)
-- [ ] **METAEV-04**: Automation supports keyword triggers — fires when message contains a configured keyword
-- [ ] **METAEV-05**: System enforces the 24h Meta messaging window — automated replies are blocked after 24h from last inbound user message
+- [x] **METAEV-01**: System receives and verifies inbound events from Instagram and Messenger via a single unified Meta webhook (HMAC-SHA256 signature verification)
+- [x] **METAEV-02**: Inbound Meta messages create conversations in the existing chat inbox with the correct channel type (`instagram` or `messenger`)
+- [x] **METAEV-03**: Automation bound to a Meta channel fires on incoming messages and can invoke existing action engine tools (`executeAction`)
+- [x] **METAEV-04**: Automation supports keyword triggers — fires when message contains a configured keyword
+- [x] **METAEV-05**: System enforces the 24h Meta messaging window — automated replies are blocked after 24h from last inbound user message
 
 ### METAINBOX — Multi-Channel Inbox
 
-- [ ] **METAINBOX-01**: Each conversation in the inbox shows a channel icon and name (website / Instagram / Messenger)
-- [ ] **METAINBOX-02**: Admin can filter inbox by channel (all / website / instagram / messenger) and by bot state (bot-active / bot-paused)
-- [ ] **METAINBOX-03**: Manual admin replies are sent via the conversation's origin channel (Instagram → IG API, Messenger → Messenger API, widget → existing path)
-- [ ] **METAINBOX-04**: Conversation header shows channel, connected account name, and current bot status
-- [ ] **METAINBOX-05**: System shows a visual warning in conversations where the 24h Meta reply window has expired
-- [ ] **METAINBOX-06**: Admin can pause/resume bot per conversation across all channels (reuses existing `bot_status` field)
+- [x] **METAINBOX-01**: Each conversation in the inbox shows a channel icon and name (website / Instagram / Messenger)
+- [x] **METAINBOX-02**: Admin can filter inbox by channel (all / website / instagram / messenger) and by bot state (bot-active / bot-paused)
+- [x] **METAINBOX-03**: Manual admin replies are sent via the conversation's origin channel (Instagram → IG API, Messenger → Messenger API, widget → existing path)
+- [x] **METAINBOX-04**: Conversation header shows channel, connected account name, and current bot status
+- [x] **METAINBOX-05**: System shows a visual warning in conversations where the 24h Meta reply window has expired
+- [x] **METAINBOX-06**: Admin can pause/resume bot per conversation across all channels (reuses existing `bot_status` field)
 
 ---
 

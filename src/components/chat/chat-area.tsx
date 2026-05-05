@@ -9,13 +9,22 @@ import {
   ArchiveRestore,
   Trash2,
   MoreVertical,
+  Pause,
+  Play,
 } from 'lucide-react'
 
 import { ConversationSummary, ConversationMessage } from '@/types/chat'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { ChannelIcon, channelLabel } from '@/components/chat/channel-icon'
 
 interface ChatAreaProps {
   conversation: ConversationSummary | null
@@ -41,6 +51,8 @@ interface ChatAreaProps {
   onStatusChange: (status: 'open' | 'closed') => void
   onDelete: () => void
   onBack: () => void
+  onBotStatusToggle: (conversationId: string, currentStatus: string) => void
+  isBotToggling: boolean
 }
 
 function getDebugMessageStyle(message: ConversationMessage): string {
@@ -67,6 +79,8 @@ export function ChatArea({
   onStatusChange,
   onDelete,
   onBack,
+  onBotStatusToggle,
+  isBotToggling,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   const [messageText, setMessageText] = useState('')
@@ -144,19 +158,65 @@ export function ChatArea({
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-background rounded-full"></span>
           </div>
 
-          {/* Name / email */}
-          <div className="flex flex-col min-w-0 justify-center">
-            <p className="text-sm font-semibold tracking-tight truncate leading-tight focus:outline-none">{displayName}</p>
-            {conversation.visitorEmail && conversation.visitorName && (
-              <p className="text-xs text-muted-foreground truncate font-medium">
-                {conversation.visitorEmail}
-              </p>
+          {/* Channel + account info */}
+          <div className="flex flex-col min-w-0 justify-center gap-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <ChannelIcon channel={conversation.channel} className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold tracking-tight leading-tight">
+                {channelLabel(conversation.channel)}
+              </span>
+              {conversation.channelAccountName && (
+                <>
+                  <span className="text-muted-foreground text-xs">·</span>
+                  <span className="text-xs text-muted-foreground font-medium truncate max-w-[140px]">
+                    {conversation.channelAccountName}
+                  </span>
+                </>
+              )}
+              <span className="text-muted-foreground text-xs">·</span>
+              <Badge
+                variant="outline"
+                className={
+                  conversation.botStatus === 'active'
+                    ? 'text-[10px] px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50'
+                    : 'text-[10px] px-1.5 py-0 h-4 bg-neutral-100 text-neutral-500 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700/50'
+                }
+              >
+                {conversation.botStatus === 'active' ? 'Bot active' : 'Bot paused'}
+              </Badge>
+            </div>
+            {displayName !== 'Anonymous' && (
+              <p className="text-xs text-muted-foreground truncate">{displayName}</p>
             )}
           </div>
         </div>
 
-        {/* Actions Dropdown */}
+        {/* Actions */}
         <div className="flex items-center gap-3 z-20 shrink-0">
+          {/* Bot pause/resume */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors rounded-full"
+                  onClick={() => onBotStatusToggle(conversation.id, conversation.botStatus)}
+                  disabled={isBotToggling}
+                  aria-label={conversation.botStatus === 'active' ? 'Pause bot' : 'Resume bot'}
+                >
+                  {conversation.botStatus === 'active'
+                    ? <Pause className="h-4 w-4 text-muted-foreground" />
+                    : <Play className="h-4 w-4 text-muted-foreground" />
+                  }
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {conversation.botStatus === 'active' ? 'Pause bot' : 'Resume bot'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Show debug checkbox */}
           <label className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100/80 hover:bg-neutral-200/80 dark:bg-neutral-800/80 dark:hover:bg-neutral-700/80 text-xs font-medium cursor-pointer transition-colors shadow-sm">
             <input
@@ -276,6 +336,17 @@ export function ChatArea({
           </div>
         )}
       </ScrollArea>
+
+      {/* 24h Meta reply window warning banner */}
+      {conversation.channel !== 'widget' &&
+        conversation.channelMetadata?.window_expired === 'true' && (
+        <div className="shrink-0 mx-4 mb-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800/30 dark:text-amber-300 flex items-start gap-2.5">
+          <span className="text-base leading-none mt-0.5" aria-hidden="true">⚠</span>
+          <p className="text-xs leading-relaxed font-medium">
+            The 24-hour Meta messaging window has expired. Automated replies are paused.
+          </p>
+        </div>
+      )}
 
       {/* Send form */}
       <div className="px-4 py-4 md:px-6 md:py-5 border-t bg-background/95 backdrop-blur shrink-0 supports-[backdrop-filter]:bg-background/60">

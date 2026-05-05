@@ -30,3 +30,21 @@ export async function getPlaygroundConfig(): Promise<PlaygroundConfig | null> {
     avatarUrl: org.widget_avatar_url ?? null,
   }
 }
+
+export async function toggleBotStatus(
+  conversationId: string,
+  currentStatus: string
+): Promise<{ botStatus: string } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const newStatus = currentStatus === 'active' ? 'paused' : 'active'
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('conversations')
+    .update({ bot_status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  if (error) return { error: 'Failed to update bot status' }
+  return { botStatus: newStatus }
+}

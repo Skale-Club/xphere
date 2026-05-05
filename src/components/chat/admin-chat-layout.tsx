@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 
 import { ConversationSummary, ConversationMessage } from '@/types/chat'
+import { toggleBotStatus } from '@/app/(dashboard)/chat/actions'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -17,6 +19,7 @@ export function AdminChatLayout() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [isMobileListVisible, setIsMobileListVisible] = useState(true)
+  const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   // Tracks the current conversation ID synchronously to guard stale fetch responses
   const selectedConversationIdRef = useRef<string | null>(null)
 
@@ -144,6 +147,23 @@ export function AdminChatLayout() {
     }
   }
 
+  async function handleBotStatusToggle(conversationId: string, currentStatus: string) {
+    if (botTogglingId) return // prevent concurrent toggles
+    setBotTogglingId(conversationId)
+    const optimisticStatus = currentStatus === 'active' ? 'paused' : 'active'
+    setConversations((prev) =>
+      prev.map((c) => c.id === conversationId ? { ...c, botStatus: optimisticStatus } : c)
+    )
+    const result = await toggleBotStatus(conversationId, currentStatus)
+    if ('error' in result) {
+      setConversations((prev) =>
+        prev.map((c) => c.id === conversationId ? { ...c, botStatus: currentStatus } : c)
+      )
+      toast.error('Failed to update bot status')
+    }
+    setBotTogglingId(null)
+  }
+
   const selectedConversation =
     conversations.find((c) => c.id === selectedConversationId) ?? null
 
@@ -186,6 +206,8 @@ export function AdminChatLayout() {
               selectedConversationId && handleDelete(selectedConversationId)
             }
             onBack={() => {}}
+            onBotStatusToggle={(id, status) => handleBotStatusToggle(id, status)}
+            isBotToggling={botTogglingId === selectedConversationId}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -232,6 +254,8 @@ export function AdminChatLayout() {
               selectedConversationId && handleDelete(selectedConversationId)
             }
             onBack={() => setIsMobileListVisible(true)}
+            onBotStatusToggle={(id, status) => handleBotStatusToggle(id, status)}
+            isBotToggling={botTogglingId === selectedConversationId}
           />
         </div>
       </div>

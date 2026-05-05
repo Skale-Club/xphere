@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Google Reviews Widget + Meta Messaging
 status: executing
-last_updated: "2026-05-04T22:30:00.000Z"
-last_activity: 2026-05-04
+stopped_at: Completed 13-outbound-reply-routing/13-01-PLAN.md
+last_updated: "2026-05-05T02:01:44.924Z"
+last_activity: 2026-05-05
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 6
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # Operator - State
@@ -17,15 +18,16 @@ progress:
 ## Current Position
 
 Milestone: v1.3 Google Reviews Widget + Meta Messaging
-Phase: 11
-Plan: Meta Webhook planning next
-Status: Phase 10 complete
-Last activity: 2026-05-04
+Phase: 13 (outbound-reply-routing) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-05-05
+Stopped at: Completed 13-outbound-reply-routing/13-01-PLAN.md
 
 ## Progress Bar
 
 ```
-v1.3: [x][x][x][x][ ][ ][ ]  4/7 phases complete
+v1.3: [x][x][x][x][x][x][ ]  6/7 phases complete
 ```
 
 ## Milestone Progress
@@ -33,7 +35,7 @@ v1.3: [x][x][x][x][ ][ ][ ]  4/7 phases complete
 - v1.0 MVP: ✅ Shipped 2026-04-03
 - v1.1 Knowledge Base: ✅ Shipped 2026-04-03
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
-- v1.3: 🔲 In progress — Phase 10 complete, Phase 11 next
+- v1.3: 🔲 In progress — Phase 12 complete, Phase 13 next
 
 ## Project Reference
 
@@ -42,7 +44,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
 **Production origin:** https://operator.skale.club
-**Current focus:** Phase 11 — Meta Webhook
+**Current focus:** Phase 13 — outbound-reply-routing
 
 ## Phase Map (v1.3)
 
@@ -52,8 +54,8 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | 8 | Reviews Admin | Complete |
 | 9 | Reviews Widget | Complete |
 | 10 | Meta OAuth | Complete |
-| 11 | Meta Webhook | Not started |
-| 12 | Multi-Channel Inbox UI | Not started |
+| 11 | Meta Webhook | Complete |
+| 12 | Multi-Channel Inbox UI | Complete |
 | 13 | Outbound Reply Routing | Not started |
 
 ## Accumulated Context
@@ -79,8 +81,9 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | All three migrations land together in Phase 7 | Decided — unblocks parallel Google and Meta work |
 | Phases 8-9 (Google Reviews) and Phase 10 (Meta OAuth) can build in parallel after Phase 7 | Decided |
 | Modify existing reply route (branch on channel) rather than create parallel route | Open — see research/SUMMARY.md Decision 4 |
-| Async webhook processing via after() vs meta_webhook_queue table | Open — see research/SUMMARY.md Decision 2 |
+| Async webhook processing via after() vs meta_webhook_queue table | Decided — after() used; simpler, no queue table needed |
 | Maximum cache age for Google reviews | Open — 30 days is ToS-safe boundary; 7 days may be better UX |
+| Phase 12 filter logic extracted to pure helper for testability | Decided — applyChannelAndBotFilter in channel-icon.tsx, tested in node env without jsdom |
 
 ## Blockers
 
@@ -90,7 +93,10 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 
 ## Latest Completed Work
 
-- Phase 10 shipped on 2026-05-04
-- Added `src/lib/meta/oauth.ts`, `src/app/(dashboard)/integrations/meta/actions.ts`, and `src/app/api/meta/callback/route.ts` for canonical Meta OAuth, CSRF validation, and encrypted page-token upserts
-- Added `src/app/(dashboard)/integrations/meta/page.tsx` and `src/components/integrations/meta-settings.tsx` for the dedicated Meta Messaging settings experience
-- Added Meta OAuth RED test contracts in `tests/meta-oauth-actions.test.ts`, `tests/meta-callback-route.test.ts`, and `tests/meta-settings.test.tsx`
+- Phase 12 complete on 2026-05-04
+- Created `src/components/chat/channel-icon.tsx` with ChannelIcon (Globe/Instagram/Messenger SVG) and `applyChannelAndBotFilter` pure helper
+- Extended ConversationList with channel + bot-state filter pills (client-side, no refetch) and channel icon in each row
+- Enriched ChatArea header: channel icon + label + channelAccountName + bot status badge + Pause/Resume tooltip button
+- Added 24h amber warning banner above send input (non-dismissible, string comparison `window_expired === 'true'`)
+- Added `toggleBotStatus` server action with optimistic update + error revert + toast.error in AdminChatLayout
+- All 29 new meta-inbox tests GREEN (5 test files); npm run build passes; 16/16 plans complete

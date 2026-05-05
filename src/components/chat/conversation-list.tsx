@@ -6,6 +6,8 @@ import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 
 import { ConversationSummary } from '@/types/chat'
+import { ChannelIcon, applyChannelAndBotFilter } from '@/components/chat/channel-icon'
+import type { ChannelFilter, BotStateFilter } from '@/components/chat/channel-icon'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,6 +45,8 @@ export function ConversationList({
 }: ConversationListProps) {
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<TabValue>('open')
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all')
+  const [botStateFilter, setBotStateFilter] = useState<BotStateFilter>('all')
   const [isStatusLoading, setIsStatusLoading] = useState(false)
   const [isDeleteLoading, setIsDeleteLoading] = useState(false)
 
@@ -50,6 +54,10 @@ export function ConversationList({
     // Tab filter
     if (activeTab === 'open' && c.status !== 'open') return false
     if (activeTab === 'archived' && c.status !== 'closed') return false
+
+    // Channel + bot-state filter (pure helper)
+    const passesChannelBot = applyChannelAndBotFilter([c], channelFilter, botStateFilter)
+    if (passesChannelBot.length === 0) return false
 
     // Search filter
     if (search.trim()) {
@@ -125,13 +133,36 @@ export function ConversationList({
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="px-4 py-3 bg-background/30 backdrop-blur z-10 border-b border-neutral-200/50 dark:border-neutral-800/50">
+      {/* Status Tabs */}
+      <div className="px-4 pt-3 pb-2 bg-background/30 backdrop-blur z-10">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
           <TabsList className="w-full h-9 grid grid-cols-3 bg-neutral-100/80 dark:bg-neutral-800/80 rounded-xl p-1 shadow-inner">
             <TabsTrigger value="open" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Open</TabsTrigger>
             <TabsTrigger value="archived" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Archived</TabsTrigger>
             <TabsTrigger value="all" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Channel Filter */}
+      <div className="px-4 pb-2 bg-background/30 backdrop-blur z-10">
+        <Tabs value={channelFilter} onValueChange={(v) => setChannelFilter(v as ChannelFilter)}>
+          <TabsList className="w-full h-8 grid grid-cols-4 bg-neutral-100/80 dark:bg-neutral-800/80 rounded-xl p-1 shadow-inner">
+            <TabsTrigger value="all" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">All</TabsTrigger>
+            <TabsTrigger value="widget" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Website</TabsTrigger>
+            <TabsTrigger value="instagram" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Instagram</TabsTrigger>
+            <TabsTrigger value="messenger" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Messenger</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Bot State Filter */}
+      <div className="px-4 pb-3 bg-background/30 backdrop-blur z-10 border-b border-neutral-200/50 dark:border-neutral-800/50">
+        <Tabs value={botStateFilter} onValueChange={(v) => setBotStateFilter(v as BotStateFilter)}>
+          <TabsList className="w-full h-8 grid grid-cols-3 bg-neutral-100/80 dark:bg-neutral-800/80 rounded-xl p-1 shadow-inner">
+            <TabsTrigger value="all" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">All</TabsTrigger>
+            <TabsTrigger value="bot-active" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Bot active</TabsTrigger>
+            <TabsTrigger value="bot-paused" className="text-[11px] rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-700 data-[state=active]:shadow-sm transition-all font-medium">Paused</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -164,6 +195,10 @@ export function ConversationList({
                   ].join(' ')}
                 >
                   <div className="flex items-start gap-3 w-full">
+                    <ChannelIcon
+                      channel={conversation.channel}
+                      className="h-4 w-4 shrink-0 mt-1 text-muted-foreground"
+                    />
                     <Avatar className={`h-10 w-10 shrink-0 border ${isSelected ? 'ring-2 ring-indigo-500/20 shadow-sm' : 'shadow-sm group-hover:shadow transition-all'}`}>
                       <AvatarFallback className={`${isSelected ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'} font-semibold text-sm`}>
                         {prefix}

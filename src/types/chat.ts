@@ -12,6 +12,10 @@ export interface ConversationSummary {
   visitorEmail?: string | null
   visitorPhone?: string | null
   lastMessage?: string | null
+  channel: string                             // 'widget' | 'messenger' | 'instagram'
+  channelMetadata: Record<string, string>     // JSON from channel_metadata column
+  botStatus: string                           // 'active' | 'paused'
+  channelAccountName?: string | null          // page_name from meta_channels (null for widget)
 }
 
 export interface ConversationMessage {

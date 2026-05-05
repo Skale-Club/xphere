@@ -17,7 +17,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('conversations')
-    .select('id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message')
+    .select('id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status')
     .eq('id', id)
     .single()
 
@@ -35,6 +35,10 @@ export async function GET(
     visitorEmail: data.visitor_email,
     visitorPhone: data.visitor_phone,
     lastMessage: data.last_message,
+    channel: data.channel ?? 'widget',
+    channelMetadata: (data.channel_metadata as Record<string, string>) ?? {},
+    botStatus: (data.bot_status as string) ?? 'active',
+    channelAccountName: null,
   }
 
   return Response.json({ conversation })
