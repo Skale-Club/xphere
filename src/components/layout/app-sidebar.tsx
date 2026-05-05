@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   LayoutDashboard,
+  ShieldCheck,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -72,9 +73,10 @@ function truncate(text: string, maxLength: number): string {
 
 interface AppSidebarProps {
   user: User
+  isPlatformAdmin: boolean
 }
 
-export function AppSidebar({ user }: AppSidebarProps) {
+export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -163,7 +165,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
                 <span className="text-[13px] font-medium leading-tight truncate">
                   {displayName}
                 </span>
-                {email && (
+                {email && email !== displayName && (
                   <span className="text-[11px] text-muted-foreground leading-tight truncate">
                     {email}
                   </span>
@@ -179,6 +181,17 @@ export function AppSidebar({ user }: AppSidebarProps) {
                 Manage Organizations
               </Link>
             </DropdownMenuItem>
+            {isPlatformAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/settings/platform">
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Platform Settings
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" />

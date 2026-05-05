@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getPlatformSetting } from '@/lib/platform-settings'
 import type { Database } from '@/types/database'
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000
@@ -115,10 +116,10 @@ export async function syncReviews(
     }
   }
 
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  const apiKey = await getPlatformSetting('GOOGLE_PLACES_API_KEY')
 
   if (!apiKey) {
-    return { error: 'Google Places API key not configured.' }
+    return { error: 'Google Places API key not configured. Contact your administrator.' }
   }
 
   let response: Response

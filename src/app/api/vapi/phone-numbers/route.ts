@@ -1,13 +1,34 @@
 // GET /api/vapi/phone-numbers
 // Proxies Vapi GET /phone-number to list available outbound phone numbers.
-// Used by the create campaign form dropdown.
+// Reads the Vapi API key from the org's integration record (provider: vapi).
 
 export const runtime = 'nodejs'
 
+import { createClient } from '@/lib/supabase/server'
+import { decrypt } from '@/lib/crypto'
+
 export async function GET(): Promise<Response> {
-  const vapiApiKey = process.env.VAPI_API_KEY
-  if (!vapiApiKey) {
-    return Response.json({ error: 'VAPI_API_KEY not configured' }, { status: 500 })
+  const supabase = await createClient()
+
+  const { data: integration, error } = await supabase
+    .from('integrations')
+    .select('encrypted_api_key')
+    .eq('provider', 'vapi')
+    .eq('is_active', true)
+    .single()
+
+  if (error || !integration) {
+    return Response.json(
+      { error: 'Vapi integration not configured. Add it in Integrations.' },
+      { status: 400 }
+    )
+  }
+
+  let vapiApiKey: string
+  try {
+    vapiApiKey = await decrypt(integration.encrypted_api_key)
+  } catch {
+    return Response.json({ error: 'Failed to read Vapi credentials.' }, { status: 500 })
   }
 
   try {

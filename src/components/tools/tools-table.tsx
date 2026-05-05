@@ -452,6 +452,11 @@ export function ToolsTable({
           <Button onClick={openCreateSheet}>Add Tool</Button>
         </div>
       ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -469,12 +474,7 @@ export function ToolsTable({
             </TableHeader>
             <TableBody>
               {/* Named folder groups — sortable */}
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
+              <SortableContext
                   items={orderedFolders}
                   strategy={verticalListSortingStrategy}
                 >
@@ -507,7 +507,6 @@ export function ToolsTable({
                     )
                   })}
                 </SortableContext>
-              </DndContext>
 
               {/* "Other" group — not sortable, always last */}
               {otherTools.length > 0 && (
@@ -545,6 +544,7 @@ export function ToolsTable({
             </TableBody>
           </Table>
         </div>
+        </DndContext>
       )}
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
