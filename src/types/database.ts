@@ -451,6 +451,7 @@ export interface Database {
           memory: Record<string, unknown>
           channel: string
           channel_metadata: Json
+          last_inbound_at: string | null
         }
         Insert: {
           id?: string
@@ -470,6 +471,7 @@ export interface Database {
           memory?: Record<string, unknown>
           channel?: string
           channel_metadata?: Json
+          last_inbound_at?: string | null
         }
         Update: {
           status?: string
@@ -483,6 +485,7 @@ export interface Database {
           memory?: Record<string, unknown>
           channel?: string
           channel_metadata?: Json
+          last_inbound_at?: string | null
         }
         Relationships: [
           {
@@ -775,6 +778,7 @@ export interface Database {
           last_synced_at: string | null
           connection_error: string | null
           automation_id: string | null
+          config: Json
           created_at: string
           updated_at: string
         }
@@ -793,6 +797,7 @@ export interface Database {
           last_synced_at?: string | null
           connection_error?: string | null
           automation_id?: string | null
+          config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -808,6 +813,7 @@ export interface Database {
           last_synced_at?: string | null
           connection_error?: string | null
           automation_id?: string | null
+          config?: Json
           updated_at?: string
         }
         Relationships: [
