@@ -190,7 +190,7 @@ Plans:
 | 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
 | 11. Meta Webhook | 2/2 | Complete    | 2026-05-05 |
 | 12. Multi-Channel Inbox UI | 2/2 | Complete    | 2026-05-05 |
-| 13. Outbound Reply Routing | 2/2 | Complete   | 2026-05-05 |
+| 13. Outbound Reply Routing | 2/2 | Complete    | 2026-05-05 |
 
 ---
 
