@@ -74,8 +74,8 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 ### Phases
 
 - [x] **Phase 14: TESTFIX** — Restore a green test baseline before any refactoring touches production code (completed 2026-05-05)
-- [ ] **Phase 15: REFACTOR** — Split `stream.ts` (480 lines) and `chat-area.tsx` (408 lines) into focused modules with no behavioral change
-- [ ] **Phase 16: BOUNDARY** — Document the `chat_sessions` vs `conversations` data boundary so future readers find it from the source
+- [x] **Phase 15: REFACTOR** — Split `stream.ts` (480 lines) and `chat-area.tsx` (408 lines) into focused modules with no behavioral change (completed 2026-05-05)
+- [x] **Phase 16: BOUNDARY** — Document the `chat_sessions` vs `conversations` data boundary so future readers find it from the source (completed 2026-05-05)
 - [ ] **Phase 17: REALTIME** — Replace dual-polling in the admin inbox with Supabase Realtime postgres_changes subscriptions
 - [ ] **Phase 18: SEARCH** — Add debounced free-text conversation search above the inbox list
 
@@ -148,8 +148,8 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18. Phase 16 may ov
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 14. TESTFIX | 0/TBD | Complete    | 2026-05-05 |
-| 15. REFACTOR | 0/TBD | Not started | - |
-| 16. BOUNDARY | 0/TBD | Not started | - |
+| 15. REFACTOR | 0/TBD | Complete    | 2026-05-05 |
+| 16. BOUNDARY | 0/TBD | Complete    | 2026-05-05 |
 | 17. REALTIME | 0/TBD | Not started | - |
 | 18. SEARCH | 0/TBD | Not started | - |
 
