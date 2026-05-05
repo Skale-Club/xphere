@@ -12,21 +12,30 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.4 — Chat System Refactor
+## Current State
 
-**Goal:** Improve maintainability and UX of the chat system by splitting oversized modules, clarifying data boundaries, adding real-time updates to the admin inbox, fixing broken tests, and adding conversation search.
+No active milestone. v1.4 shipped 2026-05-05.
 
-**Target features:**
-- Split `src/lib/chat/stream.ts` (480 lines) into focused modules: provider switching, RAG/knowledge, action dispatch, SSE encoder
-- Split `src/components/chat/chat-area.tsx` (408 lines) into ChatHeader, MessageList, MessageBanner, MessageComposer
-- Document and clarify the `chat_sessions` vs `conversations` boundary — when each is written, who owns what
-- Realtime updates in the admin inbox via Supabase Realtime (replace manual refresh)
-- Fix broken `tests/chat-persist.test.ts` (2 failing tests reference renamed tables)
-- Conversation text search in the admin inbox (search across message content)
+Run `/gsd:new-milestone` to start the next cycle.
 
 ---
 
-## Last Shipped: v1.3 ✅ Shipped 2026-05-05
+## Last Shipped: v1.4 ✅ Shipped 2026-05-05
+
+**Shipped in v1.4 (Chat System Refactor):**
+- `stream.ts` (480 LOC) split into 5 focused modules (encoder, tool-schemas, openrouter, anthropic, entry); TOOL_SCHEMAS deduplicated
+- `chat-area.tsx` (408 LOC) split into ChatHeader, MessageList, MessageBanner, MessageComposer + 77-LOC orchestrator
+- `.planning/codebase/chat-data-boundary.md` documents the `conversations` vs Redis cache lifecycle
+- Migration 024 enables Supabase Realtime publication on `conversations` and `conversation_messages`
+- Admin inbox: `setInterval` polling replaced with `postgres_changes` subscriptions, org-scoped filter, cleanup on unmount
+- Conversation search debounced at 300ms
+- Test baseline restored: chat-persist + action-engine tests aligned with current schema
+
+**Production:** `https://operator.skale.club`
+
+---
+
+## Last Shipped (previous): v1.3 ✅ Shipped 2026-05-05
 
 **Shipped in v1.3 (Google Reviews Widget + Meta Messaging):**
 - Google Places API integration with 24h cooldown, encrypted location storage
@@ -168,4 +177,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-05 — v1.4 milestone started*
+*Last updated: 2026-05-05 — v1.4 milestone shipped and archived*
