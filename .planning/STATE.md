@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Google Reviews Widget + Meta Messaging
-status: executing
-stopped_at: Completed 12-multi-channel-inbox-ui/12-01-PLAN.md
-last_updated: "2026-05-05T01:22:16.178Z"
+status: verifying
+stopped_at: Completed 12-multi-channel-inbox-ui/12-02-PLAN.md
+last_updated: "2026-05-05T01:34:53.631Z"
 last_activity: 2026-05-05
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Operator - State
@@ -18,16 +18,16 @@ progress:
 ## Current Position
 
 Milestone: v1.3 Google Reviews Widget + Meta Messaging
-Phase: 12 (multi-channel-inbox-ui) — EXECUTING
+Phase: 12 (multi-channel-inbox-ui) — COMPLETE
 Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-05-05
-Stopped at: Completed 12-multi-channel-inbox-ui/12-01-PLAN.md
+Status: Phase 12 complete — Phase 13 (Outbound Reply Routing) next
+Last activity: 2026-05-04
+Stopped at: Completed 12-multi-channel-inbox-ui/12-02-PLAN.md
 
 ## Progress Bar
 
 ```
-v1.3: [x][x][x][x][x][ ][ ]  5/7 phases complete
+v1.3: [x][x][x][x][x][x][ ]  6/7 phases complete
 ```
 
 ## Milestone Progress
@@ -35,7 +35,7 @@ v1.3: [x][x][x][x][x][ ][ ]  5/7 phases complete
 - v1.0 MVP: ✅ Shipped 2026-04-03
 - v1.1 Knowledge Base: ✅ Shipped 2026-04-03
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
-- v1.3: 🔲 In progress — Phase 11 complete, Phase 12 next
+- v1.3: 🔲 In progress — Phase 12 complete, Phase 13 next
 
 ## Project Reference
 
@@ -55,7 +55,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | 9 | Reviews Widget | Complete |
 | 10 | Meta OAuth | Complete |
 | 11 | Meta Webhook | Complete |
-| 12 | Multi-Channel Inbox UI | Not started |
+| 12 | Multi-Channel Inbox UI | Complete |
 | 13 | Outbound Reply Routing | Not started |
 
 ## Accumulated Context
@@ -83,6 +83,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | Modify existing reply route (branch on channel) rather than create parallel route | Open — see research/SUMMARY.md Decision 4 |
 | Async webhook processing via after() vs meta_webhook_queue table | Decided — after() used; simpler, no queue table needed |
 | Maximum cache age for Google reviews | Open — 30 days is ToS-safe boundary; 7 days may be better UX |
+| Phase 12 filter logic extracted to pure helper for testability | Decided — applyChannelAndBotFilter in channel-icon.tsx, tested in node env without jsdom |
 
 ## Blockers
 
@@ -92,7 +93,10 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 
 ## Latest Completed Work
 
-- Phase 11 complete on 2026-05-04
-- Created `src/lib/meta/process-event.ts` with processMetaEvent function: Instagram/Messenger channel discrimination, conversation de-duplication, echo filtering, 24h window enforcement, keyword trigger matching, GHL automation dispatch
-- Created `src/app/api/meta/webhook/route.ts` with GET hub challenge + POST HMAC-SHA256 verification using timingSafeEqual and after() for async dispatch
-- All 29 METAEV tests GREEN across 5 test files; npm run build passes
+- Phase 12 complete on 2026-05-04
+- Created `src/components/chat/channel-icon.tsx` with ChannelIcon (Globe/Instagram/Messenger SVG) and `applyChannelAndBotFilter` pure helper
+- Extended ConversationList with channel + bot-state filter pills (client-side, no refetch) and channel icon in each row
+- Enriched ChatArea header: channel icon + label + channelAccountName + bot status badge + Pause/Resume tooltip button
+- Added 24h amber warning banner above send input (non-dismissible, string comparison `window_expired === 'true'`)
+- Added `toggleBotStatus` server action with optimistic update + error revert + toast.error in AdminChatLayout
+- All 29 new meta-inbox tests GREEN (5 test files); npm run build passes; 16/16 plans complete
