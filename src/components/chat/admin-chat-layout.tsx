@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { ConversationSummary, ConversationMessage } from '@/types/chat'
 import { toggleBotStatus } from '@/app/(dashboard)/chat/actions'
+import { createClient } from '@/lib/supabase/client'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -13,7 +14,50 @@ import {
 import { ConversationList } from '@/components/chat/conversation-list'
 import { ChatArea } from '@/components/chat/chat-area'
 
-export function AdminChatLayout() {
+// Maps a raw conversations DB row (snake_case) to the ConversationSummary
+// shape used in component state. Realtime payloads do NOT include the joined
+// page_name from meta_channels — channelAccountName falls back to the
+// page_id when present and is re-enriched on the next manual fetch.
+function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
+  const meta = (row.channel_metadata as Record<string, string>) ?? {}
+  const pageId = meta?.page_id ?? null
+  return {
+    id: row.id as string,
+    status: (row.status as string) ?? 'open',
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    lastMessageAt: (row.last_message_at as string | null) ?? null,
+    visitorName: (row.visitor_name as string | null) ?? null,
+    visitorEmail: (row.visitor_email as string | null) ?? null,
+    visitorPhone: (row.visitor_phone as string | null) ?? null,
+    lastMessage: (row.last_message as string | null) ?? null,
+    channel: (row.channel as string) ?? 'widget',
+    channelMetadata: meta,
+    botStatus: (row.bot_status as string) ?? 'active',
+    channelAccountName: pageId,
+  }
+}
+
+// Maps a raw conversation_messages DB row (snake_case) to the
+// ConversationMessage shape used in component state.
+function mapMessageRow(row: Record<string, unknown>): ConversationMessage {
+  return {
+    id: row.id as string,
+    conversationId: row.conversation_id as string,
+    role: row.role as string,
+    content: row.content as string,
+    createdAt: row.created_at as string,
+    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+  }
+}
+
+interface AdminChatLayoutProps {
+  /** Active organization id. Used to scope Realtime subscriptions
+   *  (defense-in-depth alongside RLS). */
+  currentOrgId: string | null
+}
+
+export function AdminChatLayout({ currentOrgId }: AdminChatLayoutProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -55,35 +99,131 @@ export function AdminChatLayout() {
     }
   }, [])
 
-  // Poll conversations: 30s normally, 15s when a conversation is open
+  // Initial conversations fetch (warm-up). Realtime takes over for updates.
   useEffect(() => {
     fetchConversations()
-    const interval = setInterval(
-      fetchConversations,
-      selectedConversationId ? 15000 : 30000
-    )
-    return () => clearInterval(interval)
-  }, [selectedConversationId, fetchConversations])
+  }, [fetchConversations])
 
   // Keep ref in sync with state so fetchMessages can read current value without stale closure
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId
   }, [selectedConversationId])
 
-  // Poll messages for the selected conversation
+  // Initial messages fetch when a conversation is selected (warm-up).
+  // Realtime INSERT events take over for live updates.
   useEffect(() => {
     if (!selectedConversationId) {
       setMessages([])
       return
     }
     fetchMessages(selectedConversationId)
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchMessages(selectedConversationId)
-      }
-    }, 15000)
-    return () => clearInterval(interval)
   }, [selectedConversationId, fetchMessages])
+
+  // Realtime: conversations channel — INSERT prepends, UPDATE replaces in place.
+  // Filter by org_id is defense-in-depth alongside RLS so we never receive
+  // events for other tenants. Cleanup via removeChannel prevents zombie websockets.
+  useEffect(() => {
+    if (!currentOrgId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-inbox-conversations-${currentOrgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversations',
+          filter: `org_id=eq.${currentOrgId}`,
+        },
+        (payload) => {
+          const newConv = mapConversationRow(payload.new)
+          setConversations((prev) => {
+            if (prev.some((c) => c.id === newConv.id)) return prev
+            return [newConv, ...prev]
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversations',
+          filter: `org_id=eq.${currentOrgId}`,
+        },
+        (payload) => {
+          const updated = mapConversationRow(payload.new)
+          setConversations((prev) => {
+            const next = prev.map((c) =>
+              c.id === updated.id
+                ? // Preserve the resolved channelAccountName from the initial fetch
+                  // since realtime payloads don't include the joined meta_channels.page_name
+                  { ...updated, channelAccountName: c.channelAccountName ?? updated.channelAccountName }
+                : c
+            )
+            // Re-sort by last_message_at desc (matches initial fetch order)
+            return next.sort(
+              (a, b) =>
+                new Date(b.lastMessageAt ?? 0).getTime() -
+                new Date(a.lastMessageAt ?? 0).getTime()
+            )
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentOrgId])
+
+  // Realtime: messages channel — only the currently-open conversation.
+  // Re-subscribes when selectedConversationId changes; cleanup tears down
+  // the previous channel.
+  useEffect(() => {
+    if (!selectedConversationId || !currentOrgId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-inbox-messages-${selectedConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversation_messages',
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        (payload) => {
+          const newMsg = mapMessageRow(payload.new)
+          setMessages((prev) => {
+            // De-dup against optimistic temp messages already appended on send.
+            // The temp uses a `temp-*` id; the real row has a UUID — so direct
+            // id matching won't catch it. Fall back to (role, content, ~recent)
+            // matching for assistant messages within a 30s window.
+            if (prev.some((m) => m.id === newMsg.id)) return prev
+            const newTime = new Date(newMsg.createdAt).getTime()
+            const dupIdx = prev.findIndex(
+              (m) =>
+                m.id.startsWith('temp-') &&
+                m.role === newMsg.role &&
+                m.content === newMsg.content &&
+                Math.abs(new Date(m.createdAt).getTime() - newTime) < 30000
+            )
+            if (dupIdx >= 0) {
+              const next = [...prev]
+              next[dupIdx] = newMsg
+              return next
+            }
+            return [...prev, newMsg]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [selectedConversationId, currentOrgId])
 
   // Optimistic send
   async function handleSendMessage(content: string) {
