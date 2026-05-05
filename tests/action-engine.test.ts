@@ -111,7 +111,7 @@ describe('ACTN-02: Tool config routing', () => {
     const result = await resolveTool('org_abc', 'create_lead', supabase)
 
     expect(supabase.from).toHaveBeenCalledWith('tool_configs')
-    expect(chain.select).toHaveBeenCalledWith('*, integrations(*)')
+    expect(chain.select).toHaveBeenCalledWith('*, integrations!inner(*)')
     expect(chain.eq).toHaveBeenCalledWith('organization_id', 'org_abc')
     expect(chain.eq).toHaveBeenCalledWith('tool_name', 'create_lead')
     expect(chain.eq).toHaveBeenCalledWith('is_active', true)
