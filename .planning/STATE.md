@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Google Reviews Widget + Meta Messaging
-status: executing
-last_updated: "2026-05-05T00:14:58.802Z"
-last_activity: 2026-05-05
+status: verifying
+last_updated: "2026-05-04T20:30:00.000Z"
+last_activity: 2026-05-04
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Operator - State
@@ -17,15 +17,16 @@ progress:
 ## Current Position
 
 Milestone: v1.3 Google Reviews Widget + Meta Messaging
-Phase: 11 (meta-webhook) — EXECUTING
+Phase: 11 (meta-webhook) — COMPLETE
 Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-05-05
+Status: Phase complete — ready for verification
+Last activity: 2026-05-04
+Stopped at: Completed 11-meta-webhook 11-02-PLAN.md
 
 ## Progress Bar
 
 ```
-v1.3: [x][x][x][x][ ][ ][ ]  4/7 phases complete
+v1.3: [x][x][x][x][x][ ][ ]  5/7 phases complete
 ```
 
 ## Milestone Progress
@@ -33,7 +34,7 @@ v1.3: [x][x][x][x][ ][ ][ ]  4/7 phases complete
 - v1.0 MVP: ✅ Shipped 2026-04-03
 - v1.1 Knowledge Base: ✅ Shipped 2026-04-03
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
-- v1.3: 🔲 In progress — Phase 10 complete, Phase 11 next
+- v1.3: 🔲 In progress — Phase 11 complete, Phase 12 next
 
 ## Project Reference
 
@@ -42,7 +43,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
 **Production origin:** https://operator.skale.club
-**Current focus:** Phase 11 — meta-webhook
+**Current focus:** Phase 12 — multi-channel inbox ui
 
 ## Phase Map (v1.3)
 
@@ -52,7 +53,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | 8 | Reviews Admin | Complete |
 | 9 | Reviews Widget | Complete |
 | 10 | Meta OAuth | Complete |
-| 11 | Meta Webhook | Not started |
+| 11 | Meta Webhook | Complete |
 | 12 | Multi-Channel Inbox UI | Not started |
 | 13 | Outbound Reply Routing | Not started |
 
@@ -79,7 +80,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 | All three migrations land together in Phase 7 | Decided — unblocks parallel Google and Meta work |
 | Phases 8-9 (Google Reviews) and Phase 10 (Meta OAuth) can build in parallel after Phase 7 | Decided |
 | Modify existing reply route (branch on channel) rather than create parallel route | Open — see research/SUMMARY.md Decision 4 |
-| Async webhook processing via after() vs meta_webhook_queue table | Open — see research/SUMMARY.md Decision 2 |
+| Async webhook processing via after() vs meta_webhook_queue table | Decided — after() used; simpler, no queue table needed |
 | Maximum cache age for Google reviews | Open — 30 days is ToS-safe boundary; 7 days may be better UX |
 
 ## Blockers
@@ -90,7 +91,7 @@ See `.planning/PROJECT.md` (updated 2026-05-04)
 
 ## Latest Completed Work
 
-- Phase 10 shipped on 2026-05-04
-- Added `src/lib/meta/oauth.ts`, `src/app/(dashboard)/integrations/meta/actions.ts`, and `src/app/api/meta/callback/route.ts` for canonical Meta OAuth, CSRF validation, and encrypted page-token upserts
-- Added `src/app/(dashboard)/integrations/meta/page.tsx` and `src/components/integrations/meta-settings.tsx` for the dedicated Meta Messaging settings experience
-- Added Meta OAuth RED test contracts in `tests/meta-oauth-actions.test.ts`, `tests/meta-callback-route.test.ts`, and `tests/meta-settings.test.tsx`
+- Phase 11 complete on 2026-05-04
+- Created `src/lib/meta/process-event.ts` with processMetaEvent function: Instagram/Messenger channel discrimination, conversation de-duplication, echo filtering, 24h window enforcement, keyword trigger matching, GHL automation dispatch
+- Created `src/app/api/meta/webhook/route.ts` with GET hub challenge + POST HMAC-SHA256 verification using timingSafeEqual and after() for async dispatch
+- All 29 METAEV tests GREEN across 5 test files; npm run build passes

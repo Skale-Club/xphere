@@ -59,7 +59,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] **Phase 8: Reviews Admin** — Location registration, Google Places API sync, admin dashboard with sync status (completed 2026-05-04)
 - [x] **Phase 9: Reviews Widget** — esbuild bundle, 4 layouts, public token endpoint, embed code generation (completed 2026-05-04)
 - [x] **Phase 10: Meta OAuth** — Facebook Login flow, full token exchange chain, channel settings page (completed 2026-05-04)
-- [ ] **Phase 11: Meta Webhook** — Inbound event receiver, conversation creation, automation binding, 24h window enforcement
+- [x] **Phase 11: Meta Webhook** — Inbound event receiver, conversation creation, automation binding, 24h window enforcement (completed 2026-05-05)
 - [ ] **Phase 12: Multi-Channel Inbox UI** — Channel icons, filter bar, conversation header, 24h warning, bot pause/resume
 - [ ] **Phase 13: Outbound Reply Routing** — Branch existing reply route by channel, send to Messenger/Instagram Send API
 
@@ -145,7 +145,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 11-01-PLAN.md — migration 022 (last_inbound_at + meta_channels.config) + TypeScript types + RED test stubs (Wave 0)
-- [ ] 11-02-PLAN.md — /api/meta/webhook route (GET + POST) + processMetaEvent lib + tests GREEN (Wave 1)
+- [x] 11-02-PLAN.md — /api/meta/webhook route (GET + POST) + processMetaEvent lib + tests GREEN (Wave 1)
 
 ### Phase 12: Multi-Channel Inbox UI
 **Goal**: The existing chat inbox correctly identifies the origin channel of every conversation so admins can filter, recognize, and manage widget, Instagram, and Messenger conversations from one view
@@ -182,7 +182,7 @@ Plans:
 | 8. Reviews Admin | 3/3 | Complete    | 2026-05-04 |
 | 9. Reviews Widget | 3/3 | Complete    | 2026-05-04 |
 | 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
-| 11. Meta Webhook | 1/2 | In Progress|  |
+| 11. Meta Webhook | 2/2 | Complete   | 2026-05-05 |
 | 12. Multi-Channel Inbox UI | 0/? | Not started | — |
 | 13. Outbound Reply Routing | 0/? | Not started | — |
 
