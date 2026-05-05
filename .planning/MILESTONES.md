@@ -1,5 +1,47 @@
 # Milestones
 
+## v1.4 Chat System Refactor (Shipped: 2026-05-05)
+
+**Stats:** 5 phases, 9 plans, 20 commits, 44 files, +3,413 / −962 lines
+**Timeline:** 2026-05-04 → 2026-05-05 (single-session)
+**Stack:** Next.js 15, Supabase Realtime, Vitest
+
+**Key accomplishments:**
+
+1. **Test baseline restored** — Fixed 3 stale tests (chat-persist + action-engine ACTN-02) that referenced renamed tables (`chat_sessions` → `conversations`); 151/151 passing baseline
+2. **stream.ts decomposed** — 480 LOC entry split into 5 focused modules (encoder, tool-schemas, openrouter, anthropic) all <200 LOC; TOOL_SCHEMAS deduplicated; public API unchanged
+3. **chat-area.tsx decomposed** — 408 LOC component split into 4 sub-components (ChatHeader, MessageList, MessageBanner, MessageComposer) all <150 LOC; orchestrator now 77 LOC; render output identical
+4. **Chat data boundary documented** — `.planning/codebase/chat-data-boundary.md` explains conversations vs Redis cache lifecycle; source headers in `persist.ts`, `session.ts`, `chat/[token]/route.ts` link to the doc
+5. **Admin inbox real-time** — Migration 024 enables Realtime publication on `conversations` + `conversation_messages`; `setInterval` polling replaced with `postgres_changes` subscriptions; org-scoped filter; cleanup on unmount
+6. **Conversation search debounced** — 300ms debounce on the existing search input prevents per-keystroke filter recomputation
+
+**UAT:** All 5 phases verified passed (16/16 must-haves across phases)
+
+**Archives:** [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) | [v1.4-REQUIREMENTS.md](milestones/v1.4-REQUIREMENTS.md)
+
+---
+
+## v1.3 Google Reviews Widget + Meta Messaging (Shipped: 2026-05-05)
+
+**Stats:** 7 phases, 18 plans, 33 commits
+**Timeline:** 2026-05-04 → 2026-05-05
+**Stack:** Next.js 15, Supabase, Meta Graph API, Google Places API, esbuild
+
+**Key accomplishments:**
+
+1. **Google Reviews integration** — Places API v1 sync with 24h cooldown, encrypted location storage; embeddable reviews widget (4 layouts, themable, public token endpoint)
+2. **Meta OAuth** — Facebook + Instagram with full token exchange chain (short-lived → long-lived → page token); page tokens encrypted with AES-256-GCM
+3. **Meta Webhook** — Unified `/api/meta/webhook` with HMAC-SHA256 verification, `after()` async processing, automation dispatch with keyword filter, 24h window enforcement
+4. **Multi-channel inbox UI** — ChannelIcon (Globe/Instagram/Messenger), filter pills, enriched header (account name + bot status badge), 24h amber warning banner, bot pause/resume button
+5. **Outbound reply routing** — POST handler branches on conversation.channel; widget unchanged, Meta channels dispatch via `sendMetaMessage` lib; error code 190 → reconnect prompt
+6. **Two-tier settings system** — `platform_settings` (global, encrypted, super-admin only) + per-org `integrations`; `/settings/platform` admin page with Tabs UI
+
+**UAT:** All 7 phases verified passed
+
+**Archives:** [v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) | [v1.3-REQUIREMENTS.md](milestones/v1.3-REQUIREMENTS.md)
+
+---
+
 ## v1.2 Operator + Embedded Chatbot (Shipped: 2026-04-05)
 
 **Stats:** 6 phases, 21 plans, 122 commits, 171 files, +26,190 / −1,886 lines

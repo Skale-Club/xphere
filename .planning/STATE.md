@@ -1,105 +1,54 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Google Reviews Widget + Meta Messaging
-status: verifying
-stopped_at: Completed 15-refactor-01-PLAN.md
-last_updated: "2026-05-05T03:36:40.320Z"
+milestone: null
+milestone_name: null
+status: idle
+stopped_at: v1.4 milestone shipped and archived
+last_updated: "2026-05-05T05:00:00.000Z"
 last_activity: 2026-05-05
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 18
-  completed_plans: 18
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Operator - State
 
 ## Current Position
 
-Milestone: v1.3 Google Reviews Widget + Meta Messaging
-Phase: 13
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-05-05
-Stopped at: Completed 15-refactor-01-PLAN.md
+No active milestone. v1.4 shipped 2026-05-05.
 
-## Progress Bar
-
-```
-v1.3: [x][x][x][x][x][x][ ]  6/7 phases complete
-```
+Run `/gsd:new-milestone` to start the next cycle.
 
 ## Milestone Progress
 
 - v1.0 MVP: ✅ Shipped 2026-04-03
 - v1.1 Knowledge Base: ✅ Shipped 2026-04-03
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
-- v1.3: 🔲 In progress — Phase 12 complete, Phase 13 next
+- v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
+- v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-05-04)
+See `.planning/PROJECT.md` for vision, validated requirements, decisions.
+See `.planning/MILESTONES.md` for shipped history.
+See `.planning/codebase/chat-data-boundary.md` for chat data lifecycle.
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
 **Production origin:** https://operator.skale.club
-**Current focus:** Phase 13 — outbound-reply-routing
-
-## Phase Map (v1.3)
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 7 | DB Foundation | Complete |
-| 8 | Reviews Admin | Complete |
-| 9 | Reviews Widget | Complete |
-| 10 | Meta OAuth | Complete |
-| 11 | Meta Webhook | Complete |
-| 12 | Multi-Channel Inbox UI | Complete |
-| 13 | Outbound Reply Routing | Not started |
-| 15 | Refactor (chat stream modularization) | Plan 01 complete |
 
 ## Accumulated Context
 
-- v1.0 shipped 2026-04-03 — 6 phases, 30 plans, full MVP
-- v1.1 shipped 2026-04-03 — LangChain vector pipeline, schema migration 010
-- v1.2 shipped 2026-04-05 — Operator brand, embeddable widget, chat inbox; 6 phases, 21 plans
-- Active known tech debt: no HMAC validation on Vapi webhooks, campaign calls don't appear in Observability, send_sms/custom_webhook are stubs
-- v1.2 chat inbox: conversations/conversation_messages tables; AdminChatLayout/ConversationList/ChatArea components; bot_status per conversation
-- Module 2 must extend existing chat inbox — NOT create a new one
-- Conversations table will gain `channel TEXT DEFAULT 'widget'` and `channel_metadata JSONB DEFAULT '{}'` in Migration 020
-- Last migration shipped in v1.2 was 017; v1.3 starts at 018
-- Google reviews are an ephemeral cache (fetched_at required; 30-day ToS boundary); place_id is the only field durable beyond cache lifetime
-- Meta App Review (Advanced Access) must be submitted after Phase 10 is functional; Business Verification should start before Phase 7 code begins
-- Phase 13 (outbound reply routing) modifies the production POST /api/chat/conversations/[id]/messages route — highest-risk change, must be last
-- Raw body must be read as text before HMAC verification in the Meta webhook handler (request.text(), not request.json())
-- Full token exchange chain required: short-lived user token → long-lived user token → Page Access Token (only page token stored, encrypted)
+- v1.0 (2026-04-03) — MVP: 6 phases, 30 plans
+- v1.1 (2026-04-03) — Knowledge Base: LangChain + pgvector
+- v1.2 (2026-04-05) — Operator branding + embeddable chat widget
+- v1.3 (2026-05-05) — Google Reviews + Meta Messaging
+- v1.4 (2026-05-05) — Chat System Refactor (stream/chat-area split, realtime, search, docs)
 
-## Key Decisions
+## Active Tech Debt
 
-| Decision | Status |
-|----------|--------|
-| Split src/lib/chat/stream.ts (480 LOC) into orchestrator + 4 sub-modules under src/lib/chat/stream/ | Decided — Phase 15-01; unified duplicated TOOL_SCHEMAS const; type-only cross-imports avoid runtime cycles; no caller changes |
-| All three migrations land together in Phase 7 | Decided — unblocks parallel Google and Meta work |
-| Phases 8-9 (Google Reviews) and Phase 10 (Meta OAuth) can build in parallel after Phase 7 | Decided |
-| Modify existing reply route (branch on channel) rather than create parallel route | Open — see research/SUMMARY.md Decision 4 |
-| Async webhook processing via after() vs meta_webhook_queue table | Decided — after() used; simpler, no queue table needed |
-| Maximum cache age for Google reviews | Open — 30 days is ToS-safe boundary; 7 days may be better UX |
-| Phase 12 filter logic extracted to pure helper for testability | Decided — applyChannelAndBotFilter in channel-icon.tsx, tested in node env without jsdom |
-
-## Blockers
-
-- Meta Business Verification must be submitted (no engineering dependency; takes 2-5 business days)
-- Test Facebook Page and Instagram Business account needed for development testing before Phase 10
-- Vercel environment variables to set before Phase 8/10: GOOGLE_PLACES_API_KEY, META_APP_ID, META_APP_SECRET, META_VERIFY_TOKEN
-
-## Latest Completed Work
-
-- Phase 15-01 (refactor) complete on 2026-05-05 — modularized src/lib/chat/stream.ts: 480-LOC monolith → 152-LOC orchestrator + 4 sub-modules (encoder, tool-schemas, openrouter, anthropic) under src/lib/chat/stream/; TOOL_SCHEMAS deduplicated; build passes; no caller changes; 142/3 vitest pass/fail (was 128/17 baseline — 14 widget tests went green after build:widget regenerated public/widget.js; remaining 3 failures pre-existing and unrelated)
-- Phase 12 complete on 2026-05-04
-- Created `src/components/chat/channel-icon.tsx` with ChannelIcon (Globe/Instagram/Messenger SVG) and `applyChannelAndBotFilter` pure helper
-- Extended ConversationList with channel + bot-state filter pills (client-side, no refetch) and channel icon in each row
-- Enriched ChatArea header: channel icon + label + channelAccountName + bot status badge + Pause/Resume tooltip button
-- Added 24h amber warning banner above send input (non-dismissible, string comparison `window_expired === 'true'`)
-- Added `toggleBotStatus` server action with optimistic update + error revert + toast.error in AdminChatLayout
-- All 29 new meta-inbox tests GREEN (5 test files); npm run build passes; 16/16 plans complete
+- No HMAC validation on Vapi webhooks (vapi/calls and vapi/tools)
+- Campaign calls don't appear in Observability
+- `send_sms` and `custom_webhook` action types are stubs
