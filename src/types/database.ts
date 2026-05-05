@@ -452,6 +452,7 @@ export interface Database {
           channel: string
           channel_metadata: Json
           last_inbound_at: string | null
+          bot_status: string
         }
         Insert: {
           id?: string
@@ -472,6 +473,7 @@ export interface Database {
           channel?: string
           channel_metadata?: Json
           last_inbound_at?: string | null
+          bot_status?: string
         }
         Update: {
           status?: string
@@ -486,6 +488,7 @@ export interface Database {
           channel?: string
           channel_metadata?: Json
           last_inbound_at?: string | null
+          bot_status?: string
         }
         Relationships: [
           {
@@ -641,6 +644,27 @@ export interface Database {
             referencedColumns: ['id']
           }
         ]
+      }
+      platform_settings: {
+        Row: {
+          key: string
+          encrypted_value: string
+          hint: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          encrypted_value: string
+          hint?: string | null
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          encrypted_value?: string
+          hint?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       google_locations: {
         Row: {
