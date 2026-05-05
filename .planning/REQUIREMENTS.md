@@ -44,12 +44,12 @@
 
 ### METAINBOX — Multi-Channel Inbox
 
-- [ ] **METAINBOX-01**: Each conversation in the inbox shows a channel icon and name (website / Instagram / Messenger)
-- [ ] **METAINBOX-02**: Admin can filter inbox by channel (all / website / instagram / messenger) and by bot state (bot-active / bot-paused)
+- [x] **METAINBOX-01**: Each conversation in the inbox shows a channel icon and name (website / Instagram / Messenger)
+- [x] **METAINBOX-02**: Admin can filter inbox by channel (all / website / instagram / messenger) and by bot state (bot-active / bot-paused)
 - [ ] **METAINBOX-03**: Manual admin replies are sent via the conversation's origin channel (Instagram → IG API, Messenger → Messenger API, widget → existing path)
-- [ ] **METAINBOX-04**: Conversation header shows channel, connected account name, and current bot status
-- [ ] **METAINBOX-05**: System shows a visual warning in conversations where the 24h Meta reply window has expired
-- [ ] **METAINBOX-06**: Admin can pause/resume bot per conversation across all channels (reuses existing `bot_status` field)
+- [x] **METAINBOX-04**: Conversation header shows channel, connected account name, and current bot status
+- [x] **METAINBOX-05**: System shows a visual warning in conversations where the 24h Meta reply window has expired
+- [x] **METAINBOX-06**: Admin can pause/resume bot per conversation across all channels (reuses existing `bot_status` field)
 
 ---
 

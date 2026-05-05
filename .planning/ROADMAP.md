@@ -159,7 +159,7 @@ Plans:
   5. Admin clicks "Pause bot" on a Meta conversation and confirms that subsequent inbound messages no longer trigger automation; clicking "Resume bot" restores automation firing
 **Plans**: 2 plans
 Plans:
-- [ ] 12-01-PLAN.md — migration 023 (bot_status column) + type extension + API route enrichment + 5 RED test stubs (Wave 0)
+- [x] 12-01-PLAN.md — migration 023 (bot_status column) + type extension + API route enrichment + 5 RED test stubs (Wave 0)
 - [ ] 12-02-PLAN.md — ChannelIcon component + filter pills + enriched header + 24h banner + bot pause/resume + tests GREEN (Wave 1)
 **UI hint**: yes
 
@@ -186,7 +186,7 @@ Plans:
 | 9. Reviews Widget | 3/3 | Complete    | 2026-05-04 |
 | 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
 | 11. Meta Webhook | 2/2 | Complete    | 2026-05-05 |
-| 12. Multi-Channel Inbox UI | 0/2 | Not started | — |
+| 12. Multi-Channel Inbox UI | 1/2 | In Progress|  |
 | 13. Outbound Reply Routing | 0/? | Not started | — |
 
 ---
