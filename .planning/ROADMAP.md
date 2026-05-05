@@ -144,7 +144,7 @@ Plans:
   5. An automated reply attempt on a conversation whose last inbound message is older than 24 hours is blocked — no outbound message is sent and the admin sees the conversation marked as outside the reply window
 **Plans**: 2 plans
 Plans:
-- [ ] 11-01-PLAN.md — migration 022 (last_inbound_at + meta_channels.config) + TypeScript types + RED test stubs (Wave 0)
+- [x] 11-01-PLAN.md — migration 022 (last_inbound_at + meta_channels.config) + TypeScript types + RED test stubs (Wave 0)
 - [ ] 11-02-PLAN.md — /api/meta/webhook route (GET + POST) + processMetaEvent lib + tests GREEN (Wave 1)
 
 ### Phase 12: Multi-Channel Inbox UI
@@ -182,7 +182,7 @@ Plans:
 | 8. Reviews Admin | 3/3 | Complete    | 2026-05-04 |
 | 9. Reviews Widget | 3/3 | Complete    | 2026-05-04 |
 | 10. Meta OAuth | 3/3 | Complete | 2026-05-04 |
-| 11. Meta Webhook | 0/2 | Not started | — |
+| 11. Meta Webhook | 1/2 | In Progress|  |
 | 12. Multi-Channel Inbox UI | 0/? | Not started | — |
 | 13. Outbound Reply Routing | 0/? | Not started | — |
 

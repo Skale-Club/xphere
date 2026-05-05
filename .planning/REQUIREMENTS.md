@@ -36,11 +36,11 @@
 
 ### METAEV — Meta Events & Automation
 
-- [ ] **METAEV-01**: System receives and verifies inbound events from Instagram and Messenger via a single unified Meta webhook (HMAC-SHA256 signature verification)
-- [ ] **METAEV-02**: Inbound Meta messages create conversations in the existing chat inbox with the correct channel type (`instagram` or `messenger`)
-- [ ] **METAEV-03**: Automation bound to a Meta channel fires on incoming messages and can invoke existing action engine tools (`executeAction`)
-- [ ] **METAEV-04**: Automation supports keyword triggers — fires when message contains a configured keyword
-- [ ] **METAEV-05**: System enforces the 24h Meta messaging window — automated replies are blocked after 24h from last inbound user message
+- [x] **METAEV-01**: System receives and verifies inbound events from Instagram and Messenger via a single unified Meta webhook (HMAC-SHA256 signature verification)
+- [x] **METAEV-02**: Inbound Meta messages create conversations in the existing chat inbox with the correct channel type (`instagram` or `messenger`)
+- [x] **METAEV-03**: Automation bound to a Meta channel fires on incoming messages and can invoke existing action engine tools (`executeAction`)
+- [x] **METAEV-04**: Automation supports keyword triggers — fires when message contains a configured keyword
+- [x] **METAEV-05**: System enforces the 24h Meta messaging window — automated replies are blocked after 24h from last inbound user message
 
 ### METAINBOX — Multi-Channel Inbox
 
