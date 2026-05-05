@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import { AdminChatLayout } from '@/components/chat/admin-chat-layout'
 import { PlaygroundChat } from '@/components/chat/playground-chat'
+import { createClient } from '@/lib/supabase/server'
 import { getPlaygroundConfig } from './actions'
 
 export default async function ChatPage({
@@ -13,6 +14,10 @@ export default async function ChatPage({
 }) {
   const params = await searchParams
   const tab = params.tab === 'playground' ? 'playground' : 'inbox'
+
+  // Resolve active org for Realtime subscription filter (defense-in-depth alongside RLS)
+  const supabase = await createClient()
+  const { data: activeOrgId } = await supabase.rpc('get_current_org_id')
 
   return (
     <div className="h-full flex flex-col">
@@ -43,7 +48,7 @@ export default async function ChatPage({
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
         {tab === 'inbox' ? (
-          <AdminChatLayout />
+          <AdminChatLayout currentOrgId={activeOrgId ?? null} />
         ) : (
           <PlaygroundTab />
         )}
