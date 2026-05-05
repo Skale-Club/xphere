@@ -2,6 +2,10 @@
 // Public POST endpoint for the Opps embedded chat widget.
 // Authentication: org token in URL path (not a user session).
 // Unlike /api/vapi/* routes, this returns 401 for invalid tokens (no Vapi retry concern).
+//
+// Persistence: writes to `conversations` and `conversation_messages` via persist.ts.
+// Redis (session.ts) is a transient cache only — never the source of truth.
+// See .planning/codebase/chat-data-boundary.md for the full data lifecycle.
 import { after } from 'next/server'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'

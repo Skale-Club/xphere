@@ -2,6 +2,9 @@
 // Supabase service-role write helpers for chat persistence.
 // IMPORTANT: Always uses createServiceRoleClient() — no auth session exists on the
 // public chat API route. Never use the authenticated Supabase client here.
+//
+// Tables: `conversations` + `conversation_messages` (the only persistence world for chat).
+// See .planning/codebase/chat-data-boundary.md for the full data lifecycle.
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 /**

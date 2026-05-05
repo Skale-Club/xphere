@@ -2,6 +2,11 @@
 // Redis-backed session helpers for the public chat API.
 // All operations check redis.isReady before touching the client — if Redis is
 // unavailable, reads return null and writes are no-ops (graceful degradation per D-07).
+//
+// Redis is a TRANSIENT cache, NOT a database. The source of truth for chat data
+// lives in `conversations` + `conversation_messages`. Redis just speeds up the
+// "10 most recent messages" lookup for active widget sessions.
+// See .planning/codebase/chat-data-boundary.md for the full data lifecycle.
 import redis from '@/lib/redis'
 
 const SESSION_TTL = 3600 // 1 hour sliding window
