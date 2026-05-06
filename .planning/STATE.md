@@ -2,25 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: ready_to_plan
-stopped_at: Roadmap created — Phase 19 ready to plan
-last_updated: "2026-05-06T00:00:00.000Z"
+status: executing
+stopped_at: Completed 19-db-foundation/19-01-PLAN.md
+last_updated: "2026-05-06T14:30:23.539Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 0
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 19 of 21 (DB Foundation)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-05-06 — v1.5 roadmap created, Phase 19 ready to plan
+Phase: 19 (DB Foundation) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-05-06
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -53,6 +54,8 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - v1.5: Delete modal offers "orphan tools" OR "delete tools with folder"
 - v1.5: Move tool to folder by dragging over the target folder header (highlights on hover)
 - v1.5: `@dnd-kit` already installed — extend existing DnD for folder reorder and tool-move
+- [Phase 19-db-foundation]: UNIQUE NULLS NOT DISTINCT (PG15+) for tool_folders top-level uniqueness; fallback documented in migration comments
+- [Phase 19-db-foundation]: Migration 025 committed without db push (SUPABASE_DB_PASSWORD auth gate) — follows established project deferral pattern
 
 ### Codebase Starting Points
 
@@ -70,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06
-Stopped at: Roadmap written — run `/gsd:plan-phase 19` to begin
+Last session: 2026-05-06T14:30:23.528Z
+Stopped at: Completed 19-db-foundation/19-01-PLAN.md
 Resume file: None
