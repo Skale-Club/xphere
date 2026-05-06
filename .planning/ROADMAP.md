@@ -97,7 +97,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 ### Phases
 
-- [ ] **Phase 22: Foundation** — DB migrations (manychat_channels, manychat_events, enum extensions), webhook endpoint with secret verification, channel server actions
+- [x] **Phase 22: Foundation** — DB migrations (manychat_channels, manychat_events, enum extensions), webhook endpoint with secret verification, channel server actions (completed 2026-05-06)
 - [ ] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch
 - [ ] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection)
 - [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
@@ -118,7 +118,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 **Plans**: 2 plans
 Plans:
 - [x] 22-01-PLAN.md — Migration 026 + database.ts types + Wave 0 test stubs
-- [ ] 22-02-PLAN.md — Channel server actions + webhook POST handler
+- [x] 22-02-PLAN.md — Channel server actions + webhook POST handler
 
 ### Phase 23: Inbound Routing
 **Goal**: Inbound ManyChat webhook events are matched against routing rules and dispatched to the existing action engine
@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 22. Foundation | v1.6 | 1/2 | In Progress|  |
+| 22. Foundation | v1.6 | 2/2 | Complete   | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 0/? | Not started | - |
 | 24. Dashboard Config UI | v1.6 | 0/? | Not started | - |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |

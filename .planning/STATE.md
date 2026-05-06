@@ -2,24 +2,24 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: ManyChat Integration
-status: executing
-stopped_at: Completed 22-foundation/22-01-PLAN.md
-last_updated: "2026-05-06T19:14:44.051Z"
+status: verifying
+stopped_at: Completed 22-foundation/22-02-PLAN.md
+last_updated: "2026-05-06T19:24:03.687Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 22 (Foundation) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
+Phase: 22 (Foundation) — VERIFYING
+Plan: 2 of 2 (complete)
+Status: All plans executed — ready for phase verification
 Last activity: 2026-05-06
 
 ## Milestone Progress
@@ -30,13 +30,13 @@ Last activity: 2026-05-06
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
 - v1.5 Tools Folder System: ✅ Shipped 2026-05-06
-- v1.6 ManyChat Integration: 🚧 Active — Phase 22 in progress (plan 1 of 2 complete)
+- v1.6 ManyChat Integration: 🚧 Active — Phase 22 plans complete (2 of 2), ready for verification
 
 ## v1.6 Phase Summary
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 22. Foundation | Receive + log webhook events; channel CRUD with encrypted API key | In Progress (1/2) |
+| 22. Foundation | Receive + log webhook events; channel CRUD with encrypted API key | Plans Complete (2/2) — pending verification |
 | 23. Inbound Routing | Rule-based dispatch to action engine | Not started |
 | 24. Dashboard Config UI | Self-serve setup page (UI) | Not started |
 | 25. Outbound Actions | manychat_* executors in action engine | Not started |
@@ -68,6 +68,9 @@ See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 - (22-01) `manychat_events.Update` typed as `Record<string, never>` to mirror SQL append-only RLS in the TS layer
 - (22-01) Wave 0 RED tests use dynamic `await import()` so missing modules surface as ERR_MODULE_NOT_FOUND per test rather than failing collection
 - (22-01) Extending `integration_provider` enum requires updating cross-cutting unions: `integrations.provider` Row/Insert, `IntegrationForDisplay.provider`, and `PROVIDER_LABELS` map
+- (22-02) Webhook resolves `org_id` via service-role lookup of `manychat_channels` by `webhook_secret` — never trusts `org_id` from request body
+- (22-02) Webhook always returns 200 after secret validation passes; outer try/catch swallows all post-gate errors to prevent ManyChat retry storms
+- (22-02) `createManychatChannel` does NOT return `webhook_secret` to caller — Phase 24 UI fetches it via separate getter to avoid leaking through revalidation
 
 ### Architecture Notes
 
@@ -82,5 +85,5 @@ See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 
 ## Session Continuity
 
-Last session: 2026-05-06T19:14:44.047Z
-Stopped at: Completed 22-foundation/22-01-PLAN.md
+Last session: 2026-05-06T19:24:03.677Z
+Stopped at: Completed 22-foundation/22-02-PLAN.md
