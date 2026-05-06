@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Loader2, X } from 'lucide-react'
-import type { ToolConfigWithIntegration } from '@/app/(dashboard)/tools/actions'
+import type { ToolConfigWithIntegration, ToolFolder } from '@/app/(dashboard)/tools/actions'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
 import { createToolConfig, updateToolConfig } from '@/app/(dashboard)/tools/actions'
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,7 @@ const toolConfigSchema = z.object({
     .string()
     .min(1, 'Fallback message is required')
     .max(500, 'Fallback message must be 500 characters or fewer'),
-  folder: z.string().optional().nullable(),
+  folder_id: z.string().optional().nullable(),
   labels: z.array(z.string()),
 })
 
@@ -66,7 +66,7 @@ interface ToolConfigFormProps {
   mode: 'create' | 'edit'
   toolConfig?: ToolConfigWithIntegration
   integrations: IntegrationForDisplay[]
-  existingFolders?: string[]
+  existingFolders?: ToolFolder[]
   onSuccess: () => void
 }
 
@@ -82,7 +82,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
       actionType: toolConfig?.action_type ?? 'create_contact',
       integrationId: toolConfig?.integration_id ?? '',
       fallbackMessage: toolConfig?.fallback_message ?? '',
-      folder: toolConfig?.folder ?? '',
+      folder_id: toolConfig?.folder_id ?? '__none__',
       labels: toolConfig?.labels ?? [],
     },
   })
@@ -111,7 +111,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
         actionType: values.actionType,
         integrationId: values.integrationId,
         fallbackMessage: values.fallbackMessage,
-        folder: values.folder || null,
+        folder_id: values.folder_id === '__none__' ? null : (values.folder_id ?? null),
         labels: values.labels,
       }
 
@@ -259,31 +259,41 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
 
           <FormField
             control={form.control}
-            name="folder"
+            name="folder_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
                   Folder{' '}
                   <span className="text-muted-foreground font-normal">(optional)</span>
                 </FormLabel>
-                <FormControl>
-                  <>
-                    <Input
-                      list="folder-suggestions"
-                      placeholder="e.g. CRM, Scheduling"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                    {existingFolders && existingFolders.length > 0 && (
-                      <datalist id="folder-suggestions">
-                        {existingFolders.map((f) => (
-                          <option key={f} value={f} />
-                        ))}
-                      </datalist>
-                    )}
-                  </>
-                </FormControl>
+                <Select
+                  disabled={isPending}
+                  onValueChange={(v) => field.onChange(v)}
+                  value={field.value ?? '__none__'}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No folder" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="__none__">No folder</SelectItem>
+                    {(existingFolders ?? [])
+                      .filter((f) => f.parent_id === null)
+                      .map((folder) => (
+                        <Fragment key={folder.id}>
+                          <SelectItem value={folder.id}>{folder.name}</SelectItem>
+                          {(existingFolders ?? [])
+                            .filter((sub) => sub.parent_id === folder.id)
+                            .map((sub) => (
+                              <SelectItem key={sub.id} value={sub.id}>
+                                &nbsp;&nbsp;{sub.name}
+                              </SelectItem>
+                            ))}
+                        </Fragment>
+                      ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

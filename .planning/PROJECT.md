@@ -12,11 +12,17 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current State
+## Current Milestone: v1.5 Tools Folder System
 
-No active milestone. v1.4 shipped 2026-05-05.
+**Goal:** Transformar o módulo de tools em um explorador organizado com pastas de 2 níveis, renomear inline, e mover tools com drag and drop.
 
-Run `/gsd:new-milestone` to start the next cycle.
+**Target features:**
+- Pasta > Subpasta (2 níveis), inline collapsible na tabela
+- Criar subpasta via botão (+) no header da pasta pai
+- Renomear pasta: click inline na label → input, Enter confirma
+- Mover tool entre pastas: arrastar sobre header da pasta destino
+- Deletar pasta: modal de confirmação (orphan tools ou deletar)
+- DnD de reordenação de pastas (melhorar o existente)
 
 ---
 
@@ -177,4 +183,4 @@ Run `/gsd:new-milestone` to start the next cycle.
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-05 — v1.4 milestone shipped and archived*
+*Last updated: 2026-05-06 — v1.5 milestone started (Tools Folder System)*

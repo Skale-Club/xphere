@@ -34,7 +34,6 @@ export interface Database {
           widget_avatar_url: string | null
           widget_primary_color: string | null
           widget_welcome_message: string | null
-          tool_folder_order: string[]
           created_at: string
           updated_at: string
         }
@@ -48,7 +47,6 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
-          tool_folder_order?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -62,7 +60,6 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
-          tool_folder_order?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -218,7 +215,7 @@ export interface Database {
           config: Json
           fallback_message: string
           is_active: boolean
-          folder: string | null
+          folder_id: string | null
           labels: string[]
           created_at: string
           updated_at: string
@@ -232,7 +229,7 @@ export interface Database {
           config?: Json
           fallback_message: string
           is_active?: boolean
-          folder?: string | null
+          folder_id?: string | null
           labels?: string[]
           created_at?: string
           updated_at?: string
@@ -244,7 +241,7 @@ export interface Database {
           config?: Json
           fallback_message?: string
           is_active?: boolean
-          folder?: string | null
+          folder_id?: string | null
           labels?: string[]
           updated_at?: string
         }
@@ -261,6 +258,55 @@ export interface Database {
             columns: ['integration_id']
             isOneToOne: false
             referencedRelation: 'integrations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tool_configs_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'tool_folders'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      tool_folders: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          parent_id: string | null
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tool_folders_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tool_folders_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'tool_folders'
             referencedColumns: ['id']
           }
         ]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo, Fragment } from 'react'
+import { useState, useEffect, useTransition, useMemo, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -28,12 +28,12 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Wrench, MoreHorizontal, FolderPlus, GripVertical, ScrollText } from 'lucide-react'
+import { Wrench, MoreHorizontal, FolderPlus, GripVertical, ScrollText, ChevronRight, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { ToolConfigWithIntegration } from '@/app/(dashboard)/tools/actions'
+import type { ToolConfigWithIntegration, ToolFolder } from '@/app/(dashboard)/tools/actions'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
-import { deleteToolConfig, saveFolderOrder } from '@/app/(dashboard)/tools/actions'
-import { Button } from '@/components/ui/button'
+import { deleteToolConfig, updateFolder, createFolder, deleteFolder, deleteFolderWithTools } from '@/app/(dashboard)/tools/actions'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -79,7 +79,7 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
 interface ToolsTableProps {
   toolConfigs: ToolConfigWithIntegration[]
   integrations: IntegrationForDisplay[]
-  folderOrder: string[]
+  folders: ToolFolder[]
   children?: React.ReactNode
 }
 
@@ -90,11 +90,31 @@ function SortableFolderHeader({
   label,
   count,
   colSpan,
+  isCollapsed,
+  isRenaming,
+  renameValue,
+  onToggleCollapse,
+  onStartRename,
+  onRenameChange,
+  onRenameKeyDown,
+  onRenameBlur,
+  onAddSubfolder,
+  onDeleteClick,
 }: {
   id: string
   label: string
   count: number
   colSpan: number
+  isCollapsed: boolean
+  isRenaming: boolean
+  renameValue: string
+  onToggleCollapse: () => void
+  onStartRename: () => void
+  onRenameChange: (v: string) => void
+  onRenameKeyDown: (e: React.KeyboardEvent) => void
+  onRenameBlur: (e: React.FocusEvent) => void
+  onAddSubfolder: () => void
+  onDeleteClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id })
@@ -104,9 +124,19 @@ function SortableFolderHeader({
     opacity: isDragging ? 0.5 : 1,
   }
   return (
-    <TableRow ref={setNodeRef} style={style} className="bg-muted/30 hover:bg-muted/40">
+    <TableRow ref={setNodeRef} style={style} className="bg-muted/40 hover:bg-muted/60 group">
       <TableCell colSpan={colSpan} className="py-1.5 px-4">
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
+          >
+            {isCollapsed
+              ? <ChevronRight className="h-3.5 w-3.5" />
+              : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
           <span
             {...attributes}
             {...listeners}
@@ -115,7 +145,68 @@ function SortableFolderHeader({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </span>
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {isRenaming ? (
+            <Input
+              autoFocus
+              value={renameValue}
+              onChange={(e) => onRenameChange(e.target.value)}
+              onKeyDown={onRenameKeyDown}
+              onBlur={onRenameBlur}
+              className="h-6 text-xs font-semibold bg-transparent border-b border-input focus:outline-none w-32 py-0"
+            />
+          ) : (
+            <span
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer"
+              onClick={onStartRename}
+            >
+              {label}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">({count})</span>
+          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={onStartRename}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Rename ${label}`}
+              data-rename-cancel="false"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={onAddSubfolder}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Add subfolder to ${label}`}
+              data-rename-cancel="true"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={onDeleteClick}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Delete ${label}`}
+              data-rename-cancel="true"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// ─── Static folder header (for "Ungrouped" — not draggable) ─────────────────────
+
+function StaticFolderHeader({ label, count, colSpan }: { label: string; count: number; colSpan: number }) {
+  return (
+    <TableRow className="bg-muted/30 hover:bg-muted/30">
+      <TableCell colSpan={colSpan} className="py-1.5 px-4">
+        <div className="flex items-center gap-2">
+          <span className="w-3.5" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {label}
           </span>
           <span className="text-xs text-muted-foreground">({count})</span>
@@ -125,18 +216,89 @@ function SortableFolderHeader({
   )
 }
 
-// ─── Static folder header (for "Other" — not draggable) ───────────────────────
+// ─── Subfolder header row (static — DnD is Phase 21 scope) ───────────────────
 
-function StaticFolderHeader({ label, count, colSpan }: { label: string; count: number; colSpan: number }) {
+function SubfolderHeader({
+  folder,
+  count,
+  colSpan,
+  isCollapsed,
+  isRenaming,
+  renameValue,
+  onToggleCollapse,
+  onStartRename,
+  onRenameChange,
+  onRenameKeyDown,
+  onRenameBlur,
+  onDeleteClick,
+}: {
+  folder: ToolFolder
+  count: number
+  colSpan: number
+  isCollapsed: boolean
+  isRenaming: boolean
+  renameValue: string
+  onToggleCollapse: () => void
+  onStartRename: () => void
+  onRenameChange: (v: string) => void
+  onRenameKeyDown: (e: React.KeyboardEvent) => void
+  onRenameBlur: (e: React.FocusEvent) => void
+  onDeleteClick: () => void
+}) {
   return (
-    <TableRow className="bg-muted/30 hover:bg-muted/30">
-      <TableCell colSpan={colSpan} className="py-1.5 px-4">
+    <TableRow className="bg-muted/30 hover:bg-muted/40 group">
+      <TableCell colSpan={colSpan} className="py-1.5 pl-8 pr-4">
         <div className="flex items-center gap-2">
+          {/* Grip spacer — aligns with SortableFolderHeader; DnD Phase 21 */}
           <span className="w-3.5" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {label}
-          </span>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={isCollapsed ? `Expand ${folder.name}` : `Collapse ${folder.name}`}
+          >
+            {isCollapsed
+              ? <ChevronRight className="h-3.5 w-3.5" />
+              : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+          {isRenaming ? (
+            <Input
+              autoFocus
+              value={renameValue}
+              onChange={(e) => onRenameChange(e.target.value)}
+              onKeyDown={onRenameKeyDown}
+              onBlur={onRenameBlur}
+              className="h-6 text-xs font-semibold bg-transparent border-b border-input focus:outline-none w-32 py-0"
+            />
+          ) : (
+            <span
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer"
+              onClick={onStartRename}
+            >
+              {folder.name}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">({count})</span>
+          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={onStartRename}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Rename ${folder.name}`}
+              data-rename-cancel="false"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={onDeleteClick}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Delete ${folder.name}`}
+              data-rename-cancel="true"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </TableCell>
     </TableRow>
@@ -148,7 +310,7 @@ function StaticFolderHeader({ label, count, colSpan }: { label: string; count: n
 export function ToolsTable({
   toolConfigs: initialToolConfigs,
   integrations,
-  folderOrder: initialFolderOrder,
+  folders,
   children,
 }: ToolsTableProps) {
   const [toolConfigs, setToolConfigs] = useState<ToolConfigWithIntegration[]>(initialToolConfigs)
@@ -161,22 +323,27 @@ export function ToolsTable({
   const [addingFolder, setAddingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
 
-  // Canonical ordered folder list: initialFolderOrder first, then any extras from toolConfigs
-  const [orderedFolders, setOrderedFolders] = useState<string[]>(() => {
-    const allToolFolders = [
-      ...new Set(initialToolConfigs.map((t) => t.folder).filter((f): f is string => !!f)),
-    ]
-    const fromOrder = initialFolderOrder.filter(
-      (f) => allToolFolders.includes(f) || initialFolderOrder.includes(f)
-    )
-    const extras = allToolFolders.filter((f) => !fromOrder.includes(f)).sort()
-    return [...fromOrder, ...extras]
-  })
-
-  const existingFolders = useMemo(
-    () => [...new Set(toolConfigs.map((t) => t.folder).filter((f): f is string => !!f))],
-    [toolConfigs]
+  // Canonical ordered folder list: top-level folders ordered by position
+  const [orderedFolders, setOrderedFolders] = useState<ToolFolder[]>(() =>
+    folders.filter((f) => f.parent_id === null)
   )
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [addingSubfolderTo, setAddingSubfolderTo] = useState<string | null>(null)
+  const [newSubfolderName, setNewSubfolderName] = useState('')
+  const [folderDeleteTarget, setFolderDeleteTarget] = useState<{ folder: ToolFolder } | null>(null)
+
+  // Full folder list passed to form for Phase 20 picker
+  const existingFolders = useMemo(
+    () => folders,
+    [folders]
+  )
+
+  // Sync orderedFolders when the folders prop changes (e.g. after router.refresh())
+  useEffect(() => {
+    setOrderedFolders(folders.filter((f) => f.parent_id === null))
+  }, [folders])
 
   // DnD sensors
   const sensors = useSensors(
@@ -187,27 +354,111 @@ export function ToolsTable({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = orderedFolders.indexOf(active.id as string)
-    const newIndex = orderedFolders.indexOf(over.id as string)
+    const oldIndex = orderedFolders.findIndex((f) => f.id === active.id)
+    const newIndex = orderedFolders.findIndex((f) => f.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
-    const next = arrayMove(orderedFolders, oldIndex, newIndex)
-    setOrderedFolders(next)
-    saveFolderOrder(next)
+    setOrderedFolders((prev) => arrayMove(prev, oldIndex, newIndex))
+    // TODO Phase 21: persist reorder via updateFolder position
+  }
+
+  function toggleCollapse(folderId: string) {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+  }
+
+  function startRename(folder: ToolFolder) {
+    setRenamingFolderId(folder.id)
+    setRenameValue(folder.name)
+  }
+
+  function commitRename(folderId: string) {
+    const trimmed = renameValue.trim()
+    setRenamingFolderId(null)
+    setRenameValue('')
+    if (!trimmed) return
+    startTransition(async () => {
+      const result = await updateFolder(folderId, { name: trimmed })
+      if (result && 'error' in result && result.error) {
+        toast.error(result.error)
+      } else {
+        setOrderedFolders((prev) =>
+          prev.map((f) => f.id === folderId ? { ...f, name: trimmed } : f)
+        )
+        toast.success('Folder renamed.')
+      }
+    })
   }
 
   function handleAddFolder(e: React.FormEvent) {
     e.preventDefault()
     const name = newFolderName.trim()
-    if (!name || orderedFolders.includes(name)) {
+    if (!name) {
       setAddingFolder(false)
       setNewFolderName('')
       return
     }
-    const next = [...orderedFolders, name]
-    setOrderedFolders(next)
-    saveFolderOrder(next)
     setAddingFolder(false)
     setNewFolderName('')
+    startTransition(async () => {
+      const result = await createFolder(name, null)
+      if (result && 'error' in result && result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Folder created.')
+        router.refresh()
+      }
+    })
+  }
+
+  function handleAddSubfolder(e: React.FormEvent, parentFolderId: string) {
+    e.preventDefault()
+    const name = newSubfolderName.trim()
+    if (!name) {
+      setAddingSubfolderTo(null)
+      setNewSubfolderName('')
+      return
+    }
+    setAddingSubfolderTo(null)
+    setNewSubfolderName('')
+    startTransition(async () => {
+      const result = await createFolder(name, parentFolderId)
+      if (result && 'error' in result && result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Subfolder created.')
+        router.refresh()
+      }
+    })
+  }
+
+  function handleDeleteFolder(mode: 'orphan' | 'delete-with-tools') {
+    if (!folderDeleteTarget) return
+    const { folder } = folderDeleteTarget
+    setFolderDeleteTarget(null)
+    startTransition(async () => {
+      let result: { error?: string } | void
+      if (mode === 'orphan') {
+        result = await deleteFolder(folder.id)
+        if (result && 'error' in result && result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Folder deleted. Tools moved to Ungrouped.')
+          router.refresh()
+        }
+      } else {
+        result = await deleteFolderWithTools(folder.id)
+        if (result && 'error' in result && result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Folder and its tools deleted.')
+          router.refresh()
+        }
+      }
+    })
   }
 
   function openCreateSheet() {
@@ -357,16 +608,28 @@ export function ToolsTable({
     return map
   }, [table])
 
-  // Tools grouped by folder key
+  // Tools grouped by folder_id
   const toolsByFolder = useMemo(() => {
     const map = new Map<string, ToolConfigWithIntegration[]>()
     for (const tool of toolConfigs) {
-      const key = tool.folder ?? '__other__'
+      const key = tool.folder_id ?? '__other__'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(tool)
     }
     return map
   }, [toolConfigs])
+
+  // Subfolders grouped by parent folder id
+  const subfoldersByParent = useMemo(() => {
+    const map = new Map<string, ToolFolder[]>()
+    for (const f of folders) {
+      if (f.parent_id !== null) {
+        if (!map.has(f.parent_id)) map.set(f.parent_id, [])
+        map.get(f.parent_id)!.push(f)
+      }
+    }
+    return map
+  }, [folders])
 
   const otherTools = toolsByFolder.get('__other__') ?? []
 
@@ -375,7 +638,7 @@ export function ToolsTable({
   const showHeaders =
     orderedFolders.length > 1 ||
     (orderedFolders.length === 1 && otherTools.length > 0) ||
-    (orderedFolders.length === 0 && otherTools.length > 0 && toolConfigs.some((t) => t.folder))
+    (orderedFolders.length === 0 && otherTools.length > 0 && toolConfigs.some((t) => t.folder_id))
 
   if (isPending && toolConfigs.length === 0) {
     return <ToolsTableSkeleton />
@@ -475,45 +738,141 @@ export function ToolsTable({
             <TableBody>
               {/* Named folder groups — sortable */}
               <SortableContext
-                  items={orderedFolders}
+                  items={orderedFolders.map((f) => f.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {orderedFolders.map((folderName) => {
-                    const tools = toolsByFolder.get(folderName) ?? []
+                  {orderedFolders.map((folder) => {
+                    const folderTools = toolsByFolder.get(folder.id) ?? []
+                    const subfolders = subfoldersByParent.get(folder.id) ?? []
+                    const isCollapsed = collapsedFolders.has(folder.id)
                     return (
-                      <Fragment key={`folder-${folderName}`}>
+                      <Fragment key={`folder-${folder.id}`}>
                         {showHeaders && (
                           <SortableFolderHeader
-                            id={folderName}
-                            label={folderName}
-                            count={tools.length}
+                            id={folder.id}
+                            label={folder.name}
+                            count={folderTools.length + subfolders.reduce((acc, sub) => acc + (toolsByFolder.get(sub.id) ?? []).length, 0)}
                             colSpan={columns.length}
+                            isCollapsed={isCollapsed}
+                            isRenaming={renamingFolderId === folder.id}
+                            renameValue={renameValue}
+                            onToggleCollapse={() => toggleCollapse(folder.id)}
+                            onStartRename={() => startRename(folder)}
+                            onRenameChange={setRenameValue}
+                            onRenameKeyDown={(e) => {
+                              if (e.key === 'Enter') commitRename(folder.id)
+                              if (e.key === 'Escape') { setRenamingFolderId(null); setRenameValue('') }
+                            }}
+                            onRenameBlur={(e) => {
+                              if (e.relatedTarget?.getAttribute('data-rename-cancel') === 'true') return
+                              commitRename(folder.id)
+                            }}
+                            onAddSubfolder={() => { setAddingSubfolderTo(folder.id); setNewSubfolderName('') }}
+                            onDeleteClick={() => setFolderDeleteTarget({ folder })}
                           />
                         )}
-                        {tools.map((tool) => {
-                          const row = rowById.get(tool.id)
-                          if (!row) return null
-                          return (
-                            <TableRow key={row.id}>
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          )
-                        })}
+                        {addingSubfolderTo === folder.id && (
+                          <TableRow>
+                            <TableCell colSpan={columns.length} className="py-1 pl-10">
+                              <form onSubmit={(e) => handleAddSubfolder(e, folder.id)} className="flex items-center gap-1">
+                                <Input
+                                  autoFocus
+                                  value={newSubfolderName}
+                                  onChange={(e) => setNewSubfolderName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                      setAddingSubfolderTo(null)
+                                      setNewSubfolderName('')
+                                    }
+                                  }}
+                                  placeholder="Subfolder name"
+                                  className="h-7 w-36 text-xs"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="h-7 text-xs">
+                                  Add Subfolder
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => { setAddingSubfolderTo(null); setNewSubfolderName('') }}
+                                >
+                                  Cancel
+                                </Button>
+                              </form>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {!isCollapsed && (
+                          <>
+                            {subfolders.map((sub) => {
+                              const subTools = toolsByFolder.get(sub.id) ?? []
+                              const subIsCollapsed = collapsedFolders.has(sub.id)
+                              return (
+                                <Fragment key={`sub-${sub.id}`}>
+                                  <SubfolderHeader
+                                    folder={sub}
+                                    count={subTools.length}
+                                    colSpan={columns.length}
+                                    isCollapsed={subIsCollapsed}
+                                    isRenaming={renamingFolderId === sub.id}
+                                    renameValue={renameValue}
+                                    onToggleCollapse={() => toggleCollapse(sub.id)}
+                                    onStartRename={() => startRename(sub)}
+                                    onRenameChange={setRenameValue}
+                                    onRenameKeyDown={(e) => {
+                                      if (e.key === 'Enter') commitRename(sub.id)
+                                      if (e.key === 'Escape') { setRenamingFolderId(null); setRenameValue('') }
+                                    }}
+                                    onRenameBlur={(e) => {
+                                      if (e.relatedTarget?.getAttribute('data-rename-cancel') === 'true') return
+                                      commitRename(sub.id)
+                                    }}
+                                    onDeleteClick={() => setFolderDeleteTarget({ folder: sub })}
+                                  />
+                                  {!subIsCollapsed && subTools.map((tool) => {
+                                    const row = rowById.get(tool.id)
+                                    if (!row) return null
+                                    return (
+                                      <TableRow key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                          <TableCell key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                          </TableCell>
+                                        ))}
+                                      </TableRow>
+                                    )
+                                  })}
+                                </Fragment>
+                              )
+                            })}
+                            {folderTools.map((tool) => {
+                              const row = rowById.get(tool.id)
+                              if (!row) return null
+                              return (
+                                <TableRow key={row.id}>
+                                  {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              )
+                            })}
+                          </>
+                        )}
                       </Fragment>
                     )
                   })}
                 </SortableContext>
 
-              {/* "Other" group — not sortable, always last */}
+              {/* "Ungrouped" group — not sortable, always last */}
               {otherTools.length > 0 && (
                 <>
                   {showHeaders && (
                     <StaticFolderHeader
-                      label="Other"
+                      label="Ungrouped"
                       count={otherTools.length}
                       colSpan={columns.length}
                     />
@@ -575,6 +934,36 @@ export function ToolsTable({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Folder delete confirmation modal — two options */}
+      <AlertDialog
+        open={!!folderDeleteTarget}
+        onOpenChange={(open) => !open && setFolderDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{folderDeleteTarget?.folder.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose what happens to the tools inside this folder.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'outline' })}
+              onClick={() => handleDeleteFolder('orphan')}
+            >
+              Move tools to Ungrouped
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => handleDeleteFolder('delete-with-tools')}
+            >
+              Delete folder and tools
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
