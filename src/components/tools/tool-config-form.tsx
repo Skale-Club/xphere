@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Loader2, X } from 'lucide-react'
-import type { ToolConfigWithIntegration } from '@/app/(dashboard)/tools/actions'
+import type { ToolConfigWithIntegration, ToolFolder } from '@/app/(dashboard)/tools/actions'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
 import { createToolConfig, updateToolConfig } from '@/app/(dashboard)/tools/actions'
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,7 @@ const toolConfigSchema = z.object({
     .string()
     .min(1, 'Fallback message is required')
     .max(500, 'Fallback message must be 500 characters or fewer'),
-  folder: z.string().optional().nullable(),
+  folder_id: z.string().uuid().optional().nullable(),
   labels: z.array(z.string()),
 })
 
@@ -66,7 +66,7 @@ interface ToolConfigFormProps {
   mode: 'create' | 'edit'
   toolConfig?: ToolConfigWithIntegration
   integrations: IntegrationForDisplay[]
-  existingFolders?: string[]
+  existingFolders?: ToolFolder[]
   onSuccess: () => void
 }
 
@@ -82,7 +82,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
       actionType: toolConfig?.action_type ?? 'create_contact',
       integrationId: toolConfig?.integration_id ?? '',
       fallbackMessage: toolConfig?.fallback_message ?? '',
-      folder: toolConfig?.folder ?? '',
+      folder_id: toolConfig?.folder_id ?? null,
       labels: toolConfig?.labels ?? [],
     },
   })
@@ -111,7 +111,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
         actionType: values.actionType,
         integrationId: values.integrationId,
         fallbackMessage: values.fallbackMessage,
-        folder: values.folder || null,
+        folder_id: values.folder_id || null,
         labels: values.labels,
       }
 
@@ -257,37 +257,8 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="folder"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Folder{' '}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
-                </FormLabel>
-                <FormControl>
-                  <>
-                    <Input
-                      list="folder-suggestions"
-                      placeholder="e.g. CRM, Scheduling"
-                      disabled={isPending}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                    {existingFolders && existingFolders.length > 0 && (
-                      <datalist id="folder-suggestions">
-                        {existingFolders.map((f) => (
-                          <option key={f} value={f} />
-                        ))}
-                      </datalist>
-                    )}
-                  </>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* folder_id field: Phase 20 will add a proper folder selector UI here.
+              For Phase 19, folder assignment is hidden — tools can be assigned via DB or future UI. */}
 
           <FormItem>
             <FormLabel>
