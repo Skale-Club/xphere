@@ -55,17 +55,21 @@ All sizes are from the existing table UI. No new font sizes are introduced in Ph
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px (`text-sm`) | 400 (regular) | 1.5 | Tool cell values, dropdown items, form field inputs |
-| Label / Meta | 12px (`text-xs`) | 500 (medium) | 1.4 | Folder/subfolder header labels (`font-medium`), table column headers |
+| Label / Meta | 12px (`text-xs`) | 600 (semibold) | 1.4 | Folder/subfolder header labels, table column headers |
 | Caption | 12px (`text-xs`) | 400 (regular) | 1.4 | Tool count badge `(3)` in folder headers, muted helper text |
-| Heading | 20px (`text-xl`) | 600 (semibold) | 1.2 | Empty state heading (`font-semibold`) |
+| Heading | 20px (`text-xl`) | 600 (semibold) | 1.2 | Empty state heading |
+
+**Declared weights: 400 (regular) and 600 (semibold) only.**
 
 **Inline rename input:** `text-xs` (12px), weight 400 — matches the folder label it replaces. Width: `w-32` (128px) for folder level, `w-36` (144px) for subfolder add form.
+
+**Codebase pattern note (not a declared weight):** The existing `SortableFolderHeader` applies `font-medium` (Tailwind's weight-500 shorthand) to folder/subfolder header label text. This is a codebase-inherited pattern that will be preserved to avoid visual regression. It is NOT a third declared weight in the design contract — executor should use `font-semibold` for new elements following the Label/Meta role, and preserve `font-medium` only where it already exists in `SortableFolderHeader` unchanged code.
 
 **Folder header label styling (existing pattern, preserved):**
 `text-xs font-medium text-muted-foreground uppercase tracking-wide`
 
 **Subfolder header label styling (new, indented variant):**
-`text-xs font-medium text-muted-foreground uppercase tracking-wide` — same as folder, with `pl-8` indentation on the cell.
+`text-xs font-semibold text-muted-foreground uppercase tracking-wide` — with `pl-8` indentation on the cell.
 
 ---
 
@@ -77,13 +81,15 @@ All values sourced from `globals.css` CSS custom properties. The project uses `n
 |------|-----------|-----------------|-------|
 | Dominant (60%) | `--background` | `hsl(0 0% 100%)` white | Page background, table background |
 | Secondary (30%) | `--muted` / `--card` | `hsl(240 4.8% 95.9%)` light gray | Folder header row background (`bg-muted/30`), sidebar, nav |
-| Accent (10%) | `--primary` | `hsl(240 5.9% 10%)` near-black | Primary CTA button ("Add Tool", "Add" in forms) |
+| Accent (10%) | `--primary` | `hsl(240 5.9% 10%)` near-black | Primary CTA button ("Add Tool", "Add Subfolder" in forms) |
 | Destructive | `--destructive` | `hsl(0 84.2% 60.2%)` red | "Delete folder and tools" action button only |
+
+**Primary visual anchor:** the tool rows within folders; folder headers serve as organizational guides, not focal points.
 
 **Accent reserved for:**
 - "Add Tool" primary button (toolbar)
 - "Add" submit button in the inline folder creation form
-- "Add" submit button in the inline subfolder creation form
+- "Add Subfolder" submit button in the inline subfolder creation form
 
 **Muted foreground** (`--muted-foreground`, `hsl(240 3.8% 46.1%)`):
 - Folder/subfolder header label text
@@ -115,7 +121,7 @@ All components already installed. No new packages required.
 |-----------|----------------|---------------------|
 | `Table`, `TableRow`, `TableCell`, `TableHead`, `TableHeader`, `TableBody` | Existing table structure — no changes | Yes |
 | `Input` | Inline rename: `h-6 w-32 text-xs py-0`; Add subfolder form: `h-7 w-36 text-xs`; Toolbar folder create: `h-8 w-40 text-sm` (existing) | Yes |
-| `Button` | `size="sm" variant="outline"` for Add/Cancel in inline forms; `variant="ghost"` for icon-only action buttons on hover; `size="sm" variant="default"` for primary CTA | Yes |
+| `Button` | `size="sm" variant="outline"` for Add Subfolder/Cancel in inline forms; `variant="ghost"` for icon-only action buttons on hover; `size="sm" variant="default"` for primary CTA | Yes |
 | `AlertDialog` + all sub-parts | Two-option folder delete confirmation (see Copywriting Contract); single-option tool delete (unchanged) | Yes |
 | `Sheet` + `SheetContent` | Tool config edit/create form panel — unchanged | Yes |
 | `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` | Folder picker in `tool-config-form.tsx` | Yes |
@@ -153,9 +159,9 @@ All components already installed. No new packages required.
 - **Trigger:** Click the `Plus` icon button on a folder header (visible on hover via `opacity-0 group-hover:opacity-100`).
 - **Hover visibility class:** `opacity-0 group-hover:opacity-100 transition-opacity` on the button. The TableRow must have `className="group"`.
 - **Form placement:** An extra `TableRow` appears immediately below the triggering folder header (before its subfolders and tools), with `colSpan={columns.length}` and `pl-10` left padding.
-- **Form elements:** `Input` (`h-7 w-36 text-xs`, placeholder "Subfolder name") + "Add" `Button` (`size="sm" variant="outline" h-7 text-xs`) + "Cancel" `Button` (`size="sm" variant="ghost" h-7 text-xs`).
+- **Form elements:** `Input` (`h-7 w-36 text-xs`, placeholder "Subfolder name") + "Add Subfolder" `Button` (`size="sm" variant="outline" h-7 text-xs`) + "Cancel" `Button` (`size="sm" variant="ghost" h-7 text-xs`).
 - **Escape in input** → cancel, dismiss form row.
-- **Submit (Enter or "Add" button):** Calls `createFolder(name, parentFolderId)`, then `router.refresh()`. `toast.success('Subfolder created.')` on success.
+- **Submit (Enter or "Add Subfolder" button):** Calls `createFolder(name, parentFolderId)`, then `router.refresh()`. `toast.success('Subfolder created.')` on success.
 - **State:** `addingSubfolderTo: string | null` (parent folder ID) and `newSubfolderName: string` in `ToolsTable`.
 - **Constraint:** Only one add-subfolder form visible at a time. Opening a second one closes the first.
 
@@ -197,7 +203,7 @@ All components already installed. No new packages required.
 | Add folder button (aria-label) | "Add folder" | Existing (unchanged) |
 | Add subfolder button (aria-label) | "Add subfolder to [folder name]" | New — interpolate folder name |
 | Add subfolder input placeholder | "Subfolder name" | New |
-| Add subfolder submit button | "Add" | New |
+| Add subfolder submit button | "Add Subfolder" | New |
 | Rename icon button (aria-label) | "Rename [folder name]" | New — interpolate folder name |
 | Delete icon button (aria-label) | "Delete [folder name]" | New — interpolate folder name |
 | Collapse icon button (aria-label, expanded) | "Collapse [folder name]" | New |
