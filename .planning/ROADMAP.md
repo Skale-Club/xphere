@@ -89,7 +89,11 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
   2. Existing tools retain their folder assignment after migration (no data loss from the flat `folder` string)
   3. Server actions for listing, creating, updating, and deleting folders return correct data scoped to the active org
   4. `tool_configs` rows reference `folder_id` (FK to `tool_folders`) instead of the flat `folder` string column
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 19-01-PLAN.md — SQL migration (025_tool_folders.sql) + Vitest test stub
+- [ ] 19-02-PLAN.md — TypeScript types update + server actions rewrite
+- [ ] 19-03-PLAN.md — App caller updates (page.tsx, tools-table.tsx, tool-config-form.tsx) + full build verification
 
 ### Phase 20: Folder & Subfolder CRUD
 **Goal**: Admins can create, rename, and delete folders and subfolders, with tools rendering in collapsible sections inline in the tools table
@@ -121,8 +125,8 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 19. DB Foundation | v1.5 | 0/TBD | Not started | - |
+| 19. DB Foundation | v1.5 | 0/3 | Planned | - |
 | 20. Folder & Subfolder CRUD | v1.5 | 0/TBD | Not started | - |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
-*Last updated: 2026-05-06 — v1.5 roadmap created*
+*Last updated: 2026-05-06 — Phase 19 planned (3 plans, 3 waves)*
