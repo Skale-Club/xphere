@@ -12,17 +12,27 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.5 Tools Folder System
+## Current Milestone: v1.6 ManyChat Integration
 
-**Goal:** Transformar o módulo de tools em um explorador organizado com pastas de 2 níveis, renomear inline, e mover tools com drag and drop.
+**Goal:** Add ManyChat as a trigger source — a ManyChat flow fires an External Request → Operator routes it to any configured action (GHL, Twilio, etc.) and can push back to ManyChat as an action output.
 
 **Target features:**
-- Pasta > Subpasta (2 níveis), inline collapsible na tabela
-- Criar subpasta via botão (+) no header da pasta pai
-- Renomear pasta: click inline na label → input, Enter confirma
-- Mover tool entre pastas: arrastar sobre header da pasta destino
-- Deletar pasta: modal de confirmação (orphan tools ou deletar)
-- DnD de reordenação de pastas (melhorar o existente)
+- Webhook ingestion (`/api/manychat/webhook`) with `X-Operator-Secret` verification + event audit log
+- Inbound routing engine: `event_type` + condition JSONB → dispatch to existing tool_configs actions
+- Dashboard setup UI: connect API key, copy webhook URL + secret + payload template
+- Outbound actions: `manychat_set_field`, `manychat_add_tag`, `manychat_trigger_flow`, `manychat_send_message`
+- Rules manager UI + event log with status/date filters
+
+---
+
+## Last Shipped: v1.5 ✅ Shipped 2026-05-06
+
+**Shipped in v1.5 (Tools Folder System):**
+- `tool_folders` table with `parent_id` (2-level hierarchy), RLS, data migration from flat `folder: string`
+- Folder + subfolder CRUD: create, rename inline (Enter/Escape), delete with confirmation modal (orphan or cascade)
+- Collapsible sections inline in the tools table, Ungrouped section at bottom
+- Drag-and-drop: folder reorder (persists via `position` column) + tool move between folders (highlight on hover)
+- Folder Select in tool-config-form replacing free-text input
 
 ---
 
@@ -183,4 +193,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-06 — v1.5 milestone started (Tools Folder System)*
+*Last updated: 2026-05-06 — v1.6 milestone started (ManyChat Integration)*

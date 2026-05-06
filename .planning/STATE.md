@@ -1,29 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Tools Folder System
-status: verifying
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-05-06T17:41:55.061Z"
+milestone: v1.6
+milestone_name: ManyChat Integration
+status: defining_requirements
+stopped_at: Milestone v1.6 started — defining requirements
+last_updated: "2026-05-06T00:00:00.000Z"
 last_activity: 2026-05-06
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 75
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-05-06
-
-Progress: [████████░░] 75%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-06 — Milestone v1.6 started
 
 ## Milestone Progress
 
@@ -32,13 +29,14 @@ Progress: [████████░░] 75%
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
-- v1.5 Tools Folder System: 🚧 Active (Phase 19 next)
+- v1.5 Tools Folder System: ✅ Shipped 2026-05-06
+- v1.6 ManyChat Integration: 🚧 Active
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
-See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
+See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
@@ -46,46 +44,21 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 
 ## Accumulated Context
 
-### Decisions
+### v1.6 Decisions
 
-- v1.5: Inline collapsible sections in the tools table (not a sidebar tree)
-- v1.5: Max 2 levels only (folder > subfolder); no deeper nesting
-- v1.5: Inline rename — click label → input, Enter confirms, Escape cancels
-- v1.5: Delete modal offers "orphan tools" OR "delete tools with folder"
-- v1.5: Move tool to folder by dragging over the target folder header (highlights on hover)
-- v1.5: `@dnd-kit` already installed — extend existing DnD for folder reorder and tool-move
-- [Phase 19-db-foundation]: UNIQUE NULLS NOT DISTINCT (PG15+) for tool_folders top-level uniqueness; fallback documented in migration comments
-- [Phase 19-db-foundation]: Migration 025 committed without db push (SUPABASE_DB_PASSWORD auth gate) — follows established project deferral pattern
-- [Phase 19-db-foundation]: ToolFolder type defined inline in actions.ts for ergonomic server-action exports; createFolder sets position: 0 by default
-- [Phase 19-db-foundation]: Folder text input UI removed from tool-config-form for Phase 19; Phase 20 adds proper folder select
-- [Phase 19-db-foundation]: handleAddFolder and handleDragEnd server persistence stubbed — Phase 20/21 scope
-- [Phase 20-folder-subfolder-crud]: Separate deleteFolderWithTools action (not a parameter on deleteFolder) — each action has one clear purpose; delete modal handler decides which to call
-- [Phase 20-folder-subfolder-crud]: Sentinel '__none__' for Radix Select null state — Radix Select does not accept null; '__none__' is converted back to null before DB payload is sent
-- [Phase 20-folder-subfolder-crud]: Tasks 1+2 committed together — render loop references startRename/commitRename; splitting would fail TypeScript
-- [Phase 20-folder-subfolder-crud]: StaticFolderHeader font-medium migrated to font-semibold — plan requires no font-medium on folder label spans
-- [Phase 20]: folderDeleteTarget stores full ToolFolder object so modal title can display folder name without extra lookup
-- [Phase 20]: buttonVariants({ variant: 'outline' }) applied as className to AlertDialogAction — AlertDialogAction has no variant prop
-- [Phase 21-drag-and-drop]: reorderFolders uses Promise.all of N supabase updates; moveToolToFolder is a focused action to avoid silent field-wipe
-- [Phase 21]: overlay grip approach for tool rows: absolute positioned GripVertical inside first TableCell — avoids colSpan change to folder headers
-- [Phase 21]: dragOverFolderId state instead of secondary useDroppable on folder headers — useSortable already registers droppable; double-registration causes dnd-kit warnings
-- [Phase 21]: router.refresh() after tool move (not optimistic local state): toolConfigs is prop-derived; refresh is the correct approach
+- ManyChat is a trigger source — not a Vapi equivalent. Same orchestration engine, new inbound surface.
+- No HMAC signing on inbound webhook (ManyChat limitation) — shared secret header `X-Operator-Secret`
+- Always HTTP 200 after secret validation to prevent ManyChat retries on application errors
+- One ManyChat account per org (`UNIQUE(org_id)`) — relaxable in future migration
+- Flows created manually in ManyChat UI; `getFlows` API used only for flow selector dropdown
+- Event log (`manychat_events`) is append-only — full audit trail preserved
+- Standardized payload template provided to admin for ManyChat External Request config
 
-### Codebase Starting Points
+## Pending Todos
 
-- `tool_configs` table has flat `folder: string | null` column (to be replaced by `folder_id` FK)
-- `organizations` table has `tool_folder_order: string[]` (to be superseded by `position` on new table)
-- Existing folder collapsible UI is 1-level only — Phase 20 extends to 2 levels
-
-### Pending Todos
-
-None yet.
-
-### Blockers/Concerns
-
-None yet.
+- Run `npx supabase db push` when SUPABASE_DB_PASSWORD is available (migrations 018-020 + 025 pending)
 
 ## Session Continuity
 
-Last session: 2026-05-06T17:37:24.313Z
-Stopped at: Completed 21-02-PLAN.md
-Resume file: None
+Last session: 2026-05-06
+Stopped at: v1.6 milestone started — requirements being defined
