@@ -115,7 +115,10 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
   3. A POST to /api/manychat/webhook with a valid X-Operator-Secret header returns HTTP 200 and the event appears in manychat_events
   4. A POST to /api/manychat/webhook with an invalid or missing X-Operator-Secret header returns HTTP 403 and no event is logged
   5. Every accepted inbound event is logged to manychat_events with status unmatched (before routing is wired)
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 22-01-PLAN.md — Migration 026 + database.ts types + Wave 0 test stubs
+- [ ] 22-02-PLAN.md — Channel server actions + webhook POST handler
 
 ### Phase 23: Inbound Routing
 **Goal**: Inbound ManyChat webhook events are matched against routing rules and dispatched to the existing action engine
@@ -172,10 +175,10 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 22. Foundation | v1.6 | 0/? | Not started | - |
+| 22. Foundation | v1.6 | 0/2 | In progress | - |
 | 23. Inbound Routing | v1.6 | 0/? | Not started | - |
 | 24. Dashboard Config UI | v1.6 | 0/? | Not started | - |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 
-*Last updated: 2026-05-06 — v1.6 roadmap created (5 phases, 20 requirements mapped)*
+*Last updated: 2026-05-06 — Phase 22 planned (2 plans, 2 waves)*
