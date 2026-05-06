@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
 status: executing
-stopped_at: Completed 19-db-foundation/19-01-PLAN.md
-last_updated: "2026-05-06T14:30:23.539Z"
+stopped_at: Completed 19-db-foundation/19-02-PLAN.md
+last_updated: "2026-05-06T14:53:14.719Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 19 (DB Foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-05-06
 
@@ -56,6 +56,7 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - v1.5: `@dnd-kit` already installed — extend existing DnD for folder reorder and tool-move
 - [Phase 19-db-foundation]: UNIQUE NULLS NOT DISTINCT (PG15+) for tool_folders top-level uniqueness; fallback documented in migration comments
 - [Phase 19-db-foundation]: Migration 025 committed without db push (SUPABASE_DB_PASSWORD auth gate) — follows established project deferral pattern
+- [Phase 19-db-foundation]: ToolFolder type defined inline in actions.ts for ergonomic server-action exports; createFolder sets position: 0 by default
 
 ### Codebase Starting Points
 
@@ -73,6 +74,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T14:30:23.528Z
-Stopped at: Completed 19-db-foundation/19-01-PLAN.md
+Last session: 2026-05-06T14:53:14.715Z
+Stopped at: Completed 19-db-foundation/19-02-PLAN.md
 Resume file: None

@@ -92,7 +92,7 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 **Plans**: 3 plans
 Plans:
 - [x] 19-01-PLAN.md — SQL migration (025_tool_folders.sql) + Vitest test stub
-- [ ] 19-02-PLAN.md — TypeScript types update + server actions rewrite
+- [x] 19-02-PLAN.md — TypeScript types update + server actions rewrite
 - [ ] 19-03-PLAN.md — App caller updates (page.tsx, tools-table.tsx, tool-config-form.tsx) + full build verification
 
 ### Phase 20: Folder & Subfolder CRUD
@@ -125,7 +125,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 19. DB Foundation | v1.5 | 1/3 | In Progress|  |
+| 19. DB Foundation | v1.5 | 2/3 | In Progress|  |
 | 20. Folder & Subfolder CRUD | v1.5 | 0/TBD | Not started | - |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
