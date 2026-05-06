@@ -175,7 +175,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 22. Foundation | v1.6 | 2/2 | Complete   | 2026-05-06 |
+| 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 0/? | Not started | - |
 | 24. Dashboard Config UI | v1.6 | 0/? | Not started | - |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
