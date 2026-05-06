@@ -76,7 +76,7 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
 - [x] **Phase 19: DB Foundation** — Migrate from flat folder string to a relational `tool_folders` table with `parent_id` supporting 2-level hierarchy; update server actions and data fetching (completed 2026-05-06)
 - [x] **Phase 20: Folder & Subfolder CRUD** — Create, rename inline, and delete (with confirmation modal) for both top-level folders and subfolders; collapsible section rendering and Ungrouped section (completed 2026-05-06)
-- [ ] **Phase 21: Drag and Drop** — Reorder top-level folders via DnD; move tools between folders by dragging over the target folder header with visual highlight
+- [x] **Phase 21: Drag and Drop** — Reorder top-level folders via DnD; move tools between folders by dragging over the target folder header with visual highlight (completed 2026-05-06)
 
 ## Phase Details
 
@@ -121,8 +121,8 @@ Plans:
   3. Admin can drop a dragged tool onto a folder or subfolder header and the tool moves to that folder, disappearing from its previous location immediately
 **Plans**: 2 plans
 Plans:
-- [ ] 21-01-PLAN.md — reorderFolders + moveToolToFolder server actions + test stubs
-- [ ] 21-02-PLAN.md — tools-table.tsx: DraggableToolRow + DnD handlers + DragOverlay + isDropTarget highlight
+- [x] 21-01-PLAN.md — reorderFolders + moveToolToFolder server actions + test stubs
+- [x] 21-02-PLAN.md — tools-table.tsx: DraggableToolRow + DnD handlers + DragOverlay + isDropTarget highlight
 
 ## Progress
 
@@ -132,6 +132,6 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
 | 20. Folder & Subfolder CRUD | v1.5 | 3/3 | Complete    | 2026-05-06 |
-| 21. Drag and Drop | v1.5 | 0/2 | Planned    |  |
+| 21. Drag and Drop | v1.5 | 2/2 | Complete   | 2026-05-06 |
 
 *Last updated: 2026-05-06 — Phase 21 planned (2 plans, 2 waves)*

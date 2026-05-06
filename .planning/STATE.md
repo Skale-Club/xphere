@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: executing
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-05-06T17:29:37Z"
-last_activity: 2026-05-06 -- Phase 21 Plan 01 completed
+status: verifying
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-05-06T17:37:24.318Z"
+last_activity: 2026-05-06
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 75
 ---
 
@@ -20,8 +20,8 @@ progress:
 
 Phase: 21 (Drag and Drop) — EXECUTING
 Plan: 2 of 2
-Status: Plan 01 complete — executing Plan 02 next
-Last activity: 2026-05-06 -- Phase 21 Plan 01 completed
+Status: Phase complete — ready for verification
+Last activity: 2026-05-06
 
 Progress: [████████░░] 75%
 
@@ -66,6 +66,9 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - [Phase 20]: folderDeleteTarget stores full ToolFolder object so modal title can display folder name without extra lookup
 - [Phase 20]: buttonVariants({ variant: 'outline' }) applied as className to AlertDialogAction — AlertDialogAction has no variant prop
 - [Phase 21-drag-and-drop]: reorderFolders uses Promise.all of N supabase updates; moveToolToFolder is a focused action to avoid silent field-wipe
+- [Phase 21]: overlay grip approach for tool rows: absolute positioned GripVertical inside first TableCell — avoids colSpan change to folder headers
+- [Phase 21]: dragOverFolderId state instead of secondary useDroppable on folder headers — useSortable already registers droppable; double-registration causes dnd-kit warnings
+- [Phase 21]: router.refresh() after tool move (not optimistic local state): toolConfigs is prop-derived; refresh is the correct approach
 
 ### Codebase Starting Points
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T17:25:31.600Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-05-06T17:37:24.313Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None
