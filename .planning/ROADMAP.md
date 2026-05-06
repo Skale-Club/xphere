@@ -132,6 +132,6 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
 | 20. Folder & Subfolder CRUD | v1.5 | 3/3 | Complete    | 2026-05-06 |
-| 21. Drag and Drop | v1.5 | 2/2 | Complete   | 2026-05-06 |
+| 21. Drag and Drop | v1.5 | 2/2 | Complete    | 2026-05-06 |
 
 *Last updated: 2026-05-06 — Phase 21 planned (2 plans, 2 waves)*
