@@ -105,8 +105,11 @@ Plans:
   3. Admin can click any folder or subfolder label to rename it inline — the label becomes an input, Enter confirms the new name, Escape cancels
   4. Admin can delete a folder or subfolder via a confirmation modal that clearly offers two options: orphan its tools (move them to Ungrouped) or delete them along with the folder
   5. Tools not assigned to any folder appear in an "Ungrouped" section at the bottom of the list
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 3 plans
+Plans:
+- [ ] 20-01-PLAN.md — deleteFolderWithTools server action + test stub + tool-config-form folder Select
+- [ ] 20-02-PLAN.md — tools-table.tsx: collapse toggle + SubfolderHeader + inline rename state and handlers
+- [ ] 20-03-PLAN.md — tools-table.tsx: create folder/subfolder wiring + folder delete modal + Ungrouped label
 
 ### Phase 21: Drag and Drop
 **Goal**: Admins can reorder top-level folders and move tools between folders by dragging
@@ -126,7 +129,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
-| 20. Folder & Subfolder CRUD | v1.5 | 0/TBD | Not started | - |
+| 20. Folder & Subfolder CRUD | v1.5 | 0/3 | Not started | - |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
-*Last updated: 2026-05-06 — Phase 19 planned (3 plans, 3 waves)*
+*Last updated: 2026-05-06 — Phase 20 planned (3 plans, 3 waves)*
