@@ -119,8 +119,10 @@ Plans:
   1. Admin can drag a top-level folder header to a new position in the list and the order persists after page reload
   2. Admin can drag a tool row and hover over a folder or subfolder header — the target header highlights visually to indicate it is a valid drop target
   3. Admin can drop a dragged tool onto a folder or subfolder header and the tool moves to that folder, disappearing from its previous location immediately
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — reorderFolders + moveToolToFolder server actions + test stubs
+- [ ] 21-02-PLAN.md — tools-table.tsx: DraggableToolRow + DnD handlers + DragOverlay + isDropTarget highlight
 
 ## Progress
 
@@ -130,6 +132,6 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
 | 20. Folder & Subfolder CRUD | v1.5 | 3/3 | Complete    | 2026-05-06 |
-| 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
+| 21. Drag and Drop | v1.5 | 0/2 | Not started | - |
 
-*Last updated: 2026-05-06 — Phase 20 planned (3 plans, 3 waves)*
+*Last updated: 2026-05-06 — Phase 21 planned (2 plans, 2 waves)*
