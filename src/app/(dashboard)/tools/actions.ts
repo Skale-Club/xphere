@@ -12,7 +12,7 @@ export type ToolConfigWithIntegration = {
   config: unknown
   fallback_message: string
   is_active: boolean
-  folder: string | null
+  folder_id: string | null
   labels: string[]
   created_at: string
   integrations: {
@@ -22,13 +22,76 @@ export type ToolConfigWithIntegration = {
   } | null
 }
 
+export type ToolFolder = {
+  id: string
+  org_id: string
+  name: string
+  parent_id: string | null
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export async function getFolders(): Promise<ToolFolder[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('tool_folders')
+    .select('*')
+    .order('position', { ascending: true })
+  if (error || !data) return []
+  return data as ToolFolder[]
+}
+
+export async function createFolder(
+  name: string,
+  parentId: string | null = null
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+  const { error } = await supabase.from('tool_folders').insert({
+    org_id: orgId,
+    name,
+    parent_id: parentId,
+    position: 0,
+  })
+  if (error) return { error: error.message }
+  revalidatePath('/tools')
+}
+
+export async function updateFolder(
+  id: string,
+  data: { name?: string; position?: number }
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('tool_folders')
+    .update(data)
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/tools')
+}
+
+export async function deleteFolder(id: string): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('tool_folders').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/tools')
+}
+
 export async function createToolConfig(data: {
   toolName: string
   actionType: string
   integrationId: string
   fallbackMessage: string
   config?: Record<string, unknown>
-  folder?: string | null
+  folder_id?: string | null
   labels?: string[]
 }): Promise<{ error?: string } | void> {
   const user = await getUser()
@@ -50,7 +113,7 @@ export async function createToolConfig(data: {
     integration_id: data.integrationId,
     fallback_message: data.fallbackMessage,
     config: (data.config ?? {}) as Json,
-    folder: data.folder ?? null,
+    folder_id: data.folder_id ?? null,
     labels: data.labels ?? [],
   })
 
@@ -72,7 +135,7 @@ export async function updateToolConfig(
     integrationId: string
     fallbackMessage: string
     config?: Record<string, unknown>
-    folder?: string | null
+    folder_id?: string | null
     labels?: string[]
   }
 ): Promise<{ error?: string } | void> {
@@ -88,7 +151,7 @@ export async function updateToolConfig(
       integration_id: data.integrationId,
       fallback_message: data.fallbackMessage,
       config: (data.config ?? {}) as Json,
-      folder: data.folder ?? null,
+      folder_id: data.folder_id ?? null,
       labels: data.labels ?? [],
     })
     .eq('id', id)
@@ -100,29 +163,6 @@ export async function updateToolConfig(
     return { error: error.message }
   }
 
-  revalidatePath('/tools')
-}
-
-export async function getFolderOrder(): Promise<string[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('organizations')
-    .select('tool_folder_order')
-    .single()
-  return data?.tool_folder_order ?? []
-}
-
-export async function saveFolderOrder(order: string[]): Promise<{ error?: string } | void> {
-  const user = await getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { error: 'No organization found.' }
-  const { error } = await supabase
-    .from('organizations')
-    .update({ tool_folder_order: order })
-    .eq('id', orgId)
-  if (error) return { error: error.message }
   revalidatePath('/tools')
 }
 
@@ -150,4 +190,3 @@ export async function deleteToolConfig(id: string): Promise<{ error?: string } |
 
   revalidatePath('/tools')
 }
-
