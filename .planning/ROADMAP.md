@@ -149,7 +149,7 @@ Plans:
   4. Admin can click a "Test Connection" button that calls the ManyChat getFlows endpoint and shows success or an error message
 **Plans**: 2 plans
 Plans:
-- [ ] 24-01-PLAN.md — Server actions: getManychatChannel, testManychatConnection, MANYCHAT_PAYLOAD_TEMPLATE (TDD)
+- [x] 24-01-PLAN.md — Server actions: getManychatChannel, testManychatConnection, MANYCHAT_PAYLOAD_TEMPLATE (TDD)
 - [ ] 24-02-PLAN.md — UI page: /integrations/manychat settings + root integrations page ManyChat card
 
 ### Phase 25: Outbound Actions
@@ -185,7 +185,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
-| 24. Dashboard Config UI | v1.6 | 0/2 | Planned | - |
+| 24. Dashboard Config UI | v1.6 | 1/2 | In Progress|  |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 
