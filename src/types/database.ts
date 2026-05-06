@@ -163,7 +163,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat'
           name: string
           encrypted_api_key: string
           key_hint: string | null
@@ -176,7 +176,7 @@ export interface Database {
         Insert: {
           id?: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat'
           name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -903,6 +903,91 @@ export interface Database {
           }
         ]
       }
+      manychat_channels: {
+        Row: {
+          id: string
+          org_id: string
+          channel_name: string
+          encrypted_api_key: string
+          key_hint: string | null
+          webhook_secret: string
+          is_active: boolean
+          config: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id?: string       // set by RLS via get_current_org_id() — do not pass manually
+          channel_name: string
+          encrypted_api_key: string
+          key_hint?: string | null
+          webhook_secret: string
+          is_active?: boolean
+          config?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          channel_name?: string
+          encrypted_api_key?: string
+          key_hint?: string | null
+          webhook_secret?: string
+          is_active?: boolean
+          config?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'manychat_channels_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      manychat_events: {
+        Row: {
+          id: string
+          org_id: string
+          channel_id: string
+          event_type: string
+          event_payload: Json
+          matched_rule_id: string | null
+          status: 'matched' | 'unmatched' | 'error'
+          action_log_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          channel_id: string
+          event_type: string
+          event_payload: Json
+          matched_rule_id?: string | null
+          status: 'matched' | 'unmatched' | 'error'
+          action_log_id?: string | null
+          created_at?: string
+        }
+        Update: Record<string, never>    // append-only — no updates allowed
+        Relationships: [
+          {
+            foreignKeyName: 'manychat_events_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_events_channel_id_fkey'
+            columns: ['channel_id']
+            isOneToOne: false
+            referencedRelation: 'manychat_channels'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -926,7 +1011,7 @@ export interface Database {
     Enums: {
       user_role: UserRole
       action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
-      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi'
+      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat'
     }
   }
 }

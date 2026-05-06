@@ -7,7 +7,7 @@ import { encrypt, decrypt, maskApiKey } from '@/lib/crypto'
 export type IntegrationForDisplay = {
   id: string
   organization_id: string
-  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi'
+  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat'
   name: string
   masked_api_key: string // ••••••••last4 — never full key
   location_id: string | null

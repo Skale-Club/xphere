@@ -34,6 +34,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
   vapi: 'Vapi',
+  manychat: 'ManyChat',
 }
 
 const integrationSchema = z.object({
