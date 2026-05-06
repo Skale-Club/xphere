@@ -99,7 +99,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 - [x] **Phase 22: Foundation** — DB migrations (manychat_channels, manychat_events, enum extensions), webhook endpoint with secret verification, channel server actions
  (completed 2026-05-06)
-- [ ] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch
+- [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
 - [ ] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection)
 - [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
 - [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
@@ -136,7 +136,7 @@ Plans:
 - [x] 23-01-PLAN.md — Migration 027 + database.ts type widening + Wave 0 RED test stubs
 - [x] 23-02-PLAN.md — resolveRule + resolveToolById + dispatchManychatEvent modules + logAction extension
 - [x] 23-03-PLAN.md — Rule CRUD server actions (createManychatRule, updateManychatRule, deleteManychatRule, getManychatRules)
-- [ ] 23-04-PLAN.md — Webhook integration (inline dispatch) + extended webhook tests
+- [x] 23-04-PLAN.md — Webhook integration (inline dispatch) + extended webhook tests
 
 ### Phase 24: Dashboard Config UI
 **Goal**: Admins have a complete self-serve setup flow to connect ManyChat and get everything they need to configure the External Request in ManyChat
@@ -182,7 +182,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
-| 23. Inbound Routing | v1.6 | 3/4 | In Progress|  |
+| 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 0/? | Not started | - |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
