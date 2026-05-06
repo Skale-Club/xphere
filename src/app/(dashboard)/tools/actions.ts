@@ -139,6 +139,25 @@ export async function getToolConfigs(): Promise<ToolConfigWithIntegration[]> {
   return data as ToolConfigWithIntegration[]
 }
 
+export async function renameToolConfig(
+  id: string,
+  name: string,
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('tool_configs')
+    .update({ tool_name: name })
+    .eq('id', id)
+  if (error) {
+    if (error.code === '23505') return { error: 'A tool with this name already exists for your organization.' }
+    return { error: error.message }
+  }
+  revalidatePath('/tools')
+  revalidatePath(`/tools/${id}`)
+}
+
 export async function deleteToolConfig(id: string): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }

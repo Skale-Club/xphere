@@ -11,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { useBreadcrumbOverride } from './breadcrumb-override-context'
 
 function toTitleCase(str: string) {
   return str
@@ -21,6 +22,7 @@ function toTitleCase(str: string) {
 export function AppBreadcrumb() {
   const pathname = usePathname()
   const segments = pathname.split('/').filter(Boolean)
+  const { getSegmentLabel } = useBreadcrumbOverride()
 
   if (segments.length === 0) {
     return (
@@ -46,10 +48,10 @@ export function AppBreadcrumb() {
               {index > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage>{toTitleCase(segment)}</BreadcrumbPage>
+                  <BreadcrumbPage>{getSegmentLabel(segment) ?? toTitleCase(segment)}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link href={href}>{toTitleCase(segment)}</Link>
+                    <Link href={href}>{getSegmentLabel(segment) ?? toTitleCase(segment)}</Link>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

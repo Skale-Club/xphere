@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { OrgSwitcher } from '@/components/layout/org-switcher'
 import { AppBreadcrumb } from '@/components/layout/app-breadcrumb'
+import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -44,6 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
+    <BreadcrumbOverrideProvider>
     <SidebarProvider>
       <AppSidebar user={user} isPlatformAdmin={user.email === process.env.PLATFORM_ADMIN_EMAIL} />
       <SidebarInset>
@@ -60,5 +62,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </SidebarInset>
     </SidebarProvider>
+    </BreadcrumbOverrideProvider>
   )
 }

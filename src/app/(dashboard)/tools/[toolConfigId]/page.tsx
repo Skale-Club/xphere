@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/card'
 import { LogsTable } from '@/components/tools/logs-table'
 import { LogsFilters } from '@/components/tools/logs-filters'
+import { InlineToolName } from '@/components/tools/inline-tool-name'
 import type { LogStatus } from '@/app/(dashboard)/tools/logs/actions'
 
 type ToolConfigRow = Database['public']['Tables']['tool_configs']['Row']
@@ -106,7 +107,7 @@ export default async function ToolDetailPage({
       </Link>
 
       <div className="space-y-1">
-        <h1 className="text-lg font-semibold">{typedToolConfig.tool_name}</h1>
+        <InlineToolName toolConfigId={toolConfigId} initialName={typedToolConfig.tool_name} />
         <p className="text-sm text-muted-foreground">
           View this tool configuration and its execution logs.
         </p>
