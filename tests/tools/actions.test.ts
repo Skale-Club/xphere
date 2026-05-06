@@ -38,3 +38,19 @@ describe('deleteFolderWithTools: deletes tools in folder and subfolders, then de
   it.todo('returns { error } if tool_configs delete fails')
   it.todo('returns { error } if folder delete fails')
 })
+
+describe('reorderFolders: batch-updates folder positions', () => {
+  it.todo('rejects unauthenticated call — returns { error: "Not authenticated." }')
+  it.todo('returns void for empty orderedIds array (no DB calls)')
+  it.todo('updates position=0 for first id, position=1 for second id, etc.')
+  it.todo('returns { error: "Failed to save folder order." } when any update fails')
+  it.todo('calls revalidatePath("/tools") on success')
+})
+
+describe('moveToolToFolder: updates tool folder_id', () => {
+  it.todo('rejects unauthenticated call — returns { error: "Not authenticated." }')
+  it.todo('updates tool_configs.folder_id to the given folderId')
+  it.todo('accepts null folderId — sets tool_configs.folder_id to null (Ungrouped)')
+  it.todo('returns { error } on Supabase error')
+  it.todo('calls revalidatePath("/tools") on success')
+})
