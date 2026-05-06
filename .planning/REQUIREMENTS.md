@@ -1,47 +1,59 @@
-# Milestone v1.5 Requirements — Tools Folder System
+# Milestone v1.6 Requirements — ManyChat Integration
 
 **Status:** Active
-**Milestone:** v1.5 Tools Folder System
+**Milestone:** v1.6 ManyChat Integration
 **Created:** 2026-05-06
+**Seed document:** `projects/manychat-integration/PLANNING.md`
 
 ---
 
-## FOLDER — Top-level folder management
+## CHANNEL — ManyChat channel setup (one per org)
 
-- [ ] **FOLDER-01:** Admin can create a named top-level folder for tools
-- [ ] **FOLDER-02:** Admin can rename a folder by clicking its label inline (Enter confirms, Escape cancels)
-- [ ] **FOLDER-03:** Admin can delete a folder via a confirmation modal that offers to orphan its tools or delete them along with it
-- [ ] **FOLDER-04:** Admin can reorder top-level folders via drag and drop
+- [ ] **CHANNEL-01:** Admin can connect a ManyChat account by entering an API key (stored encrypted via AES-256-GCM)
+- [ ] **CHANNEL-02:** Admin can see the generated webhook URL and secret to copy into ManyChat External Request config
+- [ ] **CHANNEL-03:** Admin can see a copyable JSON payload template for ManyChat External Request body config
+- [ ] **CHANNEL-04:** Admin can test the API connection (verify key validity via ManyChat getFlows endpoint)
+- [ ] **CHANNEL-05:** Admin can disconnect (delete) a ManyChat channel
 
-## SUBFOLDER — Nested folders (max depth: 2 levels — folder > subfolder)
+## WEBHOOK — Inbound event ingestion
 
-- [ ] **SUBFOLDER-01:** Admin can create a subfolder inside a top-level folder via a (+) button on the parent folder header
-- [ ] **SUBFOLDER-02:** Admin can rename a subfolder inline (same pattern as top-level rename)
-- [ ] **SUBFOLDER-03:** Admin can delete a subfolder via the same confirmation modal (orphan or delete its tools)
+- [ ] **WEBHOOK-01:** POST /api/manychat/webhook receives External Request events from ManyChat flows
+- [ ] **WEBHOOK-02:** Requests with invalid or missing X-Operator-Secret header are rejected with HTTP 403
+- [ ] **WEBHOOK-03:** All inbound events are logged to manychat_events with status: matched, unmatched, or error
+- [ ] **WEBHOOK-04:** Webhook always returns HTTP 200 after secret validation (prevents ManyChat retry storms)
 
-## MOVE — Moving tools between folders
+## ROUTING — Inbound event → action dispatch
 
-- [ ] **MOVE-01:** Admin can move a tool to a different folder or subfolder by dragging it over the target folder header
-- [ ] **MOVE-02:** The target folder header highlights visually when a tool is dragged over it as a drop target
+- [ ] **ROUTING-01:** Admin can create a routing rule: event_type + condition JSONB → tool_config action
+- [ ] **ROUTING-02:** Admin can edit and delete routing rules
+- [ ] **ROUTING-03:** When a webhook matches a rule, the configured action (GHL, Twilio, etc.) executes via the existing action engine
+- [ ] **ROUTING-04:** Matched events are linked to the action_logs entry via manychat_events.action_log_id
 
-## DISPLAY — Visual presentation
+## OUTBOUND — Operator → ManyChat actions
 
-- [ ] **DISPLAY-01:** Folders and their subfolders render as collapsible sections inline within the tools table
-- [ ] **DISPLAY-02:** Tools not assigned to any folder appear in a separate "Ungrouped" section at the bottom of the list
+- [ ] **OUTBOUND-01:** manychat_set_field action type sets a subscriber custom field via ManyChat API
+- [ ] **OUTBOUND-02:** manychat_add_tag action type adds a tag to a subscriber via ManyChat API
+- [ ] **OUTBOUND-03:** manychat_trigger_flow action type triggers an existing ManyChat flow for a subscriber
+- [ ] **OUTBOUND-04:** manychat_send_message action type sends a message to a subscriber via ManyChat API
+
+## OBSERVABILITY — Event log + rules UI
+
+- [ ] **OBS-01:** Admin can view a paginated log of all inbound events with status indicators
+- [ ] **OBS-02:** Admin can filter the event log by status and date range
+- [ ] **OBS-03:** Admin can view the full raw payload of any logged event
 
 ---
 
 ## Future Requirements
 
-- Bulk-move multiple tools to a folder in one action
-- Folder color or icon customization
-- Keyboard navigation for folder tree
+- Multiple ManyChat accounts per org
+- Rule priority ordering UI
+- Webhook retry handling and dead-letter queue
 
 ## Out of Scope
 
-- More than 2 levels of folder nesting
-- Shared folders across organizations
-- Folder-level permissions
+- ManyChat flow creation or editing (ManyChat API does not support this)
+- HMAC signature verification (ManyChat does not support it — shared secret header used instead)
 
 ---
 
@@ -49,14 +61,23 @@
 
 | Requirement  | Phase | Status  |
 |--------------|-------|---------|
-| FOLDER-01    | 20    | Complete |
-| FOLDER-02    | 20    | Complete |
-| FOLDER-03    | 20    | Complete |
-| FOLDER-04    | 21    | Complete |
-| SUBFOLDER-01 | 20    | Complete |
-| SUBFOLDER-02 | 20    | Complete |
-| SUBFOLDER-03 | 20    | Complete |
-| MOVE-01      | 21    | Complete |
-| MOVE-02      | 21    | Complete |
-| DISPLAY-01   | 20    | Complete |
-| DISPLAY-02   | 20    | Complete |
+| CHANNEL-01   | TBD   | Pending |
+| CHANNEL-02   | TBD   | Pending |
+| CHANNEL-03   | TBD   | Pending |
+| CHANNEL-04   | TBD   | Pending |
+| CHANNEL-05   | TBD   | Pending |
+| WEBHOOK-01   | TBD   | Pending |
+| WEBHOOK-02   | TBD   | Pending |
+| WEBHOOK-03   | TBD   | Pending |
+| WEBHOOK-04   | TBD   | Pending |
+| ROUTING-01   | TBD   | Pending |
+| ROUTING-02   | TBD   | Pending |
+| ROUTING-03   | TBD   | Pending |
+| ROUTING-04   | TBD   | Pending |
+| OUTBOUND-01  | TBD   | Pending |
+| OUTBOUND-02  | TBD   | Pending |
+| OUTBOUND-03  | TBD   | Pending |
+| OUTBOUND-04  | TBD   | Pending |
+| OBS-01       | TBD   | Pending |
+| OBS-02       | TBD   | Pending |
+| OBS-03       | TBD   | Pending |
