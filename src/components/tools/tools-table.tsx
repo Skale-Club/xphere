@@ -28,12 +28,12 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Wrench, MoreHorizontal, FolderPlus, GripVertical, ScrollText, ChevronRight, ChevronDown, Pencil } from 'lucide-react'
+import { Wrench, MoreHorizontal, FolderPlus, GripVertical, ScrollText, ChevronRight, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ToolConfigWithIntegration, ToolFolder } from '@/app/(dashboard)/tools/actions'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
-import { deleteToolConfig, updateFolder } from '@/app/(dashboard)/tools/actions'
-import { Button } from '@/components/ui/button'
+import { deleteToolConfig, updateFolder, createFolder, deleteFolder, deleteFolderWithTools } from '@/app/(dashboard)/tools/actions'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -98,6 +98,8 @@ function SortableFolderHeader({
   onRenameChange,
   onRenameKeyDown,
   onRenameBlur,
+  onAddSubfolder,
+  onDeleteClick,
 }: {
   id: string
   label: string
@@ -111,6 +113,8 @@ function SortableFolderHeader({
   onRenameChange: (v: string) => void
   onRenameKeyDown: (e: React.KeyboardEvent) => void
   onRenameBlur: (e: React.FocusEvent) => void
+  onAddSubfolder: () => void
+  onDeleteClick: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id })
@@ -169,6 +173,24 @@ function SortableFolderHeader({
             >
               <Pencil className="h-3 w-3" />
             </button>
+            <button
+              type="button"
+              onClick={onAddSubfolder}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Add subfolder to ${label}`}
+              data-rename-cancel="true"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={onDeleteClick}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Delete ${label}`}
+              data-rename-cancel="true"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
           </div>
         </div>
       </TableCell>
@@ -176,7 +198,7 @@ function SortableFolderHeader({
   )
 }
 
-// ─── Static folder header (for "Other" — not draggable) ───────────────────────
+// ─── Static folder header (for "Ungrouped" — not draggable) ─────────────────────
 
 function StaticFolderHeader({ label, count, colSpan }: { label: string; count: number; colSpan: number }) {
   return (
@@ -208,6 +230,7 @@ function SubfolderHeader({
   onRenameChange,
   onRenameKeyDown,
   onRenameBlur,
+  onDeleteClick,
 }: {
   folder: ToolFolder
   count: number
@@ -220,6 +243,7 @@ function SubfolderHeader({
   onRenameChange: (v: string) => void
   onRenameKeyDown: (e: React.KeyboardEvent) => void
   onRenameBlur: (e: React.FocusEvent) => void
+  onDeleteClick: () => void
 }) {
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/40 group">
@@ -265,6 +289,15 @@ function SubfolderHeader({
             >
               <Pencil className="h-3 w-3" />
             </button>
+            <button
+              type="button"
+              onClick={onDeleteClick}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              aria-label={`Delete ${folder.name}`}
+              data-rename-cancel="true"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
           </div>
         </div>
       </TableCell>
@@ -297,6 +330,9 @@ export function ToolsTable({
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [addingSubfolderTo, setAddingSubfolderTo] = useState<string | null>(null)
+  const [newSubfolderName, setNewSubfolderName] = useState('')
+  const [folderDeleteTarget, setFolderDeleteTarget] = useState<{ folder: ToolFolder } | null>(null)
 
   // Full folder list passed to form for Phase 20 picker
   const existingFolders = useMemo(
@@ -365,9 +401,38 @@ export function ToolsTable({
       setNewFolderName('')
       return
     }
-    // TODO Phase 20: call createFolder(name) server action here
     setAddingFolder(false)
     setNewFolderName('')
+    startTransition(async () => {
+      const result = await createFolder(name, null)
+      if (result && 'error' in result && result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Folder created.')
+        router.refresh()
+      }
+    })
+  }
+
+  function handleAddSubfolder(e: React.FormEvent, parentFolderId: string) {
+    e.preventDefault()
+    const name = newSubfolderName.trim()
+    if (!name) {
+      setAddingSubfolderTo(null)
+      setNewSubfolderName('')
+      return
+    }
+    setAddingSubfolderTo(null)
+    setNewSubfolderName('')
+    startTransition(async () => {
+      const result = await createFolder(name, parentFolderId)
+      if (result && 'error' in result && result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Subfolder created.')
+        router.refresh()
+      }
+    })
   }
 
   function openCreateSheet() {
@@ -676,7 +741,42 @@ export function ToolsTable({
                               if (e.relatedTarget?.getAttribute('data-rename-cancel') === 'true') return
                               commitRename(folder.id)
                             }}
+                            onAddSubfolder={() => { setAddingSubfolderTo(folder.id); setNewSubfolderName('') }}
+                            onDeleteClick={() => setFolderDeleteTarget({ folder })}
                           />
+                        )}
+                        {addingSubfolderTo === folder.id && (
+                          <TableRow>
+                            <TableCell colSpan={columns.length} className="py-1 pl-10">
+                              <form onSubmit={(e) => handleAddSubfolder(e, folder.id)} className="flex items-center gap-1">
+                                <Input
+                                  autoFocus
+                                  value={newSubfolderName}
+                                  onChange={(e) => setNewSubfolderName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                      setAddingSubfolderTo(null)
+                                      setNewSubfolderName('')
+                                    }
+                                  }}
+                                  placeholder="Subfolder name"
+                                  className="h-7 w-36 text-xs"
+                                />
+                                <Button type="submit" size="sm" variant="outline" className="h-7 text-xs">
+                                  Add Subfolder
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => { setAddingSubfolderTo(null); setNewSubfolderName('') }}
+                                >
+                                  Cancel
+                                </Button>
+                              </form>
+                            </TableCell>
+                          </TableRow>
                         )}
                         {!isCollapsed && (
                           <>
@@ -703,6 +803,7 @@ export function ToolsTable({
                                       if (e.relatedTarget?.getAttribute('data-rename-cancel') === 'true') return
                                       commitRename(sub.id)
                                     }}
+                                    onDeleteClick={() => setFolderDeleteTarget({ folder: sub })}
                                   />
                                   {!subIsCollapsed && subTools.map((tool) => {
                                     const row = rowById.get(tool.id)
@@ -740,12 +841,12 @@ export function ToolsTable({
                   })}
                 </SortableContext>
 
-              {/* "Other" group — not sortable, always last */}
+              {/* "Ungrouped" group — not sortable, always last */}
               {otherTools.length > 0 && (
                 <>
                   {showHeaders && (
                     <StaticFolderHeader
-                      label="Other"
+                      label="Ungrouped"
                       count={otherTools.length}
                       colSpan={columns.length}
                     />
