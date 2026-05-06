@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
 status: executing
-stopped_at: Completed 20-folder-subfolder-crud-01-PLAN.md
-last_updated: "2026-05-06T16:06:17.517Z"
+stopped_at: Completed 20-folder-subfolder-crud-02-PLAN.md
+last_updated: "2026-05-06T16:28:40.532Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 20 (Folder & Subfolder CRUD) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-05-06
 
@@ -61,6 +61,8 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - [Phase 19-db-foundation]: handleAddFolder and handleDragEnd server persistence stubbed — Phase 20/21 scope
 - [Phase 20-folder-subfolder-crud]: Separate deleteFolderWithTools action (not a parameter on deleteFolder) — each action has one clear purpose; delete modal handler decides which to call
 - [Phase 20-folder-subfolder-crud]: Sentinel '__none__' for Radix Select null state — Radix Select does not accept null; '__none__' is converted back to null before DB payload is sent
+- [Phase 20-folder-subfolder-crud]: Tasks 1+2 committed together — render loop references startRename/commitRename; splitting would fail TypeScript
+- [Phase 20-folder-subfolder-crud]: StaticFolderHeader font-medium migrated to font-semibold — plan requires no font-medium on folder label spans
 
 ### Codebase Starting Points
 
@@ -78,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T16:06:17.494Z
-Stopped at: Completed 20-folder-subfolder-crud-01-PLAN.md
+Last session: 2026-05-06T16:28:40.528Z
+Stopped at: Completed 20-folder-subfolder-crud-02-PLAN.md
 Resume file: None

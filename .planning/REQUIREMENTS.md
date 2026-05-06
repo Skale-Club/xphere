@@ -50,11 +50,11 @@
 | Requirement  | Phase | Status  |
 |--------------|-------|---------|
 | FOLDER-01    | 20    | Pending |
-| FOLDER-02    | 20    | Pending |
+| FOLDER-02    | 20    | Complete |
 | FOLDER-03    | 20    | Complete |
 | FOLDER-04    | 21    | Pending |
 | SUBFOLDER-01 | 20    | Pending |
-| SUBFOLDER-02 | 20    | Pending |
+| SUBFOLDER-02 | 20    | Complete |
 | SUBFOLDER-03 | 20    | Complete |
 | MOVE-01      | 21    | Pending |
 | MOVE-02      | 21    | Pending |
