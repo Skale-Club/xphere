@@ -199,7 +199,7 @@ describe('CHANNEL-02: getManychatChannel', () => {
 
 describe('CHANNEL-03: MANYCHAT_PAYLOAD_TEMPLATE', () => {
   it('matches the canonical template from PLANNING.md', async () => {
-    const { MANYCHAT_PAYLOAD_TEMPLATE } = await import('@/app/(dashboard)/integrations/manychat/actions')
+    const { MANYCHAT_PAYLOAD_TEMPLATE } = await import('@/app/(dashboard)/integrations/manychat/constants')
     expect(MANYCHAT_PAYLOAD_TEMPLATE).toEqual({
       subscriber_id: '{{user.id}}',
       first_name: '{{user.first_name}}',
