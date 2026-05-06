@@ -61,23 +61,23 @@
 
 | Requirement  | Phase | Status  |
 |--------------|-------|---------|
-| CHANNEL-01   | TBD   | Pending |
-| CHANNEL-02   | TBD   | Pending |
-| CHANNEL-03   | TBD   | Pending |
-| CHANNEL-04   | TBD   | Pending |
-| CHANNEL-05   | TBD   | Pending |
-| WEBHOOK-01   | TBD   | Pending |
-| WEBHOOK-02   | TBD   | Pending |
-| WEBHOOK-03   | TBD   | Pending |
-| WEBHOOK-04   | TBD   | Pending |
-| ROUTING-01   | TBD   | Pending |
-| ROUTING-02   | TBD   | Pending |
-| ROUTING-03   | TBD   | Pending |
-| ROUTING-04   | TBD   | Pending |
-| OUTBOUND-01  | TBD   | Pending |
-| OUTBOUND-02  | TBD   | Pending |
-| OUTBOUND-03  | TBD   | Pending |
-| OUTBOUND-04  | TBD   | Pending |
-| OBS-01       | TBD   | Pending |
-| OBS-02       | TBD   | Pending |
-| OBS-03       | TBD   | Pending |
+| CHANNEL-01   | Phase 22 | Pending |
+| CHANNEL-02   | Phase 24 | Pending |
+| CHANNEL-03   | Phase 24 | Pending |
+| CHANNEL-04   | Phase 24 | Pending |
+| CHANNEL-05   | Phase 22 | Pending |
+| WEBHOOK-01   | Phase 22 | Pending |
+| WEBHOOK-02   | Phase 22 | Pending |
+| WEBHOOK-03   | Phase 22 | Pending |
+| WEBHOOK-04   | Phase 22 | Pending |
+| ROUTING-01   | Phase 23 (backend) + Phase 26 (UI) | Pending |
+| ROUTING-02   | Phase 23 (backend) + Phase 26 (UI) | Pending |
+| ROUTING-03   | Phase 23 | Pending |
+| ROUTING-04   | Phase 23 | Pending |
+| OUTBOUND-01  | Phase 25 | Pending |
+| OUTBOUND-02  | Phase 25 | Pending |
+| OUTBOUND-03  | Phase 25 | Pending |
+| OUTBOUND-04  | Phase 25 | Pending |
+| OBS-01       | Phase 26 | Pending |
+| OBS-02       | Phase 26 | Pending |
+| OBS-03       | Phase 26 | Pending |
