@@ -3,34 +3,9 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { encrypt, maskApiKey, decrypt } from '@/lib/crypto'
+import type { ManychatChannelForDisplay } from './constants'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type ManychatChannelForDisplay = {
-  id: string
-  channelName: string
-  keyHint: string
-  webhookSecret: string
-  isActive: boolean
-  createdAt: string
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-export const MANYCHAT_PAYLOAD_TEMPLATE = {
-  subscriber_id: '{{user.id}}',
-  first_name: '{{user.first_name}}',
-  last_name: '{{user.last_name}}',
-  email: '{{user.email}}',
-  phone: '{{user.phone}}',
-  tags: '{{user.tags}}',
-  event_type: 'flow_completed',
-  flow_id: '{{flow_id}}',
-} as const
+export type { ManychatChannelForDisplay } from './constants'
 
 // ---------------------------------------------------------------------------
 // Getters
