@@ -125,7 +125,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 19. DB Foundation | v1.5 | 3/3 | Complete   | 2026-05-06 |
+| 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
 | 20. Folder & Subfolder CRUD | v1.5 | 0/TBD | Not started | - |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
