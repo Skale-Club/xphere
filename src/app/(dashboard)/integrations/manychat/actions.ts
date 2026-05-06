@@ -2,7 +2,123 @@
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { encrypt, maskApiKey } from '@/lib/crypto'
+import { encrypt, maskApiKey, decrypt } from '@/lib/crypto'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ManychatChannelForDisplay = {
+  id: string
+  channelName: string
+  keyHint: string
+  webhookSecret: string
+  isActive: boolean
+  createdAt: string
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const MANYCHAT_PAYLOAD_TEMPLATE = {
+  subscriber_id: '{{user.id}}',
+  first_name: '{{user.first_name}}',
+  last_name: '{{user.last_name}}',
+  email: '{{user.email}}',
+  phone: '{{user.phone}}',
+  tags: '{{user.tags}}',
+  event_type: 'flow_completed',
+  flow_id: '{{flow_id}}',
+} as const
+
+// ---------------------------------------------------------------------------
+// Getters
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the ManyChat channel for the authenticated org.
+ *
+ * Returns null if not authenticated or no channel is configured.
+ * Never returns encrypted_api_key — only safe display fields.
+ */
+export async function getManychatChannel(): Promise<ManychatChannelForDisplay | null> {
+  const user = await getUser()
+  if (!user) return null
+
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('manychat_channels')
+    .select('id, channel_name, key_hint, webhook_secret, is_active, created_at')
+    .maybeSingle()
+
+  if (!data) return null
+
+  return {
+    id: data.id,
+    channelName: data.channel_name,
+    keyHint: data.key_hint ?? '••••••••',
+    webhookSecret: data.webhook_secret,
+    isActive: data.is_active,
+    createdAt: data.created_at,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Test the ManyChat API connection for the authenticated org's channel.
+ *
+ * Decrypts the stored API key and calls GET /fb/page/getFlows with a 5s timeout.
+ */
+export async function testManychatConnection(): Promise<{ success: boolean; error?: string }> {
+  const user = await getUser()
+  if (!user) return { success: false, error: 'Not authenticated.' }
+
+  const supabase = await createClient()
+
+  const { data: channel } = await supabase
+    .from('manychat_channels')
+    .select('encrypted_api_key')
+    .single()
+
+  if (!channel) return { success: false, error: 'No ManyChat channel configured.' }
+
+  let apiKey: string
+  try {
+    apiKey = await decrypt(channel.encrypted_api_key)
+  } catch {
+    return { success: false, error: 'Failed to decrypt credentials.' }
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch('https://api.manychat.com/fb/page/getFlows', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    })
+
+    if (response.ok) return { success: true }
+    return { success: false, error: `ManyChat returned status ${response.status}` }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { success: false, error: 'Connection timed out after 5 seconds.' }
+    }
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error.' }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
 
 /**
  * Create a ManyChat channel.
