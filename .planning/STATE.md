@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: idle
-stopped_at: v1.4 milestone shipped and archived
-last_updated: "2026-05-05T05:00:00.000Z"
-last_activity: 2026-05-05
+milestone: v1.5
+milestone_name: Tools Folder System
+status: defining_requirements
+stopped_at: Milestone v1.5 started — defining requirements
+last_updated: "2026-05-06T00:00:00.000Z"
+last_activity: 2026-05-06
 progress:
   total_phases: 0
   completed_phases: 0
@@ -17,9 +17,10 @@ progress:
 
 ## Current Position
 
-No active milestone. v1.4 shipped 2026-05-05.
-
-Run `/gsd:new-milestone` to start the next cycle.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-06 — Milestone v1.5 started
 
 ## Milestone Progress
 
@@ -28,6 +29,7 @@ Run `/gsd:new-milestone` to start the next cycle.
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
+- v1.5 Tools Folder System: 🚧 Active
 
 ## Project Reference
 
