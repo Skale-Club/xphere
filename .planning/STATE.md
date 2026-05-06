@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: executing
-stopped_at: Completed 19-db-foundation/19-02-PLAN.md
-last_updated: "2026-05-06T14:53:14.719Z"
+status: verifying
+stopped_at: Completed 19-db-foundation-03-PLAN.md
+last_updated: "2026-05-06T15:01:13.155Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -20,7 +20,7 @@ progress:
 
 Phase: 19 (DB Foundation) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-05-06
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,8 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - [Phase 19-db-foundation]: UNIQUE NULLS NOT DISTINCT (PG15+) for tool_folders top-level uniqueness; fallback documented in migration comments
 - [Phase 19-db-foundation]: Migration 025 committed without db push (SUPABASE_DB_PASSWORD auth gate) — follows established project deferral pattern
 - [Phase 19-db-foundation]: ToolFolder type defined inline in actions.ts for ergonomic server-action exports; createFolder sets position: 0 by default
+- [Phase 19-db-foundation]: Folder text input UI removed from tool-config-form for Phase 19; Phase 20 adds proper folder select
+- [Phase 19-db-foundation]: handleAddFolder and handleDragEnd server persistence stubbed — Phase 20/21 scope
 
 ### Codebase Starting Points
 
@@ -74,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T14:53:14.715Z
-Stopped at: Completed 19-db-foundation/19-02-PLAN.md
+Last session: 2026-05-06T15:01:13.151Z
+Stopped at: Completed 19-db-foundation-03-PLAN.md
 Resume file: None

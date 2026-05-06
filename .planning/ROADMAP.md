@@ -74,7 +74,7 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 
 ### Phases
 
-- [ ] **Phase 19: DB Foundation** — Migrate from flat folder string to a relational `tool_folders` table with `parent_id` supporting 2-level hierarchy; update server actions and data fetching
+- [x] **Phase 19: DB Foundation** — Migrate from flat folder string to a relational `tool_folders` table with `parent_id` supporting 2-level hierarchy; update server actions and data fetching (completed 2026-05-06)
 - [ ] **Phase 20: Folder & Subfolder CRUD** — Create, rename inline, and delete (with confirmation modal) for both top-level folders and subfolders; collapsible section rendering and Ungrouped section
 - [ ] **Phase 21: Drag and Drop** — Reorder top-level folders via DnD; move tools between folders by dragging over the target folder header with visual highlight
 
@@ -93,7 +93,7 @@ See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md)
 Plans:
 - [x] 19-01-PLAN.md — SQL migration (025_tool_folders.sql) + Vitest test stub
 - [x] 19-02-PLAN.md — TypeScript types update + server actions rewrite
-- [ ] 19-03-PLAN.md — App caller updates (page.tsx, tools-table.tsx, tool-config-form.tsx) + full build verification
+- [x] 19-03-PLAN.md — App caller updates (page.tsx, tools-table.tsx, tool-config-form.tsx) + full build verification
 
 ### Phase 20: Folder & Subfolder CRUD
 **Goal**: Admins can create, rename, and delete folders and subfolders, with tools rendering in collapsible sections inline in the tools table
@@ -125,7 +125,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 19. DB Foundation | v1.5 | 2/3 | In Progress|  |
+| 19. DB Foundation | v1.5 | 3/3 | Complete   | 2026-05-06 |
 | 20. Folder & Subfolder CRUD | v1.5 | 0/TBD | Not started | - |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
