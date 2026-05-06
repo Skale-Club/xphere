@@ -30,9 +30,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Wrench, MoreHorizontal, FolderPlus, GripVertical, ScrollText } from 'lucide-react'
 import { toast } from 'sonner'
-import type { ToolConfigWithIntegration } from '@/app/(dashboard)/tools/actions'
+import type { ToolConfigWithIntegration, ToolFolder } from '@/app/(dashboard)/tools/actions'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
-import { deleteToolConfig, saveFolderOrder } from '@/app/(dashboard)/tools/actions'
+import { deleteToolConfig } from '@/app/(dashboard)/tools/actions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -79,7 +79,7 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
 interface ToolsTableProps {
   toolConfigs: ToolConfigWithIntegration[]
   integrations: IntegrationForDisplay[]
-  folderOrder: string[]
+  folders: ToolFolder[]
   children?: React.ReactNode
 }
 
@@ -148,7 +148,7 @@ function StaticFolderHeader({ label, count, colSpan }: { label: string; count: n
 export function ToolsTable({
   toolConfigs: initialToolConfigs,
   integrations,
-  folderOrder: initialFolderOrder,
+  folders,
   children,
 }: ToolsTableProps) {
   const [toolConfigs, setToolConfigs] = useState<ToolConfigWithIntegration[]>(initialToolConfigs)
@@ -161,21 +161,15 @@ export function ToolsTable({
   const [addingFolder, setAddingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
 
-  // Canonical ordered folder list: initialFolderOrder first, then any extras from toolConfigs
-  const [orderedFolders, setOrderedFolders] = useState<string[]>(() => {
-    const allToolFolders = [
-      ...new Set(initialToolConfigs.map((t) => t.folder).filter((f): f is string => !!f)),
-    ]
-    const fromOrder = initialFolderOrder.filter(
-      (f) => allToolFolders.includes(f) || initialFolderOrder.includes(f)
-    )
-    const extras = allToolFolders.filter((f) => !fromOrder.includes(f)).sort()
-    return [...fromOrder, ...extras]
-  })
+  // Canonical ordered folder list: top-level folders ordered by position
+  const [orderedFolders, setOrderedFolders] = useState<ToolFolder[]>(() =>
+    folders.filter((f) => f.parent_id === null)
+  )
 
+  // Full folder list passed to form for Phase 20 picker
   const existingFolders = useMemo(
-    () => [...new Set(toolConfigs.map((t) => t.folder).filter((f): f is string => !!f))],
-    [toolConfigs]
+    () => folders,
+    [folders]
   )
 
   // DnD sensors
@@ -187,25 +181,22 @@ export function ToolsTable({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = orderedFolders.indexOf(active.id as string)
-    const newIndex = orderedFolders.indexOf(over.id as string)
+    const oldIndex = orderedFolders.findIndex((f) => f.id === active.id)
+    const newIndex = orderedFolders.findIndex((f) => f.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
-    const next = arrayMove(orderedFolders, oldIndex, newIndex)
-    setOrderedFolders(next)
-    saveFolderOrder(next)
+    setOrderedFolders((prev) => arrayMove(prev, oldIndex, newIndex))
+    // TODO Phase 21: persist reorder via updateFolder position
   }
 
   function handleAddFolder(e: React.FormEvent) {
     e.preventDefault()
     const name = newFolderName.trim()
-    if (!name || orderedFolders.includes(name)) {
+    if (!name) {
       setAddingFolder(false)
       setNewFolderName('')
       return
     }
-    const next = [...orderedFolders, name]
-    setOrderedFolders(next)
-    saveFolderOrder(next)
+    // TODO Phase 20: call createFolder(name) server action here
     setAddingFolder(false)
     setNewFolderName('')
   }
@@ -357,11 +348,11 @@ export function ToolsTable({
     return map
   }, [table])
 
-  // Tools grouped by folder key
+  // Tools grouped by folder_id
   const toolsByFolder = useMemo(() => {
     const map = new Map<string, ToolConfigWithIntegration[]>()
     for (const tool of toolConfigs) {
-      const key = tool.folder ?? '__other__'
+      const key = tool.folder_id ?? '__other__'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(tool)
     }
@@ -375,7 +366,7 @@ export function ToolsTable({
   const showHeaders =
     orderedFolders.length > 1 ||
     (orderedFolders.length === 1 && otherTools.length > 0) ||
-    (orderedFolders.length === 0 && otherTools.length > 0 && toolConfigs.some((t) => t.folder))
+    (orderedFolders.length === 0 && otherTools.length > 0 && toolConfigs.some((t) => t.folder_id))
 
   if (isPending && toolConfigs.length === 0) {
     return <ToolsTableSkeleton />
@@ -475,17 +466,17 @@ export function ToolsTable({
             <TableBody>
               {/* Named folder groups — sortable */}
               <SortableContext
-                  items={orderedFolders}
+                  items={orderedFolders.map((f) => f.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {orderedFolders.map((folderName) => {
-                    const tools = toolsByFolder.get(folderName) ?? []
+                  {orderedFolders.map((folder) => {
+                    const tools = toolsByFolder.get(folder.id) ?? []
                     return (
-                      <Fragment key={`folder-${folderName}`}>
+                      <Fragment key={`folder-${folder.id}`}>
                         {showHeaders && (
                           <SortableFolderHeader
-                            id={folderName}
-                            label={folderName}
+                            id={folder.id}
+                            label={folder.name}
                             count={tools.length}
                             colSpan={columns.length}
                           />
