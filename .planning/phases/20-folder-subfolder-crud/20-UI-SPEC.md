@@ -41,10 +41,12 @@ Declared values (multiples of 4 only). All tokens map to existing Tailwind utili
 | 2xl | 48px | `py-12` | Empty state outer container (matches existing `py-12` in empty state) |
 | 3xl | 64px | (unused in this phase) | Not applicable |
 
-**Exceptions:**
-- Folder header row vertical padding: `py-1.5` (6px) — matches existing `SortableFolderHeader` `py-1.5`. Kept as-is to preserve table density.
+**Exceptions (multiples of 4 only):**
 - Inline rename input height: `h-6` (24px) for subfolder level, `h-7` (28px) for add-subfolder form inputs. These are compact variants matching the existing `h-8` toolbar inputs, scaled down for in-row density.
 - Touch targets for icon-only action buttons on folder headers: minimum `h-6 w-6` (24px). Not a keyboard-navigation concern in this phase; mouse-only interaction is acceptable since Phase 21 owns accessibility pass.
+
+**Preserved Codebase Values (Not Grid-Governed):**
+- Folder header row vertical padding: `py-1.5` (6px) — this value exists in unchanged existing `SortableFolderHeader` code carried forward from Phase 19. It is not a new spacing decision subject to the grid contract and will not be modified in Phase 20.
 
 ---
 
@@ -63,10 +65,10 @@ All sizes are from the existing table UI. No new font sizes are introduced in Ph
 
 **Inline rename input:** `text-xs` (12px), weight 400 — matches the folder label it replaces. Width: `w-32` (128px) for folder level, `w-36` (144px) for subfolder add form.
 
-**Codebase pattern note (not a declared weight):** The existing `SortableFolderHeader` applies `font-medium` (Tailwind's weight-500 shorthand) to folder/subfolder header label text. This is a codebase-inherited pattern that will be preserved to avoid visual regression. It is NOT a third declared weight in the design contract — executor should use `font-semibold` for new elements following the Label/Meta role, and preserve `font-medium` only where it already exists in `SortableFolderHeader` unchanged code.
+**SortableFolderHeader migration (Phase 20 task):** The existing `SortableFolderHeader` currently applies `font-medium` (weight 500) to folder header label text. Since `SortableFolderHeader` is being extended in Phase 20 anyway, the executor must migrate this to `font-semibold` (weight 600) during the extension work. This unifies the live UI to the two declared weights (400 and 600) with no legacy exceptions. After migration, the Label/Meta role applies consistently across both folder and subfolder headers.
 
-**Folder header label styling (existing pattern, preserved):**
-`text-xs font-medium text-muted-foreground uppercase tracking-wide`
+**Folder header label styling (post-migration):**
+`text-xs font-semibold text-muted-foreground uppercase tracking-wide`
 
 **Subfolder header label styling (new, indented variant):**
 `text-xs font-semibold text-muted-foreground uppercase tracking-wide` — with `pl-8` indentation on the cell.
@@ -246,6 +248,8 @@ TableRow [className="bg-muted/30 hover:bg-muted/40 group"]
         Button [variant="ghost", size="icon", Pencil icon — rename]
         Button [variant="ghost", size="icon", Trash2 icon — delete]
 ```
+
+Note: `py-1.5` in the `TableCell` className above is a preserved codebase value (see Spacing Scale — Preserved Codebase Values section), not a grid-governed decision.
 
 **No GripVertical handle on SubfolderHeader:** Phase 21 owns subfolder DnD. The grip spacer (`<span className="w-3.5" />`) from `StaticFolderHeader` is used instead to maintain alignment.
 
