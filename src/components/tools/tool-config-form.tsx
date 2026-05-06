@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -47,7 +47,7 @@ const toolConfigSchema = z.object({
     .string()
     .min(1, 'Fallback message is required')
     .max(500, 'Fallback message must be 500 characters or fewer'),
-  folder_id: z.string().uuid().optional().nullable(),
+  folder_id: z.string().optional().nullable(),
   labels: z.array(z.string()),
 })
 
@@ -82,7 +82,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
       actionType: toolConfig?.action_type ?? 'create_contact',
       integrationId: toolConfig?.integration_id ?? '',
       fallbackMessage: toolConfig?.fallback_message ?? '',
-      folder_id: toolConfig?.folder_id ?? null,
+      folder_id: toolConfig?.folder_id ?? '__none__',
       labels: toolConfig?.labels ?? [],
     },
   })
@@ -111,7 +111,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
         actionType: values.actionType,
         integrationId: values.integrationId,
         fallbackMessage: values.fallbackMessage,
-        folder_id: values.folder_id || null,
+        folder_id: values.folder_id === '__none__' ? null : (values.folder_id ?? null),
         labels: values.labels,
       }
 
@@ -257,8 +257,47 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
             )}
           />
 
-          {/* folder_id field: Phase 20 will add a proper folder selector UI here.
-              For Phase 19, folder assignment is hidden — tools can be assigned via DB or future UI. */}
+          <FormField
+            control={form.control}
+            name="folder_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Folder{' '}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </FormLabel>
+                <Select
+                  disabled={isPending}
+                  onValueChange={(v) => field.onChange(v)}
+                  value={field.value ?? '__none__'}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No folder" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="__none__">No folder</SelectItem>
+                    {(existingFolders ?? [])
+                      .filter((f) => f.parent_id === null)
+                      .map((folder) => (
+                        <Fragment key={folder.id}>
+                          <SelectItem value={folder.id}>{folder.name}</SelectItem>
+                          {(existingFolders ?? [])
+                            .filter((sub) => sub.parent_id === folder.id)
+                            .map((sub) => (
+                              <SelectItem key={sub.id} value={sub.id}>
+                                &nbsp;&nbsp;{sub.name}
+                              </SelectItem>
+                            ))}
+                        </Fragment>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormItem>
             <FormLabel>
