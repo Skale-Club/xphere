@@ -947,6 +947,64 @@ export interface Database {
           }
         ]
       }
+      manychat_rules: {
+        Row: {
+          id: string
+          org_id: string
+          channel_id: string
+          event_type: string
+          condition: Json
+          tool_config_id: string
+          is_active: boolean
+          priority: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id?: string       // set by RLS via get_current_org_id() — do not pass manually
+          channel_id: string
+          event_type: string
+          condition?: Json
+          tool_config_id: string
+          is_active?: boolean
+          priority?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string
+          event_type?: string
+          condition?: Json
+          tool_config_id?: string
+          is_active?: boolean
+          priority?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'manychat_rules_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_rules_channel_id_fkey'
+            columns: ['channel_id']
+            isOneToOne: false
+            referencedRelation: 'manychat_channels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_rules_tool_config_id_fkey'
+            columns: ['tool_config_id']
+            isOneToOne: false
+            referencedRelation: 'tool_configs'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       manychat_events: {
         Row: {
           id: string
@@ -970,7 +1028,14 @@ export interface Database {
           action_log_id?: string | null
           created_at?: string
         }
-        Update: Record<string, never>    // append-only — no updates allowed
+        Update: {
+          // Service-role dispatcher only — authenticated client has no UPDATE policy.
+          // Append-only contract enforced at the SQL layer; this widening exists so
+          // src/lib/manychat/dispatch-event.ts can flip status + link FKs after match.
+          status?: 'matched' | 'unmatched' | 'error'
+          action_log_id?: string | null
+          matched_rule_id?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: 'manychat_events_org_id_fkey'
@@ -984,6 +1049,20 @@ export interface Database {
             columns: ['channel_id']
             isOneToOne: false
             referencedRelation: 'manychat_channels'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_events_matched_rule_id_fkey'
+            columns: ['matched_rule_id']
+            isOneToOne: false
+            referencedRelation: 'manychat_rules'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_events_action_log_id_fkey'
+            columns: ['action_log_id']
+            isOneToOne: false
+            referencedRelation: 'action_logs'
             referencedColumns: ['id']
           }
         ]
