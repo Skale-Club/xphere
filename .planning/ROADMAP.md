@@ -99,7 +99,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 - [x] **Phase 22: Foundation** — DB migrations (manychat_channels, manychat_events, enum extensions), webhook endpoint with secret verification, channel server actions
  (completed 2026-05-06)
-- [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
+- [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
 - [ ] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection)
 - [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
 - [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
@@ -147,8 +147,10 @@ Plans:
   2. Admin can copy the generated webhook URL (https://operator.skale.club/api/manychat/webhook) and webhook secret directly from the page
   3. Admin can copy a pre-formatted JSON payload template from the page to paste into ManyChat External Request body config
   4. Admin can click a "Test Connection" button that calls the ManyChat getFlows endpoint and shows success or an error message
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
+Plans:
+- [ ] 24-01-PLAN.md — Server actions: getManychatChannel, testManychatConnection, MANYCHAT_PAYLOAD_TEMPLATE (TDD)
+- [ ] 24-02-PLAN.md — UI page: /integrations/manychat settings + root integrations page ManyChat card
 
 ### Phase 25: Outbound Actions
 **Goal**: Operators can configure tool_configs that push data back to ManyChat (set fields, add tags, trigger flows, send messages) as action outputs
@@ -183,8 +185,8 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
-| 24. Dashboard Config UI | v1.6 | 0/? | Not started | - |
+| 24. Dashboard Config UI | v1.6 | 0/2 | Planned | - |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 
-*Last updated: 2026-05-06 — Phase 23 planned (4 plans, 3 waves)*
+*Last updated: 2026-05-06 — Phase 24 planned (2 plans, 2 waves)*
