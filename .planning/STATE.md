@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: verifying
-stopped_at: Completed 19-db-foundation-03-PLAN.md
-last_updated: "2026-05-06T15:06:22.429Z"
+status: executing
+stopped_at: Completed 20-folder-subfolder-crud-01-PLAN.md
+last_updated: "2026-05-06T16:06:17.517Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
   percent: 0
 ---
 
@@ -18,9 +18,9 @@ progress:
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 20 (Folder & Subfolder CRUD) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-05-06
 
 Progress: [░░░░░░░░░░] 0%
@@ -59,6 +59,8 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - [Phase 19-db-foundation]: ToolFolder type defined inline in actions.ts for ergonomic server-action exports; createFolder sets position: 0 by default
 - [Phase 19-db-foundation]: Folder text input UI removed from tool-config-form for Phase 19; Phase 20 adds proper folder select
 - [Phase 19-db-foundation]: handleAddFolder and handleDragEnd server persistence stubbed — Phase 20/21 scope
+- [Phase 20-folder-subfolder-crud]: Separate deleteFolderWithTools action (not a parameter on deleteFolder) — each action has one clear purpose; delete modal handler decides which to call
+- [Phase 20-folder-subfolder-crud]: Sentinel '__none__' for Radix Select null state — Radix Select does not accept null; '__none__' is converted back to null before DB payload is sent
 
 ### Codebase Starting Points
 
@@ -76,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T15:01:13.151Z
-Stopped at: Completed 19-db-foundation-03-PLAN.md
+Last session: 2026-05-06T16:06:17.494Z
+Stopped at: Completed 20-folder-subfolder-crud-01-PLAN.md
 Resume file: None

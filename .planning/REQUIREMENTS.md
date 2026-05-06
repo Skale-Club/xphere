@@ -51,12 +51,12 @@
 |--------------|-------|---------|
 | FOLDER-01    | 20    | Pending |
 | FOLDER-02    | 20    | Pending |
-| FOLDER-03    | 20    | Pending |
+| FOLDER-03    | 20    | Complete |
 | FOLDER-04    | 21    | Pending |
 | SUBFOLDER-01 | 20    | Pending |
 | SUBFOLDER-02 | 20    | Pending |
-| SUBFOLDER-03 | 20    | Pending |
+| SUBFOLDER-03 | 20    | Complete |
 | MOVE-01      | 21    | Pending |
 | MOVE-02      | 21    | Pending |
-| DISPLAY-01   | 20    | Pending |
-| DISPLAY-02   | 20    | Pending |
+| DISPLAY-01   | 20    | Complete |
+| DISPLAY-02   | 20    | Complete |

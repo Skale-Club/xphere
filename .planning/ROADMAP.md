@@ -107,7 +107,7 @@ Plans:
   5. Tools not assigned to any folder appear in an "Ungrouped" section at the bottom of the list
 **Plans**: 3 plans
 Plans:
-- [ ] 20-01-PLAN.md — deleteFolderWithTools server action + test stub + tool-config-form folder Select
+- [x] 20-01-PLAN.md — deleteFolderWithTools server action + test stub + tool-config-form folder Select
 - [ ] 20-02-PLAN.md — tools-table.tsx: collapse toggle + SubfolderHeader + inline rename state and handlers
 - [ ] 20-03-PLAN.md — tools-table.tsx: create folder/subfolder wiring + folder delete modal + Ungrouped label
 
@@ -129,7 +129,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 19. DB Foundation | v1.5 | 3/3 | Complete    | 2026-05-06 |
-| 20. Folder & Subfolder CRUD | v1.5 | 0/3 | Not started | - |
+| 20. Folder & Subfolder CRUD | v1.5 | 1/3 | In Progress|  |
 | 21. Drag and Drop | v1.5 | 0/TBD | Not started | - |
 
 *Last updated: 2026-05-06 — Phase 20 planned (3 plans, 3 waves)*
