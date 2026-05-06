@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: ManyChat Integration
-status: verifying
-stopped_at: Completed 23-inbound-routing/23-04-PLAN.md
-last_updated: "2026-05-06T20:56:55.885Z"
-last_activity: 2026-05-06
+status: executing
+stopped_at: Completed 24-dashboard-config-ui/24-01-PLAN.md
+last_updated: "2026-05-06T19:48:00.000Z"
+last_activity: 2026-05-06 -- Phase 24 plan 01 execution complete
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 23 (Inbound Routing) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
-Last activity: 2026-05-06
+Phase: 24-dashboard-config-ui — EXECUTING
+Plan: 2 of 3 (plan 01 complete)
+Status: Executing Phase 24
+Last activity: 2026-05-06 -- Phase 24 plan 01 complete
 
 ## Milestone Progress
 
@@ -37,8 +37,8 @@ Last activity: 2026-05-06
 | Phase | Goal | Status |
 |-------|------|--------|
 | 22. Foundation | Receive + log webhook events; channel CRUD with encrypted API key | Plans Complete (2/2) — pending verification |
-| 23. Inbound Routing | Rule-based dispatch to action engine | Not started |
-| 24. Dashboard Config UI | Self-serve setup page (UI) | Not started |
+| 23. Inbound Routing | Rule-based dispatch to action engine | Plans Complete (4/4) — pending verification |
+| 24. Dashboard Config UI | Self-serve setup page (UI) | In Progress (1/3 plans complete) |
 | 25. Outbound Actions | manychat_* executors in action engine | Not started |
 | 26. Rules UI + Event Log | Rules CRUD UI + event log with filters (UI) | Not started |
 
@@ -71,6 +71,9 @@ See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 - (22-02) Webhook resolves `org_id` via service-role lookup of `manychat_channels` by `webhook_secret` — never trusts `org_id` from request body
 - (22-02) Webhook always returns 200 after secret validation passes; outer try/catch swallows all post-gate errors to prevent ManyChat retry storms
 - (22-02) `createManychatChannel` does NOT return `webhook_secret` to caller — Phase 24 UI fetches it via separate getter to avoid leaking through revalidation
+- (24-01) `getManychatChannel` uses `maybeSingle()` — returns null cleanly when no channel configured; caller treats null as "not connected"
+- (24-01) `testManychatConnection` uses `single()` for encrypted_api_key lookup — UNIQUE(org_id) guarantees at most one row
+- (24-01) `MANYCHAT_PAYLOAD_TEMPLATE` exported as plain `as const` object — UI calls `JSON.stringify` for display
 
 ### Architecture Notes
 
@@ -85,5 +88,5 @@ See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 
 ## Session Continuity
 
-Last session: 2026-05-06T20:56:55.664Z
-Stopped at: Completed 23-inbound-routing/23-04-PLAN.md
+Last session: 2026-05-06T19:48:00.000Z
+Stopped at: Completed 24-dashboard-config-ui/24-01-PLAN.md

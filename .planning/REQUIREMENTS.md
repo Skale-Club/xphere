@@ -62,18 +62,18 @@
 | Requirement  | Phase | Status  |
 |--------------|-------|---------|
 | CHANNEL-01   | Phase 22 | Complete |
-| CHANNEL-02   | Phase 24 | Pending |
-| CHANNEL-03   | Phase 24 | Pending |
-| CHANNEL-04   | Phase 24 | Pending |
+| CHANNEL-02   | Phase 24 | Complete |
+| CHANNEL-03   | Phase 24 | Complete |
+| CHANNEL-04   | Phase 24 | Complete |
 | CHANNEL-05   | Phase 22 | Complete |
 | WEBHOOK-01   | Phase 22 | Complete |
 | WEBHOOK-02   | Phase 22 | Complete |
 | WEBHOOK-03   | Phase 22 | Complete |
 | WEBHOOK-04   | Phase 22 | Complete |
-| ROUTING-01   | Phase 23 (backend) + Phase 26 (UI) | Pending |
-| ROUTING-02   | Phase 23 (backend) + Phase 26 (UI) | Pending |
-| ROUTING-03   | Phase 23 | Pending |
-| ROUTING-04   | Phase 23 | Pending |
+| ROUTING-01   | Phase 23 (backend) + Phase 26 (UI) | Complete |
+| ROUTING-02   | Phase 23 (backend) + Phase 26 (UI) | Complete |
+| ROUTING-03   | Phase 23 | Complete |
+| ROUTING-04   | Phase 23 | Complete |
 | OUTBOUND-01  | Phase 25 | Pending |
 | OUTBOUND-02  | Phase 25 | Pending |
 | OUTBOUND-03  | Phase 25 | Pending |
