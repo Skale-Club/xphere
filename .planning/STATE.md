@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: executing
-stopped_at: Completed 20-folder-subfolder-crud-02-PLAN.md
-last_updated: "2026-05-06T16:28:40.532Z"
+status: verifying
+stopped_at: Completed 20-03-PLAN.md
+last_updated: "2026-05-06T16:39:56.453Z"
 last_activity: 2026-05-06
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -20,7 +20,7 @@ progress:
 
 Phase: 20 (Folder & Subfolder CRUD) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-05-06
 
 Progress: [░░░░░░░░░░] 0%
@@ -63,6 +63,8 @@ See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 - [Phase 20-folder-subfolder-crud]: Sentinel '__none__' for Radix Select null state — Radix Select does not accept null; '__none__' is converted back to null before DB payload is sent
 - [Phase 20-folder-subfolder-crud]: Tasks 1+2 committed together — render loop references startRename/commitRename; splitting would fail TypeScript
 - [Phase 20-folder-subfolder-crud]: StaticFolderHeader font-medium migrated to font-semibold — plan requires no font-medium on folder label spans
+- [Phase 20]: folderDeleteTarget stores full ToolFolder object so modal title can display folder name without extra lookup
+- [Phase 20]: buttonVariants({ variant: 'outline' }) applied as className to AlertDialogAction — AlertDialogAction has no variant prop
 
 ### Codebase Starting Points
 
@@ -80,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-06T16:28:40.528Z
-Stopped at: Completed 20-folder-subfolder-crud-02-PLAN.md
+Last session: 2026-05-06T16:39:56.441Z
+Stopped at: Completed 20-03-PLAN.md
 Resume file: None
