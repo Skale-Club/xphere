@@ -28,3 +28,13 @@ describe('deleteFolder: removes folder and handles tool reassignment', () => {
   it.todo('orphaned tools have folder_id set to NULL via ON DELETE SET NULL on tool_configs')
   it.todo('calls revalidatePath("/tools") on success')
 })
+
+describe('deleteFolderWithTools: deletes tools in folder and subfolders, then deletes folder', () => {
+  it.todo('rejects unauthenticated call — returns { error: "Not authenticated." }')
+  it.todo('collects subfolder IDs and deletes tools in all folderIds')
+  it.todo('deletes tool_configs in the folder before deleting the folder row')
+  it.todo('DB ON DELETE CASCADE removes subfolder rows when parent is deleted')
+  it.todo('calls revalidatePath("/tools") on success')
+  it.todo('returns { error } if tool_configs delete fails')
+  it.todo('returns { error } if folder delete fails')
+})

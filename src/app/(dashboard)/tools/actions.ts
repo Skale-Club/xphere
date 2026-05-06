@@ -85,6 +85,38 @@ export async function deleteFolder(id: string): Promise<{ error?: string } | voi
   revalidatePath('/tools')
 }
 
+export async function deleteFolderWithTools(id: string): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  // Collect subfolder IDs (max 2 levels enforced by product — no recursion needed)
+  const { data: subfolders } = await supabase
+    .from('tool_folders')
+    .select('id')
+    .eq('parent_id', id)
+
+  const subfolderIds = (subfolders ?? []).map((s: { id: string }) => s.id)
+  const folderIds = [id, ...subfolderIds]
+
+  // Delete all tool_configs in this folder and its subfolders
+  const { error: toolsError } = await supabase
+    .from('tool_configs')
+    .delete()
+    .in('folder_id', folderIds)
+
+  if (toolsError) return { error: toolsError.message }
+
+  // Delete the folder — DB ON DELETE CASCADE removes subfolders automatically
+  const { error: folderError } = await supabase
+    .from('tool_folders')
+    .delete()
+    .eq('id', id)
+
+  if (folderError) return { error: folderError.message }
+  revalidatePath('/tools')
+}
+
 export async function createToolConfig(data: {
   toolName: string
   actionType: string
