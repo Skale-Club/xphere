@@ -435,6 +435,32 @@ export function ToolsTable({
     })
   }
 
+  function handleDeleteFolder(mode: 'orphan' | 'delete-with-tools') {
+    if (!folderDeleteTarget) return
+    const { folder } = folderDeleteTarget
+    setFolderDeleteTarget(null)
+    startTransition(async () => {
+      let result: { error?: string } | void
+      if (mode === 'orphan') {
+        result = await deleteFolder(folder.id)
+        if (result && 'error' in result && result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Folder deleted. Tools moved to Ungrouped.')
+          router.refresh()
+        }
+      } else {
+        result = await deleteFolderWithTools(folder.id)
+        if (result && 'error' in result && result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Folder and its tools deleted.')
+          router.refresh()
+        }
+      }
+    })
+  }
+
   function openCreateSheet() {
     setEditingTool(null)
     setIsSheetOpen(true)
@@ -908,6 +934,36 @@ export function ToolsTable({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Folder delete confirmation modal — two options */}
+      <AlertDialog
+        open={!!folderDeleteTarget}
+        onOpenChange={(open) => !open && setFolderDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{folderDeleteTarget?.folder.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose what happens to the tools inside this folder.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'outline' })}
+              onClick={() => handleDeleteFolder('orphan')}
+            >
+              Move tools to Ungrouped
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => handleDeleteFolder('delete-with-tools')}
+            >
+              Delete folder and tools
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
