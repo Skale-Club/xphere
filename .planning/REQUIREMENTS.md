@@ -47,16 +47,16 @@
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| FOLDER-01   | TBD   | —      |
-| FOLDER-02   | TBD   | —      |
-| FOLDER-03   | TBD   | —      |
-| FOLDER-04   | TBD   | —      |
-| SUBFOLDER-01| TBD   | —      |
-| SUBFOLDER-02| TBD   | —      |
-| SUBFOLDER-03| TBD   | —      |
-| MOVE-01     | TBD   | —      |
-| MOVE-02     | TBD   | —      |
-| DISPLAY-01  | TBD   | —      |
-| DISPLAY-02  | TBD   | —      |
+| Requirement  | Phase | Status  |
+|--------------|-------|---------|
+| FOLDER-01    | 20    | Pending |
+| FOLDER-02    | 20    | Pending |
+| FOLDER-03    | 20    | Pending |
+| FOLDER-04    | 21    | Pending |
+| SUBFOLDER-01 | 20    | Pending |
+| SUBFOLDER-02 | 20    | Pending |
+| SUBFOLDER-03 | 20    | Pending |
+| MOVE-01      | 21    | Pending |
+| MOVE-02      | 21    | Pending |
+| DISPLAY-01   | 20    | Pending |
+| DISPLAY-02   | 20    | Pending |

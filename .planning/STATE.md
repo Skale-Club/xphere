@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tools Folder System
-status: defining_requirements
-stopped_at: Milestone v1.5 started — defining requirements
+status: ready_to_plan
+stopped_at: Roadmap created — Phase 19 ready to plan
 last_updated: "2026-05-06T00:00:00.000Z"
 last_activity: 2026-05-06
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,10 +17,12 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 19 of 21 (DB Foundation)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-06 — Milestone v1.5 started
+Status: Ready to plan
+Last activity: 2026-05-06 — v1.5 roadmap created, Phase 19 ready to plan
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Milestone Progress
 
@@ -29,13 +31,13 @@ Last activity: 2026-05-06 — Milestone v1.5 started
 - v1.2 Operator + Embedded Chatbot: ✅ Shipped 2026-04-05
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
-- v1.5 Tools Folder System: 🚧 Active
+- v1.5 Tools Folder System: 🚧 Active (Phase 19 next)
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
-See `.planning/codebase/chat-data-boundary.md` for chat data lifecycle.
+See `.planning/REQUIREMENTS.md` for v1.5 requirement list.
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
@@ -43,14 +45,31 @@ See `.planning/codebase/chat-data-boundary.md` for chat data lifecycle.
 
 ## Accumulated Context
 
-- v1.0 (2026-04-03) — MVP: 6 phases, 30 plans
-- v1.1 (2026-04-03) — Knowledge Base: LangChain + pgvector
-- v1.2 (2026-04-05) — Operator branding + embeddable chat widget
-- v1.3 (2026-05-05) — Google Reviews + Meta Messaging
-- v1.4 (2026-05-05) — Chat System Refactor (stream/chat-area split, realtime, search, docs)
+### Decisions
 
-## Active Tech Debt
+- v1.5: Inline collapsible sections in the tools table (not a sidebar tree)
+- v1.5: Max 2 levels only (folder > subfolder); no deeper nesting
+- v1.5: Inline rename — click label → input, Enter confirms, Escape cancels
+- v1.5: Delete modal offers "orphan tools" OR "delete tools with folder"
+- v1.5: Move tool to folder by dragging over the target folder header (highlights on hover)
+- v1.5: `@dnd-kit` already installed — extend existing DnD for folder reorder and tool-move
 
-- No HMAC validation on Vapi webhooks (vapi/calls and vapi/tools)
-- Campaign calls don't appear in Observability
-- `send_sms` and `custom_webhook` action types are stubs
+### Codebase Starting Points
+
+- `tool_configs` table has flat `folder: string | null` column (to be replaced by `folder_id` FK)
+- `organizations` table has `tool_folder_order: string[]` (to be superseded by `position` on new table)
+- Existing folder collapsible UI is 1-level only — Phase 20 extends to 2 levels
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-05-06
+Stopped at: Roadmap written — run `/gsd:plan-phase 19` to begin
+Resume file: None
