@@ -10,6 +10,7 @@
 - ✅ **v1.5 Tools Folder System** — 3 phases (phases 19–21, shipped 2026-05-06)
 - ✅ **v1.6 ManyChat Integration** — 5 phases (phases 22–26, shipped 2026-05-07)
 - ✅ **v1.7 Google Contacts Integration** — 3 phases (phases 27–29, shipped 2026-05-07) ⚠️ pending: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in Google Cloud Console
+- 🚧 **v1.8 Executor Completeness** — 2 phases (phases 30–31, active)
 
 ## Shipped
 
@@ -118,6 +119,17 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - [x] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value), encrypted token storage via AES-256-GCM (completed 2026-05-07)
 - [x] **Phase 28: Action Executors** — 4 google_contacts_* action_type enum values and executors in action engine using Google People API (completed 2026-05-07)
 - [x] **Phase 29: Dashboard UI** — Connect/disconnect Google account card in /integrations/google-contacts (completed 2026-05-07)
+
+---
+
+## 🚧 v1.8 Executor Completeness (Active)
+
+**Milestone Goal:** Implement the 2 remaining action type stubs — `send_sms` via Twilio and `custom_webhook` with configurable URL/method/headers/body — so they work end-to-end from tool call to result.
+
+### Phases
+
+- [ ] **Phase 30: Executor Backends** — Twilio SMS executor module + custom_webhook executor module, both wired into execute-action.ts
+- [ ] **Phase 31: Tool Config Form UI** — Config fields for send_sms (Twilio integration picker) and custom_webhook (URL, method, headers, body template) in tool-config-form.tsx
 
 ## Phase Details
 
@@ -243,10 +255,34 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 30: Executor Backends
+**Goal**: The action engine can execute send_sms and custom_webhook tool calls — Twilio delivers the SMS, the webhook fires the HTTP request — and returns a structured result string or a clear error
+**Depends on**: Nothing (no new migrations; action types already in DB enum)
+**Requirements**: SMS-01, SMS-02, SMS-03, SMS-04, WEBHOOK-01, WEBHOOK-02, WEBHOOK-03, WEBHOOK-04, WEBHOOK-05
+**Success Criteria** (what must be TRUE):
+  1. A tool_config with action_type send_sms triggers a Twilio Messages API call using the org's encrypted Account SID + Auth Token from the integrations table, and the action_logs entry shows success with the Twilio message SID
+  2. When no active Twilio integration exists for the org, the send_sms executor returns a clear error message (not an unhandled exception) and the action engine continues without crashing
+  3. A tool_config with action_type custom_webhook fires an HTTP request to the configured URL using the method, headers, and body defined in tool_config.config JSONB, and the action_logs entry shows the HTTP status + truncated response body
+  4. {{param_name}} placeholders in the body template are replaced with the matching tool call parameter values before the request is sent
+  5. When a custom_webhook request exceeds 10 seconds, the executor returns a timeout error without crashing the action engine
+**Plans**: TBD
+
+### Phase 31: Tool Config Form UI
+**Goal**: Admins can configure send_sms and custom_webhook tool_configs entirely from the tool form UI without touching the database directly
+**Depends on**: Phase 30
+**Requirements**: SMS-05, WEBHOOK-06
+**Success Criteria** (what must be TRUE):
+  1. When admin selects action_type send_sms in the tool config form, a Twilio integration dropdown appears showing the org's active Twilio integrations for selection
+  2. When admin selects action_type custom_webhook in the tool config form, URL, method, headers, and body template fields appear and are saved to tool_config.config JSONB on submit
+  3. Admin can save a custom_webhook tool_config with a body template containing {{param_name}} placeholders and the value is persisted exactly as entered
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **v1.6 Execution Order:** 22 → 23 → 24 → 25 → 26
 **v1.7 Execution Order:** 27 → 28 → 29
+**v1.8 Execution Order:** 30 → 31
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -258,5 +294,7 @@ Plans:
 | 27. OAuth + DB Foundation | v1.7 | 3/3 | Complete ⚠️ | 2026-05-07 |
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
+| 30. Executor Backends | v1.8 | 0/? | Not started | — |
+| 31. Tool Config Form UI | v1.8 | 0/? | Not started | — |
 
-*Last updated: 2026-05-07 — v1.6 and v1.7 shipped. ⚠️ Phase 27 requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in Google Cloud Console + Vercel before OAuth flow is live.*
+*Last updated: 2026-05-07 — v1.8 roadmap created. Phases 30–31 ready to plan.*
