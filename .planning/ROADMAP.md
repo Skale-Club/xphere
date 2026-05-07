@@ -100,7 +100,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - [x] **Phase 22: Foundation** — DB migrations (manychat_channels, manychat_events, enum extensions), webhook endpoint with secret verification, channel server actions
  (completed 2026-05-06)
 - [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
-- [ ] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection)
+- [x] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection) (completed 2026-05-07)
 - [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
 - [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
 
@@ -150,7 +150,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 24-01-PLAN.md — Server actions: getManychatChannel, testManychatConnection, MANYCHAT_PAYLOAD_TEMPLATE (TDD)
-- [ ] 24-02-PLAN.md — UI page: /integrations/manychat settings + root integrations page ManyChat card
+- [x] 24-02-PLAN.md — UI page: /integrations/manychat settings + root integrations page ManyChat card
 
 ### Phase 25: Outbound Actions
 **Goal**: Operators can configure tool_configs that push data back to ManyChat (set fields, add tags, trigger flows, send messages) as action outputs
@@ -185,7 +185,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
-| 24. Dashboard Config UI | v1.6 | 1/2 | In Progress|  |
+| 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 
