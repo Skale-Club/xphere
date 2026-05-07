@@ -8,8 +8,8 @@
 - ✅ **v1.3 Google Reviews Widget + Meta Messaging** — 7 phases (phases 7–13, shipped 2026-05-05)
 - ✅ **v1.4 Chat System Refactor** — 5 phases (phases 14–18, shipped 2026-05-05) — see [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.5 Tools Folder System** — 3 phases (phases 19–21, shipped 2026-05-06)
-- 🚧 **v1.6 ManyChat Integration** — 5 phases (phases 22–26, in progress)
-- 🚧 **v1.7 Google Contacts Integration** — 3 phases (phases 27–29, in progress)
+- ✅ **v1.6 ManyChat Integration** — 5 phases (phases 22–26, shipped 2026-05-07)
+- ✅ **v1.7 Google Contacts Integration** — 3 phases (phases 27–29, shipped 2026-05-07) ⚠️ pending: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in Google Cloud Console
 
 ## Shipped
 
@@ -92,7 +92,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 ---
 
-## 🚧 v1.6 ManyChat Integration (In Progress)
+## ✅ v1.6 ManyChat Integration (Shipped 2026-05-07)
 
 **Milestone Goal:** Add ManyChat as a trigger source — a ManyChat flow fires an External Request → Operator routes it to any configured action (GHL, Twilio, etc.) and can push back to ManyChat as an action output.
 
@@ -107,15 +107,17 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 ---
 
-## 🚧 v1.7 Google Contacts Integration (In Progress)
+## ✅ v1.7 Google Contacts Integration (Shipped 2026-05-07)
 
 **Milestone Goal:** Add Google Contacts as an integration provider — admins connect their Google account via OAuth per org, and 4 new action types become available in the action engine to create, update, find, and delete contacts.
 
+> ⚠️ **Pending activation:** Requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` configured in Google Cloud Console and set as env vars in Vercel. Until then, the OAuth flow will fail at initiation.
+
 ### Phases
 
-- [x] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value, google_oauth_tokens table), encrypted token storage via AES-256-GCM (completed 2026-05-07)
-- [ ] **Phase 28: Action Executors** — 4 google_contacts_* action_type enum values and executors in action engine using Google People API
-- [ ] **Phase 29: Dashboard UI** — Connect/disconnect Google account card in /integrations, connection status display
+- [x] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value), encrypted token storage via AES-256-GCM (completed 2026-05-07)
+- [x] **Phase 28: Action Executors** — 4 google_contacts_* action_type enum values and executors in action engine using Google People API (completed 2026-05-07)
+- [x] **Phase 29: Dashboard UI** — Connect/disconnect Google account card in /integrations/google-contacts (completed 2026-05-07)
 
 ## Phase Details
 
@@ -253,8 +255,8 @@ Plans:
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 3/3 | Complete    | 2026-05-07 |
 | 26. Rules UI + Event Log | v1.6 | 2/2 | Complete    | 2026-05-07 |
-| 27. OAuth + DB Foundation | v1.7 | 2/3 | In progress | - |
-| 28. Action Executors | v1.7 | 0/4 | Not started | - |
-| 29. Dashboard UI | v1.7 | 0/? | Not started | - |
+| 27. OAuth + DB Foundation | v1.7 | 3/3 | Complete ⚠️ | 2026-05-07 |
+| 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
+| 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
 
-*Last updated: 2026-05-07 — Phases 25/26 complete (v1.6 done); Phase 27 in progress (2/3 plans done); Phase 28 planned (4 plans, 3 waves)*
+*Last updated: 2026-05-07 — v1.6 and v1.7 shipped. ⚠️ Phase 27 requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in Google Cloud Console + Vercel before OAuth flow is live.*

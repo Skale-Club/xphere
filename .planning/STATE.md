@@ -1,25 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: ManyChat Integration
-status: executing
-stopped_at: Phase 28 context gathered
-last_updated: "2026-05-07T19:22:59.781Z"
+milestone: v1.7
+milestone_name: Google Contacts Integration
+status: shipped
+stopped_at: Phase 29 complete — v1.7 shipped
+last_updated: "2026-05-07T19:30:00.000Z"
 last_activity: 2026-05-07
 progress:
-  total_phases: 21
-  completed_phases: 18
-  total_plans: 44
-  completed_plans: 46
+  total_phases: 29
+  completed_phases: 29
+  total_plans: 49
+  completed_plans: 49
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 28
-Plan: Not started
-Status: Ready to execute
+Phase: 29
+Plan: Complete
+Status: v1.7 shipped — awaiting next milestone
+
 Last activity: 2026-05-07
 
 ## Milestone Progress
@@ -30,21 +31,14 @@ Last activity: 2026-05-07
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
 - v1.5 Tools Folder System: ✅ Shipped 2026-05-06
-- v1.6 ManyChat Integration: 🚧 Active — Phases 22-24 complete, Phases 25-26 pending
-
-## v1.7 Phase Summary
-
-| Phase | Goal | Status |
-|-------|------|--------|
-| 27. OAuth + DB Foundation | Google OAuth per org; encrypted token storage in integrations table | Not started |
-| 28. Action Executors | 4 google_contacts_* action types dispatching to Google People API | Not started |
-| 29. Dashboard UI | Connect/disconnect card + connection status on /integrations | Not started |
+- v1.6 ManyChat Integration: ✅ Shipped 2026-05-07
+- v1.7 Google Contacts Integration: ✅ Shipped 2026-05-07 ⚠️ pending credentials
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
-See `.planning/REQUIREMENTS.md` for v1.7 requirement traceability.
+See `.planning/ROADMAP.md` for full phase details.
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
@@ -55,31 +49,24 @@ See `.planning/REQUIREMENTS.md` for v1.7 requirement traceability.
 ### v1.7 Architecture Decisions
 
 - Google OAuth follows the Meta OAuth reference implementation pattern (src/lib/meta/oauth.ts, src/app/api/meta/callback/route.ts)
-- Tokens stored in existing `integrations` table — requires adding `google_contacts` value to `integration_provider` enum
-- `encrypted_credentials` JSON column stores `{ access_token, refresh_token, token_expiry, google_email }` encrypted via AES-256-GCM (src/lib/crypto.ts)
+- Tokens stored in existing `integrations` table under provider = 'google_contacts'
+- `encrypted_api_key` stores `{ access_token, refresh_token }` encrypted via AES-256-GCM; `key_hint` stores google_email unencrypted
 - OAuth callback resolves org_id from the authenticated session — same pattern as Meta OAuth
-- Action executors in src/lib/action-engine/ — new file per action type or grouped google-contacts module
-- Executors must handle token refresh transparently (access token expiry) before calling People API
+- Action executors in src/lib/google-contacts/ — credentials.ts shared, one file per action type
+- Executors use callWithRefresh() for transparent 401 token refresh before retrying People API
 - All 4 action types use standard field mapping: name, email, phone, company, notes
-- google_contacts_find returns structured contact data in the action result for downstream use in AI responses
-- One Google account per org (UNIQUE(org_id, provider) already enforced by integrations table)
-
-### Architecture Notes (v1.7)
-
-- Enum extension: `integration_provider` += google_contacts
-- No new tables required — uses existing `integrations` table for credential storage
-- New files: `src/lib/google-contacts/` client module + token refresh logic
-- New route: `src/app/api/google/callback/route.ts` for OAuth callback
-- Action engine dispatch: 4 new cases in the executor switch — google_contacts_create, google_contacts_update, google_contacts_find, google_contacts_delete
-- People API scope required: `https://www.googleapis.com/auth/contacts`
-- OAuth initiation route: `src/app/api/google/oauth/route.ts` (redirects to Google consent)
+- google_contacts_find returns structured "Found: name | email | phone" single-line result
+- One Google account per org (UNIQUE(org_id, provider) enforced by integrations table)
 
 ## Pending Todos
 
-- Run `npx supabase db push` when SUPABASE_DB_PASSWORD is available (migrations pending)
-- Register Google OAuth app in Google Cloud Console (Client ID + Secret needed as platform_settings)
+- ⚠️ Register Google OAuth app in Google Cloud Console:
+    1. APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application)
+    2. Add authorized redirect URI: https://operator.skale.club/api/google/callback
+    3. Enable People API: APIs & Services → Library → search "People API" → Enable
+    4. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel environment variables
 
 ## Session Continuity
 
-Last session: 2026-05-07T19:22:59.777Z
-Stopped at: Phase 28 context gathered
+Last session: 2026-05-07T19:30:00.000Z
+Stopped at: Phase 29 complete — v1.7 shipped, next milestone TBD
