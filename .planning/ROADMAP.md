@@ -191,8 +191,11 @@ Plans:
   3. Admin can navigate to /integrations/manychat/events and see a paginated list of all inbound events with their status (matched, unmatched, error) displayed
   4. Admin can filter the event log by status and date range and see only the matching events
   5. Admin can click any event row to view the full raw JSON payload that was received
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+Plans:
+- [ ] 26-01-PLAN.md — getManychatFlows() + rules page + RuleFormSheet + delete AlertDialog (Wave 1)
+- [ ] 26-02-PLAN.md — events page + ManychatEvents component + getManychatEvents() action (Wave 2)
 
 ### Phase 27: OAuth + DB Foundation
 **Goal**: Admins can connect a Google account per org via OAuth 2.0, with access and refresh tokens stored encrypted in the database
@@ -239,9 +242,9 @@ Plans:
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 4/4 | Complete    | 2026-05-07 |
-| 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
+| 26. Rules UI + Event Log | v1.6 | 0/2 | Not started | - |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
 | 29. Dashboard UI | v1.7 | 0/? | Not started | - |
 
-*Last updated: 2026-05-07 — Phase 25 planned (3 plans, OUTBOUND-01..04)*
+*Last updated: 2026-05-07 — Phase 26 planned (2 plans, ROUTING-01/02 UI, OBS-01/02/03)*
