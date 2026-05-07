@@ -240,7 +240,7 @@ export interface Database {
         Update: {
           integration_id?: string
           tool_name?: string
-          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
+          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message'
           config?: Json
           fallback_message?: string
           is_active?: boolean

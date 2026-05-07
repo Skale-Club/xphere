@@ -1,14 +1,14 @@
 'use server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { Json } from '@/types/database'
+import type { Database, Json } from '@/types/database'
 
 export type ToolConfigWithIntegration = {
   id: string
   organization_id: string
   integration_id: string
   tool_name: string
-  action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
+  action_type: Database['public']['Enums']['action_type']
   config: unknown
   fallback_message: string
   is_active: boolean
@@ -141,7 +141,7 @@ export async function createToolConfig(data: {
   const { error } = await supabase.from('tool_configs').insert({
     organization_id: member.organization_id,
     tool_name: data.toolName,
-    action_type: data.actionType as 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook',
+    action_type: data.actionType as Database['public']['Enums']['action_type'],
     integration_id: data.integrationId,
     fallback_message: data.fallbackMessage,
     config: (data.config ?? {}) as Json,
@@ -179,7 +179,7 @@ export async function updateToolConfig(
     .from('tool_configs')
     .update({
       tool_name: data.toolName,
-      action_type: data.actionType as 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook',
+      action_type: data.actionType as Database['public']['Enums']['action_type'],
       integration_id: data.integrationId,
       fallback_message: data.fallbackMessage,
       config: (data.config ?? {}) as Json,
