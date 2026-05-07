@@ -1,83 +1,52 @@
-# Milestone v1.6 Requirements — ManyChat Integration
+# Milestone v1.7 Requirements — Google Contacts Integration
 
 **Status:** Active
-**Milestone:** v1.6 ManyChat Integration
+**Milestone:** v1.7 Google Contacts Integration
 **Created:** 2026-05-06
-**Seed document:** `projects/manychat-integration/PLANNING.md`
 
 ---
 
-## CHANNEL — ManyChat channel setup (one per org)
+## GCONTACTS — Google account connection (per org)
 
-- [ ] **CHANNEL-01:** Admin can connect a ManyChat account by entering an API key (stored encrypted via AES-256-GCM)
-- [ ] **CHANNEL-02:** Admin can see the generated webhook URL and secret to copy into ManyChat External Request config
-- [ ] **CHANNEL-03:** Admin can see a copyable JSON payload template for ManyChat External Request body config
-- [ ] **CHANNEL-04:** Admin can test the API connection (verify key validity via ManyChat getFlows endpoint)
-- [ ] **CHANNEL-05:** Admin can disconnect (delete) a ManyChat channel
+- [ ] **GCONTACTS-01:** Admin can connect a Google account via OAuth (Google OAuth 2.0 per org, stored encrypted via AES-256-GCM)
+- [ ] **GCONTACTS-02:** Admin can disconnect the Google account integration
+- [ ] **GCONTACTS-03:** Admin can see the connection status (connected / not connected) in /integrations
 
-## WEBHOOK — Inbound event ingestion
+## ACTIONS — Google Contacts action types in the action engine
 
-- [ ] **WEBHOOK-01:** POST /api/manychat/webhook receives External Request events from ManyChat flows
-- [ ] **WEBHOOK-02:** Requests with invalid or missing X-Operator-Secret header are rejected with HTTP 403
-- [ ] **WEBHOOK-03:** All inbound events are logged to manychat_events with status: matched, unmatched, or error
-- [ ] **WEBHOOK-04:** Webhook always returns HTTP 200 after secret validation (prevents ManyChat retry storms)
-
-## ROUTING — Inbound event → action dispatch
-
-- [ ] **ROUTING-01:** Admin can create a routing rule: event_type + condition JSONB → tool_config action
-- [ ] **ROUTING-02:** Admin can edit and delete routing rules
-- [ ] **ROUTING-03:** When a webhook matches a rule, the configured action (GHL, Twilio, etc.) executes via the existing action engine
-- [ ] **ROUTING-04:** Matched events are linked to the action_logs entry via manychat_events.action_log_id
-
-## OUTBOUND — Operator → ManyChat actions
-
-- [ ] **OUTBOUND-01:** manychat_set_field action type sets a subscriber custom field via ManyChat API
-- [ ] **OUTBOUND-02:** manychat_add_tag action type adds a tag to a subscriber via ManyChat API
-- [ ] **OUTBOUND-03:** manychat_trigger_flow action type triggers an existing ManyChat flow for a subscriber
-- [ ] **OUTBOUND-04:** manychat_send_message action type sends a message to a subscriber via ManyChat API
-
-## OBSERVABILITY — Event log + rules UI
-
-- [ ] **OBS-01:** Admin can view a paginated log of all inbound events with status indicators
-- [ ] **OBS-02:** Admin can filter the event log by status and date range
-- [ ] **OBS-03:** Admin can view the full raw payload of any logged event
+- [ ] **ACTIONS-01:** `google_contacts_create` action type creates a contact in Google Contacts with standard fields (name, email, phone, company, notes)
+- [ ] **ACTIONS-02:** `google_contacts_update` action type updates fields on an existing contact identified by email
+- [ ] **ACTIONS-03:** `google_contacts_find` action type searches for a contact by email or phone and returns matching data
+- [ ] **ACTIONS-04:** `google_contacts_delete` action type removes a contact from Google Contacts identified by email
 
 ---
 
 ## Future Requirements
 
-- Multiple ManyChat accounts per org
-- Rule priority ordering UI
-- Webhook retry handling and dead-letter queue
+- Sync bidirecional (Google Contacts → GHL)
+- Mapeamento de campos customizável por org
+- Múltiplas contas Google por org
+- Paginação de resultados no find_contact
 
-## Out of Scope
+---
 
-- ManyChat flow creation or editing (ManyChat API does not support this)
-- HMAC signature verification (ManyChat does not support it — shared secret header used instead)
+## Out of Scope (v1.7)
+
+- Google Calendar integration
+- Google Drive / Gmail integration
+- Sync automático em background (cron-based)
+- Webhook inbound do Google
 
 ---
 
 ## Traceability
 
-| Requirement  | Phase | Status  |
-|--------------|-------|---------|
-| CHANNEL-01   | Phase 22 | Complete |
-| CHANNEL-02   | Phase 24 | Complete |
-| CHANNEL-03   | Phase 24 | Complete |
-| CHANNEL-04   | Phase 24 | Complete |
-| CHANNEL-05   | Phase 22 | Complete |
-| WEBHOOK-01   | Phase 22 | Complete |
-| WEBHOOK-02   | Phase 22 | Complete |
-| WEBHOOK-03   | Phase 22 | Complete |
-| WEBHOOK-04   | Phase 22 | Complete |
-| ROUTING-01   | Phase 23 (backend) + Phase 26 (UI) | Complete |
-| ROUTING-02   | Phase 23 (backend) + Phase 26 (UI) | Complete |
-| ROUTING-03   | Phase 23 | Complete |
-| ROUTING-04   | Phase 23 | Complete |
-| OUTBOUND-01  | Phase 25 | Pending |
-| OUTBOUND-02  | Phase 25 | Pending |
-| OUTBOUND-03  | Phase 25 | Pending |
-| OUTBOUND-04  | Phase 25 | Pending |
-| OBS-01       | Phase 26 | Pending |
-| OBS-02       | Phase 26 | Pending |
-| OBS-03       | Phase 26 | Pending |
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| GCONTACTS-01 | Phase 27 | — |
+| GCONTACTS-02 | Phase 27 | — |
+| GCONTACTS-03 | Phase 29 | — |
+| ACTIONS-01 | Phase 28 | — |
+| ACTIONS-02 | Phase 28 | — |
+| ACTIONS-03 | Phase 28 | — |
+| ACTIONS-04 | Phase 28 | — |

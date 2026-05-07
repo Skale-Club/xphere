@@ -12,7 +12,20 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.6 ManyChat Integration
+## Current Milestone: v1.7 Google Contacts Integration
+
+**Goal:** Add Google Contacts as an integration provider — admins connect their Google account via OAuth per org, and 4 new action types become available in the action engine to create, update, find, and delete contacts.
+
+**Target features:**
+- Google OAuth per org (connect/disconnect em /integrations)
+- Credenciais Google criptografadas (access token + refresh token) por org via AES-256-GCM
+- 4 action types: `google_contacts_create`, `google_contacts_update`, `google_contacts_find`, `google_contacts_delete`
+- Mapeamento de campos padrão (nome, email, telefone, empresa, notas)
+- Dashboard UI para conectar conta Google e gerenciar a integração
+
+---
+
+## Last Milestone: v1.6 ManyChat Integration 🚧 (in progress — phases 25-26 pending)
 
 **Goal:** Add ManyChat as a trigger source — a ManyChat flow fires an External Request → Operator routes it to any configured action (GHL, Twilio, etc.) and can push back to ManyChat as an action output.
 
@@ -193,4 +206,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-06 — v1.6 milestone started (ManyChat Integration)*
+*Last updated: 2026-05-06 — v1.7 milestone started (Google Contacts Integration)*
