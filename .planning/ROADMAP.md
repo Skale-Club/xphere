@@ -103,7 +103,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
 - [x] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection) (completed 2026-05-07)
 - [x] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine (completed 2026-05-07)
-- [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
+- [x] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination (completed 2026-05-07)
 
 ---
 
@@ -195,7 +195,7 @@ Plans:
 **UI hint**: yes
 Plans:
 - [x] 26-01-PLAN.md — getManychatFlows() + rules page + RuleFormSheet + delete AlertDialog (Wave 1)
-- [ ] 26-02-PLAN.md — events page + ManychatEvents component + getManychatEvents() action (Wave 2)
+- [x] 26-02-PLAN.md — events page + ManychatEvents component + getManychatEvents() action (Wave 2)
 
 ### Phase 27: OAuth + DB Foundation
 **Goal**: Admins can connect a Google account per org via OAuth 2.0, with access and refresh tokens stored encrypted in the database
@@ -242,7 +242,7 @@ Plans:
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 4/4 | Complete    | 2026-05-07 |
-| 26. Rules UI + Event Log | v1.6 | 1/2 | In Progress|  |
+| 26. Rules UI + Event Log | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
 | 29. Dashboard UI | v1.7 | 0/? | Not started | - |
