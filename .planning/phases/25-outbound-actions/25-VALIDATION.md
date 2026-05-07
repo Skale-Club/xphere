@@ -2,8 +2,8 @@
 phase: 25
 slug: outbound-actions
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-07
 ---
 
@@ -87,11 +87,11 @@ created: 2026-05-07
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (8 W0 entries above)
-- [ ] No watch-mode flags (`vitest run`, never `vitest watch`)
-- [ ] Feedback latency < 45s
-- [ ] `nyquist_compliant: true` set in frontmatter (after planner verifies all tasks map cleanly)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (8 W0 entries above)
+- [x] No watch-mode flags (`vitest run`, never `vitest watch`)
+- [x] Feedback latency < 45s
+- [x] `nyquist_compliant: true` set in frontmatter (planner verified all tasks map cleanly)
 
-**Approval:** pending
+**Approval:** approved (post-revision iteration 1)

@@ -175,7 +175,11 @@ Plans:
   3. When a manychat_set_field action executes, the custom field is updated on the subscriber in ManyChat
   4. When a manychat_trigger_flow action executes, the specified ManyChat flow is triggered for the subscriber
   5. When a manychat_send_message action executes, the message is delivered to the subscriber via ManyChat API
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 25-01-PLAN.md — Wave 0 RED tests + Migration 028 + types widening + bridge sync
+- [ ] 25-02-PLAN.md — client.ts + subscriber-id helper + 4 executors + dispatcher case arms
+- [ ] 25-03-PLAN.md — Write 25-HUMAN-UAT.md runbook
 
 ### Phase 26: Rules UI + Event Log
 **Goal**: Admins can manage routing rules and browse inbound event history entirely from the dashboard without touching the database
@@ -234,10 +238,10 @@ Plans:
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
-| 25. Outbound Actions | v1.6 | 0/? | Not started | - |
+| 25. Outbound Actions | v1.6 | 0/3 | Planned     | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
 | 29. Dashboard UI | v1.7 | 0/? | Not started | - |
 
-*Last updated: 2026-05-06 — v1.7 roadmap created (3 phases, 7 requirements)*
+*Last updated: 2026-05-07 — Phase 25 planned (3 plans, OUTBOUND-01..04)*
