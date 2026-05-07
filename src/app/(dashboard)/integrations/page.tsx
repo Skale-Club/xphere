@@ -35,6 +35,23 @@ export default async function IntegrationsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageCircleMore className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">ManyChat</CardTitle>
+          </div>
+          <CardDescription>
+            Connect a ManyChat bot to receive subscriber events and route them to actions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/integrations/manychat" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            Open ManyChat settings
+          </Link>
+        </CardContent>
+      </Card>
+
       <IntegrationsTable integrations={integrations} />
     </div>
   )
