@@ -199,7 +199,11 @@ Plans:
   2. After granting consent, admin is redirected back to Operator and the Google access token + refresh token are stored encrypted (AES-256-GCM) in the integrations table under the google_contacts provider
   3. Admin can disconnect the Google integration and the encrypted token record is removed from the integrations table for their org
   4. The OAuth callback route resolves org context from the session and never stores tokens without a valid org_id
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 27-01-PLAN.md — Migration 028 + database.ts enum update + test stubs
+- [ ] 27-02-PLAN.md — Google OAuth utility module + server actions
+- [ ] 27-03-PLAN.md — OAuth callback route handler
 
 ### Phase 28: Action Executors
 **Goal**: The action engine can execute all 4 Google Contacts action types against the Google People API using the org's stored OAuth credentials
