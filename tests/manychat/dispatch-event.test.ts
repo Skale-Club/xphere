@@ -148,7 +148,6 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
   })
 
   it('routes manychat_add_tag action_type through to executeAction unchanged', async () => {
-    // @ts-expect-error — Wave 0 RED: manychat_add_tag not yet a valid action_type literal
     const manychatTool = { ...fakeTool, action_type: 'manychat_add_tag' as const, tool_name: 'add_vip_tag' }
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(manychatTool)
