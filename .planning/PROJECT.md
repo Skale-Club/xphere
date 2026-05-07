@@ -12,7 +12,18 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.7 Google Contacts Integration
+## Current Milestone: v1.8 Vapi Webhook Security
+
+**Goal:** Protect all `/api/vapi/*` webhook endpoints with HMAC-SHA256 signature validation — reject any POST not signed by Vapi, closing a security gap that has existed since v1.0.
+
+**Target features:**
+- HMAC-SHA256 signature validation on `/api/vapi/tools`
+- HMAC-SHA256 signature validation on `/api/vapi/calls`
+- HMAC-SHA256 signature validation on `/api/vapi/campaigns`
+- Unsigned or tampered requests return 401 (not 200)
+- `VAPI_WEBHOOK_SECRET` already exists as env var — no new secrets needed
+
+## Last Milestone: v1.7 Google Contacts Integration ✅ Complete 2026-05-07
 
 **Goal:** Add Google Contacts as an integration provider — admins connect their Google account via OAuth per org, and 4 new action types become available in the action engine to create, update, find, and delete contacts.
 
@@ -129,9 +140,12 @@ That business logic may differ by client. The invariant is the reliability of th
 - Runtime widget config hydration from public config endpoint — v1.2 Phase 5
 - Admin chat inbox — conversation list, message thread, reply, status filter, search — v1.2 Phase 6 (INBOX-01..07)
 
-### Active (next milestone candidates)
+### Active (v1.8 — in progress)
 
-- Vapi webhook HMAC/secret validation on `/api/vapi/*` routes
+- Vapi webhook HMAC/secret validation on `/api/vapi/*` routes ← **v1.8**
+
+### Backlog (next milestone candidates)
+
 - `send_sms` action type (Twilio executor)
 - `custom_webhook` action type (configurable URL, method, headers, body)
 - Campaign calls auto-appear in Observability call list
@@ -206,4 +220,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-06 — v1.7 milestone started (Google Contacts Integration)*
+*Last updated: 2026-05-07 — v1.8 milestone started (Vapi Webhook Security)*
