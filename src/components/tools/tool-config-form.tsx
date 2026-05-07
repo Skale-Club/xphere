@@ -41,6 +41,10 @@ const toolConfigSchema = z.object({
     'send_sms',
     'knowledge_base',
     'custom_webhook',
+    'manychat_set_field',
+    'manychat_add_tag',
+    'manychat_trigger_flow',
+    'manychat_send_message',
   ]),
   integrationId: z.string().uuid('Please select an integration'),
   fallbackMessage: z
@@ -60,6 +64,10 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'send_sms', label: 'Send SMS' },
   { value: 'knowledge_base', label: 'Knowledge Base' },
   { value: 'custom_webhook', label: 'Custom Webhook' },
+  { value: 'manychat_set_field',    label: 'ManyChat: Set Field' },
+  { value: 'manychat_add_tag',      label: 'ManyChat: Add Tag' },
+  { value: 'manychat_trigger_flow', label: 'ManyChat: Trigger Flow' },
+  { value: 'manychat_send_message', label: 'ManyChat: Send Message' },
 ] as const
 
 interface ToolConfigFormProps {
