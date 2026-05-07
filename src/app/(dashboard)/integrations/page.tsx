@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { MessageCircleMore } from 'lucide-react'
+import { MessageCircleMore, Users } from 'lucide-react'
 
 import { getIntegrations } from './actions'
 import { IntegrationsTable } from '@/components/integrations/integrations-table'
@@ -48,6 +48,23 @@ export default async function IntegrationsPage() {
         <CardContent>
           <Link href="/integrations/manychat" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
             Open ManyChat settings
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Google Contacts</CardTitle>
+          </div>
+          <CardDescription>
+            Connect a Google account to create, update, find, and delete contacts via the action engine.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/integrations/google-contacts" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            Open Google Contacts settings
           </Link>
         </CardContent>
       </Card>

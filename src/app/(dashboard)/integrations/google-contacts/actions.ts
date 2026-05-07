@@ -11,6 +11,32 @@ import {
   buildGoogleOAuthUrl,
 } from '@/lib/google-contacts/oauth'
 
+export type GoogleContactsIntegration = {
+  id: string
+  google_email: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export async function getGoogleContactsIntegration(): Promise<GoogleContactsIntegration | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('integrations')
+    .select('id, key_hint, is_active, created_at')
+    .eq('provider', 'google_contacts')
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    id: data.id,
+    google_email: data.key_hint,
+    is_active: data.is_active,
+    created_at: data.created_at,
+  }
+}
+
 const GOOGLE_STATE_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax' as const,
