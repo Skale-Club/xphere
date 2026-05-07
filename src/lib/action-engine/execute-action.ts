@@ -41,6 +41,12 @@ export async function executeAction(
     case 'custom_webhook':
       // Stubs for v2 requirements
       throw new Error(`Unsupported action type: ${actionType}`)
+    // TODO(25-02): wire ManyChat outbound executors
+    case 'manychat_set_field':
+    case 'manychat_add_tag':
+    case 'manychat_trigger_flow':
+    case 'manychat_send_message':
+      throw new Error(`ManyChat executor not yet wired: ${actionType}`)
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType

@@ -35,6 +35,10 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   send_sms: 'Send SMS',
   knowledge_base: 'Knowledge Base',
   custom_webhook: 'Custom Webhook',
+  manychat_set_field: 'ManyChat: Set Field',
+  manychat_add_tag: 'ManyChat: Add Tag',
+  manychat_trigger_flow: 'ManyChat: Trigger Flow',
+  manychat_send_message: 'ManyChat: Send Message',
 }
 
 function buildPageUrl(

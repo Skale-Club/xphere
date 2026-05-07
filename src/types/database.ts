@@ -170,6 +170,7 @@ export interface Database {
           location_id: string | null
           config: Json
           is_active: boolean
+          manychat_channel_id: string | null
           created_at: string
           updated_at: string
         }
@@ -183,6 +184,7 @@ export interface Database {
           location_id?: string | null
           config?: Json
           is_active?: boolean
+          manychat_channel_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -193,6 +195,7 @@ export interface Database {
           location_id?: string | null
           config?: Json
           is_active?: boolean
+          manychat_channel_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -211,7 +214,7 @@ export interface Database {
           organization_id: string
           integration_id: string
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -225,7 +228,7 @@ export interface Database {
           organization_id: string
           integration_id: string
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message'
           config?: Json
           fallback_message: string
           is_active?: boolean
@@ -1089,7 +1092,7 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook'
+      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message'
       integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat'
     }
   }
