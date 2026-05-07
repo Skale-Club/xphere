@@ -113,7 +113,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 ### Phases
 
-- [x] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value, google_oauth_tokens table), encrypted token storage via AES-256-GCM (completed 2026-05-07)
+- [x] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value, google_oauth_tokens table), encrypted token storage via AES-256-GCM (completed 2026-05-07)
 - [ ] **Phase 28: Action Executors** — 4 google_contacts_* action_type enum values and executors in action engine using Google People API
 - [ ] **Phase 29: Dashboard UI** — Connect/disconnect Google account card in /integrations, connection status display
 
@@ -215,7 +215,12 @@ Plans:
   3. A tool_config with action_type google_contacts_find searches the org's Google Contacts by email or phone and returns the matching contact data in the action result
   4. A tool_config with action_type google_contacts_delete locates a contact by email and removes it via the People API; action_logs shows success
   5. When the org has no Google integration connected, any google_contacts_* executor returns a structured error without crashing the action engine
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 28-01-PLAN.md — Migration 029 + database.ts action_type enum update + test stubs
+- [ ] 28-02-PLAN.md — credentials.ts (resolveGoogleCredentials + callWithRefresh) + create-contact.ts + find-contact.ts
+- [ ] 28-03-PLAN.md — update-contact.ts + delete-contact.ts (two-step search+mutate pattern)
+- [ ] 28-04-PLAN.md — Wire all 4 cases into execute-action.ts + build verification
 
 ### Phase 29: Dashboard UI
 **Goal**: Admins can see and manage the Google Contacts integration connection status from the /integrations page
@@ -241,7 +246,7 @@ Plans:
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 | 27. OAuth + DB Foundation | v1.7 | 2/3 | Complete    | 2026-05-07 |
-| 28. Action Executors | v1.7 | 0/? | Not started | - |
+| 28. Action Executors | v1.7 | 0/4 | Not started | - |
 | 29. Dashboard UI | v1.7 | 0/? | Not started | - |
 
-*Last updated: 2026-05-06 — v1.7 roadmap created (3 phases, 7 requirements)*
+*Last updated: 2026-05-07 — Phase 28 planned (4 plans, 3 waves)*
