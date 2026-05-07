@@ -6,6 +6,10 @@ import { createContact } from '@/lib/ghl/create-contact'
 import { getAvailability } from '@/lib/ghl/get-availability'
 import { createAppointment } from '@/lib/ghl/create-appointment'
 import { queryKnowledge } from '@/lib/knowledge/query-knowledge'
+import { setManychatField } from '@/lib/manychat/set-field'
+import { addManychatTag } from '@/lib/manychat/add-tag'
+import { triggerManychatFlow } from '@/lib/manychat/trigger-flow'
+import { sendManychatMessage } from '@/lib/manychat/send-message'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -41,12 +45,14 @@ export async function executeAction(
     case 'custom_webhook':
       // Stubs for v2 requirements
       throw new Error(`Unsupported action type: ${actionType}`)
-    // TODO(25-02): wire ManyChat outbound executors
     case 'manychat_set_field':
+      return setManychatField(params, credentials)
     case 'manychat_add_tag':
+      return addManychatTag(params, credentials)
     case 'manychat_trigger_flow':
+      return triggerManychatFlow(params, credentials)
     case 'manychat_send_message':
-      throw new Error(`ManyChat executor not yet wired: ${actionType}`)
+      return sendManychatMessage(params, credentials)
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType
