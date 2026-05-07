@@ -91,6 +91,68 @@ export async function testManychatConnection(): Promise<{ success: boolean; erro
   }
 }
 
+/**
+ * Fetch the list of flows for the authenticated org's ManyChat channel.
+ *
+ * Mirrors testManychatConnection — same decrypt + AbortController 5s pattern.
+ * Returns { flows: Array<{name: string; ns: string}> } on success,
+ * { error: string } on any failure.
+ *
+ * Called client-side from RuleFormSheet via useEffect on sheet open (D-02).
+ */
+export async function getManychatFlows(): Promise<
+  { flows: Array<{ name: string; ns: string }> } | { error: string }
+> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+
+  const supabase = await createClient()
+
+  const { data: channel } = await supabase
+    .from('manychat_channels')
+    .select('encrypted_api_key')
+    .single()
+
+  if (!channel) return { error: 'No ManyChat channel configured.' }
+
+  let apiKey: string
+  try {
+    apiKey = await decrypt(channel.encrypted_api_key)
+  } catch {
+    return { error: 'Failed to decrypt credentials.' }
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch('https://api.manychat.com/fb/page/getFlows', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      return { error: `ManyChat returned status ${response.status}` }
+    }
+
+    const json = (await response.json()) as {
+      status: string
+      data: Array<{ id: number; name: string; ns: string }>
+    }
+
+    const flows = (json.data ?? []).map((f) => ({ name: f.name, ns: f.ns }))
+    return { flows }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { error: 'Connection timed out after 5 seconds.' }
+    }
+    return { error: err instanceof Error ? err.message : 'Unknown error.' }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
