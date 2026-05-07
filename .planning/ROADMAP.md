@@ -177,7 +177,7 @@ Plans:
   5. When a manychat_send_message action executes, the message is delivered to the subscriber via ManyChat API
 **Plans**: 3 plans
 Plans:
-- [ ] 25-01-PLAN.md — Wave 0 RED tests + Migration 028 + types widening + bridge sync
+- [x] 25-01-PLAN.md — Wave 0 RED tests + Migration 028 + types widening + bridge sync
 - [ ] 25-02-PLAN.md — client.ts + subscriber-id helper + 4 executors + dispatcher case arms
 - [ ] 25-03-PLAN.md — Write 25-HUMAN-UAT.md runbook
 
@@ -238,7 +238,7 @@ Plans:
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
-| 25. Outbound Actions | v1.6 | 0/3 | Planned     | - |
+| 25. Outbound Actions | v1.6 | 1/3 | In Progress|  |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
