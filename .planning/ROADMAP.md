@@ -242,7 +242,7 @@ Plans:
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 4/4 | Complete    | 2026-05-07 |
-| 26. Rules UI + Event Log | v1.6 | 2/2 | Complete   | 2026-05-07 |
+| 26. Rules UI + Event Log | v1.6 | 2/2 | Complete    | 2026-05-07 |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
 | 29. Dashboard UI | v1.7 | 0/? | Not started | - |
