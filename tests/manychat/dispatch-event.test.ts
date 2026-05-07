@@ -146,6 +146,33 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
       expect.objectContaining({ status: 'error', matched_rule_id: 'rule-1' })
     )
   })
+
+  it('routes manychat_add_tag action_type through to executeAction unchanged', async () => {
+    // @ts-expect-error — Wave 0 RED: manychat_add_tag not yet a valid action_type literal
+    const manychatTool = { ...fakeTool, action_type: 'manychat_add_tag' as const, tool_name: 'add_vip_tag' }
+    vi.mocked(resolveRule).mockResolvedValue(fakeRule)
+    vi.mocked(resolveToolById).mockResolvedValue(manychatTool)
+    vi.mocked(executeAction).mockResolvedValue('Tag tag-vip added to subscriber sub-1.')
+    const supabase = buildDispatchSupabase({ logId: 'log-1' })
+    const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
+    await dispatchManychatEvent(
+      {
+        eventId: 'e1',
+        orgId: 'org-1',
+        channelId: 'ch-1',
+        eventType: 'flow_completed',
+        payload: { subscriber_id: 'sub-1', tag_id: 'tag-vip' },
+      },
+      // @ts-expect-error mock client
+      supabase
+    )
+    expect(executeAction).toHaveBeenCalledWith(
+      'manychat_add_tag',
+      { subscriber_id: 'sub-1', tag_id: 'tag-vip' },
+      expect.objectContaining({ apiKey: 'decrypted-key' }),
+      expect.objectContaining({ organizationId: 'org-1' })
+    )
+  })
 })
 
 describe('ROUTING-04: action_log_id linking', () => {

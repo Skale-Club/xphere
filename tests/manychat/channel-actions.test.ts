@@ -213,6 +213,126 @@ describe('CHANNEL-03: MANYCHAT_PAYLOAD_TEMPLATE', () => {
   })
 })
 
+// =========================================================================
+// Bridge mock helper — supports the refactored createManychatChannel that
+// does manychat_channels.insert(...).select('id').single() to capture the id,
+// then integrations.insert(...) for the bridge row, plus compensating delete.
+// =========================================================================
+
+type BridgeMockOpts = {
+  channelId?: string
+  channelInsertError?: string | null
+  bridgeInsertError?: string | null
+  deleteError?: string | null
+}
+
+function buildBridgeMockSupabase(opts: BridgeMockOpts = {}) {
+  const channelId = opts.channelId ?? 'ch-new-1'
+
+  // manychat_channels.insert(...).select('id').single()
+  const channelSingleSpy = vi.fn().mockResolvedValue({
+    data: opts.channelInsertError ? null : { id: channelId },
+    error: opts.channelInsertError ? { message: opts.channelInsertError } : null,
+  })
+  const channelSelectSpy = vi.fn().mockReturnValue({ single: channelSingleSpy })
+  const channelInsertSpy = vi.fn().mockReturnValue({ select: channelSelectSpy })
+
+  // manychat_channels.delete().eq('id', X) — compensating delete spy
+  const channelDeleteEqSpy = vi.fn().mockResolvedValue({ data: null, error: opts.deleteError ? { message: opts.deleteError } : null })
+  const channelDeleteSpy = vi.fn().mockReturnValue({ eq: channelDeleteEqSpy })
+
+  // integrations.insert(...) — bridge row spy
+  const bridgeInsertSpy = vi.fn().mockResolvedValue({
+    data: null,
+    error: opts.bridgeInsertError ? { message: opts.bridgeInsertError } : null,
+  })
+
+  const fromMock = vi.fn((table: string) => {
+    if (table === 'manychat_channels') {
+      return {
+        insert: channelInsertSpy,
+        delete: channelDeleteSpy,
+      }
+    }
+    if (table === 'integrations') {
+      return { insert: bridgeInsertSpy }
+    }
+    return {}
+  })
+
+  return {
+    from: fromMock,
+    _channelInsertSpy: channelInsertSpy,
+    _channelSingleSpy: channelSingleSpy,
+    _bridgeInsertSpy: bridgeInsertSpy,
+    _channelDeleteEqSpy: channelDeleteEqSpy,
+    _channelDeleteSpy: channelDeleteSpy,
+  }
+}
+
+describe('OUTBOUND-bridge: createManychatChannel bridge sync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    vi.mocked(getUser).mockResolvedValue({ id: 'user-1', email: 'test@test.com' } as Awaited<ReturnType<typeof getUser>>)
+  })
+
+  it('BR-1: calls supabase.from("integrations").insert(...) exactly once after channel insert succeeds', async () => {
+    const mockClient = buildBridgeMockSupabase({ channelId: 'ch-new-1' })
+    vi.mocked(createClient).mockResolvedValue(mockClient as unknown as Awaited<ReturnType<typeof createClient>>)
+
+    const { createManychatChannel } = await import('@/app/(dashboard)/integrations/manychat/actions')
+    await createManychatChannel({ channelName: 'Main Bot', apiKey: 'raw-key-xyz' })
+
+    expect(mockClient._bridgeInsertSpy).toHaveBeenCalledOnce()
+  })
+
+  it('BR-2: integrations insert payload has provider="manychat", manychat_channel_id, same encrypted blob as channel insert', async () => {
+    const mockClient = buildBridgeMockSupabase({ channelId: 'ch-new-1' })
+    vi.mocked(createClient).mockResolvedValue(mockClient as unknown as Awaited<ReturnType<typeof createClient>>)
+
+    const { createManychatChannel } = await import('@/app/(dashboard)/integrations/manychat/actions')
+    await createManychatChannel({ channelName: 'Main Bot', apiKey: 'raw-key-xyz' })
+
+    const bridgeArg = mockClient._bridgeInsertSpy.mock.calls[0][0] as Record<string, unknown>
+    expect(bridgeArg.provider).toBe('manychat')
+    expect(bridgeArg.name).toBe('Main Bot')
+    expect(bridgeArg.encrypted_api_key).toBe('iv-base64:ciphertext-base64') // same blob as channel insert (no re-encryption)
+    expect(bridgeArg.key_hint).toBe('••••••••key4')
+    expect(bridgeArg.location_id).toBeNull()
+    expect(bridgeArg.config).toEqual({})
+    expect(bridgeArg.is_active).toBe(true)
+    expect(bridgeArg.manychat_channel_id).toBe('ch-new-1')
+  })
+
+  it('BR-3: on bridge insert failure, compensating delete is called AND function returns error containing "Bridge sync failed"', async () => {
+    const mockClient = buildBridgeMockSupabase({
+      channelId: 'ch-new-1',
+      bridgeInsertError: 'bridge boom',
+    })
+    vi.mocked(createClient).mockResolvedValue(mockClient as unknown as Awaited<ReturnType<typeof createClient>>)
+
+    const { createManychatChannel } = await import('@/app/(dashboard)/integrations/manychat/actions')
+    const result = await createManychatChannel({ channelName: 'Bot', apiKey: 'raw-key' })
+
+    // Compensating delete: delete().eq('id', 'ch-new-1')
+    expect(mockClient._channelDeleteSpy).toHaveBeenCalled()
+    expect(mockClient._channelDeleteEqSpy).toHaveBeenCalledWith('id', 'ch-new-1')
+    expect(result).toEqual({ error: expect.stringContaining('Bridge sync failed') })
+  })
+
+  it('BR-4: when channel insert itself fails, integrations insert is NOT called (no orphan bridge row)', async () => {
+    const mockClient = buildBridgeMockSupabase({ channelInsertError: 'DB error' })
+    vi.mocked(createClient).mockResolvedValue(mockClient as unknown as Awaited<ReturnType<typeof createClient>>)
+
+    const { createManychatChannel } = await import('@/app/(dashboard)/integrations/manychat/actions')
+    const result = await createManychatChannel({ channelName: 'Bot', apiKey: 'raw-key' })
+
+    expect(mockClient._bridgeInsertSpy).not.toHaveBeenCalled()
+    expect(result).toEqual({ error: expect.any(String) })
+  })
+})
+
 describe('CHANNEL-04: testManychatConnection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
