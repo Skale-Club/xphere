@@ -217,8 +217,8 @@ describe('ACTN-12: logAction writes action_logs and swallows errors', () => {
     const supabase = { from: vi.fn().mockReturnValue(insertChain) } as unknown as SupabaseClient<Database>
 
     const { logAction } = await import('@/lib/action-engine/log-action')
-    // Must resolve (not reject) even when DB throws
-    await expect(logAction(payload, supabase)).resolves.toBeUndefined()
+    // Must resolve (not reject) even when DB throws — returns null on error
+    await expect(logAction(payload, supabase)).resolves.toBeNull()
   })
 })
 
