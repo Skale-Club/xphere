@@ -12,16 +12,14 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.8 Vapi Webhook Security
+## Current Milestone: v1.8 Executor Completeness
 
-**Goal:** Protect all `/api/vapi/*` webhook endpoints with HMAC-SHA256 signature validation — reject any POST not signed by Vapi, closing a security gap that has existed since v1.0.
+**Goal:** Implement the 2 remaining action type stubs that have existed in the DB enum since v1.0 but throw "Unsupported action type" — `send_sms` via Twilio and `custom_webhook` with configurable URL/method/headers/body.
 
 **Target features:**
-- HMAC-SHA256 signature validation on `/api/vapi/tools`
-- HMAC-SHA256 signature validation on `/api/vapi/calls`
-- HMAC-SHA256 signature validation on `/api/vapi/campaigns`
-- Unsigned or tampered requests return 401 (not 200)
-- `VAPI_WEBHOOK_SECRET` already exists as env var — no new secrets needed
+- `send_sms` executor using Twilio credentials stored per org (`integration_provider: 'twilio'`)
+- `custom_webhook` executor — configurable URL, HTTP method, headers template, body template via tool_config's `config` JSONB
+- Tool config form UI support for configuring both new executors
 
 ## Last Milestone: v1.7 Google Contacts Integration ✅ Complete 2026-05-07
 
@@ -142,7 +140,8 @@ That business logic may differ by client. The invariant is the reliability of th
 
 ### Active (v1.8 — in progress)
 
-- Vapi webhook HMAC/secret validation on `/api/vapi/*` routes ← **v1.8**
+- `send_sms` action type (Twilio executor) ← **v1.8**
+- `custom_webhook` action type (configurable URL, method, headers, body) ← **v1.8**
 
 ### Backlog (next milestone candidates)
 
@@ -220,4 +219,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-07 — v1.8 milestone started (Vapi Webhook Security)*
+*Last updated: 2026-05-07 — v1.8 milestone started (Executor Completeness — send_sms + custom_webhook)*

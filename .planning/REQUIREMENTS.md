@@ -1,41 +1,36 @@
-# Milestone v1.7 Requirements — Google Contacts Integration
+# Milestone v1.8 Requirements — Executor Completeness
 
 **Status:** Active
-**Milestone:** v1.7 Google Contacts Integration
-**Created:** 2026-05-06
+**Milestone:** v1.8 Executor Completeness
+**Created:** 2026-05-07
 
 ---
 
-## GCONTACTS — Google account connection (per org)
+## SMS — send_sms executor via Twilio
 
-- [ ] **GCONTACTS-01:** Admin can connect a Google account via OAuth (Google OAuth 2.0 per org, stored encrypted via AES-256-GCM)
-- [ ] **GCONTACTS-02:** Admin can disconnect the Google account integration
-- [ ] **GCONTACTS-03:** Admin can see the connection status (connected / not connected) in /integrations
+- [ ] **SMS-01:** `send_sms` action type sends an SMS to a phone number using the org's Twilio credentials (Account SID + Auth Token stored in `integrations` table, provider: `twilio`)
+- [ ] **SMS-02:** The executor reads `to` and `body` params from the tool call; `from` is read from the Twilio integration's `config.from_number` field
+- [ ] **SMS-03:** On success, the executor returns a single-line string containing the Twilio message SID
+- [ ] **SMS-04:** If no active Twilio integration exists for the org, the executor throws a clear actionable error
+- [ ] **SMS-05:** Admin can configure a `send_sms` tool_config by selecting the Twilio integration from a dropdown in the tool form
 
-## ACTIONS — Google Contacts action types in the action engine
+## WEBHOOK — custom_webhook executor
 
-- [ ] **ACTIONS-01:** `google_contacts_create` action type creates a contact in Google Contacts with standard fields (name, email, phone, company, notes)
-- [ ] **ACTIONS-02:** `google_contacts_update` action type updates fields on an existing contact identified by email
-- [ ] **ACTIONS-03:** `google_contacts_find` action type searches for a contact by email or phone and returns matching data
-- [ ] **ACTIONS-04:** `google_contacts_delete` action type removes a contact from Google Contacts identified by email
+- [ ] **WEBHOOK-01:** `custom_webhook` action type makes an HTTP request to a configurable URL using the tool_config's `config` JSONB
+- [ ] **WEBHOOK-02:** The `config` JSONB supports: `url` (required), `method` (GET/POST/PUT/PATCH, default POST), `headers` (key-value object), `body` (string template)
+- [ ] **WEBHOOK-03:** Param values from the tool call are substituted into the body template using `{{param_name}}` syntax before the request is sent
+- [ ] **WEBHOOK-04:** The executor returns a single-line string with the HTTP status code and a truncated response body (max 200 chars)
+- [ ] **WEBHOOK-05:** Requests timeout after 10 seconds; a timeout throws a clear error without crashing the action engine
+- [ ] **WEBHOOK-06:** Admin can configure a `custom_webhook` tool_config by filling URL, method, headers, and body template fields in the tool form
 
 ---
 
 ## Future Requirements
 
-- Sync bidirecional (Google Contacts → GHL)
-- Mapeamento de campos customizável por org
-- Múltiplas contas Google por org
-- Paginação de resultados no find_contact
-
----
-
-## Out of Scope (v1.7)
-
-- Google Calendar integration
-- Google Drive / Gmail integration
-- Sync automático em background (cron-based)
-- Webhook inbound do Google
+- `send_sms` with dynamic `from` number per tool call
+- Retry logic for failed custom_webhook calls (with backoff)
+- Webhook response body parsed and returned as structured data for downstream AI use
+- Auth helpers for custom_webhook (Bearer token, Basic auth stored encrypted)
 
 ---
 
@@ -43,10 +38,14 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| GCONTACTS-01 | Phase 27 | Complete |
-| GCONTACTS-02 | Phase 27 | Complete |
-| GCONTACTS-03 | Phase 29 | Pending |
-| ACTIONS-01 | Phase 28 | Pending |
-| ACTIONS-02 | Phase 28 | Pending |
-| ACTIONS-03 | Phase 28 | Pending |
-| ACTIONS-04 | Phase 28 | Pending |
+| SMS-01 | TBD | — |
+| SMS-02 | TBD | — |
+| SMS-03 | TBD | — |
+| SMS-04 | TBD | — |
+| SMS-05 | TBD | — |
+| WEBHOOK-01 | TBD | — |
+| WEBHOOK-02 | TBD | — |
+| WEBHOOK-03 | TBD | — |
+| WEBHOOK-04 | TBD | — |
+| WEBHOOK-05 | TBD | — |
+| WEBHOOK-06 | TBD | — |
