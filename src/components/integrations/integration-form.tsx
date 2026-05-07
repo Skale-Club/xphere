@@ -35,6 +35,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   openrouter: 'OpenRouter',
   vapi: 'Vapi',
   manychat: 'ManyChat',
+  google_contacts: 'Google Contacts',
 }
 
 const integrationSchema = z.object({
