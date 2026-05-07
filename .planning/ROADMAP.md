@@ -265,7 +265,10 @@ Plans:
   3. A tool_config with action_type custom_webhook fires an HTTP request to the configured URL using the method, headers, and body defined in tool_config.config JSONB, and the action_logs entry shows the HTTP status + truncated response body
   4. {{param_name}} placeholders in the body template are replaced with the matching tool call parameter values before the request is sent
   5. When a custom_webhook request exceeds 10 seconds, the executor returns a timeout error without crashing the action engine
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 30-01-PLAN.md — Wave 0 test stubs (SMS-01..04 + WEBHOOK-01..05 as it.todo)
+- [ ] 30-02-PLAN.md — Twilio SMS executor + custom_webhook executor + execute-action.ts wiring
 
 ### Phase 31: Tool Config Form UI
 **Goal**: Admins can configure send_sms and custom_webhook tool_configs entirely from the tool form UI without touching the database directly
