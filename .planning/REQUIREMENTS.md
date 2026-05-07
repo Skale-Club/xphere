@@ -43,8 +43,8 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| GCONTACTS-01 | Phase 27 | Pending |
-| GCONTACTS-02 | Phase 27 | Pending |
+| GCONTACTS-01 | Phase 27 | Complete |
+| GCONTACTS-02 | Phase 27 | Complete |
 | GCONTACTS-03 | Phase 29 | Pending |
 | ACTIONS-01 | Phase 28 | Pending |
 | ACTIONS-02 | Phase 28 | Pending |
