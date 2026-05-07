@@ -102,7 +102,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
  (completed 2026-05-06)
 - [x] **Phase 23: Inbound Routing** — manychat_rules table, payload parser, rule matcher, action dispatch (completed 2026-05-06)
 - [x] **Phase 24: Dashboard Config UI** — /integrations/manychat setup page (API key form, webhook URL + secret + payload template display, test connection) (completed 2026-05-07)
-- [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
+- [x] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine (completed 2026-05-07)
 - [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
 
 ---
@@ -178,8 +178,8 @@ Plans:
 **Plans**: 3 plans
 Plans:
 - [x] 25-01-PLAN.md — Wave 0 RED tests + Migration 028 + types widening + bridge sync
-- [ ] 25-02-PLAN.md — client.ts + subscriber-id helper + 4 executors + dispatcher case arms
-- [ ] 25-03-PLAN.md — Write 25-HUMAN-UAT.md runbook
+- [x] 25-02-PLAN.md — client.ts + subscriber-id helper + 4 executors + dispatcher case arms
+- [x] 25-03-PLAN.md — Write 25-HUMAN-UAT.md runbook
 
 ### Phase 26: Rules UI + Event Log
 **Goal**: Admins can manage routing rules and browse inbound event history entirely from the dashboard without touching the database
@@ -238,7 +238,7 @@ Plans:
 | 22. Foundation | v1.6 | 2/2 | Complete    | 2026-05-06 |
 | 23. Inbound Routing | v1.6 | 4/4 | Complete   | 2026-05-06 |
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
-| 25. Outbound Actions | v1.6 | 1/3 | In Progress|  |
+| 25. Outbound Actions | v1.6 | 3/3 | Complete   | 2026-05-07 |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
 | 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
 | 28. Action Executors | v1.7 | 0/? | Not started | - |
