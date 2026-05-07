@@ -10,6 +10,10 @@ import { setManychatField } from '@/lib/manychat/set-field'
 import { addManychatTag } from '@/lib/manychat/add-tag'
 import { triggerManychatFlow } from '@/lib/manychat/trigger-flow'
 import { sendManychatMessage } from '@/lib/manychat/send-message'
+import { createGoogleContact } from '@/lib/google-contacts/create-contact'
+import { updateGoogleContact } from '@/lib/google-contacts/update-contact'
+import { findGoogleContact } from '@/lib/google-contacts/find-contact'
+import { deleteGoogleContact } from '@/lib/google-contacts/delete-contact'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -40,6 +44,30 @@ export async function executeAction(
       }
       const query = String(params.query ?? params.question ?? params.q ?? '')
       return queryKnowledge(query, ctx.organizationId, ctx.supabase)
+    }
+    case 'google_contacts_create': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('google_contacts_create requires ctx.organizationId and ctx.supabase')
+      }
+      return createGoogleContact(params, ctx)
+    }
+    case 'google_contacts_update': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('google_contacts_update requires ctx.organizationId and ctx.supabase')
+      }
+      return updateGoogleContact(params, ctx)
+    }
+    case 'google_contacts_find': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('google_contacts_find requires ctx.organizationId and ctx.supabase')
+      }
+      return findGoogleContact(params, ctx)
+    }
+    case 'google_contacts_delete': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('google_contacts_delete requires ctx.organizationId and ctx.supabase')
+      }
+      return deleteGoogleContact(params, ctx)
     }
     case 'send_sms':
     case 'custom_webhook':

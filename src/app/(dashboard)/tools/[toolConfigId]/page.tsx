@@ -39,6 +39,10 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   manychat_add_tag: 'ManyChat: Add Tag',
   manychat_trigger_flow: 'ManyChat: Trigger Flow',
   manychat_send_message: 'ManyChat: Send Message',
+  google_contacts_create: 'Google Contacts: Create',
+  google_contacts_update: 'Google Contacts: Update',
+  google_contacts_find: 'Google Contacts: Find',
+  google_contacts_delete: 'Google Contacts: Delete',
 }
 
 function buildPageUrl(
