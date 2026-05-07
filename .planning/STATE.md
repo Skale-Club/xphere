@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Google Contacts Integration
 status: planning
-stopped_at: "Milestone v1.7 initialized — requirements defined, roadmap pending"
+stopped_at: "Roadmap created — 3 phases defined (27-29), ready for phase planning"
 last_updated: "2026-05-06T00:00:00.000Z"
 last_activity: 2026-05-06
 progress:
@@ -17,9 +17,9 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining roadmap)
+Phase: Not started (roadmap defined, awaiting plan-phase)
 Plan: —
-Status: Defining roadmap
+Status: Roadmap created
 Last activity: 2026-05-06
 
 ## Milestone Progress
@@ -30,24 +30,21 @@ Last activity: 2026-05-06
 - v1.3 Google Reviews Widget + Meta Messaging: ✅ Shipped 2026-05-05
 - v1.4 Chat System Refactor: ✅ Shipped 2026-05-05
 - v1.5 Tools Folder System: ✅ Shipped 2026-05-06
-- v1.6 ManyChat Integration: 🚧 Active — Phase 22 plans complete (2 of 2), ready for verification
+- v1.6 ManyChat Integration: 🚧 Active — Phases 22-24 complete, Phases 25-26 pending
 
-## v1.6 Phase Summary
+## v1.7 Phase Summary
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 22. Foundation | Receive + log webhook events; channel CRUD with encrypted API key | Plans Complete (2/2) — pending verification |
-| 23. Inbound Routing | Rule-based dispatch to action engine | Plans Complete (4/4) — pending verification |
-| 24. Dashboard Config UI | Self-serve setup page (UI) | In Progress (1/3 plans complete) |
-| 25. Outbound Actions | manychat_* executors in action engine | Not started |
-| 26. Rules UI + Event Log | Rules CRUD UI + event log with filters (UI) | Not started |
+| 27. OAuth + DB Foundation | Google OAuth per org; encrypted token storage in integrations table | Not started |
+| 28. Action Executors | 4 google_contacts_* action types dispatching to Google People API | Not started |
+| 29. Dashboard UI | Connect/disconnect card + connection status on /integrations | Not started |
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
-See `.planning/REQUIREMENTS.md` for v1.6 requirement traceability.
-See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
+See `.planning/REQUIREMENTS.md` for v1.7 requirement traceability.
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
@@ -55,38 +52,34 @@ See `projects/manychat-integration/PLANNING.md` for v1.6 seed document.
 
 ## Accumulated Context
 
-### v1.6 Decisions
+### v1.7 Architecture Decisions
 
-- ManyChat is a trigger source — not a Vapi equivalent. Same orchestration engine, new inbound surface.
-- No HMAC signing on inbound webhook (ManyChat limitation) — shared secret header `X-Operator-Secret`
-- Always HTTP 200 after secret validation to prevent ManyChat retries on application errors
-- One ManyChat account per org (`UNIQUE(org_id)`) — relaxable in future migration
-- Flows created manually in ManyChat UI; `getFlows` API used only for flow selector dropdown
-- Event log (`manychat_events`) is append-only — full audit trail preserved
-- Standardized payload template provided to admin for ManyChat External Request config
-- ROUTING-01 and ROUTING-02 span two phases: backend (Phase 23) + UI surface (Phase 26)
-- (22-01) `manychat_events.Update` typed as `Record<string, never>` to mirror SQL append-only RLS in the TS layer
-- (22-01) Wave 0 RED tests use dynamic `await import()` so missing modules surface as ERR_MODULE_NOT_FOUND per test rather than failing collection
-- (22-01) Extending `integration_provider` enum requires updating cross-cutting unions: `integrations.provider` Row/Insert, `IntegrationForDisplay.provider`, and `PROVIDER_LABELS` map
-- (22-02) Webhook resolves `org_id` via service-role lookup of `manychat_channels` by `webhook_secret` — never trusts `org_id` from request body
-- (22-02) Webhook always returns 200 after secret validation passes; outer try/catch swallows all post-gate errors to prevent ManyChat retry storms
-- (22-02) `createManychatChannel` does NOT return `webhook_secret` to caller — Phase 24 UI fetches it via separate getter to avoid leaking through revalidation
-- (24-01) `getManychatChannel` uses `maybeSingle()` — returns null cleanly when no channel configured; caller treats null as "not connected"
-- (24-01) `testManychatConnection` uses `single()` for encrypted_api_key lookup — UNIQUE(org_id) guarantees at most one row
-- (24-01) `MANYCHAT_PAYLOAD_TEMPLATE` exported as plain `as const` object — UI calls `JSON.stringify` for display
+- Google OAuth follows the Meta OAuth reference implementation pattern (src/lib/meta/oauth.ts, src/app/api/meta/callback/route.ts)
+- Tokens stored in existing `integrations` table — requires adding `google_contacts` value to `integration_provider` enum
+- `encrypted_credentials` JSON column stores `{ access_token, refresh_token, token_expiry, google_email }` encrypted via AES-256-GCM (src/lib/crypto.ts)
+- OAuth callback resolves org_id from the authenticated session — same pattern as Meta OAuth
+- Action executors in src/lib/action-engine/ — new file per action type or grouped google-contacts module
+- Executors must handle token refresh transparently (access token expiry) before calling People API
+- All 4 action types use standard field mapping: name, email, phone, company, notes
+- google_contacts_find returns structured contact data in the action result for downstream use in AI responses
+- One Google account per org (UNIQUE(org_id, provider) already enforced by integrations table)
 
-### Architecture Notes
+### Architecture Notes (v1.7)
 
-- New tables: `manychat_channels`, `manychat_rules`, `manychat_events` — all with RLS `USING (org_id = get_current_org_id())`
-- Enum extensions: `action_type` += manychat_set_field, manychat_add_tag, manychat_trigger_flow, manychat_send_message; `integration_provider` += manychat
-- Webhook endpoint: `/api/manychat/webhook` (Node.js runtime, always returns 200 post-validation)
-- Client module: `src/lib/manychat/` — outbound API calls using decrypted per-org key
+- Enum extension: `integration_provider` += google_contacts
+- No new tables required — uses existing `integrations` table for credential storage
+- New files: `src/lib/google-contacts/` client module + token refresh logic
+- New route: `src/app/api/google/callback/route.ts` for OAuth callback
+- Action engine dispatch: 4 new cases in the executor switch — google_contacts_create, google_contacts_update, google_contacts_find, google_contacts_delete
+- People API scope required: `https://www.googleapis.com/auth/contacts`
+- OAuth initiation route: `src/app/api/google/oauth/route.ts` (redirects to Google consent)
 
 ## Pending Todos
 
-- Run `npx supabase db push` when SUPABASE_DB_PASSWORD is available (migrations 018-020 + 025 pending, plus new v1.6 migrations)
+- Run `npx supabase db push` when SUPABASE_DB_PASSWORD is available (migrations pending)
+- Register Google OAuth app in Google Cloud Console (Client ID + Secret needed as platform_settings)
 
 ## Session Continuity
 
-Last session: 2026-05-07T00:01:59.930Z
-Stopped at: Completed 24-02-PLAN.md — checkpoint:human-verify
+Last session: 2026-05-06T00:00:00.000Z
+Stopped at: Roadmap created — next step is /gsd:plan-phase 27

@@ -9,6 +9,7 @@
 - ✅ **v1.4 Chat System Refactor** — 5 phases (phases 14–18, shipped 2026-05-05) — see [v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.5 Tools Folder System** — 3 phases (phases 19–21, shipped 2026-05-06)
 - 🚧 **v1.6 ManyChat Integration** — 5 phases (phases 22–26, in progress)
+- 🚧 **v1.7 Google Contacts Integration** — 3 phases (phases 27–29, in progress)
 
 ## Shipped
 
@@ -104,6 +105,18 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 - [ ] **Phase 25: Outbound Actions** — manychat_* action_type enum values, src/lib/manychat/ client module, executors registered in action engine
 - [ ] **Phase 26: Rules UI + Event Log** — /integrations/manychat/rules CRUD UI with flow selector, /integrations/manychat/events log with filters + pagination
 
+---
+
+## 🚧 v1.7 Google Contacts Integration (In Progress)
+
+**Milestone Goal:** Add Google Contacts as an integration provider — admins connect their Google account via OAuth per org, and 4 new action types become available in the action engine to create, update, find, and delete contacts.
+
+### Phases
+
+- [ ] **Phase 27: OAuth + DB Foundation** — Google OAuth 2.0 flow per org, DB migration (google_contacts enum value, google_oauth_tokens table), encrypted token storage via AES-256-GCM
+- [ ] **Phase 28: Action Executors** — 4 google_contacts_* action_type enum values and executors in action engine using Google People API
+- [ ] **Phase 29: Dashboard UI** — Connect/disconnect Google account card in /integrations, connection status display
+
 ## Phase Details
 
 ### Phase 22: Foundation
@@ -177,9 +190,44 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 27: OAuth + DB Foundation
+**Goal**: Admins can connect a Google account per org via OAuth 2.0, with access and refresh tokens stored encrypted in the database
+**Depends on**: Nothing (first phase of this milestone)
+**Requirements**: GCONTACTS-01, GCONTACTS-02
+**Success Criteria** (what must be TRUE):
+  1. Admin can initiate a Google OAuth flow from the integrations page and is redirected to Google's consent screen requesting Google Contacts (People API) scope
+  2. After granting consent, admin is redirected back to Operator and the Google access token + refresh token are stored encrypted (AES-256-GCM) in the integrations table under the google_contacts provider
+  3. Admin can disconnect the Google integration and the encrypted token record is removed from the integrations table for their org
+  4. The OAuth callback route resolves org context from the session and never stores tokens without a valid org_id
+**Plans**: TBD
+
+### Phase 28: Action Executors
+**Goal**: The action engine can execute all 4 Google Contacts action types against the Google People API using the org's stored OAuth credentials
+**Depends on**: Phase 27
+**Requirements**: ACTIONS-01, ACTIONS-02, ACTIONS-03, ACTIONS-04
+**Success Criteria** (what must be TRUE):
+  1. A tool_config with action_type google_contacts_create fires a People API call that creates a new contact with name, email, phone, company, and notes fields, and the action_logs entry shows success with the new contact resource name
+  2. A tool_config with action_type google_contacts_update locates a contact by email and updates the specified fields via the People API; action_logs shows success
+  3. A tool_config with action_type google_contacts_find searches the org's Google Contacts by email or phone and returns the matching contact data in the action result
+  4. A tool_config with action_type google_contacts_delete locates a contact by email and removes it via the People API; action_logs shows success
+  5. When the org has no Google integration connected, any google_contacts_* executor returns a structured error without crashing the action engine
+**Plans**: TBD
+
+### Phase 29: Dashboard UI
+**Goal**: Admins can see and manage the Google Contacts integration connection status from the /integrations page
+**Depends on**: Phase 27
+**Requirements**: GCONTACTS-03
+**Success Criteria** (what must be TRUE):
+  1. Admin can see a Google Contacts card on /integrations showing "Connected" (with the connected Google account email) or "Not connected"
+  2. Admin can click a "Connect Google Account" button on the card and be taken through the OAuth flow without leaving the integrations section
+  3. Admin can click "Disconnect" on a connected card and the integration is removed with a confirmation toast
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
-**Execution Order:** 22 → 23 → 24 → 25 → 26
+**v1.6 Execution Order:** 22 → 23 → 24 → 25 → 26
+**v1.7 Execution Order:** 27 → 28 → 29
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -188,5 +236,8 @@ Plans:
 | 24. Dashboard Config UI | v1.6 | 2/2 | Complete   | 2026-05-07 |
 | 25. Outbound Actions | v1.6 | 0/? | Not started | - |
 | 26. Rules UI + Event Log | v1.6 | 0/? | Not started | - |
+| 27. OAuth + DB Foundation | v1.7 | 0/? | Not started | - |
+| 28. Action Executors | v1.7 | 0/? | Not started | - |
+| 29. Dashboard UI | v1.7 | 0/? | Not started | - |
 
-*Last updated: 2026-05-06 — Phase 24 planned (2 plans, 2 waves)*
+*Last updated: 2026-05-06 — v1.7 roadmap created (3 phases, 7 requirements)*
