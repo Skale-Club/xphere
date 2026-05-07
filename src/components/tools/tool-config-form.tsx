@@ -45,6 +45,10 @@ const toolConfigSchema = z.object({
     'manychat_add_tag',
     'manychat_trigger_flow',
     'manychat_send_message',
+    'google_contacts_create',
+    'google_contacts_update',
+    'google_contacts_find',
+    'google_contacts_delete',
   ]),
   integrationId: z.string().uuid('Please select an integration'),
   fallbackMessage: z
@@ -68,6 +72,10 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'manychat_add_tag',      label: 'ManyChat: Add Tag' },
   { value: 'manychat_trigger_flow', label: 'ManyChat: Trigger Flow' },
   { value: 'manychat_send_message', label: 'ManyChat: Send Message' },
+  { value: 'google_contacts_create', label: 'Google Contacts: Create' },
+  { value: 'google_contacts_update', label: 'Google Contacts: Update' },
+  { value: 'google_contacts_find',   label: 'Google Contacts: Find' },
+  { value: 'google_contacts_delete', label: 'Google Contacts: Delete' },
 ] as const
 
 interface ToolConfigFormProps {
