@@ -38,14 +38,14 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SMS-01 | Phase 30 | Pending |
-| SMS-02 | Phase 30 | Pending |
-| SMS-03 | Phase 30 | Pending |
-| SMS-04 | Phase 30 | Pending |
+| SMS-01 | Phase 30 | Complete |
+| SMS-02 | Phase 30 | Complete |
+| SMS-03 | Phase 30 | Complete |
+| SMS-04 | Phase 30 | Complete |
 | SMS-05 | Phase 31 | Pending |
-| WEBHOOK-01 | Phase 30 | Pending |
-| WEBHOOK-02 | Phase 30 | Pending |
-| WEBHOOK-03 | Phase 30 | Pending |
-| WEBHOOK-04 | Phase 30 | Pending |
-| WEBHOOK-05 | Phase 30 | Pending |
+| WEBHOOK-01 | Phase 30 | Complete |
+| WEBHOOK-02 | Phase 30 | Complete |
+| WEBHOOK-03 | Phase 30 | Complete |
+| WEBHOOK-04 | Phase 30 | Complete |
+| WEBHOOK-05 | Phase 30 | Complete |
 | WEBHOOK-06 | Phase 31 | Pending |
