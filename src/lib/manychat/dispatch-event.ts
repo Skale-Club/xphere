@@ -74,7 +74,7 @@ export async function dispatchManychatEvent(
       tool.action_type,
       input.payload,
       credentials,
-      { organizationId: input.orgId, supabase }
+      { organizationId: input.orgId, supabase, toolConfig: tool.config }
     )
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError'
