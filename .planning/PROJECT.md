@@ -12,14 +12,15 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.8 Executor Completeness
+## Last Milestone: v1.8 Executor Completeness ✅ Shipped 2026-05-08
 
-**Goal:** Implement the 2 remaining action type stubs that have existed in the DB enum since v1.0 but throw "Unsupported action type" — `send_sms` via Twilio and `custom_webhook` with configurable URL/method/headers/body.
+**Goal:** Implement the 2 remaining action type stubs — `send_sms` via Twilio and `custom_webhook` with configurable URL/method/headers/body.
 
-**Target features:**
-- `send_sms` executor using Twilio credentials stored per org (`integration_provider: 'twilio'`)
-- `custom_webhook` executor — configurable URL, HTTP method, headers template, body template via tool_config's `config` JSONB
-- Tool config form UI support for configuring both new executors
+**Shipped:**
+- `src/lib/twilio/send-sms.ts` — Twilio executor with credential resolution, Basic auth, URLSearchParams POST to Messages API
+- `src/lib/custom-webhook/execute-webhook.ts` — configurable HTTP executor with `{{param}}` substitution, 10s AbortController timeout, 200-char truncated response
+- `tool-config-form.tsx` — conditional fields: Twilio dropdown for `send_sms`, 4-field panel for `custom_webhook`
+- Migration 031 — `tool_configs.integration_id` made nullable (custom_webhook needs no integration)
 
 ## Last Milestone: v1.7 Google Contacts Integration ✅ Complete 2026-05-07
 
@@ -137,16 +138,17 @@ That business logic may differ by client. The invariant is the reliability of th
 - Token regeneration for widget auth invalidation — v1.2 Phase 5 (ADMIN-04)
 - Runtime widget config hydration from public config endpoint — v1.2 Phase 5
 - Admin chat inbox — conversation list, message thread, reply, status filter, search — v1.2 Phase 6 (INBOX-01..07)
+- `send_sms` action type executes via Twilio (Account SID + Auth Token per org, `from_number` from integration config) — v1.8
+- `custom_webhook` action type fires configurable HTTP requests with `{{param}}` substitution, timeout, and truncated response — v1.8
+- Admin can configure `send_sms` tool_config via Twilio integration dropdown in form — v1.8
+- Admin can configure `custom_webhook` tool_config via URL/method/headers/body fields in form — v1.8
 
-### Active (v1.8 — in progress)
+### Active (next milestone TBD)
 
-- `send_sms` action type (Twilio executor) ← **v1.8**
-- `custom_webhook` action type (configurable URL, method, headers, body) ← **v1.8**
+(none — defining next milestone)
 
 ### Backlog (next milestone candidates)
 
-- `send_sms` action type (Twilio executor)
-- `custom_webhook` action type (configurable URL, method, headers, body)
 - Campaign calls auto-appear in Observability call list
 - Client-facing read-only panel (member role dashboard)
 - Email alerts on tool execution failures or latency threshold
@@ -219,4 +221,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-07 — v1.8 milestone started (Executor Completeness — send_sms + custom_webhook)*
+*Last updated: 2026-05-08 — after v1.8 milestone (Executor Completeness shipped)*

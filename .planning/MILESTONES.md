@@ -1,5 +1,15 @@
 # Milestones
 
+## v1.8 Executor Completeness (Shipped: 2026-05-08)
+
+**Phases completed:** 9 phases, 26 plans, 43 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v1.4 Chat System Refactor (Shipped: 2026-05-05)
 
 **Stats:** 5 phases, 9 plans, 20 commits, 44 files, +3,413 / −962 lines
