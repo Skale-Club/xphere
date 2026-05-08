@@ -128,7 +128,7 @@ See [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md)
 
 ### Phases
 
-- [ ] **Phase 30: Executor Backends** — Twilio SMS executor module + custom_webhook executor module, both wired into execute-action.ts
+- [x] **Phase 30: Executor Backends** — Twilio SMS executor module + custom_webhook executor module, both wired into execute-action.ts (completed 2026-05-08)
 - [ ] **Phase 31: Tool Config Form UI** — Config fields for send_sms (Twilio integration picker) and custom_webhook (URL, method, headers, body template) in tool-config-form.tsx
 
 ## Phase Details
@@ -299,7 +299,7 @@ Plans:
 | 27. OAuth + DB Foundation | v1.7 | 3/3 | Complete ⚠️ | 2026-05-07 |
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
-| 30. Executor Backends | v1.8 | 3/4 | In Progress|  |
+| 30. Executor Backends | v1.8 | 3/4 | Complete    | 2026-05-08 |
 | 31. Tool Config Form UI | v1.8 | 0/? | Not started | — |
 
 *Last updated: 2026-05-07 — gap closure plans 30-03 and 30-04 added after verification found SMS executor missing and WEBHOOK-04 format mismatch.*
