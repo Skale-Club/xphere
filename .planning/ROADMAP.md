@@ -265,10 +265,12 @@ Plans:
   3. A tool_config with action_type custom_webhook fires an HTTP request to the configured URL using the method, headers, and body defined in tool_config.config JSONB, and the action_logs entry shows the HTTP status + truncated response body
   4. {{param_name}} placeholders in the body template are replaced with the matching tool call parameter values before the request is sent
   5. When a custom_webhook request exceeds 10 seconds, the executor returns a timeout error without crashing the action engine
-**Plans**: 2 plans
+**Plans**: 4 plans (30-01 + 30-02 original; 30-03 + 30-04 gap closure)
 Plans:
-- [ ] 30-01-PLAN.md — Twilio SMS executor (send_sms) + credentials resolver
+- [ ] 30-01-PLAN.md — Twilio SMS executor (send_sms) + credentials resolver [original — superseded by 30-04]
 - [x] 30-02-PLAN.md — custom_webhook executor + ActionContext.toolConfig + call site updates
+- [ ] 30-03-PLAN.md — Gap closure: fix WEBHOOK-04/05 return format, truncation limit, AbortError catch
+- [ ] 30-04-PLAN.md — Gap closure: Twilio send-sms.ts executor + wire into execute-action.ts + REQUIREMENTS.md fix
 
 ### Phase 31: Tool Config Form UI
 **Goal**: Admins can configure send_sms and custom_webhook tool_configs entirely from the tool form UI without touching the database directly
@@ -297,7 +299,7 @@ Plans:
 | 27. OAuth + DB Foundation | v1.7 | 3/3 | Complete ⚠️ | 2026-05-07 |
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
-| 30. Executor Backends | v1.8 | 1/2 (30-02 done) | In progress | — |
+| 30. Executor Backends | v1.8 | 1/4 (30-02 done; 30-03, 30-04 gap closure pending) | In progress | — |
 | 31. Tool Config Form UI | v1.8 | 0/? | Not started | — |
 
-*Last updated: 2026-05-07 — v1.8 roadmap created. Phases 30–31 ready to plan.*
+*Last updated: 2026-05-07 — gap closure plans 30-03 and 30-04 added after verification found SMS executor missing and WEBHOOK-04 format mismatch.*
