@@ -176,9 +176,10 @@ describe('ACTN-11: executeAction dispatcher', () => {
     expect(result).toBe('Appointment confirmed. ID: appt_789')
   })
 
-  it('executeAction with unsupported action_type throws "Unsupported action type: send_sms"', async () => {
+  it('executeAction send_sms without ctx throws missing ctx error', async () => {
     const { executeAction } = await import('@/lib/action-engine/execute-action')
-    await expect(executeAction('send_sms', params, credentials)).rejects.toThrow('Unsupported action type: send_sms')
+    // send_sms is now implemented — requires ctx with organizationId and supabase
+    await expect(executeAction('send_sms', params, credentials)).rejects.toThrow('send_sms requires ctx.organizationId and ctx.supabase')
   })
 })
 
