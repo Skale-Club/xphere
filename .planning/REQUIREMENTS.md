@@ -8,10 +8,10 @@
 
 ## SMS — send_sms executor via Twilio
 
-- [ ] **SMS-01:** `send_sms` action type sends an SMS to a phone number using the org's Twilio credentials (Account SID + Auth Token stored in `integrations` table, provider: `twilio`)
-- [ ] **SMS-02:** The executor reads `to` and `body` params from the tool call; `from` is read from the Twilio integration's `config.from_number` field
-- [ ] **SMS-03:** On success, the executor returns a single-line string containing the Twilio message SID
-- [ ] **SMS-04:** If no active Twilio integration exists for the org, the executor throws a clear actionable error
+- [x] **SMS-01:** `send_sms` action type sends an SMS to a phone number using the org's Twilio credentials (Account SID + Auth Token stored in `integrations` table, provider: `twilio`)
+- [x] **SMS-02:** The executor reads `to` and `body` params from the tool call; `from` is read from the Twilio integration's `config.from_number` field
+- [x] **SMS-03:** On success, the executor returns a single-line string containing the Twilio message SID
+- [x] **SMS-04:** If no active Twilio integration exists for the org, the executor throws a clear actionable error
 - [ ] **SMS-05:** Admin can configure a `send_sms` tool_config by selecting the Twilio integration from a dropdown in the tool form
 
 ## WEBHOOK — custom_webhook executor
@@ -38,14 +38,14 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| SMS-01 | Phase 30 | Complete |
-| SMS-02 | Phase 30 | Complete |
-| SMS-03 | Phase 30 | Complete |
-| SMS-04 | Phase 30 | Complete |
+| SMS-01 | Phase 30 | In Progress |
+| SMS-02 | Phase 30 | In Progress |
+| SMS-03 | Phase 30 | In Progress |
+| SMS-04 | Phase 30 | In Progress |
 | SMS-05 | Phase 31 | Pending |
-| WEBHOOK-01 | Phase 30 | Complete |
-| WEBHOOK-02 | Phase 30 | Complete |
-| WEBHOOK-03 | Phase 30 | Complete |
-| WEBHOOK-04 | Phase 30 | Complete |
-| WEBHOOK-05 | Phase 30 | Complete |
+| WEBHOOK-01 | Phase 30 | Pending |
+| WEBHOOK-02 | Phase 30 | Pending |
+| WEBHOOK-03 | Phase 30 | Pending |
+| WEBHOOK-04 | Phase 30 | Pending |
+| WEBHOOK-05 | Phase 30 | Pending |
 | WEBHOOK-06 | Phase 31 | Pending |

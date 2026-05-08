@@ -16,6 +16,7 @@ import { updateGoogleContact } from '@/lib/google-contacts/update-contact'
 import { findGoogleContact } from '@/lib/google-contacts/find-contact'
 import { deleteGoogleContact } from '@/lib/google-contacts/delete-contact'
 import { executeWebhook } from '@/lib/custom-webhook/execute-webhook'
+import { sendSms } from '@/lib/twilio/send-sms'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -73,9 +74,12 @@ export async function executeAction(
       }
       return deleteGoogleContact(params, ctx)
     }
-    case 'send_sms':
-      // Stub — implemented by send_sms executor (30-01)
-      throw new Error('Unsupported action type: send_sms')
+    case 'send_sms': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('send_sms requires ctx.organizationId and ctx.supabase')
+      }
+      return sendSms(params, ctx)
+    }
     case 'custom_webhook': {
       if (!ctx?.toolConfig) {
         throw new Error('custom_webhook requires ctx.toolConfig (the tool_config.config JSONB)')
