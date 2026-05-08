@@ -14,6 +14,7 @@ import { createGoogleContact } from '@/lib/google-contacts/create-contact'
 import { updateGoogleContact } from '@/lib/google-contacts/update-contact'
 import { findGoogleContact } from '@/lib/google-contacts/find-contact'
 import { deleteGoogleContact } from '@/lib/google-contacts/delete-contact'
+import { sendSms } from '@/lib/twilio/send-sms'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -69,10 +70,15 @@ export async function executeAction(
       }
       return deleteGoogleContact(params, ctx)
     }
-    case 'send_sms':
+    case 'send_sms': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('send_sms requires ctx.organizationId and ctx.supabase')
+      }
+      return sendSms(params, ctx)
+    }
     case 'custom_webhook':
-      // Stubs for v2 requirements
-      throw new Error(`Unsupported action type: ${actionType}`)
+      // Stub — implemented in a future plan
+      throw new Error('Unsupported action type: custom_webhook')
     case 'manychat_set_field':
       return setManychatField(params, credentials)
     case 'manychat_add_tag':
