@@ -284,7 +284,10 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
                           No integrations available
                         </SelectItem>
                       ) : (
-                        integrations.map((integration) => (
+                        (watchedActionType === 'send_sms'
+                          ? integrations.filter(i => i.provider === 'twilio')
+                          : integrations
+                        ).map((integration) => (
                           <SelectItem key={integration.id} value={integration.id}>
                             {integration.name}
                           </SelectItem>
