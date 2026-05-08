@@ -300,6 +300,6 @@ Plans:
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
 | 30. Executor Backends | v1.8 | 3/4 | Complete    | 2026-05-08 |
-| 31. Tool Config Form UI | v1.8 | 1/1 | Complete   | 2026-05-08 |
+| 31. Tool Config Form UI | v1.8 | 1/1 | Complete    | 2026-05-08 |
 
 *Last updated: 2026-05-07 — gap closure plans 30-03 and 30-04 added after verification found SMS executor missing and WEBHOOK-04 format mismatch.*
