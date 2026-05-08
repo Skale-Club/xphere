@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Executor Completeness
-status: ready_to_plan
-stopped_at: Roadmap created — Phase 30 ready to plan
-last_updated: "2026-05-07T00:00:00.000Z"
-last_activity: 2026-05-07
+status: in_progress
+stopped_at: Completed 30-02-PLAN.md — custom_webhook executor implemented
+last_updated: "2026-05-08T00:09:13Z"
+last_activity: 2026-05-08
 progress:
   total_phases: 2
   completed_phases: 0
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 30 — Executor Backends
-Plan: —
-Status: Ready to plan
-Last activity: 2026-05-07 — v1.8 roadmap created
+Plan: 02 complete (custom_webhook executor)
+Status: In progress — 30-01 (send_sms) parallel
+Last activity: 2026-05-08 — 30-02 custom_webhook executor complete
 
 ## Milestone Progress
 
@@ -50,6 +50,14 @@ See `.planning/ROADMAP.md` for phase details.
 **Production origin:** https://operator.skale.club
 
 ## Accumulated Context
+
+### v1.8 Decisions
+
+| Decision | Plan | Rationale |
+|----------|------|-----------|
+| toolConfig passed via ActionContext.toolConfig optional field | 30-02 | Keeps executor signature clean without polluting params namespace |
+| Non-2xx returns error string, not throw | 30-02 | HTTP status in result string is more informative than generic fallback_message |
+| AbortError propagates from executeWebhook | 30-02 | Caller can distinguish timeout vs error in action_logs status field |
 
 ### v1.8 Scope
 
