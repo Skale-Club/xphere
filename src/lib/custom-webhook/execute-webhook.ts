@@ -62,7 +62,7 @@ function sanitize(text: string): string {
   return text.replace(/\r?\n|\r/g, ' ').trim()
 }
 
-function truncate(text: string, max = 500): string {
+function truncate(text: string, max = 200): string {
   if (text.length <= max) return text
   return text.slice(0, max) + '...(truncated)'
 }
@@ -94,11 +94,12 @@ export async function executeWebhook(
 
     const responseText = await res.text().catch(() => '')
     const truncatedBody = sanitize(truncate(responseText))
-
-    if (res.ok) {
-      return `Webhook OK status=${res.status} body=${truncatedBody}`
+    return `Webhook ${res.status}: ${truncatedBody}`
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new Error(`custom_webhook timed out after 10 seconds (url: ${cfg.url})`)
     }
-    return `Webhook error status=${res.status} body=${truncatedBody}`
+    throw err
   } finally {
     clearTimeout(timeoutId)
   }
