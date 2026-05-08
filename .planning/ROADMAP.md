@@ -267,9 +267,9 @@ Plans:
   5. When a custom_webhook request exceeds 10 seconds, the executor returns a timeout error without crashing the action engine
 **Plans**: 4 plans (30-01 + 30-02 original; 30-03 + 30-04 gap closure)
 Plans:
-- [ ] 30-01-PLAN.md — Twilio SMS executor (send_sms) + credentials resolver [original — superseded by 30-04]
+- [x] 30-01-PLAN.md — Twilio SMS executor (send_sms) + credentials resolver [original — superseded by 30-04]
 - [x] 30-02-PLAN.md — custom_webhook executor + ActionContext.toolConfig + call site updates
-- [ ] 30-03-PLAN.md — Gap closure: fix WEBHOOK-04/05 return format, truncation limit, AbortError catch
+- [x] 30-03-PLAN.md — Gap closure: fix WEBHOOK-04/05 return format, truncation limit, AbortError catch
 - [ ] 30-04-PLAN.md — Gap closure: Twilio send-sms.ts executor + wire into execute-action.ts + REQUIREMENTS.md fix
 
 ### Phase 31: Tool Config Form UI
@@ -299,7 +299,7 @@ Plans:
 | 27. OAuth + DB Foundation | v1.7 | 3/3 | Complete ⚠️ | 2026-05-07 |
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
-| 30. Executor Backends | v1.8 | 1/4 (30-02 done; 30-03, 30-04 gap closure pending) | In progress | — |
+| 30. Executor Backends | v1.8 | 3/4 | In Progress|  |
 | 31. Tool Config Form UI | v1.8 | 0/? | Not started | — |
 
 *Last updated: 2026-05-07 — gap closure plans 30-03 and 30-04 added after verification found SMS executor missing and WEBHOOK-04 format mismatch.*

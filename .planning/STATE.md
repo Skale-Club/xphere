@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Executor Completeness
-status: in_progress
-stopped_at: Completed 30-02-PLAN.md — custom_webhook executor implemented
-last_updated: "2026-05-08T00:09:13Z"
-last_activity: 2026-05-08
+status: executing
+stopped_at: Completed 30-03-PLAN.md
+last_updated: "2026-05-08T00:35:56.405Z"
+last_activity: 2026-05-08 — 30-02 custom_webhook executor complete
 progress:
-  total_phases: 2
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 10
+  completed_phases: 5
+  total_plans: 25
+  completed_plans: 19
 ---
 
 # Operator - State
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 30 — Executor Backends
-Plan: 02 complete (custom_webhook executor)
-Status: In progress — 30-01 (send_sms) parallel
-Last activity: 2026-05-08 — 30-02 custom_webhook executor complete
+Plan: 03 complete (execute-webhook contract fix)
+Status: In progress — 30-04 (send_sms) next
+Last activity: 2026-05-08 — 30-03 execute-webhook return format + truncation + AbortError fix
 
 ## Milestone Progress
 
@@ -58,14 +58,17 @@ See `.planning/ROADMAP.md` for phase details.
 | toolConfig passed via ActionContext.toolConfig optional field | 30-02 | Keeps executor signature clean without polluting params namespace |
 | Non-2xx returns error string, not throw | 30-02 | HTTP status in result string is more informative than generic fallback_message |
 | AbortError propagates from executeWebhook | 30-02 | Caller can distinguish timeout vs error in action_logs status field |
+| Unified 'Webhook {status}: {body}' format for success+error | 30-03 | HTTP status code carries the signal — no need for separate OK/error prefix; colon separator |
 
 ### v1.8 Scope
 
 Two executor stubs that throw "Unsupported action type" in `src/lib/action-engine/execute-action.ts`:
+
 - `send_sms` — Twilio API using org's Account SID + Auth Token from `integrations` table (provider: `twilio`), encrypted as JSON blob in `encrypted_api_key`
 - `custom_webhook` — configurable HTTP call; URL/method/headers/body template stored in `tool_configs.config` JSONB; `{{param_name}}` substitution before send; 10s timeout
 
 Pattern references:
+
 - Executor pattern: `src/lib/google-contacts/` and `src/lib/manychat/`
 - Credential decryption: see how google_contacts and twilio integration rows are read
 - Tool config form: `src/components/tools/tool-config-form.tsx`
@@ -78,5 +81,5 @@ No new migrations needed — `send_sms` and `custom_webhook` are already in the 
 
 ## Session Continuity
 
-Last session: 2026-05-07
-Stopped at: v1.8 roadmap created — run `/gsd:plan-phase 30` next
+Last session: 2026-05-08T00:35:56.388Z
+Stopped at: Completed 30-03-PLAN.md
