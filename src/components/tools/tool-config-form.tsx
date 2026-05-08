@@ -50,13 +50,39 @@ const toolConfigSchema = z.object({
     'google_contacts_find',
     'google_contacts_delete',
   ]),
-  integrationId: z.string().uuid('Please select an integration'),
+  integrationId: z.string().optional().nullable(),
   fallbackMessage: z
     .string()
     .min(1, 'Fallback message is required')
     .max(500, 'Fallback message must be 500 characters or fewer'),
   folder_id: z.string().optional().nullable(),
   labels: z.array(z.string()),
+  config: z
+    .object({
+      url: z.string().optional(),
+      method: z.string().optional(),
+      headers: z.string().optional(),
+      body: z.string().optional(),
+    })
+    .optional(),
+}).superRefine((data, ctx) => {
+  // integrationId required for action types that need an integration
+  const requiresIntegration = data.actionType !== 'custom_webhook'
+  if (requiresIntegration && !data.integrationId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Please select an integration',
+      path: ['integrationId'],
+    })
+  }
+  // url required when actionType is custom_webhook
+  if (data.actionType === 'custom_webhook' && !data.config?.url?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Webhook URL is required',
+      path: ['config', 'url'],
+    })
+  }
 })
 
 type ToolConfigFormValues = z.infer<typeof toolConfigSchema>
@@ -100,10 +126,19 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
       fallbackMessage: toolConfig?.fallback_message ?? '',
       folder_id: toolConfig?.folder_id ?? '__none__',
       labels: toolConfig?.labels ?? [],
+      config: toolConfig?.action_type === 'custom_webhook'
+        ? {
+            url: (toolConfig?.config as Record<string, string> | null)?.url ?? '',
+            method: (toolConfig?.config as Record<string, string> | null)?.method ?? 'POST',
+            headers: (toolConfig?.config as Record<string, string> | null)?.headers ?? '',
+            body: (toolConfig?.config as Record<string, string> | null)?.body ?? '',
+          }
+        : undefined,
     },
   })
 
   const currentLabels: string[] = form.watch('labels') ?? []
+  const watchedActionType = form.watch('actionType')
 
   function addLabel(value: string) {
     const trimmed = value.trim().replace(/,$/, '')
@@ -125,10 +160,20 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
       const payload = {
         toolName: values.toolName,
         actionType: values.actionType,
-        integrationId: values.integrationId,
+        integrationId: values.integrationId ?? '',
         fallbackMessage: values.fallbackMessage,
         folder_id: values.folder_id === '__none__' ? null : (values.folder_id ?? null),
         labels: values.labels,
+        ...(values.actionType === 'custom_webhook' && values.config
+          ? {
+              config: {
+                url: values.config.url ?? '',
+                method: values.config.method ?? 'POST',
+                headers: values.config.headers ?? '',
+                body: values.config.body ?? '',
+              },
+            }
+          : {}),
       }
 
       let result: { error?: string } | void = undefined
@@ -216,40 +261,147 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="integrationId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Integration</FormLabel>
-                <Select
-                  disabled={isPending}
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an integration" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {integrations.length === 0 ? (
-                      <SelectItem value="__none__" disabled>
-                        No integrations available
-                      </SelectItem>
-                    ) : (
-                      integrations.map((integration) => (
-                        <SelectItem key={integration.id} value={integration.id}>
-                          {integration.name}
+          {watchedActionType !== 'custom_webhook' && (
+            <FormField
+              control={form.control}
+              name="integrationId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Integration</FormLabel>
+                  <Select
+                    disabled={isPending}
+                    onValueChange={field.onChange}
+                    defaultValue={field.value ?? ''}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an integration" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {integrations.length === 0 ? (
+                        <SelectItem value="__none__" disabled>
+                          No integrations available
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                      ) : (
+                        integrations.map((integration) => (
+                          <SelectItem key={integration.id} value={integration.id}>
+                            {integration.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {watchedActionType === 'send_sms' && (
+                    <FormDescription>
+                      Select your Twilio integration. The from number is read from the integration config.
+                    </FormDescription>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {watchedActionType === 'custom_webhook' && (
+            <>
+              <FormField
+                control={form.control}
+                name="config.url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Webhook URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://example.com/webhook"
+                        disabled={isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="config.method"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HTTP Method</FormLabel>
+                    <Select
+                      disabled={isPending}
+                      onValueChange={field.onChange}
+                      defaultValue={field.value ?? 'POST'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="POST" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="GET">GET</SelectItem>
+                        <SelectItem value="POST">POST</SelectItem>
+                        <SelectItem value="PUT">PUT</SelectItem>
+                        <SelectItem value="PATCH">PATCH</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="config.headers"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Headers (JSON){' '}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={'{"Content-Type":"application/json"}'}
+                        disabled={isPending}
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      JSON object of HTTP headers to send with the request
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="config.body"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Body Template{' '}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={'{"name":"{{name}}","email":"{{email}}"}'}
+                        disabled={isPending}
+                        rows={4}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Use {'{{param_name}}'} placeholders — replaced with tool call parameter values at runtime
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
 
           <FormField
             control={form.control}

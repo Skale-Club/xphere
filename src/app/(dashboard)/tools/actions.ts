@@ -142,7 +142,9 @@ export async function createToolConfig(data: {
     organization_id: member.organization_id,
     tool_name: data.toolName,
     action_type: data.actionType as Database['public']['Enums']['action_type'],
-    integration_id: data.integrationId,
+    ...(data.integrationId && data.integrationId.length > 0
+      ? { integration_id: data.integrationId }
+      : {}),
     fallback_message: data.fallbackMessage,
     config: (data.config ?? {}) as Json,
     folder_id: data.folder_id ?? null,
@@ -180,7 +182,9 @@ export async function updateToolConfig(
     .update({
       tool_name: data.toolName,
       action_type: data.actionType as Database['public']['Enums']['action_type'],
-      integration_id: data.integrationId,
+      ...(data.integrationId && data.integrationId.length > 0
+        ? { integration_id: data.integrationId }
+        : {}),
       fallback_message: data.fallbackMessage,
       config: (data.config ?? {}) as Json,
       folder_id: data.folder_id ?? null,
