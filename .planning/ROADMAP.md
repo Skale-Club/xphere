@@ -280,8 +280,10 @@ Plans:
   1. When admin selects action_type send_sms in the tool config form, a Twilio integration dropdown appears showing the org's active Twilio integrations for selection
   2. When admin selects action_type custom_webhook in the tool config form, URL, method, headers, and body template fields appear and are saved to tool_config.config JSONB on submit
   3. Admin can save a custom_webhook tool_config with a body template containing {{param_name}} placeholders and the value is persisted exactly as entered
-**Plans**: TBD
+**Plans**: 1 plan
 **UI hint**: yes
+Plans:
+- [ ] 31-01-PLAN.md — Conditional config fields (Twilio hint + 4 webhook fields) in tool-config-form.tsx
 
 ## Progress
 
@@ -300,6 +302,6 @@ Plans:
 | 28. Action Executors | v1.7 | 4/4 | Complete    | 2026-05-07 |
 | 29. Dashboard UI | v1.7 | 1/1 | Complete    | 2026-05-07 |
 | 30. Executor Backends | v1.8 | 3/4 | Complete    | 2026-05-08 |
-| 31. Tool Config Form UI | v1.8 | 0/? | Not started | — |
+| 31. Tool Config Form UI | v1.8 | 0/1 | Not started | — |
 
-*Last updated: 2026-05-07 — gap closure plans 30-03 and 30-04 added after verification found SMS executor missing and WEBHOOK-04 format mismatch.*
+*Last updated: 2026-05-08 — phase 31 planned (1 plan: conditional config fields in tool-config-form.tsx)*
