@@ -19,7 +19,7 @@ describe('WEBHOOK-03: fireWebhook substitutes {{param_name}} placeholders', () =
 })
 
 describe('WEBHOOK-04: fireWebhook returns single-line status + truncated body', () => {
-  it.todo('returns "Webhook {status}: {body}" on success (exact prefix "Webhook ")')
+  it.todo('returns "Webhook {status}: {body}" — status is HTTP numeric code, colon separator, both success and error use same format')
   it.todo('truncates response body to 200 characters')
   it.todo('strips newline characters from response body before returning')
   it.todo('return value contains no newline characters even when response body has \\n')
