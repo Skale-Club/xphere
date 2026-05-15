@@ -77,7 +77,7 @@ export async function streamOpenRouter(p: StreamOpenRouterParams): Promise<void>
             toolConfig.action_type,
             toolInput,
             { apiKey: toolConfig.apiKey, locationId: toolConfig.locationId },
-            { organizationId: p.orgId, supabase: p.supabase }
+            { organizationId: p.orgId, supabase: p.supabase, integrationProvider: toolConfig.provider }
           )
         } else {
           toolResult = 'Tool not found'

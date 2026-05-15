@@ -181,7 +181,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             (toolConfig as any).action_type,
             { message: messageText, conversation_id: conversationId },
             { apiKey: plaintextKey, locationId: integration.location_id ?? '' },
-            { organizationId: orgId, supabase }
+            { organizationId: orgId, supabase, integrationProvider: integration.provider }
           )
 
           // Persist automation response as assistant message

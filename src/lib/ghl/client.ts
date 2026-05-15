@@ -3,7 +3,7 @@
 
 const GHL_BASE_URL = 'https://services.leadconnectorhq.com'
 const GHL_API_VERSION = '2021-07-28'
-const TIMEOUT_MS = 400  // 400ms hard limit — keeps hot path within 500ms Vapi budget
+const DEFAULT_TIMEOUT_MS = 400  // 400ms hard limit — keeps hot path within 500ms Vapi budget
 
 export interface GhlCredentials {
   apiKey: string       // decrypted Private Integration Token
@@ -15,10 +15,11 @@ export async function ghlFetch(
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown | null,
   credentials: GhlCredentials,
-  queryParams?: Record<string, string>
+  queryParams?: Record<string, string>,
+  timeoutMs?: number
 ): Promise<Response> {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT_MS)
 
   let url = `${GHL_BASE_URL}${path}`
   if (queryParams && Object.keys(queryParams).length > 0) {
@@ -47,9 +48,10 @@ export async function ghlFetchJson<T>(
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown | null,
   credentials: GhlCredentials,
-  queryParams?: Record<string, string>
+  queryParams?: Record<string, string>,
+  timeoutMs?: number
 ): Promise<T> {
-  const response = await ghlFetch(path, method, body, credentials, queryParams)
+  const response = await ghlFetch(path, method, body, credentials, queryParams, timeoutMs)
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error(`GHL API error ${response.status}: ${errorText}`)

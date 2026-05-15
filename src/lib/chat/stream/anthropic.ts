@@ -67,7 +67,7 @@ export async function streamAnthropic(p: StreamAnthropicParams): Promise<void> {
             toolConfig.action_type,
             toolUseBlock.input as Record<string, unknown>,
             { apiKey: toolConfig.apiKey, locationId: toolConfig.locationId },
-            { organizationId: p.orgId, supabase: p.supabase }
+            { organizationId: p.orgId, supabase: p.supabase, integrationProvider: toolConfig.provider }
           )
         } else {
           toolResult = 'Tool not found'

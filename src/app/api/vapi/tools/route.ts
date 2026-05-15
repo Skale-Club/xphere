@@ -85,6 +85,7 @@ export async function POST(request: Request): Promise<Response> {
         organizationId: orgId,
         supabase,
         toolConfig: toolConfig.config,
+        integrationProvider: toolConfig.integrations.provider,
       })
     } catch (err) {
       // GHL executor threw (error, timeout, or unsupported action type)

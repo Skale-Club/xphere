@@ -17,17 +17,21 @@ import { findGoogleContact } from '@/lib/google-contacts/find-contact'
 import { deleteGoogleContact } from '@/lib/google-contacts/delete-contact'
 import { executeWebhook } from '@/lib/custom-webhook/execute-webhook'
 import { sendSms } from '@/lib/twilio/send-sms'
+import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type ActionType = Database['public']['Enums']['action_type']
+type IntegrationProvider = Database['public']['Enums']['integration_provider']
 
 export interface ActionContext {
   organizationId: string
   supabase: SupabaseClient<Database>
   /** tool_configs.config JSONB — required for custom_webhook */
   toolConfig?: Json
+  /** Provider of the integration bound to this tool — dispatches send_sms to Twilio vs GHL */
+  integrationProvider?: IntegrationProvider
 }
 
 export async function executeAction(
@@ -77,6 +81,9 @@ export async function executeAction(
     case 'send_sms': {
       if (!ctx?.organizationId || !ctx?.supabase) {
         throw new Error('send_sms requires ctx.organizationId and ctx.supabase')
+      }
+      if (ctx.integrationProvider === 'gohighlevel') {
+        return sendSmsViaGhl(params, credentials)
       }
       return sendSms(params, ctx)
     }
