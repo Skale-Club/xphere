@@ -85,30 +85,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REENG-01 | TBD | Pending |
-| REENG-02 | TBD | Pending |
-| REENG-03 | TBD | Pending |
-| REENG-04 | TBD | Pending |
-| REENG-05 | TBD | Pending |
-| REENG-06 | TBD | Pending |
-| REENG-07 | TBD | Pending |
-| REENG-08 | TBD | Pending |
-| REENG-09 | TBD | Pending |
-| REENG-10 | TBD | Pending |
-| REENG-11 | TBD | Pending |
-| REENG-12 | TBD | Pending |
-| REENG-13 | TBD | Pending |
-| REENG-14 | TBD | Pending |
-| REENG-15 | TBD | Pending |
-| REENG-16 | TBD | Pending |
-| REENG-17 | TBD | Pending |
+| REENG-01 | Phase 32 | Pending |
+| REENG-02 | Phase 32 | Pending |
+| REENG-03 | Phase 32 | Pending |
+| REENG-04 | Phase 32 | Pending |
+| REENG-05 | Phase 32 | Pending |
+| REENG-06 | Phase 32 | Pending |
+| REENG-07 | Phase 32 | Pending |
+| REENG-08 | Phase 32 | Pending |
+| REENG-09 | Phase 32 | Pending |
+| REENG-10 | Phase 32 | Pending |
+| REENG-11 | Phase 32 | Pending |
+| REENG-12 | Phase 32 | Pending |
+| REENG-13 | Phase 32 | Pending |
+| REENG-14 | Phase 32 | Pending |
+| REENG-15 | Phase 32 | Pending |
+| REENG-16 | Phase 32 | Pending |
+| REENG-17 | Phase 32 | Pending |
 
 **Coverage:**
 - v1.9 requirements: 17 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 17 ⚠️ (will be resolved by gsd-roadmapper)
+- Mapped to phases: 17 ✓
+- Unmapped: 0
 
 ---
 
 *Requirements defined: 2026-05-15*
-*Last updated: 2026-05-15 — initial v1.9 definition*
+*Last updated: 2026-05-15 — initial v1.9 definition + traceability mapped to Phase 32*

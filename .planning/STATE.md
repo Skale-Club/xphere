@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: GHL Lost-Lead Reengagement (SMS)
 status: in_progress
-stopped_at: Defining requirements
+stopped_at: Phase 32 ready to plan
 last_updated: "2026-05-15T00:00:00.000Z"
 last_activity: 2026-05-15
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 32 — GHL Lost-Lead Reengagement SMS Automation
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-15 — Milestone v1.9 started
+Status: Phase 32 ready to plan
+Last activity: 2026-05-15 — Roadmap created; v1.9 scoped to single Phase 32 covering all 17 REENG requirements
 
 ## Milestone Progress
 
@@ -33,7 +33,7 @@ Last activity: 2026-05-15 — Milestone v1.9 started
 - v1.6 ManyChat Integration: ✅ Shipped 2026-05-07
 - v1.7 Google Contacts Integration: ✅ Shipped 2026-05-07 ⚠️ pending Google Cloud credentials
 - v1.8 Executor Completeness: ✅ Shipped 2026-05-08
-- v1.9 GHL Lost-Lead Reengagement (SMS): 🚧 Active — defining requirements
+- v1.9 GHL Lost-Lead Reengagement (SMS): 🚧 Active — Phase 32 ready to plan
 
 ## Project Reference
 
@@ -51,6 +51,8 @@ See `.planning/ROADMAP.md` for phase details.
 
 MVP de reengagement SMS para a sub-account Skleanings no GoHighLevel. Job diário (GitHub Action) chama endpoint protegido que: lista Lost opportunities > 180 dias → envia SMS via Twilio → loga + marca anti-loop.
 
+Phase 32 single-phase decomposition: all 17 REENG requirements ship together. The pieces (GHL list method, anti-loop migration, runner endpoint, scheduler, docs) are tightly coupled and the milestone is not functional without all of them — splitting would create an artificial cut.
+
 Critical pieces:
 
 - GHL API: precisa adicionar `listOpportunities(locationId, { status, updatedBefore })` em `src/lib/ghl/` (hoje só tem create-contact, create-appointment, get-availability)
@@ -64,6 +66,8 @@ Critical pieces:
   - `GHL_REENGAGEMENT_TWILIO_INTEGRATION_ID`
   - `GHL_REENGAGEMENT_MESSAGE` (template com `{{first_name}}`)
   - `GHL_REENGAGEMENT_TRIGGER_SECRET` (bearer pro endpoint)
+  - `GHL_REENGAGEMENT_THRESHOLD_DAYS` (default 180, optional)
+  - `GHL_REENGAGEMENT_BATCH_LIMIT` (default 100, optional)
 
 Pattern references:
 
@@ -83,6 +87,7 @@ Reserved for future milestone (não fazer agora):
 - [v1.9] Hardcoded para Skleanings via env vars — versão multi-cliente é trabalho de plataforma, fica para milestone futura
 - [v1.9] GitHub Actions como scheduler — projeto já usa pra keepalive; evita custo de Vercel Cron e mantém scheduling externo ao app
 - [v1.9] Anti-loop persistido em DB (não em GHL tag) — fonte da verdade no nosso lado, evita depender de tags GHL que podem ser removidas
+- [v1.9] Single-phase decomposition (Phase 32) — MVP scope is small and tightly coupled; splitting list/migration/endpoint from scheduler/docs would create artificial cut without value
 
 ## Pending Todos
 
@@ -91,7 +96,7 @@ Reserved for future milestone (não fazer agora):
 ## Session Continuity
 
 Last session: 2026-05-15T00:00:00.000Z
-Stopped at: v1.9 milestone started — defining requirements
+Stopped at: Phase 32 ready to plan — roadmap created and requirements traced
 
 ## Performance Metrics
 
