@@ -3,7 +3,7 @@
 
 const GHL_BASE_URL = 'https://services.leadconnectorhq.com'
 const GHL_API_VERSION = '2021-07-28'
-const DEFAULT_TIMEOUT_MS = 400  // 400ms hard limit — keeps hot path within 500ms Vapi budget
+export const DEFAULT_TIMEOUT_MS = 400  // 400ms hard limit — keeps hot path within 500ms Vapi budget
 
 export interface GhlCredentials {
   apiKey: string       // decrypted Private Integration Token
