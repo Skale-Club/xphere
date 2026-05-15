@@ -359,6 +359,77 @@ export interface Database {
           }
         ]
       }
+      ghl_reengagement_sent: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          ghl_contact_id: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          ghl_contact_id: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          ghl_contact_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ghl_reengagement_sent_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      automation_schedules: {
+        Row: {
+          id: string
+          automation_key: string
+          is_active: boolean
+          next_run_at: string
+          interval_minutes: number
+          last_run_at: string | null
+          last_run_status: 'success' | 'error' | 'skipped' | null
+          last_run_result: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          automation_key: string
+          is_active?: boolean
+          next_run_at: string
+          interval_minutes: number
+          last_run_at?: string | null
+          last_run_status?: 'success' | 'error' | 'skipped' | null
+          last_run_result?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          automation_key?: string
+          is_active?: boolean
+          next_run_at?: string
+          interval_minutes?: number
+          last_run_at?: string | null
+          last_run_status?: 'success' | 'error' | 'skipped' | null
+          last_run_result?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calls: {
         Row: {
           id: string
