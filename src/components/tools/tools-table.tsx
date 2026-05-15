@@ -70,7 +70,10 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetTitle,
 } from '@/components/ui/sheet'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { ToolConfigForm } from './tool-config-form'
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -1011,6 +1014,14 @@ export function ToolsTable({
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="right" className="p-0 sm:max-w-lg">
+          <VisuallyHidden>
+            <SheetTitle>
+              {editingTool ? 'Edit Tool Configuration' : 'New Tool Configuration'}
+            </SheetTitle>
+            <SheetDescription>
+              Configure a tool that the agent can call during conversations.
+            </SheetDescription>
+          </VisuallyHidden>
           <ToolConfigForm
             mode={editingTool ? 'edit' : 'create'}
             toolConfig={editingTool ?? undefined}

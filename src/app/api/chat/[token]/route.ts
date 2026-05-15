@@ -132,7 +132,7 @@ export async function POST(
       const integrationIds = [...new Set(rawTools.map(t => t.integration_id).filter((id): id is string => id !== null))]
       const { data: integrations } = await supabase
         .from('integrations')
-        .select('id, encrypted_api_key, location_id')
+        .select('id, encrypted_api_key, location_id, provider')
         .in('id', integrationIds)
         .eq('is_active', true)
 
@@ -155,6 +155,7 @@ export async function POST(
             integration_id: tool.integration_id ?? '',
             apiKey,
             locationId: integration.location_id ?? '',
+            provider: integration.provider,
           })
         } catch {
           // Skip tool if key decryption fails — don't block the stream

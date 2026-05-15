@@ -44,7 +44,7 @@ created: 2026-05-15
 | REENG-01 | `listOpportunities()` issues GET to `/opportunities/search` with Bearer + `Version: 2021-07-28` + `location_id` + `status` + `limit` query | unit | `npx vitest run tests/ghl-list-opportunities.test.ts` | ❌ W0 |
 | REENG-01 | Cursor pagination loops, stops when `meta.startAfter`/`startAfterId` absent | unit | same file | ❌ W0 |
 | REENG-01 | Hard `maxPages` cap is enforced | unit | same file | ❌ W0 |
-| REENG-02 | `location_id` passed; credentials come from decrypted `integrations.encrypted_api_key` | integration | `npx vitest run tests/ghl-reengagement-runner.test.ts` | ❌ W0 |
+| REENG-02 | `location_id` passed; GHL credentials come from decrypted `integrations.encrypted_api_key` (provider='gohighlevel') — same integration row used for both list and SMS dispatch | integration | `npx vitest run tests/ghl-reengagement-runner.test.ts` | ❌ W0 |
 | REENG-03 | Status filter sent as `status=lost`; date-cutoff filter sent (param name locked by staging probe) | unit | tests/ghl-list-opportunities.test.ts | ❌ W0 |
 | REENG-03 | JS-side defense: items younger than threshold filtered post-fetch | unit | tests/ghl-reengagement-runner.test.ts | ❌ W0 |
 | REENG-04 | Runner extracts `contact.id`, `contact.firstName`, `contact.phone` from response items (normalizes either embedded shape OR N+1 fetch fallback) | unit | tests/ghl-reengagement-runner.test.ts | ❌ W0 |
@@ -59,10 +59,14 @@ created: 2026-05-15
 | REENG-10 | Existing `(org_id, ghl_contact_id)` rows are skipped before dispatch (or: claim-first INSERT … ON CONFLICT DO NOTHING returns nothing) | integration | tests/ghl-reengagement-runner.test.ts (seeded fake row) | ❌ W0 |
 | REENG-11 | Successful dispatch inserts a `ghl_reengagement_sent` row | integration | same file (spy on insert) | ❌ W0 |
 | REENG-11 | Failed dispatch does NOT leave a phantom row (claim-first → rollback OR send-then-record → simply no insert) | integration | same file | ❌ W0 |
-| REENG-12 | `logAction` called per dispatch with `tool_name='ghl_reengagement_sms'`, `vapi_call_id='cron:ghl-reengagement:<iso>'`, masked phone, truncated body | unit | tests/ghl-reengagement-runner.test.ts (spy) | ❌ W0 |
+| REENG-12 | `logAction` called per dispatch with `tool_name='ghl_reengagement_sms'`, `vapi_call_id='cron:ghl-reengagement:<iso>'`, `ghl_contact_id`, truncated body. Phone IS NOT logged (we never have it in raw form — only the `contactId`) | unit | tests/ghl-reengagement-runner.test.ts (spy) | ❌ W0 |
 | REENG-12 | Error case: log entry has `status='error'` and populated `error_detail` | unit | same file | ❌ W0 |
-| REENG-13 | `.github/workflows/ghl-reengagement.yml` has `schedule: cron: '0 14 * * *'` | manual | YAML inspection | ❌ W0 |
-| REENG-14 | Same file includes `workflow_dispatch:` trigger | manual | same | ❌ W0 |
+| REENG-13 | `.github/workflows/ghl-reengagement.yml` has pulse cron `schedule: cron: '*/15 * * * *'` (revised 2026-05-15 — actual schedule lives in DB) | manual | YAML inspection | ❌ W0 |
+| REENG-14 | Same file includes `workflow_dispatch:` trigger; manual runs can pass `?force=1` to bypass the schedule check | manual | same | ❌ W0 |
+| REENG-18 | Migration `033_automation_schedules.sql` creates table with `automation_key` UNIQUE, `next_run_at`, `interval_minutes > 0`, RLS enabled (no policy → service-role only); seed row for `ghl_reengagement_sms` | manual | review checklist against `supabase/migrations/033_*.sql` | ❌ W0 |
+| REENG-18 | Runner returns `{ skipped: 'not_due_yet', next_run_at }` when `next_run_at > now()` and `?force=1` not set | unit | tests/ghl-reengagement-route.test.ts | ❌ W0 |
+| REENG-18 | Runner updates `last_run_at`, `next_run_at = now + interval_minutes`, `last_run_status`, `last_run_result` after a real run | integration | same file | ❌ W0 |
+| REENG-18 | Manual `?force=1` bypasses the schedule check | unit | same file | ❌ W0 |
 | REENG-15 | Each missing required env var → HTTP 500 with clear actionable error string naming the missing var | unit | tests/ghl-reengagement-route.test.ts | ❌ W0 |
 | REENG-16 | `THRESHOLD_DAYS` defaults to 180; `BATCH_LIMIT` defaults to its safe value when env absent | unit | same | ❌ W0 |
 | REENG-17 | `docs/automations/ghl-reengagement.md` exists with env-var table + cron schedule + manual-trigger instructions | manual | doc review checklist | ❌ W0 |
@@ -97,15 +101,17 @@ The planner MUST create plans whose first wave produces these test scaffolds BEF
 
 ## Edge Cases Requiring Explicit Coverage
 
+> **Revised 2026-05-15:** SMS executor is `sendSmsViaGhl` (GHL Conversations API), not Twilio. Phone-format pre-validation removed — we pass `contactId` direct and trust the CRM data.
+
 The runner test (`tests/ghl-reengagement-runner.test.ts`) MUST include cases for:
 
 - **Empty Lost list:** returns `{ processed: 0, sent: 0, skipped: 0, failed: 0, errors: [] }`
 - **All in anti-loop:** `processed = N`, `sent = 0`, `skipped = N`
-- **Mixed success/failure:** `Promise.allSettled` style — one Twilio failure does not block other dispatches; failed entry appears in `errors[]`
+- **Mixed success/failure:** `Promise.allSettled` style — one GHL API failure does not block other dispatches; failed entry appears in `errors[]`
 - **Missing `firstName`:** SMS body contains `amigo(a)`; dispatch still succeeds
-- **Missing or non-E.164 phone:** counted as `skipped` (not `failed`); reason logged
-- **Twilio 500 / 21211:** counted as `failed`; `error_detail` logged; anti-loop NOT recorded
-- **GHL 401 on first call:** entire run aborts with HTTP 500 + clear message
+- **GHL contact missing phone / no SMS permission:** counted as `failed` (GHL Conversations API returns 4xx); `error_detail` logged; anti-loop claim rolled back
+- **GHL 5xx during dispatch:** counted as `failed`; `error_detail` logged; anti-loop claim rolled back (retried next day)
+- **GHL 401 on first listOpportunities call:** entire run aborts with HTTP 500 + clear message
 - **Page 2 errors (cursor mid-stream):** page 1 contacts still processed; pagination error logged
 
 ---

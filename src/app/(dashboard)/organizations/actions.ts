@@ -41,7 +41,7 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
 
   const { data: org, error: orgError } = await admin
     .from('organizations')
-    .insert({ name: data.name, slug })
+    .insert({ name: data.name, slug, widget_token: crypto.randomUUID() })
     .select('id')
     .single()
   if (orgError) {

@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -202,7 +203,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6 h-full overflow-y-auto">
       <div>
         <h2 className="text-xl font-semibold">
           {mode === 'create' ? 'New Tool Configuration' : 'Edit Tool Configuration'}
@@ -285,7 +286,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
                         </SelectItem>
                       ) : (
                         (watchedActionType === 'send_sms'
-                          ? integrations.filter(i => i.provider === 'twilio')
+                          ? integrations.filter(i => i.provider === 'twilio' || i.provider === 'gohighlevel')
                           : integrations
                         ).map((integration) => (
                           <SelectItem key={integration.id} value={integration.id}>
@@ -297,7 +298,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
                   </Select>
                   {watchedActionType === 'send_sms' && (
                     <FormDescription>
-                      Select your Twilio integration. The from number is read from the integration config.
+                      Twilio sends via the integration&apos;s configured from number. GoHighLevel sends via the sub-account&apos;s default SMS number and logs the message in the contact&apos;s conversation history.
                     </FormDescription>
                   )}
                   <FormMessage />
@@ -470,11 +471,11 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
             )}
           />
 
-          <FormItem>
-            <FormLabel>
+          <div className="space-y-2">
+            <Label>
               Labels{' '}
               <span className="text-muted-foreground font-normal">(optional)</span>
-            </FormLabel>
+            </Label>
             {currentLabels.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-1">
                 {currentLabels.map((label) => (
@@ -510,7 +511,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
                 if (labelsInput.trim()) addLabel(labelsInput)
               }}
             />
-          </FormItem>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={isPending}>

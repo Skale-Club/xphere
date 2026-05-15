@@ -37,6 +37,7 @@ export interface ToolConfigRow {
 export interface ToolWithCredentials extends ToolConfigRow {
   apiKey: string
   locationId: string
+  provider: Database['public']['Enums']['integration_provider']
 }
 
 export interface CreateChatStreamParams {
