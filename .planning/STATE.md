@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: GHL Lost-Lead Reengagement (SMS)
-status: in_progress
-stopped_at: Phase 32 ready to plan
-last_updated: "2026-05-15T00:00:00.000Z"
+status: executing
+stopped_at: Completed Plan 32-02 — substrate live (listOpportunities + renderMessage + migrations 032/033 applied to remote). Wave 3 ready (Plan 32-03 runner)
+last_updated: "2026-05-15T23:55:14.669Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 2
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 32 — GHL Lost-Lead Reengagement SMS Automation
-Plan: —
-Status: Phase 32 ready to plan
-Last activity: 2026-05-15 — Roadmap created; v1.9 scoped to single Phase 32 covering all 17 REENG requirements
+Phase: 32 (ghl-lost-lead-reengagement-sms-automation) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-05-15
 
 ## Milestone Progress
 
@@ -77,6 +77,7 @@ Pattern references:
 - Cred decryption: `decrypt(integrations.encrypted_api_key)` then JSON parse
 
 Reserved for future milestone (não fazer agora):
+
 - Tabela `automations` genérica + UI de automações
 - Audience filters configuráveis
 - Multi-canal (email, WhatsApp)
@@ -89,6 +90,8 @@ Reserved for future milestone (não fazer agora):
 - [v1.9] Anti-loop persistido em DB (não em GHL tag) — fonte da verdade no nosso lado, evita depender de tags GHL que podem ser removidas
 - [v1.9] Single-phase decomposition (Phase 32) — MVP scope is small and tightly coupled; splitting list/migration/endpoint from scheduler/docs would create artificial cut without value
 - [v1.9] BATCH_LIMIT default reduced from documented 100 → 20 in implementation. Reason: Vercel Hobby 10s function timeout + Twilio ~500ms latency + Promise.allSettled fan-out makes 100 unsafe; operator can raise via env var on Pro plan.
+- [Phase 32]: [v1.9 / 32-02] GHL date-filter param kept as 'date' constant — JS-side date guard provides defense in depth against silent param-name mismatch (Pitfall 1); staging probe deferred
+- [Phase 32]: [v1.9 / 32-02] Migration 033 (automation_schedules) shipped in this plan per D-32-13 — single-tenant, RLS with NO policy (service-role only), seeded ghl_reengagement_sms row with next_run_at=next 14:00 UTC + interval_minutes=1440
 
 ## Pending Todos
 
@@ -96,8 +99,8 @@ Reserved for future milestone (não fazer agora):
 
 ## Session Continuity
 
-Last session: 2026-05-15T00:00:00.000Z
-Stopped at: Phase 32 ready to plan — roadmap created and requirements traced
+Last session: 2026-05-15T23:55:14.665Z
+Stopped at: Completed Plan 32-02 — substrate live (listOpportunities + renderMessage + migrations 032/033 applied to remote). Wave 3 ready (Plan 32-03 runner)
 
 ## Performance Metrics
 
@@ -105,3 +108,4 @@ Stopped at: Phase 32 ready to plan — roadmap created and requirements traced
 |-------|------|----------|-------|-------|
 | 30 | 04 | 8 min | 2/2 | 3 |
 | 31 | 01 | 12 min | 1/1 | 2 |
+| Phase 32 P02 | 25 min | 4/4 tasks | 6 files |

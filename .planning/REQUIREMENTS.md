@@ -85,15 +85,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REENG-01 | Phase 32 | Pending |
-| REENG-02 | Phase 32 | Pending |
-| REENG-03 | Phase 32 | Pending |
-| REENG-04 | Phase 32 | Pending |
+| REENG-01 | Phase 32 | Complete |
+| REENG-02 | Phase 32 | Complete |
+| REENG-03 | Phase 32 | Complete |
+| REENG-04 | Phase 32 | Complete |
 | REENG-05 | Phase 32 | Pending |
 | REENG-06 | Phase 32 | Pending |
 | REENG-07 | Phase 32 | Pending |
-| REENG-08 | Phase 32 | Pending |
-| REENG-09 | Phase 32 | Pending |
+| REENG-08 | Phase 32 | Complete |
+| REENG-09 | Phase 32 | Complete |
 | REENG-10 | Phase 32 | Pending |
 | REENG-11 | Phase 32 | Pending |
 | REENG-12 | Phase 32 | Pending |
