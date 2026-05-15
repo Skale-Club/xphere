@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Executor Completeness
-status: completed
-stopped_at: 31-01 complete — tool-config-form conditional fields for send_sms and custom_webhook
-last_updated: "2026-05-08T09:41:13.148Z"
-last_activity: 2026-05-08
+milestone: v1.9
+milestone_name: GHL Lost-Lead Reengagement (SMS)
+status: in_progress
+stopped_at: Defining requirements
+last_updated: "2026-05-15T00:00:00.000Z"
+last_activity: 2026-05-15
 progress:
-  total_phases: 10
-  completed_phases: 7
-  total_plans: 26
-  completed_plans: 21
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 31
-Plan: Not started
-Status: Phase 31 plan 01 complete — tool-config-form conditional fields + integration_id fix
-Last activity: 2026-05-08
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-15 — Milestone v1.9 started
 
 ## Milestone Progress
 
@@ -32,12 +32,8 @@ Last activity: 2026-05-08
 - v1.5 Tools Folder System: ✅ Shipped 2026-05-06
 - v1.6 ManyChat Integration: ✅ Shipped 2026-05-07
 - v1.7 Google Contacts Integration: ✅ Shipped 2026-05-07 ⚠️ pending Google Cloud credentials
-- v1.8 Executor Completeness: 🚧 Active — 1/2 phases complete
-
-```
-Phase 30 [██████████] 100%   Executor Backends
-Phase 31 [██████████] 100%   Tool Config Form UI
-```
+- v1.8 Executor Completeness: ✅ Shipped 2026-05-08
+- v1.9 GHL Lost-Lead Reengagement (SMS): 🚧 Active — defining requirements
 
 ## Project Reference
 
@@ -51,25 +47,42 @@ See `.planning/ROADMAP.md` for phase details.
 
 ## Accumulated Context
 
-### v1.8 Scope
+### v1.9 Scope
 
-Two executor stubs that throw "Unsupported action type" in `src/lib/action-engine/execute-action.ts`:
+MVP de reengagement SMS para a sub-account Skleanings no GoHighLevel. Job diário (GitHub Action) chama endpoint protegido que: lista Lost opportunities > 180 dias → envia SMS via Twilio → loga + marca anti-loop.
 
-- `send_sms` — Twilio API using org's Account SID + Auth Token from `integrations` table (provider: `twilio`), encrypted as JSON blob in `encrypted_api_key`
-- `custom_webhook` — configurable HTTP call; URL/method/headers/body template stored in `tool_configs.config` JSONB; `{{param_name}}` substitution before send; 10s timeout
+Critical pieces:
+
+- GHL API: precisa adicionar `listOpportunities(locationId, { status, updatedBefore })` em `src/lib/ghl/` (hoje só tem create-contact, create-appointment, get-availability)
+- Twilio: reusar `src/lib/twilio/send-sms.ts` (executor 1-SMS já validado em v1.8)
+- Anti-loop: nova migration + tabela `ghl_reengagement_sent` (org_id, ghl_contact_id, sent_at, UNIQUE constraint)
+- Scheduler: novo arquivo em `.github/workflows/` (já existe pattern de keepalive scheduled action)
+- Endpoint: `POST /api/automations/ghl-reengagement/run` retorna `{ processed, sent, skipped, errors }`
+- Config via env vars (sem UI nessa milestone):
+  - `GHL_REENGAGEMENT_LOCATION_ID` (sub-account)
+  - `GHL_REENGAGEMENT_INTEGRATION_ID` (qual integration row usar)
+  - `GHL_REENGAGEMENT_TWILIO_INTEGRATION_ID`
+  - `GHL_REENGAGEMENT_MESSAGE` (template com `{{first_name}}`)
+  - `GHL_REENGAGEMENT_TRIGGER_SECRET` (bearer pro endpoint)
 
 Pattern references:
 
-- Executor pattern: `src/lib/google-contacts/` and `src/lib/manychat/`
-- Credential decryption: see how google_contacts and twilio integration rows are read
-- Tool config form: `src/components/tools/tool-config-form.tsx`
+- Twilio executor: `src/lib/twilio/send-sms.ts` (v1.8)
+- Action logging: `src/lib/action-engine/execute-action.ts` (action_logs insert pattern)
+- GHL client: `src/lib/ghl/client.ts` (Bearer + Version header pattern)
+- Cred decryption: `decrypt(integrations.encrypted_api_key)` then JSON parse
 
-No new migrations needed — `send_sms` and `custom_webhook` are already in the `action_type` DB enum and in `database.ts` types.
+Reserved for future milestone (não fazer agora):
+- Tabela `automations` genérica + UI de automações
+- Audience filters configuráveis
+- Multi-canal (email, WhatsApp)
+- Multi-cliente / múltiplas regras
 
 ## Decisions
 
-- [Phase 31] integrationId made optional/nullable in zod with superRefine conditional validation rather than schema swapping — keeps the type simple and the schema single
-- [Phase 31] Conditional spread pattern for NOT NULL FK columns: omit integration_id entirely from DB insert/update when empty rather than passing an empty string
+- [v1.9] Hardcoded para Skleanings via env vars — versão multi-cliente é trabalho de plataforma, fica para milestone futura
+- [v1.9] GitHub Actions como scheduler — projeto já usa pra keepalive; evita custo de Vercel Cron e mantém scheduling externo ao app
+- [v1.9] Anti-loop persistido em DB (não em GHL tag) — fonte da verdade no nosso lado, evita depender de tags GHL que podem ser removidas
 
 ## Pending Todos
 
@@ -77,8 +90,8 @@ No new migrations needed — `send_sms` and `custom_webhook` are already in the 
 
 ## Session Continuity
 
-Last session: 2026-05-08T01:26:33.383Z
-Stopped at: 31-01 complete — tool-config-form conditional fields for send_sms and custom_webhook
+Last session: 2026-05-15T00:00:00.000Z
+Stopped at: v1.9 milestone started — defining requirements
 
 ## Performance Metrics
 
