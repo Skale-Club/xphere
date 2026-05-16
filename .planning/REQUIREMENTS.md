@@ -182,14 +182,14 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGENT-01 | Phase 36 | Pending |
-| AGENT-02 | Phase 36 | Pending |
-| AGENT-03 | Phase 36 | Pending |
+| AGENT-01 | Phase 36 | In Progress |
+| AGENT-02 | Phase 36 | In Progress |
+| AGENT-03 | Phase 36 | In Progress |
 | AGENT-04 | Phase 34 | Complete |
 | AGENT-05 | Phase 34 | Complete |
 | AGENT-06 | Phase 34 | Complete |
 | AGENT-07 | Phase 34 | Complete |
-| AGENT-08 | Phase 36 | Pending |
+| AGENT-08 | Phase 36 | In Progress |
 | AGENT-09 | Phase 33 | Complete |
 | AGENT-10 | Phase 34 | Complete |
 | AGENT-11 | Phase 41 | Pending |
@@ -198,9 +198,9 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | AGENT-14 | Phase 41 | Pending |
 | AGENT-15 | Phase 41 | Pending |
 | TOOL-01 | Phase 33 | Complete |
-| TOOL-02 | Phase 36 | Pending |
-| TOOL-03 | Phase 36 | Pending |
-| TOOL-04 | Phase 36 | Pending |
+| TOOL-02 | Phase 36 | In Progress |
+| TOOL-03 | Phase 36 | In Progress |
+| TOOL-04 | Phase 36 | In Progress |
 | TOOL-05 | Phase 34 | Complete |
 | TOOL-06 | Phase 34 | Complete |
 | RUNTIME-01 | Phase 34 | Complete |

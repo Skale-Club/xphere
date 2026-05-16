@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Phase 36 Plan 01 complete
-last_updated: "2026-05-16T23:00:00.000Z"
-last_activity: 2026-05-16 -- Phase 36 Plan 01 complete (migration 044 + types)
+stopped_at: Completed 36-02-PLAN.md
+last_updated: "2026-05-16T22:38:26Z"
+last_activity: 2026-05-16 -- Phase 36 Plan 02 complete
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 26
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Operator - State
@@ -18,10 +18,10 @@ progress:
 ## Current Position
 
 Phase: 36 (agent-crud-dashboard) — EXECUTING
-Plan: 2 of 5 (Plan 01 complete)
-Next: Plan 36-02 — shadcn primitives + scaffold (dashboard)/agents + src/lib/agents/* + sidebar
-Status: Executing Phase 36
-Last activity: 2026-05-16 -- Phase 36 Plan 01 complete (migration 044 + types regenerated)
+Plan: 3 of 5 (Plans 01 + 02 complete; Plan 03 next)
+Next phase: 37 (manychat-meta-channel-adapters)
+Status: Executing Phase 36 — Wave 1 setup complete
+Last activity: 2026-05-16 -- Phase 36 Plan 02 complete (Wave 1 setup: shadcn primitives + src/lib/agents/ + sidebar)
 
 ## Milestone Progress
 
@@ -147,7 +147,9 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 35-web-widget-canary-cutover]: route.ts cutover (CHAN-03): removed tool-fetching IIFE + accumulatedReply; runAgent owns all LLM side effects via after() in streaming path
 - [Phase 35]: GATE-01 test mocks @/lib/agent-runtime for deterministic SSE output (D-35-08) — avoids non-deterministic LLM responses while testing full route.ts path
 - [Phase 35]: chat-api.test.ts stale mocks (openai, @anthropic-ai/sdk) replaced with @/lib/agent-runtime mock — route.ts now calls runAgent not SDK directly
-- [Phase 36-01]: Migration 044 adds agents.temperature NUMERIC(3,2) NULL + agents.max_tokens INTEGER NULL with CHECK constraints (no DEFAULT — NULL = use runtime/SDK default to preserve Phase 34 lock); types regenerated manually (Row + Insert + Update); npm run build GREEN
+- [Phase 36 P02]: src/lib/agents/* established as single contract surface (slug + models + channels + zod-schemas); Plans 03/04 MUST import from here (no duplication)
+- [Phase 36 P02]: channel_overrides empty fields stripped at zod transform level — runtime fallback ("key absent → use base agent value") stays semantically clean
+- [Phase 36 P02]: Sidebar Agents entry uses Bot icon from lucide-react, placed directly below Tools per D-36-11
 
 ## Pending Todos
 
@@ -158,8 +160,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T23:00:00.000Z
-Stopped at: Phase 36 Plan 01 complete — ready for Plan 02
+Last session: 2026-05-16T22:38:26Z
+Stopped at: Completed 36-02-PLAN.md (Wave 1 setup; Plans 03/04 unblocked)
 
 ## Performance Metrics
 
@@ -182,4 +184,4 @@ Stopped at: Phase 36 Plan 01 complete — ready for Plan 02
 | Phase 35 P02 | 11 | 2 tasks | 2 files |
 | Phase 35-web-widget-canary-cutover P03 | 35 | 2 tasks | 3 files |
 | Phase 35 P04 | 12 | 2 tasks | 2 files |
-| Phase 36 P01 | ~15 min | 3 tasks | 2 files |
+| Phase 36 P02 | 15min | 3 tasks | 13 files |
