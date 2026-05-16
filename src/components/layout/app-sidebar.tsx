@@ -14,6 +14,7 @@ import {
   Settings,
   LayoutDashboard,
   ShieldCheck,
+  Bot,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -43,6 +44,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/', active: true },
   { icon: Phone, label: 'Phone', href: '/phone', active: true },
   { icon: Zap, label: 'Tools', href: '/tools', active: true },
+  { icon: Bot, label: 'Agents', href: '/agents', active: true },
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },
   { icon: MessageSquare, label: 'Chat', href: '/chat', active: true },
