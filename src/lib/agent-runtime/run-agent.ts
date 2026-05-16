@@ -67,7 +67,6 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
 export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   const {
     orgId,
-    agentId,
     channel,
     userMessage,
     conversationId,
@@ -78,6 +77,33 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     parentInvocationId,
   } = opts
 
+  // Resolve agentId from agent_channel_defaults when not explicitly provided (D-35-06)
+  let resolvedAgentId = opts.agentId
+  if (!resolvedAgentId) {
+    const defaultClient = createServiceRoleClient()
+    const { data: defaultRow } = await defaultClient
+      .from('agent_channel_defaults')
+      .select('agent_id')
+      .eq('organization_id', opts.orgId)
+      .eq('channel', opts.channel)
+      .single()
+
+    resolvedAgentId = defaultRow?.agent_id ?? undefined
+    if (!resolvedAgentId) {
+      console.error(
+        JSON.stringify({ event: 'no_agent_for_channel', orgId: opts.orgId, channel: opts.channel })
+      )
+      return {
+        text: "I'm unable to process your request right now.",
+        usage: { tokensIn: 0, tokensOut: 0 },
+        invocationId: '',
+        traceId: crypto.randomUUID(),
+        status: 'error',
+        errorDetail: 'no_agent_for_channel',
+      }
+    }
+  }
+
   // Step 1: Generate traceId
   const traceId = crypto.randomUUID()
 
@@ -86,10 +112,10 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   if (killSwitchResult) return killSwitchResult
 
   // Step 3: Resolve agent row + apply channel_overrides
-  const resolvedAgent = await resolveAgent(agentId, orgId, channel)
+  const resolvedAgent = await resolveAgent(resolvedAgentId, orgId, channel)
   if (!resolvedAgent) {
     console.error(
-      JSON.stringify({ event: 'agent_resolve_failed', agentId, orgId, channel, traceId })
+      JSON.stringify({ event: 'agent_resolve_failed', agentId: resolvedAgentId, orgId, channel, traceId })
     )
     return {
       text: "I'm unable to process your request right now.",
@@ -104,7 +130,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   // Step 4: is_active check (D-34-13) — denied, no invocation row
   if (!resolvedAgent.isActive) {
     console.warn(
-      JSON.stringify({ event: 'agent_inactive_denied', agentId, orgId, traceId })
+      JSON.stringify({ event: 'agent_inactive_denied', agentId: resolvedAgentId, orgId, traceId })
     )
     return {
       text: resolvedAgent.fallbackMessage,
@@ -123,7 +149,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
         event: 'channel_denied',
         channel,
         allowedChannels: resolvedAgent.allowedChannels,
-        agentId,
+        agentId: resolvedAgentId,
         orgId,
         traceId,
       })
@@ -139,7 +165,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   }
 
   // Step 6: Delegation depth check (D-34-10 stub — Phase 38 activates recursion)
-  const depthDenial = checkDelegationDepth(_depth, orgId, agentId)
+  const depthDenial = checkDelegationDepth(_depth, orgId, resolvedAgentId)
   if (depthDenial) {
     return {
       text: depthDenial,
@@ -152,7 +178,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   }
 
   // Step 7: Daily cost cap check (D-34-05 / RUNTIME-07)
-  const costCapDenial = await checkDailyCostCap(orgId, agentId)
+  const costCapDenial = await checkDailyCostCap(orgId, resolvedAgentId)
   if (costCapDenial) {
     return {
       text: costCapDenial,
@@ -164,22 +190,25 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     }
   }
 
-  // Step 7b: KB scope query (AGENT-05)
-  // When resolvedAgent.kbScope is non-null (specific scopes configured), call queryKnowledge
-  // and prepend result to systemPrompt.
-  // Null kbScope = full org KB; Phase 34 skips the query for null (Phase 35 wires full-org KB).
+  // Step 7b: KB injection — ALWAYS query knowledge (null kbScope = full org KB, matching legacy stream.ts)
+  // D-35-02: unconditional call before LLM — kbScope field preserved on ResolvedAgent for future Phase 37 use
   let systemPrompt = resolvedAgent.systemPrompt
-  if (resolvedAgent.kbScope !== null && resolvedAgent.kbScope.length > 0) {
+  const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
+  try {
     const kbClient = createServiceRoleClient()
     const kbContext = await queryKnowledge(userMessage, orgId, kbClient)
-    systemPrompt = `${systemPrompt}\n\n[Knowledge Base Context]:\n${kbContext}`
+    if (kbContext && kbContext !== FALLBACK_KB_RESPONSE) {
+      systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
+    }
+  } catch {
+    // KB failure is non-fatal — continue without context (matches stream.ts behavior)
   }
 
   // Step 8: INSERT invocation row with status='running' (D-34-03)
   const startedAt = Date.now()
   const invocationId = await insertInvocationStart({
     organizationId: orgId,
-    agentId,
+    agentId: resolvedAgentId,
     traceId,
     channel,
     depth: _depth,
@@ -195,11 +224,11 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   const cumulativeHistoryTokens = Math.ceil(
     JSON.stringify(historyWindow).length / 4
   )
-  const tokenCapDenial = checkTokenCap(cumulativeHistoryTokens, orgId, agentId)
+  const tokenCapDenial = checkTokenCap(cumulativeHistoryTokens, orgId, resolvedAgentId)
   if (tokenCapDenial) {
     await updateInvocationEnd({
       invocationId,
-      agentId,
+      agentId: resolvedAgentId,
       model: resolvedAgent.model,
       status: 'skipped',
       assistantReply: tokenCapDenial,
@@ -234,7 +263,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
   try {
     // Step 11: Belt-and-suspenders LLM call count check before calling generateText
     // (stopWhen: stepCountIs(N) handles the loop cap inside the SDK)
-    const callCountCheck = checkLlmCallCount(0, resolvedAgent.fallbackMessage, orgId, agentId)
+    const callCountCheck = checkLlmCallCount(0, resolvedAgent.fallbackMessage, orgId, resolvedAgentId)
     if (callCountCheck) {
       finalText = callCountCheck
       finalStatus = 'skipped'
@@ -264,7 +293,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
             config
           )
         `)
-        .eq('agent_id', agentId)
+        .eq('agent_id', resolvedAgentId)
         .eq('tool_configs.is_active', true)
 
       // Build ai@^6 ToolSet dynamically using dynamicTool()
@@ -306,7 +335,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
             const toolArgs = (args as Record<string, unknown>) ?? {}
 
             // D-34-14: Gate every tool call through resolveAgentTool
-            const resolvedTool = await resolveAgentTool(agentId, capturedToolName, channel)
+            const resolvedTool = await resolveAgentTool(resolvedAgentId, capturedToolName, channel)
             if (!resolvedTool) {
               // Denied — log and synthesize denial result (D-34-14)
               toolCallsLog.push({
@@ -333,7 +362,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
                   JSON.stringify({
                     event: 'credential_decrypt_failed',
                     toolName: capturedToolName,
-                    agentId,
+                    agentId: resolvedAgentId,
                     traceId,
                   })
                 )
@@ -360,7 +389,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
                 JSON.stringify({
                   event: 'tool_execute_failed',
                   toolName: capturedToolName,
-                  agentId,
+                  agentId: resolvedAgentId,
                   traceId,
                   error: String(err),
                 })
@@ -412,7 +441,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
       console.warn(
         JSON.stringify({
           event: 'agent_turn_aborted',
-          agentId,
+          agentId: resolvedAgentId,
           orgId,
           traceId,
           reason: 'timeout',
@@ -422,7 +451,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
       errorDetail = 'turn_timeout'
     } else if (error.message === 'no_anthropic_key') {
       console.error(
-        JSON.stringify({ event: 'no_anthropic_key', agentId, orgId, traceId })
+        JSON.stringify({ event: 'no_anthropic_key', agentId: resolvedAgentId, orgId, traceId })
       )
       finalStatus = 'error'
       errorDetail = 'no_anthropic_key'
@@ -431,7 +460,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
       console.error(
         JSON.stringify({
           event: 'runAgent_error',
-          agentId,
+          agentId: resolvedAgentId,
           orgId,
           traceId,
           error: String(err),
@@ -447,7 +476,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     // Step 13: UPDATE invocation row with final state (D-34-03)
     await updateInvocationEnd({
       invocationId,
-      agentId,
+      agentId: resolvedAgentId,
       model: resolvedAgent.model,
       status: finalStatus,
       assistantReply: finalText,

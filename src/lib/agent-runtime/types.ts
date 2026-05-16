@@ -1,7 +1,7 @@
 // src/lib/agent-runtime/types.ts
 // All shared TypeScript contracts for the agent runtime module.
 // Shapes locked by D-34-02 (AgentRunResult), 34-CONTEXT.md, and 34-RESEARCH.md section 8.
-// Phase 35 will add a stream overload to runAgent — do NOT add streaming types here.
+// Phase 35 adds a stream overload to runAgent and makes agentId optional (D-35-06).
 
 import type { Database, Json } from '@/types/database'
 
@@ -49,13 +49,14 @@ export type AgentRunContext = {
 // Options accepted by runAgent() from callers (channel handlers)
 export type AgentRunOptions = {
   orgId: string
-  agentId: string
+  agentId?: string                // Optional — resolved from agent_channel_defaults when absent (D-35-06)
   channel: AgentChannel
   userMessage: string
   conversationId?: string
   sessionId?: string
   historyWindow?: Array<{ role: 'user' | 'assistant'; content: string }>
   mode?: 'production' | 'playground'
+  stream?: boolean                // When true, runAgent returns ReadableStream<Uint8Array> (D-35-01/D-35-09)
   // Internal fields set by Phase 38 recursive delegation (not for external callers):
   _depth?: number
   parentInvocationId?: string

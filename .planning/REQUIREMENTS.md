@@ -223,7 +223,7 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | DELEG-08 | Phase 38 | Pending |
 | CHAN-01 | Phase 37 | Pending |
 | CHAN-02 | Phase 37 | Pending |
-| CHAN-03 | Phase 35 | Pending |
+| CHAN-03 | Phase 35 | Complete |
 | CHAN-04 | Phase 37 | Pending |
 | CHAN-05 | Phase 37 | Pending |
 | CHAN-06 | Phase 33 | Complete |
@@ -243,7 +243,7 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | OBS-06 | Phase 40 | Pending |
 | OBS-07 | Phase 40 | Pending |
 | OBS-08 | Phase 40 | Pending |
-| GATE-01 | Phase 35 | Pending |
+| GATE-01 | Phase 35 | Complete |
 | GATE-02 | Phase 38 | Pending |
 | GATE-03 | Phase 34 | Complete |
 | GATE-04 | Phase 38 | Pending |
