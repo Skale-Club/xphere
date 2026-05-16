@@ -35,6 +35,12 @@ beforeAll(() => {
 const v14Template = (orgName: string) =>
   `You are a helpful assistant for ${orgName}. Answer questions accurately and concisely using the provided context. If you don't know the answer, say so.`
 
+// Phase 36 Plan 05: exclude transient test-fixture orgs (seedTestOrg naming
+// + rls-isolation.test.ts naming) from this global invariant so the assertion
+// only runs against real seeded orgs.
+const TEST_FIXTURE_NAME =
+  /^(p\d+[a-z0-9-]*-\d{10,}-[a-z0-9]+|RLS [AB] [a-z0-9]{6,})$/i
+
 describe('D-33-04 byte-equal v1.4 prompt: seeded Main Agent.system_prompt', () => {
   it('every Main Agent system_prompt equals v14Template(org.name) byte-for-byte', async () => {
     const { data: orgs, error: orgsErr } = await admin
@@ -42,7 +48,11 @@ describe('D-33-04 byte-equal v1.4 prompt: seeded Main Agent.system_prompt', () =
       .select('id, name')
     expect(orgsErr).toBeNull()
 
-    for (const org of orgs ?? []) {
+    const realOrgs = (orgs ?? []).filter(
+      (o) => !o.name || !TEST_FIXTURE_NAME.test(o.name),
+    )
+
+    for (const org of realOrgs) {
       const { data: agent, error } = await admin
         .from('agents')
         .select('system_prompt')
