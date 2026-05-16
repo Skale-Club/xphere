@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 36-02-PLAN.md
-last_updated: "2026-05-16T22:38:26Z"
-last_activity: 2026-05-16 -- Phase 36 Plan 02 complete
+stopped_at: Completed 36-03-PLAN.md
+last_updated: "2026-05-16T23:09:33.285Z"
+last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 26
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Operator - State
@@ -18,10 +18,10 @@ progress:
 ## Current Position
 
 Phase: 36 (agent-crud-dashboard) — EXECUTING
-Plan: 3 of 5 (Plans 01 + 02 complete; Plan 03 next)
+Plan: 4 of 5 (Plans 01 + 02 complete; Plan 03 next)
 Next phase: 37 (manychat-meta-channel-adapters)
-Status: Executing Phase 36 — Wave 1 setup complete
-Last activity: 2026-05-16 -- Phase 36 Plan 02 complete (Wave 1 setup: shadcn primitives + src/lib/agents/ + sidebar)
+Status: Ready to execute
+Last activity: 2026-05-16
 
 ## Milestone Progress
 
@@ -150,6 +150,7 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 36 P02]: src/lib/agents/* established as single contract surface (slug + models + channels + zod-schemas); Plans 03/04 MUST import from here (no duplication)
 - [Phase 36 P02]: channel_overrides empty fields stripped at zod transform level — runtime fallback ("key absent → use base agent value") stays semantically clean
 - [Phase 36 P02]: Sidebar Agents entry uses Bot icon from lucide-react, placed directly below Tools per D-36-11
+- [Phase 36-agent-crud-dashboard]: Plan 03: 6 list-page server actions live with RLS-scoped queries; agents-table optimistic toggle; channel-defaults-card with sentinel for null mapping
 
 ## Pending Todos
 
@@ -160,8 +161,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T22:38:26Z
-Stopped at: Completed 36-02-PLAN.md (Wave 1 setup; Plans 03/04 unblocked)
+Last session: 2026-05-16T23:09:33.275Z
+Stopped at: Completed 36-03-PLAN.md
 
 ## Performance Metrics
 
@@ -185,3 +186,4 @@ Stopped at: Completed 36-02-PLAN.md (Wave 1 setup; Plans 03/04 unblocked)
 | Phase 35-web-widget-canary-cutover P03 | 35 | 2 tasks | 3 files |
 | Phase 35 P04 | 12 | 2 tasks | 2 files |
 | Phase 36 P02 | 15min | 3 tasks | 13 files |
+| Phase 36-agent-crud-dashboard P03 | 10 | 3 tasks | 7 files |

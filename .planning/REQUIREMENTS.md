@@ -40,14 +40,14 @@ Total: **52 requirements** across 8 categories. All must ship in v2.0.
 
 ### AGENT — Agent Definition (15)
 
-- [ ] **AGENT-01:** Each org can create one or more agents with required fields: `name`, `slug` (unique per org), `description`, `system_prompt`, `model`, `is_active`
+- [x] **AGENT-01:** Each org can create one or more agents with required fields: `name`, `slug` (unique per org), `description`, `system_prompt`, `model`, `is_active`
 - [ ] **AGENT-02:** Each agent has optional generation config: `temperature` (default 0.7), `max_tokens` (default 1024), `max_history` (default 20 turns)
 - [ ] **AGENT-03:** Each agent has a configurable `fallback_message` (default: "I can't help with that right now — let me transfer you to a human.")
 - [ ] **AGENT-04:** Each agent has a `model_primary` and optional `model_fallback`; runtime falls back on primary error within the same call (no cascade up the delegation chain)
 - [ ] **AGENT-05:** Each agent has an optional `kb_scope TEXT[]` of knowledge-base tags; `null` = full org KB; runtime filters pgvector results by `metadata.tags && agent.kb_scope` when set
 - [ ] **AGENT-06:** Each agent declares an `allowed_channels` array (subset of: `web_widget`, `whatsapp`, `messenger`, `instagram`, `manychat`, `telegram`); runtime refuses invocation from a non-allowed channel with HTTP 422
 - [ ] **AGENT-07:** Each agent has `channel_overrides JSONB` shaped as `{ [channel]: Partial<AgentSpec> }`; runtime deep-merges per-channel overrides on top of base agent at invocation time (overrides allowed: `system_prompt` suffix-append, `model`, `temperature`, `max_tokens`, `max_history`)
-- [ ] **AGENT-08:** Each org can map a default agent per channel via `agent_channel_defaults(org_id, channel, agent_id)`; channel inbound handlers resolve the agent via this table when no rule-level override exists
+- [x] **AGENT-08:** Each org can map a default agent per channel via `agent_channel_defaults(org_id, channel, agent_id)`; channel inbound handlers resolve the agent via this table when no rule-level override exists
 - [ ] **AGENT-09:** Agents have audit timestamps (`created_at`, `updated_at`, `created_by`, `updated_by`)
 - [ ] **AGENT-10:** Inactive agents (`is_active=false`) are excluded from CRUD UI dropdowns and refuse runtime invocation with HTTP 410, but historical `agent_invocations` rows referencing them remain queryable
 - [ ] **AGENT-11:** Every change to `agent.system_prompt` automatically creates a row in `agent_prompt_versions(agent_id, version, system_prompt, created_by, created_at)` via DB trigger on UPDATE
@@ -182,14 +182,14 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGENT-01 | Phase 36 | In Progress |
+| AGENT-01 | Phase 36 | Complete |
 | AGENT-02 | Phase 36 | In Progress |
 | AGENT-03 | Phase 36 | In Progress |
 | AGENT-04 | Phase 34 | Complete |
 | AGENT-05 | Phase 34 | Complete |
 | AGENT-06 | Phase 34 | Complete |
 | AGENT-07 | Phase 34 | Complete |
-| AGENT-08 | Phase 36 | In Progress |
+| AGENT-08 | Phase 36 | Complete |
 | AGENT-09 | Phase 33 | Complete |
 | AGENT-10 | Phase 34 | Complete |
 | AGENT-11 | Phase 41 | Pending |
