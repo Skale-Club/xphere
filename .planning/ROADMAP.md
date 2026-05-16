@@ -128,9 +128,9 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   3. Admin can set the default agent per channel via `agent_channel_defaults(org_id, channel, agent_id)` UI; channels without a default fall back to the seeded Main Agent
   4. Channel overrides JSONB is editable via a structured form (per-channel rows for system_prompt suffix, model, temperature, max_tokens, max_history) backed by a Zod parser that rejects malformed shape on save
   5. Inactive agents are excluded from CRUD UI dropdowns (channel default mapper, partner picker) but their historical `agent_invocations` rows remain queryable
-**Plans**: 5 plans
-- [ ] 36-01-PLAN.md — Migration 044: ADD agents.temperature + agents.max_tokens NULL columns + types regen + DB push checkpoint (AGENT-02 schema gap)
-- [ ] 36-02-PLAN.md — Install Checkbox + Collapsible shadcn primitives, scaffold (dashboard)/agents routes + actions.ts placeholder, create src/lib/agents/* (slug, models, channels, zod-schemas), add Agents sidebar entry
+**Plans**: 5 plans (2/5 complete)
+- [x] 36-01-PLAN.md — Migration 044: ADD agents.temperature + agents.max_tokens NULL columns + types regen + DB push checkpoint (AGENT-02 schema gap)
+- [x] 36-02-PLAN.md — Install Checkbox + Collapsible shadcn primitives, scaffold (dashboard)/agents routes + actions.ts placeholder, create src/lib/agents/* (slug, models, channels, zod-schemas), add Agents sidebar entry
 - [ ] 36-03-PLAN.md — List page server actions (getAgents, toggleActive, softDelete, setChannelDefault) + agents-table + channel-defaults-card + wire page.tsx (AGENT-01, AGENT-08)
 - [ ] 36-04-PLAN.md — Edit/create form (4 collapsible sections) + tool picker (folder collapsibles + integration warnings) + channel-overrides editor + form server actions (createAgent, updateAgent, setAgentTools, getToolPickerData) (AGENT-01..03, TOOL-02..04)
 - [ ] 36-05-PLAN.md — Cross-org RLS isolation tests + end-to-end phase-gate lifecycle test + full vitest suite + npm run build (all 7 REQs)
