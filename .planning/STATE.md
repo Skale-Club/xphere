@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Phase 35 context gathered
-last_updated: "2026-05-16T21:00:00.000Z"
-last_activity: 2026-05-16 -- Phase 35 Plan 01 complete (migration 043 + types update + build green)
+stopped_at: Completed 35-02-PLAN.md
+last_updated: "2026-05-16T20:37:39.038Z"
+last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 3
-  total_plans: 22
+  total_plans: 21
   completed_plans: 18
 ---
 
@@ -17,11 +17,11 @@ progress:
 
 ## Current Position
 
-Phase: 35 (web-widget-canary-cutover) — EXECUTING
-Plan: 1 of 4 — COMPLETE
-Next: Phase 35 Plan 02 (AgentRunOptions + channel-defaults resolution)
-Status: Phase 35 Plan 01 complete; Plan 02 unblocked
-Last activity: 2026-05-16 -- Phase 35 Plan 01 complete (migration 043 + types update + build green)
+Phase: 999.1
+Plan: Not started
+Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
+Status: Ready to execute
+Last activity: 2026-05-16
 
 ## Milestone Progress
 
@@ -141,6 +141,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 34]: database.ts agent_invocations.Update was Record<string,never> (bug) — fixed to partial update shape to enable updateInvocationEnd()
 - [Phase 34]: GATE-03 verified: kill switch fires in <1s; integration tests accept error when ANTHROPIC_API_KEY absent
 - [Phase 34]: AGENT-05 KB scope tested via real DB update/restore of kb_scope field in integration test
+- [Phase 35]: agentId made optional in AgentRunOptions; resolved from agent_channel_defaults when absent (D-35-06)
+- [Phase 35]: KB injection unconditional — null kbScope = full org KB, matching legacy stream.ts (GATE-01)
 
 ## Pending Todos
 
@@ -151,8 +153,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T14:09:18.268Z
-Stopped at: Phase 35 context gathered
+Last session: 2026-05-16T20:37:39.032Z
+Stopped at: Completed 35-02-PLAN.md
 
 ## Performance Metrics
 
@@ -172,4 +174,4 @@ Stopped at: Phase 35 context gathered
 | Phase 34 P03 | 17min | 2 tasks | 3 files |
 | Phase 34-agent-runtime-skeleton-day-1-guardrails P05 | 45min | 2 tasks | 4 files |
 | Phase 34 P06 | 347 | 2 tasks | 4 files |
-| Phase 35 P01 | ~5 min | 3 tasks (incl. human checkpoint) | 2 files |
+| Phase 35 P02 | 11 | 2 tasks | 2 files |
