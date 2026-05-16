@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 35-02-PLAN.md
-last_updated: "2026-05-16T20:37:39.038Z"
+stopped_at: Completed 35-03-PLAN.md — runAgentStreaming live, route.ts cut over to agent runtime
+last_updated: "2026-05-16T21:02:03.909Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 3
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 20
 ---
 
 # Operator - State
@@ -143,6 +143,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 34]: AGENT-05 KB scope tested via real DB update/restore of kb_scope field in integration test
 - [Phase 35]: agentId made optional in AgentRunOptions; resolved from agent_channel_defaults when absent (D-35-06)
 - [Phase 35]: KB injection unconditional — null kbScope = full org KB, matching legacy stream.ts (GATE-01)
+- [Phase 35-web-widget-canary-cutover]: runAgentStreaming: all async work inside ReadableStream.start() so runAgent returns ReadableStream synchronously when stream:true (D-35-01 overload contract)
+- [Phase 35-web-widget-canary-cutover]: route.ts cutover (CHAN-03): removed tool-fetching IIFE + accumulatedReply; runAgent owns all LLM side effects via after() in streaming path
 
 ## Pending Todos
 
@@ -153,8 +155,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T20:37:39.032Z
-Stopped at: Completed 35-02-PLAN.md
+Last session: 2026-05-16T21:02:03.904Z
+Stopped at: Completed 35-03-PLAN.md — runAgentStreaming live, route.ts cut over to agent runtime
 
 ## Performance Metrics
 
@@ -175,3 +177,4 @@ Stopped at: Completed 35-02-PLAN.md
 | Phase 34-agent-runtime-skeleton-day-1-guardrails P05 | 45min | 2 tasks | 4 files |
 | Phase 34 P06 | 347 | 2 tasks | 4 files |
 | Phase 35 P02 | 11 | 2 tasks | 2 files |
+| Phase 35-web-widget-canary-cutover P03 | 35 | 2 tasks | 3 files |
