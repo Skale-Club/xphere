@@ -90,7 +90,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   5. `resolveAgentTool(agentId, toolName)` exists alongside the unchanged `resolveTool(orgId, toolName)`; runtime tool-call guard refuses tools not attached to the agent with `denied_reason: 'tool_not_attached_to_agent'` and synthesizes a tool-result message back to the LLM (no exception thrown)
   6. The `ai@^6` spike is run; the adoption decision (adopt vs stay custom) is documented in the phase verifier output and respected by the codebase
 **Plans**: 6 plans
-- [ ] 34-01-PLAN.md — ai@^6 spike: install, probe, lock adopt/reject decision in RESEARCH.md (RUNTIME-01)
+- [x] 34-01-PLAN.md — ai@^6 spike: install, probe, lock adopt/reject decision in RESEARCH.md (RUNTIME-01)
 - [ ] 34-02-PLAN.md — Migration 042: ADD 'running' to agent_invocation_status enum + organizations.daily_cost_cap_usd_override column + types regen (RUNTIME-07)
 - [ ] 34-03-PLAN.md — types.ts + resolve-agent.ts + resolve-agent-tool.ts: shared contracts + agent resolver + tool junction resolver (AGENT-04..07, AGENT-10, TOOL-05, RUNTIME-01..03)
 - [ ] 34-04-PLAN.md — guardrails.ts: kill-switch, delegation depth stub, LLM call count, token cap, daily cost cap (RUNTIME-04..09, GATE-03)
@@ -211,7 +211,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 |-------|-----------|----------------|--------|-----------|
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
-| 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 0/6 | Planned     | - |
+| 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 1/6 | In Progress|  |
 | 35. Web Widget Canary Cutover | v2.0 | 0/0 | Not started | - |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
@@ -228,7 +228,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 
 **Goal:** Full push-pull architecture where Operator is the AI brain and GHL is the delivery layer for SMS and WhatsApp. Includes inbound webhook, bot toggle, human takeover, assigned operator, and outbound message routing with operator name prefix.
 **Requirements:** TBD
-**Plans:** 7/7 plans complete
+**Plans:** 1/6 plans executed
 
 **What was shipped:**
 - `supabase/migrations/041_ghl_inbound.sql` — `ghl_channels`, `ghl_events`, GHL channel variants on `conversations.channel`, `conversations.assigned_user_id`

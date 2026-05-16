@@ -2,24 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
-status: completed
-stopped_at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
-last_updated: "2026-05-16T11:09:23.101Z"
+status: executing
+stopped_at: Completed 34-01-PLAN.md (ai@^6 spike — ADOPT)
+last_updated: "2026-05-16T12:40:13.811Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 2
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 17
+  completed_plans: 12
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 999.1
+Phase: 34 (agent-runtime-skeleton-day-1-guardrails) — EXECUTING
+Plan: 2 of 6
 Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Not yet planned
-Status: Phase 33 complete
+Status: Ready to execute
 Last activity: 2026-05-16
 
 ## Milestone Progress
@@ -132,6 +133,7 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [v2.0] Framework decision: build custom orchestrator; spike `ai@^6` in Phase 34 — adopt only if drop-in fits in <1 day
 - [v2.0] Tool reuse principle: agents invoke EXISTING `tool_configs` via EXISTING `executeAction` — no parallel tool registry, no duplicate executor (per user 2026-05-16)
 - [v2.0] Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
+- [Phase 34]: ADOPT ai@^6 (ai@6.0.184 + @ai-sdk/anthropic@3.0.78) — all D-34-01 spike criteria passed; generateText/stopWhen/abortSignal pattern locked for Wave 2/3 run-agent.ts
 
 ## Pending Todos
 
@@ -142,8 +144,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T03:57:53.016Z
-Stopped at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
+Last session: 2026-05-16T12:40:13.801Z
+Stopped at: Completed 34-01-PLAN.md (ai@^6 spike — ADOPT)
 
 ## Performance Metrics
 
@@ -158,3 +160,4 @@ Stopped at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
 | Phase 33 P02 | 4m | 2 tasks | 2 files |
 | Phase 33 P06 | 3min | 1 tasks | 1 files |
 | Phase 33 P07 | ~10 min | 2 tasks | 4 files |
+| Phase 34 P01 | 12 | 1 tasks | 3 files |

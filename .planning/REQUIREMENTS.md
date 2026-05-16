@@ -203,7 +203,7 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | TOOL-04 | Phase 36 | Pending |
 | TOOL-05 | Phase 34 | Pending |
 | TOOL-06 | Phase 34 | Pending |
-| RUNTIME-01 | Phase 34 | Pending |
+| RUNTIME-01 | Phase 34 | Complete |
 | RUNTIME-02 | Phase 34 | Pending |
 | RUNTIME-03 | Phase 34 | Pending |
 | RUNTIME-04 | Phase 34 | Pending |
