@@ -12,7 +12,12 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
+## Current Milestone: v2.0 Multi-Bot Platform — Phase 35 (Web Widget Canary Cutover) next
+
+**Phase 33 (Schema Foundation):** ✅ Complete 2026-05-16 — 7 migrations (034-040) live, Main Agent seeded per org, 13/13 tests GREEN.
+**Phase 34 (Agent Runtime Skeleton):** ✅ Complete 2026-05-16 — `runAgent()` entry point + all 5 guardrails + ai@^6 adopted + 44/44 tests GREEN.
+
+### v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
 
 **Goal:** Promote agent to a first-class entity in Operator with its own prompt, scoped tools, knowledge base scope, and per-channel overrides — and add multi-bot composition (an agent can delegate to specialist "partner" agents). Chat reaches feature-parity with voice.
 
@@ -206,10 +211,23 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Platform reads runtime config from 4 required + 3 optional env vars with sensible defaults — v1.9 (REENG-15..16)
 - Platform documents operator setup in `docs/automations/ghl-reengagement.md` — v1.9 (REENG-17)
 - Platform owns automation cadence in DB via `automation_schedules` (interval-based, post-run write-back, `?force=1` bypass) — v1.9 (REENG-18)
+- Schema: `agents` first-class entity with audit timestamps + `agent_tools` junction (per-agent tool scoping) + `agent_partners` recursive junction (multi-agent delegation) — v2.0 Phase 33 (AGENT-09, TOOL-01, DELEG-01)
+- Schema: `agent_invocations` observability table with `parent_invocation_id` self-FK for delegation tree + `action_logs` extended with nullable `agent_invocation_id`/`trace_id` (additive) — v2.0 Phase 33 (OBS-01, OBS-02)
+- Schema: `agent_model_pricing` global reference table seeded with 7 launch models (Anthropic + OpenAI + Google) — v2.0 Phase 33 (OBS-03)
+- Schema: `manychat_rules.agent_id` + `meta_channels.agent_id` additive nullable columns (Phase 37 dispatcher branches on these) — v2.0 Phase 33 (CHAN-06)
+- Every existing org has a seeded "Main Agent" with system_prompt byte-equal to v1.4 chat template + all active tool_configs granted + web_widget channel default — v2.0 Phase 33 (GATE-07 surrogate; literal verification in Phase 35)
 
-### Active (v2.0 Multi-Bot Platform)
+### Active (v2.0 Multi-Bot Platform — Phase 34 next)
 
-(defining REQUIREMENTS.md — see roadmap step)
+In progress (post-Phase-33):
+- AGENT-01..08, AGENT-10..15 (agent CRUD + prompt versioning UX)
+- TOOL-02..06 (tool picker + runtime guard)
+- RUNTIME-01..10 (channel-agnostic agent runtime + day-1 guardrails)
+- DELEG-02..08 (partner-tool injection + intersection authz)
+- CHAN-01..05 (channel adapters + widget/ManyChat/Meta cutover)
+- IDEMP-01..03 (idempotency wrappers)
+- PLAY-01..05 (multi-channel playground)
+- OBS-04..08 (observability UI)
 
 ### Backlog (next milestone candidates)
 
@@ -285,4 +303,4 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-16 — v2.0 Multi-Bot Platform milestone started (chat-side agent abstraction; voice stays in Vapi)*
+*Last updated: 2026-05-16 — v2.0 Phase 33 complete (7 migrations live + Main Agent seeded per org + byte-equal v1.4 prompt verified; 8/8 REQs covered; zero Vapi diff; Phase 34 Runtime Skeleton unblocked)*

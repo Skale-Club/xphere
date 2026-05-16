@@ -3,23 +3,24 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
-last_updated: "2026-05-16T03:57:53.024Z"
+stopped_at: Phase 35 context gathered
+last_updated: "2026-05-16T14:09:18.301Z"
 last_activity: 2026-05-16
 progress:
-  total_phases: 10
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 11
+  completed_phases: 3
+  total_plans: 17
+  completed_plans: 17
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 33 (schema-foundation-legacy-default-agent-backfill) — COMPLETE (7/7 plans, ready for verification)
-Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Not yet planned
-Status: Phase 33 complete
+Phase: 999.1
+Plan: Not started
+Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
+Status: Ready to execute
 Last activity: 2026-05-16
 
 ## Milestone Progress
@@ -132,6 +133,14 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [v2.0] Framework decision: build custom orchestrator; spike `ai@^6` in Phase 34 — adopt only if drop-in fits in <1 day
 - [v2.0] Tool reuse principle: agents invoke EXISTING `tool_configs` via EXISTING `executeAction` — no parallel tool registry, no duplicate executor (per user 2026-05-16)
 - [v2.0] Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
+- [Phase 34]: ADOPT ai@^6 (ai@6.0.184 + @ai-sdk/anthropic@3.0.78) — all D-34-01 spike criteria passed; generateText/stopWhen/abortSignal pattern locked for Wave 2/3 run-agent.ts
+- [Phase 34]: D-34-06 honored: system_prompt read from agent_prompt_versions via active_prompt_version_id FK hint; fallback to agents.system_prompt with structured warning if version row missing
+- [Phase 34]: D-34-07 honored: resolveTool() in action-engine untouched; resolveAgentTool() is entirely new in agent-runtime/
+- [Phase 34]: agents table has no max_tokens or temperature columns (not in migration 034): maxTokens defaults to 1024; temperature is override-only (undefined if not overridden)
+- [Phase 34]: Used dynamicTool() over tool() in ai@^6 for dynamic ToolSet — avoids generic overload conflict with Record<string,unknown> parameters
+- [Phase 34]: database.ts agent_invocations.Update was Record<string,never> (bug) — fixed to partial update shape to enable updateInvocationEnd()
+- [Phase 34]: GATE-03 verified: kill switch fires in <1s; integration tests accept error when ANTHROPIC_API_KEY absent
+- [Phase 34]: AGENT-05 KB scope tested via real DB update/restore of kb_scope field in integration test
 
 ## Pending Todos
 
@@ -142,8 +151,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T03:57:53.016Z
-Stopped at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
+Last session: 2026-05-16T14:09:18.268Z
+Stopped at: Phase 35 context gathered
 
 ## Performance Metrics
 
@@ -158,3 +167,8 @@ Stopped at: Completed 33-07-PLAN.md (Phase 33 complete — 7/7)
 | Phase 33 P02 | 4m | 2 tasks | 2 files |
 | Phase 33 P06 | 3min | 1 tasks | 1 files |
 | Phase 33 P07 | ~10 min | 2 tasks | 4 files |
+| Phase 34 P01 | 12 | 1 tasks | 3 files |
+| Phase 34 P02 | 15min | 3 tasks | 2 files |
+| Phase 34 P03 | 17min | 2 tasks | 3 files |
+| Phase 34-agent-runtime-skeleton-day-1-guardrails P05 | 45min | 2 tasks | 4 files |
+| Phase 34 P06 | 347 | 2 tasks | 4 files |

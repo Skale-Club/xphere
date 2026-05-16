@@ -22,7 +22,7 @@ export type MetaChannelType = 'messenger' | 'instagram'
 
 // v2.0 (Phase 33) — agent runtime enums
 export type AgentChannel = 'web_widget' | 'whatsapp' | 'messenger' | 'instagram' | 'manychat' | 'telegram'
-export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' | 'denied'
+export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' | 'denied' | 'running'
 export type AgentInvocationMode = 'production' | 'playground'
 
 export interface Database {
@@ -39,6 +39,7 @@ export interface Database {
           widget_avatar_url: string | null
           widget_primary_color: string | null
           widget_welcome_message: string | null
+          daily_cost_cap_usd_override: number | null
           created_at: string
           updated_at: string
         }
@@ -52,6 +53,7 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
+          daily_cost_cap_usd_override?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -65,6 +67,7 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
+          daily_cost_cap_usd_override?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -658,7 +661,18 @@ export interface Database {
           error_detail?: string | null
           created_at?: string
         }
-        Update: Record<string, never>
+        Update: {
+          status?: AgentInvocationStatus
+          assistant_reply?: string | null
+          tool_calls?: Json
+          partner_calls?: Json
+          tokens_in?: number | null
+          tokens_out?: number | null
+          cost_usd?: number | null
+          model?: string | null
+          duration_ms?: number | null
+          error_detail?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: 'agent_invocations_organization_id_fkey'
