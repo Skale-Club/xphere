@@ -16,6 +16,7 @@ That business logic may differ by client. The invariant is the reliability of th
 
 **Phase 33 (Schema Foundation):** ✅ Complete 2026-05-16 — 7 migrations (034-040) live, Main Agent seeded per org, 13/13 tests GREEN.
 **Phase 34 (Agent Runtime Skeleton):** ✅ Complete 2026-05-16 — `runAgent()` entry point + all 5 guardrails + ai@^6 adopted + 44/44 tests GREEN.
+**Phase 35 (Web Widget Canary Cutover):** ✅ Complete 2026-05-16 — route.ts calls `runAgent({stream:true})`; `createChatStream` shim preserved; `conversations.agent_id` live (GATE-07 closed); 15/15 tests GREEN.
 
 ### v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
 
