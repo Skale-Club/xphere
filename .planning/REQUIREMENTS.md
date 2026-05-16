@@ -30,6 +30,7 @@ Promote **agent** to a first-class entity in Operator with its own prompt, scope
 | Seeded "Legacy Default" agent name | "Main Agent" | Universal; org context shown in dashboard |
 | Voice retrofit | NOT in v2.0 (Vapi unchanged) | Re-evaluate post-v2.0 |
 | Framework adoption | Custom orchestrator + spike `ai@^6` in Phase 2 | Lower regression risk than blind framework swap |
+| Tool reuse principle | Agents invoke **existing `tool_configs` rows** via the **existing action-engine** | Per user direction (2026-05-16) — v2.0 adds an authorization layer (`agent_tools` junction) and a runtime that picks/invokes them, but never replaces or duplicates `tool_configs` or `executeAction`. New tool types in the future continue to be created via the existing `/dashboard/tools` flow, not via an agent-specific creation flow. |
 
 ---
 
