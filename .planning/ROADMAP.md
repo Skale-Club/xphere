@@ -213,3 +213,30 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 39. Multi-Channel Playground | v2.0 | 0/0 | Not started | - |
 | 40. Per-Agent Observability UI | v2.0 | 0/0 | Not started | - |
 | 41. Prompt Versioning UX | v2.0 | 0/0 | Not started | - |
+
+---
+
+## Backlog
+
+### Phase 999.1: GHL Push-Pull Messaging (BACKLOG)
+
+**Goal:** Full push-pull architecture where Operator is the AI brain and GHL is the delivery layer for SMS and WhatsApp. Includes inbound webhook, bot toggle, human takeover, assigned operator, and outbound message routing with operator name prefix.
+**Requirements:** TBD
+**Plans:** 0 plans — already implemented directly (2026-05-16)
+
+**What was shipped:**
+- `supabase/migrations/041_ghl_inbound.sql` — `ghl_channels`, `ghl_events`, GHL channel variants on `conversations.channel`, `conversations.assigned_user_id`
+- `src/lib/ghl/send-message.ts` — generalized GHL message sender (SMS + WhatsApp)
+- `src/lib/ghl/process-event.ts` — inbound event processor with dedup, `bot_status` gate, automation dispatch, outbound reply via GHL API
+- `src/app/api/ghl/webhook/route.ts` — inbound receiver with `X-Operator-Secret` auth, routes by `locationId`
+- `PATCH /api/chat/conversations/[id]/bot-status` — toggle bot `active` / `paused` (human takeover)
+- `POST /api/chat/conversations/[id]/assign` — assign a specific org member to a conversation
+- `src/app/api/chat/conversations/[id]/messages/route.ts` — GHL outbound routing + `operator_prefix: true` adds `"Name:\nMessage"` format
+
+**GHL Workflow config:**
+  - Trigger: Customer Replied
+  - Action: Webhook → `POST https://operator.skale.club/api/ghl/webhook`
+  - Header: `X-Operator-Secret: <webhook_secret from ghl_channels row>`
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)

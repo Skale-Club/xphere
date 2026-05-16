@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { ConversationMessage } from '@/types/chat'
 import { decrypt } from '@/lib/crypto'
 import { sendMetaMessage } from '@/lib/meta/send-message'
+import { sendGhlMessage, channelToGhlType } from '@/lib/ghl/send-message'
 
 export const runtime = 'nodejs'
 
@@ -86,6 +87,8 @@ export async function GET(
 const SendMessageSchema = z.object({
   content: z.string().min(1),
   role: z.literal('assistant'),
+  // operator_prefix: true → prepend "Name:\n" to outbound GHL messages
+  operator_prefix: z.boolean().optional().default(false),
 })
 
 export async function POST(
@@ -101,7 +104,7 @@ export async function POST(
   // Verify conversation belongs to org via RLS
   const { data: conv } = await supabase
     .from('conversations')
-    .select('id, org_id, channel, channel_metadata')
+    .select('id, org_id, channel, channel_metadata, assigned_user_id')
     .eq('id', id)
     .single()
 
@@ -117,7 +120,15 @@ export async function POST(
     return Response.json({ error: parsed.error.errors[0]?.message ?? 'Invalid request' }, { status: 400 })
   }
 
-  const { content, role } = parsed.data
+  const { content, role, operator_prefix } = parsed.data
+
+  // Resolve operator display name for the prefix feature
+  const operatorName: string | null = operator_prefix
+    ? (user.user_metadata?.full_name as string | undefined)
+      ?? (user.user_metadata?.name as string | undefined)
+      ?? user.email
+      ?? null
+    : null
 
   const { data: msg, error } = await supabase
     .from('conversation_messages')
@@ -126,6 +137,8 @@ export async function POST(
       org_id: conv.org_id,
       role,
       content,
+      // Store sender_name in metadata so the UI can render "Name:" header
+      ...(operatorName ? { metadata: { sender_name: operatorName } } : {}),
     })
     .select('id, conversation_id, role, content, created_at, metadata')
     .single()
@@ -141,10 +154,50 @@ export async function POST(
     .update({ last_message: content, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
     .eq('id', id)
 
-  // --- Outbound channel routing (METAINBOX-03) ---
+  // --- Outbound channel routing ---
   // DB insert and last_message update are complete for ALL channels at this point.
   // Widget: no outbound call needed — SSE picks up the persisted message.
-  // Messenger / Instagram: call Meta Send API synchronously so admin gets delivery confirmation.
+  // Messenger / Instagram: call Meta Send API synchronously.
+  // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
+  if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
+    const metadata = conv.channel_metadata as Record<string, string>
+    const locationId = metadata.location_id
+    const contactId = metadata.contact_id
+    const ghlConversationId = metadata.ghl_conversation_id
+
+    const { data: ghlChannel } = await supabase
+      .from('ghl_channels')
+      .select('encrypted_api_key')
+      .eq('org_id', conv.org_id)
+      .eq('location_id', locationId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!ghlChannel) {
+      return Response.json({ error: 'ghl_channel_not_configured' }, { status: 400 })
+    }
+
+    const apiKey = await decrypt(ghlChannel.encrypted_api_key)
+
+    // Build the outbound message — optionally prefix with operator name
+    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
+
+    try {
+      await sendGhlMessage(
+        {
+          contactId,
+          message: outboundContent,
+          type: channelToGhlType(conv.channel),
+          conversationId: ghlConversationId || undefined,
+        },
+        { apiKey, locationId }
+      )
+    } catch (err) {
+      console.error('[POST messages] GHL send error:', err)
+      return Response.json({ error: 'ghl_send_failed' }, { status: 502 })
+    }
+  }
+
   if (conv.channel === 'messenger' || conv.channel === 'instagram') {
     const metadata = conv.channel_metadata as Record<string, string>
     const pageId = metadata.page_id
@@ -180,6 +233,7 @@ export async function POST(
     }
   }
   // --- End outbound channel routing ---
+
 
   const message: ConversationMessage = {
     id: msg.id,

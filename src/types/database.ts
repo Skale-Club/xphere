@@ -753,6 +753,100 @@ export interface Database {
         }
         Relationships: []
       }
+      ghl_channels: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          display_name: string | null
+          encrypted_api_key: string
+          webhook_secret: string
+          is_active: boolean
+          agent_id: string | null
+          automation_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          display_name?: string | null
+          encrypted_api_key: string
+          webhook_secret: string
+          is_active?: boolean
+          agent_id?: string | null
+          automation_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          display_name?: string | null
+          encrypted_api_key?: string
+          webhook_secret?: string
+          is_active?: boolean
+          agent_id?: string | null
+          automation_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ghl_channels_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      ghl_events: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          contact_id: string | null
+          conversation_id: string | null
+          message_type: string | null
+          direction: string | null
+          body: string | null
+          phone: string | null
+          first_name: string | null
+          last_name: string | null
+          email: string | null
+          raw_payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          message_type?: string | null
+          direction?: string | null
+          body?: string | null
+          phone?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          email?: string | null
+          raw_payload?: Json
+          created_at?: string
+        }
+        Update: {
+          body?: string | null
+          direction?: string | null
+          raw_payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ghl_events_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       ghl_reengagement_sent: {
         Row: {
           id: string
@@ -967,6 +1061,7 @@ export interface Database {
           channel_metadata: Json
           last_inbound_at: string | null
           bot_status: string
+          assigned_user_id: string | null
         }
         Insert: {
           id?: string
@@ -988,6 +1083,7 @@ export interface Database {
           channel_metadata?: Json
           last_inbound_at?: string | null
           bot_status?: string
+          assigned_user_id?: string | null
         }
         Update: {
           status?: string
@@ -1003,6 +1099,7 @@ export interface Database {
           channel_metadata?: Json
           last_inbound_at?: string | null
           bot_status?: string
+          assigned_user_id?: string | null
         }
         Relationships: [
           {
