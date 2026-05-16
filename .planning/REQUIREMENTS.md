@@ -206,10 +206,10 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | RUNTIME-01 | Phase 34 | Complete |
 | RUNTIME-02 | Phase 34 | Complete |
 | RUNTIME-03 | Phase 34 | Complete |
-| RUNTIME-04 | Phase 34 | Pending |
-| RUNTIME-05 | Phase 34 | Pending |
-| RUNTIME-06 | Phase 34 | Pending |
-| RUNTIME-07 | Phase 34 | Pending |
+| RUNTIME-04 | Phase 34 | Complete |
+| RUNTIME-05 | Phase 34 | Complete |
+| RUNTIME-06 | Phase 34 | Complete |
+| RUNTIME-07 | Phase 34 | Complete |
 | RUNTIME-08 | Phase 34 | Complete |
 | RUNTIME-09 | Phase 34 | Complete |
 | RUNTIME-10 | Phase 34 | Complete |
@@ -245,7 +245,7 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | OBS-08 | Phase 40 | Pending |
 | GATE-01 | Phase 35 | Pending |
 | GATE-02 | Phase 38 | Pending |
-| GATE-03 | Phase 34 | Pending |
+| GATE-03 | Phase 34 | Complete |
 | GATE-04 | Phase 38 | Pending |
 | GATE-05 | Phase 38 | Pending |
 | GATE-06 | Phase 38 | Pending |

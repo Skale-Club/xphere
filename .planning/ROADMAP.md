@@ -35,7 +35,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 ### v2.0 Multi-Bot Platform
 
 - [x] **Phase 33: Schema Foundation + Legacy Default Agent Backfill** - All v2.0 migrations land additively; every existing org gets a seeded "Main Agent" so day-1 behavior is byte-identical (completed 2026-05-16)
-- [ ] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1
+- [x] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1 (completed 2026-05-16)
 - [ ] **Phase 35: Web Widget Canary Cutover** - Refactor `chat/stream.ts` to consume `runAgent()`; web widget switches to agent runtime with byte-identical behavior verified
 - [ ] **Phase 36: Agent CRUD Dashboard** - `/dashboard/agents` list/create/edit; tool picker reuses v1.5 folders; channel overrides + channel defaults editor
 - [ ] **Phase 37: ManyChat + Meta + Channel Adapters** - Per-channel formatting adapters (length, markdown, splits); ManyChat & Meta inbound branch on `agent_id`
@@ -95,7 +95,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 - [x] 34-03-PLAN.md — types.ts + resolve-agent.ts + resolve-agent-tool.ts: shared contracts + agent resolver + tool junction resolver (AGENT-04..07, AGENT-10, TOOL-05, RUNTIME-01..03)
 - [x] 34-04-PLAN.md — guardrails.ts: kill-switch, delegation depth stub, LLM call count, token cap, daily cost cap (RUNTIME-04..09, GATE-03)
 - [x] 34-05-PLAN.md — invocations.ts + run-agent.ts + index.ts: DB write helpers + orchestration loop + public export (RUNTIME-01, 08..10, TOOL-06, AGENT-06, AGENT-10)
-- [ ] 34-06-PLAN.md — Vitest test suite: guardrail units, GATE-03 kill-switch timing, invocation writes, full integration test with Main Agent (all REQs)
+- [x] 34-06-PLAN.md — Vitest test suite: guardrail units, GATE-03 kill-switch timing, invocation writes, full integration test with Main Agent (all REQs)
 
 ---
 
@@ -211,7 +211,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 |-------|-----------|----------------|--------|-----------|
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
-| 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 5/6 | In Progress|  |
+| 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 6/6 | Complete   | 2026-05-16 |
 | 35. Web Widget Canary Cutover | v2.0 | 0/0 | Not started | - |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
@@ -228,7 +228,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 
 **Goal:** Full push-pull architecture where Operator is the AI brain and GHL is the delivery layer for SMS and WhatsApp. Includes inbound webhook, bot toggle, human takeover, assigned operator, and outbound message routing with operator name prefix.
 **Requirements:** TBD
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 **What was shipped:**
 - `supabase/migrations/041_ghl_inbound.sql` — `ghl_channels`, `ghl_events`, GHL channel variants on `conversations.channel`, `conversations.assigned_user_id`

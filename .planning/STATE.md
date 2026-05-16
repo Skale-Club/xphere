@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 34-05-PLAN.md — runAgent() full orchestration loop
-last_updated: "2026-05-16T13:41:41.233Z"
+stopped_at: Completed 34-06-PLAN.md
+last_updated: "2026-05-16T13:53:01.143Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Operator - State
@@ -18,7 +18,7 @@ progress:
 ## Current Position
 
 Phase: 34 (agent-runtime-skeleton-day-1-guardrails) — EXECUTING
-Plan: 5 of 6 (Plans 01 and 02 complete)
+Plan: 6 of 6 (Plans 01 and 02 complete)
 Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
 Status: Ready to execute
 Last activity: 2026-05-16
@@ -139,6 +139,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 34]: agents table has no max_tokens or temperature columns (not in migration 034): maxTokens defaults to 1024; temperature is override-only (undefined if not overridden)
 - [Phase 34]: Used dynamicTool() over tool() in ai@^6 for dynamic ToolSet — avoids generic overload conflict with Record<string,unknown> parameters
 - [Phase 34]: database.ts agent_invocations.Update was Record<string,never> (bug) — fixed to partial update shape to enable updateInvocationEnd()
+- [Phase 34]: GATE-03 verified: kill switch fires in <1s; integration tests accept error when ANTHROPIC_API_KEY absent
+- [Phase 34]: AGENT-05 KB scope tested via real DB update/restore of kb_scope field in integration test
 
 ## Pending Todos
 
@@ -149,8 +151,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T13:41:41.229Z
-Stopped at: Completed 34-05-PLAN.md — runAgent() full orchestration loop
+Last session: 2026-05-16T13:53:01.136Z
+Stopped at: Completed 34-06-PLAN.md
 
 ## Performance Metrics
 
@@ -169,3 +171,4 @@ Stopped at: Completed 34-05-PLAN.md — runAgent() full orchestration loop
 | Phase 34 P02 | 15min | 3 tasks | 2 files |
 | Phase 34 P03 | 17min | 2 tasks | 3 files |
 | Phase 34-agent-runtime-skeleton-day-1-guardrails P05 | 45min | 2 tasks | 4 files |
+| Phase 34 P06 | 347 | 2 tasks | 4 files |
