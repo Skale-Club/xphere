@@ -1,119 +1,188 @@
-# Requirements: Operator
+# Operator v2.0 Requirements — Multi-Bot Platform
 
-**Defined:** 2026-05-15
-**Milestone:** v1.9 GHL Lost-Lead Reengagement (SMS)
-**Core Value:** The Action Engine must work reliably for every tenant
+**Milestone:** v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
+**Defined:** 2026-05-16
+**Source:** [SEED-002](.planning/seeds/SEED-002-multi-bot-platform.md) → research synthesis at [.planning/research/SUMMARY.md](.planning/research/SUMMARY.md)
 
----
+## Goal
 
-## v1.9 Requirements
+Promote **agent** to a first-class entity in Operator with its own prompt, scoped tools, knowledge base scope, and per-channel overrides — and add multi-agent composition (an agent can delegate to specialist "partner" agents). Chat reaches feature-parity with voice in capability terms.
 
-Requirements for the v1.9 milestone — MVP automation that detects GHL `Lost` opportunities older than a threshold and sends SMS reengagement messages via Twilio.
+## Scope
 
-### GHL — Opportunities Query
+**In scope:** All text channels — web widget, WhatsApp (via Meta), Messenger, Instagram, ManyChat, Telegram.
 
-- [ ] **REENG-01:** System adds `listOpportunities(locationId, { status, updatedBefore, limit })` to `src/lib/ghl/` that calls the GHL Opportunities Search API with cursor pagination
-- [ ] **REENG-02:** The list method accepts a `location_id` (sub-account scope) and uses the org's GHL integration credentials (decrypted from `integrations.encrypted_api_key`)
-- [ ] **REENG-03:** The list method returns only opportunities with `status=Lost` whose `updatedAt` (or `statusChangeDate`) is older than the supplied threshold
-- [ ] **REENG-04:** Each returned opportunity includes `contact.id`, `contact.firstName`, and `contact.phone` (needed for downstream SMS dispatch)
+**Out of scope:** Voice (Vapi). `assistant_mappings`, `/api/vapi/*`, and `resolveTool(orgId, toolName)` keep working byte-for-byte. The "voice and chat as peers" principle is satisfied by chat catching up to voice in capability — not by unifying their runtimes.
 
-### REENG — Reengagement Runner
+## Locked Decisions (from milestone-start questioning)
 
-- [ ] **REENG-05:** Endpoint `POST /api/automations/ghl-reengagement/run` (Node runtime) executes one full pass: list Lost > N days → dispatch SMS → persist anti-loop → log
-- [ ] **REENG-06:** The endpoint authenticates via `Authorization: Bearer <GHL_REENGAGEMENT_TRIGGER_SECRET>`; missing or incorrect secret → HTTP 401
-- [ ] **REENG-07:** The endpoint returns JSON `{ processed, sent, skipped, failed, errors[] }` for observability
-- [ ] **REENG-08:** SMS message substitutes `{{first_name}}` (and uses fallback "amigo(a)" when missing) into the configured template before sending
-
-### REENG — Anti-Loop Persistence
-
-- [ ] **REENG-09:** New migration creates table `ghl_reengagement_sent` (id uuid PK, org_id uuid FK → organizations, location_id text, ghl_contact_id text, sent_at timestamptz default now(), UNIQUE constraint on (org_id, ghl_contact_id), RLS enabled with org-scoped policy)
-- [ ] **REENG-10:** Before dispatching, the runner skips any contact whose `(org_id, ghl_contact_id)` already exists in `ghl_reengagement_sent`
-- [ ] **REENG-11:** After a successful SMS dispatch, the runner inserts a row into `ghl_reengagement_sent`
-
-### REENG — Logging
-
-- [ ] **REENG-12:** Each SMS dispatch attempt (success or failure) is logged in `action_logs` with `tool_name='ghl_reengagement_sms'`, response payload, and error detail when applicable
-
-### REENG — Scheduled Trigger
-
-- [ ] **REENG-13:** GitHub Action workflow `.github/workflows/ghl-reengagement.yml` runs on cron schedule `*/15 * * * *` (15-min pulse — actual cadence governed by `automation_schedules` row, see REENG-18) and POSTs to the runner endpoint using `secrets.GHL_REENGAGEMENT_TRIGGER_SECRET` + `secrets.OPERATOR_BASE_URL`
-- [ ] **REENG-14:** Workflow also supports `workflow_dispatch` for ad-hoc manual triggering from the GitHub UI (with `force` input mapping to `?force=1` to bypass schedule check)
-
-### REENG — Configuration
-
-- [ ] **REENG-15:** Runner reads required env vars on each invocation: `GHL_REENGAGEMENT_LOCATION_ID`, `GHL_REENGAGEMENT_INTEGRATION_ID`, `GHL_REENGAGEMENT_MESSAGE`, `GHL_REENGAGEMENT_TRIGGER_SECRET` (4 required — SMS dispatched via GHL Conversations API, no separate Twilio integration needed). Missing required vars → HTTP 500 with a clear actionable error
-- [ ] **REENG-16:** Optional env vars with defaults: `GHL_REENGAGEMENT_THRESHOLD_DAYS` (default 180), `GHL_REENGAGEMENT_BATCH_LIMIT` (default 20 on Vercel Hobby; raise via env var if on Pro/Enterprise with > 10s function timeout), `GHL_REENGAGEMENT_FROM_NUMBER` (optional override for sub-account default)
-- [ ] **REENG-17:** Documentation file `docs/automations/ghl-reengagement.md` explains env var setup for Vercel + GitHub Action secrets, includes the cron schedule, and how to run a manual trigger
-
-### REENG — Schedule Persistence
-
-- [ ] **REENG-18:** DB-backed schedule via `automation_schedules` table (migration 033) — single seeded row `automation_key='ghl_reengagement_sms'` with `interval_minutes=1440`, `next_run_at` advancing per successful run. Route handler checks `is_active` + `next_run_at <= now()` before invoking runner; `?force=1` bypass available; post-run UPDATE writes `last_run_at`, `last_run_status`, `last_run_result` (JSON), and recomputes `next_run_at = now + interval_minutes`
+| Decision | Value | Why |
+|---|---|---|
+| Naming | `agent` | Avoids collision with Vapi `assistant` and OpenAI Assistants |
+| Agent ownership | Per-org always | Cross-org templates deferred to v2.x |
+| Channel overrides | JSONB merge, not row fork | Universal pattern across surveyed platforms |
+| Delegation primitive | Agent-as-tool (synthetic `call_partner_<slug>`) | Industry standard; preserves call/return semantics |
+| `MAX_DELEGATION_DEPTH` | 2 (env-tunable) | Fits Vercel Hobby 10s budget |
+| Per-org daily $ cap default | $50/day, **configurable per org** | Safety floor; admin can raise |
+| Delegation visibility in widget | Visible by default | Builds user trust + helps debugging |
+| Idempotency wrappers | Ship in v2.0 | Pitfall #5 — without it, double-bookings |
+| KB scope granularity | `tag[]` filter on pgvector metadata | Most flexible; document-id later if needed |
+| Seeded "Legacy Default" agent name | "Main Agent" | Universal; org context shown in dashboard |
+| Voice retrofit | NOT in v2.0 (Vapi unchanged) | Re-evaluate post-v2.0 |
+| Framework adoption | Custom orchestrator + spike `ai@^6` in Phase 2 | Lower regression risk than blind framework swap |
 
 ---
 
-## Future Requirements
+## v2.0 Requirements
 
-Deferred to a future milestone (likely a generic "Automations Platform" milestone). Tracked here so we don't lose context.
+Total: **52 requirements** across 8 categories. All must ship in v2.0.
 
-### Automations Platform
+### AGENT — Agent Definition (15)
 
-- **AUTO-01:** Generic `automations` table (org_id, name, trigger_type, audience_filter JSONB, action_config JSONB, schedule_cron, is_active)
-- **AUTO-02:** Dashboard UI to list, create, edit, pause, run-now automations
-- **AUTO-03:** Audience filter engine supporting status, tag, custom field, last activity, multi-criteria AND/OR
-- **AUTO-04:** Multi-channel dispatch (email via Resend, WhatsApp via Twilio WA)
-- **AUTO-05:** Per-org rules (multiple subaccounts and multiple rules per subaccount)
-- **AUTO-06:** Auto-reply handling: STOP unsubscribe → mark in DB and skip future sends; SIM/positive intent → trigger follow-up workflow
-- **AUTO-07:** Retry with exponential backoff on Twilio dispatch failures
+- [ ] **AGENT-01:** Each org can create one or more agents with required fields: `name`, `slug` (unique per org), `description`, `system_prompt`, `model`, `is_active`
+- [ ] **AGENT-02:** Each agent has optional generation config: `temperature` (default 0.7), `max_tokens` (default 1024), `max_history` (default 20 turns)
+- [ ] **AGENT-03:** Each agent has a configurable `fallback_message` (default: "I can't help with that right now — let me transfer you to a human.")
+- [ ] **AGENT-04:** Each agent has a `model_primary` and optional `model_fallback`; runtime falls back on primary error within the same call (no cascade up the delegation chain)
+- [ ] **AGENT-05:** Each agent has an optional `kb_scope TEXT[]` of knowledge-base tags; `null` = full org KB; runtime filters pgvector results by `metadata.tags && agent.kb_scope` when set
+- [ ] **AGENT-06:** Each agent declares an `allowed_channels` array (subset of: `web_widget`, `whatsapp`, `messenger`, `instagram`, `manychat`, `telegram`); runtime refuses invocation from a non-allowed channel with HTTP 422
+- [ ] **AGENT-07:** Each agent has `channel_overrides JSONB` shaped as `{ [channel]: Partial<AgentSpec> }`; runtime deep-merges per-channel overrides on top of base agent at invocation time (overrides allowed: `system_prompt` suffix-append, `model`, `temperature`, `max_tokens`, `max_history`)
+- [ ] **AGENT-08:** Each org can map a default agent per channel via `agent_channel_defaults(org_id, channel, agent_id)`; channel inbound handlers resolve the agent via this table when no rule-level override exists
+- [ ] **AGENT-09:** Agents have audit timestamps (`created_at`, `updated_at`, `created_by`, `updated_by`)
+- [ ] **AGENT-10:** Inactive agents (`is_active=false`) are excluded from CRUD UI dropdowns and refuse runtime invocation with HTTP 410, but historical `agent_invocations` rows referencing them remain queryable
+- [ ] **AGENT-11:** Every change to `agent.system_prompt` automatically creates a row in `agent_prompt_versions(agent_id, version, system_prompt, created_by, created_at)` via DB trigger on UPDATE
+- [ ] **AGENT-12:** Each agent has an `active_prompt_version_id` pointer; the runtime always uses the prompt from this version, not from `agents.system_prompt` directly
+- [ ] **AGENT-13:** Admin can view the prompt version history list with author, timestamp, and a unified diff against the previous version
+- [ ] **AGENT-14:** Admin can rollback to any prior version by clicking "Activate" — this updates `active_prompt_version_id` and creates a new audit log entry; never mutates the version row
+- [ ] **AGENT-15:** Saving a prompt edit creates a draft version; promoting to production requires explicit "Publish" action (auto-promote on save is an anti-feature)
+
+### TOOL — Per-Agent Tool Scoping (6)
+
+- [ ] **TOOL-01:** New `agent_tools(agent_id, tool_config_id, allowed_channels agent_channel[] NULL)` junction table; `(agent_id, tool_config_id)` UNIQUE; `null` allowed_channels = all channels
+- [ ] **TOOL-02:** Admin can attach/detach tools to an agent via multi-select picker in `/dashboard/agents/[id]`; picker reuses v1.5 `tool_folders` grouping for navigation
+- [ ] **TOOL-03:** New agents start with **zero attached tools** (deny-by-default)
+- [ ] **TOOL-04:** Picker shows tool name, type (`send_sms`, `custom_webhook`, etc.), folder, and the integration it depends on; tools without a usable integration are visually flagged but selectable
+- [ ] **TOOL-05:** Sibling resolver `resolveAgentTool(agentId, toolName)` exists alongside the existing `resolveTool(orgId, toolName)`; existing Vapi path keeps using the org-scoped resolver unchanged
+- [ ] **TOOL-06:** Runtime guard: if an LLM emits a tool call for a tool not in the agent's allowed set, the runtime refuses execution with `denied_reason: 'tool_not_attached_to_agent'`, logs the attempt to `agent_invocations`, and returns a synthesized tool-result message to the LLM ("Tool not available to this agent")
+
+### RUNTIME — Channel-Agnostic Agent Runtime (10)
+
+- [ ] **RUNTIME-01:** New `src/lib/agent-runtime/` module exports `runAgent(ctx: AgentRunContext, opts: AgentRunOptions): Promise<AgentRunResult>`; this is the single entry point for chat-side agent invocation
+- [ ] **RUNTIME-02:** `AgentRunContext` carries `orgId`, `agentId`, `channel`, `conversationId`, `message`, `history`, `supabase` client, optional `metadata`; internal-use fields `_depth`, `_callStack`, `_rootInvocationId`, `_traceId` track delegation state
+- [ ] **RUNTIME-03:** Runtime resolves the agent + applies `channel_overrides` for the invocation channel before calling the LLM
+- [ ] **RUNTIME-04:** Runtime enforces `MAX_DELEGATION_DEPTH=2` (env-tunable via `AGENT_MAX_DELEGATION_DEPTH`); attempts beyond cap return synthetic tool result "Delegation depth exceeded — answer from current agent"
+- [ ] **RUNTIME-05:** Runtime enforces `MAX_LLM_CALLS_PER_TURN=6` (env-tunable); exceeding the cap halts the loop and returns the agent's `fallback_message`
+- [ ] **RUNTIME-06:** Runtime enforces a per-conversation token cap (default 200K, env-tunable via `AGENT_MAX_TOKENS_PER_CONVERSATION`); on exceed, persists a final "conversation length exceeded — please start a new chat" assistant message and halts
+- [ ] **RUNTIME-07:** Runtime enforces a per-org daily $ cap (default `$50/day`, **per-org override** via `organizations.daily_cost_cap_usd_override` column); on exceed, returns the agent's `fallback_message` and emits a Sentry-style log event for ops
+- [ ] **RUNTIME-08:** Per-turn time budget enforced via `AbortController` with `setTimeout(8000)` (2s safety margin under Vercel Hobby 10s); on abort, persists partial assistant reply marked `status='aborted'`
+- [ ] **RUNTIME-09:** Global kill switch via env var `AGENT_RUNTIME_ENABLED=true|false`; when `false`, all chat handlers fall back to a static "service temporarily unavailable" message and emit a 503-equivalent log event
+- [ ] **RUNTIME-10:** Runtime writes exactly one `agent_invocations` row per `runAgent()` call with `tokens_in`, `tokens_out`, `cost_usd`, `latency_ms`, `model`, `status`, `error_detail`; partner calls produce child rows with `parent_invocation_id` pointing to the parent
+
+### DELEG — Multi-Agent Delegation (8)
+
+- [ ] **DELEG-01:** New `agent_partners(agent_id, partner_agent_id, invocation_description TEXT NOT NULL)` junction table; `CHECK (agent_id <> partner_agent_id)`; `(agent_id, partner_agent_id)` UNIQUE
+- [ ] **DELEG-02:** For each agent with declared partners, the runtime injects synthetic LLM tools named `call_partner_<partner_slug>` into the tool list; the tool's description is `agent_partners.invocation_description`
+- [ ] **DELEG-03:** When the LLM calls `call_partner_<slug>`, the runtime intercepts the tool call, recursively invokes `runAgent()` for the partner, and returns the partner's reply as the tool result; the parent agent then completes the user-facing reply
+- [ ] **DELEG-04:** Handoff payload to partner uses three-tier structure: `{ from_agent: slug, intent: short_string, extracted_params: {...}, summary: string, recent_messages: last_3_verbatim }`; raw conversation history is NEVER forwarded
+- [ ] **DELEG-05:** Handoff payload schema rejects nested keys matching `^role$|^system$|^instructions?$` to prevent prompt injection across agent boundary
+- [ ] **DELEG-06:** Loop detection: `_callStack` (visited agent IDs) prevents an agent from being invoked twice in the same delegation chain; second attempt returns synthetic tool result "Cycle detected — answer from current agent"
+- [ ] **DELEG-07:** Tool-execution authorization uses the **intersection model** across the full `delegationChain`: `executeAction` re-checks `(org_id, agent_id, tool_id)` for **every agent in the chain** and refuses with `denied_reason: 'intersection_excludes_tool'` if any chain member lacks the permission
+- [ ] **DELEG-08:** SSE stream emits cosmetic `partner_start` (with partner name + invocation description) and `partner_done` events around partner invocations; widget UI surfaces these as visible badges (e.g. "Asking the billing specialist...") — visibility is on by default, controllable via `organizations.delegation_visibility` (`visible | hidden`)
+
+### CHAN — Channel Adapters & Wiring (6)
+
+- [ ] **CHAN-01:** New `src/lib/agent-runtime/adapters/{web_widget,whatsapp,meta,manychat,telegram}.ts` modules expose `formatOutbound(text, opts) => ChannelMessage[]` for length, markdown, button, and attachment normalization per channel
+- [ ] **CHAN-02:** WhatsApp/Meta/Instagram/Telegram adapters split outbound messages on the channel's hard length limit (1600 chars for WhatsApp; 2000 for Messenger; 4096 for Telegram); markdown is stripped or downgraded as appropriate
+- [ ] **CHAN-03:** `src/app/api/chat/[token]/route.ts` (web widget) refactored to call `runAgent({stream: true})`; declares `export const maxDuration = 10`; existing `createChatStream` shim preserved through Phase 6 rollout for safe rollback
+- [ ] **CHAN-04:** `src/lib/manychat/dispatch-event.ts` extended: when matched rule has `agent_id` set (XOR with `tool_config_id`), dispatch invokes `runAgent({stream: false})` and returns the reply via the existing ManyChat outbound action; rules without `agent_id` keep current behavior
+- [ ] **CHAN-05:** `src/lib/meta/process-event.ts` extended: when the resolved `meta_channels` row has `agent_id` set, the always-200 + `after()` async path invokes `runAgent({stream: false})` and posts the reply via Meta Graph API; channels without `agent_id` keep current behavior
+- [ ] **CHAN-06:** Migrations 038 (`manychat_rules.agent_id`) and 039 (`meta_channels.agent_id`) — both `NULL`-allowed FK to `agents`, additive (no breaking change to v1.6 / v1.3 dispatch contracts)
+
+### IDEMP — Idempotency for Side-Effecting Tools (3)
+
+- [ ] **IDEMP-01:** New `tool_idempotency_keys(org_id, agent_id, tool_id, idempotency_key TEXT, response_payload JSONB, created_at)` table with UNIQUE `(org_id, tool_id, idempotency_key)` and 24-hour TTL via partitioning or scheduled cleanup
+- [ ] **IDEMP-02:** Side-effecting executors (`create_appointment`, `send_sms`, `create_contact`, `custom_webhook` when method is non-GET) accept an `idempotency_key` from the runtime; if a row exists, return the cached `response_payload` instead of re-executing; if not, execute and persist
+- [ ] **IDEMP-03:** Runtime derives the idempotency key as `sha256(agent_invocation_id + tool_call_index)` so each LLM-issued tool call has a stable key for the lifetime of the invocation, preventing double-execution from agent retries or LLM tool-call deduplication failures
+
+### PLAY — Playground (5)
+
+- [ ] **PLAY-01:** Each agent has a test playground at `/dashboard/agents/[id]/playground`; admin chats against the agent and sees the reply inline
+- [ ] **PLAY-02:** Playground exposes a channel selector (web_widget, whatsapp, messenger, instagram, manychat, telegram); switching channel re-applies the corresponding `channel_overrides`
+- [ ] **PLAY-03:** Playground surfaces all tool calls inline in the message thread (reuses v1.4 chat-area `MessageList` component) with arguments + result + timing
+- [ ] **PLAY-04:** Playground shows a "New session" button that resets the conversation context but preserves the agent + channel selection
+- [ ] **PLAY-05:** Playground invocations carry `mode='playground'` flag in the runtime context; resulting `agent_invocations` rows are tagged so they're excluded from production observability counts and don't write to `conversations` / `conversation_messages`
+
+### OBS — Observability (8)
+
+- [ ] **OBS-01:** New `agent_invocations` table with: `id`, `organization_id` (FK + RLS), `agent_id`, `parent_invocation_id NULL` (self-FK for delegation tree), `trace_id UUID NOT NULL`, `channel`, `conversation_id NULL`, `depth`, `status`, `user_message`, `assistant_reply`, `tool_calls JSONB`, `partner_calls JSONB`, `tokens_in`, `tokens_out`, `cost_usd NUMERIC(10,6)`, `model`, `duration_ms`, `error_detail`, `mode` (`production | playground`), `created_at`
+- [ ] **OBS-02:** `action_logs` extended with nullable `agent_invocation_id UUID FK` + `trace_id UUID NULL` (additive — v1.x consumers unaffected)
+- [ ] **OBS-03:** New `agent_model_pricing(model TEXT PRIMARY KEY, input_per_1m_usd NUMERIC, output_per_1m_usd NUMERIC, source TEXT, updated_at)` seeded with current Anthropic + OpenRouter rates; runtime computes `cost_usd` per invocation by joining
+- [ ] **OBS-04:** Per-agent metrics widget at `/dashboard/agents/[id]` shows: invocation count, p50/p95 latency, total cost, tool-call success rate (last 24h / 7d / 30d)
+- [ ] **OBS-05:** Per-org cost ticker on `/dashboard` showing 1h / 24h / 7d totals + `% of daily cap consumed`; alert badge at 80% of cap
+- [ ] **OBS-06:** Per-conversation drill-in at `/dashboard/conversations/[id]` extended with delegation tree visualization (nested invocations rendered as collapsible tree with cost + latency per node)
+- [ ] **OBS-07:** `/dashboard/agents/[id]/invocations` lists recent invocations with status filter, cost filter, error filter; click-through opens delegation tree
+- [ ] **OBS-08:** Existing chat-area component extended to show an agent badge on each assistant message (which agent produced it); useful when delegation is involved
+
+### Cross-cutting Acceptance Tests (must pass to ship)
+
+These are not requirements per-se but acceptance gates the verifier will check at end of milestone:
+
+- [ ] **GATE-01:** Existing chat continues to work byte-identically post-Phase 1 migration (snapshot diff of widget conversation against pre-migration baseline = 0 differences)
+- [ ] **GATE-02:** Adversarial prompt-injection corpus (≥10 known patterns: DAN, role-reversal, fake system prompts, JSON instruction smuggling) sent to a 2-agent delegation setup; assert no injected tool calls reach `executeAction`
+- [ ] **GATE-03:** Load test (1000 req / 10 min from one IP) → rate-limited after 20/min, total cost < $5, kill switch flip → 503-graceful within 1s
+- [ ] **GATE-04:** Confused-deputy 3-level chain test — A (read-only) → B (write-capable) → C (write-capable) — write attempt by C must be refused with `denied_reason: 'intersection_excludes_tool'`
+- [ ] **GATE-05:** Realistic latency integration test (mock LLM with sleep 2.5s/call) — chain of generalist + 1 specialist + 1 tool-call ≤ 8s total
+- [ ] **GATE-06:** Idempotency test — same tool call with same idempotency_key fired twice → executor invoked once, both responses identical
+- [ ] **GATE-07:** Migration discipline — `SELECT count(*) FROM conversations WHERE agent_id IS NULL` returns 0 after backfill
 
 ---
 
-## Out of Scope (v1.9)
+## Future Requirements (deferred to v2.x)
 
-Explicitly excluded from v1.9 to keep MVP focused. Documented to prevent scope creep.
+These were called table-stakes by FEATURES.md research but are differentiators for Operator's scale; defer until first real signal.
 
-| Feature | Reason |
-|---------|--------|
-| Dashboard UI to configure the automation | MVP is hardcoded via env vars; UI belongs to the future Automations Platform milestone |
-| Multi-tenant rules / multi-subaccount | Skleanings-only in v1.9; generalization is the AUTO-* future work |
-| Email / WhatsApp channels | Twilio SMS only in v1.9 |
-| Retry logic on failure | One-shot per cron tick; failures will be visible in `action_logs` |
-| Real-time / event-driven triggers | Cron-only in v1.9 |
-| Advanced template substitution (custom fields, conditional blocks) | Only `{{first_name}}` substitution in v1.9 |
-| In-product opt-out / STOP handling | Out of scope; manual cleanup in v1.9 if needed |
+- Mock tool responses in playground (when operator complains about real GHL writes during testing)
+- Online eval scoring (LLM-as-judge per call) — when volume justifies the overhead
+- Per-agent rate limits per visitor — when abuse observed
+- Dataset-based offline eval suite (regression testing of prompts against fixed corpus) — when prompt iteration becomes the bottleneck
+- Token streaming relay from partner to end-user (v2.0 ships heartbeat-only)
+- Voice (Vapi) integration of agents — re-evaluate after v2.0 chat agents bed in
+- Cross-org agent templates / marketplace
+- A/B testing UI for prompt versions (schema is in scope; testing UX is not)
+- Per-rule agent override on Meta channels (channel-level via `agent_channel_defaults` ships in v2.0; rule-level can wait if needed)
+
+---
+
+## Out of Scope (explicit exclusions)
+
+These are anti-features identified by research; explicitly excluded to protect against scope creep.
+
+| Excluded | Reason |
+|---|---|
+| Voice agent management (Vapi assistants) | Vapi remains source of truth for voice; Operator does NOT sync agent definitions to Vapi |
+| "More agents = better" auto-spawn | Bag-of-agents anti-pattern; HBR/Galileo failure rate analysis |
+| Free-form natural-language agent definition | Schema is the contract; no "describe your agent in English" creator |
+| Agents creating/editing other agents at runtime | Recursive admin = security disaster |
+| Unbounded delegation chains | `MAX_DELEGATION_DEPTH=2` is hard cap |
+| Streaming "internal monologue" tokens to end-user | Confuses users; widget shows reply only + delegation badges |
+| Auto-promote prompt version on save | Must be explicit Publish action |
+| Single global cross-tenant agent | Per-org always |
+| Per-channel forked agent (one agent per channel) | Use `channel_overrides` instead |
+| In-playground "deploy to production" button | Promotion is an explicit admin action elsewhere |
+| Hierarchical "manager agent" black-box router | Black-box routing breaks debuggability |
+| Visual flow-chart builder (Voiceflow / n8n style) | Explicit "no n8n fallback" in PROJECT.md |
+| Auto-summarize old conversations into agent prompt | Long-term memory bleed; explicit handoff payload only |
+| Replacing Vapi as voice provider | Out of milestone; Operator is not a voice runtime |
 
 ---
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Phases are mapped during roadmap creation. Empty until `gsd-roadmapper` populates.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REENG-01 | Phase 32 | Complete |
-| REENG-02 | Phase 32 | Complete |
-| REENG-03 | Phase 32 | Complete |
-| REENG-04 | Phase 32 | Complete |
-| REENG-05 | Phase 32 | Complete |
-| REENG-06 | Phase 32 | Complete |
-| REENG-07 | Phase 32 | Complete |
-| REENG-08 | Phase 32 | Complete |
-| REENG-09 | Phase 32 | Complete |
-| REENG-10 | Phase 32 | Complete |
-| REENG-11 | Phase 32 | Complete |
-| REENG-12 | Phase 32 | Complete |
-| REENG-13 | Phase 32 | Complete |
-| REENG-14 | Phase 32 | Complete |
-| REENG-15 | Phase 32 | Complete |
-| REENG-16 | Phase 32 | Complete |
-| REENG-17 | Phase 32 | Complete |
-| REENG-18 | Phase 32 | Complete |
-
-**Coverage:**
-- v1.9 requirements: 18 total
-- Mapped to phases: 18 ✓
-- Unmapped: 0
 
 ---
 
-*Requirements defined: 2026-05-15*
-*Last updated: 2026-05-15 — added REENG-18 (DB-backed schedule via automation_schedules); reconciled REENG-13 (cron is 15-min pulse, schedule lives in DB) and REENG-15 (4 required env vars, no Twilio integration) with implementation per D-32-06/13/14*
+*Requirements defined: 2026-05-16*
+*Last updated: 2026-05-16 — initial v2.0 definition (52 requirements + 7 acceptance gates)*
