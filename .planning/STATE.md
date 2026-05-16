@@ -3,25 +3,25 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Phase 36 context gathered
-last_updated: "2026-05-16T21:40:24.687Z"
-last_activity: 2026-05-16
+stopped_at: Phase 36 Plan 01 complete
+last_updated: "2026-05-16T23:00:00.000Z"
+last_activity: 2026-05-16 -- Phase 36 Plan 01 complete (migration 044 + types)
 progress:
   total_phases: 11
   completed_phases: 4
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 26
+  completed_plans: 22
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 999.1
-Plan: Not started
-Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
-Status: Ready to execute
-Last activity: 2026-05-16
+Phase: 36 (agent-crud-dashboard) — EXECUTING
+Plan: 2 of 5 (Plan 01 complete)
+Next: Plan 36-02 — shadcn primitives + scaffold (dashboard)/agents + src/lib/agents/* + sidebar
+Status: Executing Phase 36
+Last activity: 2026-05-16 -- Phase 36 Plan 01 complete (migration 044 + types regenerated)
 
 ## Milestone Progress
 
@@ -147,6 +147,7 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 35-web-widget-canary-cutover]: route.ts cutover (CHAN-03): removed tool-fetching IIFE + accumulatedReply; runAgent owns all LLM side effects via after() in streaming path
 - [Phase 35]: GATE-01 test mocks @/lib/agent-runtime for deterministic SSE output (D-35-08) — avoids non-deterministic LLM responses while testing full route.ts path
 - [Phase 35]: chat-api.test.ts stale mocks (openai, @anthropic-ai/sdk) replaced with @/lib/agent-runtime mock — route.ts now calls runAgent not SDK directly
+- [Phase 36-01]: Migration 044 adds agents.temperature NUMERIC(3,2) NULL + agents.max_tokens INTEGER NULL with CHECK constraints (no DEFAULT — NULL = use runtime/SDK default to preserve Phase 34 lock); types regenerated manually (Row + Insert + Update); npm run build GREEN
 
 ## Pending Todos
 
@@ -157,8 +158,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T21:40:24.671Z
-Stopped at: Phase 36 context gathered
+Last session: 2026-05-16T23:00:00.000Z
+Stopped at: Phase 36 Plan 01 complete — ready for Plan 02
 
 ## Performance Metrics
 
@@ -181,3 +182,4 @@ Stopped at: Phase 36 context gathered
 | Phase 35 P02 | 11 | 2 tasks | 2 files |
 | Phase 35-web-widget-canary-cutover P03 | 35 | 2 tasks | 3 files |
 | Phase 35 P04 | 12 | 2 tasks | 2 files |
+| Phase 36 P01 | ~15 min | 3 tasks | 2 files |

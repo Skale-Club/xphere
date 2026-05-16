@@ -395,6 +395,8 @@ export interface Database {
           created_at: string
           updated_at: string
           active_prompt_version_id: string | null
+          temperature: number | null
+          max_tokens: number | null
         }
         Insert: {
           id?: string
@@ -415,6 +417,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           active_prompt_version_id?: string | null
+          temperature?: number | null
+          max_tokens?: number | null
         }
         Update: {
           name?: string
@@ -431,6 +435,8 @@ export interface Database {
           updated_by?: string | null
           updated_at?: string
           active_prompt_version_id?: string | null
+          temperature?: number | null
+          max_tokens?: number | null
         }
         Relationships: [
           {
