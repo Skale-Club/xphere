@@ -222,7 +222,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 6/6 | Complete    | 2026-05-16 |
 | 35. Web Widget Canary Cutover | v2.0 | 4/4 | Complete    | 2026-05-16 |
-| 36. Agent CRUD Dashboard | v2.0 | 5/5 | Complete   | 2026-05-16 |
+| 36. Agent CRUD Dashboard | v2.0 | 5/5 | Complete    | 2026-05-16 |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
 | 38. Multi-Agent Delegation + Intersection Authz + Idempotency | v2.0 | 0/0 | Not started | - |
 | 39. Multi-Channel Playground | v2.0 | 0/0 | Not started | - |
