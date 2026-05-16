@@ -34,7 +34,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 
 ### v2.0 Multi-Bot Platform
 
-- [ ] **Phase 33: Schema Foundation + Legacy Default Agent Backfill** - All v2.0 migrations land additively; every existing org gets a seeded "Main Agent" so day-1 behavior is byte-identical
+- [x] **Phase 33: Schema Foundation + Legacy Default Agent Backfill** - All v2.0 migrations land additively; every existing org gets a seeded "Main Agent" so day-1 behavior is byte-identical (completed 2026-05-16)
 - [ ] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1
 - [ ] **Phase 35: Web Widget Canary Cutover** - Refactor `chat/stream.ts` to consume `runAgent()`; web widget switches to agent runtime with byte-identical behavior verified
 - [ ] **Phase 36: Agent CRUD Dashboard** - `/dashboard/agents` list/create/edit; tool picker reuses v1.5 folders; channel overrides + channel defaults editor
@@ -204,7 +204,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
-| 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 6/7 | In Progress|  |
+| 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete   | 2026-05-16 |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 0/0 | Not started | - |
 | 35. Web Widget Canary Cutover | v2.0 | 0/0 | Not started | - |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
