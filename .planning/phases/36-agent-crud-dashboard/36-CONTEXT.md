@@ -49,7 +49,7 @@ Columns (left → right):
 - **Tools** (count badge, e.g. "3 attached")
 - **Active** (toggle switch, optimistic update)
 - **Updated** (relative time)
-- **Actions** (... menu: Edit / Duplicate / Delete)
+- **Actions** (... menu: Edit / Delete) — Duplicate deferred to v2.x
 
 Top of page has "New Agent" button (top-right) and a "Channel Defaults" card (top-left) — see D-36-04.
 
