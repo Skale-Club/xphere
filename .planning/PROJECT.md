@@ -12,6 +12,37 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
+## Current Milestone: v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
+
+**Goal:** Promote agent to a first-class entity in Operator with its own prompt, scoped tools, knowledge base scope, and per-channel overrides — and add multi-bot composition (an agent can delegate to specialist "partner" agents). Chat reaches feature-parity with voice.
+
+**Non-goal (explicit):** This milestone does NOT touch Vapi voice agents. Vapi remains the source of truth for everything voice-related (agent prompts, voice tools, call orchestration, transfers). `assistant_mappings` continues unchanged. Operator's `agents` are for **text channels only** — web widget, WhatsApp, Meta, ManyChat, Telegram. The "voice and chat as peers" principle is satisfied by chat *catching up* to voice in capability, not by unifying their runtimes.
+
+**Target features:**
+- New `agents` entity (per-org) with prompt, model, tools, KB scope, channel_overrides JSONB
+- Per-channel prompt overrides (e.g. shorter responses for SMS vs full markdown for web widget)
+- Tool scoping: agent-level RBAC layer over the existing action-engine (today tools are org-scoped only)
+- Multi-agent delegation (chat-first): an agent can call partner agents as sub-routines, with loop detection and depth limits
+- Agent CRUD UI in the dashboard with a multi-channel test playground
+- Channel-agnostic chat runtime: same agent definition consumed by web widget, WhatsApp/Meta/ManyChat/Telegram inbound handlers
+- Replace `src/lib/chat/`'s monolithic prompt with `runAgent(agentId, channel, context)`
+- Observability: per-agent metrics (LLM cost, latency, tool-call counts, delegation graphs)
+
+**Key context:**
+- Naming decision: **agent** (not "bot", not "assistant" — avoids collision with Vapi/OpenAI Assistants)
+- Agents are always org-scoped; cross-org templates/marketplace deferred to v2.x
+- Channel-specific overrides allowed via `channel_overrides` JSONB field, not by forking the agent
+- Multi-agent delegation is chat-only in v2.0; voice handoff is Vapi-native and out of scope
+- Action engine stays shared between Vapi and chat; new tool-scoping layer applies on the chat path
+- Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
+
+**Out of scope (this milestone):**
+- Voice agent management (stays in Vapi)
+- Cross-org agent templates / marketplace
+- Prompt A/B testing (versioning schema is in scope; testing UI is not)
+- Multi-agent delegation in voice
+- Replacing Vapi as a voice provider
+
 ## Last Milestone: v1.9 GHL Lost-Lead Reengagement (SMS) ✅ Complete 2026-05-16 ⚠️ pending operator HUMAN-UAT
 
 **Goal:** Job diário automatizado que identifica leads marcados como `Lost` há mais de 180 dias no GoHighLevel (sub-account Skleanings) e dispara SMS de reengajamento, com anti-loop persistente para não enviar duas vezes ao mesmo contato.
@@ -176,9 +207,9 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Platform documents operator setup in `docs/automations/ghl-reengagement.md` — v1.9 (REENG-17)
 - Platform owns automation cadence in DB via `automation_schedules` (interval-based, post-run write-back, `?force=1` bypass) — v1.9 (REENG-18)
 
-### Active
+### Active (v2.0 Multi-Bot Platform)
 
-(no active milestone — v1.9 just shipped; next milestone TBD)
+(defining REQUIREMENTS.md — see roadmap step)
 
 ### Backlog (next milestone candidates)
 
@@ -254,4 +285,4 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-16 — v1.9 milestone shipped (Phase 32 complete, 18 commits, 53/53 tests GREEN, schema 032/033 applied to remote; HUMAN-UAT pending operator)*
+*Last updated: 2026-05-16 — v2.0 Multi-Bot Platform milestone started (chat-side agent abstraction; voice stays in Vapi)*

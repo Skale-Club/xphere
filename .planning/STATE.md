@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: GHL Lost-Lead Reengagement (SMS)
-status: executing
-stopped_at: Completed Plan 32-04 — Phase 32 delivery surface shipped (route + workflow + docs + gate). 53 tests GREEN, all 4 plans complete. Phase 32 ready for /gsd-verify-work
+milestone: v2.0
+milestone_name: Multi-Bot Platform
+status: defining
+stopped_at: Defining requirements for v2.0 (chat-side agent abstraction; voice stays in Vapi)
 last_updated: "2026-05-16T00:31:45.862Z"
 last_activity: 2026-05-16
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 32
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-16
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-16 — Milestone v2.0 started (promoted from SEED-002)
 
 ## Milestone Progress
 
@@ -33,13 +33,15 @@ Last activity: 2026-05-16
 - v1.6 ManyChat Integration: ✅ Shipped 2026-05-07
 - v1.7 Google Contacts Integration: ✅ Shipped 2026-05-07 ⚠️ pending Google Cloud credentials
 - v1.8 Executor Completeness: ✅ Shipped 2026-05-08
-- v1.9 GHL Lost-Lead Reengagement (SMS): 🚧 Active — Phase 32 ready to plan
+- v1.9 GHL Lost-Lead Reengagement (SMS): ✅ Complete 2026-05-16 ⚠️ pending operator HUMAN-UAT
+- v2.0 Multi-Bot Platform: 🚧 Active — defining requirements
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
 See `.planning/ROADMAP.md` for phase details.
+See `.planning/seeds/SEED-002-multi-bot-platform.md` for the original seed (rich background, tradeoffs, breadcrumbs).
 
 **Core value:** The Action Engine must work reliably for every tenant
 **App name:** Operator
@@ -47,65 +49,62 @@ See `.planning/ROADMAP.md` for phase details.
 
 ## Accumulated Context
 
-### v1.9 Scope
+### v2.0 Scope
 
-MVP de reengagement SMS para a sub-account Skleanings no GoHighLevel. Job diário (GitHub Action) chama endpoint protegido que: lista Lost opportunities > 180 dias → envia SMS via Twilio → loga + marca anti-loop.
+Promote agent to a first-class entity in Operator for **text channels only** — web widget, WhatsApp, Meta DMs, ManyChat, Telegram. Each agent has its own prompt, scoped tools (subset of action-engine), KB scope, and per-channel overrides. Multi-agent delegation (chat-first): an agent can call partner agents as sub-routines with loop detection and depth limits.
 
-Phase 32 single-phase decomposition: all 17 REENG requirements ship together. The pieces (GHL list method, anti-loop migration, runner endpoint, scheduler, docs) are tightly coupled and the milestone is not functional without all of them — splitting would create an artificial cut.
+**Voice (Vapi) is explicitly out of scope.** `assistant_mappings` continues unchanged. Operator does NOT try to be source of truth for Vapi assistants.
 
-Critical pieces:
+The "voice and chat as peers" principle is satisfied by chat catching up to voice in capability — not by unifying their runtimes.
 
-- GHL API: precisa adicionar `listOpportunities(locationId, { status, updatedBefore })` em `src/lib/ghl/` (hoje só tem create-contact, create-appointment, get-availability)
-- Twilio: reusar `src/lib/twilio/send-sms.ts` (executor 1-SMS já validado em v1.8)
-- Anti-loop: nova migration + tabela `ghl_reengagement_sent` (org_id, ghl_contact_id, sent_at, UNIQUE constraint)
-- Scheduler: novo arquivo em `.github/workflows/` (já existe pattern de keepalive scheduled action)
-- Endpoint: `POST /api/automations/ghl-reengagement/run` retorna `{ processed, sent, skipped, errors }`
-- Config via env vars (sem UI nessa milestone):
-  - `GHL_REENGAGEMENT_LOCATION_ID` (sub-account)
-  - `GHL_REENGAGEMENT_INTEGRATION_ID` (qual integration row usar)
-  - `GHL_REENGAGEMENT_TWILIO_INTEGRATION_ID`
-  - `GHL_REENGAGEMENT_MESSAGE` (template com `{{first_name}}`)
-  - `GHL_REENGAGEMENT_TRIGGER_SECRET` (bearer pro endpoint)
-  - `GHL_REENGAGEMENT_THRESHOLD_DAYS` (default 180, optional)
-  - `GHL_REENGAGEMENT_BATCH_LIMIT` (default 20, optional — Vercel Hobby safety; raise on Pro)
+### Critical pieces
 
-Pattern references:
+- New schema: `agents`, `agent_tools` (junction with permissions), `agent_partners` (recursive junction), `agent_prompt_versions` (history)
+- `runAgent(agentId, channel, context)` channel-agnostic chat runtime in `src/lib/agent-runtime/`
+- Tool scoping: new layer over `src/lib/action-engine/resolve-tool.ts` checking agent_tools junction
+- Refactor `src/lib/chat/` to consume `runAgent()` instead of monolithic prompt
+- Wire each text-channel inbound handler (web widget, ManyChat, Meta, WhatsApp future) to call `runAgent()` with the right `channel` parameter
+- Multi-agent delegation protocol: tool-call shape that lets an agent invoke `runPartnerAgent(targetAgentId, sharedContext)` with depth/loop guards
+- `/dashboard/agents` CRUD UI + multi-channel test playground at `/dashboard/agents/[id]/test`
+- Per-agent observability: cost, latency, tool-call counts, delegation graphs
 
-- Twilio executor: `src/lib/twilio/send-sms.ts` (v1.8)
-- Action logging: `src/lib/action-engine/execute-action.ts` (action_logs insert pattern)
-- GHL client: `src/lib/ghl/client.ts` (Bearer + Version header pattern)
-- Cred decryption: `decrypt(integrations.encrypted_api_key)` then JSON parse
+### Pattern references
 
-Reserved for future milestone (não fazer agora):
+- Action engine pattern: `src/lib/action-engine/execute-action.ts` (action_logs insert, tool resolution)
+- Chat streaming pattern: `src/lib/chat/stream/anthropic.ts` and `openrouter.ts` (provider abstraction to preserve)
+- Knowledge base scope pattern: `src/lib/knowledge/query-knowledge.ts` (org-scoped semantic search to extend with agent-scope)
+- Inbound channel handlers: `src/app/api/manychat/`, `src/app/api/meta/`, `src/app/api/chat/[token]/`
+- RLS template: any v1.x migration with `get_current_org_id()` SECURITY DEFINER pattern
 
-- Tabela `automations` genérica + UI de automações
-- Audience filters configuráveis
-- Multi-canal (email, WhatsApp)
-- Multi-cliente / múltiplas regras
+### Reserved for future milestones (NOT in v2.0)
+
+- Cross-org agent templates / marketplace (v2.x)
+- Prompt A/B testing UI (versioning schema is in scope; testing UX is not)
+- Multi-agent delegation in voice (Vapi-native, separate research)
+- Replacing Vapi as a voice provider
+- Agent marketplace billing / monetization
 
 ## Decisions
 
-- [v1.9] Hardcoded para Skleanings via env vars — versão multi-cliente é trabalho de plataforma, fica para milestone futura
-- [v1.9] GitHub Actions como scheduler — projeto já usa pra keepalive; evita custo de Vercel Cron e mantém scheduling externo ao app
-- [v1.9] Anti-loop persistido em DB (não em GHL tag) — fonte da verdade no nosso lado, evita depender de tags GHL que podem ser removidas
-- [v1.9] Single-phase decomposition (Phase 32) — MVP scope is small and tightly coupled; splitting list/migration/endpoint from scheduler/docs would create artificial cut without value
-- [v1.9] BATCH_LIMIT default reduced from documented 100 → 20 in implementation. Reason: Vercel Hobby 10s function timeout + Twilio ~500ms latency + Promise.allSettled fan-out makes 100 unsafe; operator can raise via env var on Pro plan.
-- [Phase 32]: [v1.9 / 32-02] GHL date-filter param kept as 'date' constant — JS-side date guard provides defense in depth against silent param-name mismatch (Pitfall 1); staging probe deferred
-- [Phase 32]: [v1.9 / 32-02] Migration 033 (automation_schedules) shipped in this plan per D-32-13 — single-tenant, RLS with NO policy (service-role only), seeded ghl_reengagement_sms row with next_run_at=next 14:00 UTC + interval_minutes=1440
-- [Phase 32]: [v1.9 / 32-03] Runner is env-agnostic (no process.env reads); route handler in Plan 04 owns env parsing — keeps runner unit-testable
-- [Phase 32]: [v1.9 / 32-03] Claim-first INSERT BEFORE sendSmsViaGhl with DELETE rollback on GHL throw (D-32-10); UNIQUE-violation from concurrent run caught and counted as skipped, not failed
-- [Phase 32]: [v1.9 / 32-04] Route handler returns 401/500 (not webhook) so GH Action surfaces failed runs; bearer auth via crypto.timingSafeEqual; ?force=1 query bypasses DB schedule check (D-32-09)
-- [Phase 32]: [v1.9 / 32-04] GitHub Actions cron '*/15 * * * *' (15-min pulse) — actual cadence lives in automation_schedules.interval_minutes (D-32-06/08); workflow_dispatch force input maps to ?force=1 URL
-- [Phase 32]: [v1.9 / 32-04] Skipped 'npm run lint' in phase gate — next lint removed in Next.js 16; project script broken project-wide (pre-existing); npm run build's TS-strict type-check is the effective gate
+- [v2.0] Naming: **agent** (not "bot", not "assistant" — avoids collision with Vapi/OpenAI Assistants)
+- [v2.0] Voice stays in Vapi 100% — Operator does NOT sync agent definitions to Vapi; `assistant_mappings` unchanged
+- [v2.0] Agents are always org-scoped; cross-org templates deferred to v2.x
+- [v2.0] Channel-specific overrides allowed via `channel_overrides` JSONB field (avoid forking the agent for SMS-vs-web tone differences)
+- [v2.0] Multi-agent delegation is chat-only in v2.0 (voice handoff is Vapi-native)
+- [v2.0] Tool scoping is the new abstraction over the existing action-engine — `agent_tools` junction with permissions; `resolve-tool` checks it before executing
+- [v2.0] Phase numbering continues from Phase 33 (no `--reset-phase-numbers`); v1.x phases preserved for traceability
+- [v2.0] Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
 
 ## Pending Todos
 
 - ⚠️ (v1.7) Register Google OAuth app in Google Cloud Console + set GOOGLE_CLIENT_ID/SECRET in Vercel
+- ⚠️ (v1.9) Operator: complete 5 HUMAN-UAT items in `.planning/phases/32-ghl-lost-lead-reengagement-sms-automation/32-HUMAN-UAT.md` (Vercel env vars + GitHub secrets + first dispatch + SMS test + first scheduled tick)
+- 🧹 Pre-existing tech debt: `npm run lint` broken (Next.js 16 removed `next lint`) — wire eslint.config.js when convenient
 
 ## Session Continuity
 
-Last session: 2026-05-16T00:19:52.958Z
-Stopped at: Completed Plan 32-04 — Phase 32 delivery surface shipped (route + workflow + docs + gate). 53 tests GREEN, all 4 plans complete. Phase 32 ready for /gsd-verify-work
+Last session: 2026-05-16T00:31:45.862Z
+Stopped at: Defining requirements for v2.0 (chat-side agent abstraction; voice stays in Vapi)
 
 ## Performance Metrics
 
@@ -113,6 +112,6 @@ Stopped at: Completed Plan 32-04 — Phase 32 delivery surface shipped (route + 
 |-------|------|----------|-------|-------|
 | 30 | 04 | 8 min | 2/2 | 3 |
 | 31 | 01 | 12 min | 1/1 | 2 |
-| Phase 32 P02 | 25 min | 4/4 tasks | 6 files |
-| Phase 32 P03 | 30 min | 1/1 tasks | 2 files |
-| Phase 32 P04 | 12 min | 4/4 tasks | 5 files |
+| 32 | 02 | 25 min | 4/4 | 6 |
+| 32 | 03 | 30 min | 1/1 | 2 |
+| 32 | 04 | 12 min | 4/4 | 5 |
