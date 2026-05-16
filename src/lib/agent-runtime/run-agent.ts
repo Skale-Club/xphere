@@ -1,18 +1,23 @@
 // src/lib/agent-runtime/run-agent.ts
 // Core orchestration loop for agent invocations.
-// D-34-02: returns Promise<AgentRunResult> (plain object, NOT stream).
-// D-34-09: NOT wired into any live channel handler in Phase 34 — Phase 35 job.
+// D-34-02: returns Promise<AgentRunResult> (plain object, NOT stream) for blocking path.
+// D-35-01/D-35-09: returns ReadableStream<Uint8Array> (SSE-formatted) when opts.stream = true.
+// D-34-09: wired into web widget route.ts in Phase 35 (CHAN-03).
 //
-// LLM call pattern: ADOPT ai@^6 (generateText from 'ai' + @ai-sdk/anthropic)
-// Decision locked in 34-01-SUMMARY.md.
+// LLM call pattern: ADOPT ai@^6
+// Blocking path: generateText from 'ai' + @ai-sdk/anthropic (locked in 34-01-SUMMARY.md)
+// Streaming path: streamText from 'ai' + @ai-sdk/anthropic (locked in D-35-09)
 
-import { generateText, dynamicTool, stepCountIs } from 'ai'
+import { generateText, streamText, dynamicTool, stepCountIs } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { jsonSchema } from 'ai'
+import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { queryKnowledge } from '@/lib/knowledge/query-knowledge'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { createEncoder } from '@/lib/chat/stream/encoder'
+import { persistMessage } from '@/lib/chat/persist'
 import {
   checkKillSwitch,
   checkDelegationDepth,
@@ -61,10 +66,26 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// runAgent
+// runAgent — function overloads (D-35-01)
 // ---------------------------------------------------------------------------
 
-export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
+export function runAgent(opts: AgentRunOptions & { stream: true }): ReadableStream<Uint8Array>
+export function runAgent(opts: AgentRunOptions & { stream?: false }): Promise<AgentRunResult>
+export function runAgent(opts: AgentRunOptions): ReadableStream<Uint8Array> | Promise<AgentRunResult>
+export function runAgent(opts: AgentRunOptions): ReadableStream<Uint8Array> | Promise<AgentRunResult> {
+  // Streaming path dispatch (D-35-09) — returns synchronously
+  if (opts.stream) {
+    return runAgentStreaming(opts)
+  }
+  // Blocking path — returns Promise<AgentRunResult>
+  return runAgentBlocking(opts)
+}
+
+// ---------------------------------------------------------------------------
+// runAgentBlocking — blocking path (generateText) — Phase 34, unchanged
+// ---------------------------------------------------------------------------
+
+async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> {
   const {
     orgId,
     channel,
@@ -497,4 +518,319 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     status: finalStatus,
     ...(errorDetail ? { errorDetail } : {}),
   }
+}
+
+// ---------------------------------------------------------------------------
+// runAgentStreaming — streaming path (D-35-01, D-35-09)
+// Returns a ReadableStream<Uint8Array> that emits SSE-formatted JSON lines.
+// All async agent resolution happens INSIDE the ReadableStream.start() callback
+// so the function returns synchronously as required by D-35-01.
+// ---------------------------------------------------------------------------
+
+function runAgentStreaming(
+  opts: AgentRunOptions,
+): ReadableStream<Uint8Array> {
+  const {
+    orgId,
+    channel,
+    userMessage,
+    conversationId,
+    sessionId,
+    historyWindow = [],
+    mode = 'production',
+    _depth = 0,
+    parentInvocationId,
+  } = opts
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const encode = createEncoder()
+      const emit = (obj: object) => controller.enqueue(encode(obj))
+
+      // GATE-01: session event MUST be first
+      emit({ event: 'session', sessionId })
+
+      const traceId = crypto.randomUUID()
+      const startedAt = Date.now()
+
+      let accumulatedText = ''
+      let finalStatus: 'success' | 'error' | 'aborted' | 'skipped' = 'success'
+      let tokensIn = 0
+      let tokensOut = 0
+      let errorDetail: string | undefined
+      const toolCallsLog: Json[] = []
+      let invocationId = ''
+      let capturedModel = 'unknown'
+      let finalResolvedAgentId = opts.agentId ?? ''
+
+      try {
+        // Resolve agentId from agent_channel_defaults when not explicitly provided (D-35-06)
+        let resolvedAgentId = opts.agentId
+        if (!resolvedAgentId) {
+          const defaultClient = createServiceRoleClient()
+          const { data: defaultRow } = await defaultClient
+            .from('agent_channel_defaults')
+            .select('agent_id')
+            .eq('organization_id', orgId)
+            .eq('channel', channel)
+            .single()
+
+          resolvedAgentId = defaultRow?.agent_id ?? undefined
+          if (!resolvedAgentId) {
+            console.error(
+              JSON.stringify({ event: 'no_agent_for_channel', orgId, channel })
+            )
+            emit({ event: 'token', text: "I'm unable to process your request right now." })
+            emit({ event: 'done' })
+            controller.close()
+            return
+          }
+        }
+
+        // Capture for use in after() block outside this try scope
+        finalResolvedAgentId = resolvedAgentId
+
+        // Kill switch check
+        const killSwitchResult = checkKillSwitch(traceId)
+        if (killSwitchResult) {
+          emit({ event: 'token', text: killSwitchResult.text })
+          emit({ event: 'done' })
+          controller.close()
+          return
+        }
+
+        // Resolve agent + channel overrides
+        const resolvedAgent = await resolveAgent(resolvedAgentId, orgId, channel)
+        if (!resolvedAgent || !resolvedAgent.isActive) {
+          const fallback = resolvedAgent?.fallbackMessage ?? "I'm unable to process your request right now."
+          emit({ event: 'token', text: fallback })
+          emit({ event: 'done' })
+          controller.close()
+          return
+        }
+
+        capturedModel = resolvedAgent.model
+
+        // allowed_channels check
+        if (!resolvedAgent.allowedChannels.includes(channel)) {
+          emit({ event: 'token', text: resolvedAgent.fallbackMessage })
+          emit({ event: 'done' })
+          controller.close()
+          return
+        }
+
+        // Daily cost cap check
+        const costCapDenial = await checkDailyCostCap(orgId, resolvedAgentId)
+        if (costCapDenial) {
+          emit({ event: 'token', text: costCapDenial })
+          emit({ event: 'done' })
+          controller.close()
+          return
+        }
+
+        // KB injection — UNCONDITIONAL (GATE-01: matches legacy stream.ts behavior)
+        let systemPrompt = resolvedAgent.systemPrompt
+        const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
+        try {
+          const kbClient = createServiceRoleClient()
+          const kbContext = await queryKnowledge(userMessage, orgId, kbClient)
+          if (kbContext && kbContext !== FALLBACK_KB_RESPONSE) {
+            systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
+          }
+        } catch {
+          // KB failure non-fatal
+        }
+
+        // Update conversation with agent_id (D-35-05 — new conversations need agent association)
+        if (conversationId) {
+          const convClient = createServiceRoleClient()
+          await convClient
+            .from('conversations')
+            .update({ agent_id: resolvedAgentId })
+            .eq('id', conversationId)
+        }
+
+        // Token cap estimate
+        const cumulativeHistoryTokens = Math.ceil(JSON.stringify(historyWindow).length / 4)
+        const tokenCapDenial = checkTokenCap(cumulativeHistoryTokens, orgId, resolvedAgentId)
+        if (tokenCapDenial) {
+          emit({ event: 'token', text: tokenCapDenial })
+          emit({ event: 'done' })
+          controller.close()
+          finalStatus = 'skipped'
+          errorDetail = 'token_cap_exceeded'
+          // invocationId is '' — no row written for early guards
+          return
+        }
+
+        // INSERT invocation row
+        invocationId = await insertInvocationStart({
+          organizationId: orgId,
+          agentId: resolvedAgentId,
+          traceId,
+          channel,
+          depth: _depth,
+          mode,
+          userMessage,
+          model: resolvedAgent.model,
+          conversationId,
+          sessionId,
+          parentInvocationId,
+        })
+
+        // AbortController (RUNTIME-08)
+        const abortController = new AbortController()
+        const timeoutId = setTimeout(() => abortController.abort(), AGENT_TURN_TIMEOUT_MS)
+
+        try {
+          // Build Anthropic API key
+          const serviceClient = createServiceRoleClient()
+          const anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+          if (!anthropicKey) throw new Error('no_anthropic_key')
+          process.env.ANTHROPIC_API_KEY = anthropicKey
+
+          // Pre-fetch agent tools
+          const { data: agentToolRows } = await serviceClient
+            .from('agent_tools')
+            .select(`tool_configs!inner (tool_name, action_type, config)`)
+            .eq('agent_id', resolvedAgentId)
+            .eq('tool_configs.is_active', true)
+
+          // Build ToolSet (same logic as blocking path)
+          const toolSet: Record<string, ReturnType<typeof dynamicTool>> = {}
+          for (const row of agentToolRows ?? []) {
+            const tc = row.tool_configs as { tool_name: string; action_type: string; config: Json } | null
+            if (!tc) continue
+            const toolName = tc.tool_name
+            const actionType = tc.action_type
+            const toolConfigJson = tc.config
+            const description =
+              (typeof toolConfigJson === 'object' && toolConfigJson !== null && !Array.isArray(toolConfigJson) &&
+               typeof (toolConfigJson as Record<string, unknown>).description === 'string'
+                ? (toolConfigJson as Record<string, unknown>).description as string
+                : null) ?? (ACTION_DESCRIPTIONS[actionType] ?? `Execute ${toolName}`)
+            const capturedToolName = toolName
+
+            toolSet[capturedToolName] = dynamicTool({
+              description,
+              inputSchema: jsonSchema<Record<string, unknown>>({ type: 'object', additionalProperties: true }),
+              execute: async (args: unknown) => {
+                const toolArgs = (args as Record<string, unknown>) ?? {}
+                const resolvedTool = await resolveAgentTool(resolvedAgentId!, capturedToolName, channel)
+                if (!resolvedTool) {
+                  toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, denied: true, denied_reason: 'tool_not_attached_to_agent' })
+                  return 'Tool not available to this agent'
+                }
+                let apiKey = ''
+                let locationId = ''
+                if (resolvedTool.credentialsEncrypted) {
+                  try {
+                    const { decrypt } = await import('@/lib/crypto')
+                    const decrypted = await decrypt(resolvedTool.credentialsEncrypted)
+                    const parsed = JSON.parse(decrypted) as Record<string, unknown>
+                    apiKey = (parsed.apiKey as string) ?? ''
+                    locationId = (parsed.locationId as string) ?? ''
+                  } catch { /* credential decrypt failed */ }
+                }
+                let result = ''
+                try {
+                  result = await executeAction(resolvedTool.actionType, toolArgs, { apiKey, locationId }, { organizationId: orgId, supabase: serviceClient, toolConfig: resolvedTool.config, integrationProvider: resolvedTool.integrationProvider ?? undefined })
+                } catch { result = 'Tool execution failed' }
+                toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, result, denied: false })
+                return result
+              },
+            })
+          }
+
+          // Build messages
+          const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+            ...historyWindow.slice(-resolvedAgent.maxHistory),
+            { role: 'user', content: userMessage },
+          ]
+
+          // Call LLM via streamText (D-35-09 — DO NOT await streamText)
+          const result = streamText({
+            model: anthropic(resolvedAgent.model),
+            system: systemPrompt,
+            messages,
+            tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
+            stopWhen: stepCountIs(MAX_LLM_CALLS_PER_TURN),
+            abortSignal: abortController.signal,
+            ...(resolvedAgent.temperature !== undefined ? { temperature: resolvedAgent.temperature } : {}),
+            maxOutputTokens: resolvedAgent.maxTokens,
+            onFinish: (event) => {
+              tokensIn = event.totalUsage?.inputTokens ?? 0
+              tokensOut = event.totalUsage?.outputTokens ?? 0
+            },
+          })
+
+          for await (const part of result.fullStream) {
+            if (part.type === 'text-delta') {
+              emit({ event: 'token', text: part.text })
+              accumulatedText += part.text
+            } else if (part.type === 'tool-input-start') {
+              emit({ event: 'tool_call', name: part.toolName })
+            } else if (part.type === 'error') {
+              finalStatus = 'error'
+              errorDetail = String(part.error)
+            }
+          }
+
+        } catch (err) {
+          const error = err as Error
+          if (error.name === 'AbortError') {
+            finalStatus = 'aborted'
+            errorDetail = 'turn_timeout'
+          } else if (error.message === 'no_anthropic_key') {
+            finalStatus = 'error'
+            errorDetail = 'no_anthropic_key'
+            accumulatedText = resolvedAgent.fallbackMessage
+            emit({ event: 'token', text: resolvedAgent.fallbackMessage })
+          } else {
+            finalStatus = 'error'
+            errorDetail = String(err)
+            accumulatedText = resolvedAgent.fallbackMessage
+            emit({ event: 'token', text: resolvedAgent.fallbackMessage })
+          }
+        } finally {
+          clearTimeout(timeoutId)
+        }
+
+        emit({ event: 'done' })
+
+      } catch (err) {
+        emit({ event: 'token', text: "An error occurred. Please try again." })
+        emit({ event: 'done' })
+        finalStatus = 'error'
+        errorDetail = String(err)
+      } finally {
+        controller.close()
+
+        // Post-stream side effects via after() (D-35-03)
+        after(async () => {
+          try {
+            if (conversationId && accumulatedText) {
+              await persistMessage({ dbSessionId: conversationId, orgId, role: 'assistant', content: accumulatedText })
+            }
+            if (invocationId && invocationId !== '') {
+              await updateInvocationEnd({
+                invocationId,
+                agentId: finalResolvedAgentId,
+                model: capturedModel,
+                status: finalStatus,
+                assistantReply: accumulatedText,
+                tokensIn,
+                tokensOut,
+                toolCallsJson: toolCallsLog,
+                errorDetail,
+                startedAt,
+              })
+            }
+          } catch (err) {
+            console.error('[runAgent/stream] post-stream persist failed:', err)
+          }
+        })
+      }
+    },
+  })
 }
