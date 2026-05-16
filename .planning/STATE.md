@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
-status: executing
-stopped_at: Completed 36-04-PLAN.md
-last_updated: "2026-05-16T23:26:57.869Z"
+status: verifying
+stopped_at: Completed 36-05-PLAN.md
+last_updated: "2026-05-16T23:45:47.545Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 26
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 36 (agent-crud-dashboard) — EXECUTING
-Plan: 5 of 5 (Plans 01 + 02 complete; Plan 03 next)
+Phase: 36 (agent-crud-dashboard) — COMPLETE (all 5 plans shipped)
+Plan: 5 of 5 (all complete; awaiting /gsd:verify-work)
 Next phase: 37 (manychat-meta-channel-adapters)
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-05-16
 
 ## Milestone Progress
@@ -154,6 +154,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 36-agent-crud-dashboard]: Diff-based setAgentTools never UPDATEs existing rows, preserving per-tool agent_tools.allowed_channels across saves (Pitfall 5)
 - [Phase 36-agent-crud-dashboard]: Deny-by-default tool attachment enforced at two layers (form forces tool_ids=[], createAgent ignores tool_ids entirely) per TOOL-03
 - [Phase 36-agent-crud-dashboard]: Sequential updateAgent + setAgentTools without RPC wrapper; failures after row update surface recovery toast; transaction wrapper deferred to Phase 38
+- [Phase 36-agent-crud-dashboard]: Plan 05: Anon-key RLS verification deferred until test-user-creation helper exists; data-shape isolation (organization_id stamping) is testable today + canonical policy text pinned by Phase 33 agent-schema-rls-smoke.test.ts
+- [Phase 36-agent-crud-dashboard]: Plan 05: Fixed pre-existing test race in tests/agent-schema-seed.test.ts + tests/agent-schema-prompt-byte-equal.test.ts — added TEST_FIXTURE_NAME regex (matches seedTestOrg and rls-isolation patterns) so global seed-completeness invariants only iterate real seeded orgs
 
 ## Pending Todos
 
@@ -164,8 +166,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T23:26:45.456Z
-Stopped at: Completed 36-04-PLAN.md
+Last session: 2026-05-16T23:45:38.800Z
+Stopped at: Completed 36-05-PLAN.md
 
 ## Performance Metrics
 
@@ -191,3 +193,4 @@ Stopped at: Completed 36-04-PLAN.md
 | Phase 36 P02 | 15min | 3 tasks | 13 files |
 | Phase 36-agent-crud-dashboard P03 | 10 | 3 tasks | 7 files |
 | Phase 36-agent-crud-dashboard P04 | 20min | 3 tasks | 7 files |
+| Phase 36-agent-crud-dashboard P05 | 14 min | 2 tasks | 4 files |

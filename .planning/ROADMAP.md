@@ -37,7 +37,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 - [x] **Phase 33: Schema Foundation + Legacy Default Agent Backfill** - All v2.0 migrations land additively; every existing org gets a seeded "Main Agent" so day-1 behavior is byte-identical (completed 2026-05-16)
 - [x] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1 (completed 2026-05-16)
 - [x] **Phase 35: Web Widget Canary Cutover** - Refactor `chat/stream.ts` to consume `runAgent()`; web widget switches to agent runtime with byte-identical behavior verified (completed 2026-05-16)
-- [ ] **Phase 36: Agent CRUD Dashboard** - `/dashboard/agents` list/create/edit; tool picker reuses v1.5 folders; channel overrides + channel defaults editor
+- [x] **Phase 36: Agent CRUD Dashboard** - `/dashboard/agents` list/create/edit; tool picker reuses v1.5 folders; channel overrides + channel defaults editor (completed 2026-05-16)
 - [ ] **Phase 37: ManyChat + Meta + Channel Adapters** - Per-channel formatting adapters (length, markdown, splits); ManyChat & Meta inbound branch on `agent_id`
 - [ ] **Phase 38: Multi-Agent Delegation + Intersection Authz + Idempotency** - Partner-as-tool injection, structured handoff, intersection model at `executeAction`, idempotency wrappers on side-effecting tools
 - [ ] **Phase 39: Multi-Channel Playground** - `/dashboard/agents/[id]/playground` with channel selector and `mode='playground'` runtime isolation
@@ -133,7 +133,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 - [x] 36-02-PLAN.md — Install Checkbox + Collapsible shadcn primitives, scaffold (dashboard)/agents routes + actions.ts placeholder, create src/lib/agents/* (slug, models, channels, zod-schemas), add Agents sidebar entry
 - [x] 36-03-PLAN.md — List page server actions (getAgents, toggleActive, softDelete, setChannelDefault) + agents-table + channel-defaults-card + wire page.tsx (AGENT-01, AGENT-08)
 - [x] 36-04-PLAN.md — Edit/create form (4 collapsible sections) + tool picker (folder collapsibles + integration warnings) + channel-overrides editor + form server actions (createAgent, updateAgent, setAgentTools, getToolPickerData) (AGENT-01..03, TOOL-02..04)
-- [ ] 36-05-PLAN.md — Cross-org RLS isolation tests + end-to-end phase-gate lifecycle test + full vitest suite + npm run build (all 7 REQs)
+- [x] 36-05-PLAN.md — Cross-org RLS isolation tests + end-to-end phase-gate lifecycle test + full vitest suite + npm run build (all 7 REQs)
 **UI hint**: yes
 
 ---
@@ -222,7 +222,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 6/6 | Complete    | 2026-05-16 |
 | 35. Web Widget Canary Cutover | v2.0 | 4/4 | Complete    | 2026-05-16 |
-| 36. Agent CRUD Dashboard | v2.0 | 4/5 | In Progress|  |
+| 36. Agent CRUD Dashboard | v2.0 | 5/5 | Complete   | 2026-05-16 |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
 | 38. Multi-Agent Delegation + Intersection Authz + Idempotency | v2.0 | 0/0 | Not started | - |
 | 39. Multi-Channel Playground | v2.0 | 0/0 | Not started | - |
@@ -237,7 +237,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 
 **Goal:** Full push-pull architecture where Operator is the AI brain and GHL is the delivery layer for SMS and WhatsApp. Includes inbound webhook, bot toggle, human takeover, assigned operator, and outbound message routing with operator name prefix.
 **Requirements:** TBD
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 **What was shipped:**
 - `supabase/migrations/041_ghl_inbound.sql` — `ghl_channels`, `ghl_events`, GHL channel variants on `conversations.channel`, `conversations.assigned_user_id`

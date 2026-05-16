@@ -41,8 +41,8 @@ Total: **52 requirements** across 8 categories. All must ship in v2.0.
 ### AGENT — Agent Definition (15)
 
 - [x] **AGENT-01:** Each org can create one or more agents with required fields: `name`, `slug` (unique per org), `description`, `system_prompt`, `model`, `is_active`
-- [ ] **AGENT-02:** Each agent has optional generation config: `temperature` (default 0.7), `max_tokens` (default 1024), `max_history` (default 20 turns)
-- [ ] **AGENT-03:** Each agent has a configurable `fallback_message` (default: "I can't help with that right now — let me transfer you to a human.")
+- [x] **AGENT-02:** Each agent has optional generation config: `temperature` (default 0.7), `max_tokens` (default 1024), `max_history` (default 20 turns)
+- [x] **AGENT-03:** Each agent has a configurable `fallback_message` (default: "I can't help with that right now — let me transfer you to a human.")
 - [ ] **AGENT-04:** Each agent has a `model_primary` and optional `model_fallback`; runtime falls back on primary error within the same call (no cascade up the delegation chain)
 - [ ] **AGENT-05:** Each agent has an optional `kb_scope TEXT[]` of knowledge-base tags; `null` = full org KB; runtime filters pgvector results by `metadata.tags && agent.kb_scope` when set
 - [ ] **AGENT-06:** Each agent declares an `allowed_channels` array (subset of: `web_widget`, `whatsapp`, `messenger`, `instagram`, `manychat`, `telegram`); runtime refuses invocation from a non-allowed channel with HTTP 422
@@ -59,9 +59,9 @@ Total: **52 requirements** across 8 categories. All must ship in v2.0.
 ### TOOL — Per-Agent Tool Scoping (6)
 
 - [ ] **TOOL-01:** New `agent_tools(agent_id, tool_config_id, allowed_channels agent_channel[] NULL)` junction table; `(agent_id, tool_config_id)` UNIQUE; `null` allowed_channels = all channels
-- [ ] **TOOL-02:** Admin can attach/detach tools to an agent via multi-select picker in `/dashboard/agents/[id]`; picker reuses v1.5 `tool_folders` grouping for navigation
-- [ ] **TOOL-03:** New agents start with **zero attached tools** (deny-by-default)
-- [ ] **TOOL-04:** Picker shows tool name, type (`send_sms`, `custom_webhook`, etc.), folder, and the integration it depends on; tools without a usable integration are visually flagged but selectable
+- [x] **TOOL-02:** Admin can attach/detach tools to an agent via multi-select picker in `/dashboard/agents/[id]`; picker reuses v1.5 `tool_folders` grouping for navigation
+- [x] **TOOL-03:** New agents start with **zero attached tools** (deny-by-default)
+- [x] **TOOL-04:** Picker shows tool name, type (`send_sms`, `custom_webhook`, etc.), folder, and the integration it depends on; tools without a usable integration are visually flagged but selectable
 - [ ] **TOOL-05:** Sibling resolver `resolveAgentTool(agentId, toolName)` exists alongside the existing `resolveTool(orgId, toolName)`; existing Vapi path keeps using the org-scoped resolver unchanged
 - [ ] **TOOL-06:** Runtime guard: if an LLM emits a tool call for a tool not in the agent's allowed set, the runtime refuses execution with `denied_reason: 'tool_not_attached_to_agent'`, logs the attempt to `agent_invocations`, and returns a synthesized tool-result message to the LLM ("Tool not available to this agent")
 
@@ -183,8 +183,8 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AGENT-01 | Phase 36 | Complete |
-| AGENT-02 | Phase 36 | In Progress |
-| AGENT-03 | Phase 36 | In Progress |
+| AGENT-02 | Phase 36 | Complete |
+| AGENT-03 | Phase 36 | Complete |
 | AGENT-04 | Phase 34 | Complete |
 | AGENT-05 | Phase 34 | Complete |
 | AGENT-06 | Phase 34 | Complete |
@@ -198,9 +198,9 @@ Every v2.0 REQ-ID and acceptance gate maps to exactly one phase. Coverage: **52/
 | AGENT-14 | Phase 41 | Pending |
 | AGENT-15 | Phase 41 | Pending |
 | TOOL-01 | Phase 33 | Complete |
-| TOOL-02 | Phase 36 | In Progress |
-| TOOL-03 | Phase 36 | In Progress |
-| TOOL-04 | Phase 36 | In Progress |
+| TOOL-02 | Phase 36 | Complete |
+| TOOL-03 | Phase 36 | Complete |
+| TOOL-04 | Phase 36 | Complete |
 | TOOL-05 | Phase 34 | Complete |
 | TOOL-06 | Phase 34 | Complete |
 | RUNTIME-01 | Phase 34 | Complete |
