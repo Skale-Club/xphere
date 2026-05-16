@@ -1,0 +1,55 @@
+name: GHL Lost-Lead Reengagement (SMS) — pulse
+
+# The actual run schedule lives in the Operator DB (table public.automation_schedules,
+# row automation_key='ghl_reengagement_sms'). This workflow is a 15-minute
+# "pulse" — the runner endpoint reads the DB row to decide whether to dispatch.
+#
+# Triggers:
+#   - schedule:           every 15 minutes (D-32-06)
+#   - workflow_dispatch:  ad-hoc manual run — use the optional `force` input
+#                         to bypass the schedule check (D-32-09)
+#
+# Required GitHub repo secrets:
+#   - OPERATOR_BASE_URL                 e.g. https://operator.skale.club
+#   - GHL_REENGAGEMENT_TRIGGER_SECRET   matches the env var on Vercel
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Bypass the DB schedule check (?force=1) — manual ad-hoc run'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST runner endpoint
+        env:
+          FORCE_FLAG: ${{ github.event.inputs.force || 'false' }}
+        run: |
+          if [ "$FORCE_FLAG" = "true" ]; then
+            URL="${{ secrets.OPERATOR_BASE_URL }}/api/automations/ghl-reengagement/run?force=1"
+          else
+            URL="${{ secrets.OPERATOR_BASE_URL }}/api/automations/ghl-reengagement/run"
+          fi
+          echo "POSTing to: $URL"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "$URL" \
+            -H "Authorization: Bearer ${{ secrets.GHL_REENGAGEMENT_TRIGGER_SECRET }}" \
+            -H "Content-Type: application/json")
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          STATUS=$(echo "$RESPONSE" | tail -n 1)
+          echo "HTTP Status: $STATUS"
+          echo "Response Body: $BODY"
+          if [ "$STATUS" != "200" ]; then
+            echo "Runner returned non-200 status — failing the job"
+            exit 1
+          fi
