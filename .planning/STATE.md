@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 36-03-PLAN.md
-last_updated: "2026-05-16T23:09:33.285Z"
+stopped_at: Completed 36-04-PLAN.md
+last_updated: "2026-05-16T23:26:57.869Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 26
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Operator - State
@@ -18,7 +18,7 @@ progress:
 ## Current Position
 
 Phase: 36 (agent-crud-dashboard) — EXECUTING
-Plan: 4 of 5 (Plans 01 + 02 complete; Plan 03 next)
+Plan: 5 of 5 (Plans 01 + 02 complete; Plan 03 next)
 Next phase: 37 (manychat-meta-channel-adapters)
 Status: Ready to execute
 Last activity: 2026-05-16
@@ -151,6 +151,9 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 36 P02]: channel_overrides empty fields stripped at zod transform level — runtime fallback ("key absent → use base agent value") stays semantically clean
 - [Phase 36 P02]: Sidebar Agents entry uses Bot icon from lucide-react, placed directly below Tools per D-36-11
 - [Phase 36-agent-crud-dashboard]: Plan 03: 6 list-page server actions live with RLS-scoped queries; agents-table optimistic toggle; channel-defaults-card with sentinel for null mapping
+- [Phase 36-agent-crud-dashboard]: Diff-based setAgentTools never UPDATEs existing rows, preserving per-tool agent_tools.allowed_channels across saves (Pitfall 5)
+- [Phase 36-agent-crud-dashboard]: Deny-by-default tool attachment enforced at two layers (form forces tool_ids=[], createAgent ignores tool_ids entirely) per TOOL-03
+- [Phase 36-agent-crud-dashboard]: Sequential updateAgent + setAgentTools without RPC wrapper; failures after row update surface recovery toast; transaction wrapper deferred to Phase 38
 
 ## Pending Todos
 
@@ -161,8 +164,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T23:09:33.275Z
-Stopped at: Completed 36-03-PLAN.md
+Last session: 2026-05-16T23:26:45.456Z
+Stopped at: Completed 36-04-PLAN.md
 
 ## Performance Metrics
 
@@ -187,3 +190,4 @@ Stopped at: Completed 36-03-PLAN.md
 | Phase 35 P04 | 12 | 2 tasks | 2 files |
 | Phase 36 P02 | 15min | 3 tasks | 13 files |
 | Phase 36-agent-crud-dashboard P03 | 10 | 3 tasks | 7 files |
+| Phase 36-agent-crud-dashboard P04 | 20min | 3 tasks | 7 files |
