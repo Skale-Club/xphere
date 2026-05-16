@@ -96,7 +96,7 @@ Total: **52 requirements** across 8 categories. All must ship in v2.0.
 - [ ] **CHAN-03:** `src/app/api/chat/[token]/route.ts` (web widget) refactored to call `runAgent({stream: true})`; declares `export const maxDuration = 10`; existing `createChatStream` shim preserved through Phase 6 rollout for safe rollback
 - [ ] **CHAN-04:** `src/lib/manychat/dispatch-event.ts` extended: when matched rule has `agent_id` set (XOR with `tool_config_id`), dispatch invokes `runAgent({stream: false})` and returns the reply via the existing ManyChat outbound action; rules without `agent_id` keep current behavior
 - [ ] **CHAN-05:** `src/lib/meta/process-event.ts` extended: when the resolved `meta_channels` row has `agent_id` set, the always-200 + `after()` async path invokes `runAgent({stream: false})` and posts the reply via Meta Graph API; channels without `agent_id` keep current behavior
-- [ ] **CHAN-06:** Migrations 038 (`manychat_rules.agent_id`) and 039 (`meta_channels.agent_id`) — both `NULL`-allowed FK to `agents`, additive (no breaking change to v1.6 / v1.3 dispatch contracts)
+- [ ] **CHAN-06:** Migration 039 adds nullable `agent_id` FK to `agents` on both `manychat_rules` and `meta_channels` (single migration per Phase 33 D-33-01 split — separate from migration 038 which carries `tool_idempotency_keys` + `agent_model_pricing`); additive only (no backfill, no XOR CHECK constraint — see Phase 37 for dispatcher branch)
 
 ### IDEMP — Idempotency for Side-Effecting Tools (3)
 
