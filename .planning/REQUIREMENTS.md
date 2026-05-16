@@ -36,14 +36,18 @@ Requirements for the v1.9 milestone — MVP automation that detects GHL `Lost` o
 
 ### REENG — Scheduled Trigger
 
-- [ ] **REENG-13:** GitHub Action workflow `.github/workflows/ghl-reengagement.yml` runs on cron schedule `0 14 * * *` (≈ 11h BRT) and POSTs to the runner endpoint using `secrets.GHL_REENGAGEMENT_TRIGGER_SECRET` + `secrets.OPERATOR_BASE_URL`
-- [ ] **REENG-14:** Workflow also supports `workflow_dispatch` for ad-hoc manual triggering from the GitHub UI
+- [ ] **REENG-13:** GitHub Action workflow `.github/workflows/ghl-reengagement.yml` runs on cron schedule `*/15 * * * *` (15-min pulse — actual cadence governed by `automation_schedules` row, see REENG-18) and POSTs to the runner endpoint using `secrets.GHL_REENGAGEMENT_TRIGGER_SECRET` + `secrets.OPERATOR_BASE_URL`
+- [ ] **REENG-14:** Workflow also supports `workflow_dispatch` for ad-hoc manual triggering from the GitHub UI (with `force` input mapping to `?force=1` to bypass schedule check)
 
 ### REENG — Configuration
 
-- [ ] **REENG-15:** Runner reads required env vars on each invocation: `GHL_REENGAGEMENT_LOCATION_ID`, `GHL_REENGAGEMENT_INTEGRATION_ID`, `GHL_REENGAGEMENT_TWILIO_INTEGRATION_ID`, `GHL_REENGAGEMENT_MESSAGE`, `GHL_REENGAGEMENT_TRIGGER_SECRET`. Missing required vars → HTTP 500 with a clear actionable error
-- [ ] **REENG-16:** Optional env vars with defaults: `GHL_REENGAGEMENT_THRESHOLD_DAYS` (default 180), `GHL_REENGAGEMENT_BATCH_LIMIT` (default 20 on Vercel Hobby; raise via env var if on Pro/Enterprise with > 10s function timeout)
+- [ ] **REENG-15:** Runner reads required env vars on each invocation: `GHL_REENGAGEMENT_LOCATION_ID`, `GHL_REENGAGEMENT_INTEGRATION_ID`, `GHL_REENGAGEMENT_MESSAGE`, `GHL_REENGAGEMENT_TRIGGER_SECRET` (4 required — SMS dispatched via GHL Conversations API, no separate Twilio integration needed). Missing required vars → HTTP 500 with a clear actionable error
+- [ ] **REENG-16:** Optional env vars with defaults: `GHL_REENGAGEMENT_THRESHOLD_DAYS` (default 180), `GHL_REENGAGEMENT_BATCH_LIMIT` (default 20 on Vercel Hobby; raise via env var if on Pro/Enterprise with > 10s function timeout), `GHL_REENGAGEMENT_FROM_NUMBER` (optional override for sub-account default)
 - [ ] **REENG-17:** Documentation file `docs/automations/ghl-reengagement.md` explains env var setup for Vercel + GitHub Action secrets, includes the cron schedule, and how to run a manual trigger
+
+### REENG — Schedule Persistence
+
+- [ ] **REENG-18:** DB-backed schedule via `automation_schedules` table (migration 033) — single seeded row `automation_key='ghl_reengagement_sms'` with `interval_minutes=1440`, `next_run_at` advancing per successful run. Route handler checks `is_active` + `next_run_at <= now()` before invoking runner; `?force=1` bypass available; post-run UPDATE writes `last_run_at`, `last_run_status`, `last_run_result` (JSON), and recomputes `next_run_at = now + interval_minutes`
 
 ---
 
@@ -102,13 +106,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REENG-15 | Phase 32 | Complete |
 | REENG-16 | Phase 32 | Complete |
 | REENG-17 | Phase 32 | Complete |
+| REENG-18 | Phase 32 | Complete |
 
 **Coverage:**
-- v1.9 requirements: 17 total
-- Mapped to phases: 17 ✓
+- v1.9 requirements: 18 total
+- Mapped to phases: 18 ✓
 - Unmapped: 0
 
 ---
 
 *Requirements defined: 2026-05-15*
-*Last updated: 2026-05-15 — initial v1.9 definition + traceability mapped to Phase 32*
+*Last updated: 2026-05-15 — added REENG-18 (DB-backed schedule via automation_schedules); reconciled REENG-13 (cron is 15-min pulse, schedule lives in DB) and REENG-15 (4 required env vars, no Twilio integration) with implementation per D-32-06/13/14*
