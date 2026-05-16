@@ -12,31 +12,29 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v1.9 GHL Lost-Lead Reengagement (SMS)
+## Last Milestone: v1.9 GHL Lost-Lead Reengagement (SMS) ✅ Complete 2026-05-16 ⚠️ pending operator HUMAN-UAT
 
-**Goal:** Job diário automatizado que identifica leads marcados como `Lost` há mais de 180 dias no GoHighLevel (sub-account Skleanings) e dispara SMS de reengajamento via Twilio, com anti-loop persistente para não enviar duas vezes ao mesmo contato.
+**Goal:** Job diário automatizado que identifica leads marcados como `Lost` há mais de 180 dias no GoHighLevel (sub-account Skleanings) e dispara SMS de reengajamento, com anti-loop persistente para não enviar duas vezes ao mesmo contato.
 
-**Target features:**
-- GHL API client para listar opportunities por `status=Lost` filtradas por `updatedAt > 180 dias atrás` (paginado, por location)
-- Endpoint interno `/api/automations/ghl-reengagement/run` (Node runtime) protegido por bearer secret
-- Reuso do executor Twilio existente (`src/lib/twilio/send-sms.ts`) com credenciais criptografadas
-- Persistência anti-loop: tabela `ghl_reengagement_sent` (org_id, ghl_contact_id, sent_at) consultada antes de cada envio
-- Log de cada envio em `action_logs` (status, payload, erro) reaproveitando o pipeline existente
-- GitHub Action diária (`cron` em horário comercial BRT) chamando o endpoint com `GHL_REENGAGEMENT_TRIGGER_SECRET`
-- Configuração 100% via env vars (location_id, integration_ids, mensagem) — sem UI nessa milestone
+**Shipped (Phase 32, 18 commits, 53/53 tests GREEN):**
+- `src/lib/ghl/list-opportunities.ts` — `listOpportunities()` com paginação por cursor + defesa JS-side de data/status
+- `src/lib/automations/ghl-reengagement/render-template.ts` — `renderMessage()` com fallback `amigo(a)`
+- `src/lib/automations/ghl-reengagement/runner.ts` — `runReengagement()` orchestrator (244 LOC) com claim-first anti-loop, `Promise.allSettled`, log por tentativa
+- `src/app/api/automations/ghl-reengagement/run/route.ts` — POST com bearer auth (`crypto.timingSafeEqual` + length-equality guard), DB-backed schedule check, `?force=1` bypass
+- `.github/workflows/ghl-reengagement.yml` — pulse de 15 min com `workflow_dispatch` + `force` input
+- `docs/automations/ghl-reengagement.md` — setup operacional completo
+- Migrações 032 (`ghl_reengagement_sent` anti-loop) + 033 (`automation_schedules` cron registry com seed row) — aplicadas no remoto
+- Decisão de design: SMS via GHL Conversations API (não Twilio direto) — uma única integração GHL faz list + dispatch
+- Decisão de design: schedule mora no DB (`automation_schedules`), GH Action só pulsa — desacopla cadência do código
 
-**Key context:**
-- Hardcoded para a sub-account Skleanings (1 cliente, 1 location). Generalização multi-cliente fica para milestone futura
-- Sem UI nova; admin configura via env vars do Vercel + secrets do GitHub Actions
-- Mensagem inclui opt-out obrigatório por compliance SMS ("Responda STOP para sair")
-- Cron único diário em horário comercial evita necessidade de checagem de quiet hours no código
+**Pendente operacional (não bloqueia commit/deploy):**
+- Operator setar 4 env vars na Vercel + 2 secrets no GitHub
+- Primeiro `workflow_dispatch --force=true` em produção
+- Probe do nome do param de data GHL (constante atual `'date'` — JS-side guard cobre se errado)
+- SMS de teste num contato opt-in
+- Primeiro tick agendado 14:00 UTC
 
-**Out of scope (nessa milestone):**
-- UI de automações no dashboard
-- Audience filters genéricos (status, tag, custom field)
-- Suporte multi-canal (email, WhatsApp)
-- Suporte multi-cliente / múltiplas regras simultâneas
-- Tabela de automations genérica (fica para a plataforma de automações futura)
+Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automation/32-HUMAN-UAT.md` — surfam em `/gsd:progress` até resolvidos.
 
 ## Last Milestone: v1.8 Executor Completeness ✅ Shipped 2026-05-08
 
@@ -168,10 +166,19 @@ That business logic may differ by client. The invariant is the reliability of th
 - `custom_webhook` action type fires configurable HTTP requests with `{{param}}` substitution, timeout, and truncated response — v1.8
 - Admin can configure `send_sms` tool_config via Twilio integration dropdown in form — v1.8
 - Admin can configure `custom_webhook` tool_config via URL/method/headers/body fields in form — v1.8
+- Platform lists GHL Lost opportunities older than threshold (cursor-paginated, JS-side date/status defense) — v1.9 (REENG-01..04)
+- Platform exposes bearer-protected POST `/api/automations/ghl-reengagement/run` returning typed RunnerResult — v1.9 (REENG-05..07)
+- Platform substitutes `{{first_name}}` template with `amigo(a)` fallback for SMS body — v1.9 (REENG-08)
+- Platform persists anti-loop in `ghl_reengagement_sent` (claim-first INSERT before send + DELETE on failure + UNIQUE race safety) — v1.9 (REENG-09..11)
+- Platform logs every SMS attempt to `action_logs` with phone-redacted payload — v1.9 (REENG-12)
+- Platform fires GitHub Action pulse every 15 min calling production endpoint with bearer auth + `workflow_dispatch` manual override — v1.9 (REENG-13..14)
+- Platform reads runtime config from 4 required + 3 optional env vars with sensible defaults — v1.9 (REENG-15..16)
+- Platform documents operator setup in `docs/automations/ghl-reengagement.md` — v1.9 (REENG-17)
+- Platform owns automation cadence in DB via `automation_schedules` (interval-based, post-run write-back, `?force=1` bypass) — v1.9 (REENG-18)
 
-### Active (v1.9 GHL Lost-Lead Reengagement)
+### Active
 
-(defining REQUIREMENTS.md — see roadmap step)
+(no active milestone — v1.9 just shipped; next milestone TBD)
 
 ### Backlog (next milestone candidates)
 
@@ -247,4 +254,4 @@ That business logic may differ by client. The invariant is the reliability of th
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-15 — v1.9 milestone started (GHL Lost-Lead Reengagement SMS)*
+*Last updated: 2026-05-16 — v1.9 milestone shipped (Phase 32 complete, 18 commits, 53/53 tests GREEN, schema 032/033 applied to remote; HUMAN-UAT pending operator)*
