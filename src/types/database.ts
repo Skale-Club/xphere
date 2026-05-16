@@ -1076,6 +1076,7 @@ export interface Database {
           last_inbound_at: string | null
           bot_status: string
           assigned_user_id: string | null
+          agent_id: string | null
         }
         Insert: {
           id?: string
@@ -1098,6 +1099,7 @@ export interface Database {
           last_inbound_at?: string | null
           bot_status?: string
           assigned_user_id?: string | null
+          agent_id?: string | null
         }
         Update: {
           status?: string
@@ -1114,6 +1116,7 @@ export interface Database {
           last_inbound_at?: string | null
           bot_status?: string
           assigned_user_id?: string | null
+          agent_id?: string | null
         }
         Relationships: [
           {
