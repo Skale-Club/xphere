@@ -111,7 +111,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   5. A one-line revert of `src/app/api/chat/[token]/route.ts` rolls back to the legacy `createChatStream` path (rollback drill verified)
 **Plans**: 4 plans
 - [ ] 35-01-PLAN.md — Migration 043: conversations.agent_id ADD COLUMN + backfill + types update + DB push (GATE-01)
-- [ ] 35-02-PLAN.md — AgentRunOptions: agentId optional + stream flag + channel-defaults resolution + KB unconditional (CHAN-03, GATE-01)
+- [x] 35-02-PLAN.md — AgentRunOptions: agentId optional + stream flag + channel-defaults resolution + KB unconditional (CHAN-03, GATE-01)
 - [ ] 35-03-PLAN.md — runAgentStreaming + route.ts cutover (remove tool-fetching block, add maxDuration) + createChatStream shim (CHAN-03, GATE-01)
 - [ ] 35-04-PLAN.md — GATE-01 test (web-widget-canary.test.ts) + update chat-api.test.ts mock targets + full suite + build gate (GATE-01)
 **UI hint**: yes
@@ -216,7 +216,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 6/6 | Complete    | 2026-05-16 |
-| 35. Web Widget Canary Cutover | v2.0 | 0/4 | Planned     | - |
+| 35. Web Widget Canary Cutover | v2.0 | 1/4 | In Progress|  |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
 | 38. Multi-Agent Delegation + Intersection Authz + Idempotency | v2.0 | 0/0 | Not started | - |
@@ -232,7 +232,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 
 **Goal:** Full push-pull architecture where Operator is the AI brain and GHL is the delivery layer for SMS and WhatsApp. Includes inbound webhook, bot toggle, human takeover, assigned operator, and outbound message routing with operator name prefix.
 **Requirements:** TBD
-**Plans:** 6/6 plans complete
+**Plans:** 1/4 plans executed
 
 **What was shipped:**
 - `supabase/migrations/041_ghl_inbound.sql` — `ghl_channels`, `ghl_events`, GHL channel variants on `conversations.channel`, `conversations.assigned_user_id`
