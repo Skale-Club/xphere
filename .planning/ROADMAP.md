@@ -35,7 +35,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
 ### v2.0 Multi-Bot Platform
 
 - [x] **Phase 33: Schema Foundation + Legacy Default Agent Backfill** - All v2.0 migrations land additively; every existing org gets a seeded "Main Agent" so day-1 behavior is byte-identical (completed 2026-05-16)
-- [x] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1 (completed 2026-05-16)
+- [x] **Phase 34: Agent Runtime Skeleton + Day-1 Guardrails** - `runAgent()` entry, all cost/loop/timeout/kill-switch guards, agent-tool resolver, observability writes from day 1 (completed 2026-05-16)
 - [ ] **Phase 35: Web Widget Canary Cutover** - Refactor `chat/stream.ts` to consume `runAgent()`; web widget switches to agent runtime with byte-identical behavior verified
 - [ ] **Phase 36: Agent CRUD Dashboard** - `/dashboard/agents` list/create/edit; tool picker reuses v1.5 folders; channel overrides + channel defaults editor
 - [ ] **Phase 37: ManyChat + Meta + Channel Adapters** - Per-channel formatting adapters (length, markdown, splits); ManyChat & Meta inbound branch on `agent_id`
@@ -109,7 +109,11 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   3. SSE protocol is preserved: `session`, `token`, `tool_call`, `done` events emit in the same shape; widget JS bundle requires no changes
   4. Existing v1.4 chat-area realtime subscriptions continue to deliver new messages via `postgres_changes` on `conversation_messages`
   5. A one-line revert of `src/app/api/chat/[token]/route.ts` rolls back to the legacy `createChatStream` path (rollback drill verified)
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 35-01-PLAN.md — Migration 043: conversations.agent_id ADD COLUMN + backfill + types update + DB push (GATE-01)
+- [ ] 35-02-PLAN.md — AgentRunOptions: agentId optional + stream flag + channel-defaults resolution + KB unconditional (CHAN-03, GATE-01)
+- [ ] 35-03-PLAN.md — runAgentStreaming + route.ts cutover (remove tool-fetching block, add maxDuration) + createChatStream shim (CHAN-03, GATE-01)
+- [ ] 35-04-PLAN.md — GATE-01 test (web-widget-canary.test.ts) + update chat-api.test.ts mock targets + full suite + build gate (GATE-01)
 **UI hint**: yes
 
 ---
@@ -212,7 +216,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
 | 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 7/7 | Complete    | 2026-05-16 |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 6/6 | Complete    | 2026-05-16 |
-| 35. Web Widget Canary Cutover | v2.0 | 0/0 | Not started | - |
+| 35. Web Widget Canary Cutover | v2.0 | 0/4 | Planned     | - |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
 | 37. ManyChat + Meta + Channel Adapters | v2.0 | 0/0 | Not started | - |
 | 38. Multi-Agent Delegation + Intersection Authz + Idempotency | v2.0 | 0/0 | Not started | - |
