@@ -91,7 +91,7 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   6. The `ai@^6` spike is run; the adoption decision (adopt vs stay custom) is documented in the phase verifier output and respected by the codebase
 **Plans**: 6 plans
 - [x] 34-01-PLAN.md — ai@^6 spike: install, probe, lock adopt/reject decision in RESEARCH.md (RUNTIME-01)
-- [ ] 34-02-PLAN.md — Migration 042: ADD 'running' to agent_invocation_status enum + organizations.daily_cost_cap_usd_override column + types regen (RUNTIME-07)
+- [x] 34-02-PLAN.md — Migration 042: ADD 'running' to agent_invocation_status enum + organizations.daily_cost_cap_usd_override column + types regen (RUNTIME-07)
 - [ ] 34-03-PLAN.md — types.ts + resolve-agent.ts + resolve-agent-tool.ts: shared contracts + agent resolver + tool junction resolver (AGENT-04..07, AGENT-10, TOOL-05, RUNTIME-01..03)
 - [ ] 34-04-PLAN.md — guardrails.ts: kill-switch, delegation depth stub, LLM call count, token cap, daily cost cap (RUNTIME-04..09, GATE-03)
 - [ ] 34-05-PLAN.md — invocations.ts + run-agent.ts + index.ts: DB write helpers + orchestration loop + public export (RUNTIME-01, 08..10, TOOL-06, AGENT-06, AGENT-10)
