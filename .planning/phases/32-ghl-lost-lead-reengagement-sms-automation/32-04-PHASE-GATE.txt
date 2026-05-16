@@ -1,0 +1,84 @@
+=== Phase 32 Final Gate ===
+Date: 2026-05-16T00:15:59Z
+
+--- npm run build ---
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+--- npm run lint ---
+SKIPPED: 'next lint' script is broken project-wide (pre-existing, removed in Next.js 16).
+Per Plan 03 SUMMARY + executor constraints, this is out of scope for Plan 32-04.
+Build's full TypeScript strict type-check is the effective gate.
+
+--- npx vitest run tests/ghl-*.test.ts ---
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > missing GHL_REENGAGEMENT_TRIGGER_SECRET env var → 500 with actionable error naming the var 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > 500 error body includes "missing" and the env var name (actionable) 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > GHL_REENGAGEMENT_TWILIO_INTEGRATION_ID unset → still succeeds (Twilio env NOT required, D-32-14) 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > GHL_REENGAGEMENT_THRESHOLD_DAYS absent → runner receives 180 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > GHL_REENGAGEMENT_BATCH_LIMIT absent → runner receives 20 (Vercel Hobby safe default per planning decision) 5ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > correct bearer + all env vars set → invokes runReengagement once and returns its result 2ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > runtime export equals "nodejs" (required for crypto.timingSafeEqual) 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > does NOT echo the Authorization header value in any response body or thrown error 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > missing automation_schedules row → 500 with actionable error mentioning automation_schedules 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > schedule row is_active=false → 200 with { skipped: "inactive" }; runReengagement NOT called 2ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > next_run_at > now() and no ?force=1 → 200 with { skipped: "not_due_yet", next_run_at }; runReengagement NOT called 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > ?force=1 query param + future next_run_at → runReengagement IS called and run proceeds (D-32-09) 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > successful run UPDATEs schedule row: last_run_at=now, next_run_at=now+interval_minutes, last_run_status, last_run_result 1ms
+ ✓ tests/ghl-reengagement-route.test.ts > POST /api/automations/ghl-reengagement/run (REENG-05, REENG-06, REENG-07, REENG-15, REENG-16, REENG-18) > runner returns failed > 0 → schedule row updated with last_run_status="error" 1ms
+
+ Test Files  4 passed (4)
+      Tests  53 passed (53)
+   Start at  20:16:35
+   Duration  526ms (transform 428ms, setup 200ms, import 414ms, tests 131ms, environment 0ms)
+
+
+--- Filesystem check ---
+-rw-r--r-- 1 Vanildo 197121 1994 May 15 20:13 .github/workflows/ghl-reengagement.yml
+-rw-r--r-- 1 Vanildo 197121 1470 May 15 19:39 supabase/migrations/032_ghl_reengagement_sent.sql
+-rw-r--r-- 1 Vanildo 197121 2296 May 15 19:39 supabase/migrations/033_automation_schedules.sql
+
+docs/automations/:
+total 12
+drwxr-xr-x 1 Vanildo 197121     0 May 15 20:15 .
+drwxr-xr-x 1 Vanildo 197121     0 May 15 20:14 ..
+-rw-r--r-- 1 Vanildo 197121 10438 May 15 20:15 ghl-reengagement.md
+
+src/app/api/automations/ghl-reengagement/run/:
+total 8
+drwxr-xr-x 1 Vanildo 197121    0 May 15 20:12 .
+drwxr-xr-x 1 Vanildo 197121    0 May 15 20:09 ..
+-rw-r--r-- 1 Vanildo 197121 5253 May 15 20:12 route.ts
+
+src/lib/automations/ghl-reengagement/:
+total 16
+drwxr-xr-x 1 Vanildo 197121    0 May 15 20:03 .
+drwxr-xr-x 1 Vanildo 197121    0 May 15 19:38 ..
+-rw-r--r-- 1 Vanildo 197121  561 May 15 19:38 render-template.ts
+-rw-r--r-- 1 Vanildo 197121 7783 May 15 20:03 runner.ts
+
+--- REQ coverage trace (frontmatter-only) ---
+REENG-01: appears in 3 line(s) in requirements_addressed frontmatter
+REENG-02: appears in 4 line(s) in requirements_addressed frontmatter
+REENG-03: appears in 3 line(s) in requirements_addressed frontmatter
+REENG-04: appears in 4 line(s) in requirements_addressed frontmatter
+REENG-05: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-06: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-07: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-08: appears in 3 line(s) in requirements_addressed frontmatter
+REENG-09: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-10: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-11: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-12: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-13: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-14: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-15: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-16: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-17: appears in 2 line(s) in requirements_addressed frontmatter
+REENG-18: appears in 5 line(s) in requirements_addressed frontmatter
+REQ coverage gate PASSED — all 18 REENG IDs covered
+
+--- Twilio leak sentinel (route+runner src + workflow) ---
+No Twilio leak detected
