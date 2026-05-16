@@ -466,3 +466,20 @@ The invocation itself is not aborted — the LLM receives the denial as a tool r
 ---
 
 ## RESEARCH COMPLETE
+
+---
+
+## ai@^6 Spike Decision
+
+**Date:** 2026-05-16
+**Result:** ADOPT
+**Rationale:** All five friction points passed. `generateText` and `streamText` accept `abortSignal` as a top-level option, and `@ai-sdk/anthropic` explicitly forwards it to the underlying Anthropic stream (confirmed in dist/index.js source). The `maxSteps` parameter from older SDK versions is replaced by `stopWhen: stepCountIs(N)` in v6, which serves as the `AGENT_MAX_LLM_CALLS_PER_TURN` cap with equivalent semantics. Tool wrapping via the `tool()` helper is self-contained inside `run-agent.ts` — no changes needed to `execute-action.ts` or any action type files, staying within the ≤2 files threshold. `@ai-sdk/anthropic` has no dependency on `@ai-sdk/openai` and introduces no conflicts with the existing `openai ^6.33.0` (OpenRouter path). Usage shape uses `inputTokens` and `outputTokens` which map directly to `tokens_in`/`tokens_out`.
+
+**Impact on Wave 2/3 plans:**
+- run-agent.ts LLM call: uses `generateText` from 'ai' with `@ai-sdk/anthropic` provider
+- Provider selection: Anthropic path uses `@ai-sdk/anthropic`; OpenRouter path continues using `openai ^6.33.0` with `baseURL` override (no `@ai-sdk/openai` needed in Phase 34 — OpenRouter is secondary path, Anthropic is primary)
+- AbortController: `generateText({ abortSignal: controller.signal })` — the 8s per-turn budget propagates to the underlying Anthropic stream
+- LLM call cap: `stopWhen: stepCountIs(AGENT_MAX_LLM_CALLS_PER_TURN)` passed to `generateText`
+- Tool execution: `tool({ description, parameters, execute: async (args) => resolveAgentTool(...) + executeAction(...) })` — all tool wrapping stays in run-agent.ts
+
+**Version pinned:** ai@6.0.184 + @ai-sdk/anthropic@3.0.78
