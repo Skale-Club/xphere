@@ -1,0 +1,59 @@
+import { z } from 'zod'
+import { AVAILABLE_MODELS } from './models'
+import { AGENT_CHANNELS } from './channels'
+
+/**
+ * Per-channel override shape. Empty/undefined fields are STRIPPED so the
+ * runtime's "key absent → use base agent value" fallback works (Phase 34 lock).
+ */
+export const channelOverrideSchema = z
+  .object({
+    system_prompt_suffix: z.string().optional(),
+    model: z.enum(AVAILABLE_MODELS).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    max_tokens: z.number().int().min(1).max(200000).optional(),
+    max_history: z.number().int().min(1).max(100).optional(),
+  })
+  .transform((v) => {
+    const out: Record<string, unknown> = {}
+    if (v.system_prompt_suffix && v.system_prompt_suffix.trim()) {
+      out.system_prompt_suffix = v.system_prompt_suffix.trim()
+    }
+    if (v.model) out.model = v.model
+    if (v.temperature !== undefined) out.temperature = v.temperature
+    if (v.max_tokens !== undefined) out.max_tokens = v.max_tokens
+    if (v.max_history !== undefined) out.max_history = v.max_history
+    return out
+  })
+
+export type ChannelOverrideInput = z.input<typeof channelOverrideSchema>
+export type ChannelOverride = z.output<typeof channelOverrideSchema>
+
+/**
+ * Full agent CRUD form payload. Maps to Database['public']['Tables']['agents']['Insert']
+ * (with temperature + max_tokens added in Plan 01) plus a tool_ids list for the picker.
+ */
+export const agentSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  slug: z
+    .string()
+    .min(1, 'Slug is required')
+    .max(50)
+    .regex(/^[a-z0-9-]+$/, 'Lowercase letters, digits, hyphens only'),
+  description: z.string().max(500).nullable().optional(),
+  system_prompt: z.string().min(1, 'System prompt is required'),
+  model: z.enum(AVAILABLE_MODELS),
+  fallback_message: z.string().min(1).max(500),
+  max_history: z.number().int().min(1).max(100),
+  temperature: z.number().min(0).max(2).nullable().optional(),
+  max_tokens: z.number().int().min(1).max(200000).nullable().optional(),
+  is_active: z.boolean(),
+  allowed_channels: z
+    .array(z.enum(AGENT_CHANNELS))
+    .min(1, 'At least one channel is required'),
+  channel_overrides: z.record(z.enum(AGENT_CHANNELS), channelOverrideSchema),
+  tool_ids: z.array(z.string().uuid()),
+})
+
+export type AgentFormInput = z.input<typeof agentSchema>
+export type AgentFormOutput = z.output<typeof agentSchema>
