@@ -204,7 +204,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 32. GHL Lost-Lead Reengagement SMS Automation | v1.9 | 4/4 | Complete    | 2026-05-16 |
-| 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 0/0 | Not started | - |
+| 33. Schema Foundation + Legacy Default Agent Backfill | v2.0 | 1/7 | In Progress|  |
 | 34. Agent Runtime Skeleton + Day-1 Guardrails | v2.0 | 0/0 | Not started | - |
 | 35. Web Widget Canary Cutover | v2.0 | 0/0 | Not started | - |
 | 36. Agent CRUD Dashboard | v2.0 | 0/0 | Not started | - |
