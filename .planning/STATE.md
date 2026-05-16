@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 35-03-PLAN.md — runAgentStreaming live, route.ts cut over to agent runtime
-last_updated: "2026-05-16T21:02:03.909Z"
+stopped_at: Completed 35-04-PLAN.md — GATE-01 test + chat-api mock update complete
+last_updated: "2026-05-16T21:20:19.104Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Operator - State
@@ -145,6 +145,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 35]: KB injection unconditional — null kbScope = full org KB, matching legacy stream.ts (GATE-01)
 - [Phase 35-web-widget-canary-cutover]: runAgentStreaming: all async work inside ReadableStream.start() so runAgent returns ReadableStream synchronously when stream:true (D-35-01 overload contract)
 - [Phase 35-web-widget-canary-cutover]: route.ts cutover (CHAN-03): removed tool-fetching IIFE + accumulatedReply; runAgent owns all LLM side effects via after() in streaming path
+- [Phase 35]: GATE-01 test mocks @/lib/agent-runtime for deterministic SSE output (D-35-08) — avoids non-deterministic LLM responses while testing full route.ts path
+- [Phase 35]: chat-api.test.ts stale mocks (openai, @anthropic-ai/sdk) replaced with @/lib/agent-runtime mock — route.ts now calls runAgent not SDK directly
 
 ## Pending Todos
 
@@ -155,8 +157,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T21:02:03.904Z
-Stopped at: Completed 35-03-PLAN.md — runAgentStreaming live, route.ts cut over to agent runtime
+Last session: 2026-05-16T21:20:19.094Z
+Stopped at: Completed 35-04-PLAN.md — GATE-01 test + chat-api mock update complete
 
 ## Performance Metrics
 
@@ -178,3 +180,4 @@ Stopped at: Completed 35-03-PLAN.md — runAgentStreaming live, route.ts cut ove
 | Phase 34 P06 | 347 | 2 tasks | 4 files |
 | Phase 35 P02 | 11 | 2 tasks | 2 files |
 | Phase 35-web-widget-canary-cutover P03 | 35 | 2 tasks | 3 files |
+| Phase 35 P04 | 12 | 2 tasks | 2 files |
