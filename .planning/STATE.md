@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 34-02 — migration 042 applied + database.ts updated (RUNTIME-07 done)
-last_updated: "2026-05-16T14:00:00.000Z"
+stopped_at: Completed 34-03-PLAN.md
+last_updated: "2026-05-16T13:08:23.335Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 17
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Operator - State
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 34 (agent-runtime-skeleton-day-1-guardrails) — EXECUTING
-Plan: 3 of 6 (Plans 01 and 02 complete)
+Plan: 4 of 6 (Plans 01 and 02 complete)
 Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
-Status: Ready to execute Plan 03
+Status: Ready to execute
 Last activity: 2026-05-16
 
 ## Milestone Progress
@@ -134,6 +134,9 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [v2.0] Tool reuse principle: agents invoke EXISTING `tool_configs` via EXISTING `executeAction` — no parallel tool registry, no duplicate executor (per user 2026-05-16)
 - [v2.0] Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
 - [Phase 34]: ADOPT ai@^6 (ai@6.0.184 + @ai-sdk/anthropic@3.0.78) — all D-34-01 spike criteria passed; generateText/stopWhen/abortSignal pattern locked for Wave 2/3 run-agent.ts
+- [Phase 34]: D-34-06 honored: system_prompt read from agent_prompt_versions via active_prompt_version_id FK hint; fallback to agents.system_prompt with structured warning if version row missing
+- [Phase 34]: D-34-07 honored: resolveTool() in action-engine untouched; resolveAgentTool() is entirely new in agent-runtime/
+- [Phase 34]: agents table has no max_tokens or temperature columns (not in migration 034): maxTokens defaults to 1024; temperature is override-only (undefined if not overridden)
 
 ## Pending Todos
 
@@ -144,8 +147,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T14:00:00.000Z
-Stopped at: Completed 34-02 — migration 042 live + database.ts types updated; RUNTIME-07 done
+Last session: 2026-05-16T13:08:23.283Z
+Stopped at: Completed 34-03-PLAN.md
 
 ## Performance Metrics
 
@@ -162,3 +165,4 @@ Stopped at: Completed 34-02 — migration 042 live + database.ts types updated; 
 | Phase 33 P07 | ~10 min | 2 tasks | 4 files |
 | Phase 34 P01 | 12 | 1 tasks | 3 files |
 | Phase 34 P02 | 15min | 3 tasks | 2 files |
+| Phase 34 P03 | 17min | 2 tasks | 3 files |
