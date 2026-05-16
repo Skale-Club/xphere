@@ -661,7 +661,18 @@ export interface Database {
           error_detail?: string | null
           created_at?: string
         }
-        Update: Record<string, never>
+        Update: {
+          status?: AgentInvocationStatus
+          assistant_reply?: string | null
+          tool_calls?: Json
+          partner_calls?: Json
+          tokens_in?: number | null
+          tokens_out?: number | null
+          cost_usd?: number | null
+          model?: string | null
+          duration_ms?: number | null
+          error_detail?: string | null
+        }
         Relationships: [
           {
             foreignKeyName: 'agent_invocations_organization_id_fkey'
