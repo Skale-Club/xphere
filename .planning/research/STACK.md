@@ -1,227 +1,344 @@
-# Technology Stack
+# Technology Stack — v2.0 Multi-Bot Platform (Additions)
 
-**Project:** Operator v1.3 — Google Reviews Widget + Meta Messaging
-**Researched:** 2026-05-04
-**Scope:** Additions only. Base stack (Next.js 15, TypeScript, Supabase, Tailwind 4, shadcn/ui, Redis, LangChain, esbuild) is validated and unchanged.
-
----
-
-## Summary Table — New Packages
-
-| Package | Version | Module | Add? | Rationale |
-|---------|---------|--------|------|-----------|
-| `@googlemaps/places` | `^2.4.0` | Reviews | YES | Official Google Places API (New) client for Node.js — v1 REST API, supports `getPlace` with reviews field |
-| *(no new package)* | — | Reviews widget | NO | esbuild IIFE pipeline already exists; widget is vanilla JS like `public/widget.js` |
-| *(no new package)* | — | Meta Graph API | NO | Use `fetch` directly — no official npm SDK exists; Graph API is pure HTTP |
-| *(no new package)* | — | Meta webhook verification | NO | Node.js built-in `crypto.createHmac('sha256', secret)` is sufficient |
-| *(no new package)* | — | Facebook OAuth | NO | Manual authorization-code flow via `fetch` — no library needed for a single OAuth integration |
-
-**Net new npm installs: 1** (`@googlemaps/places`)
+**Project:** Operator v2.0 — Channel-Agnostic Agent Abstraction
+**Researched:** 2026-05-15
+**Scope:** ADDITIONS ON TOP of the validated v1.x stack. This file does NOT re-research Next.js 15, Supabase, pgvector, LangChain (KB only), shadcn/ui, OpenRouter, or `@anthropic-ai/sdk` — all already shipped.
 
 ---
 
-## Module 1: Google Reviews Widget
+## TL;DR — Recommended Additions
 
-### What needs to be built
+| Concern | Recommendation | Verdict |
+|---|---|---|
+| Agent runtime / orchestration | **Build a thin custom orchestrator** on top of existing `src/lib/chat/stream/` providers. Do NOT adopt LangGraph, OpenAI Agents SDK, or Mastra as the primary runtime. | HIGH confidence |
+| Optional helper for tool-loop wiring | **Vercel AI SDK v6 (`ai@^6.0.174`)** — adopt narrowly for its `Agent` / `ToolLoopAgent` class + built-in OpenTelemetry tracing, OR keep the loop fully custom. Decision deferred to first phase. | MEDIUM confidence |
+| Multi-agent delegation primitive | **"Agent-as-tool" pattern (Anthropic sub-agent style)** — parent agent exposes partner agents as synthetic tool calls. Loop detection + depth limit live in our orchestrator, not in a library. | HIGH confidence |
+| Observability storage | **Extend Supabase** with new `agent_invocations` + `agent_invocation_steps` tables. Keep existing `action_logs` for tool-level execution. | HIGH confidence |
+| Observability transport | **OpenTelemetry exporter** (optional, gated by env var) → self-hosted **Langfuse** later. NOT required for v2.0 ship. | MEDIUM confidence |
+| Prompt versioning | **Append-only `agent_prompt_versions` table** with `agents.active_prompt_version_id` FK. Plain SQL. No extension, no JSONB diff. | HIGH confidence |
+| Tool scoping (agent-level RBAC) | **Junction table `agent_tools(agent_id, tool_config_id, allowed)`** with deny-by-default at `resolve-tool.ts`. No new library. | HIGH confidence |
 
-1. **Server-side fetcher** — Next.js server action or API route calls Google Places API (New), stores up to 5 reviews per location in Supabase
-2. **Admin UI** — Register location by Place ID or name search, trigger refresh, view stored reviews
-3. **Embed script** — `public/reviews-widget.js` (new IIFE bundle via existing esbuild pipeline), reads config from `GET /api/widget/reviews/[token]`, renders reviews in Shadow DOM
-
-### Package decision: `@googlemaps/places` v2.4.0
-
-**Use this.** The older `@googlemaps/google-maps-services-js` (v3.4.2) explicitly states it only supports the Legacy Places API. The new Places API v1 (`places.googleapis.com/v1`) is covered by the separate `@googlemaps/places` package, currently at **v2.4.0** (published June 2025, preview status but stable enough for production use).
-
-```bash
-npm install @googlemaps/places
-```
-
-Key method: `client.getPlace({ name: 'places/PLACE_ID', languageCode: 'en' })` with field mask `reviews,displayName,rating,userRatingCount,id`.
-
-**Why not raw fetch?** The `@googlemaps/places` package handles auth header injection, field mask serialization, and TypeScript types for the v1 response shape. The v1 REST API uses a non-trivial `X-Goog-FieldMask` header pattern that the SDK abstracts cleanly. Given this is a one-time call per location refresh (not a hot path), SDK overhead is irrelevant.
-
-**Why not `@googlemaps/google-maps-services-js`?** It wraps the Legacy API only. The Legacy API for Place Details returns at most 5 reviews (Google's undocumented cap) which matches the product requirement, but the Legacy API is explicitly deprecated and will be retired — start on v1.
-
-### Google Places API billing reality (HIGH confidence)
-
-Reviews fall under the **Place Details Enterprise + Atmosphere SKU** — the highest billing tier. Post-March 2025 pricing:
-
-- Free tier: **1,000 requests/month** per Enterprise SKU (not per place)
-- Beyond free: ~$20/1,000 requests
-
-**Critical implication for architecture:** The 1,000/month free cap means reviews must be fetched on-demand (when an admin registers or manually refreshes a location) and stored in Supabase. The stored copy is what the embed widget reads. Do NOT fetch live from Google on every widget page load.
-
-**Google's caching policy conflict (MEDIUM confidence):** Google's Places API Terms technically prohibit pre-fetching and storing API content (except place IDs). However, this restriction applies to displaying cached data as if it were live, and the rationale is attribution freshness. The practical industry approach (and what the project requires to stay within free tier) is to cache with a refresh interval (e.g., weekly or on-demand by admin) and display proper attribution (author name, link, photo). Google enforces this via attribution requirements, not technical blockers. The PROJECT.md goal of "store in DB" is consistent with how every real-world reviews widget operates.
-
-**Attribution requirements (mandatory):**
-- Display each reviewer's name, link to their Google profile, and photo (when provided)
-- Show how reviews are sorted
-- Link back to the place's Google Maps listing
-
-### Reviews API endpoint
-
-```
-GET https://places.googleapis.com/v1/places/{PLACE_ID}
-Headers:
-  X-Goog-Api-Key: {API_KEY}
-  X-Goog-FieldMask: id,displayName,rating,userRatingCount,reviews
-```
-
-Reviews returned: up to 5 (Google's platform limit, confirmed by documentation examples and community reports — no official number is published but 5 is the consistent cap across both Legacy and New APIs).
-
-### What NOT to add for Reviews
-
-| Skip | Why |
-|------|-----|
-| `@googlemaps/google-maps-services-js` | Legacy API wrapper only; explicitly not for Places v1 |
-| `react-google-reviews` (featurable) | React component library; the embed widget is vanilla JS (Shadow DOM IIFE) — same pattern as existing `widget.js` |
-| Any scraping library (`puppeteer`, etc.) | Violates Google ToS; unnecessary when API exists |
-| A separate esbuild config | Extend existing `build:widget` script or add a parallel `build:reviews-widget` script; same pipeline |
+**One sentence:** Add at most ONE new dependency (`ai@^6`), three new tables (`agents`, `agent_prompt_versions`, `agent_tools`) plus one junction (`agent_partners`) plus two observability tables (`agent_invocations`, `agent_invocation_steps`), and one new directory `src/lib/agent-runtime/`.
 
 ---
 
-## Module 2: Meta Messaging (Instagram + Facebook Messenger)
+## 1. Agent Runtime / Orchestration
 
-### What needs to be built
+### Recommendation: Build custom on existing stream abstraction
 
-1. **Facebook OAuth flow** — Admin connects Facebook Page → get Page Access Token → subscribe to Instagram account
-2. **Meta webhook receiver** — `POST /api/meta/webhook` (new route) for incoming messages from both channels
-3. **Meta webhook verifier** — `GET /api/meta/webhook` for Facebook's hub.challenge handshake
-4. **Message reply sender** — server action calls Graph API Send API with Page Access Token
-5. **Inbox extension** — extend existing `conversations`/`conversation_messages` tables and `AdminChatLayout` for `instagram` and `messenger` channel types
+**What to build:**
+- New module `src/lib/agent-runtime/` exposing `runAgent(agentId, channel, context)`
+- Internally calls existing `streamOpenRouter` / `streamAnthropic` from `src/lib/chat/stream/`
+- Adds: per-agent system prompt assembly, per-channel override merge, tool whitelist filtering, delegation hook
 
-### Package decision: No Meta SDK — use raw `fetch`
+**Why custom over a framework:**
 
-**Do not install any Meta/Facebook npm package.** The Graph API is a straightforward REST API and no official Meta npm SDK exists for Node.js server-side use. Community wrappers (e.g., `fb`, `facebook-node-sdk`) are unmaintained or stale. The Graph API surface needed is exactly 3 endpoints:
+| Framework | Version | Why NOT primary |
+|---|---|---|
+| LangGraph JS (`@langchain/langgraph`) | `^1.3.0` (verified npm, ~8 days old) | Graph-based orchestration shines for stateful multi-step workflows with branching. Operator's chat path is **request/response with optional sub-agent call** — overkill. Adds a `StateGraph` mental model and `Annotation.Root` boilerplate that fights our existing streaming abstraction. Useful in the future if delegation grows into DAGs; YAGNI for v2.0. |
+| OpenAI Agents SDK (`@openai/agents`) | `^0.11.3` (verified npm, ~15h old at research time) | Built on OpenAI's Responses API. Operator uses **OpenRouter (multi-model) + Anthropic SDK** — adopting `@openai/agents` either forces a third provider path or wraps OpenRouter awkwardly. Also still pre-1.0 (0.11.x) — frequent breaking changes per their npm history. |
+| Mastra (`mastra@^1.0`) | `1.0+` (Jan 2026, Y Combinator-backed) | Opinionated full-framework: agents, workflows, RAG, memory, evals, MCP, deploy adapters. Operator already has RAG (LangChain SupabaseVectorStore), memory (Redis + `conversations`), and deploy (Vercel). Adopting Mastra means either replacing those subsystems or running two parallel systems. Better fit for greenfield agentic apps. |
+| "Anthropic Agent SDK" | n/a as a separate JS package | The closest things are (a) `@anthropic-ai/sdk` (already installed `^0.82.0`) tool-use loops, or (b) `claude-agent-sdk` (Python-only / tooling-oriented). Neither replaces what we'd build for the channel-agnostic chat runtime. |
 
-1. `GET https://graph.facebook.com/v25.0/me/accounts` — list Pages after OAuth
-2. `POST https://graph.facebook.com/v25.0/{PAGE_ID}/messages` — Messenger Send API
-3. `POST https://graph.instagram.com/{INSTAGRAM_USER_ID}/messages` — Instagram Messaging API
+**Optional narrow adoption — Vercel AI SDK v6 `Agent` / `ToolLoopAgent` class:**
 
-All three are simple `fetch` calls with a Bearer token. TypeScript interfaces for request/response shapes can be defined inline (they are narrow).
+`ai@^6.0.174` (verified npm, ~3 days old at research time; v6 announced Jan 2026). Pros:
 
-**Current Graph API version: v25.0** (released February 2026, current as of May 2026). Use this version string in all endpoint URLs.
+- Built-in OpenTelemetry tracing (`experimental_telemetry: { isEnabled: true }`) — pairs cleanly with Langfuse later via `@langfuse/otel`
+- `ToolLoopAgent` codifies the LLM → tool → result → LLM loop with `stopWhen` + `prepareStep`
+- Native multi-provider via `@ai-sdk/openai`, `@ai-sdk/anthropic` adapters
+- Wide adoption (>1M weekly downloads as of early 2026)
 
-### Facebook OAuth: manual flow, no library
+Cons:
+- Migrating off bespoke `streamOpenRouter` + `streamAnthropic` (shipped + tested in v1.4 refactor) is a regression risk on already-shipped chat
+- v6 just landed (Jan 2026) — small but real breaking-change risk vs the more mature v5 line
+- OpenRouter is consumed via `@ai-sdk/openai` + `baseURL` override — works but is a community pattern, not a first-class provider
 
-**Do not add NextAuth.js or any OAuth library.** This is not user authentication — it is a one-time admin integration flow to connect a Facebook Page. The flow is:
+**Decision rule for the roadmap:** in the first phase of v2.0, spike `ai@^6` as a drop-in replacement for `streamOpenRouter` + `streamAnthropic`. If it fits cleanly in <1 day, adopt it. Otherwise keep custom and only adopt OpenTelemetry hooks separately (a much smaller install).
 
-1. Redirect admin to `https://www.facebook.com/v25.0/dialog/oauth?client_id=...&redirect_uri=...&scope=pages_messaging,instagram_manage_messages,pages_manage_metadata`
-2. Facebook redirects back to `GET /api/meta/oauth/callback?code=...`
-3. Server exchanges `code` for short-lived token: `GET https://graph.facebook.com/v25.0/oauth/access_token`
-4. Exchange for long-lived token (60-day): `GET https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&...`
-5. Store encrypted long-lived Page Access Token in Supabase (using existing `crypto.ts` AES-256-GCM pattern)
+**Integration points (named files):**
+- `src/lib/chat/stream.ts` (line 60 `createChatStream`) — replace monolithic prompt block at lines 96-107 with a call into `runAgent()`
+- `src/lib/chat/stream/anthropic.ts` and `src/lib/chat/stream/openrouter.ts` — keep, but invoked from inside `runAgent` rather than directly from `stream.ts`
+- All inbound channel handlers (`src/app/api/chat/[token]/route.ts`, `src/app/api/manychat/*`, `src/app/api/meta/*`, future Telegram) become thin shells that call `runAgent(agentId, channel, channelContext)`
 
-NextAuth.js would add 5+ dependencies and fight the existing Supabase Auth session model. The manual flow is ~50 lines of fetch calls in a route handler.
+### Anti-recommendation
+- Do NOT adopt **AutoGen** (Microsoft) — Python-first, .NET secondary; JS support is community/experimental
+- Do NOT adopt **CrewAI** — Python-only
+- Do NOT adopt **LangChain Agents** (`AgentExecutor`) — legacy LangChain agent path; superseded by LangGraph even in LangChain's own docs. Our LangChain footprint is already scoped to KB retrieval; don't expand it.
+- Do NOT adopt **`langchain` agent helpers** (currently `^1.3.0` in `package.json` line 50) for the runtime — the package is fine for vectorstore use, but its agent surface is the wrong abstraction here.
 
-### Webhook verification: Node.js `crypto` module
+---
 
-**No npm package needed.** Meta signs webhook payloads with `X-Hub-Signature-256: sha256=...` using the App Secret as the HMAC key. Verification:
+## 2. Multi-Agent Delegation Primitive
 
-```typescript
-import crypto from 'node:crypto'
+### Recommendation: "Agent-as-tool" pattern (Anthropic sub-agent style)
 
-function verifyMetaSignature(rawBody: Buffer, signature: string, appSecret: string): boolean {
-  const expected = 'sha256=' + crypto
-    .createHmac('sha256', appSecret)
-    .update(rawBody)
-    .digest('hex')
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+**Mechanism:** when an agent has partner agents configured, `runAgent` builds synthetic tool definitions of the form:
+
+```ts
+{
+  name: `delegate_to_${partnerSlug}`,
+  description: partner.delegation_hint, // e.g. "Use for billing questions"
+  input_schema: {
+    type: 'object',
+    properties: {
+      context_summary: { type: 'string', description: 'What the partner needs to know' },
+      user_question:   { type: 'string', description: 'The specific question to answer' }
+    },
+    required: ['user_question']
+  }
 }
 ```
 
-The raw body must be captured before JSON parsing. In Next.js App Router route handlers, use `await request.arrayBuffer()` then convert to Buffer. Do NOT use `request.json()` before verification.
+When the LLM emits that tool call, our executor (`src/lib/agent-runtime/delegate.ts`) — instead of routing through `executeAction` — recursively invokes `runAgent(partnerAgentId, channel, derivedContext)` and returns its final reply as the tool result. The parent LLM then completes its own user-facing response.
 
-### Meta permissions required
+**Why this over alternatives:**
 
-| Permission | Purpose | Review required? |
-|------------|---------|-----------------|
-| `pages_messaging` | Send/receive Messenger messages | Yes (App Review) |
-| `instagram_manage_messages` | Send/receive Instagram DMs | Yes (App Review) — use advanced access |
-| `pages_manage_metadata` | Subscribe page to webhooks | Yes (App Review) |
-| `pages_read_engagement` | Read page info, linked Instagram account | Standard access |
+| Pattern | Source | Why NOT |
+|---|---|---|
+| Supervisor graph | `@langchain/langgraph-supervisor` (`@langchain/langgraph` v1.3.0) | Requires adopting LangGraph as the runtime. See §1. |
+| OpenAI Swarm-style `handoffs` | `@openai/agents` `handoffs` API | Clean API but tied to `@openai/agents` runtime. Also "handoff" replaces the active agent — we want **call/return** semantics so the parent finishes the user-facing reply. |
+| Direct LLM-to-LLM message passing | custom protocol | Reinvents tool-calling. The LLM is already trained on tool-call format; piggyback on it. |
+| Anthropic native sub-agent (Claude Code style) | n/a as library | This IS the pattern we're copying — it's a design choice, not a dependency. |
 
-**24-hour messaging window (must be enforced in app logic):**
-- Instagram: 24h window after user initiates contact. After window: Human Agent tag only (7 days, support-only).
-- Messenger: Same 24h window. `messaging_type: RESPONSE` inside window; `MESSAGE_TAG` outside.
-- The app must track `last_user_message_at` per conversation to gate reply options.
+**Loop detection (our code, no library):**
+- Each invocation carries `delegation_path: string[]` (agent IDs visited)
+- Before delegating: if `partnerId` already in `delegation_path` → return synthetic tool error `"Already in delegation chain — synthesize answer from current context."`
+- Hard `MAX_DELEGATION_DEPTH = 3` (config-tunable per org later)
+- Hard `MAX_DELEGATIONS_PER_INVOCATION = 5` (prevents one parent calling the same partner 50 times)
 
-### Meta webhook events to subscribe
+**Shared context (our code):**
+- Pass user's original message verbatim
+- Pass `context_summary` from the parent's tool-call argument — lets the parent decide what's relevant
+- Do NOT pass full conversation history by default (token bloat) — opt-in via agent config flag `partner_inherits_history: boolean`
 
-**Instagram:** `messages`, `messaging_seen`, `message_reactions`
-**Messenger:** `messages`, `messaging_postbacks`, `messaging_seen`
+**Integration points (new files):**
+- `src/lib/agent-runtime/delegate.ts` — invocation + loop detection
+- `src/lib/agent-runtime/build-partner-tools.ts` — synthesizes `delegate_to_*` tool defs
+- Schema: `agent_partners(parent_agent_id, partner_agent_id, delegation_hint, position)` junction table with UNIQUE(parent_agent_id, partner_agent_id)
 
-Both share the same webhook endpoint — distinguish by `object` field in payload (`"instagram"` vs `"page"`).
-
-### What NOT to add for Meta Messaging
-
-| Skip | Why |
-|------|-----|
-| `next-auth` / `auth.js` | This is integration OAuth (connecting a Page), not user auth. Would conflict with existing Supabase Auth. |
-| `facebook-node-sdk` / `fb` | Unmaintained, legacy. Raw fetch covers the 3 endpoints needed. |
-| Any Instagram API wrapper | Same reason — narrow surface, straightforward REST. |
-| `passport.js` | Same as NextAuth — designed for user auth flows, not integration token management. |
-| Socket.io or WebSockets | Existing polling model in AdminChatLayout handles chat inbox. Meta delivers via webhooks to server, not real-time to browser. |
+### Anti-recommendation
+- Do NOT use shared mutable state between parent and partner (e.g. a "scratchpad" object). Sub-agent must be a **pure function** of its input — same delegation, same result. Easier to test, debug, replay.
+- Do NOT allow delegation cycles even one level deep (A→B→A). Loop detection rejects cycles of any length.
+- Do NOT stream partner agent tokens directly to the user. The partner's reply is a *tool result* for the parent to read; only the parent's final tokens are user-facing. This preserves a single voice per conversation.
 
 ---
 
-## Environment Variables to Add
+## 3. Observability — Per-Agent Metrics
 
+### Recommendation: extend Supabase, defer external tools
+
+**Schema additions:**
+
+| Table | Purpose | Indexed by |
+|---|---|---|
+| `agent_invocations` | One row per `runAgent()` call. Columns: id, org_id, agent_id, channel, parent_invocation_id (nullable, for delegations), conversation_id (nullable), user_message_hash, total_tokens_input, total_tokens_output, total_cost_usd, total_latency_ms, status ('ok' / 'error' / 'tool_failed'), error_summary, started_at, ended_at | (org_id, agent_id, started_at desc), (parent_invocation_id), (conversation_id) |
+| `agent_invocation_steps` | One row per LLM call or tool call inside an invocation. Columns: id, invocation_id, step_index, kind ('llm' / 'tool' / 'delegation'), model (for llm), tokens_input, tokens_output, cost_usd, latency_ms, tool_name (for tool/delegation), tool_result_chars, action_log_id (nullable FK to action_logs), error | (invocation_id, step_index) |
+
+**Why NOT extend `action_logs`:** `action_logs` is the system-of-record for **tool execution attempts** — used by Vapi voice path, used by ops debugging, written by `executeAction` (see `src/lib/action-engine/execute-action.ts`). Mixing in LLM-call rows would:
+1. Inflate the table 5-10x and slow existing ops queries
+2. Conflate "did the GHL API call work" with "did the LLM behave"
+3. Break the existing shared schema between Vapi voice and chat paths
+
+Keep `action_logs` as the canonical tool-execution audit log. Reference it via `agent_invocation_steps.action_log_id` (nullable FK) when a step actually triggered an action.
+
+**Why Supabase first, external second:**
+- All data already lives in Supabase. Joining cost-per-agent to message history is one query.
+- RLS gives us multi-tenancy for free via `get_current_org_id()` — no separate tenant model in an external tool.
+- Defer Langfuse adoption until we have someone actively building dashboards on it.
+
+**Optional transport: OpenTelemetry → Langfuse (self-hosted) — future**
+
+When/if needed, the path is well-paved:
+
+| Library | License | Role |
+|---|---|---|
+| `@langfuse/tracing` | MIT | Langfuse OTel SDK |
+| `@langfuse/otel` | MIT | Span processor — converts OTel spans to Langfuse traces |
+| `@opentelemetry/sdk-node` | Apache 2.0 | OTel runtime |
+| Langfuse self-hosted | MIT | Stack: PostgreSQL + ClickHouse + Redis + S3 (heavy — see anti-recommendation) |
+
+If we adopt Vercel AI SDK v6 (§1), `experimental_telemetry: { isEnabled: true }` automatically emits OTel spans matching the AI SDK semantic conventions. They can then be exported to any OTel-compatible backend.
+
+### Anti-recommendation
+- Do NOT adopt **Helicone** as primary observability. It's a proxy in front of the LLM provider — incompatible with `@anthropic-ai/sdk` streaming (already in `src/lib/chat/stream/anthropic.ts`) and would require routing all calls through their endpoint. Multi-agent delegation graphs aren't its strength (post-hoc stitching only).
+- Do NOT spin up self-hosted Langfuse in v2.0. The stack (Postgres + ClickHouse + Redis + S3 + Kubernetes for production scale) is heavier than our entire current infrastructure. Use Supabase tables; revisit when we have >10 agents per org and ops needs aggregated dashboards.
+- Do NOT use **LangSmith** — proprietary, paid past a small free tier, tied to LangChain orchestration semantics we're not adopting.
+
+---
+
+## 4. Prompt Versioning (Schema-only)
+
+### Recommendation: append-only `agent_prompt_versions` table
+
+**Schema:**
+
+```sql
+create table agent_prompt_versions (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references agents(id) on delete cascade,
+  version integer not null,
+  prompt text not null,
+  model text,                    -- nullable; null = inherit from agent
+  channel_overrides jsonb,       -- nullable; per-channel prompt patches
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  notes text,
+  unique (agent_id, version)
+);
+
+alter table agents
+  add column active_prompt_version_id uuid references agent_prompt_versions(id);
+```
+
+**Why this over alternatives:**
+
+| Alternative | Why NOT |
+|---|---|
+| `temporal_tables` Postgres extension | Supabase managed plan does not expose arbitrary extensions; even if it did, semantics ("system-versioned table") are overkill — we want explicit numbered versions a user can refer to in support tickets and a future rollback UI. |
+| JSONB diff in same row | Loses easy "what was the prompt 3 weeks ago" queries. Diffs are hard to render in a UI. |
+| Git-backed (commit prompts to repo) | Couples agent definition to code deploys — defeats the point of the admin UI. |
+| Generic `agent_history` audit table on all columns | Captures too much (every CRUD field) and not enough (no first-class "version" concept). |
+
+**Behavior:**
+- `agents.active_prompt_version_id` controls what `runAgent` loads at request time
+- Editing a prompt in the UI → INSERT new row in `agent_prompt_versions` + UPDATE `agents.active_prompt_version_id`
+- Rollback = UPDATE `agents.active_prompt_version_id` to an older row's id
+- No version is ever deleted (append-only)
+
+**Out of scope for v2.0:** A/B testing UI, traffic splitting, automated eval gates. Schema supports all of these later.
+
+### Anti-recommendation
+- Do NOT store prompt versions in a JSONB array on `agents`. Loses row-level RLS granularity, inflates row size, breaks pagination of version history.
+- Do NOT use generic pg_history-style triggers on `agents`. They capture every field on every UPDATE — noisy, and we don't want to version e.g. `last_used_at` ticks.
+
+---
+
+## 5. Tool Scoping (Agent-Level RBAC)
+
+### Recommendation: junction table `agent_tools` with deny-by-default
+
+**Schema:**
+
+```sql
+create table agent_tools (
+  agent_id uuid not null references agents(id) on delete cascade,
+  tool_config_id uuid not null references tool_configs(id) on delete cascade,
+  allowed boolean not null default true,
+  created_at timestamptz not null default now(),
+  primary key (agent_id, tool_config_id)
+);
+```
+
+**Enforcement point:** `src/lib/action-engine/resolve-tool.ts` (line 28 `resolveTool`).
+
+Today's signature:
+```ts
+resolveTool(orgId, toolName, supabase)
+```
+
+Becomes:
+```ts
+resolveTool(orgId, toolName, supabase, { agentId?: string })
+```
+
+When `agentId` is provided (chat path), add an extra `.eq('agent_tools.agent_id', agentId).eq('agent_tools.allowed', true)` join. When `agentId` is omitted (Vapi voice path — unchanged), behave as today (org-scoped only). This is the single backwards-compat seam.
+
+**Policy: deny-by-default**
+- An agent sees NO tools unless an explicit `agent_tools` row says `allowed = true`
+- Removing the junction row = revoke
+- Org admin can bulk-grant via the agent edit UI ("select all tools" checkbox at create time)
+
+**Why this over alternatives:**
+
+| Alternative | Why NOT |
+|---|---|
+| Capability tokens (JWT-style) | Overengineered. Operator's tools resolve through our DB, not cross-service tokens. |
+| Wildcards in agent config JSONB (`{ allowed_tools: ["*"] }`) | Loses referential integrity. Deleted `tool_configs` rows orphan the array. |
+| Allowlist column on `tool_configs` (`allowed_agent_ids[]`) | Reverses the join awkwardly. Adding an agent requires updating every tool row. |
+| Roles + role-tool junction (`agent_roles` → `agent_role_tools`) | Premature abstraction. If we ever need it, refactor is straightforward — insert `agent_roles` between `agents` and `agent_tools` later. |
+
+**Backwards compatibility:**
+- Vapi path keeps calling `resolveTool(orgId, toolName, supabase)` (no `agentId` arg) — org-scoped behavior preserved
+- Chat path migrates to `resolveTool(orgId, toolName, supabase, { agentId })` and gets RBAC
+- Migration script: for each existing org, create a "default agent" and grant it ALL current `tool_configs` rows → no behavior change for existing chat installs
+
+### Anti-recommendation
+- Do NOT enforce scoping in a middleware-style wrapper outside `resolve-tool.ts`. Single chokepoint = single audit target.
+- Do NOT use Supabase RLS for agent-level scoping. RLS is for **tenant** isolation. Agent-level RBAC is application logic — putting it in RLS would couple two unrelated authorization layers and make debugging painful.
+
+---
+
+## Installation Summary
+
+**Required new dependencies for v2.0:** none mandatory.
+
+**Optional new dependencies (decided in first phase, before any schema work):**
 ```bash
-# Google Places
-GOOGLE_PLACES_API_KEY=                # Server-side only, never expose to client
+# Option A — keep custom orchestrator (no new deps)
+# (no install needed)
 
-# Meta App credentials
-META_APP_ID=                          # Public — used in OAuth dialog URL
-META_APP_SECRET=                      # Server-side only — HMAC key for webhook verification
-META_WEBHOOK_VERIFY_TOKEN=            # Static string you define — used in hub.verify_token check
+# Option B — adopt Vercel AI SDK v6 for tool loop + telemetry
+npm install ai@^6.0.174 @ai-sdk/anthropic@latest @ai-sdk/openai@latest
+
+# Optional later (deferred past v2.0 — only if we need cross-system tracing)
+npm install @langfuse/tracing @langfuse/otel @opentelemetry/sdk-node
 ```
 
-Meta Page Access Tokens (long-lived, per org) are stored encrypted in the existing `integrations` / `org_credentials` Supabase table using the existing AES-256-GCM pattern in `src/lib/crypto.ts`.
+**Files to create:**
 
----
+| Path | Purpose |
+|---|---|
+| `src/lib/agent-runtime/run-agent.ts` | Entry point `runAgent(agentId, channel, context)` |
+| `src/lib/agent-runtime/load-agent.ts` | Fetches agent + active prompt version + allowed tools |
+| `src/lib/agent-runtime/build-system-prompt.ts` | Merges base prompt + channel overrides |
+| `src/lib/agent-runtime/delegate.ts` | Sub-agent invocation + loop detection |
+| `src/lib/agent-runtime/build-partner-tools.ts` | Synthesizes `delegate_to_*` tool defs |
+| `src/lib/agent-runtime/record-invocation.ts` | Writes to `agent_invocations` / `agent_invocation_steps` |
+| `supabase/migrations/0XX_agents.sql` | Tables: agents, agent_prompt_versions |
+| `supabase/migrations/0XX_agent_tools.sql` | Table: agent_tools (RBAC) |
+| `supabase/migrations/0XX_agent_partners.sql` | Table: agent_partners (delegation) |
+| `supabase/migrations/0XX_agent_observability.sql` | Tables: agent_invocations, agent_invocation_steps |
 
-## Widget Script Pipeline
+**Files to modify:**
 
-The existing esbuild pipeline produces `public/widget.js` from `src/widget/index.ts`. The Reviews Widget embed script follows the same pattern:
-
-```json
-"build:reviews-widget": "esbuild src/reviews-widget/index.ts --bundle --minify --platform=browser --format=iife --target=es2017 --outfile=public/reviews-widget.js"
-```
-
-Add this script to `package.json` and include it in the `build` script chain. No new esbuild config, no new esbuild plugins. The reviews widget is vanilla TypeScript compiled to an IIFE, same as the chat widget. It reads config from `GET /api/widget/reviews/[token]` (CORS-enabled, returns cached review data + widget config).
-
----
-
-## Alternatives Considered
-
-| Decision | Alternative | Why Not |
-|----------|-------------|---------|
-| `@googlemaps/places` (v1) | `@googlemaps/google-maps-services-js` | Explicitly wraps Legacy API only; deprecated path |
-| `@googlemaps/places` (v1) | Raw `fetch` to Places v1 REST | SDK handles field mask headers and TS types cleanly; request volume is low (admin-triggered only) |
-| Raw `fetch` for Graph API | `facebook-node-sdk` | Unmaintained; wraps deprecated APIs; 3 endpoints don't justify a dependency |
-| Raw `fetch` for Graph API | Any community wrapper | None with active maintenance; Graph API changes frequently; raw fetch is more durable |
-| Manual OAuth flow | NextAuth.js | Conflicts with Supabase Auth; integration OAuth ≠ user auth; unnecessary complexity |
-| `node:crypto` for Meta HMAC | `@kapso/whatsapp-cloud-api` or similar | Wrong product domain; crypto is built-in and 5 lines |
+| Path | Change |
+|---|---|
+| `src/lib/chat/stream.ts` (line 60 `createChatStream`) | Replace monolithic system prompt block (lines 96-107) with `await runAgent(agentId, channel, ctx)` |
+| `src/lib/action-engine/resolve-tool.ts` (line 28 `resolveTool`) | Accept optional `agentId` arg; add `agent_tools` join when provided |
+| `src/app/api/chat/[token]/route.ts` | Pass `agentId` resolved from widget/org config |
+| `src/app/api/manychat/webhook/route.ts` | Resolve `agentId` from inbound bot mapping |
+| `src/app/api/meta/webhook/route.ts` | Resolve `agentId` from inbound page/account mapping |
+| `src/types/database.ts` | Regenerate after migrations land |
 
 ---
 
 ## Sources
 
-- `@googlemaps/places` v2.4.0 — [npm](https://www.npmjs.com/package/@googlemaps/places), [Google Cloud Docs](https://docs.cloud.google.com/nodejs/docs/reference/places/latest)
-- `@googlemaps/google-maps-services-js` deprecation note — [GitHub README](https://github.com/googlemaps/google-maps-services-js) (v3.4.2, "only compatible with Legacy Services")
-- Google Places API (New) Place Details endpoint — [developers.google.com](https://developers.google.com/maps/documentation/places/web-service/place-details)
-- Google Places API billing post-March 2025 — [developers.google.com/maps/billing-and-pricing/march-2025](https://developers.google.com/maps/billing-and-pricing/march-2025)
-- Google Places API policies (caching/attribution) — [developers.google.com](https://developers.google.com/maps/documentation/places/web-service/policies)
-- Meta Graph API v25.0 — [developers.facebook.com/blog](https://developers.facebook.com/blog/post/2026/02/18/introducing-graph-api-v25-and-marketing-api-v25/)
-- Meta Graph API Send API (Messenger) — [developers.facebook.com](https://developers.facebook.com/docs/messenger-platform/reference/send-api/)
-- Instagram Messaging API 2026 — [zernio.com](https://zernio.com/blog/instagram-messaging-api)
-- Instagram webhook events — [developers.facebook.com](https://developers.facebook.com/docs/messenger-platform/instagram/features/webhook/)
-- Meta webhook `X-Hub-Signature-256` — Meta Community Forums, [hookdeck.com](https://hookdeck.com/webhooks/guides/how-to-implement-sha256-webhook-signature-verification)
-- Facebook OAuth long-lived tokens — [developers.facebook.com](https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived/)
-- Instagram permissions (`instagram_manage_messages`) — [developers.facebook.com](https://developers.facebook.com/docs/permissions/)
+- [Vercel AI SDK 6 announcement](https://vercel.com/blog/ai-sdk-6) — Agent class, OpenTelemetry built-in
+- [`ai` on npm](https://www.npmjs.com/package/ai) — current `6.0.174`
+- [Vercel AI SDK 5 → 6 migration guide (2026)](https://www.pkgpulse.com/guides/vercel-ai-sdk-5-migration-2026)
+- [Vercel: How to build AI Agents with the AI SDK](https://vercel.com/kb/guide/how-to-build-ai-agents-with-vercel-and-the-ai-sdk)
+- [OpenAI Agents SDK (JS) GitHub](https://github.com/openai/openai-agents-js) — pattern reference for handoffs/guardrails
+- [`@openai/agents` on npm](https://www.npmjs.com/package/@openai/agents) — current `0.11.3`
+- [LangGraph JS GitHub](https://github.com/langchain-ai/langgraphjs) — supervisor pattern reference
+- [`@langchain/langgraph` on npm](https://www.npmjs.com/package/@langchain/langgraph) — current `1.3.0`
+- [LangGraph Supervisor Pattern (2026 guide)](https://callsphere.ai/blog/langgraph-supervisor-multi-agent-orchestration-2026)
+- [Mastra GitHub](https://github.com/mastra-ai/mastra) — full-framework reference (NOT adopted for v2.0)
+- [Mastra 1.0 release (Jan 2026)](https://mastra.ai/categories/announcements)
+- [Langfuse OpenTelemetry integration with Vercel AI SDK](https://langfuse.com/integrations/frameworks/vercel-ai-sdk)
+- [Langfuse self-hosting requirements](https://langfuse.com/self-hosting/configuration/observability)
+- [Langfuse vs Helicone vs LangSmith vs Braintrust (2026)](https://appscale.blog/en/blog/langfuse-vs-langsmith-vs-braintrust-vs-helicone-2026)
+- [Best Multi-Agent Frameworks in 2026 (overview)](https://gurusup.com/blog/best-multi-agent-frameworks-2026)
+- Existing `@anthropic-ai/sdk@^0.82.0` in `package.json` line 22 — already shipped, used in `src/lib/chat/stream/anthropic.ts`
+
+**Confidence calibration:**
+- Version numbers verified via npm and official release blogs in May 2026 (HIGH).
+- "Custom orchestrator over framework adoption" is HIGH confidence — Operator already has working streaming + tool-call code in `src/lib/chat/stream/`; building on it is lower risk than swapping it out.
+- Vercel AI SDK v6 narrow adoption is MEDIUM confidence — v6 just landed (Jan 2026), small breaking-change risk; deferring the decision to first-phase spike is the pragmatic call.
+- Langfuse deferral is MEDIUM confidence — infrastructure cost is the dominant factor; if the team grows or external auditing becomes a hard requirement, revisit.
 
 ---
 
-*Stack additions for: Operator v1.3 — Google Reviews Widget + Meta Messaging*
-*Researched: 2026-05-04*
+*Stack additions for: Operator v2.0 — Multi-Bot Platform (Channel-Agnostic Agent Abstraction)*
+*Researched: 2026-05-15*
