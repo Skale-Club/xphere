@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Multi-Bot Platform
 status: executing
-stopped_at: Completed 34-03-PLAN.md
-last_updated: "2026-05-16T13:08:23.335Z"
+stopped_at: Completed 34-05-PLAN.md — runAgent() full orchestration loop
+last_updated: "2026-05-16T13:41:41.233Z"
 last_activity: 2026-05-16
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 17
-  completed_plans: 14
+  completed_plans: 16
 ---
 
 # Operator - State
@@ -18,7 +18,7 @@ progress:
 ## Current Position
 
 Phase: 34 (agent-runtime-skeleton-day-1-guardrails) — EXECUTING
-Plan: 4 of 6 (Plans 01 and 02 complete)
+Plan: 5 of 6 (Plans 01 and 02 complete)
 Next phase: 34 (agent-runtime-skeleton-day-1-guardrails) — Plans 03-06 remaining
 Status: Ready to execute
 Last activity: 2026-05-16
@@ -137,6 +137,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 - [Phase 34]: D-34-06 honored: system_prompt read from agent_prompt_versions via active_prompt_version_id FK hint; fallback to agents.system_prompt with structured warning if version row missing
 - [Phase 34]: D-34-07 honored: resolveTool() in action-engine untouched; resolveAgentTool() is entirely new in agent-runtime/
 - [Phase 34]: agents table has no max_tokens or temperature columns (not in migration 034): maxTokens defaults to 1024; temperature is override-only (undefined if not overridden)
+- [Phase 34]: Used dynamicTool() over tool() in ai@^6 for dynamic ToolSet — avoids generic overload conflict with Record<string,unknown> parameters
+- [Phase 34]: database.ts agent_invocations.Update was Record<string,never> (bug) — fixed to partial update shape to enable updateInvocationEnd()
 
 ## Pending Todos
 
@@ -147,8 +149,8 @@ Agents invoke **existing `tool_configs` rows** via the **existing action-engine*
 
 ## Session Continuity
 
-Last session: 2026-05-16T13:08:23.283Z
-Stopped at: Completed 34-03-PLAN.md
+Last session: 2026-05-16T13:41:41.229Z
+Stopped at: Completed 34-05-PLAN.md — runAgent() full orchestration loop
 
 ## Performance Metrics
 
@@ -166,3 +168,4 @@ Stopped at: Completed 34-03-PLAN.md
 | Phase 34 P01 | 12 | 1 tasks | 3 files |
 | Phase 34 P02 | 15min | 3 tasks | 2 files |
 | Phase 34 P03 | 17min | 2 tasks | 3 files |
+| Phase 34-agent-runtime-skeleton-day-1-guardrails P05 | 45min | 2 tasks | 4 files |
