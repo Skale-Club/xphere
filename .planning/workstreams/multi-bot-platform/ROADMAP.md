@@ -16,7 +16,7 @@ Operator is a multi-tenant agency operations platform built around a reliable Ac
 - ✅ **v1.7 Google Contacts Integration** - Phase 29 (shipped 2026-05-07)
 - ✅ **v1.8 Executor Completeness** - Phases 30-31 (shipped 2026-05-08)
 - ✅ **v1.9 GHL Lost-Lead Reengagement (SMS)** - Phase 32 (shipped 2026-05-16)
-- 🚧 **v2.0 Multi-Bot Platform** - Phases 33-41 (defining)
+- ✅ **v2.0 Multi-Bot Platform** - Phases 33-42 (shipped 2026-05-17)
 
 Archived roadmaps: `.planning/milestones/v1.{0..8}-ROADMAP.md`.
 

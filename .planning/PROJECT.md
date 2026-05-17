@@ -12,42 +12,13 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v2.0 Multi-Bot Platform — Phase 35 (Web Widget Canary Cutover) next
+## Current State: v2.0 Multi-Bot Platform ✅ Shipped 2026-05-17
 
-**Phase 33 (Schema Foundation):** ✅ Complete 2026-05-16 — 7 migrations (034-040) live, Main Agent seeded per org, 13/13 tests GREEN.
-**Phase 34 (Agent Runtime Skeleton):** ✅ Complete 2026-05-16 — `runAgent()` entry point + all 5 guardrails + ai@^6 adopted + 44/44 tests GREEN.
-**Phase 35 (Web Widget Canary Cutover):** ✅ Complete 2026-05-16 — route.ts calls `runAgent({stream:true})`; `createChatStream` shim preserved; `conversations.agent_id` live (GATE-07 closed); 15/15 tests GREEN.
+**10 phases, 43 plans, 8 migrations (042-047) applied to remote Supabase.**
 
-### v2.0 Multi-Bot Platform — Channel-Agnostic Agent Abstraction
+Operator now has a first-class `agents` entity for all text channels. Every existing org was backfilled with a Main Agent byte-identical to v1.4 chat behavior. The platform supports multi-agent delegation with intersection authorization, prompt versioning with draft/publish flow, a multi-channel playground, per-agent observability, and Google SSO with team invites (pending operator Google Cloud Console config).
 
-**Goal:** Promote agent to a first-class entity in Operator with its own prompt, scoped tools, knowledge base scope, and per-channel overrides — and add multi-bot composition (an agent can delegate to specialist "partner" agents). Chat reaches feature-parity with voice.
-
-**Non-goal (explicit):** This milestone does NOT touch Vapi voice agents. Vapi remains the source of truth for everything voice-related (agent prompts, voice tools, call orchestration, transfers). `assistant_mappings` continues unchanged. Operator's `agents` are for **text channels only** — web widget, WhatsApp, Meta, ManyChat, Telegram. The "voice and chat as peers" principle is satisfied by chat *catching up* to voice in capability, not by unifying their runtimes.
-
-**Target features:**
-- New `agents` entity (per-org) with prompt, model, tools, KB scope, channel_overrides JSONB
-- Per-channel prompt overrides (e.g. shorter responses for SMS vs full markdown for web widget)
-- Tool scoping: agent-level RBAC layer over the existing action-engine (today tools are org-scoped only)
-- Multi-agent delegation (chat-first): an agent can call partner agents as sub-routines, with loop detection and depth limits
-- Agent CRUD UI in the dashboard with a multi-channel test playground
-- Channel-agnostic chat runtime: same agent definition consumed by web widget, WhatsApp/Meta/ManyChat/Telegram inbound handlers
-- Replace `src/lib/chat/`'s monolithic prompt with `runAgent(agentId, channel, context)`
-- Observability: per-agent metrics (LLM cost, latency, tool-call counts, delegation graphs)
-
-**Key context:**
-- Naming decision: **agent** (not "bot", not "assistant" — avoids collision with Vapi/OpenAI Assistants)
-- Agents are always org-scoped; cross-org templates/marketplace deferred to v2.x
-- Channel-specific overrides allowed via `channel_overrides` JSONB field, not by forking the agent
-- Multi-agent delegation is chat-only in v2.0; voice handoff is Vapi-native and out of scope
-- Action engine stays shared between Vapi and chat; new tool-scoping layer applies on the chat path
-- Success criterion (verbatim from SEED-002): *"the shape of the app is around voice and that needs to end — text chat is just as important"*
-
-**Out of scope (this milestone):**
-- Voice agent management (stays in Vapi)
-- Cross-org agent templates / marketplace
-- Prompt A/B testing (versioning schema is in scope; testing UI is not)
-- Multi-agent delegation in voice
-- Replacing Vapi as a voice provider
+**Pending operator action:** Configure Google Cloud Console OAuth client + enable Supabase Google provider + set `NEXT_PUBLIC_SITE_URL` on Vercel to activate Google SSO (Phase 42-02).
 
 ## Last Milestone: v1.9 GHL Lost-Lead Reengagement (SMS) ✅ Complete 2026-05-16 ⚠️ pending operator HUMAN-UAT
 
@@ -218,17 +189,9 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Schema: `manychat_rules.agent_id` + `meta_channels.agent_id` additive nullable columns (Phase 37 dispatcher branches on these) — v2.0 Phase 33 (CHAN-06)
 - Every existing org has a seeded "Main Agent" with system_prompt byte-equal to v1.4 chat template + all active tool_configs granted + web_widget channel default — v2.0 Phase 33 (GATE-07 surrogate; literal verification in Phase 35)
 
-### Active (v2.0 Multi-Bot Platform — Phase 34 next)
+### Active (v2.0 shipped — planning v2.1 next)
 
-In progress (post-Phase-33):
-- AGENT-01..08, AGENT-10..15 (agent CRUD + prompt versioning UX)
-- TOOL-02..06 (tool picker + runtime guard)
-- RUNTIME-01..10 (channel-agnostic agent runtime + day-1 guardrails)
-- DELEG-02..08 (partner-tool injection + intersection authz)
-- CHAN-01..05 (channel adapters + widget/ManyChat/Meta cutover)
-- IDEMP-01..03 (idempotency wrappers)
-- PLAY-01..05 (multi-channel playground)
-- OBS-04..08 (observability UI)
+All v2.0 requirements shipped. Next milestone to be defined via `/gsd:new-milestone`.
 
 ### Backlog (next milestone candidates)
 
@@ -304,4 +267,4 @@ In progress (post-Phase-33):
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-16 — v2.0 Phase 33 complete (7 migrations live + Main Agent seeded per org + byte-equal v1.4 prompt verified; 8/8 REQs covered; zero Vapi diff; Phase 34 Runtime Skeleton unblocked)*
+*Last updated: 2026-05-17 — v2.0 Multi-Bot Platform shipped (10 phases, 43 plans, migrations 042-047 live; agent runtime, multi-agent delegation, prompt versioning, observability UI, playground, Google SSO all complete)*
