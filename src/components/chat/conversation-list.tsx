@@ -1,26 +1,29 @@
 'use client'
 
 /**
- * Redesigned conversation list (v2.2 / SEED-011).
+ * Redesigned conversation list (v2.2 / SEED-011 + v2.2 page-based pagination).
  *
  * Visual contract:
- *   - Sticky header: "Inbox" + unread count, full-width search with ⌘K hint,
+ *   - Sticky header: "Inbox" + total count, full-width search with ⌘K hint,
  *     filter pills (All / Unread / Mine + per-channel) using ChannelBadge.
- *   - Pinned section floats to the top whenever any conversation has pinned=true.
+ *   - Pinned section floats to the top on every page when any pinned conv exists.
  *   - Cards: avatar, name, last-message preview (1 line), ChannelBadge inline,
  *     relative timestamp, unread + bot/priority status pills, hover/selected
  *     states, optional 3px accent left-border when priority != normal.
- *   - Skeleton during fetch, EmptyState when nothing matches.
+ *   - Skeleton during initial fetch; brief flash on page change.
+ *   - Sticky pagination footer at the bottom with Prev / "X–Y of N" / Next.
  *
- * State ownership:
- *   - Filtering + search live here. The parent (AdminChatLayout) owns
- *     conversation data and selection.
- *   - Pin/priority/archive mutations are still optimistic via parent callbacks
- *     so realtime UPDATE events reconcile without flicker.
+ * Pagination model:
+ *   - True page-based pagination (NOT infinite scroll). 30 conversations
+ *     per page max — DOM stays bounded, scroll bar stays usable.
+ *   - Filter pill changes propagate up to the parent via `onFilterChange`,
+ *     which drives `usePaginatedConversations` to reset to page 1 and refetch.
+ *   - Search is client-side only — it filters within the current page.
+ *   - Page-change handler scrolls the list viewport back to the top.
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { Search, Pin, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
+import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 import { ConversationSummary } from '@/types/chat'
@@ -29,7 +32,6 @@ import { StatusPill } from '@/components/design-system/status-pill'
 import { EmptyState } from '@/components/empty-states/empty-state'
 import { ListSkeleton } from '@/components/skeletons/list-skeleton'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -62,6 +64,17 @@ const CHANNEL_MAP: Record<string, Channel> = {
   web: 'web',
 }
 
+// Reverse: design-system label → raw DB value for /api filter param
+const CHANNEL_TO_DB: Record<Channel, string> = {
+  whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  sms: 'sms',
+  voice: 'voice',
+  web: 'widget',
+  unknown: '',
+}
+
 type FilterId = 'all' | 'unread' | 'mine' | Channel
 
 interface FilterPill {
@@ -70,11 +83,37 @@ interface FilterPill {
   channel?: Channel
 }
 
+export interface ConversationFilterChange {
+  status: string | null
+  assigned: string | null
+  channel: string | null
+}
+
 interface ConversationListProps {
+  /** UNPINNED conversations for the current page (max pageSize). */
   conversations: ConversationSummary[]
+  /** Pinned conversations (always anchored on top of every page). */
+  pinned: ConversationSummary[]
   selectedId: string | null
   currentUserId: string | null
+  /** True during the very first load or a filter-change re-load. */
   isLoading: boolean
+  /** True while changing pages — keeps the previous page visible briefly. */
+  isPageLoading: boolean
+  loadError: string | null
+
+  /** v2.2 pagination */
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+  onNextPage: () => void
+  onPrevPage: () => void
+
+  onRetry: () => void
+  onFilterChange: (filters: ConversationFilterChange) => void
   onSelect: (id: string) => void
   onConversationUpdated: () => void
   onConversationDeleted: (id: string) => void
@@ -111,11 +150,28 @@ function initialOf(name: string): string {
   return name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
 }
 
+// All channels are always available as pills — we don't auto-derive from
+// loaded data anymore because pagination only gives us a window.
+const ALL_CHANNEL_PILLS: Channel[] = ['whatsapp', 'instagram', 'messenger', 'sms', 'voice', 'web']
+
 export function ConversationList({
   conversations,
+  pinned,
   selectedId,
   currentUserId,
   isLoading,
+  isPageLoading,
+  loadError,
+  page,
+  pageSize,
+  totalCount,
+  totalPages,
+  hasNext,
+  hasPrev,
+  onNextPage,
+  onPrevPage,
+  onRetry,
+  onFilterChange,
   onSelect,
   onConversationUpdated,
   onConversationDeleted,
@@ -125,10 +181,11 @@ export function ConversationList({
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterId>('all')
   const searchRef = useRef<HTMLInputElement>(null)
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null)
 
-  // Debounce search for large lists
+  // Debounce search (300ms) — search is client-side over the current page.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 200)
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(t)
   }, [search])
 
@@ -144,15 +201,26 @@ export function ConversationList({
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // Detect channels present in current data — filter pills only show useful options.
-  const channelsPresent = useMemo(() => {
-    const set = new Set<Channel>()
-    for (const c of conversations) {
-      const ch = CHANNEL_MAP[c.channel] ?? 'unknown'
-      if (ch !== 'unknown') set.add(ch)
+  // Propagate filter changes to parent (which drives server fetch + page reset).
+  useEffect(() => {
+    let status: string | null = null
+    let assigned: string | null = null
+    let channel: string | null = null
+    if (activeFilter === 'unread') status = 'open'
+    else if (activeFilter === 'mine') assigned = 'me'
+    else if (activeFilter !== 'all') {
+      const dbValue = CHANNEL_TO_DB[activeFilter as Channel]
+      if (dbValue) channel = dbValue
     }
-    return set
-  }, [conversations])
+    onFilterChange({ status, assigned, channel })
+  }, [activeFilter, onFilterChange])
+
+  // Scroll to top whenever the page changes (so the user always lands at the
+  // top of the new page instead of mid-scroll).
+  useEffect(() => {
+    const viewport = scrollViewportRef.current
+    if (viewport) viewport.scrollTo({ top: 0, behavior: 'auto' })
+  }, [page])
 
   const pills: FilterPill[] = useMemo(() => {
     const base: FilterPill[] = [
@@ -160,51 +228,42 @@ export function ConversationList({
       { id: 'unread', label: 'Unread' },
     ]
     if (currentUserId) base.push({ id: 'mine', label: 'Mine' })
-    const channelOrder: Channel[] = ['whatsapp', 'instagram', 'messenger', 'sms', 'voice', 'web']
-    for (const ch of channelOrder) {
-      if (channelsPresent.has(ch)) {
-        base.push({ id: ch, label: ch.charAt(0).toUpperCase() + ch.slice(1), channel: ch })
-      }
+    for (const ch of ALL_CHANNEL_PILLS) {
+      base.push({ id: ch, label: ch.charAt(0).toUpperCase() + ch.slice(1), channel: ch })
     }
     return base
-  }, [channelsPresent, currentUserId])
+  }, [currentUserId])
 
-  const filtered = useMemo(() => {
+  // Search is local-only — filters the current page.
+  const filteredUnpinned = useMemo(() => {
+    if (!debouncedSearch.trim()) return conversations
+    const q = debouncedSearch.toLowerCase()
     return conversations.filter((c) => {
-      if (activeFilter === 'mine' && c.assignedUserId !== currentUserId) return false
-      // Unread heuristic: an open conversation with a customer message newer than the last assistant
-      // message would be the proper signal, but we don't track read state per-user yet — for now
-      // "unread" === open + last_message exists and was not from the operator side.
-      if (activeFilter === 'unread') {
-        if (c.status !== 'open') return false
-      }
-      if (activeFilter !== 'all' && activeFilter !== 'unread' && activeFilter !== 'mine') {
-        const ch = CHANNEL_MAP[c.channel] ?? 'unknown'
-        if (ch !== activeFilter) return false
-      }
-      if (debouncedSearch.trim()) {
-        const q = debouncedSearch.toLowerCase()
-        const hay = [
-          c.visitorName,
-          c.visitorEmail,
-          c.visitorPhone,
-          c.lastMessage,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        if (!hay.includes(q)) return false
-      }
-      return true
+      const hay = [c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(q)
     })
-  }, [conversations, activeFilter, debouncedSearch, currentUserId])
+  }, [conversations, debouncedSearch])
 
-  // Split pinned vs unpinned (already sorted by parent / API). Within each
-  // bucket the order from props is preserved.
-  const pinned = filtered.filter((c) => c.pinned)
-  const unpinned = filtered.filter((c) => !c.pinned)
+  const filteredPinned = useMemo(() => {
+    if (!debouncedSearch.trim()) return pinned
+    const q = debouncedSearch.toLowerCase()
+    return pinned.filter((c) => {
+      const hay = [c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(q)
+    })
+  }, [pinned, debouncedSearch])
 
-  const totalOpen = conversations.filter((c) => c.status === 'open').length
+  const hasAnyOnPage = filteredUnpinned.length + filteredPinned.length > 0
+
+  // Range string: "1–30 of 171"
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = Math.min(page * pageSize, totalCount)
 
   return (
     <div className="flex h-full flex-col border-r border-border-subtle bg-bg-secondary/40">
@@ -214,9 +273,9 @@ export function ConversationList({
           <h2 className="text-[15px] font-semibold tracking-tight text-text-primary">
             Inbox
           </h2>
-          {totalOpen > 0 && (
+          {totalCount > 0 && (
             <span className="text-[11px] tabular-nums text-text-tertiary">
-              {totalOpen} open
+              {totalCount} total
             </span>
           )}
         </div>
@@ -225,7 +284,7 @@ export function ConversationList({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" />
           <Input
             ref={searchRef}
-            placeholder="Search conversations…"
+            placeholder="Search this page…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 pl-9 pr-12 text-[13px] rounded-[8px] bg-bg-primary border-border-subtle focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-accent/15"
@@ -262,35 +321,52 @@ export function ConversationList({
       </div>
 
       {/* List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
         <div className="p-2 space-y-1">
           {isLoading ? (
             <div className="p-3">
               <ListSkeleton rows={8} />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : loadError && !hasAnyOnPage ? (
+            <div className="p-4">
+              <EmptyState
+                icon={Search}
+                title="Could not load conversations"
+                description={loadError}
+              />
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="rounded-[6px] border border-border-subtle bg-bg-tertiary px-3 py-1.5 text-[12px] font-medium text-text-primary hover:bg-bg-tertiary/80"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : !hasAnyOnPage ? (
             <div className="p-4">
               <EmptyState
                 icon={Search}
                 title={
-                  conversations.length === 0
+                  totalCount === 0 && pinned.length === 0
                     ? 'No conversations yet'
                     : 'No matches'
                 }
                 description={
-                  conversations.length === 0
+                  totalCount === 0 && pinned.length === 0
                     ? 'When customers message you across WhatsApp, Instagram, SMS, or your web widget, conversations will land here.'
-                    : 'Try a different search term or filter.'
+                    : 'Try a different search term, filter, or page.'
                 }
               />
             </div>
           ) : (
-            <>
-              {pinned.length > 0 && (
+            <div className={cn(isPageLoading && 'opacity-60 transition-opacity')}>
+              {filteredPinned.length > 0 && (
                 <>
                   <SectionLabel>Pinned</SectionLabel>
-                  {pinned.map((c) => (
-                    <ConversationCard
+                  {filteredPinned.map((c) => (
+                    <MemoConversationCard
                       key={c.id}
                       conversation={c}
                       selected={c.id === selectedId}
@@ -300,11 +376,11 @@ export function ConversationList({
                       onDelete={onConversationDeleted}
                     />
                   ))}
-                  {unpinned.length > 0 && <SectionLabel>All</SectionLabel>}
+                  {filteredUnpinned.length > 0 && <SectionLabel>All</SectionLabel>}
                 </>
               )}
-              {unpinned.map((c) => (
-                <ConversationCard
+              {filteredUnpinned.map((c) => (
+                <MemoConversationCard
                   key={c.id}
                   conversation={c}
                   selected={c.id === selectedId}
@@ -314,10 +390,54 @@ export function ConversationList({
                   onDelete={onConversationDeleted}
                 />
               ))}
-            </>
+            </div>
           )}
         </div>
       </ScrollArea>
+
+      {/* Sticky pagination footer */}
+      {totalCount > 0 && (
+        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t border-border-subtle bg-bg-secondary/95 backdrop-blur px-3 py-2">
+          <button
+            type="button"
+            onClick={onPrevPage}
+            disabled={!hasPrev || isPageLoading}
+            aria-label="Previous page"
+            title="Previous page"
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-[6px] text-text-tertiary transition-colors',
+              'hover:bg-bg-tertiary hover:text-text-primary',
+              'disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-tertiary',
+            )}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div className="flex flex-col items-center text-center leading-tight">
+            <span className="text-[11px] tabular-nums text-text-secondary">
+              {rangeStart}–{rangeEnd} of {totalCount}
+            </span>
+            <span className="text-[10px] tabular-nums text-text-tertiary">
+              Page {page} of {totalPages}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onNextPage}
+            disabled={!hasNext || isPageLoading}
+            aria-label="Next page"
+            title="Next page"
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-[6px] text-text-tertiary transition-colors',
+              'hover:bg-bg-tertiary hover:text-text-primary',
+              'disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-tertiary',
+            )}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -339,7 +459,7 @@ interface ConversationCardProps {
   onDelete: (id: string) => void
 }
 
-function ConversationCard({
+function ConversationCardBase({
   conversation,
   selected,
   onSelect,
@@ -364,21 +484,27 @@ function ConversationCard({
           ? 'before:bg-accent'
           : 'before:bg-transparent'
 
-  async function handleArchiveClick(e: React.MouseEvent) {
-    e.stopPropagation()
-    await fetch(`/api/chat/conversations/${conversation.id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: isArchived ? 'open' : 'closed' }),
-    })
-    onArchive()
-  }
+  const handleArchiveClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation()
+      await fetch(`/api/chat/conversations/${conversation.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: isArchived ? 'open' : 'closed' }),
+      })
+      onArchive()
+    },
+    [conversation.id, isArchived, onArchive],
+  )
 
-  async function handleDeleteConfirm(e: React.MouseEvent) {
-    e.stopPropagation()
-    await fetch(`/api/chat/conversations/${conversation.id}`, { method: 'DELETE' })
-    onDelete(conversation.id)
-  }
+  const handleDeleteConfirm = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation()
+      await fetch(`/api/chat/conversations/${conversation.id}`, { method: 'DELETE' })
+      onDelete(conversation.id)
+    },
+    [conversation.id, onDelete],
+  )
 
   return (
     <div
@@ -555,3 +681,25 @@ function ConversationCard({
     </div>
   )
 }
+
+/**
+ * Memoize cards on the fields that visibly change. With dozens of rendered
+ * cards this prevents re-renders cascading on every parent state change.
+ */
+const MemoConversationCard = memo(ConversationCardBase, (prev, next) => {
+  if (prev.selected !== next.selected) return false
+  if (prev.onPin !== next.onPin) return false
+  const a = prev.conversation
+  const b = next.conversation
+  return (
+    a.id === b.id &&
+    a.lastMessageAt === b.lastMessageAt &&
+    a.lastMessage === b.lastMessage &&
+    a.pinned === b.pinned &&
+    a.priority === b.priority &&
+    a.status === b.status &&
+    a.botStatus === b.botStatus &&
+    a.assignedUserId === b.assignedUserId &&
+    a.visitorName === b.visitorName
+  )
+})

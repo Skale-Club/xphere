@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Redesigned 3-column chat inbox (v2.2 / SEED-011).
+ * Redesigned 3-column chat inbox (v2.2 / SEED-011 + v2.2 page-based pagination).
  *
  *   ┌──────────────┬─────────────────────────┬──────────────┐
  *   │  Conv. list  │  Chat area (messages)   │  Contact info│
@@ -9,11 +9,16 @@
  *   └──────────────┴─────────────────────────┴──────────────┘
  *
  * Responsibilities owned here:
- *   - Fetch + cache conversations (REST) and messages (REST + realtime)
- *   - Realtime subscriptions for INSERT/UPDATE on conversations + messages
+ *   - Page-based conversation fetch via `usePaginatedConversations` (30/page)
+ *   - Messages (REST + realtime)
+ *   - Realtime subscriptions for INSERT/UPDATE on conversations + messages,
+ *     dispatched into the hook's prepend/upsert/remove helpers so the list
+ *     stays coherent without a full refetch.
  *   - Typing indicator via Supabase Realtime broadcast (no DB writes)
  *   - Pin / priority / assign / bot-toggle mutations (optimistic)
  *   - Mobile drawer behaviour (list / chat / info, one column visible at a time)
+ *   - Top-level filter state (status / assigned / channel) is owned here so the
+ *     hook can refetch + reset to page 1 when the user changes a pill.
  *
  * The left/middle/right column components are presentational and receive
  * pre-computed state. Realtime UPDATE events from Supabase reconcile any
@@ -37,9 +42,13 @@ import {
   type OrgMember,
 } from '@/app/(dashboard)/chat/actions'
 import { createClient } from '@/lib/supabase/client'
-import { ConversationList } from '@/components/chat/conversation-list'
+import {
+  ConversationList,
+  type ConversationFilterChange,
+} from '@/components/chat/conversation-list'
 import { ChatArea } from '@/components/chat/chat-area'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
+import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { cn } from '@/lib/utils'
 
 function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
@@ -86,8 +95,45 @@ interface ChatLayoutProps {
 type MobileView = 'list' | 'chat' | 'info'
 
 export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayoutProps) {
-  const [conversations, setConversations] = useState<ConversationSummary[]>([])
-  const [isConvLoading, setIsConvLoading] = useState(true)
+  // ─────────── Filters (server-side) ───────────
+  const [filters, setFilters] = useState<ConversationFilterChange>({
+    status: null,
+    assigned: null,
+    channel: null,
+  })
+
+  // Stable filter setter — the list calls this from an effect, so we want to
+  // ignore identical updates to prevent refetch loops.
+  const handleFilterChange = useCallback((next: ConversationFilterChange) => {
+    setFilters((prev) => {
+      if (prev.status === next.status && prev.assigned === next.assigned && prev.channel === next.channel) {
+        return prev
+      }
+      return next
+    })
+  }, [])
+
+  // ─────────── Paginated conversation feed ───────────
+  const {
+    conversations,
+    pinned,
+    page,
+    pageSize,
+    totalCount,
+    totalPages,
+    hasNext,
+    hasPrev,
+    isInitialLoading,
+    isPageLoading,
+    error: listError,
+    nextPage,
+    prevPage,
+    refresh: refreshConversations,
+    prepend: prependConversation,
+    upsert: upsertConversation,
+    remove: removeConversation,
+  } = usePaginatedConversations(filters)
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
@@ -106,19 +152,6 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
 
   // ───────────────────────── Data fetching ─────────────────────────
 
-  const fetchConversations = useCallback(async () => {
-    try {
-      const res = await fetch('/api/chat/conversations')
-      if (!res.ok) return
-      const data = await res.json()
-      setConversations(data.conversations ?? [])
-    } catch {
-      // Fail silently — realtime will catch up.
-    } finally {
-      setIsConvLoading(false)
-    }
-  }, [])
-
   const fetchMessages = useCallback(async (id: string) => {
     setIsMessagesLoading(true)
     try {
@@ -134,10 +167,6 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
       setIsMessagesLoading(false)
     }
   }, [])
-
-  useEffect(() => {
-    fetchConversations()
-  }, [fetchConversations])
 
   useEffect(() => {
     if (!selectedId) {
@@ -164,7 +193,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         { event: 'INSERT', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
           const newConv = mapConversationRow(payload.new)
-          setConversations((prev) => (prev.some((c) => c.id === newConv.id) ? prev : [newConv, ...prev]))
+          prependConversation(newConv)
         },
       )
       .on(
@@ -172,28 +201,22 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
           const updated = mapConversationRow(payload.new)
-          setConversations((prev) => {
-            const next = prev.map((c) =>
-              c.id === updated.id
-                ? { ...updated, channelAccountName: c.channelAccountName ?? updated.channelAccountName }
-                : c,
-            )
-            // Pinned first, then by last_message_at desc
-            return next.sort((a, b) => {
-              const pinDiff = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)
-              if (pinDiff !== 0) return pinDiff
-              return (
-                new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
-              )
-            })
-          })
+          upsertConversation(updated)
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
+        (payload) => {
+          const oldId = (payload.old as { id?: string })?.id
+          if (oldId) removeConversation(oldId)
         },
       )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [currentOrgId])
+  }, [currentOrgId, prependConversation, upsertConversation, removeConversation])
 
   // ───────────────────────── Realtime: messages ─────────────────────────
 
@@ -321,7 +344,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      await fetchConversations()
+      // Realtime UPDATE will reconcile the list — no manual refetch needed.
     } catch {
       // ignore
     }
@@ -330,10 +353,12 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
   async function handleDelete(id: string) {
     try {
       await fetch(`/api/chat/conversations/${id}`, { method: 'DELETE' })
-      setSelectedId(null)
-      setMessages([])
-      setMobileView('list')
-      await fetchConversations()
+      if (selectedId === id) {
+        setSelectedId(null)
+        setMessages([])
+        setMobileView('list')
+      }
+      removeConversation(id)
     } catch {
       // ignore
     }
@@ -343,50 +368,66 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     if (botTogglingId) return
     setBotTogglingId(conversationId)
     const optimistic = currentStatus === 'active' ? 'paused' : 'active'
-    setConversations((prev) =>
-      prev.map((c) => (c.id === conversationId ? { ...c, botStatus: optimistic } : c)),
-    )
+    const current = findVisibleConversation(conversationId)
+    if (current) {
+      upsertConversation({ ...current, botStatus: optimistic })
+    }
     const result = await toggleBotStatus(conversationId, currentStatus)
     if ('error' in result) {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, botStatus: currentStatus } : c)),
-      )
+      if (current) {
+        upsertConversation({ ...current, botStatus: currentStatus })
+      }
       toast.error('Failed to update bot status')
     }
     setBotTogglingId(null)
   }
 
-  async function handlePinToggle(id: string, pinned: boolean) {
-    // Optimistic
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned } : c)))
-    const res = await pinConversation(id, pinned)
+  async function handlePinToggle(id: string, pinnedNext: boolean) {
+    const current = findVisibleConversation(id)
+    if (current) {
+      upsertConversation({ ...current, pinned: pinnedNext })
+    }
+    const res = await pinConversation(id, pinnedNext)
     if ('error' in res) {
       toast.error('Could not pin conversation')
-      setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned: !pinned } : c)))
+      if (current) {
+        upsertConversation({ ...current, pinned: !pinnedNext })
+      }
+    } else {
+      // Pin/unpin flips a row between the pinned and unpinned buckets — the
+      // optimistic upsert removes it from the source bucket, but only a
+      // refetch can put it back in the destination bucket with proper sort.
+      refreshConversations()
     }
   }
 
   async function handlePriorityCycle(id: string, next: ConversationPriority) {
-    const current = conversations.find((c) => c.id === id)?.priority ?? 'normal'
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, priority: next } : c)))
+    const current = findVisibleConversation(id)
+    const previousPriority = current?.priority ?? 'normal'
+    if (current) {
+      upsertConversation({ ...current, priority: next })
+    }
     const res = await setConversationPriority(id, next)
     if ('error' in res) {
       toast.error('Could not update priority')
-      setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, priority: current } : c)))
+      if (current) {
+        upsertConversation({ ...current, priority: previousPriority })
+      }
     }
   }
 
   async function handleAssign(id: string, userId: string | null) {
-    const previous = conversations.find((c) => c.id === id)?.assignedUserId ?? null
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, assignedUserId: userId } : c)),
-    )
+    const current = findVisibleConversation(id)
+    const previous = current?.assignedUserId ?? null
+    if (current) {
+      upsertConversation({ ...current, assignedUserId: userId })
+    }
     const res = await assignConversation(id, userId)
     if ('error' in res) {
       toast.error('Could not assign conversation')
-      setConversations((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, assignedUserId: previous } : c)),
-      )
+      if (current) {
+        upsertConversation({ ...current, assignedUserId: previous })
+      }
     } else {
       toast.success(userId ? 'Conversation assigned' : 'Conversation unassigned')
     }
@@ -394,7 +435,19 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
 
   // ───────────────────────── Derived ─────────────────────────
 
-  const selected = conversations.find((c) => c.id === selectedId) ?? null
+  // Selected conversation may be in either bucket on the current page.
+  const selected =
+    conversations.find((c) => c.id === selectedId) ??
+    pinned.find((c) => c.id === selectedId) ??
+    null
+
+  // Helper for optimistic mutations: lookup across both buckets.
+  const findVisibleConversation = useCallback(
+    (id: string): ConversationSummary | undefined => {
+      return conversations.find((c) => c.id === id) ?? pinned.find((c) => c.id === id)
+    },
+    [conversations, pinned],
+  )
 
   // ───────────────────────── Render ─────────────────────────
 
@@ -411,17 +464,30 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
       >
         <ConversationList
           conversations={conversations}
+          pinned={pinned}
           selectedId={selectedId}
           currentUserId={currentUserId}
-          isLoading={isConvLoading}
+          isLoading={isInitialLoading}
+          isPageLoading={isPageLoading}
+          loadError={listError}
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          totalPages={totalPages}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
+          onRetry={refreshConversations}
+          onFilterChange={handleFilterChange}
           onSelect={(id) => setSelectedId(id)}
-          onConversationUpdated={fetchConversations}
+          onConversationUpdated={refreshConversations}
           onConversationDeleted={(id) => {
             if (selectedId === id) {
               setSelectedId(null)
               setMessages([])
             }
-            fetchConversations()
+            removeConversation(id)
           }}
           onPin={handlePinToggle}
         />
@@ -461,20 +527,33 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           <div className="w-full">
             <ConversationList
               conversations={conversations}
+              pinned={pinned}
               selectedId={selectedId}
               currentUserId={currentUserId}
-              isLoading={isConvLoading}
+              isLoading={isInitialLoading}
+              isPageLoading={isPageLoading}
+              loadError={listError}
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              totalPages={totalPages}
+              hasNext={hasNext}
+              hasPrev={hasPrev}
+              onNextPage={nextPage}
+              onPrevPage={prevPage}
+              onRetry={refreshConversations}
+              onFilterChange={handleFilterChange}
               onSelect={(id) => {
                 setSelectedId(id)
                 setMobileView('chat')
               }}
-              onConversationUpdated={fetchConversations}
+              onConversationUpdated={refreshConversations}
               onConversationDeleted={(id) => {
                 if (selectedId === id) {
                   setSelectedId(null)
                   setMessages([])
                 }
-                fetchConversations()
+                removeConversation(id)
               }}
               onPin={handlePinToggle}
             />
