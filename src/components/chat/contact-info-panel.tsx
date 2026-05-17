@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { getContact, type ContactDetail } from '@/app/(dashboard)/contacts/actions'
+import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { cn } from '@/lib/utils'
 
@@ -432,13 +433,6 @@ function UnregisteredCard({
   onClose?: () => void
   onCollapse?: () => void
 }) {
-  const params = new URLSearchParams()
-  if (name) params.set('name', name)
-  if (phone) params.set('phone', phone)
-  if (email) params.set('email', email)
-  params.set('from', '/chat')
-  const href = `/contacts/new?${params.toString()}`
-
   return (
     <div className="flex h-full flex-col border-l border-border-subtle bg-bg-secondary/40">
       <div className="flex justify-end gap-1 p-2">
@@ -477,9 +471,16 @@ function UnregisteredCard({
           <p className="mt-1 text-[12px] text-text-secondary">
             Create a contact to unlock notes, deals, and call history alongside this conversation.
           </p>
-          <Button asChild size="sm" className="mt-4">
-            <Link href={href}>Create contact</Link>
-          </Button>
+          <div className="mt-4 flex justify-center">
+            <NewContactDialog
+              defaultValues={{
+                name: name ?? '',
+                phone: phone ?? '',
+                email: email ?? '',
+              }}
+              trigger={<Button size="sm">Create contact</Button>}
+            />
+          </div>
         </div>
 
         {(name || phone || email) && (
