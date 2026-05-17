@@ -1,0 +1,164 @@
+'use client'
+
+import * as React from 'react'
+import Link from 'next/link'
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
+import { Area, AreaChart, ResponsiveContainer } from 'recharts'
+
+import { cn } from '@/lib/utils'
+
+export interface MetricCardProps {
+  label: string
+  value: string | number
+  /** Optional small label after the value, e.g. "calls" or "/day" */
+  unit?: string
+  /** Trend % vs previous period. Positive = up, negative = down. */
+  trend?: number | null
+  /** Optional sparkline data points */
+  data?: { value: number }[]
+  /** Optional icon shown next to label */
+  icon?: React.ComponentType<{ className?: string }>
+  /** Tone hint — affects sparkline color */
+  tone?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  /** Make whole card clickable */
+  href?: string
+  /** Optional footer hint (e.g. "Daily cap: $25") */
+  hint?: string
+  className?: string
+  /** Animation stagger index (0-based) */
+  index?: number
+}
+
+const toneColors: Record<NonNullable<MetricCardProps['tone']>, string> = {
+  default: 'var(--accent)',
+  success: 'var(--success)',
+  warning: 'var(--warning)',
+  danger:  'var(--danger)',
+  info:    'var(--info)',
+}
+
+export function MetricCard({
+  label,
+  value,
+  unit,
+  trend,
+  data,
+  icon: Icon,
+  tone = 'default',
+  href,
+  hint,
+  className,
+  index = 0,
+}: MetricCardProps) {
+  const color = toneColors[tone]
+  const gradientId = React.useId()
+
+  const TrendIcon =
+    trend === null || trend === undefined
+      ? null
+      : trend > 0
+      ? ArrowUpRight
+      : trend < 0
+      ? ArrowDownRight
+      : Minus
+
+  const trendColor =
+    trend === null || trend === undefined
+      ? 'text-text-tertiary'
+      : trend > 0
+      ? 'text-success'
+      : trend < 0
+      ? 'text-danger'
+      : 'text-text-tertiary'
+
+  const body = (
+    <div
+      className={cn(
+        'group relative flex flex-col gap-3 p-5',
+        'rounded-[12px] border border-border bg-bg-secondary',
+        'shadow-elevation-sm',
+        'transition-[transform,box-shadow,border-color] duration-200 ease-out',
+        href && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-elevation-md hover:border-border-strong',
+        'animate-fade-in',
+        className,
+      )}
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      {/* subtle accent glow on hover when interactive */}
+      {href && (
+        <div
+          aria-hidden
+          className="absolute inset-0 rounded-[12px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 80% 60% at 50% 0%, var(--accent-muted), transparent 70%)',
+          }}
+        />
+      )}
+
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+          {Icon && <Icon className="h-3.5 w-3.5" />}
+          <span>{label}</span>
+        </div>
+        {TrendIcon && (
+          <div
+            className={cn(
+              'flex items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-[11px] font-medium tabular',
+              trendColor,
+              trend !== null && trend !== undefined && trend > 0 && 'bg-[var(--success-muted)]',
+              trend !== null && trend !== undefined && trend < 0 && 'bg-[var(--danger-muted)]',
+            )}
+          >
+            <TrendIcon className="h-3 w-3" />
+            <span>{trend === null || trend === undefined ? '—' : `${Math.abs(trend)}%`}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="relative flex items-baseline gap-1.5">
+        <div className="text-[28px] font-semibold leading-none tracking-tight tabular text-text-primary">
+          {value}
+        </div>
+        {unit && <div className="text-[12.5px] text-text-tertiary">{unit}</div>}
+      </div>
+
+      {data && data.length > 0 && (
+        <div className="relative h-10 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={1.5}
+                fill={`url(#${gradientId})`}
+                isAnimationActive={false}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {hint && (
+        <div className="relative text-[11.5px] text-text-tertiary">{hint}</div>
+      )}
+    </div>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary rounded-[12px]">
+        {body}
+      </Link>
+    )
+  }
+  return body
+}

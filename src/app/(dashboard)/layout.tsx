@@ -1,11 +1,12 @@
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
-import { AppSidebar } from '@/components/layout/app-sidebar'
-import { OrgSwitcher } from '@/components/layout/org-switcher'
-import { AppBreadcrumb } from '@/components/layout/app-breadcrumb'
-import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
-import { createClient, getUser } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+
+import { Sidebar } from '@/components/layout/sidebar'
+import { SidebarStateProvider } from '@/components/layout/sidebar-context'
+import { TopBar } from '@/components/layout/top-bar'
+import { CommandPaletteProvider } from '@/components/command-palette'
+import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
+import { createClient, getUser } from '@/lib/supabase/server'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -44,24 +45,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
+
   return (
     <BreadcrumbOverrideProvider>
-    <SidebarProvider>
-      <AppSidebar user={user} isPlatformAdmin={user.email === process.env.PLATFORM_ADMIN_EMAIL} />
-      <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-          <SidebarTrigger className="-ml-0.5" />
-          <div className="h-4 w-px bg-border mx-0.5" />
-          <AppBreadcrumb />
-          <div className="ml-auto flex items-center gap-2">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} />
+      <SidebarStateProvider>
+        <CommandPaletteProvider>
+          <div className="flex min-h-dvh bg-bg-primary">
+            <Sidebar
+              user={user}
+              isPlatformAdmin={isPlatformAdmin}
+              activeOrgId={activeOrgId}
+              activeOrgName={activeOrgName}
+            />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopBar />
+              <main className="flex-1 overflow-auto">{children}</main>
+            </div>
           </div>
-        </header>
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+        </CommandPaletteProvider>
+      </SidebarStateProvider>
     </BreadcrumbOverrideProvider>
   )
 }
