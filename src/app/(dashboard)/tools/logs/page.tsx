@@ -1,8 +1,9 @@
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ScrollText } from 'lucide-react'
+
 import { getLogs, getToolOptions } from './actions'
 import { LogsTable } from '@/components/tools/logs-table'
 import { LogsFilters } from '@/components/tools/logs-filters'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { LogStatus } from './actions'
 
 const BASE_PATH = '/tools/logs'
@@ -51,21 +52,24 @@ export default async function ToolLogsPage({
   const nextHref = page < pageCount ? buildPageUrl(page + 1, filterParams) : null
 
   return (
-    <div className="p-6 space-y-5">
-      <Link
-        href="/tools"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Tools
-      </Link>
-
-      <div>
-        <h1 className="text-lg font-semibold">Execution Logs</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          All tool executions across your assistants.{total > 0 ? ` ${total} total.` : ''}
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Action engine"
+        eyebrowIcon={ScrollText}
+        title="Execution logs"
+        description={
+          <>
+            All tool executions across your assistants.
+            {total > 0 && (
+              <>
+                {' '}
+                <span className="tabular text-text-primary">{total}</span> total.
+              </>
+            )}
+          </>
+        }
+        back={{ href: '/tools', label: 'Back to tools' }}
+      />
 
       <LogsFilters
         toolOptions={toolOptions}
@@ -87,6 +91,6 @@ export default async function ToolLogsPage({
         prevHref={prevHref}
         nextHref={nextHref}
       />
-    </div>
+    </PageContainer>
   )
 }

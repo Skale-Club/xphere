@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
+import { Users } from 'lucide-react'
 
 import { getUser } from '@/lib/supabase/server'
 import { GoogleContactsSettings } from '@/components/integrations/google-contacts-settings'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getGoogleContactsIntegration } from './actions'
 
 interface Props {
@@ -18,19 +20,20 @@ export default async function GoogleContactsPage({ searchParams }: Props) {
   ])
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Google Contacts</h1>
-        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
-          Connect a Google account to create, update, find, and delete contacts via the action engine.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Google Contacts"
+        eyebrowIcon={Users}
+        title="Google Contacts"
+        description="Connect a Google account to create, update, find, and delete contacts via the action engine."
+        back={{ href: '/integrations', label: 'All integrations' }}
+      />
 
       <GoogleContactsSettings
         integration={integration}
         connected={params.connected === 'true'}
         error={params.error}
       />
-    </div>
+    </PageContainer>
   )
 }

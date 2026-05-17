@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { StatusPill } from '@/components/design-system/status-pill'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { IntegrationForm } from './integration-form'
 import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actions'
@@ -50,7 +50,7 @@ export function IntegrationsTable({ integrations }: IntegrationsTableProps) {
 
   return (
     <>
-      <div className="rounded-md border divide-y">
+      <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary divide-y divide-border-subtle">
         {ALL_PROVIDERS.map(({ id, label, description }) => {
           const integration = connectedMap.get(id)
           const isConnected = !!integration
@@ -59,29 +59,22 @@ export function IntegrationsTable({ integrations }: IntegrationsTableProps) {
             <button
               key={id}
               onClick={() => openSheet(id)}
-              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/40 transition-colors text-left group"
+              className="group flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:bg-bg-tertiary/50"
             >
-              <div>
-                <p className="text-sm font-medium">{label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-medium text-text-primary">{label}</p>
+                <p className="mt-0.5 text-[12px] text-text-tertiary">{description}</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 items-center gap-3">
                 {isConnected && (
-                  <span className="font-mono text-xs text-muted-foreground">
+                  <span className="hidden font-mono text-[11px] text-text-tertiary sm:inline">
                     {integration.masked_api_key}
                   </span>
                 )}
-                <Badge
-                  variant="outline"
-                  className={
-                    isConnected
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20'
-                      : 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20'
-                  }
-                >
+                <StatusPill tone={isConnected ? 'success' : 'idle'}>
                   {isConnected ? 'Connected' : 'Not connected'}
-                </Badge>
-                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </StatusPill>
+                <ChevronRight className="h-4 w-4 -translate-x-0.5 text-text-tertiary opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
               </div>
             </button>
           )

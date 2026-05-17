@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation'
+import { ShieldCheck } from 'lucide-react'
+
 import { getUser } from '@/lib/supabase/server'
 import { getPlatformSettingsForAdmin } from './actions'
 import { PlatformSettingsForm } from '@/components/settings/platform-settings-form'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 export default async function PlatformSettingsPage() {
   const user = await getUser()
@@ -18,14 +21,14 @@ export default async function PlatformSettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold">Platform Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Global configuration for the Operator platform. Changes take effect immediately.
-        </p>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Platform admin"
+        eyebrowIcon={ShieldCheck}
+        title="Platform settings"
+        description="Global configuration for the Operator platform. Changes take effect immediately."
+      />
       <PlatformSettingsForm settings={result.settings} />
-    </div>
+    </PageContainer>
   )
 }

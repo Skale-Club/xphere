@@ -1,6 +1,9 @@
 import { Suspense } from 'react'
+import { UsersRound } from 'lucide-react'
+
 import { listMembers, listInvites, inviteMember, revokeInvite, removeMember } from './actions'
 import { MembersClient } from './members-client'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,13 +14,13 @@ export default async function MembersPage() {
   ])
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage team members and invitations for this organization.
-        </p>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Team"
+        eyebrowIcon={UsersRound}
+        title="Members"
+        description="Manage team members and invitations for this organization."
+      />
       <Suspense fallback={null}>
         <MembersClient
           members={members}
@@ -27,6 +30,6 @@ export default async function MembersPage() {
           removeMember={removeMember}
         />
       </Suspense>
-    </div>
+    </PageContainer>
   )
 }

@@ -1,12 +1,27 @@
 import { notFound } from 'next/navigation'
+import { format } from 'date-fns'
+import { Megaphone } from 'lucide-react'
+
 import { getCampaignDetail } from '@/app/(dashboard)/outbound/actions'
 import { ContactStatusBoard } from '@/components/campaigns/contact-status-board'
 import { CsvImportForm } from '@/components/campaigns/csv-import-form'
-import { format } from 'date-fns'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { StatusPill } from '@/components/design-system/status-pill'
 import type { CampaignStatus } from '@/types/database'
 
 interface PageProps {
   params: Promise<{ id: string }>
+}
+
+function statusTone(status: CampaignStatus) {
+  switch (status) {
+    case 'in_progress': return 'live' as const
+    case 'completed':   return 'success' as const
+    case 'scheduled':   return 'info' as const
+    case 'paused':      return 'warning' as const
+    case 'stopped':     return 'danger' as const
+    default:            return 'idle' as const
+  }
 }
 
 export default async function CampaignDetailPage({ params }: PageProps) {
@@ -19,29 +34,45 @@ export default async function CampaignDetailPage({ params }: PageProps) {
   }
 
   const { campaign, contacts } = detail
+  const status = campaign.status as CampaignStatus
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">{campaign.name}</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {campaign.calls_per_minute} calls/min
-          {campaign.scheduled_start_at && ` · Scheduled ${format(new Date(campaign.scheduled_start_at), 'MMM d, yyyy HH:mm')}`}
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Outbound campaign"
+        eyebrowIcon={Megaphone}
+        back={{ href: '/phone?tab=campaigns', label: 'Back to campaigns' }}
+        title={<span className="truncate">{campaign.name}</span>}
+        description={
+          <span className="inline-flex items-center gap-2">
+            <StatusPill tone={statusTone(status)}>{status}</StatusPill>
+            <span className="text-text-tertiary">·</span>
+            <span><span className="tabular text-text-primary">{campaign.calls_per_minute}</span> calls/min</span>
+            {campaign.scheduled_start_at && (
+              <>
+                <span className="text-text-tertiary">·</span>
+                <span>Scheduled {format(new Date(campaign.scheduled_start_at), 'MMM d, yyyy HH:mm')}</span>
+              </>
+            )}
+          </span>
+        }
+      />
 
       <ContactStatusBoard
         campaignId={campaign.id}
         initialContacts={contacts}
-        campaignStatus={campaign.status as CampaignStatus}
+        campaignStatus={status}
       />
 
       {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
-        <div className="rounded-lg border p-6">
-          <h2 className="text-base font-semibold mb-4">Import Contacts</h2>
-          <CsvImportForm campaignId={campaign.id} />
+        <div className="rounded-[12px] border border-border bg-bg-secondary p-6 shadow-elevation-sm">
+          <h2 className="text-[15px] font-semibold tracking-tight text-text-primary">Import contacts</h2>
+          <p className="mt-1 text-[12.5px] text-text-secondary">Upload a CSV of contacts to call.</p>
+          <div className="mt-4">
+            <CsvImportForm campaignId={campaign.id} />
+          </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { MessageCircleMore } from 'lucide-react'
+
 import { getUser } from '@/lib/supabase/server'
 import { ManychatEvents } from '@/components/integrations/manychat-events'
+import { ManychatSubnav } from '@/components/integrations/manychat-subnav'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getManychatEvents } from '../event-actions'
 
 type SearchParams = {
@@ -34,41 +37,22 @@ export default async function ManychatEventsPage({
   })
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Event Log</h1>
-        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
-          Inbound ManyChat webhook events and their routing outcomes.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="ManyChat"
+        eyebrowIcon={MessageCircleMore}
+        title="Event log"
+        description="Inbound ManyChat webhook events and their routing outcomes."
+        back={{ href: '/integrations', label: 'All integrations' }}
+      />
 
-      {/* Sub-page navigation */}
-      <nav className="flex gap-4 border-b pb-2">
-        <Link
-          href="/integrations/manychat"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Settings
-        </Link>
-        <Link
-          href="/integrations/manychat/rules"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Rules
-        </Link>
-        <Link
-          href="/integrations/manychat/events"
-          className="text-sm font-medium underline underline-offset-4"
-        >
-          Events
-        </Link>
-      </nav>
+      <ManychatSubnav active="events" />
 
       <ManychatEvents
         initialEvents={events}
         initialTotal={total}
         searchParams={params}
       />
-    </div>
+    </PageContainer>
   )
 }

@@ -1,13 +1,19 @@
+import { Megaphone } from 'lucide-react'
+
 import { CampaignForm } from '@/components/campaigns/campaign-form'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 export default function NewCampaignPage() {
   return (
-    <div className="p-6 space-y-5 max-w-2xl">
-      <div>
-        <h1 className="text-lg font-semibold">New Campaign</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Create an outbound calling campaign.</p>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Outbound"
+        eyebrowIcon={Megaphone}
+        title="New campaign"
+        description="Create an outbound calling campaign. Set pacing, schedule, and assistant."
+        back={{ href: '/phone?tab=campaigns', label: 'Back to campaigns' }}
+      />
       <CampaignForm />
-    </div>
+    </PageContainer>
   )
 }

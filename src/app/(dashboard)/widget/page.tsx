@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { MessageSquare } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { WidgetSettingsForm } from '@/components/widget/widget-settings-form'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 const DEFAULT_WIDGET_SETTINGS = {
   displayName: 'AI Assistant',
@@ -30,7 +32,7 @@ export default async function WidgetPage() {
 
   if (!activeOrgId) {
     return (
-      <div className="p-6">
+      <PageContainer size="narrow">
         <Card>
           <CardHeader>
             <CardTitle>No active organization selected</CardTitle>
@@ -39,12 +41,12 @@ export default async function WidgetPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/organizations" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link href="/organizations" className="text-sm font-medium text-accent underline-offset-4 hover:underline">
               Go to organizations
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     )
   }
 
@@ -61,13 +63,13 @@ export default async function WidgetPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Widget</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Configure the public chat widget for {organization.name}.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Embed"
+        eyebrowIcon={MessageSquare}
+        title="Widget"
+        description={`Configure the public chat widget for ${organization.name}.`}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <WidgetSettingsForm
@@ -91,29 +93,29 @@ export default async function WidgetPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Active organization</CardTitle>
+            <CardTitle className="text-[15px]">Active organization</CardTitle>
             <CardDescription>
               Widget settings always apply to the current org selection in the dashboard.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
+          <CardContent className="space-y-4 text-[13px]">
             <div>
-              <p className="font-medium">Organization</p>
-              <p className="text-muted-foreground">{organization.name}</p>
+              <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Organization</p>
+              <p className="mt-1 font-medium text-text-primary">{organization.name}</p>
             </div>
             <div>
-              <p className="font-medium">Current token</p>
-              <code className="mt-1 block overflow-x-auto rounded-md bg-muted px-3 py-2 text-xs">
+              <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Current token</p>
+              <code className="mt-1 block overflow-x-auto rounded-[6px] border border-border-subtle bg-bg-tertiary px-3 py-2 text-[11px] font-mono text-text-secondary">
                 {organization.widget_token}
               </code>
             </div>
-            <div className="rounded-lg border border-dashed p-4 text-muted-foreground">
+            <div className="rounded-[8px] border border-dashed border-border bg-bg-secondary/40 p-4 text-[12px] leading-relaxed text-text-tertiary">
               Saved changes are picked up by new widget loads on public sites through the token-based
               config endpoint.
             </div>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageContainer>
   )
 }

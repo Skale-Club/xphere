@@ -259,7 +259,7 @@ export function AgentsTable({
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary shadow-elevation-sm">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

@@ -4,15 +4,26 @@
 // with cost + latency annotated per node.
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { Workflow } from 'lucide-react'
+
 import { createClient } from '@/lib/supabase/server'
 import { getConversationDelegationTree } from '@/lib/agent-runtime/observability'
 import { DelegationTree } from '@/components/conversations/delegation-tree'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { StatusPill } from '@/components/design-system/status-pill'
+import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 type Props = { params: Promise<{ id: string }> }
+
+const CHANNEL_MAP: Record<string, Channel> = {
+  whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  sms: 'sms',
+  voice: 'voice',
+  widget: 'web',
+  web: 'web',
+}
 
 export default async function ConversationDetailPage({ params }: Props) {
   const { id } = await params
@@ -36,39 +47,32 @@ export default async function ConversationDetailPage({ params }: Props) {
     conversation.visitor_email ??
     'Anonymous Visitor'
 
+  const channel: Channel = CHANNEL_MAP[conversation.channel ?? 'web'] ?? 'unknown'
+
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      {/* Back link */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild className="gap-1">
-          <Link href="/chat">
-            <ChevronLeft className="h-4 w-4" />
-            Back to Chat
-          </Link>
-        </Button>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Conversation"
+        eyebrowIcon={Workflow}
+        back={{ href: '/chat', label: 'Back to inbox' }}
+        title={<span className="truncate">{visitorLabel}</span>}
+        description={
+          <span className="inline-flex items-center gap-2">
+            <StatusPill tone={conversation.status === 'open' ? 'success' : 'idle'}>
+              {conversation.status}
+            </StatusPill>
+            <ChannelBadge channel={channel} />
+            <code className="font-mono text-[11px] text-text-tertiary">{id}</code>
+          </span>
+        }
+      />
 
-      {/* Conversation header */}
-      <div>
-        <div className="flex items-center gap-3 mb-1 flex-wrap">
-          <h1 className="text-lg font-semibold">{visitorLabel}</h1>
-          <Badge variant="outline" className="text-xs capitalize">
-            {conversation.status}
-          </Badge>
-          <Badge variant="outline" className="text-xs capitalize">
-            {conversation.channel}
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground font-mono">{id}</p>
-      </div>
-
-      {/* Delegation Tree */}
-      <div>
-        <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-          Agent Delegation Tree
+      <div className="space-y-3">
+        <h2 className="text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+          Agent delegation tree
         </h2>
         <DelegationTree roots={tree} />
       </div>
-    </div>
+    </PageContainer>
   )
 }

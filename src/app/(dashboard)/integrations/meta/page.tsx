@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { MessageCircleMore } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { MetaSettings } from '@/components/integrations/meta-settings'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 type MetaChannelView = {
   id: string
@@ -35,7 +37,7 @@ export default async function MetaIntegrationsPage() {
 
   if (!orgId) {
     return (
-      <div className="p-6">
+      <PageContainer size="narrow">
         <Card>
           <CardHeader>
             <CardTitle>No active organization selected</CardTitle>
@@ -44,12 +46,12 @@ export default async function MetaIntegrationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/organizations" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link href="/organizations" className="text-sm font-medium text-accent underline-offset-4 hover:underline">
               Go to organizations
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     )
   }
 
@@ -93,15 +95,16 @@ export default async function MetaIntegrationsPage() {
   }))
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Meta Messaging</h1>
-        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
-          Connect Facebook once to sync the org&apos;s Messenger pages and any linked Instagram professional accounts.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Meta Messaging"
+        eyebrowIcon={MessageCircleMore}
+        title="Meta Messaging"
+        description="Connect Facebook once to sync the org's Messenger pages and any linked Instagram professional accounts."
+        back={{ href: '/integrations', label: 'All integrations' }}
+      />
 
       <MetaSettings channels={channelRows} automationOptions={automationOptions} />
-    </div>
+    </PageContainer>
   )
 }

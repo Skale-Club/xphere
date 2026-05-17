@@ -1,92 +1,183 @@
 import Link from 'next/link'
-
-import { MessageCircleMore, Star, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  Bot,
+  Brain,
+  CalendarClock,
+  MessageCircleMore,
+  Phone,
+  Plug,
+  Send,
+  Sparkles,
+  Star,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { getIntegrations } from './actions'
 import { IntegrationsTable } from '@/components/integrations/integrations-table'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusPill } from '@/components/design-system/status-pill'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { cn } from '@/lib/utils'
+
+interface DedicatedIntegration {
+  href: string
+  icon: LucideIcon
+  name: string
+  description: string
+  connected?: boolean
+  tone?: 'accent' | 'green' | 'pink' | 'amber' | 'sky'
+}
+
+const toneStyles: Record<NonNullable<DedicatedIntegration['tone']>, string> = {
+  accent: 'from-accent-muted/40 to-transparent text-accent',
+  green:  'from-[var(--success-muted)]/40 to-transparent text-success',
+  pink:   'from-[var(--ch-instagram)]/15 to-transparent text-[var(--ch-instagram)]',
+  amber:  'from-[var(--warning-muted)]/40 to-transparent text-warning',
+  sky:    'from-[var(--info-muted)]/40 to-transparent text-info',
+}
 
 export default async function IntegrationsPage() {
   const integrations = await getIntegrations()
 
+  // Best-effort connection state for dedicated integrations
+  const hasManychat = integrations.some((i) => i.provider === 'manychat' && i.is_active)
+  const hasGoogleContacts = integrations.some((i) => i.provider === 'google_contacts' && i.is_active)
+
+  const dedicated: DedicatedIntegration[] = [
+    {
+      href: '/integrations/meta',
+      icon: MessageCircleMore,
+      name: 'Meta Messaging',
+      description: 'Connect Facebook once to sync Messenger pages and linked Instagram pro accounts.',
+      tone: 'pink',
+    },
+    {
+      href: '/integrations/manychat',
+      icon: MessageCircleMore,
+      name: 'ManyChat',
+      description: 'Receive subscriber events from ManyChat and route them to actions.',
+      connected: hasManychat,
+      tone: 'accent',
+    },
+    {
+      href: '/integrations/google-contacts',
+      icon: Users,
+      name: 'Google Contacts',
+      description: 'Create, update, find, and delete contacts via the action engine.',
+      connected: hasGoogleContacts,
+      tone: 'sky',
+    },
+    {
+      href: '/integrations/google-reviews',
+      icon: Star,
+      name: 'Google Reviews',
+      description: 'Scrape your Google Business reviews daily and serve them via embeddable widget.',
+      tone: 'amber',
+    },
+  ]
+
   return (
-    <div className="p-6 space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Integrations</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Connect external services to your organization.
+    <PageContainer>
+      <PageHeader
+        eyebrow="Connections"
+        eyebrowIcon={Plug}
+        title="Integrations"
+        description="Wire Operator into the rest of your stack — messaging, voice, CRM, scheduling, and AI providers."
+      />
+
+      {/* Dedicated channel/integration cards */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+          <Sparkles className="h-3.5 w-3.5 text-accent" />
+          <span>Channels & dedicated</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {dedicated.map((item, idx) => (
+            <DedicatedCard key={item.href} item={item} index={idx} />
+          ))}
+        </div>
+      </section>
+
+      {/* Generic API-key integrations */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+          <ProviderClusterIcon />
+          <span>API key providers</span>
+        </div>
+        <IntegrationsTable integrations={integrations} />
+      </section>
+    </PageContainer>
+  )
+}
+
+function DedicatedCard({ item, index }: { item: DedicatedIntegration; index: number }) {
+  const tone = item.tone ?? 'accent'
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        'group relative flex flex-col gap-4 overflow-hidden rounded-[12px] border border-border bg-bg-secondary p-5',
+        'shadow-elevation-sm transition-[transform,box-shadow,border-color] duration-200 ease-out',
+        'hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevation-md',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary',
+        'animate-fade-in',
+      )}
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      <div
+        aria-hidden
+        className={cn(
+          'absolute inset-x-0 top-0 h-24 opacity-50 pointer-events-none',
+          'bg-gradient-to-b',
+          toneStyles[tone],
+        )}
+      />
+
+      <div className="relative flex items-start justify-between">
+        <div
+          className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-[10px] ring-1 ring-border-subtle',
+            'bg-bg-tertiary',
+            toneStyles[tone].split(' ').filter((c) => c.startsWith('text-')).join(' '),
+          )}
+        >
+          <item.icon className="h-5 w-5" />
+        </div>
+        {item.connected !== undefined && (
+          item.connected ? (
+            <StatusPill tone="success">Connected</StatusPill>
+          ) : (
+            <StatusPill tone="idle">Not connected</StatusPill>
+          )
+        )}
+      </div>
+
+      <div className="relative flex min-w-0 flex-col gap-1">
+        <h3 className="text-[15px] font-semibold tracking-tight text-text-primary">
+          {item.name}
+        </h3>
+        <p className="text-[12.5px] leading-relaxed text-text-secondary">
+          {item.description}
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <MessageCircleMore className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Meta Messaging</CardTitle>
-          </div>
-          <CardDescription>
-            Facebook Login manages multiple Messenger and Instagram channel rows, so it lives on a dedicated settings page.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/integrations/meta" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-            Open Meta channel settings
-          </Link>
-        </CardContent>
-      </Card>
+      <div className="relative mt-auto inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary group-hover:text-text-primary">
+        Configure
+        <ArrowRight className="h-3 w-3 -translate-x-0.5 transition-transform duration-200 group-hover:translate-x-0" />
+      </div>
+    </Link>
+  )
+}
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <MessageCircleMore className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">ManyChat</CardTitle>
-          </div>
-          <CardDescription>
-            Connect a ManyChat bot to receive subscriber events and route them to actions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/integrations/manychat" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-            Open ManyChat settings
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Google Contacts</CardTitle>
-          </div>
-          <CardDescription>
-            Connect a Google account to create, update, find, and delete contacts via the action engine.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/integrations/google-contacts" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-            Open Google Contacts settings
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Star className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Google Reviews</CardTitle>
-          </div>
-          <CardDescription>
-            Scrape your Google Business reviews daily via SerpAPI and serve them through an embeddable widget.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/integrations/google-reviews" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-            Open Google Reviews settings
-          </Link>
-        </CardContent>
-      </Card>
-
-      <IntegrationsTable integrations={integrations} />
-    </div>
+function ProviderClusterIcon() {
+  return (
+    <span className="inline-flex items-center -space-x-1">
+      <Brain className="h-3.5 w-3.5 text-accent" />
+      <Phone className="h-3.5 w-3.5 text-info" />
+      <CalendarClock className="h-3.5 w-3.5 text-success" />
+      <Send className="h-3.5 w-3.5 text-warning" />
+      <Bot className="h-3.5 w-3.5 text-text-tertiary" />
+    </span>
   )
 }

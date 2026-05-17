@@ -1,11 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { Phone } from 'lucide-react'
+
+import { createClient } from '@/lib/supabase/server'
 import { buildTimeline } from '@/lib/calls/timeline'
 import { CallDetailHeader } from '@/components/calls/call-detail-header'
 import { CallTranscript } from '@/components/calls/call-transcript'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { ArtifactMessage } from '@/types/vapi'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 
 export default async function CallDetailPage({
   params,
@@ -38,16 +39,16 @@ export default async function CallDetailPage({
     : []
 
   return (
-    <div className="p-6 space-y-5 max-w-3xl">
-      <Link
-        href="/calls"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Calls
-      </Link>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Call detail"
+        eyebrowIcon={Phone}
+        title="Call detail"
+        description="Transcript, action logs, and metadata for this call."
+        back={{ href: '/phone?tab=calls', label: 'Back to calls' }}
+      />
       <CallDetailHeader call={call} />
       <CallTranscript timeline={turns} />
-    </div>
+    </PageContainer>
   )
 }

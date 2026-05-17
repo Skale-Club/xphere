@@ -1,11 +1,14 @@
-import { createClient, getUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Phone } from 'lucide-react'
+
+import { createClient, getUser } from '@/lib/supabase/server'
 import { getCalls, getAssistantOptions } from '@/app/(dashboard)/calls/actions'
 import { getCampaigns } from '@/app/(dashboard)/outbound/actions'
 import { CallsFilters } from '@/components/calls/calls-filters'
 import { CallsTable } from '@/components/calls/calls-table'
 import { CampaignList } from '@/components/campaigns/campaign-list'
 import { AssistantMappingsTable } from '@/components/assistants/assistant-mappings-table'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { Database } from '@/types/database'
 import { PhoneTabs, type PhoneTab } from './_tabs'
 
@@ -85,16 +88,21 @@ export default async function PhonePage({
     assistantMappings = data ?? []
   }
 
+  const description =
+    activeTab === 'calls'
+      ? 'Every completed call processed through your assistants.'
+      : activeTab === 'campaigns'
+      ? 'Manage outbound calling campaigns.'
+      : 'Link Vapi assistants to this organization and keep a friendly name your team can recognize.'
+
   return (
-    <div className="p-6 space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Phone</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {activeTab === 'calls' && 'Every completed call processed through your assistants.'}
-          {activeTab === 'campaigns' && 'Manage outbound calling campaigns.'}
-          {activeTab === 'assistants' && 'Link Vapi assistants to this organization and keep a friendly name your team can recognize.'}
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Voice"
+        eyebrowIcon={Phone}
+        title="Phone"
+        description={description}
+      />
 
       <PhoneTabs activeTab={activeTab} />
 
@@ -113,6 +121,6 @@ export default async function PhonePage({
       {activeTab === 'assistants' && assistantMappings && (
         <AssistantMappingsTable mappings={assistantMappings} />
       )}
-    </div>
+    </PageContainer>
   )
 }

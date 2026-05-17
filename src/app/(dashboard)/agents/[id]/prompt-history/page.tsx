@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation'
+import { History } from 'lucide-react'
+
 import { getAgentById, getPromptVersionHistory } from '../../actions'
 import { PromptHistoryPanel } from '@/components/agents/prompt-history-panel'
-import { Button } from '@/components/ui/button'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -16,22 +16,22 @@ export default async function PromptHistoryPage({ params }: Props) {
   if (!agent) notFound()
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-4 flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild className="gap-1">
-          <Link href={`/dashboard/agents/${id}`}>
-            <ChevronLeft className="h-4 w-4" />
-            Back to {agent.name}
-          </Link>
-        </Button>
-      </div>
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold">Prompt History</h1>
-        <p className="text-sm text-muted-foreground">
-          {versions.length} version{versions.length !== 1 ? 's' : ''} · Click &quot;Activate&quot; to roll back to any prior version
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Prompt history"
+        eyebrowIcon={History}
+        title="Prompt history"
+        description={
+          <>
+            {versions.length} version{versions.length !== 1 ? 's' : ''} ·{' '}
+            <span className="text-text-tertiary">
+              Click &quot;Activate&quot; to roll back to any prior version
+            </span>
+          </>
+        }
+        back={{ href: `/agents/${id}`, label: `Back to ${agent.name}` }}
+      />
       <PromptHistoryPanel agentId={id} versions={versions} />
-    </div>
+    </PageContainer>
   )
 }

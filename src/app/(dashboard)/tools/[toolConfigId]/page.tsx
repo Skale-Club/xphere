@@ -1,11 +1,12 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { ChevronLeft } from 'lucide-react'
+import { Wrench } from 'lucide-react'
+
 import { createClient } from '@/lib/supabase/server'
 import { getLogs, getLogStats } from '@/app/(dashboard)/tools/logs/actions'
 import type { Database } from '@/types/database'
-import { Badge } from '@/components/ui/badge'
+import { StatusPill } from '@/components/design-system/status-pill'
+import { MetricCard } from '@/components/design-system/metric-card'
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import {
 import { LogsTable } from '@/components/tools/logs-table'
 import { LogsFilters } from '@/components/tools/logs-filters'
 import { InlineToolName } from '@/components/tools/inline-tool-name'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { LogStatus } from '@/app/(dashboard)/tools/logs/actions'
 
 type ToolConfigRow = Database['public']['Tables']['tool_configs']['Row']
@@ -104,101 +106,94 @@ export default async function ToolDetailPage({
   const prevHref = page > 1 ? buildPageUrl(toolConfigId, page - 1, filterParams) : null
   const nextHref = page < pageCount ? buildPageUrl(toolConfigId, page + 1, filterParams) : null
 
-  return (
-    <div className="p-6 space-y-5 max-w-5xl">
-      <Link
-        href="/tools"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Tools
-      </Link>
+  const successRate = stats.total > 0 ? Math.round((stats.successCount / stats.total) * 100) : null
 
-      <div className="space-y-1">
-        <InlineToolName toolConfigId={toolConfigId} initialName={typedToolConfig.tool_name} />
-        <p className="text-sm text-muted-foreground">
-          View this tool configuration and its execution logs.
-        </p>
+  return (
+    <PageContainer>
+      <PageHeader
+        eyebrow="Tool"
+        eyebrowIcon={Wrench}
+        back={{ href: '/tools', label: 'Back to tools' }}
+        title={
+          <InlineToolName toolConfigId={toolConfigId} initialName={typedToolConfig.tool_name} />
+        }
+        description={
+          <span className="inline-flex items-center gap-2">
+            {ACTION_TYPE_LABELS[typedToolConfig.action_type]}
+            <span className="text-text-tertiary">·</span>
+            <StatusPill tone={typedToolConfig.is_active ? 'success' : 'idle'}>
+              {typedToolConfig.is_active ? 'Active' : 'Inactive'}
+            </StatusPill>
+          </span>
+        }
+      />
+
+      {/* Metrics row */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <MetricCard
+          index={0}
+          label="Total runs"
+          value={stats.total.toLocaleString()}
+          tone="default"
+        />
+        <MetricCard
+          index={1}
+          label="Success rate"
+          value={successRate !== null ? `${successRate}%` : '—'}
+          tone={successRate !== null && successRate >= 90 ? 'success' : successRate !== null && successRate < 75 ? 'warning' : 'default'}
+          hint={`${stats.successCount} successes`}
+        />
+        <MetricCard
+          index={2}
+          label="Avg execution"
+          value={stats.averageMs != null ? `${stats.averageMs}` : '—'}
+          unit={stats.averageMs != null ? 'ms' : undefined}
+          tone="info"
+        />
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Configuration</CardTitle>
+          <CardTitle className="text-[15px]">Configuration</CardTitle>
           <CardDescription>
             This is the platform mapping used when Vapi calls this tool name.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid gap-x-6 gap-y-4 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <dt className="text-muted-foreground">Tool Name</dt>
-              <dd className="font-mono break-all">{typedToolConfig.tool_name}</dd>
+              <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Tool name</dt>
+              <dd className="mt-1 break-all font-mono text-text-primary">{typedToolConfig.tool_name}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Action Type</dt>
-              <dd>{ACTION_TYPE_LABELS[typedToolConfig.action_type]}</dd>
+              <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Action type</dt>
+              <dd className="mt-1 text-text-primary">{ACTION_TYPE_LABELS[typedToolConfig.action_type]}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Integration</dt>
-              <dd>{typedToolConfig.integrations?.name ?? '—'}</dd>
+              <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Integration</dt>
+              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.name ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Provider</dt>
-              <dd>{typedToolConfig.integrations?.provider ?? '—'}</dd>
+              <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Provider</dt>
+              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.provider ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Status</dt>
-              <dd>
-                <Badge
-                  variant="outline"
-                  className={
-                    typedToolConfig.is_active
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-zinc-500/15 text-zinc-400'
-                  }
-                >
-                  {typedToolConfig.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Created</dt>
-              <dd>{format(new Date(typedToolConfig.created_at), 'MMM d, yyyy HH:mm')}</dd>
+              <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Created</dt>
+              <dd className="mt-1 text-text-primary tabular">{format(new Date(typedToolConfig.created_at), 'MMM d, yyyy HH:mm')}</dd>
             </div>
           </dl>
 
-          <div className="mt-4 border-t pt-4">
-            <p className="text-xs text-muted-foreground mb-1">Fallback Message</p>
-            <p className="text-sm">{typedToolConfig.fallback_message}</p>
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Fallback message</p>
+            <p className="mt-1 text-[13px] text-text-primary">{typedToolConfig.fallback_message}</p>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Runs</CardDescription>
-            <CardTitle className="text-2xl">{stats.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Successes</CardDescription>
-            <CardTitle className="text-2xl">{stats.successCount}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Average Execution</CardDescription>
-            <CardTitle className="text-2xl">
-              {stats.averageMs != null ? `${stats.averageMs}ms` : '—'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold">Execution Logs</h2>
+        <h2 className="text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+          Execution logs
+        </h2>
         <LogsFilters
           toolOptions={[]}
           showToolFilter={false}
@@ -218,6 +213,6 @@ export default async function ToolDetailPage({
           nextHref={nextHref}
         />
       </div>
-    </div>
+    </PageContainer>
   )
 }

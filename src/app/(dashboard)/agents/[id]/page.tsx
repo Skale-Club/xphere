@@ -1,9 +1,13 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { Bot, FlaskConical, History, ListTree } from 'lucide-react'
+
 import { AgentForm } from '@/components/agents/agent-form'
 import { AgentMetricsWidget } from '@/components/agents/agent-metrics-widget'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getAgentById, getToolPickerData } from '../actions'
 import type { AgentChannel } from '@/lib/agents/channels'
 import type { AvailableModel } from '@/lib/agents/models'
@@ -37,37 +41,55 @@ export default async function EditAgentPage({ params }: Props) {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{agent.name}</h1>
-          <p className="text-sm text-muted-foreground font-mono">{agent.slug}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/agents/${id}/invocations`}>
-              Invocations
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/agents/${id}/playground`}>
-              Playground
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/agents/${id}/prompt-history`}>
-              Prompt History
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        eyebrow="Agent"
+        eyebrowIcon={Bot}
+        back={{ href: '/agents', label: 'Back to agents' }}
+        title={
+          <>
+            <span className="truncate">{agent.name}</span>
+            <Badge variant="outline" className="font-mono text-[10px] tracking-tight">
+              {agent.slug}
+            </Badge>
+          </>
+        }
+        description={
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-[5px] bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">
+              {agent.model}
+            </span>
+            <span className="text-text-tertiary">·</span>
+            <span>{agent.is_active ? 'Active' : 'Inactive'}</span>
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/agents/${id}/invocations`}>
+                <ListTree className="h-3.5 w-3.5" />
+                Invocations
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/agents/${id}/playground`}>
+                <FlaskConical className="h-3.5 w-3.5" />
+                Playground
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/agents/${id}/prompt-history`}>
+                <History className="h-3.5 w-3.5" />
+                History
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-      {/* OBS-04: Per-agent metrics widget */}
-      <div className="mb-6">
-        <Suspense fallback={<div className="h-36 bg-muted/30 rounded-lg animate-pulse" />}>
-          <AgentMetricsWidget agentId={id} />
-        </Suspense>
-      </div>
+      <Suspense fallback={<div className="h-36 animate-pulse rounded-[12px] border border-border bg-bg-secondary" />}>
+        <AgentMetricsWidget agentId={id} />
+      </Suspense>
 
       <AgentForm
         mode="edit"
@@ -76,6 +98,6 @@ export default async function EditAgentPage({ params }: Props) {
         initialToolIds={agent.tool_ids}
         toolPickerData={toolPickerData}
       />
-    </div>
+    </PageContainer>
   )
 }

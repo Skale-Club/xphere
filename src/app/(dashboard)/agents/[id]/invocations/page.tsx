@@ -3,12 +3,12 @@
 // Clicking a row opens InvocationDetailDrawer showing the delegation tree.
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ListTree } from 'lucide-react'
+
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getAgentById } from '../../actions'
 import { getAgentInvocations } from '@/lib/agent-runtime/observability'
 import { InvocationsList } from '@/components/agents/invocations-list'
-import { Button } from '@/components/ui/button'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -41,27 +41,26 @@ export default async function AgentInvocationsPage({ params, searchParams }: Pro
   if (!agent) notFound()
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-4 flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild className="gap-1">
-          <Link href={`/dashboard/agents/${id}`}>
-            <ChevronLeft className="h-4 w-4" />
-            Back to {agent.name}
-          </Link>
-        </Button>
-      </div>
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold">Invocations</h1>
-        <p className="text-sm text-muted-foreground">
-          {agent.name} · {invocations.total.toLocaleString()} total
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="Observability"
+        eyebrowIcon={ListTree}
+        title="Invocations"
+        description={
+          <>
+            <span className="font-medium text-text-primary">{agent.name}</span>{' '}
+            <span className="text-text-tertiary">·</span>{' '}
+            <span className="tabular">{invocations.total.toLocaleString()}</span> total
+          </>
+        }
+        back={{ href: `/agents/${id}`, label: `Back to ${agent.name}` }}
+      />
       <InvocationsList
         agentId={id}
         initialRows={invocations.rows}
         initialTotal={invocations.total}
         currentPage={page}
       />
-    </div>
+    </PageContainer>
   )
 }

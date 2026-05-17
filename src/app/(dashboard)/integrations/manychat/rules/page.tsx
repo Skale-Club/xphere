@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { MessageCircleMore } from 'lucide-react'
+
 import { getUser, createClient } from '@/lib/supabase/server'
 import { ManychatRules } from '@/components/integrations/manychat-rules'
+import { ManychatSubnav } from '@/components/integrations/manychat-subnav'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getManychatRules } from '../rule-actions'
 import type { Database } from '@/types/database'
 
@@ -25,43 +28,18 @@ export default async function ManychatRulesPage() {
   const channelId = channelResult.data?.id ?? null
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold">ManyChat</h1>
-        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
-          Connect your ManyChat bot to receive subscriber events and route them to actions.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        eyebrow="ManyChat"
+        eyebrowIcon={MessageCircleMore}
+        title="Routing rules"
+        description="Define how inbound ManyChat events are matched and routed to actions."
+        back={{ href: '/integrations', label: 'All integrations' }}
+      />
 
-      {/* Sub-page navigation */}
-      <nav className="flex gap-4 border-b pb-2">
-        <Link
-          href="/integrations/manychat"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Settings
-        </Link>
-        <Link
-          href="/integrations/manychat/rules"
-          className="text-sm font-medium underline underline-offset-4"
-        >
-          Rules
-        </Link>
-        <Link
-          href="/integrations/manychat/events"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Events
-        </Link>
-      </nav>
+      <ManychatSubnav active="rules" />
 
-      <div>
-        <h2 className="text-base font-semibold">Routing Rules</h2>
-        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
-          Define how inbound ManyChat events are matched and routed to actions.
-        </p>
-      </div>
       <ManychatRules rules={rules} toolConfigs={toolConfigs} channelId={channelId} />
-    </div>
+    </PageContainer>
   )
 }
