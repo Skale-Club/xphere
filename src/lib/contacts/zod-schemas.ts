@@ -1,0 +1,107 @@
+import { z } from 'zod'
+
+export const CONTACT_SOURCES = [
+  'manual',
+  'whatsapp',
+  'sms',
+  'instagram',
+  'csv_import',
+  'ghl_sync',
+] as const
+export type ContactSourceLiteral = (typeof CONTACT_SOURCES)[number]
+
+/**
+ * Normalises a phone string to a loose E.164-ish form: keeps a leading "+" and
+ * strips everything that isn't a digit. The platform doesn't enforce strict
+ * E.164 yet (legacy data may be inconsistent), but de-duplication relies on
+ * the normalised form.
+ */
+export function normalisePhone(input: string | null | undefined): string | null {
+  if (!input) return null
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  const plus = trimmed.startsWith('+') ? '+' : ''
+  const digits = trimmed.replace(/[^0-9]/g, '')
+  if (!digits) return null
+  return plus + digits
+}
+
+export function normaliseEmail(input: string | null | undefined): string | null {
+  if (!input) return null
+  const trimmed = input.trim().toLowerCase()
+  return trimmed || null
+}
+
+/**
+ * Form-facing schema: validates shape without transforming. Strings stay
+ * strings (with trimming) so react-hook-form's input/output types line up.
+ * Normalisation (phone → E.164-ish, email → lowercased) happens at the call
+ * site via {@link normaliseContactInput} before we hit Supabase.
+ */
+export const contactSchema = z
+  .object({
+    name: z.string().trim().max(200).optional(),
+    phone: z.string().trim().max(40).optional(),
+    email: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .refine(
+        (v) => !v || /.+@.+\..+/.test(v),
+        'Enter a valid email address',
+      ),
+    company: z.string().trim().max(500).optional(),
+    notes: z.string().trim().max(5000).optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(50).default([]),
+    source: z.enum(CONTACT_SOURCES).default('manual'),
+  })
+  .refine(
+    (v) => Boolean(v.name || v.phone || v.email),
+    { message: 'Provide at least a name, phone, or email', path: ['name'] },
+  )
+
+export type ContactFormInput = z.input<typeof contactSchema>
+export type ContactFormOutput = z.output<typeof contactSchema>
+
+/**
+ * Normalises a validated form value to the DB-ready shape:
+ *   * empty strings → null
+ *   * phone → E.164-loose
+ *   * email → lowercased
+ * Use after {@link contactSchema} has accepted the payload.
+ */
+export interface NormalisedContact {
+  name: string | null
+  phone: string | null
+  email: string | null
+  company: string | null
+  notes: string | null
+  tags: string[]
+  source: ContactSourceLiteral
+}
+
+export function normaliseContactInput(input: ContactFormOutput): NormalisedContact {
+  const blank = (v: string | undefined): string | null =>
+    v && v.trim().length > 0 ? v.trim() : null
+  return {
+    name: blank(input.name),
+    phone: normalisePhone(input.phone ?? null),
+    email: normaliseEmail(input.email ?? null),
+    company: blank(input.company),
+    notes: blank(input.notes),
+    tags: input.tags,
+    source: input.source,
+  }
+}
+
+export const contactListFiltersSchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  tag: z.string().trim().max(40).optional(),
+  source: z.enum(CONTACT_SOURCES).optional(),
+  sort: z.enum(['recent', 'name']).default('recent'),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(1).max(100).default(25),
+})
+
+export type ContactListFilters = z.output<typeof contactListFiltersSchema>

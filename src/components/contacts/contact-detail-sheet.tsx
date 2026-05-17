@@ -1,0 +1,320 @@
+'use client'
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import {
+  Phone,
+  Mail,
+  Building2,
+  Calendar,
+  Pencil,
+  Trash2,
+  MessageSquare,
+  PhoneCall,
+  Activity,
+} from 'lucide-react'
+
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
+import { ContactForm } from './contact-form'
+import {
+  getContact,
+  updateContact,
+  deleteContact,
+  type ContactDetail,
+} from '@/app/(dashboard)/contacts/actions'
+import { cn } from '@/lib/utils'
+
+interface ContactDetailSheetProps {
+  contactId: string | null
+  onOpenChange: (open: boolean) => void
+}
+
+function initialsOf(name: string | null, phone: string | null, email: string | null): string {
+  const base = name || email || phone || '?'
+  const parts = base.replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(/\s+/)
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return base.slice(0, 2).toUpperCase()
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.round(ms / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.round(h / 24)
+  if (d < 30) return `${d}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
+export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailSheetProps) {
+  const [contact, setContact] = React.useState<ContactDetail | null>(null)
+  const [loading, setLoading] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (!contactId) {
+      setContact(null)
+      setEditing(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    getContact(contactId).then((c) => {
+      if (cancelled) return
+      setContact(c)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [contactId])
+
+  async function handleDelete() {
+    if (!contact) return
+    if (!confirm(`Delete ${contact.name || 'this contact'}? This cannot be undone.`)) return
+    const res = await deleteContact(contact.id)
+    if (res && 'error' in res && res.error) {
+      toast.error(res.error)
+      return
+    }
+    toast.success('Contact deleted')
+    onOpenChange(false)
+    router.refresh()
+  }
+
+  return (
+    <Sheet open={Boolean(contactId)} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-[480px] flex flex-col overflow-hidden p-0">
+        {loading && !contact ? (
+          <div className="p-6 space-y-3 animate-pulse">
+            <div className="h-16 w-16 rounded-full bg-bg-tertiary" />
+            <div className="h-5 w-2/3 rounded bg-bg-tertiary" />
+            <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
+          </div>
+        ) : !contact ? (
+          <div className="p-6 text-[13px] text-text-secondary">Contact not found.</div>
+        ) : editing ? (
+          <div className="flex flex-col overflow-hidden h-full">
+            <SheetHeader className="border-b border-border-subtle px-6 py-4">
+              <SheetTitle>Edit contact</SheetTitle>
+              <SheetDescription>Update fields below.</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <ContactForm
+                defaultValues={{
+                  name: contact.name ?? '',
+                  phone: contact.phone ?? '',
+                  email: contact.email ?? '',
+                  company: contact.company ?? '',
+                  notes: contact.notes ?? '',
+                  tags: contact.tags ?? [],
+                }}
+                submitLabel="Save changes"
+                onCancel={() => setEditing(false)}
+                onSubmit={async (values) => {
+                  const res = await updateContact(contact.id, values)
+                  if (res && 'error' in res && res.error) return { error: res.error }
+                  toast.success('Contact updated')
+                  setEditing(false)
+                  const fresh = await getContact(contact.id)
+                  setContact(fresh)
+                  router.refresh()
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col overflow-hidden h-full">
+            {/* Header */}
+            <div className="border-b border-border-subtle px-6 py-5">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-14 w-14">
+                  <AvatarFallback className="text-[15px] font-semibold bg-accent-muted text-accent">
+                    {initialsOf(contact.name, contact.phone, contact.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <SheetTitle className="text-[18px] truncate">
+                    {contact.name || 'Unnamed contact'}
+                  </SheetTitle>
+                  {contact.company && (
+                    <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">
+                      {contact.company}
+                    </p>
+                  )}
+                  {contact.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {contact.tags.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center rounded-full bg-accent-muted px-2 py-0.5 text-[10.5px] font-medium text-accent"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-1.5">
+                <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleDelete} className="text-rose-400 hover:text-rose-300">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <Tabs defaultValue="info" className="flex flex-col flex-1 overflow-hidden">
+              <TabsList className="mx-6 mt-4 self-start">
+                <TabsTrigger value="info">Info</TabsTrigger>
+                <TabsTrigger value="conversations">
+                  Conversations
+                  {contact.conversations.length > 0 && (
+                    <span className="ml-1 text-[10px] text-text-tertiary">
+                      {contact.conversations.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="calls">Calls</TabsTrigger>
+                <TabsTrigger value="activities">Activities</TabsTrigger>
+              </TabsList>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <TabsContent value="info" className="space-y-3 mt-0">
+                  <InfoRow icon={Phone} label="Phone" value={contact.phone} />
+                  <InfoRow icon={Mail} label="Email" value={contact.email} />
+                  <InfoRow icon={Building2} label="Company" value={contact.company} />
+                  <InfoRow
+                    icon={Calendar}
+                    label="Created"
+                    value={`${relativeTime(contact.created_at)} · source: ${contact.source}`}
+                  />
+                  {contact.notes && (
+                    <div className="mt-4 rounded-[10px] border border-border-subtle bg-bg-secondary px-3.5 py-3">
+                      <div className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+                        Notes
+                      </div>
+                      <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-text-primary leading-relaxed">
+                        {contact.notes}
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="conversations" className="mt-0">
+                  {contact.conversations.length === 0 ? (
+                    <EmptyTab
+                      icon={MessageSquare}
+                      title="No conversations yet"
+                      description="When this contact messages on a channel, the thread will appear here."
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {contact.conversations.map((c) => (
+                        <a
+                          key={c.id}
+                          href={`/chat?conversation=${c.id}`}
+                          className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary px-3.5 py-3 hover:border-border-strong hover:bg-bg-tertiary/40 transition-colors duration-150"
+                        >
+                          <ChannelBadge channel={c.channel as Channel} showLabel={false} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12.5px] text-text-primary">
+                              {c.last_message || '—'}
+                            </div>
+                            <div className="text-[11px] text-text-tertiary">
+                              {relativeTime(c.last_message_at)} · {c.status}
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="calls" className="mt-0">
+                  <EmptyTab
+                    icon={PhoneCall}
+                    title="Calls coming soon"
+                    description="Voice call history will be linked here once the calls module is wired to contacts."
+                  />
+                </TabsContent>
+
+                <TabsContent value="activities" className="mt-0">
+                  <EmptyTab
+                    icon={Activity}
+                    title="Activities coming soon"
+                    description="The pipeline module will surface deals, tasks, and follow-ups here."
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string | null
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] uppercase tracking-wide text-text-tertiary">{label}</div>
+        <div className={cn('text-[13px]', value ? 'text-text-primary' : 'text-text-tertiary italic')}>
+          {value || 'Not set'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmptyTab({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-10 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <h4 className="text-[13.5px] font-medium text-text-primary">{title}</h4>
+      <p className="max-w-xs text-[12.5px] text-text-secondary leading-relaxed">{description}</p>
+    </div>
+  )
+}
