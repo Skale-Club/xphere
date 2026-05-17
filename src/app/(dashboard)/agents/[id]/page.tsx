@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { AgentForm } from '@/components/agents/agent-form'
+import { Button } from '@/components/ui/button'
 import { getAgentById, getToolPickerData } from '../actions'
 import type { AgentChannel } from '@/lib/agents/channels'
 import type { AvailableModel } from '@/lib/agents/models'
@@ -34,9 +36,23 @@ export default async function EditAgentPage({ params }: Props) {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold">{agent.name}</h1>
-        <p className="text-sm text-muted-foreground font-mono">{agent.slug}</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">{agent.name}</h1>
+          <p className="text-sm text-muted-foreground font-mono">{agent.slug}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/agents/${id}/playground`}>
+              Playground
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/agents/${id}/prompt-history`}>
+              Prompt History
+            </Link>
+          </Button>
+        </div>
       </div>
       <AgentForm
         mode="edit"
