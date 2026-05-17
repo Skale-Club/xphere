@@ -48,7 +48,7 @@ Admin:    /integrations/evolution → conectar instância (QR code), status, des
 - **Sem Chatwoot:** Operator é o inbox — não há sistema externo de mensagens
 - **Sem Evo CRM:** Operator tem CRM próprio (SEED-006, SEED-007, SEED-008)
 - **Ban risk:** aceito como trade-off do protocolo não-oficial; mitigar com comportamento (delays, volume)
-- **R2:** mídia (fotos, áudios, docs) do WhatsApp baixada do Evolution Go e salva no R2
+- **R2:** mídia (fotos, áudios, docs) do WhatsApp baixada do Evolution Go e salva no Hetzner Object Storage
 
 ## Próximo passo
 `/gsd:new-milestone` quando WhatsApp for prioridade → este seed vira base do milestone
