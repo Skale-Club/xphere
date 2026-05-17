@@ -16,6 +16,9 @@ import { MetricDealsWon } from '@/components/dashboard/widgets/metric-deals-won'
 import { MetricAvgRating } from '@/components/dashboard/widgets/metric-avg-rating'
 import { RecentConversations } from '@/components/dashboard/widgets/recent-conversations'
 import { PipelineOverview } from '@/components/dashboard/widgets/pipeline-overview'
+import { RecentCalls } from '@/components/dashboard/widgets/recent-calls'
+import { IntegrationsStatus } from '@/components/dashboard/widgets/integrations-status'
+import { ActivitySnapshot } from '@/components/dashboard/widgets/activity-snapshot'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,17 +94,17 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <WidgetErrorBoundary name="recent-calls" fallback={<WidgetError title="Recent calls" />}>
           <Suspense fallback={<PanelSkeleton rows={4} />}>
-            <PlaceholderPanel label="Recent calls" />
+            <RecentCalls />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="integrations-status" fallback={<WidgetError title="Integrations" />}>
           <Suspense fallback={<GridSkeleton tiles={6} />}>
-            <PlaceholderPanel label="Integrations" />
+            <IntegrationsStatus />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="activity-snapshot" fallback={<WidgetError title="Today" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
-            <PlaceholderPanel label="Today's activity" />
+            <ActivitySnapshot />
           </Suspense>
         </WidgetErrorBoundary>
       </div>
