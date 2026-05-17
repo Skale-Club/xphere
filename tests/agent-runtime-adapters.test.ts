@@ -119,8 +119,11 @@ describe('formatWhatsapp', () => {
 
   it('strips markdown from output', () => {
     const chunks = formatWhatsapp('**Bold** and *italic* text')
-    expect(chunks[0].text).not.toContain('**')
-    expect(chunks[0].text).not.toContain('*italic*')
+    const first = chunks[0]
+    expect(first.type).toBe('text')
+    if (first.type !== 'text') throw new Error('expected text chunk')
+    expect(first.text).not.toContain('**')
+    expect(first.text).not.toContain('*italic*')
   })
 
   it('splits 3000-char text into chunks of ≤1600 chars (Success Criterion 5)', () => {
@@ -175,8 +178,11 @@ describe('formatMeta', () => {
 
   it('strips markdown', () => {
     const chunks = formatMeta('# Title\n**Bold** text')
-    expect(chunks[0].text).not.toContain('#')
-    expect(chunks[0].text).not.toContain('**')
+    const first = chunks[0]
+    expect(first.type).toBe('text')
+    if (first.type !== 'text') throw new Error('expected text chunk')
+    expect(first.text).not.toContain('#')
+    expect(first.text).not.toContain('**')
   })
 
   it('splits text longer than 2000 chars into ≤2000-char chunks', () => {
@@ -290,14 +296,18 @@ describe('formatWebWidget', () => {
   it('does NOT strip markdown (widget renders it natively)', () => {
     const md = '**Bold** and [link](https://example.com)'
     const chunks = formatWebWidget(md)
+    const first = chunks[0]
+    if (first.type !== 'text') throw new Error('expected text chunk')
     // Markdown is preserved as-is
-    expect(chunks[0].text).toBe(md)
+    expect(first.text).toBe(md)
   })
 
   it('does NOT split long text', () => {
     const longText = 'a'.repeat(10000)
     const chunks = formatWebWidget(longText)
     expect(chunks).toHaveLength(1)
-    expect(chunks[0].text).toHaveLength(10000)
+    const first = chunks[0]
+    if (first.type !== 'text') throw new Error('expected text chunk')
+    expect(first.text).toHaveLength(10000)
   })
 })

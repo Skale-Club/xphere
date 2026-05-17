@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // Next.js font functions do not run in vitest's node environment
 vi.mock('next/font/google', () => ({

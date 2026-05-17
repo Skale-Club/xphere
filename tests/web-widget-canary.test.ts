@@ -156,11 +156,13 @@ describe('GATE-01: Web Widget Canary Cutover', () => {
     const sessionId = sessionEvent.sessionId
     expect(sessionId).toBeTruthy()
 
-    // Verify conversation_messages has a user row for this session (always written via after() in route.ts)
+    // Verify conversation_messages has a user row for this conversation
+    // (always written via after() in route.ts). The SSE sessionId is the
+    // conversations.id (the same UUID is reused as session identifier).
     const { data: msgRows } = await admin
       .from('conversation_messages')
       .select('role, content')
-      .eq('session_id', sessionId!)
+      .eq('conversation_id', sessionId!)
       .eq('role', 'user')
       .limit(1)
 
@@ -187,11 +189,11 @@ describe('GATE-01: Web Widget Canary Cutover', () => {
     const sessionId = sessionEvent.sessionId
     expect(sessionId).toBeTruthy()
 
-    // Query the conversations row for this session
+    // Query the conversations row for this session (SSE sessionId == conversations.id)
     const { data: convRow } = await admin
       .from('conversations')
       .select('agent_id')
-      .eq('session_id', sessionId!)
+      .eq('id', sessionId!)
       .maybeSingle()
 
     // conversations.agent_id must be non-null (D-35-05 + GATE-07 completion)

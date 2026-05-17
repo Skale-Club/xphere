@@ -72,6 +72,7 @@ const fakeRule = {
   event_type: 'flow_completed',
   condition: {},
   tool_config_id: 'tool-1',
+  agent_id: null,
   is_active: true,
   priority: 0,
   created_at: '2026-05-06',

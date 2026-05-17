@@ -187,13 +187,14 @@ describe('AGENT-11: DB trigger auto-snapshots system_prompt on UPDATE', () => {
     const updateSpy = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ data: null, error: null }),
     })
-    client.from.mockImplementation((table: string) => {
+    client.from.mockImplementation(((table: string) => {
       if (table === 'agents') {
         return {
           select: vi.fn().mockReturnThis(),
           update: updateSpy,
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: { id: 'agent-1', active_prompt_version_id: 'v1' }, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'agent-1', active_prompt_version_id: 'v1' }, error: null }),
           order: vi.fn().mockReturnThis(),
           limit: vi.fn().mockReturnThis(),
         }
@@ -208,7 +209,7 @@ describe('AGENT-11: DB trigger auto-snapshots system_prompt on UPDATE', () => {
         }
       }
       return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() }
-    })
+    }) as never)
 
     const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
     await savePromptDraft('agent-1', 'UPDATED PROMPT')

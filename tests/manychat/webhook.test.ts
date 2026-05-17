@@ -61,7 +61,7 @@ describe('WEBHOOK-02: invalid or missing X-Operator-Secret', () => {
     vi.clearAllMocks()
     vi.resetModules()
     vi.mocked(createServiceRoleClient).mockReturnValue(
-      buildWebhookMockSupabase(null) as ReturnType<typeof createServiceRoleClient>
+      buildWebhookMockSupabase(null) as unknown as ReturnType<typeof createServiceRoleClient>
     )
   })
 
@@ -89,7 +89,7 @@ describe('WEBHOOK-01, WEBHOOK-03, WEBHOOK-04: valid secret', () => {
     vi.clearAllMocks()
     vi.resetModules()
     vi.mocked(createServiceRoleClient).mockReturnValue(
-      buildWebhookMockSupabase({ id: 'channel-1', org_id: 'org-1' }) as ReturnType<typeof createServiceRoleClient>
+      buildWebhookMockSupabase({ id: 'channel-1', org_id: 'org-1' }) as unknown as ReturnType<typeof createServiceRoleClient>
     )
   })
 
@@ -107,7 +107,7 @@ describe('WEBHOOK-01, WEBHOOK-03, WEBHOOK-04: valid secret', () => {
   it('WEBHOOK-03: logs event to manychat_events with status unmatched', async () => {
     const mockClient = buildWebhookMockSupabase({ id: 'channel-1', org_id: 'org-1' })
     vi.mocked(createServiceRoleClient).mockReturnValue(
-      mockClient as ReturnType<typeof createServiceRoleClient>
+      mockClient as unknown as ReturnType<typeof createServiceRoleClient>
     )
 
     const { POST } = await import('@/app/api/manychat/webhook/route')
@@ -137,7 +137,7 @@ describe('ROUTING-03 / ROUTING-04: dispatcher invocation', () => {
     vi.clearAllMocks()
     vi.resetModules()
     vi.mocked(createServiceRoleClient).mockReturnValue(
-      buildWebhookMockSupabase({ id: 'channel-1', org_id: 'org-1' }, 'evt-99') as ReturnType<typeof createServiceRoleClient>
+      buildWebhookMockSupabase({ id: 'channel-1', org_id: 'org-1' }, 'evt-99') as unknown as ReturnType<typeof createServiceRoleClient>
     )
   })
 

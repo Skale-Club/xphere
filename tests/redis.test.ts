@@ -1,4 +1,4 @@
-import { vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 describe('Redis singleton — src/lib/redis.ts', () => {
   beforeEach(() => {

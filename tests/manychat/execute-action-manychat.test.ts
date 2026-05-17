@@ -24,7 +24,6 @@ describe('OUTBOUND-dispatcher: executeAction routes manychat action types', () =
   it('routes manychat_set_field to setManychatField', async () => {
     vi.mocked(setManychatField).mockResolvedValue('Field f set on subscriber s.')
     const result = await executeAction(
-      // @ts-expect-error — Wave 0 RED: action_type enum widened in Plan 01 task 5
       'manychat_set_field',
       { subscriber_id: 's', field_id: 'f', field_value: 'v' },
       { apiKey: 'k', locationId: '' }
@@ -39,7 +38,6 @@ describe('OUTBOUND-dispatcher: executeAction routes manychat action types', () =
   it('routes manychat_add_tag to addManychatTag', async () => {
     vi.mocked(addManychatTag).mockResolvedValue('Tag tag-99 added to subscriber sub-1.')
     const result = await executeAction(
-      // @ts-expect-error — Wave 0 RED: action_type enum widened in Plan 01 task 5
       'manychat_add_tag',
       { subscriber_id: 'sub-1', tag_id: 'tag-99' },
       { apiKey: 'k', locationId: '' }
@@ -54,7 +52,6 @@ describe('OUTBOUND-dispatcher: executeAction routes manychat action types', () =
   it('routes manychat_trigger_flow to triggerManychatFlow', async () => {
     vi.mocked(triggerManychatFlow).mockResolvedValue('Flow ns triggered for subscriber s.')
     const result = await executeAction(
-      // @ts-expect-error — Wave 0 RED: action_type enum widened in Plan 01 task 5
       'manychat_trigger_flow',
       { subscriber_id: 's', flow_ns: 'content...' },
       { apiKey: 'k', locationId: '' }
@@ -69,7 +66,6 @@ describe('OUTBOUND-dispatcher: executeAction routes manychat action types', () =
   it('routes manychat_send_message to sendManychatMessage', async () => {
     vi.mocked(sendManychatMessage).mockResolvedValue('Message sent to subscriber s.')
     const result = await executeAction(
-      // @ts-expect-error — Wave 0 RED: action_type enum widened in Plan 01 task 5
       'manychat_send_message',
       { subscriber_id: 's', data: { version: 'v2' } },
       { apiKey: 'k', locationId: '' }
