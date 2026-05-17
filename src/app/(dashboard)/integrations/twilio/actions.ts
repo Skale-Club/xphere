@@ -326,6 +326,8 @@ export async function clearTwilioFields(
 export interface TestSmsInput {
   to: string
   body?: string
+  /** Specific `twilio_phone_numbers.id` to send From. Defaults to the org's default number. */
+  fromNumberId?: string
 }
 
 export async function testSendSms(
@@ -354,10 +356,45 @@ export async function testSendSms(
   } catch {
     return { success: false, error: 'Failed to decrypt Twilio credentials.' }
   }
-  const config = (row.config ?? {}) as TwilioConfig
 
-  if (!blob.account_sid || !blob.auth_token || !config.from_number) {
-    return { success: false, error: 'SMS credentials are incomplete (account_sid, auth_token, from_number).' }
+  if (!blob.account_sid || !blob.auth_token) {
+    return { success: false, error: 'Account SID or Auth Token missing.' }
+  }
+
+  // Resolve the From number: specific id > org default > legacy config.from_number
+  let fromNumber: string | null = null
+  if (input.fromNumberId) {
+    const { data: numberRow } = await supabase
+      .from('twilio_phone_numbers')
+      .select('e164, is_active, capability_sms')
+      .eq('id', input.fromNumberId)
+      .maybeSingle()
+    if (!numberRow) return { success: false, error: 'Selected phone number not found.' }
+    if (!numberRow.is_active) return { success: false, error: 'Selected phone number is inactive.' }
+    if (!numberRow.capability_sms) {
+      return { success: false, error: `Number ${numberRow.e164} does not have SMS capability enabled.` }
+    }
+    fromNumber = numberRow.e164
+  } else {
+    const { data: defaultRow } = await supabase
+      .from('twilio_phone_numbers')
+      .select('e164, capability_sms')
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (defaultRow) {
+      if (!defaultRow.capability_sms) {
+        return { success: false, error: `Default number ${defaultRow.e164} does not have SMS capability.` }
+      }
+      fromNumber = defaultRow.e164
+    }
+  }
+  if (!fromNumber) {
+    const config = (row.config ?? {}) as TwilioConfig
+    fromNumber = config.from_number ?? null
+  }
+  if (!fromNumber) {
+    return { success: false, error: 'No phone number configured. Add one in /integrations/twilio.' }
   }
 
   const to = input.to.trim()
@@ -374,7 +411,7 @@ export async function testSendSms(
         Authorization: `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ To: to, From: config.from_number, Body: body }).toString(),
+      body: new URLSearchParams({ To: to, From: fromNumber, Body: body }).toString(),
       cache: 'no-store',
     })
     if (!res.ok) {
