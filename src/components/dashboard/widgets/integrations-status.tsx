@@ -121,7 +121,7 @@ export async function IntegrationsStatus() {
         </span>
       }
     >
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-1.5">
         {tiles.map((t) => {
           const Icon = t.icon
           return (
@@ -129,8 +129,8 @@ export async function IntegrationsStatus() {
               key={t.id}
               href={t.href}
               className={cn(
-                'group flex items-center gap-2.5 rounded-[10px] border border-border-subtle bg-bg-tertiary/40 p-2.5 transition-all',
-                'hover:-translate-y-0.5 hover:border-border-strong hover:bg-bg-tertiary',
+                'group flex items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-tertiary/40 px-2.5 py-2 transition-all',
+                'hover:border-border-strong hover:bg-bg-tertiary',
               )}
             >
               <div
@@ -145,12 +145,14 @@ export async function IntegrationsStatus() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium text-text-primary">{t.label}</span>
-                  {t.connected && <Check className="h-3 w-3 text-success" />}
+                  <span className="text-[12.5px] font-medium text-text-primary truncate">{t.label}</span>
+                  {t.connected && <Check className="h-3 w-3 shrink-0 text-success" />}
                 </div>
-                <div className="truncate text-[10.5px] text-text-tertiary">
-                  {t.connected ? (t.detail ?? 'Connected') : 'Not connected'}
-                </div>
+                {(t.detail || !t.connected) && (
+                  <div className="truncate text-[10.5px] text-text-tertiary">
+                    {t.connected ? t.detail : 'Not connected'}
+                  </div>
+                )}
               </div>
             </Link>
           )
