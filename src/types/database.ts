@@ -1,5 +1,5 @@
-// Database type definitions for Opps
-// Auto-generated shape — replace with Supabase CLI output after applying migrations:
+﻿// Database type definitions for Opps
+// Auto-generated shape â€” replace with Supabase CLI output after applying migrations:
 //   npx supabase gen types typescript --local > src/types/database.ts
 //
 // These types match the schema defined in supabase/migrations/001_foundation.sql
@@ -20,13 +20,17 @@ export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'faile
 export type ConversationChannel = 'widget' | 'messenger' | 'instagram'
 export type MetaChannelType = 'messenger' | 'instagram'
 
-// v2.0 (Phase 33) — agent runtime enums
+// v2.0 (Phase 33) â€” agent runtime enums
 export type AgentChannel = 'web_widget' | 'whatsapp' | 'messenger' | 'instagram' | 'manychat' | 'telegram' | 'sms'
 export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' | 'denied' | 'running'
 export type AgentInvocationMode = 'production' | 'playground'
 
-// v2.1 — contacts (CRM) source enum
+// v2.1 â€” contacts (CRM) source enum
 export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
+
+// v2.1 â€” call system (SEED-007)
+export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
+export type CallDirection = 'inbound' | 'outbound'
 
 export interface Database {
   public: {
@@ -269,7 +273,7 @@ export interface Database {
           organization_id: string
           integration_id: string | null
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -283,7 +287,7 @@ export interface Database {
           organization_id: string
           integration_id?: string | null
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
           config?: Json
           fallback_message: string
           is_active?: boolean
@@ -295,7 +299,7 @@ export interface Database {
         Update: {
           integration_id?: string | null
           tool_name?: string
-          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete'
+          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
           config?: Json
           fallback_message?: string
           is_active?: boolean
@@ -382,7 +386,7 @@ export interface Database {
           response_payload: Json
           error_detail: string | null
           created_at: string
-          // v2.0 (Phase 33, migration 037 — OBS-02 additive): NULL = legacy v1.x action
+          // v2.0 (Phase 33, migration 037 â€” OBS-02 additive): NULL = legacy v1.x action
           agent_invocation_id: string | null
           trace_id: string | null
         }
@@ -420,7 +424,7 @@ export interface Database {
         ]
       }
       // ----------------------------------------------------------------------
-      // v2.0 (Phase 33) — agent runtime tables (migrations 034-038)
+      // v2.0 (Phase 33) â€” agent runtime tables (migrations 034-038)
       // ----------------------------------------------------------------------
       agents: {
         Row: {
@@ -1107,6 +1111,61 @@ export interface Database {
           }
         ]
       }
+      evolution_instances: {
+        Row: {
+          id: string
+          org_id: string
+          instance_name: string
+          base_url: string
+          token_encrypted: string
+          webhook_secret_encrypted: string | null
+          status: 'disconnected' | 'connecting' | 'connected' | 'qr_pending'
+          phone_number: string | null
+          connected_at: string | null
+          last_error: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          instance_name: string
+          base_url: string
+          token_encrypted: string
+          webhook_secret_encrypted?: string | null
+          status?: 'disconnected' | 'connecting' | 'connected' | 'qr_pending'
+          phone_number?: string | null
+          connected_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          instance_name?: string
+          base_url?: string
+          token_encrypted?: string
+          webhook_secret_encrypted?: string | null
+          status?: 'disconnected' | 'connecting' | 'connected' | 'qr_pending'
+          phone_number?: string | null
+          connected_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'evolution_instances_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       conversations: {
         Row: {
           id: string
@@ -1131,6 +1190,7 @@ export interface Database {
           assigned_user_id: string | null
           agent_id: string | null
           contact_id: string | null
+          evolution_instance_id: string | null
         }
         Insert: {
           id?: string
@@ -1155,6 +1215,7 @@ export interface Database {
           assigned_user_id?: string | null
           agent_id?: string | null
           contact_id?: string | null
+          evolution_instance_id?: string | null
         }
         Update: {
           status?: string
@@ -1173,6 +1234,7 @@ export interface Database {
           assigned_user_id?: string | null
           agent_id?: string | null
           contact_id?: string | null
+          evolution_instance_id?: string | null
         }
         Relationships: [
           {
@@ -1276,6 +1338,121 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      call_settings: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          routing_mode: CallRoutingMode
+          phone_forward: string | null
+          sip_username: string | null
+          sip_password_encrypted: string | null
+          twilio_client_identity: string | null
+          record_calls: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          routing_mode?: CallRoutingMode
+          phone_forward?: string | null
+          sip_username?: string | null
+          sip_password_encrypted?: string | null
+          twilio_client_identity?: string | null
+          record_calls?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          routing_mode?: CallRoutingMode
+          phone_forward?: string | null
+          sip_username?: string | null
+          sip_password_encrypted?: string | null
+          twilio_client_identity?: string | null
+          record_calls?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'call_settings_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      call_logs: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string | null
+          call_sid: string
+          direction: CallDirection
+          routing_mode: CallRoutingMode | null
+          from_number: string | null
+          to_number: string | null
+          status: string | null
+          duration_seconds: number | null
+          recording_url: string | null
+          recording_duration: number | null
+          started_at: string | null
+          ended_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id?: string | null
+          call_sid: string
+          direction: CallDirection
+          routing_mode?: CallRoutingMode | null
+          from_number?: string | null
+          to_number?: string | null
+          status?: string | null
+          duration_seconds?: number | null
+          recording_url?: string | null
+          recording_duration?: number | null
+          started_at?: string | null
+          ended_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          routing_mode?: CallRoutingMode | null
+          from_number?: string | null
+          to_number?: string | null
+          status?: string | null
+          duration_seconds?: number | null
+          recording_url?: string | null
+          recording_duration?: number | null
+          started_at?: string | null
+          ended_at?: string | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'call_logs_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'call_logs_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
             referencedColumns: ['id']
           }
         ]
@@ -1614,7 +1791,7 @@ export interface Database {
           config: Json
           created_at: string
           updated_at: string
-          // v2.0 (Phase 33, migration 039 — CHAN-06): NULL = legacy tool_config_id dispatch
+          // v2.0 (Phase 33, migration 039 â€” CHAN-06): NULL = legacy tool_config_id dispatch
           agent_id: string | null
         }
         Insert: {
@@ -1685,7 +1862,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          org_id?: string       // set by RLS via get_current_org_id() — do not pass manually
+          org_id?: string       // set by RLS via get_current_org_id() â€” do not pass manually
           channel_name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -1726,12 +1903,12 @@ export interface Database {
           priority: number
           created_at: string
           updated_at: string
-          // v2.0 (Phase 33, migration 039 — CHAN-06): NULL = legacy tool_config_id dispatch
+          // v2.0 (Phase 33, migration 039 â€” CHAN-06): NULL = legacy tool_config_id dispatch
           agent_id: string | null
         }
         Insert: {
           id?: string
-          org_id?: string       // set by RLS via get_current_org_id() — do not pass manually
+          org_id?: string       // set by RLS via get_current_org_id() â€” do not pass manually
           channel_id: string
           event_type: string
           condition?: Json
@@ -1800,7 +1977,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
-          // Service-role dispatcher only — authenticated client has no UPDATE policy.
+          // Service-role dispatcher only â€” authenticated client has no UPDATE policy.
           // Append-only contract enforced at the SQL layer; this widening exists so
           // src/lib/manychat/dispatch-event.ts can flip status + link FKs after match.
           status?: 'matched' | 'unmatched' | 'error'
@@ -1860,12 +2037,13 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete'
+      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
       integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts'
-      // v2.0 (Phase 33) — agent runtime enums (migrations 034, 037)
+      // v2.0 (Phase 33) â€” agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
       agent_invocation_mode: AgentInvocationMode
     }
   }
 }
+

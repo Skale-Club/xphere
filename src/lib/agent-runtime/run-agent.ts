@@ -71,6 +71,8 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   google_contacts_update: 'Update a Google Contact',
   google_contacts_find: 'Find a Google Contact',
   google_contacts_delete: 'Delete a Google Contact',
+  send_whatsapp_message: 'Send a WhatsApp message via Evolution Go',
+  send_whatsapp_mention_all: 'Send a WhatsApp group message that mentions every participant',
 }
 
 // ---------------------------------------------------------------------------
