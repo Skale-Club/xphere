@@ -34,7 +34,10 @@ export default async function ChatPage({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    // Lock the chat tree to the viewport (minus the dashboard top bar h-14 = 3.5rem)
+    // so each inner panel can scroll independently and the dashboard sidebar/top bar
+    // never scroll out of view.
+    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden">
       {/* Tab bar */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-secondary/40 px-4 pt-3">
         <ChatTab href="/chat?tab=inbox" active={tab === 'inbox'} icon={Inbox}>
@@ -46,7 +49,7 @@ export default async function ChatPage({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'inbox' ? (
           <ChatLayout
             currentOrgId={(activeOrgId as string | null) ?? null}

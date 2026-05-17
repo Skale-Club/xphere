@@ -189,7 +189,7 @@ export function ContactInfoPanel({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="px-5 py-5 space-y-4">
           <Section title="Info" defaultOpen>
             <InfoRow icon={Phone} label="Phone" value={contact.phone} />

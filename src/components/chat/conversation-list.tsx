@@ -320,8 +320,9 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* List */}
-      <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+      {/* List — min-h-0 lets the flex child shrink below content size so
+          the internal ScrollArea actually scrolls instead of overflowing. */}
+      <ScrollArea className="min-h-0 flex-1" viewportRef={scrollViewportRef}>
         <div className="p-2 space-y-1">
           {isLoading ? (
             <div className="p-3">
