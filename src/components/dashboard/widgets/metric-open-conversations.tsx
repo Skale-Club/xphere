@@ -69,7 +69,7 @@ export async function MetricOpenConversations() {
           Open conversations
         </div>
         <WidgetEmpty
-          icon={MessageSquare}
+          icon={<MessageSquare className="h-3.5 w-3.5" />}
           title="No conversations yet"
           description="Connect WhatsApp or another channel to start receiving messages."
           cta={{ label: 'Connect a channel', href: '/integrations' }}
@@ -85,7 +85,7 @@ export async function MetricOpenConversations() {
     <MetricCard
       label="Open conversations"
       value={openCount}
-      icon={MessageSquare}
+      icon={<MessageSquare className="h-3.5 w-3.5" />}
       trend={trend}
       data={series}
       tone="info"

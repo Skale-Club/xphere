@@ -73,7 +73,7 @@ export async function MetricDealsWon() {
           Deals won (mo)
         </div>
         <WidgetEmpty
-          icon={Trophy}
+          icon={<Trophy className="h-3.5 w-3.5" />}
           title="No deals yet"
           description="Create your first opportunity to start tracking pipeline value."
           cta={{ label: 'Open pipeline', href: '/pipeline' }}
@@ -89,7 +89,7 @@ export async function MetricDealsWon() {
     <MetricCard
       label="Deals won (mo)"
       value={countThis}
-      icon={Trophy}
+      icon={<Trophy className="h-3.5 w-3.5" />}
       trend={trend}
       data={series}
       tone="success"

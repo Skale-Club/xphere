@@ -19,8 +19,8 @@ export interface MetricCardProps {
   trend?: number | null
   /** Optional sparkline data points */
   data?: { value: number }[]
-  /** Optional icon shown next to label */
-  icon?: React.ComponentType<{ className?: string }>
+  /** Optional icon shown next to label (pass as JSX, e.g. <MessageSquare className="h-3.5 w-3.5" />) */
+  icon?: React.ReactNode
   /** Tone hint — affects sparkline color */
   tone?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   /** Make whole card clickable */
@@ -47,7 +47,7 @@ export function MetricCard({
   animate = true,
   trend,
   data,
-  icon: Icon,
+  icon,
   tone = 'default',
   href,
   hint,
@@ -116,7 +116,7 @@ export function MetricCard({
 
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-          {Icon && <Icon className="h-3.5 w-3.5" />}
+          {icon}
           <span>{label}</span>
         </div>
         {TrendIcon && (

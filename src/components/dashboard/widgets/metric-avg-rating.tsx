@@ -59,7 +59,7 @@ export async function MetricAvgRating() {
           Avg rating
         </div>
         <WidgetEmpty
-          icon={Star}
+          icon={<Star className="h-3.5 w-3.5" />}
           title="No reviews tracked"
           description="Connect a Google Business profile to monitor your reputation."
           cta={{ label: 'Connect Reviews', href: '/integrations/google-reviews' }}
@@ -74,7 +74,7 @@ export async function MetricAvgRating() {
       label="Avg rating"
       value={avg !== null ? `★ ${avg.toFixed(1)}` : '—'}
       animate={false}
-      icon={Star}
+      icon={<Star className="h-3.5 w-3.5" />}
       trend={null}
       data={distribution}
       tone="warning"
