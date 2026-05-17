@@ -31,10 +31,13 @@ import { Input } from '@/components/ui/input'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { cn } from '@/lib/utils'
 
 interface OrgSwitcherProps {
   currentOrgId: string | null
   currentOrgName: string | null
+  /** Compact (icon-only) when used inside a collapsed sidebar */
+  collapsed?: boolean
 }
 
 interface Org {
@@ -95,8 +98,8 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</> : 'Create'}
+              <Button type="submit" disabled={isPending} loading={isPending}>
+                {isPending ? 'Creating...' : 'Create'}
               </Button>
             </div>
           </form>
@@ -106,7 +109,7 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   )
 }
 
-export function OrgSwitcher({ currentOrgId, currentOrgName }: OrgSwitcherProps) {
+export function OrgSwitcher({ currentOrgId, currentOrgName, collapsed = false }: OrgSwitcherProps) {
   const [isSwitching, startSwitchTransition] = useTransition()
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -116,7 +119,6 @@ export function OrgSwitcher({ currentOrgId, currentOrgName }: OrgSwitcherProps) 
 
   async function handleDropdownOpen(open: boolean) {
     setDropdownOpen(open)
-    // Lazy-load org list only on first open
     if (open && orgs === null && !isLoadingOrgs) {
       setIsLoadingOrgs(true)
       try {
@@ -144,26 +146,35 @@ export function OrgSwitcher({ currentOrgId, currentOrgName }: OrgSwitcherProps) 
     <>
       <DropdownMenu open={dropdownOpen} onOpenChange={handleDropdownOpen}>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 px-2 font-medium text-sm"
+          <button
             disabled={isSwitching}
+            aria-label="Switch organization"
+            className={cn(
+              'flex w-full items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-[12.5px] font-medium',
+              'border border-border-subtle bg-bg-tertiary/40',
+              'hover:bg-bg-tertiary hover:border-border motion-fast',
+              'text-text-primary',
+              collapsed && 'justify-center',
+            )}
           >
             {isSwitching ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-text-tertiary" />
             ) : (
-              <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
             )}
-            <span className="max-w-[160px] truncate">
-              {currentOrgName ?? 'Select organization'}
-            </span>
-            <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
-          </Button>
+            {!collapsed && (
+              <>
+                <span className="max-w-[140px] truncate flex-1">
+                  {currentOrgName ?? 'Select organization'}
+                </span>
+                <ChevronsUpDown className="h-3 w-3 shrink-0 text-text-tertiary" />
+              </>
+            )}
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuContent align="start" side={collapsed ? 'right' : 'top'} className="w-60">
           {isLoadingOrgs ? (
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-text-tertiary">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading...
             </div>
@@ -175,7 +186,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName }: OrgSwitcherProps) 
                 className="cursor-pointer gap-2"
               >
                 <Check
-                  className={`h-3.5 w-3.5 shrink-0 ${org.id === currentOrgId ? 'opacity-100' : 'opacity-0'}`}
+                  className={`h-3.5 w-3.5 shrink-0 ${org.id === currentOrgId ? 'opacity-100 text-accent' : 'opacity-0'}`}
                 />
                 <span className="truncate">{org.name}</span>
               </DropdownMenuItem>
@@ -184,7 +195,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName }: OrgSwitcherProps) 
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => { setDropdownOpen(false); setCreateOpen(true) }}
-            className="cursor-pointer gap-2 text-muted-foreground"
+            className="cursor-pointer gap-2 text-text-tertiary"
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
             Add organization
