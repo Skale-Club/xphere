@@ -61,7 +61,7 @@ export async function POST(
   // 4. Verify agent belongs to user's org (security check)
   const supabase = createServiceRoleClient()
   const { data: membership } = await supabase
-    .from('organization_members')
+    .from('org_members')
     .select('organization_id')
     .eq('user_id', user.id)
     .single()

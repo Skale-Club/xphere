@@ -23,7 +23,7 @@ export async function GET(
 
   // Verify user has access to this org
   const { data: membership } = await supabase
-    .from('organization_members')
+    .from('org_members')
     .select('organization_id')
     .eq('user_id', user.id)
     .single()
