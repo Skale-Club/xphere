@@ -71,7 +71,10 @@ export async function getCampaigns(): Promise<CampaignListItem[]> {
       .select('campaign_id, status'),
   ])
 
-  if (campaignsRes.error) throw new Error(campaignsRes.error.message)
+  if (campaignsRes.error) {
+    console.error('[outbound:getCampaigns] failed to load campaigns', campaignsRes.error)
+    return []
+  }
 
   const campaigns = campaignsRes.data ?? []
   const allContacts = contactsRes.data ?? []

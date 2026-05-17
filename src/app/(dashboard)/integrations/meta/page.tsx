@@ -55,6 +55,8 @@ export default async function MetaIntegrationsPage() {
     )
   }
 
+  // Fail-soft: if either query fails we still render the page with an empty
+  // list rather than crashing it. Errors are logged for Vercel inspection.
   const [{ data: channels, error: channelsError }, { data: automations, error: automationsError }] = await Promise.all([
     supabase
       .from('meta_channels')
@@ -69,11 +71,11 @@ export default async function MetaIntegrationsPage() {
   ])
 
   if (channelsError) {
-    throw new Error(channelsError.message)
+    console.error('[integrations:meta] failed to load meta_channels', channelsError)
   }
 
   if (automationsError) {
-    throw new Error(automationsError.message)
+    console.error('[integrations:meta] failed to load tool_configs', automationsError)
   }
 
   const channelRows: MetaChannelView[] = (channels ?? []).map((channel) => ({

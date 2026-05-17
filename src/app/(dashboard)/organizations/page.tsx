@@ -15,7 +15,9 @@ export default async function OrganizationsPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[organizations:page] failed to load organizations', error)
+  }
 
   return (
     <PageContainer>

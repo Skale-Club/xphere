@@ -84,7 +84,9 @@ export default async function PhonePage({
       .from('assistant_mappings')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) throw new Error(error.message)
+    if (error) {
+      console.error('[phone:assistants] failed to load assistant_mappings', error)
+    }
     assistantMappings = data ?? []
   }
 

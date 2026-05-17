@@ -43,7 +43,10 @@ export async function getCalls({
   }
 
   const { data, count, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[calls:getCalls] failed to load calls', error)
+    return { calls: [], total: 0 }
+  }
   return { calls: data ?? [], total: count ?? 0 }
 }
 
@@ -57,7 +60,10 @@ export async function getAssistantOptions(): Promise<
     .select('vapi_assistant_id, name')
     .eq('is_active', true)
     .order('name', { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[calls:getAssistantOptions] failed to load assistant_mappings', error)
+    return []
+  }
   return data ?? []
 }
 
