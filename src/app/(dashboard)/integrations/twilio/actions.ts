@@ -18,6 +18,7 @@ import { encrypt, decrypt, maskApiKey } from '@/lib/crypto'
 import type { Database } from '@/types/database'
 
 type TwilioConfigUpdate = Database['public']['Tables']['integrations']['Update']['config']
+type TwilioPhoneNumberRow = Database['public']['Tables']['twilio_phone_numbers']['Row']
 
 const PROVIDER = 'twilio' as const
 
@@ -33,9 +34,12 @@ export interface TwilioIntegrationView {
   /** Masked snippets so the user can confirm which credential is on file. */
   accountSidHint: string | null
   apiKeySidHint: string | null
+  /** Legacy single-number field — kept for one release. Use `numbers` instead. */
   fromNumber: string | null
   twimlAppSid: string | null
   sipDomain: string | null
+  /** Phone numbers managed via numbers-actions.ts (v2.3). */
+  numbers: TwilioPhoneNumberRow[]
   /** Public URL the user must paste into the TwiML App "A call comes in" field. */
   voiceWebhookUrl: string
   smsWebhookUrl: string
@@ -80,6 +84,7 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
     fromNumber: null,
     twimlAppSid: null,
     sipDomain: null,
+    numbers: [],
     voiceWebhookUrl: `${OPERATOR_ORIGIN}/api/twilio/voice`,
     smsWebhookUrl: `${OPERATOR_ORIGIN}/api/twilio/sms`,
     smsConfigured: false,
@@ -91,14 +96,22 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
   if (!user) return empty
   const supabase = await createClient()
 
-  const { data: row } = await supabase
-    .from('integrations')
-    .select('id, name, encrypted_api_key, config, is_active')
-    .eq('provider', PROVIDER)
-    .limit(1)
-    .maybeSingle()
+  const [{ data: row }, { data: numbersData }] = await Promise.all([
+    supabase
+      .from('integrations')
+      .select('id, name, encrypted_api_key, config, is_active')
+      .eq('provider', PROVIDER)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('twilio_phone_numbers')
+      .select('*')
+      .eq('is_active', true)
+      .order('is_default', { ascending: false })
+      .order('friendly_name', { ascending: true }),
+  ])
 
-  if (!row) return empty
+  if (!row) return { ...empty, numbers: numbersData ?? [] }
 
   let blob: DecryptedBlob = {}
   try {
@@ -117,6 +130,9 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
   const fromNumber = config.from_number ?? null
   const twimlAppSid = config.twiml_app_sid ?? null
   const sipDomain = config.sip_domain ?? null
+  const numbers: TwilioPhoneNumberRow[] = numbersData ?? []
+  const hasSmsCapableNumber = numbers.some((n) => n.is_active && n.capability_sms)
+  const hasVoiceCapableNumber = numbers.some((n) => n.is_active && n.capability_voice)
 
   return {
     id: row.id,
@@ -131,11 +147,12 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
     fromNumber,
     twimlAppSid,
     sipDomain,
+    numbers,
     voiceWebhookUrl: `${OPERATOR_ORIGIN}/api/twilio/voice`,
     smsWebhookUrl: `${OPERATOR_ORIGIN}/api/twilio/sms`,
-    smsConfigured: hasAccountSid && hasAuthToken && Boolean(fromNumber),
+    smsConfigured: hasAccountSid && hasAuthToken && hasSmsCapableNumber,
     voiceConfigured:
-      hasAccountSid && hasApiKeySid && hasApiKeySecret && Boolean(twimlAppSid),
+      hasAccountSid && hasApiKeySid && hasApiKeySecret && Boolean(twimlAppSid) && hasVoiceCapableNumber,
     sipConfigured: Boolean(sipDomain),
   }
 }
@@ -146,6 +163,11 @@ export interface SaveTwilioInput {
   authToken?: string
   apiKeySid?: string
   apiKeySecret?: string
+  /**
+   * @deprecated v2.3 — phone numbers are managed via numbers-actions.ts.
+   * This field is accepted for backwards compatibility but is no longer
+   * written to `integrations.config.from_number`. Will be removed next milestone.
+   */
   fromNumber?: string
   twimlAppSid?: string
   sipDomain?: string
@@ -201,8 +223,11 @@ export async function saveTwilioIntegration(
   }
 
   const currentConfig = (existing?.config ?? {}) as TwilioConfig
+  // Note: `from_number` is no longer written here — numbers are managed via
+  // numbers-actions.ts (v2.3). The legacy field on `currentConfig.from_number`
+  // is preserved as-is so resolveTwilioCredentials can fall back to it.
   const newConfig: TwilioConfig = {
-    from_number: nonBlank(input.fromNumber) ?? currentConfig.from_number,
+    from_number: currentConfig.from_number,
     twiml_app_sid: nonBlank(input.twimlAppSid) ?? currentConfig.twiml_app_sid,
     sip_domain: nonBlank(input.sipDomain) ?? currentConfig.sip_domain,
   }
