@@ -226,7 +226,12 @@ Continuous numbering across milestones. v1.9 ended at phase 32; v2.0 starts at p
   5. Multi-org: same email invited in 2 orgs gets 2 memberships; OrgSwitcher shows both
   6. Existing email/password login flow continues to work byte-identically (no regression)
   7. RLS isolates `org_invites` and `memberships` per org; cross-org reads/writes refused
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 42-01-PLAN.md — Migration 045 (org_invites only; reuses existing org_members) + remote DB push + types regen (AUTH-02, AUTH-03, AUTH-07)
+- [ ] 42-02-PLAN.md — Pre-flight checkpoint: operator configures Google Cloud Console + Supabase Dashboard + Vercel env var (AUTH-01)
+- [ ] 42-03-PLAN.md — OAuth callback route + email normalizer + zod schemas + service-role admin client + /login Google button (AUTH-01, AUTH-04, AUTH-06)
+- [ ] 42-04-PLAN.md — /dashboard/members page (5 server actions, table, invite modal, sidebar entry) (AUTH-05)
+- [ ] 42-05-PLAN.md — Tests: unit normalize-email + integration invite flow (5 scenarios) + cross-org RLS isolation + email/password regression (AUTH-02..07)
 **UI hint**: yes
 
 ## Progress
@@ -246,7 +251,7 @@ Phases execute in numeric order: 32 → 33 → 34 → 35 → 36 → 37 → 38 �
 | 39. Multi-Channel Playground | v2.0 | 0/0 | Not started | - |
 | 40. Per-Agent Observability UI | v2.0 | 0/0 | Not started | - |
 | 41. Prompt Versioning UX | v2.0 | 0/0 | Not started | - |
-| 42. Google SSO + Team Invites (Admin Auth) | v2.0 | 0/0 | Not started | - |
+| 42. Google SSO + Team Invites (Admin Auth) | v2.0 | 0/5 | Not started | - |
 
 ---
 
