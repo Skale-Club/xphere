@@ -83,7 +83,7 @@ export async function MetricOpenConversations() {
 
   return (
     <MetricCard
-      label="Open conversations"
+      label="Conversations"
       value={openCount}
       icon="conversations"
       trend={trend}

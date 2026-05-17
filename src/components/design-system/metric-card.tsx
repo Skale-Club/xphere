@@ -149,25 +149,25 @@ export function MetricCard({
         />
       )}
 
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
           {icon && (() => {
             const Icon = ICON_MAP[icon]
-            return Icon ? <Icon className="h-3.5 w-3.5" /> : null
+            return Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null
           })()}
-          <span>{label}</span>
+          <span className="truncate">{label}</span>
         </div>
         {TrendIcon && (
           <div
             className={cn(
-              'flex items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-[11px] font-medium tabular',
+              'flex shrink-0 items-center gap-0.5 rounded-[5px] px-1.5 py-0.5 text-[11px] font-medium tabular',
               trendColor,
               trend !== null && trend !== undefined && trend > 0 && 'bg-[var(--success-muted)]',
               trend !== null && trend !== undefined && trend < 0 && 'bg-[var(--danger-muted)]',
             )}
           >
             <TrendIcon className="h-3 w-3" />
-            <span>{trend === null || trend === undefined ? '—' : `${Math.abs(trend)}%`}</span>
+            <span>{trend === null || trend === undefined ? '—' : `${Math.abs(trend) > 999 ? '999+' : Math.abs(trend)}%`}</span>
           </div>
         )}
       </div>
