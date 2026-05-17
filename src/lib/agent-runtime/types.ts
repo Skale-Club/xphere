@@ -60,6 +60,10 @@ export type AgentRunOptions = {
   // Internal fields set by Phase 38 recursive delegation (not for external callers):
   _depth?: number
   parentInvocationId?: string
+  // Phase 38: visited-set for cycle detection (DELEG-06) — Set of agentIds already in the chain
+  _visitedAgentIds?: Set<string>
+  // Phase 38: ordered list of agentIds in the current delegation chain (for intersection check, DELEG-07)
+  _delegationChain?: string[]
 }
 
 // Shape returned by resolveAgent() after DB query + channel_overrides merge (D-34-11)

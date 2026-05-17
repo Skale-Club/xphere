@@ -85,6 +85,33 @@ export function checkDelegationDepth(
 }
 
 // ---------------------------------------------------------------------------
+// DELEG-06: Visited-set loop detection
+// ---------------------------------------------------------------------------
+// Returns a denial string if the agentId is already in the visited set (cycle detected).
+// Returns null if the agent has not been invoked yet in this delegation chain.
+// Complementary to checkDelegationDepth — visited-set catches A→B→A cycles even within budget.
+
+export function checkVisitedSet(
+  visitedAgentIds: Set<string>,
+  agentId: string,
+  orgId: string
+): string | null {
+  if (!visitedAgentIds.has(agentId)) return null
+
+  console.warn(
+    JSON.stringify({
+      event: 'guardrail_tripped',
+      cap: 'delegation_cycle',
+      agentId,
+      visitedSet: Array.from(visitedAgentIds),
+      orgId,
+    })
+  )
+
+  return 'Cycle detected — answer from current agent'
+}
+
+// ---------------------------------------------------------------------------
 // RUNTIME-05: LLM call count guard (MAX_LLM_CALLS_PER_TURN)
 // ---------------------------------------------------------------------------
 // Returns fallbackMessage if callCount has reached the cap.

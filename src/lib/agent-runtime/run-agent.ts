@@ -21,6 +21,7 @@ import { persistMessage } from '@/lib/chat/persist'
 import {
   checkKillSwitch,
   checkDelegationDepth,
+  checkVisitedSet,
   checkLlmCallCount,
   checkTokenCap,
   checkDailyCostCap,
@@ -66,6 +67,159 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
+// Handoff payload schema validation (DELEG-04, DELEG-05)
+// ---------------------------------------------------------------------------
+// Recursively scans all keys in the handoff payload and rejects any that match
+// the forbidden pattern ^role$|^system$|^instructions?$ to prevent prompt injection
+// across agent boundaries.
+
+const FORBIDDEN_HANDOFF_KEYS_RE = /^role$|^system$|^instructions?$/
+
+function validateHandoffKeys(obj: Record<string, unknown>, path = ''): string | null {
+  for (const key of Object.keys(obj)) {
+    if (FORBIDDEN_HANDOFF_KEYS_RE.test(key)) {
+      return `forbidden key "${key}" at ${path || 'root'} — prompt injection blocked`
+    }
+    const value = obj[key]
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      const nested = validateHandoffKeys(value as Record<string, unknown>, `${path}.${key}`)
+      if (nested) return nested
+    }
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// buildPartnerTools — inject call_partner_<slug> synthetic tools (DELEG-02, DELEG-03)
+// ---------------------------------------------------------------------------
+// Queries agent_partners for the current agentId, fetches partner slug+name,
+// and returns dynamicTool entries that recursively invoke runAgentBlocking().
+// Called from both runAgentBlocking and runAgentStreaming.
+
+async function buildPartnerTools(params: {
+  agentId: string
+  orgId: string
+  channel: import('./types').AgentChannel
+  _depth: number
+  visitedAgentIds: Set<string>
+  delegationChain: string[]
+  parentInvocationId: string
+  traceId: string
+  serviceClient: ReturnType<typeof createServiceRoleClient>
+  emit?: (obj: object) => void
+}): Promise<Record<string, ReturnType<typeof dynamicTool>>> {
+  const {
+    agentId, orgId, channel, _depth, visitedAgentIds, delegationChain,
+    parentInvocationId, traceId, serviceClient, emit,
+  } = params
+
+  // Fetch partner rows with partner agent slug + name
+  const { data: partners } = await serviceClient
+    .from('agent_partners')
+    .select(`
+      invocation_description,
+      partner_agent:agents!agent_partners_partner_agent_id_fkey (
+        id,
+        slug,
+        name
+      )
+    `)
+    .eq('agent_id', agentId)
+
+  if (!partners || partners.length === 0) return {}
+
+  const partnerTools: Record<string, ReturnType<typeof dynamicTool>> = {}
+
+  for (const partner of partners) {
+    const partnerAgent = partner.partner_agent as { id: string; slug: string; name: string } | null
+    if (!partnerAgent) continue
+
+    const toolName = `call_partner_${partnerAgent.slug}`
+    const capturedPartner = { ...partnerAgent }
+    const capturedDescription = partner.invocation_description
+
+    partnerTools[toolName] = dynamicTool({
+      description: capturedDescription,
+      inputSchema: jsonSchema<Record<string, unknown>>({
+        type: 'object',
+        additionalProperties: true,
+        description: 'Structured handoff payload: { from_agent, intent, extracted_params, summary, recent_messages }',
+      }),
+      execute: async (args: unknown) => {
+        const handoffArgs = (args as Record<string, unknown>) ?? {}
+
+        // DELEG-05: Validate handoff payload — reject forbidden keys
+        const validationError = validateHandoffKeys(handoffArgs)
+        if (validationError) {
+          console.warn(JSON.stringify({
+            event: 'delegation_handoff_rejected',
+            reason: validationError,
+            partnerSlug: capturedPartner.slug,
+            traceId,
+          }))
+          return `Delegation blocked: ${validationError}`
+        }
+
+        // DELEG-06: Visited-set check BEFORE recursing
+        const cycleCheck = checkVisitedSet(visitedAgentIds, capturedPartner.id, orgId)
+        if (cycleCheck) return cycleCheck
+
+        // RUNTIME-04: Depth check
+        const depthDenial = checkDelegationDepth(_depth + 1, orgId, capturedPartner.id)
+        if (depthDenial) return depthDenial
+
+        const updatedVisited = new Set([...visitedAgentIds, agentId])
+        const updatedChain = [...delegationChain, agentId]
+
+        // Build userMessage from validated handoff (DELEG-04: structured, not raw history)
+        const handoffMessage = JSON.stringify({
+          _delegation_handoff: true,
+          from_agent: (handoffArgs.from_agent as string) ?? 'unknown',
+          intent: (handoffArgs.intent as string) ?? '',
+          extracted_params: (handoffArgs.extracted_params as Record<string, unknown>) ?? {},
+          summary: (handoffArgs.summary as string) ?? '',
+          recent_messages: ((handoffArgs.recent_messages as Array<{ role: string; content: string }>) ?? []).slice(-3),
+        })
+
+        // Emit partner_start SSE event (streaming path only — DELEG-08)
+        if (emit) {
+          emit({ event: 'partner_start', partnerName: capturedPartner.name, description: capturedDescription })
+        }
+
+        // DELEG-03: Recursive invocation — always blocking (partner returns a string result)
+        let partnerReply = ''
+        try {
+          const partnerResult = await runAgentBlocking({
+            orgId,
+            agentId: capturedPartner.id,
+            channel,
+            userMessage: handoffMessage,
+            mode: 'production',
+            _depth: _depth + 1,
+            parentInvocationId,
+            _visitedAgentIds: updatedVisited,
+            _delegationChain: updatedChain,
+          })
+          partnerReply = partnerResult.text || partnerResult.errorDetail || 'Partner did not respond'
+        } catch (err) {
+          partnerReply = 'Partner agent invocation failed'
+          console.error(JSON.stringify({ event: 'partner_invocation_failed', partnerSlug: capturedPartner.slug, error: String(err), traceId }))
+        }
+
+        // Emit partner_done SSE event (streaming path only — DELEG-08)
+        if (emit) {
+          emit({ event: 'partner_done', partnerName: capturedPartner.name })
+        }
+
+        return partnerReply
+      },
+    })
+  }
+
+  return partnerTools
+}
+
+// ---------------------------------------------------------------------------
 // runAgent — function overloads (D-35-01)
 // ---------------------------------------------------------------------------
 
@@ -96,7 +250,13 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     mode = 'production',
     _depth = 0,
     parentInvocationId,
+    _visitedAgentIds,
+    _delegationChain,
   } = opts
+
+  // Phase 38: Initialize visited set and delegation chain (DELEG-06, DELEG-07)
+  const visitedAgentIds = _visitedAgentIds ?? new Set<string>()
+  const delegationChain = _delegationChain ?? []
 
   // Resolve agentId from agent_channel_defaults when not explicitly provided (D-35-06)
   let resolvedAgentId = opts.agentId
@@ -185,7 +345,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 6: Delegation depth check (D-34-10 stub — Phase 38 activates recursion)
+  // Step 6: Delegation depth check (D-34-10 — Phase 38 activates recursion)
   const depthDenial = checkDelegationDepth(_depth, orgId, resolvedAgentId)
   if (depthDenial) {
     return {
@@ -197,6 +357,22 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       errorDetail: 'delegation_depth_exceeded',
     }
   }
+
+  // Step 6b: Visited-set loop detection (DELEG-06 — Phase 38)
+  const visitedDenial = checkVisitedSet(visitedAgentIds, resolvedAgentId, orgId)
+  if (visitedDenial) {
+    return {
+      text: visitedDenial,
+      usage: { tokensIn: 0, tokensOut: 0 },
+      invocationId: '',
+      traceId,
+      status: 'denied',
+      errorDetail: 'delegation_cycle',
+    }
+  }
+  // Add current agent to visited set and chain before proceeding
+  visitedAgentIds.add(resolvedAgentId)
+  const currentChain = [...delegationChain, resolvedAgentId]
 
   // Step 7: Daily cost cap check (D-34-05 / RUNTIME-07)
   const costCapDenial = await checkDailyCostCap(orgId, resolvedAgentId)
@@ -321,6 +497,9 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       // dynamicTool accepts execute: ToolExecuteFunction<unknown, unknown> — no overload conflicts
       const toolSet: Record<string, ReturnType<typeof dynamicTool>> = {}
 
+      // Phase 38 IDEMP-03: tool call index counter (incremented per tool call for idempotency key)
+      let toolCallIndex = 0
+
       for (const row of agentToolRows ?? []) {
         const tc = row.tool_configs as {
           tool_name: string
@@ -344,6 +523,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
         // Capture loop vars for closure
         const capturedToolName = toolName
+        const capturedActionType = actionType
 
         toolSet[capturedToolName] = dynamicTool({
           description,
@@ -354,6 +534,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
           }),
           execute: async (args: unknown) => {
             const toolArgs = (args as Record<string, unknown>) ?? {}
+            const currentToolCallIndex = toolCallIndex++
 
             // D-34-14: Gate every tool call through resolveAgentTool
             const resolvedTool = await resolveAgentTool(resolvedAgentId, capturedToolName, channel)
@@ -366,6 +547,33 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                 denied_reason: 'tool_not_attached_to_agent',
               })
               return 'Tool not available to this agent'
+            }
+
+            // DELEG-07: Intersection authorization — verify ALL agents in delegation chain
+            // have this tool attached before allowing execution
+            if (currentChain.length > 1) {
+              for (const chainAgentId of currentChain.slice(0, -1)) {
+                const chainToolCheck = await resolveAgentTool(chainAgentId, capturedToolName, channel)
+                if (!chainToolCheck) {
+                  const denialEntry = {
+                    name: capturedToolName,
+                    args: JSON.parse(JSON.stringify(toolArgs)) as Json,
+                    denied: true,
+                    denied_reason: 'intersection_excludes_tool',
+                    chain: currentChain,
+                    blocking_agent: chainAgentId,
+                  }
+                  toolCallsLog.push(denialEntry)
+                  console.warn(JSON.stringify({
+                    event: 'intersection_authz_denied',
+                    tool: capturedToolName,
+                    chainAgentId,
+                    chain: currentChain,
+                    traceId,
+                  }))
+                  return `Tool execution denied: delegation chain agent ${chainAgentId} does not have permission for ${capturedToolName}`
+                }
+              }
             }
 
             // Decrypt credentials if present
@@ -402,6 +610,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                   supabase: serviceClient,
                   toolConfig: resolvedTool.config,
                   integrationProvider: resolvedTool.integrationProvider ?? undefined,
+                  delegationChain: currentChain,
                 }
               )
             } catch (err) {
@@ -423,12 +632,30 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               args: JSON.parse(JSON.stringify(toolArgs)) as Json,
               result,
               denied: false,
+              tool_call_index: currentToolCallIndex,
             })
+
+            void capturedActionType // suppress unused var warning — used by idempotency in Plan 38-04
 
             return result
           },
         })
       }
+
+      // DELEG-02: Inject synthetic partner tools for each configured partner agent
+      const partnerTools = await buildPartnerTools({
+        agentId: resolvedAgentId,
+        orgId,
+        channel,
+        _depth,
+        visitedAgentIds,
+        delegationChain: currentChain,
+        parentInvocationId: invocationId,
+        traceId,
+        serviceClient,
+        // No emit in blocking path — SSE events only in streaming path
+      })
+      Object.assign(toolSet, partnerTools)
 
       // Build message array for the LLM
       const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -540,7 +767,13 @@ function runAgentStreaming(
     mode = 'production',
     _depth = 0,
     parentInvocationId,
+    _visitedAgentIds,
+    _delegationChain,
   } = opts
+
+  // Phase 38: Initialize visited set and delegation chain (DELEG-06, DELEG-07)
+  const visitedAgentIds = _visitedAgentIds ?? new Set<string>()
+  const delegationChain = _delegationChain ?? []
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -628,6 +861,18 @@ function runAgentStreaming(
           return
         }
 
+        // Phase 38 DELEG-06: Visited-set loop detection
+        const visitedDenialStream = checkVisitedSet(visitedAgentIds, resolvedAgentId, orgId)
+        if (visitedDenialStream) {
+          emit({ event: 'token', text: visitedDenialStream })
+          emit({ event: 'done' })
+          controller.close()
+          return
+        }
+        // Add current agent to visited set and chain
+        visitedAgentIds.add(resolvedAgentId)
+        const currentChain = [...delegationChain, resolvedAgentId]
+
         // KB injection — UNCONDITIONAL (GATE-01: matches legacy stream.ts behavior)
         let systemPrompt = resolvedAgent.systemPrompt
         const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
@@ -696,8 +941,20 @@ function runAgentStreaming(
             .eq('agent_id', resolvedAgentId)
             .eq('tool_configs.is_active', true)
 
+          // DELEG-08: Check delegation_visibility for this org before building partner tools
+          const { data: orgVisRow } = await serviceClient
+            .from('organizations')
+            .select('delegation_visibility')
+            .eq('id', orgId)
+            .single()
+          const delegationVisible = (orgVisRow?.delegation_visibility ?? 'visible') === 'visible'
+
           // Build ToolSet (same logic as blocking path)
           const toolSet: Record<string, ReturnType<typeof dynamicTool>> = {}
+
+          // Phase 38 IDEMP-03: tool call index counter
+          let toolCallIndex = 0
+
           for (const row of agentToolRows ?? []) {
             const tc = row.tool_configs as { tool_name: string; action_type: string; config: Json } | null
             if (!tc) continue
@@ -710,16 +967,29 @@ function runAgentStreaming(
                 ? (toolConfigJson as Record<string, unknown>).description as string
                 : null) ?? (ACTION_DESCRIPTIONS[actionType] ?? `Execute ${toolName}`)
             const capturedToolName = toolName
+            const capturedActionType = actionType
 
             toolSet[capturedToolName] = dynamicTool({
               description,
               inputSchema: jsonSchema<Record<string, unknown>>({ type: 'object', additionalProperties: true }),
               execute: async (args: unknown) => {
                 const toolArgs = (args as Record<string, unknown>) ?? {}
+                const currentToolCallIndex = toolCallIndex++
                 const resolvedTool = await resolveAgentTool(resolvedAgentId!, capturedToolName, channel)
                 if (!resolvedTool) {
                   toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, denied: true, denied_reason: 'tool_not_attached_to_agent' })
                   return 'Tool not available to this agent'
+                }
+                // DELEG-07: Intersection authorization
+                if (currentChain.length > 1) {
+                  for (const chainAgentId of currentChain.slice(0, -1)) {
+                    const chainToolCheck = await resolveAgentTool(chainAgentId, capturedToolName, channel)
+                    if (!chainToolCheck) {
+                      toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, denied: true, denied_reason: 'intersection_excludes_tool', chain: currentChain, blocking_agent: chainAgentId })
+                      console.warn(JSON.stringify({ event: 'intersection_authz_denied', tool: capturedToolName, chainAgentId, chain: currentChain }))
+                      return `Tool execution denied: delegation chain agent ${chainAgentId} does not have permission for ${capturedToolName}`
+                    }
+                  }
                 }
                 let apiKey = ''
                 let locationId = ''
@@ -734,13 +1004,29 @@ function runAgentStreaming(
                 }
                 let result = ''
                 try {
-                  result = await executeAction(resolvedTool.actionType, toolArgs, { apiKey, locationId }, { organizationId: orgId, supabase: serviceClient, toolConfig: resolvedTool.config, integrationProvider: resolvedTool.integrationProvider ?? undefined })
+                  result = await executeAction(resolvedTool.actionType, toolArgs, { apiKey, locationId }, { organizationId: orgId, supabase: serviceClient, toolConfig: resolvedTool.config, integrationProvider: resolvedTool.integrationProvider ?? undefined, delegationChain: currentChain })
                 } catch { result = 'Tool execution failed' }
-                toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, result, denied: false })
+                toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, result, denied: false, tool_call_index: currentToolCallIndex })
+                void capturedActionType // suppress unused var warning — used by idempotency in Plan 38-04
                 return result
               },
             })
           }
+
+          // DELEG-02: Inject synthetic partner tools for each configured partner agent
+          const partnerToolsStream = await buildPartnerTools({
+            agentId: resolvedAgentId!,
+            orgId,
+            channel,
+            _depth,
+            visitedAgentIds,
+            delegationChain: currentChain,
+            parentInvocationId: invocationId,
+            traceId,
+            serviceClient,
+            emit: delegationVisible ? emit : undefined,
+          })
+          Object.assign(toolSet, partnerToolsStream)
 
           // Build messages
           const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [

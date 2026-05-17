@@ -32,6 +32,8 @@ export interface ActionContext {
   toolConfig?: Json
   /** Provider of the integration bound to this tool — dispatches send_sms to Twilio vs GHL */
   integrationProvider?: IntegrationProvider
+  /** Phase 38 DELEG-07: ordered list of agentIds in the delegation chain — for intersection authorization logging */
+  delegationChain?: string[]
 }
 
 export async function executeAction(
