@@ -132,10 +132,10 @@ async function getWorkspaceSetupState(): Promise<WorkspaceSetupState> {
 
 function greetingFor(date: Date): string {
   const h = date.getHours()
-  if (h < 6)  return 'Boa madrugada'
-  if (h < 12) return 'Bom dia'
-  if (h < 18) return 'Boa tarde'
-  return 'Boa noite'
+  if (h < 6)  return 'Good early morning'
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
 }
 
 function getFirstName(user: { user_metadata?: Record<string, unknown>; email?: string | null }): string {
@@ -156,18 +156,52 @@ function trendPct(values: number[]): number | null {
 }
 
 async function HomeMetrics() {
+  // Each fetch is independently fail-soft so the home dashboard renders
+  // even when one upstream query throws (missing migration, RLS hiccup,
+  // table not yet provisioned in this env, etc.). Logged with a tag so
+  // we can search Vercel logs for "[dashboard:home-metrics]".
   const supabase = await createClient()
-  const [metrics, costTicker, agentCountRes] = await Promise.all([
-    getDashboardMetrics(),
-    getOrgCostTicker(),
-    supabase.from('assistant_mappings').select('*', { count: 'exact', head: true }).eq('is_active', true),
-  ])
+
+  const emptyMetrics = {
+    callsToday: 0,
+    callsWeek: 0,
+    callsMonth: 0,
+    toolSuccessRate: null as number | null,
+    recentCalls: [],
+    recentFailures: [],
+    trends: {
+      today: [] as { date: string; value: number }[],
+      week: [] as { date: string; value: number }[],
+      month: [] as { date: string; value: number }[],
+    },
+  }
+
+  const metrics = await getDashboardMetrics().catch((err) => {
+    console.error('[dashboard:home-metrics] getDashboardMetrics failed', err)
+    return emptyMetrics
+  })
+
+  const costTicker = await getOrgCostTicker().catch((err) => {
+    console.error('[dashboard:home-metrics] getOrgCostTicker failed', err)
+    return null
+  })
+
+  let agentCount = 0
+  try {
+    const { count } = await supabase
+      .from('assistant_mappings')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+    agentCount = count ?? 0
+  } catch (err) {
+    console.error('[dashboard:home-metrics] active-agents count failed', err)
+  }
 
   const todaySeries = metrics.trends.today.map((t) => ({ value: t.value }))
   const weekSeries  = metrics.trends.week.map((t) => ({ value: t.value }))
 
   const callsTrend = trendPct(metrics.trends.today.map((t) => t.value))
-  const activeAgents = agentCountRes.count ?? 0
+  const activeAgents = agentCount
 
   const costToday = costTicker?.cost24hUsd ?? null
   const costCap = costTicker?.dailyCapUsd ?? null
@@ -227,18 +261,29 @@ async function HomeMetrics() {
 async function ActivityPanel() {
   const supabase = await createClient()
 
-  const [recentCallsRes, recentLogsRes] = await Promise.all([
-    supabase
+  // Both queries are fail-soft. If either table is missing/RLS-blocked, we
+  // render an empty activity feed instead of crashing the dashboard.
+  let recentCallsRes: { data: unknown } = { data: null }
+  try {
+    recentCallsRes = await supabase
       .from('calls')
       .select('id, customer_name, customer_number, ended_reason, started_at, created_at, call_type')
       .order('created_at', { ascending: false })
-      .limit(8),
-    supabase
+      .limit(8)
+  } catch (err) {
+    console.error('[dashboard:activity-panel] calls fetch failed', err)
+  }
+
+  let recentLogsRes: { data: unknown } = { data: null }
+  try {
+    recentLogsRes = await supabase
       .from('action_logs')
       .select('id, action, status, created_at, tool_name')
       .order('created_at', { ascending: false })
-      .limit(6),
-  ])
+      .limit(6)
+  } catch (err) {
+    console.error('[dashboard:activity-panel] action_logs fetch failed', err)
+  }
 
   type CallEvt = {
     id: string
@@ -287,7 +332,13 @@ async function ActivityPanel() {
 }
 
 async function ActivityChartSection() {
-  const metrics = await getDashboardMetrics()
+  // Defensive: if metrics fail, show an empty chart instead of crashing.
+  const metrics = await getDashboardMetrics().catch((err) => {
+    console.error('[dashboard:activity-chart] getDashboardMetrics failed', err)
+    return {
+      trends: { today: [], week: [], month: [] },
+    } as { trends: { today: { date: string; value: number }[]; week: { date: string; value: number }[]; month: { date: string; value: number }[] } }
+  })
   const data = metrics.trends.week.map((t) => ({
     label: t.date,
     calls: t.value,
@@ -297,11 +348,25 @@ async function ActivityChartSection() {
 }
 
 export default async function DashboardPage() {
-  const [hasVapi, user, setupState] = await Promise.all([
-    hasVapiIntegration(),
-    getUser(),
-    getWorkspaceSetupState(),
-  ])
+  // Every top-level fetch is guarded — the dashboard must render even when
+  // a single upstream query fails. Errors are logged with a tag so we can
+  // surface them in Vercel logs ("[dashboard:page]").
+  const hasVapi = await hasVapiIntegration().catch((err) => {
+    console.error('[dashboard:page] hasVapiIntegration failed', err)
+    return false
+  })
+
+  const user = await getUser().catch((err) => {
+    console.error('[dashboard:page] getUser failed', err)
+    return null
+  })
+
+  const setupState = await getWorkspaceSetupState().catch((err) => {
+    console.error('[dashboard:page] getWorkspaceSetupState failed', err)
+    // Best-effort empty state — at minimum the page still renders.
+    return { isEmpty: false, items: [] as WelcomeChecklistItem[] }
+  })
+
   const greeting = greetingFor(new Date())
   const firstName = user ? getFirstName(user) : 'there'
 

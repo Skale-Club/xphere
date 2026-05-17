@@ -22,32 +22,32 @@ const STEPS: Step[] = [
   {
     selector: null,
     side: 'center',
-    title: 'Bem-vindo ao Operator',
-    body: 'Vamos te apresentar as principais áreas do produto em 30 segundos. Você pode pular a qualquer momento.',
+    title: 'Welcome to Operator',
+    body: "Let's walk you through the main areas of the product in 30 seconds. You can skip at any time.",
   },
   {
     selector: 'aside nav',
     side: 'right',
-    title: 'Aqui ficam todas as áreas',
-    body: 'O menu lateral organiza as áreas em Overview, Engage, Build e Manage. Clique em qualquer item para navegar.',
+    title: 'All your workspace areas live here',
+    body: 'The sidebar organises everything into Overview, Engage, Sales, Build, and Manage. Click any item to navigate.',
   },
   {
     selector: '[data-tour="command-palette-trigger"], [data-tour="topbar"]',
     side: 'bottom',
-    title: 'Pressione Cmd+K para tudo',
-    body: 'A paleta de comandos abre a busca, navega entre áreas e executa ações comuns. O atalho mais útil do produto.',
+    title: 'Press Cmd+K for everything',
+    body: 'The command palette opens search, jumps between areas, and runs common actions. The most useful shortcut in the product.',
   },
   {
     selector: 'a[href="/agents"]',
     side: 'right',
-    title: 'Crie seu primeiro agente',
-    body: 'Os agentes são os assistentes de IA que atendem suas conversas. Comece criando um com poucos cliques.',
+    title: 'Create your first agent',
+    body: 'Agents are the AI workers that handle your conversations. Spin one up in just a few clicks.',
   },
   {
     selector: 'a[href="/integrations"]',
     side: 'right',
-    title: 'Conecte WhatsApp, Twilio e mais',
-    body: 'Em Integrations você conecta canais (WhatsApp via Evolution Go, SMS via Twilio, Vapi para voz). Cada canal aparece automaticamente.',
+    title: 'Connect WhatsApp, Twilio, and more',
+    body: 'In Integrations you connect channels (WhatsApp via Evolution Go, SMS via Twilio, Vapi for voice). Each channel shows up automatically.',
   },
 ]
 
@@ -205,7 +205,7 @@ export function OnboardingTour() {
             onClick={dismiss}
             className="text-[12px] text-text-tertiary hover:text-text-secondary"
           >
-            Pular tour
+            Skip tour
           </button>
           <div className="flex items-center gap-1">
             {STEPS.map((_, i) => (
@@ -219,7 +219,7 @@ export function OnboardingTour() {
             ))}
           </div>
           <Button size="sm" onClick={next}>
-            {step >= STEPS.length - 1 ? 'Concluir' : 'Próximo'}
+            {step >= STEPS.length - 1 ? 'Finish' : 'Next'}
             <ArrowRight className="h-3 w-3" />
           </Button>
         </div>
