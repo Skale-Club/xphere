@@ -6,6 +6,7 @@ import { AdminChatLayout } from '@/components/chat/admin-chat-layout'
 import { PlaygroundChat } from '@/components/chat/playground-chat'
 import { createClient } from '@/lib/supabase/server'
 import { getPlaygroundConfig } from './actions'
+import { getActiveAgents } from '@/app/(dashboard)/agents/actions'
 
 export default async function ChatPage({
   searchParams,
@@ -18,6 +19,13 @@ export default async function ChatPage({
   // Resolve active org for Realtime subscription filter (defense-in-depth alongside RLS)
   const supabase = await createClient()
   const { data: activeOrgId } = await supabase.rpc('get_current_org_id')
+
+  // OBS-08: Build agentMap (id → name) for message-level agent badges
+  const agentList = await getActiveAgents()
+  const agentMap: Record<string, string> = {}
+  for (const a of agentList) {
+    agentMap[a.id] = a.name
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -48,7 +56,7 @@ export default async function ChatPage({
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
         {tab === 'inbox' ? (
-          <AdminChatLayout currentOrgId={activeOrgId ?? null} />
+          <AdminChatLayout currentOrgId={activeOrgId ?? null} agentMap={agentMap} />
         ) : (
           <PlaygroundTab />
         )}

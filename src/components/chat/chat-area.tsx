@@ -19,6 +19,8 @@ interface ChatAreaProps {
   onBack: () => void
   onBotStatusToggle: (conversationId: string, currentStatus: string) => void
   isBotToggling: boolean
+  /** OBS-08: Maps agent_id → agent name for per-message agent badges. */
+  agentMap?: Record<string, string>
 }
 
 /**
@@ -37,6 +39,7 @@ export function ChatArea({
   onBack,
   onBotStatusToggle,
   isBotToggling,
+  agentMap,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
 
@@ -69,7 +72,7 @@ export function ChatArea({
         showDebug={showDebug}
         onShowDebugChange={setShowDebug}
       />
-      <MessageList messages={visibleMessages} isLoading={isLoading} />
+      <MessageList messages={visibleMessages} isLoading={isLoading} agentMap={agentMap} />
       <MessageBanner conversation={conversation} />
       <MessageComposer onSendMessage={onSendMessage} />
     </div>

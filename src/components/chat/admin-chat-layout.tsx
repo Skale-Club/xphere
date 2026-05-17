@@ -55,9 +55,11 @@ interface AdminChatLayoutProps {
   /** Active organization id. Used to scope Realtime subscriptions
    *  (defense-in-depth alongside RLS). */
   currentOrgId: string | null
+  /** OBS-08: Maps agent_id → agent name for per-message agent badges. */
+  agentMap?: Record<string, string>
 }
 
-export function AdminChatLayout({ currentOrgId }: AdminChatLayoutProps) {
+export function AdminChatLayout({ currentOrgId, agentMap }: AdminChatLayoutProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -348,6 +350,7 @@ export function AdminChatLayout({ currentOrgId }: AdminChatLayoutProps) {
             onBack={() => {}}
             onBotStatusToggle={(id, status) => handleBotStatusToggle(id, status)}
             isBotToggling={botTogglingId === selectedConversationId}
+            agentMap={agentMap}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -396,6 +399,7 @@ export function AdminChatLayout({ currentOrgId }: AdminChatLayoutProps) {
             onBack={() => setIsMobileListVisible(true)}
             onBotStatusToggle={(id, status) => handleBotStatusToggle(id, status)}
             isBotToggling={botTogglingId === selectedConversationId}
+            agentMap={agentMap}
           />
         </div>
       </div>

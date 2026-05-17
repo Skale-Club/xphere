@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 interface MessageListProps {
   messages: ConversationMessage[]
   isLoading: boolean
+  /** OBS-08: Maps agent_id → agent name for per-message badges. */
+  agentMap?: Record<string, string>
 }
 
 function getDebugMessageStyle(message: ConversationMessage): string {
@@ -32,7 +34,7 @@ function getDebugMessageStyle(message: ConversationMessage): string {
  * internal/debug messages with distinct styling. Auto-scrolls to bottom
  * when the messages array changes.
  */
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, agentMap }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -85,6 +87,10 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
               )
             }
 
+            // OBS-08: Resolve agent badge from metadata.agent_id
+            const agentId = message.metadata?.agent_id as string | undefined
+            const agentName = agentId ? (agentMap?.[agentId] ?? null) : null
+
             return (
               <div key={message.id} className={`flex items-end gap-3 w-full group ${isSequential ? 'mt-1' : 'mt-6'}`}>
                 {!isSequential ? (
@@ -94,12 +100,19 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                 ) : (
                   <div className="h-8 w-8 shrink-0"></div>
                 )}
-                <div
-                  className={`bg-white dark:bg-neutral-800 text-foreground border shadow-sm px-4 py-2.5 max-w-[85%] md:max-w-[70%] text-[15px] leading-relaxed transition-all
-                    ${isSequential ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl'}
-                  `}
-                >
-                  {message.content}
+                <div className="flex flex-col min-w-0">
+                  <div
+                    className={`bg-white dark:bg-neutral-800 text-foreground border shadow-sm px-4 py-2.5 max-w-[85%] md:max-w-[70%] text-[15px] leading-relaxed transition-all
+                      ${isSequential ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl'}
+                    `}
+                  >
+                    {message.content}
+                  </div>
+                  {agentName && (
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                      via {agentName}
+                    </span>
+                  )}
                 </div>
               </div>
             )
