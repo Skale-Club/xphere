@@ -19,6 +19,7 @@ import { PipelineOverview } from '@/components/dashboard/widgets/pipeline-overvi
 import { RecentCalls } from '@/components/dashboard/widgets/recent-calls'
 import { IntegrationsStatus } from '@/components/dashboard/widgets/integrations-status'
 import { ActivitySnapshot } from '@/components/dashboard/widgets/activity-snapshot'
+import { ActivityFeed } from '@/components/dashboard/widgets/activity-feed'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,22 +113,9 @@ export default function DashboardPage() {
       {/* Row 4 — activity feed */}
       <WidgetErrorBoundary name="activity-feed" fallback={<WidgetError title="Activity" />}>
         <Suspense fallback={<PanelSkeleton rows={8} />}>
-          <PlaceholderPanel label="Activity feed" />
+          <ActivityFeed />
         </Suspense>
       </WidgetErrorBoundary>
     </PageContainer>
-  )
-}
-
-// ─── Placeholder components (replaced by real widgets in subsequent waves) ──
-
-function PlaceholderPanel({ label }: { label: string }) {
-  return (
-    <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm">
-      <div className="text-[13.5px] font-medium text-text-primary">{label}</div>
-      <div className="mt-2 text-[12.5px] text-text-tertiary">
-        Loading…
-      </div>
-    </div>
   )
 }
