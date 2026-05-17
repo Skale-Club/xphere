@@ -23,7 +23,6 @@ import { toast } from 'sonner'
 import {
   Check,
   Copy,
-  ExternalLink,
   Eye,
   EyeOff,
   Globe,
@@ -38,6 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusPill } from '@/components/design-system/status-pill'
+import { SectionCard } from '@/components/integrations/section-card'
 import { cn } from '@/lib/utils'
 import {
   saveTwilioIntegration,
@@ -298,64 +298,6 @@ function SectionPill({ label, ready }: { label: string; ready: boolean }) {
     <StatusPill tone={ready ? 'success' : 'idle'}>
       {ready ? `${label} ✓` : `${label} pending`}
     </StatusPill>
-  )
-}
-
-function SectionCard({
-  icon: Icon,
-  title,
-  description,
-  statusReady,
-  readyLabel,
-  emptyLabel,
-  helpLinks,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: React.ReactNode
-  description: React.ReactNode
-  statusReady: boolean
-  readyLabel: string
-  emptyLabel: string
-  helpLinks?: Array<{ label: string; href: string }>
-  children: React.ReactNode
-}) {
-  return (
-    <section className="rounded-[14px] border border-border bg-bg-secondary p-6 space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-bg-tertiary text-text-secondary">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-[15px] font-medium text-text-primary">{title}</h2>
-            <p className="mt-0.5 max-w-2xl text-[12.5px] text-text-secondary leading-relaxed">{description}</p>
-          </div>
-        </div>
-        <StatusPill tone={statusReady ? 'success' : 'warning'}>
-          {statusReady ? readyLabel : emptyLabel}
-        </StatusPill>
-      </div>
-
-      {helpLinks && helpLinks.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {helpLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-tertiary px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:text-text-primary hover:border-border-strong"
-            >
-              <ExternalLink className="h-3 w-3" />
-              {link.label}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {children}
-    </section>
   )
 }
 
