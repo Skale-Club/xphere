@@ -1,10 +1,10 @@
 ---
 id: SEED-001
-status: dormant
+status: cancelled
 planted: 2026-05-15
 planted_during: post-v1.8 (Executor Completeness completed)
-trigger_when: milestone touches WhatsApp onboarding / multi-channel inbox / self-service WABA setup, OR before 2026-10-15 (Embedded Signup v2 deprecation deadline), OR user explicitly requests
-scope: Large
+cancelled: 2026-05-17
+cancelled_reason: Abordagem via Meta Embedded Signup v4 + Coexistence substituída por integração W-API (SEED-004). W-API oferece multi-instância, webhook inbound e envio sem necessidade de App Review da Meta ou Tech Provider approval.
 ---
 
 # SEED-001: WhatsApp Coexistence — Embedded Signup v4 + Coexistence mode
