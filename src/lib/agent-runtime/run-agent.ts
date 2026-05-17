@@ -29,6 +29,13 @@ import {
 import { resolveAgent } from './resolve-agent'
 import { resolveAgentTool } from './resolve-agent-tool'
 import { insertInvocationStart, updateInvocationEnd } from './invocations'
+import {
+  deriveIdempotencyKey,
+  requiresIdempotency,
+  checkIdempotency,
+  recordIdempotency,
+  hashToolArgs,
+} from './idempotency'
 import type { AgentRunOptions, AgentRunResult } from './types'
 import type { Json } from '@/types/database'
 
@@ -598,6 +605,27 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               }
             }
 
+            // IDEMP-02/03: Idempotency check for side-effecting tools
+            const idempotencyNeeded = requiresIdempotency(capturedActionType, resolvedTool.config)
+            let idempotencyKey = ''
+
+            if (idempotencyNeeded && invocationId && invocationId !== 'insert-failed') {
+              idempotencyKey = deriveIdempotencyKey(invocationId, currentToolCallIndex)
+              const cachedResponse = await checkIdempotency(orgId, idempotencyKey)
+              if (cachedResponse !== null) {
+                // Cache hit — return without re-executing
+                toolCallsLog.push({
+                  name: capturedToolName,
+                  args: JSON.parse(JSON.stringify(toolArgs)) as Json,
+                  result: cachedResponse,
+                  denied: false,
+                  idempotency_cache_hit: true,
+                  tool_call_index: currentToolCallIndex,
+                })
+                return cachedResponse
+              }
+            }
+
             // Execute the action via execute-action dispatcher
             let result = ''
             try {
@@ -613,6 +641,17 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                   delegationChain: currentChain,
                 }
               )
+              // Persist idempotency record after successful execution
+              if (idempotencyNeeded && idempotencyKey && invocationId && invocationId !== 'insert-failed') {
+                await recordIdempotency({
+                  organizationId: orgId,
+                  agentInvocationId: invocationId,
+                  idempotencyKey,
+                  toolName: capturedToolName,
+                  requestHash: hashToolArgs(toolArgs),
+                  response: result,
+                })
+              }
             } catch (err) {
               result = 'Tool execution failed'
               console.error(
@@ -634,8 +673,6 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               denied: false,
               tool_call_index: currentToolCallIndex,
             })
-
-            void capturedActionType // suppress unused var warning — used by idempotency in Plan 38-04
 
             return result
           },
@@ -1002,12 +1039,25 @@ function runAgentStreaming(
                     locationId = (parsed.locationId as string) ?? ''
                   } catch { /* credential decrypt failed */ }
                 }
+                // IDEMP-02/03: Idempotency check for side-effecting tools
+                const idempotencyNeededStream = requiresIdempotency(capturedActionType, resolvedTool.config)
+                let idempotencyKeyStream = ''
+                if (idempotencyNeededStream && invocationId && invocationId !== 'insert-failed') {
+                  idempotencyKeyStream = deriveIdempotencyKey(invocationId, currentToolCallIndex)
+                  const cachedResponse = await checkIdempotency(orgId, idempotencyKeyStream)
+                  if (cachedResponse !== null) {
+                    toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, result: cachedResponse, denied: false, idempotency_cache_hit: true, tool_call_index: currentToolCallIndex })
+                    return cachedResponse
+                  }
+                }
                 let result = ''
                 try {
                   result = await executeAction(resolvedTool.actionType, toolArgs, { apiKey, locationId }, { organizationId: orgId, supabase: serviceClient, toolConfig: resolvedTool.config, integrationProvider: resolvedTool.integrationProvider ?? undefined, delegationChain: currentChain })
+                  if (idempotencyNeededStream && idempotencyKeyStream && invocationId && invocationId !== 'insert-failed') {
+                    await recordIdempotency({ organizationId: orgId, agentInvocationId: invocationId, idempotencyKey: idempotencyKeyStream, toolName: capturedToolName, requestHash: hashToolArgs(toolArgs), response: result })
+                  }
                 } catch { result = 'Tool execution failed' }
                 toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, result, denied: false, tool_call_index: currentToolCallIndex })
-                void capturedActionType // suppress unused var warning — used by idempotency in Plan 38-04
                 return result
               },
             })

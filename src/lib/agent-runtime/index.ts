@@ -4,3 +4,7 @@
 
 export { runAgent } from './run-agent'
 export type { AgentRunResult, AgentRunOptions } from './types'
+// Phase 38: idempotency utilities (exported for test utilities and external tooling)
+export { deriveIdempotencyKey, requiresIdempotency } from './idempotency'
+// Phase 38: guardrail utilities
+export { checkVisitedSet } from './guardrails'
