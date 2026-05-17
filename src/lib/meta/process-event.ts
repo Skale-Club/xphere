@@ -1,10 +1,17 @@
 // src/lib/meta/process-event.ts
 // Pure async function — no HTTP layer. Processes a validated Meta webhook payload.
 // Called from src/app/api/meta/webhook/route.ts via after().
+//
+// v2.0 agent path (CHAN-05 — Phase 37): when meta_channels.agent_id is non-null,
+//   invokes runAgent({ stream: false }) and replies via sendMetaMessage.
+// v1.x legacy path: uses automation_id / tool_config_id → executeAction, unchanged.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { decrypt } from '@/lib/crypto'
+import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { sendMetaMessage } from './send-message'
+import { formatOutbound as formatMeta } from '@/lib/agent-runtime/adapters/meta'
 
 export type MetaWebhookPayload = {
   object: string
@@ -33,19 +40,16 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
 
     for (const event of entry.messaging) {
       try {
-        // Skip echo messages (messages sent BY the page itself)
         if (event.message?.is_echo === true) continue
-
-        // Skip events with no text content
         if (!event.message?.text) continue
 
         const senderId = event.sender.id
         const messageText = event.message.text
 
-        // 1. Resolve org + automation config from meta_channels
+        // 1. Resolve org + automation config + agent_id from meta_channels
         const { data: metaChannel } = await supabase
           .from('meta_channels')
-          .select('org_id, automation_id, config')
+          .select('org_id, automation_id, config, agent_id, encrypted_page_access_token')
           .eq('page_id', pageId)
           .eq('channel_type', channelType)
           .eq('is_active', true)
@@ -56,9 +60,9 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           continue
         }
 
-        const { org_id: orgId, automation_id: automationId, config } = metaChannel
+        const { org_id: orgId, automation_id: automationId, config, agent_id: agentId } = metaChannel
 
-        // 2. De-duplicate conversation: find existing by sender + page + channel
+        // 2. De-duplicate conversation
         const senderKey = channelType === 'instagram' ? 'igsid' : 'sender_id'
 
         const { data: existing } = await supabase
@@ -78,8 +82,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
         if (existing) {
           conversationId = existing.id
           existingChannelMetadata = (existing.channel_metadata as Record<string, string>) ?? {}
-
-          // Update conversation with latest message info (will also update last_inbound_at below)
           await supabase
             .from('conversations')
             .update({
@@ -89,7 +91,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             })
             .eq('id', conversationId)
         } else {
-          // Create new conversation
           const channelMetadata =
             channelType === 'instagram'
               ? { igsid: senderId, page_id: pageId }
@@ -99,7 +100,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             .from('conversations')
             .insert({
               org_id: orgId,
-              widget_token: '',  // NOT NULL column; Meta conversations do not use widget tokens
+              widget_token: '',
               channel: channelType,
               channel_metadata: channelMetadata,
               last_message: messageText,
@@ -113,7 +114,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             console.error('[meta/webhook] Failed to create conversation:', insertError?.message)
             continue
           }
-
           conversationId = created.id
         }
 
@@ -125,7 +125,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           content: messageText,
         })
 
-        // 4. 24h window check — only applies to existing conversations
+        // 4. 24h window check
         const lastInboundAt = existing?.last_inbound_at ? new Date(existing.last_inbound_at) : null
         const windowExpired = lastInboundAt
           ? (Date.now() - lastInboundAt.getTime()) > 24 * 60 * 60 * 1000
@@ -133,7 +133,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
 
         if (windowExpired) {
           console.log('[meta/webhook] 24h window expired for conversation:', conversationId)
-          // Set window_expired flag and update last_inbound_at (reset the clock for future messages)
           await supabase
             .from('conversations')
             .update({
@@ -144,7 +143,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           continue
         }
 
-        // Update last_inbound_at for existing conversations (new conversations already have it set)
         if (existing) {
           await supabase
             .from('conversations')
@@ -152,14 +150,28 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             .eq('id', conversationId)
         }
 
-        // 5. Automation dispatch — skip if no automation configured
+        // 5. XOR dispatch: agent_id takes priority over automation_id
+        if (agentId) {
+          // v2.0 agent path (CHAN-05)
+          await dispatchAgentReply({
+            orgId,
+            agentId,
+            channel: channelType as 'messenger' | 'instagram',
+            userMessage: messageText,
+            conversationId,
+            encryptedPageToken: metaChannel.encrypted_page_access_token,
+            recipientId: senderId,
+            supabase,
+          })
+          continue
+        }
+
+        // 6. Legacy path: automation_id / tool_config_id
         if (!automationId) continue
 
-        // 6. Keyword trigger check — case-insensitive substring match
         const keyword = (config as Record<string, string>)?.keyword_trigger ?? null
         if (keyword && !messageText.toLowerCase().includes(keyword.toLowerCase())) continue
 
-        // 7. Resolve tool config and dispatch
         try {
           const { data: toolConfig, error: toolError } = await supabase
             .from('tool_configs')
@@ -184,7 +196,6 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             { organizationId: orgId, supabase, integrationProvider: integration.provider }
           )
 
-          // Persist automation response as assistant message
           await supabase.from('conversation_messages').insert({
             conversation_id: conversationId,
             org_id: orgId,
@@ -198,5 +209,57 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
         console.error('[meta/webhook] Error processing messaging event:', eventErr)
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Agent reply dispatch (v2.0 — CHAN-05)
+// ---------------------------------------------------------------------------
+
+interface AgentReplyInput {
+  orgId: string
+  agentId: string
+  channel: 'messenger' | 'instagram'
+  userMessage: string
+  conversationId: string
+  encryptedPageToken: string
+  recipientId: string
+  supabase: ReturnType<typeof createServiceRoleClient>
+}
+
+async function dispatchAgentReply(input: AgentReplyInput): Promise<void> {
+  try {
+    const result = await runAgent({
+      orgId: input.orgId,
+      agentId: input.agentId,
+      channel: input.channel,
+      userMessage: input.userMessage,
+      conversationId: input.conversationId,
+      stream: false,
+    })
+
+    // Format reply with Meta adapter (2000-char splits, markdown stripped)
+    const chunks = formatMeta(result.text)
+
+    // Decrypt page access token for Meta Graph API call
+    const pageToken = await decrypt(input.encryptedPageToken)
+
+    // Send each chunk as a separate Meta message
+    for (const chunk of chunks) {
+      if (chunk.type === 'text') {
+        await sendMetaMessage(pageToken, input.recipientId, chunk.text)
+      }
+    }
+
+    // Persist agent reply as assistant message
+    await input.supabase.from('conversation_messages').insert({
+      conversation_id: input.conversationId,
+      org_id: input.orgId,
+      role: 'assistant',
+      content: result.text,
+    })
+  } catch (err) {
+    console.error('[meta/webhook] Agent dispatch error:', err)
+    // Non-fatal: webhook already returned 200, this runs in after()
   }
 }
