@@ -98,7 +98,7 @@ call_logs (
   to_number text,
   status text,                -- 'completed' | 'no-answer' | 'busy' | 'failed' | 'canceled'
   duration_seconds int,
-  recording_url text,         -- URL no R2
+  recording_url text,         -- URL no Hetzner Object Storage
   recording_duration int,
   started_at timestamptz,
   ended_at timestamptz,
@@ -114,7 +114,7 @@ call_logs (
 **Infraestrutura base:**
 1. Migration `call_settings` + `call_logs` + RLS + tipos
 2. `POST /api/twilio/voice` — roteamento dinâmico (lê `call_settings`, gera TwiML por modo)
-3. `POST /api/twilio/recording` — webhook pós-gravação → baixa áudio → R2 → insere `call_logs`
+3. `POST /api/twilio/recording` — webhook pós-gravação → baixa áudio → Hetzner Object Storage → insere `call_logs`
 4. `POST /api/twilio/status` — webhook de status (answered, no-answer, busy) → atualiza `call_logs`
 
 **Modo A — Encaminhar para celular:**
@@ -150,7 +150,7 @@ call_logs (
 
 **Testes:**
 24. TwiML correto para cada modo
-25. Recording webhook → R2 → call_logs
+25. Recording webhook → Hetzner Object Storage → call_logs
 26. Token endpoint retorna identity correto
 27. RLS: org A não vê chamadas da org B
 
@@ -159,7 +159,7 @@ call_logs (
 ## Decisões travadas
 - **Os 3 modos são obrigatórios** — admin escolhe por usuário nas settings
 - **Gravação ativa por padrão** — toggle por org nas settings
-- **R2 para storage** — download imediato do Twilio (evita custo de storage Twilio)
+- **Hetzner Object Storage** — download imediato do Twilio (evita custo de storage Twilio)
 - **TwiML dinâmico** — um único webhook, comportamento determinado pelo `call_settings` do usuário
 - **Sem Chatwoot** — call logs ficam no Operator
 
@@ -170,4 +170,4 @@ call_logs (
 - [`src/lib/twilio/`](src/lib/twilio/) — cliente Twilio (`send_sms`)
 - [`src/lib/crypto.ts`](src/lib/crypto.ts) — AES-256-GCM para senha SIP
 - Supabase Realtime — já usado em conversations para notificações em tempo real
-- Cloudflare R2 — storage definido (SEED-004)
+- Hetzner Object Storage — storage definido (SEED-004)
