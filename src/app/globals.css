@@ -543,3 +543,23 @@
 [data-sonner-toast][data-type="error"] {
   border-color: var(--danger) !important;
 }
+
+/* ============================================================================
+ * Global interactive cursor — buttons + role=button always get hand cursor
+ * ============================================================================ */
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[role="menuitem"]:not([aria-disabled="true"]),
+summary,
+label[for],
+a[href] {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+[role="tab"][aria-disabled="true"] {
+  cursor: not-allowed;
+}

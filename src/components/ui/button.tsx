@@ -15,7 +15,7 @@ const buttonVariants = cva(
     "disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
     "active:translate-y-px",
-    "select-none",
+    "select-none cursor-pointer",
   ].join(" "),
   {
     variants: {
