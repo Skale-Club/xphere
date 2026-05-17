@@ -1,122 +1,154 @@
-import Link from 'next/link'
-import { Bot, MessageSquare, Sparkles, TrendingUp, Users, Zap } from 'lucide-react'
-import { getUser } from '@/lib/supabase/server'
-import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { Suspense } from 'react'
+import { Sparkles } from 'lucide-react'
+
+import { PageContainer } from '@/components/layout/page-header'
+import { WidgetErrorBoundary } from '@/components/dashboard/widget-error-boundary'
+import { WidgetError } from '@/components/dashboard/widget-error'
+import {
+  GridSkeleton,
+  HeroSkeleton,
+  MetricSkeleton,
+  PanelSkeleton,
+} from '@/components/dashboard/widget-skeleton'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * MINIMAL HOME DASHBOARD — diagnostic mode.
+ * Home dashboard orchestrator.
  *
- * The original home page produced render error digest 1621801304 in
- * production with thousands of `i4 → us` recursive frames in the stack
- * trace. That pattern indicates a structural infinite render loop
- * (Suspense fallback re-throwing, error boundary re-triggering the
- * page, or a provider/effect re-render cascade) rather than a normal
- * async data error.
+ * Architecture (SEED-012 — see `.planning/seeds/SEED-012-complete-dashboard.md`):
  *
- * We've replaced the rich dashboard with this minimal version to
- * stabilize production while we bisect the real culprit.
+ * - Each widget is its own Server Component file under
+ *   `src/components/dashboard/widgets/`.
+ * - Each widget is wrapped at THIS layer in
+ *   `<WidgetErrorBoundary><Suspense fallback={...}>...</Suspense></WidgetErrorBoundary>`.
+ * - No `Promise.all` and no shared data fetch — every widget queries its own
+ *   slice of data. Killing any single query leaves the rest of the page
+ *   intact.
  *
- * Investigation notes live in `.planning/incidents/dashboard-1621801304.md`.
+ * This file intentionally stays declarative — it composes the grid, the
+ * boundaries, the skeletons, the empty/error fallbacks. The widget files
+ * own the rendering.
  *
- * To restore the full dashboard, revert this file from git history:
- *   git log -- src/app/(dashboard)/page.tsx
+ * Wave D1 ships only the skeleton scaffolding (this file + the wrappers).
+ * Subsequent waves replace each placeholder with a real Server Component.
  */
-export default async function DashboardPage() {
-  let userName = 'there'
-  try {
-    const user = await getUser()
-    if (user?.user_metadata?.full_name && typeof user.user_metadata.full_name === 'string') {
-      userName = user.user_metadata.full_name.trim().split(/\s+/)[0]
-    } else if (user?.email) {
-      userName = user.email.split('@')[0]
-    }
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[dashboard:minimal] getUser failed', e)
-  }
-
-  const greeting = greetingFor(new Date())
-
+export default function DashboardPage() {
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Overview"
-        eyebrowIcon={Sparkles}
-        title={`${greeting}, ${userName}.`}
-        description="Your workspace is online. Pick a starting point below."
-      />
+      {/* Hero — greeting + cost ticker + workspace status */}
+      <WidgetErrorBoundary name="hero" fallback={<WidgetError title="Overview" />}>
+        <Suspense fallback={<HeroSkeleton />}>
+          <PlaceholderHero />
+        </Suspense>
+      </WidgetErrorBoundary>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <QuickLink
-          icon={MessageSquare}
-          title="Inbox"
-          description="Conversations across WhatsApp, SMS, and chat."
-          href="/chat"
-        />
-        <QuickLink
-          icon={Users}
-          title="Contacts"
-          description="Your CRM list — search, segment, and import."
-          href="/contacts"
-        />
-        <QuickLink
-          icon={TrendingUp}
-          title="Pipeline"
-          description="Active deals across stages."
-          href="/pipeline"
-        />
-        <QuickLink
-          icon={Bot}
-          title="Agents"
-          description="AI workers handling your conversations."
-          href="/agents"
-        />
-        <QuickLink
-          icon={Zap}
-          title="Integrations"
-          description="WhatsApp, Twilio, Vapi, and more."
-          href="/integrations"
-        />
+      {/* Row 1 — 4 metric cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <WidgetErrorBoundary name="metric-conversations" fallback={<WidgetError title="Conversations" />}>
+          <Suspense fallback={<MetricSkeleton />}>
+            <PlaceholderMetric label="Open conversations" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="metric-calls" fallback={<WidgetError title="Calls" />}>
+          <Suspense fallback={<MetricSkeleton />}>
+            <PlaceholderMetric label="Calls today" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="metric-deals" fallback={<WidgetError title="Deals" />}>
+          <Suspense fallback={<MetricSkeleton />}>
+            <PlaceholderMetric label="Deals won (mo)" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="metric-rating" fallback={<WidgetError title="Reviews" />}>
+          <Suspense fallback={<MetricSkeleton />}>
+            <PlaceholderMetric label="Avg rating" />
+          </Suspense>
+        </WidgetErrorBoundary>
       </div>
+
+      {/* Row 2 — large panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <WidgetErrorBoundary name="recent-conversations" fallback={<WidgetError title="Recent conversations" />}>
+          <Suspense fallback={<PanelSkeleton rows={5} />}>
+            <PlaceholderPanel label="Recent conversations" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="pipeline-overview" fallback={<WidgetError title="Pipeline overview" />}>
+          <Suspense fallback={<PanelSkeleton rows={5} />}>
+            <PlaceholderPanel label="Pipeline overview" />
+          </Suspense>
+        </WidgetErrorBoundary>
+      </div>
+
+      {/* Row 3 — medium panels */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <WidgetErrorBoundary name="recent-calls" fallback={<WidgetError title="Recent calls" />}>
+          <Suspense fallback={<PanelSkeleton rows={4} />}>
+            <PlaceholderPanel label="Recent calls" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="integrations-status" fallback={<WidgetError title="Integrations" />}>
+          <Suspense fallback={<GridSkeleton tiles={6} />}>
+            <PlaceholderPanel label="Integrations" />
+          </Suspense>
+        </WidgetErrorBoundary>
+        <WidgetErrorBoundary name="activity-snapshot" fallback={<WidgetError title="Today" />}>
+          <Suspense fallback={<PanelSkeleton rows={5} />}>
+            <PlaceholderPanel label="Today's activity" />
+          </Suspense>
+        </WidgetErrorBoundary>
+      </div>
+
+      {/* Row 4 — activity feed */}
+      <WidgetErrorBoundary name="activity-feed" fallback={<WidgetError title="Activity" />}>
+        <Suspense fallback={<PanelSkeleton rows={8} />}>
+          <PlaceholderPanel label="Activity feed" />
+        </Suspense>
+      </WidgetErrorBoundary>
     </PageContainer>
   )
 }
 
-function greetingFor(date: Date): string {
-  const h = date.getHours()
-  if (h < 6) return 'Good early morning'
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+// ─── Placeholder components (replaced by real widgets in subsequent waves) ──
+
+function PlaceholderHero() {
+  return (
+    <div className="rounded-[12px] border border-border bg-bg-secondary p-6 shadow-elevation-sm">
+      <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+        <Sparkles className="h-3.5 w-3.5 text-accent" />
+        <span>Overview</span>
+      </div>
+      <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-text-primary">
+        Dashboard
+      </h1>
+      <p className="mt-1 text-[13px] text-text-secondary">
+        Hero widget placeholder — wired in wave D2.
+      </p>
+    </div>
+  )
 }
 
-function QuickLink({
-  icon: Icon,
-  title,
-  description,
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  description: string
-  href: string
-}) {
+function PlaceholderMetric({ label }: { label: string }) {
   return (
-    <Link
-      href={href}
-      className="group flex items-start gap-3 rounded-[12px] border border-border bg-bg-secondary p-4 shadow-elevation-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevation-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-bg-tertiary ring-1 ring-border-subtle text-text-secondary group-hover:text-accent group-hover:bg-accent-muted transition-colors duration-200">
-        <Icon className="h-4 w-4" />
+    <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm">
+      <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+        {label}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-medium text-text-primary">{title}</div>
-        <div className="mt-0.5 text-[12.5px] text-text-tertiary leading-relaxed">
-          {description}
-        </div>
+      <div className="mt-2 text-[20px] font-semibold tracking-tight text-text-tertiary">
+        Loading…
       </div>
-    </Link>
+    </div>
+  )
+}
+
+function PlaceholderPanel({ label }: { label: string }) {
+  return (
+    <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm">
+      <div className="text-[13.5px] font-medium text-text-primary">{label}</div>
+      <div className="mt-2 text-[12.5px] text-text-tertiary">
+        Loading…
+      </div>
+    </div>
   )
 }
