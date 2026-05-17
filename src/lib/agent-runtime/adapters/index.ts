@@ -20,6 +20,7 @@ export { formatOutbound as formatWhatsapp } from './whatsapp'
 export { formatOutbound as formatMeta } from './meta'
 export { formatOutbound as formatManychat } from './manychat'
 export { formatOutbound as formatTelegram } from './telegram'
+export { formatOutbound as formatSms } from './sms'
 
 /**
  * Shared: strip markdown formatting characters from text.
