@@ -1146,7 +1146,16 @@ function runAgentStreaming(
         after(async () => {
           try {
             if (conversationId && accumulatedText) {
-              await persistMessage({ dbSessionId: conversationId, orgId, role: 'assistant', content: accumulatedText })
+              await persistMessage({
+                dbSessionId: conversationId,
+                orgId,
+                role: 'assistant',
+                content: accumulatedText,
+                metadata: {
+                  agent_id: finalResolvedAgentId || undefined,
+                  invocation_id: invocationId || undefined,
+                },
+              })
             }
             if (invocationId && invocationId !== '') {
               await updateInvocationEnd({

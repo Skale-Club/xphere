@@ -43,6 +43,7 @@ export async function persistMessage(opts: {
   orgId: string
   role: 'user' | 'assistant'
   content: string
+  metadata?: Record<string, unknown> | null
 }): Promise<void> {
   const supabase = createServiceRoleClient()
 
@@ -51,6 +52,7 @@ export async function persistMessage(opts: {
     org_id: opts.orgId,
     role: opts.role,
     content: opts.content,
+    ...(opts.metadata ? { metadata: opts.metadata } : {}),
   })
   if (insertError) throw insertError
 
