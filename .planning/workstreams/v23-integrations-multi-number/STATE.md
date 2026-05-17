@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: Integrations Refactor + Twilio Multi-Number
-status: planning
-stopped_at: Roadmap created
-last_updated: "2026-05-17T11:30:00.000Z"
+status: human_uat
+stopped_at: All 6 phases complete; awaiting operator HUMAN-UAT
+last_updated: "2026-05-17T12:10:00.000Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 6
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Operator - State
 
 ## Current Position
 
-Phase: 58 (SCHEMA-NUMBERS)
-Plan: Not started
-Next phase: 58 — first phase of v2.3
-Status: Roadmap ready — ready for autonomous execution
+Phase: 63 (POLISH) — complete
+Plan: 63-01 complete
+Next phase: HUMAN-UAT then milestone audit + complete
+Status: All code phases complete; 15/15 Vitest tests passing; types clean; awaiting operator-side smoke (see 63-HUMAN-UAT.md)
 Last activity: 2026-05-17
 
 ## Milestone Progress
@@ -107,8 +107,10 @@ Two user-reported problems on `/integrations`:
 
 ## Pending Todos
 
-- (v2.3 follow-up) Remove `config.from_number` from `integrations.config` in the next milestone — leaving it as a legacy fallback for this release
-- (carried) Pre-existing tech debt: `npm run lint` broken (Next.js 16 removed `next lint`) — wire eslint.config.js when convenient. Build gate: `npm run build` is the type-check authority.
+- ⚠️ (v2.3 HUMAN-UAT) Operator: run all items in `phases/63-polish/63-HUMAN-UAT.md` (schema/RLS smoke, inbound/outbound resolution paths, UI flows, index page state, visual unification) on a dev environment with migration 058 applied
+- 🧹 (v2.3 follow-up) Remove `integrations.config.from_number` writes/reads in the next milestone — legacy fallback preserved this release
+- 🧹 (v2.3 blocker) `npm run build` is red due to parallel chat-pagination work-in-progress (`src/components/chat/chat-layout.tsx` imports missing `use-infinite-conversations`); unrelated to v2.3 but blocks final build-green verification
+- 🧹 (carried) Pre-existing tech debt: `npm run lint` broken (Next.js 16 removed `next lint`) — wire eslint.config.js when convenient. Build gate: `npm run build` is the type-check authority.
 
 ## Session Continuity
 
