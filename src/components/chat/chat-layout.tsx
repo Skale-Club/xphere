@@ -460,9 +460,12 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           // grid-rows-[minmax(0,1fr)] keeps the row bounded by the parent so
           // each column can scroll internally instead of stretching the row.
           'grid-rows-[minmax(0,1fr)]',
+          // Responsive: at md (768+) info panel is hidden by default to keep
+          // the chat column readable. At xl (1280+) we show all three columns.
+          // Below xl the info panel is suppressed even if infoOpen=true.
           infoOpen
-            ? 'grid-cols-[320px_minmax(0,1fr)_360px]'
-            : 'grid-cols-[320px_minmax(0,1fr)]',
+            ? 'grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]'
+            : 'grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]',
         )}
       >
         <ConversationList
@@ -515,12 +518,17 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           agentMap={agentMap}
         />
         {infoOpen && (
-          <ContactInfoPanel
-            contactId={selected?.contactId ?? null}
-            fallbackName={selected?.visitorName ?? null}
-            fallbackPhone={selected?.visitorPhone ?? null}
-            fallbackEmail={selected?.visitorEmail ?? null}
-          />
+          // Below xl (1280px) we hide the info panel to keep the chat column
+          // readable — user can still toggle it via the chat header button
+          // which re-renders when viewport widens enough.
+          <div className="hidden xl:block h-full min-h-0 overflow-hidden">
+            <ContactInfoPanel
+              contactId={selected?.contactId ?? null}
+              fallbackName={selected?.visitorName ?? null}
+              fallbackPhone={selected?.visitorPhone ?? null}
+              fallbackEmail={selected?.visitorEmail ?? null}
+            />
+          </div>
         )}
       </div>
 

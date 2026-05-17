@@ -80,7 +80,7 @@ export function ChatArea({
 
   if (!conversation) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-bg-primary px-6">
+      <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-bg-primary px-6">
         <EmptyState
           icon={MessageSquare}
           title="Pick a conversation"
