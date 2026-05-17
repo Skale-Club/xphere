@@ -197,11 +197,12 @@ export async function checkDailyCostCap(
       ? Number(org.daily_cost_cap_usd_override)
       : getDefaultDailyCostCapUsd()
 
-  // Sum today's cost (last 24h) for this org
+  // Sum today's cost (last 24h) for this org — exclude playground runs (PLAY-04)
   const { data: costRow } = await supabase
     .from('agent_invocations')
     .select('cost_usd')
     .eq('organization_id', orgId)
+    .eq('mode', 'production')
     .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .not('cost_usd', 'is', null)
 
