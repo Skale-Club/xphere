@@ -10,10 +10,18 @@ import type { IntegrationForDisplay } from '@/app/(dashboard)/integrations/actio
 
 type Provider = IntegrationForDisplay['provider']
 
+// Routing rule for /integrations:
+//   - Single-credential providers (one key + optional config) live here as
+//     inline Sheets — quick to edit, no navigation.
+//   - Providers with multi-resource setup (numbers, instances, pages, embeds)
+//     have dedicated pages under /integrations/[provider] and appear ONLY in
+//     the "Channels & dedicated" grid on the index page.
+//
+// Twilio is a dedicated integration (multi-number support since v2.3) and is
+// intentionally NOT in this list.
 const ALL_PROVIDERS: { id: Provider; label: string; description: string }[] = [
   { id: 'vapi', label: 'Vapi', description: 'AI voice assistant platform' },
   { id: 'gohighlevel', label: 'GoHighLevel', description: 'CRM and marketing automation' },
-  { id: 'twilio', label: 'Twilio', description: 'SMS and voice communications' },
   { id: 'calcom', label: 'Cal.com', description: 'Scheduling and calendar management' },
   { id: 'openai', label: 'OpenAI', description: 'GPT models and embeddings' },
   { id: 'anthropic', label: 'Anthropic', description: 'Claude AI models' },

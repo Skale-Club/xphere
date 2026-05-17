@@ -26,6 +26,8 @@ interface DedicatedIntegration {
   name: string
   description: string
   connected?: boolean
+  /** Optional sub-label shown beneath the description (e.g. "3 numbers configured"). */
+  meta?: string
   tone?: 'accent' | 'green' | 'pink' | 'amber' | 'sky'
 }
 
@@ -43,10 +45,23 @@ export default async function IntegrationsPage() {
   // Best-effort connection state for dedicated integrations
   const hasManychat = integrations.some((i) => i.provider === 'manychat' && i.is_active)
   const hasGoogleContacts = integrations.some((i) => i.provider === 'google_contacts' && i.is_active)
-  const hasTwilio = integrations.some((i) => i.provider === 'twilio' && i.is_active)
+  const hasTwilioIntegration = integrations.some((i) => i.provider === 'twilio' && i.is_active)
   const { getEvolutionInstance } = await import('./evolution/actions')
   const evolutionInstance = await getEvolutionInstance()
   const hasEvolution = evolutionInstance !== null && evolutionInstance.status === 'connected'
+
+  // v2.3: Twilio is "connected" only if credentials exist AND at least one active number is registered.
+  const { listTwilioNumbers } = await import('./twilio/numbers-actions')
+  const twilioNumbers = await listTwilioNumbers()
+  const activeTwilioNumberCount = twilioNumbers.filter((n) => n.is_active).length
+  const hasTwilio = hasTwilioIntegration && activeTwilioNumberCount > 0
+  const twilioMeta = hasTwilioIntegration
+    ? activeTwilioNumberCount === 0
+      ? 'Credentials saved · 0 numbers'
+      : activeTwilioNumberCount === 1
+        ? '1 number configured'
+        : `${activeTwilioNumberCount} numbers configured`
+    : undefined
 
   const dedicated: DedicatedIntegration[] = [
     {
@@ -91,8 +106,9 @@ export default async function IntegrationsPage() {
       href: '/integrations/twilio',
       icon: Phone,
       name: 'Twilio (SMS + Voice)',
-      description: 'Per-org SMS + browser voice + SIP credentials. Each client uses their own Twilio account and phone number.',
+      description: 'Per-org SMS + browser voice + SIP credentials. Register multiple Twilio numbers per org and pick a default for outbound.',
       connected: hasTwilio,
+      meta: twilioMeta,
       tone: 'sky',
     },
   ]
@@ -180,6 +196,9 @@ function DedicatedCard({ item, index }: { item: DedicatedIntegration; index: num
         <p className="text-[12.5px] leading-relaxed text-text-secondary">
           {item.description}
         </p>
+        {item.meta && (
+          <p className="mt-0.5 text-[11.5px] text-text-tertiary">{item.meta}</p>
+        )}
       </div>
 
       <div className="relative mt-auto inline-flex items-center gap-1 text-[12px] font-medium text-text-secondary group-hover:text-text-primary">
