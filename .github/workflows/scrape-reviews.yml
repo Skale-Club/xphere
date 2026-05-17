@@ -1,0 +1,60 @@
+name: Scrape Google Reviews (SerpAPI)
+
+# Daily scrape of every active google_business_profile, plus manual
+# workflow_dispatch with optional ?force=1 (bypass scrape_interval_hours)
+# and ?profileId=... (scrape one profile only).
+#
+# Required GitHub repo secrets:
+#   OPERATOR_BASE_URL              e.g. https://operator.skale.club
+#   OPERATOR_AUTOMATION_SECRET     matches the env var on Vercel
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Bypass scrape_interval_hours (?force=1)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      profile_id:
+        description: 'Optional: scrape only this profile_id'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/reviews/scrape
+        env:
+          FORCE_FLAG: ${{ github.event.inputs.force || 'false' }}
+          PROFILE_ID: ${{ github.event.inputs.profile_id || '' }}
+        run: |
+          QS=""
+          if [ "$FORCE_FLAG" = "true" ]; then
+            QS="?force=1"
+          fi
+          if [ -n "$PROFILE_ID" ]; then
+            if [ -z "$QS" ]; then QS="?"; else QS="$QS&"; fi
+            QS="${QS}profileId=${PROFILE_ID}"
+          fi
+          URL="${{ secrets.OPERATOR_BASE_URL }}/api/reviews/scrape${QS}"
+          echo "POSTing to: $URL"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "$URL" \
+            -H "Authorization: Bearer ${{ secrets.OPERATOR_AUTOMATION_SECRET }}" \
+            -H "Content-Type: application/json")
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          STATUS=$(echo "$RESPONSE" | tail -n 1)
+          echo "HTTP Status: $STATUS"
+          echo "Response Body: $BODY"
+          if [ "$STATUS" != "200" ]; then
+            echo "Scrape endpoint returned non-200 — failing the job"
+            exit 1
+          fi

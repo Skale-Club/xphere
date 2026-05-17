@@ -1,8 +1,17 @@
+// src/app/api/reviews/[token]/route.ts
+// Public widget endpoint — no authentication, scoped by widget_token.
+// Powers the embeddable <iframe> on client sites.
+//
+// Query params:
+//   min_rating  1..5  (default: 1)
+//   sort        recent | rating_high | helpful  (default: recent)
+//   limit       1..50 (default: 10)
+//   offset      0+    (default: 0)
+//   layout      grid | list | carousel  (passed through to the widget JS)
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
-
-const STALE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,124 +20,200 @@ const CORS_HEADERS = {
   Vary: 'Origin',
 } as const
 
-type ReviewsWidgetPayload = {
-  location: {
-    name: string
-    mapsUrl: string | null
-    fetchedAt: string
-    reviewCount: number
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300',
+} as const
+
+type ProfileRow = {
+  id: string
+  business_name: string | null
+  address: string | null
+  average_rating: number | null
+  total_reviews_count: number | null
+  last_scraped_at: string | null
+}
+
+type ReviewRow = {
+  id: string
+  reviewer_name: string | null
+  reviewer_photo_url: string | null
+  reviewer_profile_url: string | null
+  rating: number
+  text: string | null
+  date_text: string | null
+  date_iso: string | null
+  is_local_guide: boolean
+  helpful_count: number
+  owner_response: string | null
+  owner_response_date: string | null
+}
+
+type ReviewPhotoRow = {
+  review_id: string
+  position: number
+  original_url: string
+  hetzner_url: string | null
+  width: number | null
+  height: number | null
+}
+
+type WidgetPayload = {
+  business: {
+    name: string | null
+    address: string | null
+    averageRating: number | null
+    totalReviewsCount: number | null
+    lastScrapedAt: string | null
   }
+  distribution: { rating: number; count: number }[]
   reviews: Array<{
     id: string
-    authorName: string
-    authorPhotoUrl: string | null
-    authorUri: string | null
+    reviewerName: string | null
+    reviewerPhotoUrl: string | null
+    reviewerProfileUrl: string | null
     rating: number
-    reviewText: string | null
-    originalText: string | null
-    relativeTime: string | null
-    publishedAt: string | null
-    googleMapsUrl: string | null
+    text: string | null
+    dateText: string | null
+    dateIso: string | null
+    isLocalGuide: boolean
+    helpfulCount: number
+    ownerResponse: string | null
+    ownerResponseDate: string | null
+    photos: {
+      url: string
+      width: number | null
+      height: number | null
+    }[]
   }>
+  total: number
 }
 
-type GoogleReviewRow = {
-  id: string
-  author_name: string
-  author_photo_url: string | null
-  author_uri: string | null
-  rating: number
-  review_text: string | null
-  original_text: string | null
-  relative_time: string | null
-  published_at: string | null
-  google_maps_url: string | null
-  display_order: number
-}
-
-type GoogleLocationRow = {
-  name: string
-  maps_url: string | null
-  fetched_at: string | null
-  review_count: number
-  google_reviews: GoogleReviewRow[] | null
-}
-
-function unavailable(): Response {
-  return Response.json(
-    { error: 'Unavailable' },
-    {
-      status: 404,
-      headers: CORS_HEADERS,
-    }
-  )
-}
-
-function isStale(fetchedAt: string | null): boolean {
-  if (!fetchedAt) return true
-
-  const timestamp = new Date(fetchedAt).getTime()
-  if (Number.isNaN(timestamp)) return true
-
-  return Date.now() - timestamp > STALE_WINDOW_MS
+function clampInt(raw: string | null, min: number, max: number, fallback: number): number {
+  if (!raw) return fallback
+  const n = Number.parseInt(raw, 10)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, n))
 }
 
 export async function OPTIONS(): Promise<Response> {
-  return new Response(null, {
-    status: 204,
-    headers: CORS_HEADERS,
-  })
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> }
 ): Promise<Response> {
   const { token } = await params
-
   if (!token) {
-    return unavailable()
+    return Response.json({ error: 'Not found' }, { status: 404, headers: CORS_HEADERS })
   }
+
+  const url = new URL(request.url)
+  const minRating = clampInt(url.searchParams.get('min_rating'), 1, 5, 1)
+  const sort = (url.searchParams.get('sort') ?? 'recent') as 'recent' | 'rating_high' | 'helpful'
+  const limit = clampInt(url.searchParams.get('limit'), 1, 50, 10)
+  const offset = clampInt(url.searchParams.get('offset'), 0, 1000, 0)
 
   const supabase = createServiceRoleClient()
-  const { data, error } = await supabase
-    .from('google_locations')
-    .select('name, maps_url, fetched_at, review_count, google_reviews(*)')
-    .eq('review_token', token)
-    .single<GoogleLocationRow>()
 
-  if (error || !data || isStale(data.fetched_at)) {
-    return unavailable()
+  const { data: profile, error: profileErr } = await supabase
+    .from('google_business_profiles')
+    .select('id, business_name, address, average_rating, total_reviews_count, last_scraped_at')
+    .eq('widget_token', token)
+    .eq('is_active', true)
+    .single<ProfileRow>()
+
+  if (profileErr || !profile) {
+    return Response.json({ error: 'Not found' }, { status: 404, headers: CORS_HEADERS })
   }
 
-  const reviews = [...(data.google_reviews ?? [])].sort((a, b) => a.display_order - b.display_order)
+  // Build query
+  let query = supabase
+    .from('google_reviews')
+    .select(
+      'id, reviewer_name, reviewer_photo_url, reviewer_profile_url, rating, text, date_text, date_iso, is_local_guide, helpful_count, owner_response, owner_response_date',
+      { count: 'exact' }
+    )
+    .eq('profile_id', profile.id)
+    .eq('is_removed', false)
+    .gte('rating', minRating)
 
-  if (reviews.length === 0) {
-    return unavailable()
+  if (sort === 'rating_high') {
+    query = query.order('rating', { ascending: false }).order('date_iso', { ascending: false, nullsFirst: false })
+  } else if (sort === 'helpful') {
+    query = query.order('helpful_count', { ascending: false })
+  } else {
+    query = query.order('date_iso', { ascending: false, nullsFirst: false }).order('first_seen_at', { ascending: false })
   }
 
-  const payload: ReviewsWidgetPayload = {
-    location: {
-      name: data.name,
-      mapsUrl: data.maps_url,
-      fetchedAt: data.fetched_at!,
-      reviewCount: data.review_count,
+  query = query.range(offset, offset + limit - 1)
+
+  const { data: reviews, error: reviewsErr, count } = await query
+  if (reviewsErr) {
+    return Response.json({ error: 'Failed to load reviews' }, { status: 500, headers: CORS_HEADERS })
+  }
+
+  // Load photos in one query
+  const reviewIds = (reviews ?? []).map((r) => r.id)
+  const photosByReview = new Map<string, ReviewPhotoRow[]>()
+  if (reviewIds.length > 0) {
+    const { data: photos } = await supabase
+      .from('google_review_photos')
+      .select('review_id, position, original_url, hetzner_url, width, height')
+      .in('review_id', reviewIds)
+      .order('position', { ascending: true })
+    for (const p of (photos ?? []) as ReviewPhotoRow[]) {
+      const arr = photosByReview.get(p.review_id) ?? []
+      arr.push(p)
+      photosByReview.set(p.review_id, arr)
+    }
+  }
+
+  // Compute distribution (full active set — independent of filters/pagination)
+  const { data: distRows } = await supabase
+    .from('google_reviews')
+    .select('rating')
+    .eq('profile_id', profile.id)
+    .eq('is_removed', false)
+  const distMap = new Map<number, number>([
+    [5, 0], [4, 0], [3, 0], [2, 0], [1, 0],
+  ])
+  for (const r of distRows ?? []) {
+    distMap.set(r.rating, (distMap.get(r.rating) ?? 0) + 1)
+  }
+
+  const payload: WidgetPayload = {
+    business: {
+      name: profile.business_name,
+      address: profile.address,
+      averageRating: profile.average_rating,
+      totalReviewsCount: profile.total_reviews_count,
+      lastScrapedAt: profile.last_scraped_at,
     },
-    reviews: reviews.map((review) => ({
-      id: review.id,
-      authorName: review.author_name,
-      authorPhotoUrl: review.author_photo_url,
-      authorUri: review.author_uri,
-      rating: review.rating,
-      reviewText: review.review_text,
-      originalText: review.original_text,
-      relativeTime: review.relative_time,
-      publishedAt: review.published_at,
-      googleMapsUrl: review.google_maps_url,
+    distribution: [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 })),
+    reviews: ((reviews ?? []) as ReviewRow[]).map((r) => ({
+      id: r.id,
+      reviewerName: r.reviewer_name,
+      reviewerPhotoUrl: r.reviewer_photo_url,
+      reviewerProfileUrl: r.reviewer_profile_url,
+      rating: r.rating,
+      text: r.text,
+      dateText: r.date_text,
+      dateIso: r.date_iso,
+      isLocalGuide: r.is_local_guide,
+      helpfulCount: r.helpful_count,
+      ownerResponse: r.owner_response,
+      ownerResponseDate: r.owner_response_date,
+      photos: (photosByReview.get(r.id) ?? []).map((p) => ({
+        url: p.hetzner_url ?? p.original_url,
+        width: p.width,
+        height: p.height,
+      })),
     })),
+    total: count ?? 0,
   }
 
   return Response.json(payload, {
-    headers: CORS_HEADERS,
+    headers: { ...CORS_HEADERS, ...CACHE_HEADERS },
   })
 }

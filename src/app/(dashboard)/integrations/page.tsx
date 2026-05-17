@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { MessageCircleMore, Users } from 'lucide-react'
+import { MessageCircleMore, Star, Users } from 'lucide-react'
 
 import { getIntegrations } from './actions'
 import { IntegrationsTable } from '@/components/integrations/integrations-table'
@@ -65,6 +65,23 @@ export default async function IntegrationsPage() {
         <CardContent>
           <Link href="/integrations/google-contacts" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
             Open Google Contacts settings
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Google Reviews</CardTitle>
+          </div>
+          <CardDescription>
+            Scrape your Google Business reviews daily via SerpAPI and serve them through an embeddable widget.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/integrations/google-reviews" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            Open Google Reviews settings
           </Link>
         </CardContent>
       </Card>
