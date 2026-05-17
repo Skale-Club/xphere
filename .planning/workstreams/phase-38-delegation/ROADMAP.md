@@ -11,7 +11,7 @@ to the widget UI.
 
 ## Phases
 
-- [ ] **Phase 38: Multi-Agent Delegation + Intersection Authz + Idempotency** - Partner-as-tool
+- [x] **Phase 38: Multi-Agent Delegation + Intersection Authz + Idempotency** - Partner-as-tool (completed 2026-05-17)
   injection, structured handoff, intersection model at `executeAction`, idempotency wrappers on
   side-effecting tools, SSE delegation events + widget badges, adversarial prompt-injection tests.
 
