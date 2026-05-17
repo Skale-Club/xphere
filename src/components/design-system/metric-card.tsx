@@ -2,7 +2,23 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Minus,
+  MessageSquare,
+  Phone,
+  Trophy,
+  Star,
+  TrendingUp,
+  Users,
+  Inbox,
+  Calendar,
+  Activity,
+  Bot,
+  Plug2,
+  type LucideIcon,
+} from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
 
 import { cn } from '@/lib/utils'
@@ -19,8 +35,8 @@ export interface MetricCardProps {
   trend?: number | null
   /** Optional sparkline data points */
   data?: { value: number }[]
-  /** Optional icon shown next to label (pass as JSX, e.g. <MessageSquare className="h-3.5 w-3.5" />) */
-  icon?: React.ReactNode
+  /** Optional icon slug — looked up internally because lucide icons are functions and can't cross Server→Client boundary */
+  icon?: MetricIconName
   /** Tone hint — affects sparkline color */
   tone?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   /** Make whole card clickable */
@@ -31,6 +47,25 @@ export interface MetricCardProps {
   /** Animation stagger index (0-based) */
   index?: number
 }
+
+// Icon registry — string slug → Lucide component. Kept inside the client
+// component so server callers can pass a serializable string instead of a
+// function (which would fail Server→Client serialization).
+const ICON_MAP = {
+  conversations: MessageSquare,
+  phone: Phone,
+  trophy: Trophy,
+  star: Star,
+  trending: TrendingUp,
+  users: Users,
+  inbox: Inbox,
+  calendar: Calendar,
+  activity: Activity,
+  bot: Bot,
+  plug: Plug2,
+} satisfies Record<string, LucideIcon>
+
+export type MetricIconName = keyof typeof ICON_MAP
 
 const toneColors: Record<NonNullable<MetricCardProps['tone']>, string> = {
   default: 'var(--accent)',
@@ -116,7 +151,10 @@ export function MetricCard({
 
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-          {icon}
+          {icon && (() => {
+            const Icon = ICON_MAP[icon]
+            return Icon ? <Icon className="h-3.5 w-3.5" /> : null
+          })()}
           <span>{label}</span>
         </div>
         {TrendIcon && (

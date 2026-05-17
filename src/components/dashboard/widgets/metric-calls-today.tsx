@@ -80,7 +80,7 @@ export async function MetricCallsToday() {
           Calls today
         </div>
         <WidgetEmpty
-          icon={<Phone className="h-3.5 w-3.5" />}
+          icon="phone"
           title="No calls yet"
           description="Connect Twilio to handle SMS + voice from one inbox."
           cta={{ label: 'Connect Twilio', href: '/integrations/twilio' }}
@@ -96,7 +96,7 @@ export async function MetricCallsToday() {
     <MetricCard
       label="Calls today"
       value={todayCount}
-      icon={<Phone className="h-3.5 w-3.5" />}
+      icon="phone"
       trend={trend}
       data={series}
       tone="success"
