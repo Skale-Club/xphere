@@ -21,6 +21,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
     "@anthropic-ai/sdk": "^0.82.0",
+    "@aws-sdk/client-s3": "^3.1048.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -45,6 +46,7 @@
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "@tanstack/react-table": "^8.21.3",
+    "@twilio/voice-sdk": "^2.18.3",
     "ai": "^6.0.184",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
@@ -67,6 +69,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "unpdf": "^1.4.0",
+    "wavesurfer.js": "^7.12.7",
     "zod": "^3.25.76"
   },
   "devDependencies": {

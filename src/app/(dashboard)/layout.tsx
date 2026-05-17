@@ -6,6 +6,7 @@ import { SidebarStateProvider } from '@/components/layout/sidebar-context'
 import { TopBar } from '@/components/layout/top-bar'
 import { CommandPaletteProvider } from '@/components/command-palette'
 import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
+import { VoiceDeviceShell } from '@/components/calls/voice-device-shell'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -47,22 +48,39 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
 
+  // Decide whether to mount the Twilio Voice SDK Device for this user.
+  // Only users in routing_mode='browser' incur the SDK bundle/connection.
+  let browserVoiceEnabled = false
+  try {
+    const supabase = await createClient()
+    const { data: settings } = await supabase
+      .from('call_settings')
+      .select('routing_mode, twilio_client_identity')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    browserVoiceEnabled = settings?.routing_mode === 'browser' && Boolean(settings.twilio_client_identity)
+  } catch {
+    browserVoiceEnabled = false
+  }
+
   return (
     <BreadcrumbOverrideProvider>
       <SidebarStateProvider>
         <CommandPaletteProvider>
-          <div className="flex min-h-dvh bg-bg-primary">
-            <Sidebar
-              user={user}
-              isPlatformAdmin={isPlatformAdmin}
-              activeOrgId={activeOrgId}
-              activeOrgName={activeOrgName}
-            />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <TopBar />
-              <main className="flex-1 overflow-auto">{children}</main>
+          <VoiceDeviceShell enabled={browserVoiceEnabled}>
+            <div className="flex min-h-dvh bg-bg-primary">
+              <Sidebar
+                user={user}
+                isPlatformAdmin={isPlatformAdmin}
+                activeOrgId={activeOrgId}
+                activeOrgName={activeOrgName}
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <TopBar />
+                <main className="flex-1 overflow-auto">{children}</main>
+              </div>
             </div>
-          </div>
+          </VoiceDeviceShell>
         </CommandPaletteProvider>
       </SidebarStateProvider>
     </BreadcrumbOverrideProvider>

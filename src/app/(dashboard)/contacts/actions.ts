@@ -121,6 +121,16 @@ export interface ContactDetail extends ContactRow {
     last_message_at: string | null
     status: string
   }>
+  call_logs: Array<{
+    id: string
+    direction: 'inbound' | 'outbound'
+    from_number: string | null
+    to_number: string | null
+    status: string | null
+    duration_seconds: number | null
+    recording_url: string | null
+    started_at: string | null
+  }>
 }
 
 export async function getContact(id: string): Promise<ContactDetail | null> {
@@ -141,9 +151,17 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(20)
 
+  const { data: calls } = await supabase
+    .from('call_logs')
+    .select('id, direction, from_number, to_number, status, duration_seconds, recording_url, started_at')
+    .eq('contact_id', id)
+    .order('started_at', { ascending: false, nullsFirst: false })
+    .limit(20)
+
   return {
     ...(contact as ContactRow),
     conversations: convs ?? [],
+    call_logs: (calls ?? []) as ContactDetail['call_logs'],
   }
 }
 

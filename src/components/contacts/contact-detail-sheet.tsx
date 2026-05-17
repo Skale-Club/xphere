@@ -195,7 +195,14 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                     </span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="calls">Calls</TabsTrigger>
+                <TabsTrigger value="calls">
+                  Calls
+                  {contact.call_logs.length > 0 && (
+                    <span className="ml-1 text-[10px] text-text-tertiary">
+                      {contact.call_logs.length}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="activities">Activities</TabsTrigger>
               </TabsList>
 
@@ -252,11 +259,40 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                 </TabsContent>
 
                 <TabsContent value="calls" className="mt-0">
-                  <EmptyTab
-                    icon={PhoneCall}
-                    title="Calls coming soon"
-                    description="Voice call history will be linked here once the calls module is wired to contacts."
-                  />
+                  {contact.call_logs.length === 0 ? (
+                    <EmptyTab
+                      icon={PhoneCall}
+                      title="No calls yet"
+                      description="Inbound and outbound calls with this contact will appear here automatically."
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {contact.call_logs.map((c) => (
+                        <a
+                          key={c.id}
+                          href={`/voice/${c.id}`}
+                          className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary px-3.5 py-3 hover:border-border-strong hover:bg-bg-tertiary/40 transition-colors duration-150"
+                        >
+                          <div className={cn(
+                            'flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px]',
+                            c.direction === 'inbound' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-accent-muted/30 text-accent',
+                          )}>
+                            <PhoneCall className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12.5px] text-text-primary capitalize">
+                              {c.direction} · {c.status ?? '—'}
+                            </div>
+                            <div className="text-[11px] text-text-tertiary">
+                              {relativeTime(c.started_at)}
+                              {c.duration_seconds ? ` · ${Math.floor(c.duration_seconds / 60)}:${(c.duration_seconds % 60).toString().padStart(2, '0')}` : ''}
+                              {c.recording_url ? ' · recorded' : ''}
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="activities" className="mt-0">
