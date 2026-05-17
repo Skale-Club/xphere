@@ -35,6 +35,12 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -222,17 +228,22 @@ export function ConversationList({
     if (viewport) viewport.scrollTo({ top: 0, behavior: 'auto' })
   }, [page])
 
-  const pills: FilterPill[] = useMemo(() => {
+  const statusPills: FilterPill[] = useMemo(() => {
     const base: FilterPill[] = [
       { id: 'all', label: 'All' },
       { id: 'unread', label: 'Unread' },
     ]
     if (currentUserId) base.push({ id: 'mine', label: 'Mine' })
-    for (const ch of ALL_CHANNEL_PILLS) {
-      base.push({ id: ch, label: ch.charAt(0).toUpperCase() + ch.slice(1), channel: ch })
-    }
     return base
   }, [currentUserId])
+
+  const channelPills: FilterPill[] = useMemo(() => {
+    return ALL_CHANNEL_PILLS.map((ch) => ({
+      id: ch,
+      label: ch.charAt(0).toUpperCase() + ch.slice(1),
+      channel: ch,
+    }))
+  }, [])
 
   // Search is local-only — filters the current page.
   const filteredUnpinned = useMemo(() => {
@@ -294,9 +305,9 @@ export function ConversationList({
           </kbd>
         </div>
 
-        {/* Filter pills */}
-        <div className="mt-3 -mx-1 flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-          {pills.map((pill) => {
+        {/* Status filter row */}
+        <div className="mt-3 flex gap-1.5">
+          {statusPills.map((pill) => {
             const active = activeFilter === pill.id
             return (
               <button
@@ -304,17 +315,50 @@ export function ConversationList({
                 type="button"
                 onClick={() => setActiveFilter(pill.id)}
                 className={cn(
-                  'inline-flex items-center gap-1 shrink-0 rounded-[6px] px-2 py-1 text-[11.5px] font-medium tracking-tight transition-all duration-150',
+                  'inline-flex items-center shrink-0 rounded-[6px] px-2.5 py-1 text-[11.5px] font-medium tracking-tight transition-all duration-150',
                   active
                     ? 'bg-accent-muted text-accent ring-1 ring-accent/20'
                     : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
                 )}
               >
-                {pill.channel && (
-                  <ChannelBadge channel={pill.channel} showLabel={false} size="sm" className="ring-0" />
-                )}
                 {pill.label}
               </button>
+            )
+          })}
+        </div>
+
+        {/* Channel filter row — icon-only, fits all channels on one row */}
+        <div className="mt-2 flex items-center gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-text-tertiary mr-1.5">
+            Channel
+          </span>
+          {channelPills.map((pill) => {
+            const active = activeFilter === pill.id
+            return (
+              <TooltipProvider key={pill.id} delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilter(active ? 'all' : pill.id)}
+                      aria-label={`Filter by ${pill.label}`}
+                      className={cn(
+                        'inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-[6px] transition-all duration-150',
+                        active
+                          ? 'bg-accent-muted ring-1 ring-accent/30'
+                          : 'bg-bg-tertiary/50 hover:bg-bg-tertiary',
+                      )}
+                    >
+                      {pill.channel && (
+                        <ChannelBadge channel={pill.channel} showLabel={false} size="sm" className="ring-0" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={4}>
+                    {pill.label}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )
           })}
         </div>
