@@ -25,6 +25,9 @@ export type AgentChannel = 'web_widget' | 'whatsapp' | 'messenger' | 'instagram'
 export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' | 'denied' | 'running'
 export type AgentInvocationMode = 'production' | 'playground'
 
+// v2.1 — contacts (CRM) source enum
+export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
+
 export interface Database {
   public: {
     Tables: {
@@ -1127,6 +1130,7 @@ export interface Database {
           bot_status: string
           assigned_user_id: string | null
           agent_id: string | null
+          contact_id: string | null
         }
         Insert: {
           id?: string
@@ -1150,6 +1154,7 @@ export interface Database {
           bot_status?: string
           assigned_user_id?: string | null
           agent_id?: string | null
+          contact_id?: string | null
         }
         Update: {
           status?: string
@@ -1167,6 +1172,7 @@ export interface Database {
           bot_status?: string
           assigned_user_id?: string | null
           agent_id?: string | null
+          contact_id?: string | null
         }
         Relationships: [
           {
@@ -1212,6 +1218,61 @@ export interface Database {
           },
           {
             foreignKeyName: 'conversation_messages_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      contacts: {
+        Row: {
+          id: string
+          org_id: string
+          name: string | null
+          phone: string | null
+          email: string | null
+          company: string | null
+          notes: string | null
+          tags: string[]
+          custom_fields: Record<string, unknown>
+          source: ContactSource
+          external_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name?: string | null
+          phone?: string | null
+          email?: string | null
+          company?: string | null
+          notes?: string | null
+          tags?: string[]
+          custom_fields?: Record<string, unknown>
+          source?: ContactSource
+          external_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string | null
+          phone?: string | null
+          email?: string | null
+          company?: string | null
+          notes?: string | null
+          tags?: string[]
+          custom_fields?: Record<string, unknown>
+          source?: ContactSource
+          external_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contacts_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
@@ -1344,20 +1405,22 @@ export interface Database {
         }
         Relationships: []
       }
-      google_locations: {
+      google_business_profiles: {
         Row: {
           id: string
           org_id: string
           place_id: string
-          name: string
+          business_name: string | null
           address: string | null
-          maps_url: string | null
-          category: string | null
-          client_name: string | null
-          review_token: string
-          fetched_at: string | null
-          last_fetch_error: string | null
-          review_count: number
+          serpapi_key_encrypted: string
+          scrape_interval_hours: number
+          last_scraped_at: string | null
+          last_scrape_status: string | null
+          last_scrape_error: string | null
+          total_reviews_count: number | null
+          average_rating: number | null
+          is_active: boolean
+          widget_token: string
           created_at: string
           updated_at: string
         }
@@ -1365,34 +1428,38 @@ export interface Database {
           id?: string
           org_id: string
           place_id: string
-          name: string
+          business_name?: string | null
           address?: string | null
-          maps_url?: string | null
-          category?: string | null
-          client_name?: string | null
-          review_token?: string
-          fetched_at?: string | null
-          last_fetch_error?: string | null
-          review_count?: number
+          serpapi_key_encrypted: string
+          scrape_interval_hours?: number
+          last_scraped_at?: string | null
+          last_scrape_status?: string | null
+          last_scrape_error?: string | null
+          total_reviews_count?: number | null
+          average_rating?: number | null
+          is_active?: boolean
+          widget_token?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           place_id?: string
-          name?: string
+          business_name?: string | null
           address?: string | null
-          maps_url?: string | null
-          category?: string | null
-          client_name?: string | null
-          review_token?: string
-          fetched_at?: string | null
-          last_fetch_error?: string | null
-          review_count?: number
+          serpapi_key_encrypted?: string
+          scrape_interval_hours?: number
+          last_scraped_at?: string | null
+          last_scrape_status?: string | null
+          last_scrape_error?: string | null
+          total_reviews_count?: number | null
+          average_rating?: number | null
+          is_active?: boolean
+          widget_token?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'google_locations_org_id_fkey'
+            foreignKeyName: 'google_business_profiles_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
@@ -1403,60 +1470,124 @@ export interface Database {
       google_reviews: {
         Row: {
           id: string
-          location_id: string
           org_id: string
-          google_review_id: string
-          author_name: string
-          author_photo_url: string | null
-          author_uri: string | null
+          profile_id: string
+          review_id: string
+          reviewer_name: string | null
+          reviewer_photo_url: string | null
+          reviewer_profile_url: string | null
           rating: number
-          review_text: string | null
-          original_text: string | null
-          relative_time: string | null
-          published_at: string | null
-          google_maps_url: string | null
-          display_order: number
+          text: string | null
+          date_text: string | null
+          date_iso: string | null
+          is_local_guide: boolean
+          local_guide_reviews_count: number | null
+          helpful_count: number
+          owner_response: string | null
+          owner_response_date: string | null
+          is_removed: boolean
+          first_seen_at: string
+          last_seen_at: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          location_id: string
           org_id: string
-          google_review_id: string
-          author_name: string
-          author_photo_url?: string | null
-          author_uri?: string | null
+          profile_id: string
+          review_id: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          reviewer_profile_url?: string | null
           rating: number
-          review_text?: string | null
-          original_text?: string | null
-          relative_time?: string | null
-          published_at?: string | null
-          google_maps_url?: string | null
-          display_order?: number
+          text?: string | null
+          date_text?: string | null
+          date_iso?: string | null
+          is_local_guide?: boolean
+          local_guide_reviews_count?: number | null
+          helpful_count?: number
+          owner_response?: string | null
+          owner_response_date?: string | null
+          is_removed?: boolean
+          first_seen_at?: string
+          last_seen_at?: string
           created_at?: string
+          updated_at?: string
         }
         Update: {
-          author_name?: string
-          author_photo_url?: string | null
-          author_uri?: string | null
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          reviewer_profile_url?: string | null
           rating?: number
-          review_text?: string | null
-          original_text?: string | null
-          relative_time?: string | null
-          published_at?: string | null
-          google_maps_url?: string | null
-          display_order?: number
+          text?: string | null
+          date_text?: string | null
+          date_iso?: string | null
+          is_local_guide?: boolean
+          local_guide_reviews_count?: number | null
+          helpful_count?: number
+          owner_response?: string | null
+          owner_response_date?: string | null
+          is_removed?: boolean
+          last_seen_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'google_reviews_location_id_fkey'
-            columns: ['location_id']
+            foreignKeyName: 'google_reviews_profile_id_fkey'
+            columns: ['profile_id']
             isOneToOne: false
-            referencedRelation: 'google_locations'
+            referencedRelation: 'google_business_profiles'
             referencedColumns: ['id']
           },
           {
             foreignKeyName: 'google_reviews_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      google_review_photos: {
+        Row: {
+          id: string
+          org_id: string
+          review_id: string
+          position: number
+          original_url: string
+          hetzner_url: string | null
+          width: number | null
+          height: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          review_id: string
+          position?: number
+          original_url: string
+          hetzner_url?: string | null
+          width?: number | null
+          height?: number | null
+          created_at?: string
+        }
+        Update: {
+          position?: number
+          original_url?: string
+          hetzner_url?: string | null
+          width?: number | null
+          height?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'google_review_photos_review_id_fkey'
+            columns: ['review_id']
+            isOneToOne: false
+            referencedRelation: 'google_reviews'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'google_review_photos_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
