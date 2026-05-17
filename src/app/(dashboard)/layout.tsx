@@ -7,7 +7,12 @@ import { TopBar } from '@/components/layout/top-bar'
 import { CommandPaletteProvider } from '@/components/command-palette'
 import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
 import { VoiceDeviceShell } from '@/components/calls/voice-device-shell'
+import { BrandingStyle } from '@/components/layout/branding-style'
+import { CelebrationProvider } from '@/components/design-system/celebration-provider'
+import { OnboardingTour } from '@/components/onboarding/tour'
+import { PageTransition } from '@/components/layout/page-transition'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getOrgBranding } from '@/lib/branding.server'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -46,6 +51,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  const branding = await getOrgBranding(activeOrgId)
+
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
 
   // Decide whether to mount the Twilio Voice SDK Device for this user.
@@ -68,18 +75,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <SidebarStateProvider>
         <CommandPaletteProvider>
           <VoiceDeviceShell enabled={browserVoiceEnabled}>
-            <div className="flex min-h-dvh bg-bg-primary">
-              <Sidebar
-                user={user}
-                isPlatformAdmin={isPlatformAdmin}
-                activeOrgId={activeOrgId}
-                activeOrgName={activeOrgName}
-              />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <TopBar />
-                <main className="flex-1 overflow-auto">{children}</main>
+            <BrandingStyle branding={branding} />
+            {branding.logoUrl && (
+              // eslint-disable-next-line @next/next/no-sync-scripts
+              <link rel="icon" href={branding.logoUrl} />
+            )}
+            <CelebrationProvider>
+              <div className="flex min-h-dvh bg-bg-primary">
+                <Sidebar
+                  user={user}
+                  isPlatformAdmin={isPlatformAdmin}
+                  activeOrgId={activeOrgId}
+                  activeOrgName={activeOrgName}
+                  brandName={branding.appName}
+                  logoUrl={branding.logoUrl}
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <TopBar />
+                  <main className="flex-1 overflow-auto">
+                    <PageTransition>{children}</PageTransition>
+                  </main>
+                </div>
               </div>
-            </div>
+              <OnboardingTour />
+            </CelebrationProvider>
           </VoiceDeviceShell>
         </CommandPaletteProvider>
       </SidebarStateProvider>

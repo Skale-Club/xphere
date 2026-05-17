@@ -42,12 +42,17 @@ export default function RootLayout({
           </TooltipProvider>
           <Toaster
             richColors
-            position="top-right"
+            closeButton
+            position="bottom-right"
             theme="dark"
+            duration={4000}
+            visibleToasts={5}
             toastOptions={{
               style: {
                 fontFamily: 'var(--font-sans)',
+                borderRadius: '10px',
               },
+              className: 'group',
             }}
           />
         </ThemeProvider>

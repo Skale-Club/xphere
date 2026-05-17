@@ -131,6 +131,15 @@ export interface ContactDetail extends ContactRow {
     recording_url: string | null
     started_at: string | null
   }>
+  opportunities: Array<{
+    id: string
+    title: string
+    value: number
+    currency: string
+    status: 'open' | 'won' | 'lost'
+    updated_at: string
+    stage: { id: string; name: string; color: string } | null
+  }>
 }
 
 export async function getContact(id: string): Promise<ContactDetail | null> {
@@ -158,10 +167,18 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     .order('started_at', { ascending: false, nullsFirst: false })
     .limit(20)
 
+  const { data: opps } = await supabase
+    .from('opportunities')
+    .select('id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
+    .eq('contact_id', id)
+    .order('updated_at', { ascending: false })
+    .limit(20)
+
   return {
     ...(contact as ContactRow),
     conversations: convs ?? [],
     call_logs: (calls ?? []) as ContactDetail['call_logs'],
+    opportunities: ((opps ?? []) as unknown as ContactDetail['opportunities']),
   }
 }
 

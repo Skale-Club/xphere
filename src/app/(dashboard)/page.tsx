@@ -10,11 +10,15 @@ import {
   Sparkles,
   Users,
   Zap,
+  PhoneCall,
+  Star,
 } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getDashboardMetrics } from './calls/actions'
 import { getOrgCostTicker } from '@/lib/agent-runtime/observability'
 import { VapiSetupBanner } from '@/components/dashboard/vapi-setup-banner'
+import { WelcomeChecklist, type WelcomeChecklistItem } from '@/components/dashboard/welcome-checklist'
+import { PipelineWidget } from '@/components/dashboard/pipeline-widget'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { ActivityChart } from '@/components/design-system/activity-chart'
 import { ActivityFeed, type ActivityEvent } from '@/components/design-system/activity-feed'
@@ -32,6 +36,88 @@ async function hasVapiIntegration(): Promise<boolean> {
     .eq('provider', 'vapi')
     .eq('is_active', true)
   return (count ?? 0) > 0
+}
+
+interface WorkspaceSetupState {
+  isEmpty: boolean
+  items: WelcomeChecklistItem[]
+}
+
+/**
+ * Detects whether the workspace is "empty" (newly created) and returns
+ * the setup checklist with current completion state.
+ *
+ * Empty = no agents AND no contacts AND no active integrations.
+ */
+async function getWorkspaceSetupState(): Promise<WorkspaceSetupState> {
+  const supabase = await createClient()
+
+  const [whatsappRes, twilioRes, agentsRes, contactsRes, reviewsRes] = await Promise.all([
+    supabase.from('evolution_instances').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('integrations').select('id', { count: 'exact', head: true }).eq('provider', 'twilio').eq('is_active', true),
+    supabase.from('assistant_mappings').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('contacts').select('id', { count: 'exact', head: true }),
+    supabase.from('google_business_profiles').select('id', { count: 'exact', head: true }).eq('is_active', true),
+  ])
+
+  const whatsappCount = whatsappRes.count ?? 0
+  const twilioCount = twilioRes.count ?? 0
+  const agentsCount = agentsRes.count ?? 0
+  const contactsCount = contactsRes.count ?? 0
+  const reviewsCount = reviewsRes.count ?? 0
+
+  const items: WelcomeChecklistItem[] = [
+    {
+      id: 'whatsapp',
+      title: 'Connect WhatsApp',
+      description: 'Plug in your Evolution Go instance to send and receive WhatsApp messages.',
+      href: '/integrations',
+      cta: 'Connect WhatsApp',
+      icon: MessageSquare,
+      done: whatsappCount > 0,
+    },
+    {
+      id: 'twilio',
+      title: 'Connect Twilio',
+      description: 'Power outbound SMS and calls with your Twilio number.',
+      href: '/integrations',
+      cta: 'Connect Twilio',
+      icon: PhoneCall,
+      done: twilioCount > 0,
+    },
+    {
+      id: 'agent',
+      title: 'Create your first agent',
+      description: 'Spin up an AI worker to handle conversations across your channels.',
+      href: '/agents',
+      cta: 'Create agent',
+      icon: Bot,
+      done: agentsCount > 0,
+    },
+    {
+      id: 'contacts',
+      title: 'Import contacts',
+      description: 'Bring your customer list in via CSV or sync from your CRM.',
+      href: '/contacts',
+      cta: 'Import contacts',
+      icon: Users,
+      done: contactsCount > 0,
+    },
+    {
+      id: 'reviews',
+      title: 'Setup Google Reviews',
+      description: 'Monitor and respond to Google reviews with SerpAPI integration.',
+      href: '/reviews',
+      cta: 'Setup reviews',
+      icon: Star,
+      done: reviewsCount > 0,
+    },
+  ]
+
+  // "Empty" workspace: nothing meaningful yet.
+  const isEmpty = agentsCount === 0 && contactsCount === 0 && whatsappCount === 0 && twilioCount === 0
+
+  return { isEmpty, items }
 }
 
 function greetingFor(date: Date): string {
@@ -201,9 +287,34 @@ async function ActivityChartSection() {
 }
 
 export default async function DashboardPage() {
-  const [hasVapi, user] = await Promise.all([hasVapiIntegration(), getUser()])
+  const [hasVapi, user, setupState] = await Promise.all([
+    hasVapiIntegration(),
+    getUser(),
+    getWorkspaceSetupState(),
+  ])
   const greeting = greetingFor(new Date())
   const firstName = user ? getFirstName(user) : 'there'
+
+  // Empty workspace: show the welcome checklist instead of metrics/activity.
+  if (setupState.isEmpty) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="animate-fade-in flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+            <Sparkles className="h-3.5 w-3.5 text-accent" />
+            <span>Welcome</span>
+          </div>
+          <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight text-text-primary">
+            {greeting}, {firstName}.
+          </h1>
+          <p className="text-[14px] text-text-secondary">
+            Your workspace is brand new. Let&apos;s get it set up so you can start operating.
+          </p>
+        </div>
+        <WelcomeChecklist items={setupState.items} />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -285,6 +396,13 @@ export default async function DashboardPage() {
             </Suspense>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Pipeline widget */}
+      <div className="animate-fade-in delay-200">
+        <Suspense fallback={<div className="h-[240px] w-full shimmer rounded-[12px]" />}>
+          <PipelineWidget />
+        </Suspense>
       </div>
 
       {/* Quick actions */}

@@ -75,10 +75,14 @@ export function ContactsTable({
   const [query, setQuery] = React.useState(currentQuery ?? '')
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  // Optimistic "pending delete" set — rows fade out immediately on delete
+  // and snap back if the server returns an error.
+  const [pendingDelete, setPendingDelete] = React.useState<Set<string>>(new Set())
 
   // Reset selection when rows change
   React.useEffect(() => {
     setSelected(new Set())
+    setPendingDelete(new Set())
   }, [rows])
 
   // Debounced search → URL
@@ -123,8 +127,13 @@ export function ContactsTable({
   async function handleBulkDelete() {
     if (selected.size === 0) return
     if (!confirm(`Delete ${selected.size} contact(s)? This cannot be undone.`)) return
-    const res = await deleteContacts([...selected])
+    const ids = [...selected]
+    // Optimistic: mark rows as pending-delete so they fade out instantly.
+    setPendingDelete(new Set(ids))
+    const res = await deleteContacts(ids)
     if (res.error) {
+      // Rollback the visual change on error.
+      setPendingDelete(new Set())
       toast.error(res.error)
       return
     }
@@ -257,7 +266,8 @@ export function ContactsTable({
                 }}
                 className={cn(
                   'grid grid-cols-[40px_2fr_1.5fr_1.2fr_1fr_100px] items-center gap-3 px-4 py-3 cursor-pointer',
-                  'transition-colors duration-150 hover:bg-bg-tertiary/40 focus:outline-none focus-visible:bg-bg-tertiary/40',
+                  'transition-all duration-200 ease-out hover:bg-bg-tertiary/40 focus:outline-none focus-visible:bg-bg-tertiary/40',
+                  pendingDelete.has(c.id) && 'opacity-30 -translate-x-2 pointer-events-none',
                 )}
               >
                 <div onClick={(e) => e.stopPropagation()}>

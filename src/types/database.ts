@@ -32,6 +32,20 @@ export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_i
 export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
 
+// v2.1 - sales pipeline (SEED-008)
+export type OpportunityStatus = 'open' | 'won' | 'lost'
+export type OpportunityActivityType =
+  | 'note'
+  | 'call'
+  | 'whatsapp'
+  | 'sms'
+  | 'instagram'
+  | 'stage_change'
+  | 'email'
+  | 'created'
+  | 'won'
+  | 'lost'
+
 export interface Database {
   public: {
     Tables: {
@@ -48,6 +62,9 @@ export interface Database {
           widget_welcome_message: string | null
           daily_cost_cap_usd_override: number | null
           delegation_visibility: string
+          logo_url: string | null
+          accent_color: string | null
+          brand_name: string | null
           created_at: string
           updated_at: string
         }
@@ -63,6 +80,9 @@ export interface Database {
           widget_welcome_message?: string | null
           daily_cost_cap_usd_override?: number | null
           delegation_visibility?: string
+          logo_url?: string | null
+          accent_color?: string | null
+          brand_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -78,6 +98,9 @@ export interface Database {
           widget_welcome_message?: string | null
           daily_cost_cap_usd_override?: number | null
           delegation_visibility?: string
+          logo_url?: string | null
+          accent_color?: string | null
+          brand_name?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1393,6 +1416,7 @@ export interface Database {
           id: string
           org_id: string
           contact_id: string | null
+          opportunity_id: string | null
           call_sid: string
           direction: CallDirection
           routing_mode: CallRoutingMode | null
@@ -1412,6 +1436,7 @@ export interface Database {
           id?: string
           org_id: string
           contact_id?: string | null
+          opportunity_id?: string | null
           call_sid: string
           direction: CallDirection
           routing_mode?: CallRoutingMode | null
@@ -1429,6 +1454,7 @@ export interface Database {
         }
         Update: {
           contact_id?: string | null
+          opportunity_id?: string | null
           routing_mode?: CallRoutingMode | null
           from_number?: string | null
           to_number?: string | null
@@ -1453,6 +1479,210 @@ export interface Database {
             columns: ['contact_id']
             isOneToOne: false
             referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      pipelines: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          is_default: boolean
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          is_default?: boolean
+          position?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          is_default?: boolean
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'pipelines_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      pipeline_stages: {
+        Row: {
+          id: string
+          pipeline_id: string
+          org_id: string
+          name: string
+          position: number
+          color: string
+          is_won: boolean
+          is_lost: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pipeline_id: string
+          org_id: string
+          name: string
+          position: number
+          color?: string
+          is_won?: boolean
+          is_lost?: boolean
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          position?: number
+          color?: string
+          is_won?: boolean
+          is_lost?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'pipeline_stages_pipeline_id_fkey'
+            columns: ['pipeline_id']
+            isOneToOne: false
+            referencedRelation: 'pipelines'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'pipeline_stages_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      opportunities: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string | null
+          pipeline_id: string
+          stage_id: string
+          title: string
+          value: number
+          currency: string
+          status: OpportunityStatus
+          expected_close_date: string | null
+          assigned_to: string | null
+          position: number
+          custom_fields: Record<string, unknown>
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id?: string | null
+          pipeline_id: string
+          stage_id: string
+          title: string
+          value?: number
+          currency?: string
+          status?: OpportunityStatus
+          expected_close_date?: string | null
+          assigned_to?: string | null
+          position?: number
+          custom_fields?: Record<string, unknown>
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          pipeline_id?: string
+          stage_id?: string
+          title?: string
+          value?: number
+          currency?: string
+          status?: OpportunityStatus
+          expected_close_date?: string | null
+          assigned_to?: string | null
+          position?: number
+          custom_fields?: Record<string, unknown>
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'opportunities_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'opportunities_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'opportunities_pipeline_id_fkey'
+            columns: ['pipeline_id']
+            isOneToOne: false
+            referencedRelation: 'pipelines'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'opportunities_stage_id_fkey'
+            columns: ['stage_id']
+            isOneToOne: false
+            referencedRelation: 'pipeline_stages'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      opportunity_activities: {
+        Row: {
+          id: string
+          org_id: string
+          opportunity_id: string
+          type: OpportunityActivityType
+          content: string | null
+          call_log_id: string | null
+          conversation_id: string | null
+          metadata: Record<string, unknown> | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          opportunity_id: string
+          type: OpportunityActivityType
+          content?: string | null
+          call_log_id?: string | null
+          conversation_id?: string | null
+          metadata?: Record<string, unknown> | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          type?: OpportunityActivityType
+          content?: string | null
+          metadata?: Record<string, unknown> | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'opportunity_activities_opportunity_id_fkey'
+            columns: ['opportunity_id']
+            isOneToOne: false
+            referencedRelation: 'opportunities'
             referencedColumns: ['id']
           }
         ]
