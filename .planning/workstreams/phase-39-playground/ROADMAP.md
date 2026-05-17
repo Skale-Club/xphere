@@ -9,7 +9,7 @@ observability counts and don't write to `conversations`/`conversation_messages`.
 
 ## Phases
 
-- [ ] **Phase 39: Agent Playground** - Per-agent test playground page with multi-channel chat,
+- [x] **Phase 39: Agent Playground** - Per-agent test playground page with multi-channel chat, (completed 2026-05-17)
   inline tool-call rendering, session reset, and playground-mode isolation from production metrics.
 
 ## Phase Details
