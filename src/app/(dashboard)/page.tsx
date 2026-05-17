@@ -14,6 +14,8 @@ import { MetricOpenConversations } from '@/components/dashboard/widgets/metric-o
 import { MetricCallsToday } from '@/components/dashboard/widgets/metric-calls-today'
 import { MetricDealsWon } from '@/components/dashboard/widgets/metric-deals-won'
 import { MetricAvgRating } from '@/components/dashboard/widgets/metric-avg-rating'
+import { RecentConversations } from '@/components/dashboard/widgets/recent-conversations'
+import { PipelineOverview } from '@/components/dashboard/widgets/pipeline-overview'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,12 +77,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WidgetErrorBoundary name="recent-conversations" fallback={<WidgetError title="Recent conversations" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
-            <PlaceholderPanel label="Recent conversations" />
+            <RecentConversations />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="pipeline-overview" fallback={<WidgetError title="Pipeline overview" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
-            <PlaceholderPanel label="Pipeline overview" />
+            <PipelineOverview />
           </Suspense>
         </WidgetErrorBoundary>
       </div>
