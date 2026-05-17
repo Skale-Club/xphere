@@ -18,6 +18,8 @@ import { deleteGoogleContact } from '@/lib/google-contacts/delete-contact'
 import { executeWebhook } from '@/lib/custom-webhook/execute-webhook'
 import { sendSms } from '@/lib/twilio/send-sms'
 import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
+import { sendWhatsappMessageAction } from '@/lib/action-engine/executors/send-whatsapp-message'
+import { sendWhatsappMentionAllAction } from '@/lib/action-engine/executors/send-whatsapp-mention-all'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -103,6 +105,18 @@ export async function executeAction(
       return triggerManychatFlow(params, credentials)
     case 'manychat_send_message':
       return sendManychatMessage(params, credentials)
+    case 'send_whatsapp_message': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('send_whatsapp_message requires ctx.organizationId and ctx.supabase')
+      }
+      return sendWhatsappMessageAction(params, ctx)
+    }
+    case 'send_whatsapp_mention_all': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('send_whatsapp_mention_all requires ctx.organizationId and ctx.supabase')
+      }
+      return sendWhatsappMentionAllAction(params, ctx)
+    }
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType

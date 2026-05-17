@@ -50,6 +50,8 @@ const toolConfigSchema = z.object({
     'google_contacts_update',
     'google_contacts_find',
     'google_contacts_delete',
+    'send_whatsapp_message',
+    'send_whatsapp_mention_all',
   ]),
   integrationId: z.string().optional().nullable(),
   fallbackMessage: z
@@ -68,7 +70,11 @@ const toolConfigSchema = z.object({
     .optional(),
 }).superRefine((data, ctx) => {
   // integrationId required for action types that need an integration
-  const requiresIntegration = data.actionType !== 'custom_webhook'
+  const integrationOptional =
+    data.actionType === 'custom_webhook' ||
+    data.actionType === 'send_whatsapp_message' ||
+    data.actionType === 'send_whatsapp_mention_all'
+  const requiresIntegration = !integrationOptional
   if (requiresIntegration && !data.integrationId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -103,6 +109,8 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'google_contacts_update', label: 'Google Contacts: Update' },
   { value: 'google_contacts_find',   label: 'Google Contacts: Find' },
   { value: 'google_contacts_delete', label: 'Google Contacts: Delete' },
+  { value: 'send_whatsapp_message',    label: 'WhatsApp: Send Message' },
+  { value: 'send_whatsapp_mention_all', label: 'WhatsApp: Group Mention-All' },
 ] as const
 
 interface ToolConfigFormProps {
@@ -262,7 +270,9 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
             )}
           />
 
-          {watchedActionType !== 'custom_webhook' && (
+          {watchedActionType !== 'custom_webhook' &&
+           watchedActionType !== 'send_whatsapp_message' &&
+           watchedActionType !== 'send_whatsapp_mention_all' && (
             <FormField
               control={form.control}
               name="integrationId"

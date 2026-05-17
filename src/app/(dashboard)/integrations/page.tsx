@@ -43,6 +43,9 @@ export default async function IntegrationsPage() {
   // Best-effort connection state for dedicated integrations
   const hasManychat = integrations.some((i) => i.provider === 'manychat' && i.is_active)
   const hasGoogleContacts = integrations.some((i) => i.provider === 'google_contacts' && i.is_active)
+  const { getEvolutionInstance } = await import('./evolution/actions')
+  const evolutionInstance = await getEvolutionInstance()
+  const hasEvolution = evolutionInstance !== null && evolutionInstance.status === 'connected'
 
   const dedicated: DedicatedIntegration[] = [
     {
@@ -51,6 +54,14 @@ export default async function IntegrationsPage() {
       name: 'Meta Messaging',
       description: 'Connect Facebook once to sync Messenger pages and linked Instagram pro accounts.',
       tone: 'pink',
+    },
+    {
+      href: '/integrations/evolution',
+      icon: MessageCircleMore,
+      name: 'Evolution Go (WhatsApp)',
+      description: 'Self-hosted WhatsApp gateway. Connect via QR code and send/receive messages per org.',
+      connected: hasEvolution,
+      tone: 'green',
     },
     {
       href: '/integrations/manychat',
