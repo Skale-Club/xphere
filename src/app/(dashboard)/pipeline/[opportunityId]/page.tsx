@@ -28,7 +28,7 @@ export default async function OpportunityDetailPage({ params }: Props) {
   const stages = await getStages(opp.pipeline_id)
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="animate-fade-in flex items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link href={`/pipeline?pipeline=${opp.pipeline_id}`}>

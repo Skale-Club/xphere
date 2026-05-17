@@ -80,7 +80,7 @@ export function PageContainer({
   size?: 'narrow' | 'wide' | 'full'
 }) {
   const maxW =
-    size === 'narrow' ? 'max-w-4xl' : size === 'full' ? 'max-w-none' : 'max-w-7xl'
+    size === 'narrow' ? 'max-w-4xl' : 'max-w-none'
 
   return (
     <div

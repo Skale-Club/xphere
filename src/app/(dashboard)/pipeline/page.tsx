@@ -31,7 +31,7 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     null
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="animate-fade-in flex flex-col gap-2">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
           <TrendingUp className="h-3.5 w-3.5 text-accent" />

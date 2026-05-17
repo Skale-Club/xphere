@@ -28,7 +28,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Hero */}
       <div className="animate-fade-in flex flex-col gap-2">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">

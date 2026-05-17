@@ -22,7 +22,7 @@ export default async function PipelineSettingsPage({ searchParams }: PipelineSet
   const stages = active ? await getStages(active.id) : []
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="animate-fade-in flex flex-col gap-2">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
           <Settings className="h-3.5 w-3.5 text-accent" />
