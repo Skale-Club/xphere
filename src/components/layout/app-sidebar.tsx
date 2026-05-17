@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Bot,
+  Users,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -48,6 +49,7 @@ const navItems = [
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },
   { icon: MessageSquare, label: 'Chat', href: '/chat', active: true },
+  { icon: Users, label: 'Members', href: '/members', active: true },
   { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]
 

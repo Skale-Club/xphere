@@ -98,7 +98,7 @@ async function dispatchAgentPath(
 
     if (channel?.encrypted_api_key) {
       const apiKey = await decrypt(channel.encrypted_api_key)
-      const credentials: ManychatCredentials = { apiKey }
+      const credentials: ManychatCredentials = { apiKey, locationId: '' }
       const subscriberId = input.subscriberId ?? input.payload.subscriber_id
 
       // Send each chunk as a separate ManyChat message
