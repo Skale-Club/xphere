@@ -6,12 +6,15 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
 
 import { cn } from '@/lib/utils'
+import { AnimatedNumber } from '@/components/design-system/animated-number'
 
 export interface MetricCardProps {
   label: string
   value: string | number
   /** Optional small label after the value, e.g. "calls" or "/day" */
   unit?: string
+  /** Disable the count-up animation when the value isn't a clean number. */
+  animate?: boolean
   /** Trend % vs previous period. Positive = up, negative = down. */
   trend?: number | null
   /** Optional sparkline data points */
@@ -41,6 +44,7 @@ export function MetricCard({
   label,
   value,
   unit,
+  animate = true,
   trend,
   data,
   icon: Icon,
@@ -50,6 +54,20 @@ export function MetricCard({
   className,
   index = 0,
 }: MetricCardProps) {
+  // Detect a numeric value (or a formatted "$x.xx" / "1,234") so we can
+  // animate the count-up. String values with non-numeric chars beyond
+  // commas/dots/$ are rendered verbatim.
+  const animatable = React.useMemo(() => {
+    if (!animate) return null
+    if (typeof value === 'number') return { prefix: '', n: value, suffix: '', decimals: 0 }
+    const s = String(value).trim()
+    const m = /^(\$?)([\d,]+(?:\.\d+)?)$/.exec(s)
+    if (!m) return null
+    const n = Number(m[2].replace(/,/g, ''))
+    if (!Number.isFinite(n)) return null
+    const decimals = m[2].includes('.') ? (m[2].split('.')[1]?.length ?? 0) : 0
+    return { prefix: m[1] ?? '', n, suffix: '', decimals }
+  }, [value, animate])
   const color = toneColors[tone]
   const gradientId = React.useId()
 
@@ -118,7 +136,16 @@ export function MetricCard({
 
       <div className="relative flex items-baseline gap-1.5">
         <div className="text-[28px] font-semibold leading-none tracking-tight tabular text-text-primary">
-          {value}
+          {animatable ? (
+            <AnimatedNumber
+              value={animatable.n}
+              prefix={animatable.prefix}
+              decimals={animatable.decimals}
+              duration={900}
+            />
+          ) : (
+            value
+          )}
         </div>
         {unit && <div className="text-[12.5px] text-text-tertiary">{unit}</div>}
       </div>

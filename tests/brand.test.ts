@@ -2,7 +2,8 @@ import { vi } from 'vitest'
 
 // Next.js font functions do not run in vitest's node environment
 vi.mock('next/font/google', () => ({
-  Inter: () => ({ className: 'inter' }),
+  Inter: () => ({ className: 'inter', variable: '--font-sans' }),
+  JetBrains_Mono: () => ({ className: 'jetbrains-mono', variable: '--font-mono' }),
 }))
 
 // Import after mocking

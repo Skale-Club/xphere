@@ -12,7 +12,38 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current State: v2.0 Multi-Bot Platform ✅ Shipped 2026-05-17
+## Current State: v2.1 CRM + Omnichannel + Complete Redesign ✅ Shipped 2026-05-17
+
+**5 waves, 8 migrations (048-055) applied to remote Supabase.**
+
+v2.1 delivers a full vertical: contact management, sales pipeline, inbound SMS, voice calls (3 routing modes), Google Reviews monitoring, Evolution Go WhatsApp coexistence, and a complete visual redesign at the Linear/Vercel quality bar — all under one tenant-aware platform.
+
+**Wave 1 — Design Foundation (SEED-010 R1-R3):** Dark-mode-first design system, motion tokens, command palette (Cmd+K), redesigned sidebar with grouped nav, MetricCard/ActivityChart/ActivityFeed primitives, skeleton library, ChannelBadge/StatusPill, empty-state components.
+
+**Wave 2 — Domain features (SEED-004..009):** Evolution Go WhatsApp instances, Twilio SMS inbound, contact CRM with tags/sources/CSV import, voice call system with 3 routing modes (phone forward / SIP / browser), Google Reviews via SerpAPI with public widget, sales pipeline with kanban + opportunities + activity feed.
+
+**Wave 3 — Page redesigns (SEED-010 R4-R6):** Every dashboard page reskinned against the new system — dashboard hero with animated metrics, conversations inbox, contacts list, integrations grid, agents, knowledge, members, reviews — all consistent.
+
+**Wave 4 — Integrations & polish (SEED-010 R5-R6):** Pipeline kanban with optimistic drag-drop, contact detail sheet with opportunity history, pipeline widget on dashboard, settings nav consolidation.
+
+**Wave 5 — Final polish (SEED-010 R7-R8, this commit):**
+- Per-org branding: logo upload, accent color picker, optional brand name (migration 055)
+- Workspace settings page with live preview and auto-saved indicators
+- Settings nav layout: 2-column with Workspace / Profile / Integrations / Calls / Team / Billing / Notifications / API Keys / Platform
+- Profile settings: name + password update
+- Onboarding tour: custom 5-step Portuguese tour with anchored tooltips, cookie-persistent dismissal
+- Welcome dashboard: 5-item setup checklist for empty workspaces (WhatsApp, Twilio, agents, contacts, reviews)
+- Confetti celebration on deal won (drag-to-won and explicit mark-won), accent palette colors
+- Animated number counters on MetricCard (cubic ease-out count-up)
+- Page transitions between routes (framer-motion fade + slide, mobile-skip, reduced-motion-aware)
+- Optimistic delete for contacts table (fade-out + rollback on error)
+- Toast improvements: bottom-right with close button, semantic colors, 4s auto-dismiss, 5-stack
+
+**Migrations:** 048 (RLS agent_model_pricing), 049 (security fixes), 050 (sms_channel), 051 (contacts), 052 (google_reviews_serpapi), 053 (call_system), 054 (evolution_instances), 055 (org_branding).
+
+**Pending operator action:** Configure Google Cloud Console OAuth client + enable Supabase Google provider + set `NEXT_PUBLIC_SITE_URL` on Vercel to activate Google SSO (carried over from v2.0).
+
+## Previous Milestone: v2.0 Multi-Bot Platform ✅ Shipped 2026-05-17
 
 **10 phases, 43 plans, 8 migrations (042-047) applied to remote Supabase.**
 

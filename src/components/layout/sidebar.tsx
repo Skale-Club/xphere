@@ -86,9 +86,13 @@ interface SidebarProps {
   isPlatformAdmin: boolean
   activeOrgId: string | null
   activeOrgName: string | null
+  /** Resolved brand name (org override or APP_NAME). */
+  brandName?: string
+  /** Optional org logo URL — replaces the default "O" mark when set. */
+  logoUrl?: string | null
 }
 
-export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName }: SidebarProps) {
+export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, brandName, logoUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebarState()
@@ -123,13 +127,24 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName }: S
           )}
         >
           <div className="relative">
-            <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover shadow-glow flex items-center justify-center">
-              <span className="text-[11px] font-bold text-white tracking-tighter">O</span>
-            </div>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={brandName ?? APP_NAME}
+                className="h-6 w-6 rounded-[7px] object-cover ring-1 ring-border-subtle"
+              />
+            ) : (
+              <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover shadow-glow flex items-center justify-center">
+                <span className="text-[11px] font-bold text-white tracking-tighter">
+                  {(brandName ?? APP_NAME).charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
           {!collapsed && (
             <span className="text-[13.5px] font-semibold tracking-tight text-text-primary">
-              {APP_NAME}
+              {brandName ?? APP_NAME}
             </span>
           )}
         </Link>

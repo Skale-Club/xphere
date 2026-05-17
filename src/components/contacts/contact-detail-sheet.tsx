@@ -13,7 +13,11 @@ import {
   MessageSquare,
   PhoneCall,
   Activity,
+  TrendingUp,
 } from 'lucide-react'
+import Link from 'next/link'
+
+import { formatCurrency } from '@/lib/pipeline/format'
 
 import {
   Sheet,
@@ -296,11 +300,47 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                 </TabsContent>
 
                 <TabsContent value="activities" className="mt-0">
-                  <EmptyTab
-                    icon={Activity}
-                    title="Activities coming soon"
-                    description="The pipeline module will surface deals, tasks, and follow-ups here."
-                  />
+                  {contact.opportunities.length === 0 ? (
+                    <EmptyTab
+                      icon={Activity}
+                      title="No opportunities yet"
+                      description="Create a deal in the pipeline and link it to this contact to track activity here."
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {contact.opportunities.map((o) => (
+                        <Link
+                          key={o.id}
+                          href={`/pipeline/${o.id}`}
+                          className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary px-3.5 py-3 hover:border-border-strong hover:bg-bg-tertiary/40 transition-colors duration-150"
+                        >
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-muted/30 text-accent">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12.5px] text-text-primary">
+                              {o.title}
+                            </div>
+                            <div className="text-[11px] text-text-tertiary inline-flex items-center gap-1.5">
+                              {o.stage && (
+                                <>
+                                  <span
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: o.stage.color }}
+                                  />
+                                  {o.stage.name}
+                                </>
+                              )}
+                              <span>· {relativeTime(o.updated_at)} · {o.status}</span>
+                            </div>
+                          </div>
+                          <div className="text-[12.5px] font-semibold tabular-nums text-text-primary shrink-0">
+                            {formatCurrency(Number(o.value), o.currency)}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
               </div>
             </Tabs>
