@@ -14,6 +14,7 @@ export async function resolveAgent(
   const supabase = createServiceRoleClient()
 
   // Fetch agent + active prompt version in one query (D-34-06: join via active_prompt_version_id)
+  // Phase 41 (AGENT-12): system_prompt removed from outer select — runtime MUST use the version row.
   const { data: agent, error } = await supabase
     .from('agents')
     .select(`
@@ -25,7 +26,6 @@ export async function resolveAgent(
       allowed_channels,
       channel_overrides,
       is_active,
-      system_prompt,
       active_prompt_version_id,
       kb_scope,
       agent_prompt_versions!agents_active_prompt_version_id_fkey (
@@ -39,25 +39,25 @@ export async function resolveAgent(
 
   if (error || !agent) return null
 
-  // D-34-06: use active version prompt; fallback to agents.system_prompt with structured warning
+  // Phase 41 (AGENT-12): runtime MUST use active_prompt_version_id; never reads agents.system_prompt directly.
+  // If active_prompt_version_id is null, resolveAgent returns null — caller falls back to fallback_message.
   const promptVersionRow = Array.isArray(agent.agent_prompt_versions)
     ? agent.agent_prompt_versions[0]
     : agent.agent_prompt_versions
 
-  let baseSystemPrompt: string
-  if (promptVersionRow?.system_prompt) {
-    baseSystemPrompt = promptVersionRow.system_prompt
-  } else {
-    console.warn(
+  if (!promptVersionRow?.system_prompt) {
+    console.error(
       JSON.stringify({
         event: 'agent_prompt_version_missing',
         agentId,
         orgId,
-        fallback: 'agents.system_prompt',
+        active_prompt_version_id: agent.active_prompt_version_id,
+        resolution: 'returning_null_to_caller',
       })
     )
-    baseSystemPrompt = agent.system_prompt ?? ''
+    return null
   }
+  const baseSystemPrompt = promptVersionRow.system_prompt
 
   // D-34-11: apply channel_overrides — JSONB keyed by channel name
   const overrides = (agent.channel_overrides as Record<string, Record<string, unknown>> | null) ?? {}

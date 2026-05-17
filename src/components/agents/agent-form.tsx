@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useForm, FormProvider, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -49,6 +50,7 @@ import { ChannelOverridesEditor } from './channel-overrides-editor'
 import {
   createAgent,
   updateAgent,
+  savePromptDraft,
   type ToolPickerData,
 } from '@/app/(dashboard)/agents/actions'
 
@@ -273,10 +275,41 @@ export function AgentForm({
               name="system_prompt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>System prompt</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>System prompt</FormLabel>
+                    {mode === 'edit' && agentId && (
+                      <Link
+                        href={`/dashboard/agents/${agentId}/prompt-history`}
+                        className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline ml-auto"
+                      >
+                        View history
+                      </Link>
+                    )}
+                  </div>
                   <FormControl>
                     <Textarea rows={10} {...field} />
                   </FormControl>
+                  {mode === 'edit' && agentId && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => {
+                        const currentPrompt = form.getValues('system_prompt')
+                        startTransition(async () => {
+                          const result = await savePromptDraft(agentId, currentPrompt)
+                          if ('error' in result) {
+                            toast.error(result.error)
+                          } else {
+                            toast.success(`Draft v${result.version} saved — use Publish to make it live`)
+                          }
+                        })
+                      }}
+                    >
+                      Save Draft
+                    </Button>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -476,21 +509,32 @@ export function AgentForm({
             </div>
           </CollapsibleSection>
 
-          <div className="sticky bottom-0 bg-background border-t py-3 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => router.push('/agents')}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending
-                ? 'Saving…'
-                : mode === 'create'
-                  ? 'Create agent'
-                  : 'Save'}
-            </Button>
+          <div className="sticky bottom-0 bg-background border-t py-3 flex flex-col gap-2">
+            {mode === 'edit' && agentId && (
+              <p className="text-xs text-muted-foreground">
+                Saving creates a draft version.{' '}
+                <Link href={`/dashboard/agents/${agentId}/prompt-history`} className="underline">
+                  Publish from the history page
+                </Link>{' '}
+                to make it live.
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => router.push('/agents')}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending
+                  ? 'Saving…'
+                  : mode === 'create'
+                    ? 'Create agent'
+                    : 'Save'}
+              </Button>
+            </div>
           </div>
         </form>
       </Form>
