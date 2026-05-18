@@ -107,8 +107,8 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   4. The "Add opportunity" button offers two paths — link to a specific contact in the account, or link directly to the account (B2B without contact) — and produces a valid opportunity in either path
   5. When a user creates a contact with an email like `alice@acme.com` and an account with `domain='acme.com'` exists in the org, the form auto-suggests that account
 **Plans**: 4 plans
-- [ ] 67-01-PLAN.md — Page shell `src/app/(dashboard)/accounts/[id]/page.tsx` + `AccountDetailHeader` + `AccountContactsTab` + `getAccountDetail` action
-- [ ] 67-02-PLAN.md — `AccountOpportunitiesTab` + `AccountActivitiesTab` + `getAccountOpportunities` + `getAccountActivities` wired into page shell
+- [x] 67-01-PLAN.md — Page shell `src/app/(dashboard)/accounts/[id]/page.tsx` + `AccountDetailHeader` + `AccountContactsTab` + `getAccountDetail` action
+- [x] 67-02-PLAN.md — `AccountOpportunitiesTab` + `AccountActivitiesTab` + `getAccountOpportunities` + `getAccountActivities` wired into page shell
 - [ ] 67-03-PLAN.md — contacts/new `account_id` searchParam, `AddOpportunityDialog` (two-path), `AccountCombobox` email-domain auto-suggest
 - [ ] 67-04-PLAN.md — Companies sidebar nav item + Vitest smoke tests + final `npm run build`
 **UI hint**: yes
@@ -233,7 +233,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 64. ACCOUNTS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 65. ACCOUNTS-ACTIONS | 5/5 | Complete    | 2026-05-18 |
 | 66. ACCOUNTS-LIST-UI | 5/5 | Complete    | 2026-05-18 |
-| 67. ACCOUNTS-DETAIL-UI | 0/4 | In progress | — |
+| 67. ACCOUNTS-DETAIL-UI | 2/4 | In Progress|  |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 69. CUSTOMFIELDS-CORE-LIB | 3/3 | Complete    | 2026-05-18 |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
