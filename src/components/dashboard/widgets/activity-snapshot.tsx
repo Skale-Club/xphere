@@ -92,7 +92,7 @@ export async function ActivitySnapshot() {
       icon: Phone,
       label: 'Calls',
       value: callsTotal,
-      href: '/voice',
+      href: '/calls',
       tone: callsMissed > 0 ? 'warning' : 'success',
       hint: callsMissed > 0 ? `${callsMissed} missed` : undefined,
     },

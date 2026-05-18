@@ -4,8 +4,116 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 
 type CallRow = Database['public']['Tables']['calls']['Row']
+export type UnifiedCall = Database['public']['Tables']['unified_calls']['Row']
 
 const PAGE_SIZE = 20
+
+// ─── Unified Calls (SEED-014) ────────────────────────────────────────────────
+
+export interface UnifiedCallFilters {
+  page?: number
+  pageSize?: number
+  type?: 'all' | 'ai' | 'human'
+  direction?: 'all' | 'inbound' | 'outbound'
+  missed?: boolean
+  q?: string
+  from?: string
+  to?: string
+}
+
+export interface UnifiedCallContact {
+  id: string
+  name: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface UnifiedCallWithContact extends UnifiedCall {
+  contact: UnifiedCallContact | null
+}
+
+export interface UnifiedCallsResult {
+  rows: UnifiedCallWithContact[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export async function getUnifiedCalls(
+  filters: UnifiedCallFilters = {},
+): Promise<UnifiedCallsResult> {
+  const page = Math.max(1, filters.page ?? 1)
+  const pageSize = Math.min(100, filters.pageSize ?? PAGE_SIZE)
+  const user = await getUser()
+  if (!user) return { rows: [], total: 0, page, pageSize }
+
+  const supabase = await createClient()
+  let query = supabase
+    .from('unified_calls')
+    .select('*', { count: 'exact' })
+    .order('started_at', { ascending: false, nullsFirst: false })
+
+  if (filters.type && filters.type !== 'all') query = query.eq('call_type', filters.type)
+  if (filters.direction && filters.direction !== 'all') query = query.eq('direction', filters.direction)
+  if (filters.missed) query = query.in('status', ['no-answer', 'failed', 'busy', 'canceled'])
+  if (filters.from) query = query.gte('started_at', filters.from)
+  if (filters.to) query = query.lte('started_at', filters.to)
+  if (filters.q) {
+    const escaped = filters.q.replace(/[%_]/g, (m) => `\\${m}`)
+    query = query.or(
+      `counterpart_number.ilike.%${escaped}%,counterpart_name.ilike.%${escaped}%,notes.ilike.%${escaped}%`,
+    )
+  }
+
+  const from = (page - 1) * pageSize
+  query = query.range(from, from + pageSize - 1)
+
+  const { data, count, error } = await query
+  if (error || !data) return { rows: [], total: 0, page, pageSize }
+
+  // Resolve contact info for rows that have contact_id
+  const contactIds = [...new Set(data.map((r) => r.contact_id).filter((id): id is string => Boolean(id)))]
+  let contactMap = new Map<string, UnifiedCallContact>()
+  if (contactIds.length > 0) {
+    const { data: contacts } = await supabase
+      .from('contacts')
+      .select('id, name, phone, email')
+      .in('id', contactIds)
+    contactMap = new Map((contacts ?? []).map((c) => [c.id, c]))
+  }
+
+  const rows: UnifiedCallWithContact[] = data.map((r) => ({
+    ...r,
+    contact: r.contact_id ? contactMap.get(r.contact_id) ?? null : null,
+  }))
+
+  return { rows, total: count ?? 0, page, pageSize }
+}
+
+export async function getUnifiedCall(id: string): Promise<UnifiedCallWithContact | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('unified_calls')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (!data) return null
+
+  let contact: UnifiedCallContact | null = null
+  if (data.contact_id) {
+    const { data: c } = await supabase
+      .from('contacts')
+      .select('id, name, phone, email')
+      .eq('id', data.contact_id)
+      .maybeSingle()
+    contact = c ?? null
+  }
+  return { ...data, contact }
+}
+
+// ─── Legacy: Vapi-only calls (kept for /phone backward compat) ───────────────
 
 export async function getCalls({
   page = 1,

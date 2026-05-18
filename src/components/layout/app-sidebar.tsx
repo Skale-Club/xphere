@@ -45,7 +45,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/', active: true },
-  { icon: Phone, label: 'Phone', href: '/phone', active: true },
+  { icon: Phone, label: 'Calls', href: '/calls', active: true },
   { icon: Zap, label: 'Tools', href: '/tools', active: true },
   { icon: Bot, label: 'Agents', href: '/agents', active: true },
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
@@ -114,13 +114,14 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
               {navItems.map((item) => {
                 const Icon = item.icon
                 const isChatItem = item.href === '/chat'
-                const isPhoneItem = item.href === '/phone'
+                const isCallsItem = item.href === '/calls'
                 const isCurrentPage =
                   pathname === item.href ||
                   pathname.startsWith(item.href + '/') ||
                   (isChatItem && pathname === '/widget') ||
-                  (isPhoneItem && (
-                    pathname.startsWith('/calls') ||
+                  (isCallsItem && (
+                    pathname.startsWith('/phone') ||
+                    pathname.startsWith('/voice') ||
                     pathname.startsWith('/outbound') ||
                     pathname.startsWith('/assistants')
                   ))

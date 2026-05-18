@@ -1433,6 +1433,34 @@ export interface Database {
           }
         ]
       }
+      unified_calls: {
+        Row: {
+          id: string
+          call_type: 'ai' | 'human'
+          org_id: string
+          external_id: string
+          counterpart_number: string | null
+          counterpart_name: string | null
+          contact_id: string | null
+          direction: 'inbound' | 'outbound'
+          duration_seconds: number | null
+          status: string | null
+          substatus: string | null
+          recording_url: string | null
+          recording_duration: number | null
+          transcript: string | null
+          notes: string | null
+          cost: number | null
+          assistant_id: string | null
+          routing_mode: string | null
+          started_at: string | null
+          ended_at: string | null
+          created_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       tags: {
         Row: {
           id: string

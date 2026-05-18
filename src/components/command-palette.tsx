@@ -78,7 +78,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
       // Navigation
       { id: 'nav-dashboard',    label: 'Dashboard',    icon: LayoutDashboard, href: '/',             group: 'Navigation', kbd: 'G D' },
       { id: 'nav-chat',         label: 'Chat',         icon: MessageSquare,   href: '/chat',         group: 'Navigation', kbd: 'G C' },
-      { id: 'nav-phone',        label: 'Phone',        icon: Phone,           href: '/phone',        group: 'Navigation', kbd: 'G P' },
+      { id: 'nav-calls',        label: 'Calls',        icon: Phone,           href: '/calls',        group: 'Navigation', kbd: 'G P' },
       { id: 'nav-agents',       label: 'Agents',       icon: Bot,             href: '/agents',       group: 'Navigation', kbd: 'G A', keywords: ['ai', 'assistant'] },
       { id: 'nav-tools',        label: 'Tools',        icon: Zap,             href: '/tools',        group: 'Navigation', keywords: ['actions'] },
       { id: 'nav-knowledge',    label: 'Knowledge',    icon: BookOpen,        href: '/knowledge',    group: 'Navigation', keywords: ['rag', 'documents'] },

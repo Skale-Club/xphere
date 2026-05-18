@@ -53,8 +53,7 @@ type NavItem = {
 const nav: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/',             group: 'overview' },
   { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
-  { icon: Phone,           label: 'Phone',        href: '/phone',        group: 'engage' },
-  { icon: PhoneCall,       label: 'Voice',        href: '/voice',        group: 'engage' },
+  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
@@ -210,8 +209,9 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
                   pathname === item.href ||
                   (item.href !== '/' && pathname.startsWith(item.href + '/')) ||
                   (item.href === '/chat' && pathname === '/widget') ||
-                  (item.href === '/phone' && (
-                    pathname.startsWith('/calls') ||
+                  (item.href === '/calls' && (
+                    pathname.startsWith('/phone') ||
+                    pathname.startsWith('/voice') ||
                     pathname.startsWith('/outbound') ||
                     pathname.startsWith('/assistants')
                   ))

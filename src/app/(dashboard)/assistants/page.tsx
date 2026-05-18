@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function AssistantsPage() {
-  redirect('/phone?tab=assistants')
+  redirect('/calls/assistants')
 }

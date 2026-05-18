@@ -100,7 +100,7 @@ export async function MetricCallsToday() {
       trend={trend}
       data={series}
       tone="success"
-      href="/voice"
+      href="/calls"
       hint={missedToday > 0 ? `${missedToday} missed` : undefined}
       index={1}
     />

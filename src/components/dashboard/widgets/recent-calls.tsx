@@ -114,7 +114,7 @@ export async function RecentCalls() {
 
   if (everCount === 0) {
     return (
-      <WidgetCard title="Recent calls" icon={Phone} href="/voice">
+      <WidgetCard title="Recent calls" icon={Phone} href="/calls">
         <WidgetEmpty
           icon={Phone}
           title="No calls yet"
@@ -126,7 +126,7 @@ export async function RecentCalls() {
   }
 
   return (
-    <WidgetCard title="Recent calls" icon={Phone} href="/voice">
+    <WidgetCard title="Recent calls" icon={Phone} href="/calls">
       {rows.length === 0 ? (
         <WidgetEmpty
           icon={Phone}

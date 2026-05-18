@@ -41,7 +41,7 @@ export default async function CampaignDetailPage({ params }: PageProps) {
       <PageHeader
         eyebrow="Outbound campaign"
         eyebrowIcon={Megaphone}
-        back={{ href: '/phone?tab=campaigns', label: 'Back to campaigns' }}
+        back={{ href: '/calls/campaigns', label: 'Back to campaigns' }}
         title={<span className="truncate">{campaign.name}</span>}
         description={
           <span className="inline-flex items-center gap-2">
