@@ -30,12 +30,10 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 ## Phases
 
 - [x] **Phase 64: ACCOUNTS-SCHEMA** — `accounts` table + FKs from contacts/opportunities + CHECK constraint + idempotent data migration from `contacts.company` (completed 2026-05-18)
-- [x] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI)
- (completed 2026-05-18)
+- [x] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI) (completed 2026-05-18)
 - [ ] **Phase 66: ACCOUNTS-LIST-UI** — `/dashboard/accounts` list with filters/search/bulk actions, contact-form combobox, Top Companies dashboard widget
 - [ ] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest
-- [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types
- (completed 2026-05-18)
+- [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types (completed 2026-05-18)
 - [ ] **Phase 69: CUSTOMFIELDS-CORE-LIB** — `validate.ts`, `serialize.ts`, `render-config.ts`, wired into contact/opportunity/account server actions
 - [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
 - [ ] **Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION** — `<CustomFieldsForm>` + `<CustomFieldsDisplay>` + 12 per-type components, plugged into every entity form and detail page
@@ -90,7 +88,12 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   4. A user can multi-select accounts and execute "assign owner", "add tag", or "delete" as a single bulk action
   5. The "Company" field on the contact create/edit form is a combobox over existing accounts with an inline "Create new company" affordance
   6. The dashboard renders a "Top Companies" widget ranking accounts by open deal count or total pipeline value
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 66-01-PLAN.md — `/dashboard/accounts/page.tsx` server shell + `AccountsTable` client component (8-column table, pagination, checkbox select infrastructure)
+- [ ] 66-02-PLAN.md — `AccountsFilters` client component (debounced search + 5 filter dropdowns + active-filter chips) wired into page shell
+- [ ] 66-03-PLAN.md — `AccountsBulkActions` (assign owner, add tag, delete modals) + `bulkAssignOwner` / `bulkAddTag` server actions
+- [ ] 66-04-PLAN.md — `AccountCombobox` component + wire into contact create/edit form (replaces plain company Input with FK combobox + inline quick-create)
+- [ ] 66-05-PLAN.md — `TopCompanies` dashboard widget + Vitest unit tests (combobox fallback, bulk-delete guard, relativeTime, sourceLabel)
 **UI hint**: yes
 
 ### Phase 67: ACCOUNTS-DETAIL-UI
@@ -225,7 +228,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 |-------|----------------|--------|-----------|
 | 64. ACCOUNTS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 65. ACCOUNTS-ACTIONS | 5/5 | Complete    | 2026-05-18 |
-| 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
+| 66. ACCOUNTS-LIST-UI | 0/5 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 69. CUSTOMFIELDS-CORE-LIB | 0/3 | Not started | — |
