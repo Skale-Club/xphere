@@ -38,7 +38,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 - [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
 - [ ] **Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION** — `<CustomFieldsForm>` + `<CustomFieldsDisplay>` + 12 per-type components, plugged into every entity form and detail page
 - [ ] **Phase 72: CUSTOMFIELDS-LIST-FILTERS-IO** — Dynamic columns + type-aware filters in entity lists, CSV import/export of custom field values
-- [ ] **Phase 73: IMPORT-SCHEMA-WORKER** — `contact_imports` + `contact_import_errors` tables, ENUMs, Storage bucket, Realtime publication, RLS, cleanup cron, storage/worker interfaces
+- [x] **Phase 73: IMPORT-SCHEMA-WORKER** — `contact_imports` + `contact_import_errors` tables, ENUMs, Storage bucket, Realtime publication, RLS, cleanup cron, storage/worker interfaces (completed 2026-05-18)
 - [ ] **Phase 74: IMPORT-WIZARD-UI** — Direct-to-Storage upload, parse worker, mapping wizard with custom-fields targets, heuristic auto-mapping, dedup picker, dry-run preview
 - [ ] **Phase 75: IMPORT-HISTORY-RETRY-TESTS** — Processing worker (chunked/transactional/cancellable), imports list + detail pages, error CSV export, retry-failed flow, account auto-create on import, E2E tests
 
@@ -185,9 +185,9 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   4. A scheduled cleanup task deletes `contact_imports` rows older than 30 days together with their Storage objects
   5. `ContactImportStorage` and the worker entry point are defined as interfaces (not direct supabase-js / Edge Function calls in business code) so the v1 implementations can later be swapped without touching callers
 **Plans**: 3 plans
-- [ ] 73-01-PLAN.md — Migration `066_contact_imports.sql`: ENUMs, tables, indexes, RLS, Realtime publication, pg_cron cleanup cron, Storage bucket notes; applied via `npx supabase db push`
-- [ ] 73-02-PLAN.md — Update `src/types/database.ts` with import type literals + table types; create `src/lib/import/` interfaces and Supabase concrete stubs (ContactImportStorage, ImportWorkerEntry)
-- [ ] 73-03-PLAN.md — Add `tests/import-schema.test.ts`: RLS isolation, progress_percent math, Realtime publication, pg_cron job existence, CASCADE deletion
+- [x] 73-01-PLAN.md — Migration `066_contact_imports.sql`: ENUMs, tables, indexes, RLS, Realtime publication, pg_cron cleanup cron, Storage bucket notes; applied via `npx supabase db push`
+- [x] 73-02-PLAN.md — Update `src/types/database.ts` with import type literals + table types; create `src/lib/import/` interfaces and Supabase concrete stubs (ContactImportStorage, ImportWorkerEntry)
+- [x] 73-03-PLAN.md — Add `tests/import-schema.test.ts`: RLS isolation, progress_percent math, Realtime publication, pg_cron job existence, CASCADE deletion
 
 ### Phase 74: IMPORT-WIZARD-UI
 **Goal**: A user can upload a large CSV directly to Storage with real progress, have it parsed in the background, map columns (including to custom fields) with heuristic suggestions, configure dedup behavior, and see a dry-run preview before committing.
@@ -231,11 +231,11 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 66. ACCOUNTS-LIST-UI | 0/5 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
-| 69. CUSTOMFIELDS-CORE-LIB | 3/3 | Complete   | 2026-05-18 |
+| 69. CUSTOMFIELDS-CORE-LIB | 3/3 | Complete    | 2026-05-18 |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
 | 72. CUSTOMFIELDS-LIST-FILTERS-IO | 0/0 | Not started | — |
-| 73. IMPORT-SCHEMA-WORKER | 0/3 | In progress | — |
+| 73. IMPORT-SCHEMA-WORKER | 3/3 | Complete   | 2026-05-18 |
 | 74. IMPORT-WIZARD-UI | 0/0 | Not started | — |
 | 75. IMPORT-HISTORY-RETRY-TESTS | 0/0 | Not started | — |
 

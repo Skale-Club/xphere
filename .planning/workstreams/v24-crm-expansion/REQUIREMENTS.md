@@ -156,8 +156,8 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 | IMP-15 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
 | IMP-16 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
 | IMP-17 | 74 IMPORT-WIZARD-UI | Pending |
-| IMP-18 | 73 IMPORT-SCHEMA-WORKER | Pending |
-| IMP-19 | 73 IMPORT-SCHEMA-WORKER | Pending |
+| IMP-18 | 73 IMPORT-SCHEMA-WORKER | Complete |
+| IMP-19 | 73 IMPORT-SCHEMA-WORKER | Complete |
 | IMP-20 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
 
 **Coverage:** 54/54 requirements mapped to exactly one phase. No orphans, no duplicates.
