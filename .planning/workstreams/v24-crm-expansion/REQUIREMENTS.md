@@ -1,0 +1,109 @@
+# Requirements: v2.4 CRM Expansion
+
+**Workstream:** v24-crm-expansion
+**Created:** 2026-05-18
+**Source seeds:** [SEED-016](../../seeds/SEED-016-accounts-crm-companies.md) (Accounts), [SEED-017](../../seeds/SEED-017-custom-fields-system.md) (Custom Fields), [SEED-018](../../seeds/SEED-018-contact-import-pipeline.md) (Import Pipeline)
+
+---
+
+## ACC — Accounts (Companies)
+
+Promote `contacts.company` (free-text) to a first-class `accounts` entity. UI label: "Companies".
+
+- [ ] **ACC-01:** Admin can create a Company with name, domain, website, industry, size, phone, address, notes, tags, and assigned owner
+- [ ] **ACC-02:** Admin can edit any field on an existing Company
+- [ ] **ACC-03:** Admin can delete a Company; system blocks delete or soft-deletes when contacts/opportunities reference it (final behavior set in plan)
+- [ ] **ACC-04:** User can view a Company list at `/dashboard/accounts` with name, domain, # contacts, # open opportunities, total pipeline value, and tags
+- [ ] **ACC-05:** User can filter the Company list by industry, size, tag, assigned owner, and source
+- [ ] **ACC-06:** User can search Companies by name or domain
+- [ ] **ACC-07:** User can perform bulk actions on selected Companies: assign owner, add tag, delete
+- [ ] **ACC-08:** User can view a Company detail page at `/dashboard/accounts/[id]` with header info and Contacts / Opportunities / Activities tabs
+- [ ] **ACC-09:** The Activities tab shows a unified feed (calls + messages + notes) covering every contact linked to the account plus any activities recorded directly against the account
+- [ ] **ACC-10:** User can create a contact from a Company detail page pre-linked to that Company
+- [ ] **ACC-11:** User can create an opportunity from a Company detail page — either bound to a specific contact in the company OR directly to the account (B2B without contact)
+- [ ] **ACC-12:** When the user creates a contact with an email address, the system auto-suggests an existing Company whose domain matches the email host
+- [ ] **ACC-13:** On the contact form, the "Company" field is a combobox over existing accounts with an inline "Create new company" option
+- [ ] **ACC-14:** Existing `contacts.company` text values auto-migrate into accounts on first run — one account per distinct (org, lower-trimmed name); `contacts.account_id` is populated; original `company text` column is preserved as nullable fallback for one milestone
+- [ ] **ACC-15:** An opportunity can be linked to a contact, an account, or both — at least one of them must be present (enforced by DB CHECK constraint)
+- [ ] **ACC-16:** Admin can merge duplicate Companies into one; the merge preserves all linked contacts and opportunities under the surviving account
+- [ ] **ACC-17:** Admin can import Companies from a CSV file with dedup by name and domain
+- [ ] **ACC-18:** Dashboard shows a "Top Companies" widget listing accounts ranked by open deal count or pipeline value
+- [ ] **ACC-19:** All Company reads/writes are scoped by `org_id` via RLS — accounts from one org are invisible to another
+
+---
+
+## CF — Custom Fields System
+
+Structured metadata layer over the existing `custom_fields jsonb` columns. Covers contact, opportunity, and account entities.
+
+- [ ] **CF-01:** Admin can define custom fields per entity (contact, opportunity, account) via `/dashboard/settings/custom-fields`
+- [ ] **CF-02:** Admin can choose from 13 field types when creating a definition: `text`, `long_text`, `number`, `integer`, `boolean`, `date`, `datetime`, `select`, `multi_select`, `url`, `email`, `phone`, `currency`
+- [ ] **CF-03:** Admin can configure per-definition: required, unique_per_org, position (order), group, help_text, default_value, options (for select/multi_select), validation rules, visible_in_list, filterable
+- [ ] **CF-04:** Admin can reorder custom field definitions via drag-and-drop in the settings UI; the new order persists and drives entity-form ordering
+- [ ] **CF-05:** Admin can archive a custom field; archived fields are hidden from forms and lists but their values remain intact in `custom_fields jsonb`
+- [ ] **CF-06:** When the user creates or edits a contact, opportunity, or account, all of the org's custom fields for that entity render in the form, grouped, and ordered by position
+- [ ] **CF-07:** Server-side validation rejects custom field values that violate type, required, unique_per_org, or per-field validation rules; rejected writes do not persist any change
+- [ ] **CF-08:** Custom fields with `visible_in_list=true` appear as columns in the contact, opportunity, and account list tables
+- [ ] **CF-09:** Custom fields with `filterable=true` appear in the filter panel for the entity list with type-appropriate operators (text contains/equals, number gt/lt/between, date range, select in, boolean is)
+- [ ] **CF-10:** Contact detail, opportunity detail, and account detail pages display custom field values read-only, grouped, ordered by position
+- [ ] **CF-11:** Reserved keys (`id`, `org_id`, `name`, native column names per entity) cannot be used as a custom field `key`; attempting to use one fails validation at definition-creation time
+- [ ] **CF-12:** CSV import for contacts (see IMP) and accounts (see ACC-17) supports mapping CSV columns to custom fields and validates each value during import
+- [ ] **CF-13:** CSV export of contacts, opportunities, and accounts includes custom fields as expanded columns
+- [ ] **CF-14:** All custom field definitions and values are scoped by `org_id` via RLS — invisible across orgs
+- [ ] **CF-15:** Currency-type values persist as `{amount, currency}` JSON and round-trip correctly through the renderer
+
+---
+
+## IMP — Contact Import Pipeline
+
+Replace the current 5 MB synchronous CSV import with a queued, observable, runtime-portable pipeline.
+
+- [ ] **IMP-01:** User can upload a CSV file up to 50 MB and 200,000 rows in a single import
+- [ ] **IMP-02:** Upload uses a signed-URL direct-to-Storage flow; the browser shows real byte-level upload progress
+- [ ] **IMP-03:** After upload completes, the system parses the file in a background worker and presents a mapping wizard with a preview of the first 5 rows
+- [ ] **IMP-04:** The mapping wizard auto-suggests column-to-field mappings using header-name regex plus value sampling (email pattern, phone pattern, etc.)
+- [ ] **IMP-05:** User can map each CSV column to a base contact field, a contact custom field, or "Skip"
+- [ ] **IMP-06:** User can choose a dedup strategy: `skip_existing`, `update_existing` (merge — non-empty wins), or `create_duplicate`
+- [ ] **IMP-07:** User can choose and order dedup keys (default: phone, then email)
+- [ ] **IMP-08:** User can set default tags, source, and assigned owner that apply to every imported row
+- [ ] **IMP-09:** Before final commit, system runs a dry-run on the first 1,000 rows and shows the would-insert / would-update / would-skip / would-error breakdown
+- [ ] **IMP-10:** User can start the import after dry-run; the system enqueues the job (max 2 concurrent per org, max 8 concurrent globally)
+- [ ] **IMP-11:** Progress is published in real time via Supabase Realtime; the UI shows processed/total rows plus running counts (inserted, updated, skipped, errors)
+- [ ] **IMP-12:** User can cancel an in-flight import; the worker stops cleanly within one chunk boundary and marks the job `cancelled`
+- [ ] **IMP-13:** Per-row errors are persisted in `contact_import_errors` (row number, field, message, raw row) and are viewable on the import detail page
+- [ ] **IMP-14:** User can download error rows as a CSV file for offline correction
+- [ ] **IMP-15:** User can retry the failed rows of a previous import as a new job that inherits the same mapping
+- [ ] **IMP-16:** User can view import history at `/dashboard/contacts/imports` with status pill, progress bar, row counts, and timing per job
+- [ ] **IMP-17:** Import cannot start if neither phone nor email is mapped (required-mapping gate)
+- [ ] **IMP-18:** Imports older than 30 days and their Storage objects are deleted by a scheduled cleanup task
+- [ ] **IMP-19:** All import jobs, errors, and Storage objects are scoped by `org_id` via RLS — invisible across orgs
+- [ ] **IMP-20:** When account auto-create is enabled and a row carries a company name, the system idempotently creates or finds the matching Company and links `contact.account_id`
+
+---
+
+## Future Requirements (deferred — not in v2.4)
+
+- **ACC-FUT-01:** Account hierarchy via `parent_account_id` (subsidiaries)
+- **CF-FUT-01:** Relation type — custom field that is an FK to another entity
+- **CF-FUT-02:** File-upload custom field type
+- **CF-FUT-03:** Custom fields on pipelines and pipeline_stages
+- **CF-FUT-04:** Field-type migration after values exist (currently: force archive + recreate)
+- **IMP-FUT-01:** XLSX and JSON import formats (v1 = CSV only)
+- **IMP-FUT-02:** Billing-driven per-plan import limits
+
+## Out of Scope (explicit exclusions)
+
+- **Removing `contacts.company text`** — preserved as nullable fallback for one milestone for revertibility; cleanup deferred to v2.5+
+- **BullMQ / pg-boss queue infrastructure** — v1 reuses `contact_imports.status` with `SELECT FOR UPDATE SKIP LOCKED`; richer queue semantics deferred until Hetzner makes it cheap
+- **Vercel KV, Vercel Blob, Vercel Edge runtime** — Hetzner-portable design constraint forbids new code coupling to these
+- **Refactoring tags[] into a custom field** — tags remain a separate ad-hoc taxonomy; `multi_select` custom fields are for structured metadata
+- **Email-provider sniffing for public domains** (gmail, etc.) on account auto-create — defaults to creating accounts naively in v1; smarter heuristics deferred
+
+---
+
+## Traceability
+
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+
+*(filled by gsd-roadmapper)*
