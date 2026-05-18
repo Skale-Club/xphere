@@ -32,7 +32,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 - [x] **Phase 64: ACCOUNTS-SCHEMA** — `accounts` table + FKs from contacts/opportunities + CHECK constraint + idempotent data migration from `contacts.company` (completed 2026-05-18)
 - [x] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI) (completed 2026-05-18)
 - [x] **Phase 66: ACCOUNTS-LIST-UI** — `/dashboard/accounts` list with filters/search/bulk actions, contact-form combobox, Top Companies dashboard widget (completed 2026-05-18)
-- [ ] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest
+- [x] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest (completed 2026-05-18)
 - [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types (completed 2026-05-18)
 - [x] **Phase 69: CUSTOMFIELDS-CORE-LIB** — `validate.ts`, `serialize.ts`, `render-config.ts`, wired into contact/opportunity/account server actions (completed 2026-05-18)
 - [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
@@ -110,7 +110,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 - [x] 67-01-PLAN.md — Page shell `src/app/(dashboard)/accounts/[id]/page.tsx` + `AccountDetailHeader` + `AccountContactsTab` + `getAccountDetail` action
 - [x] 67-02-PLAN.md — `AccountOpportunitiesTab` + `AccountActivitiesTab` + `getAccountOpportunities` + `getAccountActivities` wired into page shell
 - [x] 67-03-PLAN.md — contacts/new `account_id` searchParam, `AddOpportunityDialog` (two-path), `AccountCombobox` email-domain auto-suggest
-- [ ] 67-04-PLAN.md — Companies sidebar nav item + Vitest smoke tests + final `npm run build`
+- [x] 67-04-PLAN.md — Companies sidebar nav item + Vitest smoke tests + final `npm run build` (completed 2026-05-18)
 **UI hint**: yes
 
 ### Phase 68: CUSTOMFIELDS-SCHEMA
@@ -233,7 +233,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 64. ACCOUNTS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 65. ACCOUNTS-ACTIONS | 5/5 | Complete    | 2026-05-18 |
 | 66. ACCOUNTS-LIST-UI | 5/5 | Complete    | 2026-05-18 |
-| 67. ACCOUNTS-DETAIL-UI | 3/4 | In Progress|  |
+| 67. ACCOUNTS-DETAIL-UI | 4/4 | Complete    | 2026-05-18 |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 69. CUSTOMFIELDS-CORE-LIB | 3/3 | Complete    | 2026-05-18 |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |

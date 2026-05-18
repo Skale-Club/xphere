@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: milestone
 status: executing
-stopped_at: Completed 67-03-PLAN.md
-last_updated: "2026-05-18T22:45:31.570Z"
+stopped_at: Completed 67-04-PLAN.md
+last_updated: "2026-05-18T22:56:34.000Z"
 last_activity: 2026-05-18
 progress:
   total_phases: 12
   completed_phases: 6
   total_plans: 26
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 67
-Plan: 01 (completed)
-Next: 67-02 (accounts-detail-ui — opportunities + activities tabs)
-Status: In progress
+Phase: 67 (complete)
+Plan: 04 (completed) — Phase 67 fully done
+Next: 70-01 (customfields-settings-ui)
+Status: Phase 67 complete; next up Phase 70
 Last activity: 2026-05-18
 
 ## Milestone Progress
@@ -124,6 +124,8 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 67-01]: AccountDetailHeader + AccountContactsTab are server components; AccountContactsTab uses narrow ContactItem interface (6 fields) for props — full ContactRow passed from page satisfies it structurally; Opportunities + Activities tabs are intentional placeholders for 67-02
 - [Phase 67-accounts-detail-ui]: setOpportunityAccount added to pipeline/actions.ts to patch account_id post-creation since OpportunityFormInput does not include account_id in v2.4
 
+- [Phase 67-04]: Companies nav item positioned between Contacts and Pipeline; standard isCurrentPage logic handles /accounts/[id] without a special case; 8 Vitest pure-function smoke tests all pass; npm run build exits 0 — Phase 67 fully complete
+
 ## Pending Todos
 
 - ⚠️ v2.3 HUMAN-UAT still owed — operator runs `workstreams/v23-integrations-multi-number/phases/63-polish/63-HUMAN-UAT.md` before v2.3 can be marked complete
@@ -131,5 +133,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-18T22:45:31.552Z
-Stopped at: Completed 67-03-PLAN.md
+Last session: 2026-05-18T22:56:34.000Z
+Stopped at: Completed 67-04-PLAN.md
