@@ -33,7 +33,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 - [ ] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI)
 - [ ] **Phase 66: ACCOUNTS-LIST-UI** — `/dashboard/accounts` list with filters/search/bulk actions, contact-form combobox, Top Companies dashboard widget
 - [ ] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest
-- [ ] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types
+- [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types (completed 2026-05-18)
 - [ ] **Phase 69: CUSTOMFIELDS-CORE-LIB** — `validate.ts`, `serialize.ts`, `render-config.ts`, wired into contact/opportunity/account server actions
 - [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
 - [ ] **Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION** — `<CustomFieldsForm>` + `<CustomFieldsDisplay>` + 12 per-type components, plugged into every entity form and detail page
@@ -114,9 +114,9 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   3. The `custom_field_type` enum exposes all 13 supported types (text, long_text, number, integer, boolean, date, datetime, select, multi_select, url, email, phone, currency)
   4. The `custom_field_entity` enum supports exactly `contact`, `opportunity`, `account` — pipelines/stages are intentionally absent
 **Plans**: 3 plans
-- [ ] 68-01-PLAN.md — Migration `065_custom_field_definitions.sql`: custom_field_type + custom_field_entity ENUMs, custom_field_definitions table with RLS + per-entity reserved-key CHECK + key-format CHECK + UNIQUE + partial indexes + updated_at trigger; applied via `npx supabase db push`
-- [ ] 68-02-PLAN.md — Update `src/types/database.ts` with CustomFieldType / CustomFieldEntity literal unions and custom_field_definitions table type (Row/Insert/Update/Relationships)
-- [ ] 68-03-PLAN.md — Add `tests/customfields-schema.test.ts` with Vitest tests for ENUM contents (SC3+SC4), RLS (schema + cross-org), and the per-entity reserved-key CHECK (real failing inserts for CF-11)
+- [x] 68-01-PLAN.md — Migration `065_custom_field_definitions.sql`: custom_field_type + custom_field_entity ENUMs, custom_field_definitions table with RLS + per-entity reserved-key CHECK + key-format CHECK + UNIQUE + partial indexes + updated_at trigger; applied via `npx supabase db push`
+- [x] 68-02-PLAN.md — Update `src/types/database.ts` with CustomFieldType / CustomFieldEntity literal unions and custom_field_definitions table type (Row/Insert/Update/Relationships)
+- [x] 68-03-PLAN.md — Add `tests/customfields-schema.test.ts` with Vitest tests for ENUM contents (SC3+SC4), RLS (schema + cross-org), and the per-entity reserved-key CHECK (real failing inserts for CF-11)
 
 ### Phase 69: CUSTOMFIELDS-CORE-LIB
 **Goal**: Every server action that writes a contact, opportunity, or account validates `custom_fields` against the org's definitions before persisting; invalid values never reach the database.
@@ -219,7 +219,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 65. ACCOUNTS-ACTIONS | 0/5 | Planned     | — |
 | 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
-| 68. CUSTOMFIELDS-SCHEMA | 0/3 | Planned     | — |
+| 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete   | 2026-05-18 |
 | 69. CUSTOMFIELDS-CORE-LIB | 0/0 | Not started | — |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
