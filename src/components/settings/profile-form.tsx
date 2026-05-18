@@ -2,22 +2,38 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Upload, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { createClient } from '@/lib/supabase/client'
 import { updatePassword, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
 
 interface Props {
-  initial: { email: string; full_name: string }
+  initial: { email: string; full_name: string; avatar_url: string | null }
+}
+
+const MAX_AVATAR_MB = 5
+const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+function initialsFrom(name: string, email: string): string {
+  const base = name?.trim() || email?.trim() || '?'
+  const parts = base.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return base[0]?.toUpperCase() ?? '?'
 }
 
 export function ProfileForm({ initial }: Props) {
   const [fullName, setFullName] = React.useState(initial.full_name)
   const [savingName, setSavingName] = React.useState(false)
   const [savedName, setSavedName] = React.useState(false)
+
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(initial.avatar_url)
+  const [uploadingAvatar, setUploadingAvatar] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const [password, setPassword] = React.useState('')
   const [savingPassword, setSavingPassword] = React.useState(false)
@@ -57,8 +73,127 @@ export function ProfileForm({ initial }: Props) {
     toast.success('Password updated')
   }
 
+  async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = '' // allow re-selecting same file later
+
+    if (!ACCEPTED.includes(file.type)) {
+      toast.error('Use PNG, JPEG, WEBP or GIF')
+      return
+    }
+    if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
+      toast.error(`Image must be smaller than ${MAX_AVATAR_MB} MB`)
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const supabase = createClient()
+      // Need the user id to build the storage path (RLS enforces this prefix).
+      const { data: { user }, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !user) throw new Error('Not authenticated')
+
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5)
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`
+
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      })
+      if (upErr) throw upErr
+
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = pub.publicUrl
+
+      const res = await updateProfile({ avatar_url: url })
+      if (!res.ok) throw new Error(res.error ?? 'Failed to save avatar')
+
+      setAvatarUrl(url)
+      toast.success('Avatar updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Avatar upload failed')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setUploadingAvatar(true)
+    try {
+      const res = await updateProfile({ avatar_url: null })
+      if (!res.ok) throw new Error(res.error ?? 'Failed to remove avatar')
+      setAvatarUrl(null)
+      toast.success('Avatar removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Avatar removal failed')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Avatar</CardTitle>
+          <CardDescription>
+            Shown in the sidebar, comments, and anywhere your account appears.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-5">
+            <Avatar className="h-20 w-20 ring-1 ring-border">
+              {avatarUrl && <AvatarImage src={avatarUrl} alt="Your avatar" />}
+              <AvatarFallback className="text-[18px] font-semibold bg-accent-muted text-accent">
+                {initialsFrom(fullName, initial.email)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  {avatarUrl ? 'Change avatar' : 'Upload avatar'}
+                </Button>
+                {avatarUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleAvatarRemove}
+                    disabled={uploadingAvatar}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11.5px] text-text-tertiary">
+                PNG, JPEG, WEBP or GIF · max {MAX_AVATAR_MB} MB · square works best
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED.join(',')}
+              onChange={handleAvatarSelect}
+              className="hidden"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Personal info</CardTitle>

@@ -10,7 +10,7 @@ export default async function ProfilePage() {
   if (!user) redirect('/login')
 
   return (
-    <PageContainer size="narrow">
+    <PageContainer>
       <PageHeader
         eyebrow="Account"
         eyebrowIcon={User}
@@ -21,6 +21,7 @@ export default async function ProfilePage() {
         initial={{
           email: user.email ?? '',
           full_name: (user.user_metadata?.full_name as string | undefined) ?? '',
+          avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
         }}
       />
     </PageContainer>

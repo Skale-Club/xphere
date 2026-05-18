@@ -7,6 +7,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long').optional(),
+  avatar_url: z.string().url().max(1024).nullable().optional(),
 })
 
 const passwordSchema = z.object({
@@ -29,9 +30,17 @@ export async function updateProfile(input: z.infer<typeof profileSchema>): Promi
   if (!user) return { ok: false, error: 'Not authenticated' }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.updateUser({
-    data: { full_name: parsed.data.full_name },
-  })
+  // Build the metadata update partial — only include fields that were actually
+  // provided, so an avatar-only save doesn't blank out the name.
+  const metadata: Record<string, unknown> = {}
+  if (parsed.data.full_name !== undefined) metadata.full_name = parsed.data.full_name
+  if (parsed.data.avatar_url !== undefined) metadata.avatar_url = parsed.data.avatar_url
+
+  if (Object.keys(metadata).length === 0) {
+    return { ok: true }
+  }
+
+  const { error } = await supabase.auth.updateUser({ data: metadata })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/', 'layout')
   return { ok: true }
