@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: milestone
-status: Ready to spawn next phase
-stopped_at: Completed 73-import-schema-worker 73-03-PLAN.md
-last_updated: "2026-05-18T21:15:19.392Z"
+status: In progress
+stopped_at: Completed 66-accounts-list-ui 66-01-PLAN.md
+last_updated: "2026-05-18T22:00:00.000Z"
 last_activity: 2026-05-18
 progress:
   total_phases: 12
   completed_phases: 5
   total_plans: 22
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 73
-Plan: Not started
-Next phase: 65 (accounts-actions) — ready to plan
-Status: Ready to spawn next phase
+Phase: 66
+Plan: 01 complete
+Next: 66-02 (accounts-list-ui filters)
+Status: In progress
 Last activity: 2026-05-18
 
 ## Milestone Progress
@@ -116,6 +116,7 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 64-accounts-schema]: Reordered 064_accounts.sql to run data migration BEFORE CHECK and added orphan-opp DELETE — one pre-existing 'teste' opportunity with NULL contact_id+account_id blocked the constraint addition; deletion is idempotent and the row carried no business data
 - [Phase 64-03]: Schema-layer Vitest suite `tests/accounts-schema.test.ts` (483 lines, 8 tests, all passing) — pg_catalog inspection for RLS/CHECK + anon-client cross-org reality check for RLS isolation. Normalized pg_get_constraintdef paren-output before substring match (Postgres reformats the predicate). All three Phase 64 success criteria (ACC-14, ACC-15, ACC-19) now have automated regression coverage.
 - [Phase 73-import-schema-worker]: pg_publication_tables queried via pg client (direct DB URL) — not via supabase-js REST which cannot access system catalogs
+- [Phase 66-01]: AccountsTable uses AccountRow (not AccountWithCounts) from list action — getAccounts returns plain rows without JOIN counts; count columns show '—' until action is extended
 
 ## Pending Todos
 
@@ -124,5 +125,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-18T21:15:19.367Z
-Stopped at: Completed 73-import-schema-worker 73-03-PLAN.md
+Last session: 2026-05-18T22:00:00.000Z
+Stopped at: Completed 66-accounts-list-ui 66-01-PLAN.md

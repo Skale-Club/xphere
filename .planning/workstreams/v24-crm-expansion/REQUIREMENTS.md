@@ -13,7 +13,7 @@ Promote `contacts.company` (free-text) to a first-class `accounts` entity. UI la
 - [ ] **ACC-01:** Admin can create a Company with name, domain, website, industry, size, phone, address, notes, tags, and assigned owner
 - [ ] **ACC-02:** Admin can edit any field on an existing Company
 - [ ] **ACC-03:** Admin can delete a Company; system blocks delete or soft-deletes when contacts/opportunities reference it (final behavior set in plan)
-- [ ] **ACC-04:** User can view a Company list at `/dashboard/accounts` with name, domain, # contacts, # open opportunities, total pipeline value, and tags
+- [x] **ACC-04:** User can view a Company list at `/dashboard/accounts` with name, domain, # contacts, # open opportunities, total pipeline value, and tags
 - [ ] **ACC-05:** User can filter the Company list by industry, size, tag, assigned owner, and source
 - [ ] **ACC-06:** User can search Companies by name or domain
 - [ ] **ACC-07:** User can perform bulk actions on selected Companies: assign owner, add tag, delete
@@ -108,7 +108,7 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 | ACC-01 | 65 ACCOUNTS-ACTIONS | Pending |
 | ACC-02 | 65 ACCOUNTS-ACTIONS | Pending |
 | ACC-03 | 65 ACCOUNTS-ACTIONS | Pending |
-| ACC-04 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-04 | 66 ACCOUNTS-LIST-UI | Done |
 | ACC-05 | 66 ACCOUNTS-LIST-UI | Pending |
 | ACC-06 | 66 ACCOUNTS-LIST-UI | Pending |
 | ACC-07 | 66 ACCOUNTS-LIST-UI | Pending |

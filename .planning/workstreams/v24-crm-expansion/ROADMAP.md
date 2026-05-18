@@ -89,7 +89,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   5. The "Company" field on the contact create/edit form is a combobox over existing accounts with an inline "Create new company" affordance
   6. The dashboard renders a "Top Companies" widget ranking accounts by open deal count or total pipeline value
 **Plans**: 5 plans
-- [ ] 66-01-PLAN.md — `/dashboard/accounts/page.tsx` server shell + `AccountsTable` client component (8-column table, pagination, checkbox select infrastructure)
+- [x] 66-01-PLAN.md — `/dashboard/accounts/page.tsx` server shell + `AccountsTable` client component (8-column table, pagination, checkbox select infrastructure) (completed 2026-05-18)
 - [ ] 66-02-PLAN.md — `AccountsFilters` client component (debounced search + 5 filter dropdowns + active-filter chips) wired into page shell
 - [ ] 66-03-PLAN.md — `AccountsBulkActions` (assign owner, add tag, delete modals) + `bulkAssignOwner` / `bulkAddTag` server actions
 - [ ] 66-04-PLAN.md — `AccountCombobox` component + wire into contact create/edit form (replaces plain company Input with FK combobox + inline quick-create)
@@ -235,7 +235,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
 | 72. CUSTOMFIELDS-LIST-FILTERS-IO | 0/0 | Not started | — |
-| 73. IMPORT-SCHEMA-WORKER | 3/3 | Complete   | 2026-05-18 |
+| 73. IMPORT-SCHEMA-WORKER | 3/3 | Complete    | 2026-05-18 |
 | 74. IMPORT-WIZARD-UI | 0/0 | Not started | — |
 | 75. IMPORT-HISTORY-RETRY-TESTS | 0/0 | Not started | — |
 
