@@ -31,6 +31,24 @@ export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_i
 // v2.4 — accounts (CRM Companies) source enum (SEED-016)
 export type AccountSource = 'manual' | 'auto_from_contact_company' | 'csv_import' | 'ghl_sync'
 
+// v2.4 — custom_field_definitions (Custom Fields System) — SEED-017
+export type CustomFieldType =
+  | 'text'
+  | 'long_text'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'select'
+  | 'multi_select'
+  | 'url'
+  | 'email'
+  | 'phone'
+  | 'currency'
+
+export type CustomFieldEntity = 'contact' | 'opportunity' | 'account'
+
 // v2.1 â€” call system (SEED-007)
 export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
@@ -1509,6 +1527,85 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      custom_field_definitions: {
+        Row: {
+          id: string
+          org_id: string
+          entity: CustomFieldEntity
+          key: string
+          label: string
+          type: CustomFieldType
+          required: boolean
+          unique_per_org: boolean
+          position: number
+          group_name: string | null
+          help_text: string | null
+          default_value: unknown | null
+          options: unknown | null
+          validation: unknown | null
+          visible_in_list: boolean
+          filterable: boolean
+          archived: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entity: CustomFieldEntity
+          key: string
+          label: string
+          type: CustomFieldType
+          required?: boolean
+          unique_per_org?: boolean
+          position?: number
+          group_name?: string | null
+          help_text?: string | null
+          default_value?: unknown | null
+          options?: unknown | null
+          validation?: unknown | null
+          visible_in_list?: boolean
+          filterable?: boolean
+          archived?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          label?: string
+          type?: CustomFieldType
+          required?: boolean
+          unique_per_org?: boolean
+          position?: number
+          group_name?: string | null
+          help_text?: string | null
+          default_value?: unknown | null
+          options?: unknown | null
+          validation?: unknown | null
+          visible_in_list?: boolean
+          filterable?: boolean
+          archived?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'custom_field_definitions_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'custom_field_definitions_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           }
         ]
