@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.4
-milestone_name: CRM Expansion
-status: roadmap_ready
-stopped_at: Roadmap written; ready to plan Phase 64 (ACCOUNTS-SCHEMA)
-last_updated: "2026-05-18T00:00:00.000Z"
+milestone_name: milestone
+status: executing
+stopped_at: "Completed 64-01-PLAN.md (migration 064_accounts.sql applied to remote). Next: 64-02 (update src/types/database.ts)."
+last_updated: "2026-05-18T16:25:39.065Z"
 last_activity: 2026-05-18
 progress:
   total_phases: 12
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 64 ACCOUNTS-SCHEMA (not started — ready to plan)
-Plan: —
-Status: Roadmap ready
-Last activity: 2026-05-18 — Roadmap written, 54/54 requirements mapped across 12 phases (64–75)
+Phase: 64 (accounts-schema) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-05-18
 
 ## Milestone Progress
 
@@ -112,6 +112,7 @@ Three coupled features that together promote contacts/opportunities into a full 
 - 2026-05-18 — **Phase numbering**: v2.4 starts at 64 (continuing from v2.3's 58–63 in `workstreams/v23-integrations-multi-number/`).
 - 2026-05-18 — **12-phase split**: roadmapper accepted the 12-phase outline from the spawn brief without modification. Each seed's natural boundaries (schema → actions → list UI → detail UI for accounts; schema → core lib → settings UI → renderer → list/filters/IO for custom fields; schema/worker → wizard UI → history/retry/tests for import) produced cleaner cuts than any compressed alternative.
 - 2026-05-18 — **Dependency fan-out**: Phase 73 (IMPORT-SCHEMA-WORKER) depends on 68 (CUSTOMFIELDS-SCHEMA) for type alignment, not on 72; the wizard UI in 74 is what pulls the full custom-fields stack into the import flow.
+- [Phase 64-accounts-schema]: Reordered 064_accounts.sql to run data migration BEFORE CHECK and added orphan-opp DELETE — one pre-existing 'teste' opportunity with NULL contact_id+account_id blocked the constraint addition; deletion is idempotent and the row carried no business data
 
 ## Pending Todos
 
@@ -120,5 +121,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-18
-Stopped at: Roadmap written (12 phases, 54/54 requirements mapped). Next: `/gsd:plan-phase 64` to decompose ACCOUNTS-SCHEMA into plans.
+Last session: 2026-05-18T16:25:39.034Z
+Stopped at: Completed 64-01-PLAN.md (migration 064_accounts.sql applied to remote). Next: 64-02 (update src/types/database.ts).

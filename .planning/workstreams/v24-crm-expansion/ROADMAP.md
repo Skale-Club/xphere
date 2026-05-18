@@ -56,7 +56,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   3. Attempting to insert an opportunity with both `contact_id IS NULL` and `account_id IS NULL` is rejected by the DB CHECK constraint
   4. Every contact whose legacy `company` text matched a distinct value now has `account_id` populated; `contacts.company` is preserved as nullable fallback
 **Plans**: 3 plans
-- [ ] 64-01-PLAN.md — Migration `064_accounts.sql`: accounts table + indexes + RLS + FK columns on contacts/opportunities + CHECK constraint + idempotent data migration; apply via `npx supabase db push`
+- [x] 64-01-PLAN.md — Migration `064_accounts.sql`: accounts table + indexes + RLS + FK columns on contacts/opportunities + CHECK constraint + idempotent data migration; apply via `npx supabase db push`
 - [ ] 64-02-PLAN.md — Update `src/types/database.ts` with accounts table type, `account_id` on contacts/opportunities, and `AccountSource` literal union
 - [ ] 64-03-PLAN.md — Add `tests/accounts-schema.test.ts` with Vitest tests for RLS (schema + cross-org), CHECK constraint, and data-migration idempotency
 
@@ -207,7 +207,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 64. ACCOUNTS-SCHEMA | 0/3 | Planned    | — |
+| 64. ACCOUNTS-SCHEMA | 1/3 | In Progress|  |
 | 65. ACCOUNTS-ACTIONS | 0/0 | Not started | — |
 | 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
