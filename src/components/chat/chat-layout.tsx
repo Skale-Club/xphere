@@ -49,7 +49,15 @@ import {
 import { ChatArea } from '@/components/chat/chat-area'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
-import { cn } from '@/lib/utils'
+
+const INBOX_MIN_WIDTH = 260
+const INBOX_DEFAULT_WIDTH = 300
+const INBOX_MAX_WIDTH = 420
+const CHAT_MIN_WIDTH = 420
+
+function clampInboxWidth(width: number, maxWidth: number) {
+  return Math.min(Math.max(width, INBOX_MIN_WIDTH), maxWidth)
+}
 
 function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
   const meta = (row.channel_metadata as Record<string, string>) ?? {}
@@ -142,13 +150,38 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
   const [isTyping, setIsTyping] = useState(false)
+  const [inboxWidth, setInboxWidth] = useState(INBOX_DEFAULT_WIDTH)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedIdRef = useRef<string | null>(null)
+
+  const getInboxMaxWidth = useCallback(() => {
+    if (typeof window === 'undefined') return INBOX_MAX_WIDTH
+
+    const infoPanelWidth =
+      infoOpen && window.innerWidth >= 1024
+        ? window.innerWidth >= 1280
+          ? 340
+          : 300
+        : 0
+    const available = window.innerWidth - infoPanelWidth - CHAT_MIN_WIDTH
+
+    return Math.max(INBOX_MIN_WIDTH, Math.min(INBOX_MAX_WIDTH, available))
+  }, [infoOpen])
 
   // Keep ref in sync (fetchMessages reads it to guard stale responses)
   useEffect(() => {
     selectedIdRef.current = selectedId
   }, [selectedId])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setInboxWidth((width) => clampInboxWidth(width, getInboxMaxWidth()))
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [getInboxMaxWidth])
 
   // ───────────────────────── Data fetching ─────────────────────────
 
@@ -311,6 +344,48 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
 
   // ───────────────────────── Mutations ─────────────────────────
 
+  const handleInboxResizeStart = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+
+      const startX = event.clientX
+      const startWidth = inboxWidth
+      const maxWidth = getInboxMaxWidth()
+      const previousCursor = document.body.style.cursor
+      const previousUserSelect = document.body.style.userSelect
+
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        const nextWidth = startWidth + moveEvent.clientX - startX
+        setInboxWidth(clampInboxWidth(nextWidth, maxWidth))
+      }
+
+      const handleUp = () => {
+        document.body.style.cursor = previousCursor
+        document.body.style.userSelect = previousUserSelect
+        window.removeEventListener('pointermove', handleMove)
+        window.removeEventListener('pointerup', handleUp)
+      }
+
+      window.addEventListener('pointermove', handleMove)
+      window.addEventListener('pointerup', handleUp)
+    },
+    [getInboxMaxWidth, inboxWidth],
+  )
+
+  const handleInboxResizeKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+      event.preventDefault()
+      const delta = event.key === 'ArrowLeft' ? -16 : 16
+      setInboxWidth((width) => clampInboxWidth(width + delta, getInboxMaxWidth()))
+    },
+    [getInboxMaxWidth],
+  )
+
   async function handleSendMessage(content: string) {
     if (!selectedId) return
     const tempId = `temp-${crypto.randomUUID()}`
@@ -454,74 +529,75 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       {/* Desktop — 3-column grid */}
-      <div
-        className={cn(
-          'hidden md:grid h-full min-h-0 w-full overflow-hidden',
-          // grid-rows-[minmax(0,1fr)] keeps the row bounded by the parent so
-          // each column can scroll internally instead of stretching the row.
-          'grid-rows-[minmax(0,1fr)]',
-          // Responsive: at md+ show 2 columns; from lg (1024+) the info panel
-          // appears as a 3rd column. Below lg the panel is suppressed so the
-          // middle chat column keeps a readable width.
-          infoOpen
-            ? 'grid-cols-[280px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-cols-[300px_minmax(0,1fr)_340px]'
-            : 'grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]',
-        )}
-      >
-        <ConversationList
-          conversations={conversations}
-          pinned={pinned}
-          selectedId={selectedId}
-          currentUserId={currentUserId}
-          isLoading={isInitialLoading}
-          isPageLoading={isPageLoading}
-          loadError={listError}
-          page={page}
-          pageSize={pageSize}
-          totalCount={totalCount}
-          totalPages={totalPages}
-          hasNext={hasNext}
-          hasPrev={hasPrev}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onRetry={refreshConversations}
-          onFilterChange={handleFilterChange}
-          onSelect={(id) => setSelectedId(id)}
-          onConversationUpdated={refreshConversations}
-          onConversationDeleted={(id) => {
-            if (selectedId === id) {
-              setSelectedId(null)
-              setMessages([])
-            }
-            removeConversation(id)
-          }}
-          onPin={handlePinToggle}
-        />
-        <ChatArea
-          conversation={selected}
-          messages={messages}
-          isLoading={isMessagesLoading}
-          isTyping={isTyping}
-          onSendMessage={handleSendMessage}
-          onTyping={broadcastTyping}
-          onStatusChange={handleStatusChange}
-          onDelete={() => selectedId && handleDelete(selectedId)}
-          onBack={() => {}}
-          onBotStatusToggle={handleBotToggle}
-          isBotToggling={botTogglingId === selectedId}
-          onPinToggle={handlePinToggle}
-          onPriorityCycle={handlePriorityCycle}
-          onAssign={handleAssign}
-          members={members}
-          infoPanelOpen={infoOpen}
-          onToggleInfoPanel={() => setInfoOpen((v) => !v)}
-          agentMap={agentMap}
-        />
+      <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
+        <div className="h-full min-h-0 shrink-0 overflow-hidden" style={{ width: inboxWidth }}>
+          <ConversationList
+            conversations={conversations}
+            pinned={pinned}
+            selectedId={selectedId}
+            currentUserId={currentUserId}
+            isLoading={isInitialLoading}
+            isPageLoading={isPageLoading}
+            loadError={listError}
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            totalPages={totalPages}
+            hasNext={hasNext}
+            hasPrev={hasPrev}
+            onNextPage={nextPage}
+            onPrevPage={prevPage}
+            onRetry={refreshConversations}
+            onFilterChange={handleFilterChange}
+            onSelect={(id) => setSelectedId(id)}
+            onConversationUpdated={refreshConversations}
+            onConversationDeleted={(id) => {
+              if (selectedId === id) {
+                setSelectedId(null)
+                setMessages([])
+              }
+              removeConversation(id)
+            }}
+            onPin={handlePinToggle}
+          />
+        </div>
+        <button
+          type="button"
+          aria-label="Resize inbox"
+          title="Resize inbox"
+          onPointerDown={handleInboxResizeStart}
+          onKeyDown={handleInboxResizeKeyDown}
+          className="group relative z-20 h-full w-2 shrink-0 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border-subtle transition-colors group-hover:bg-accent/70 group-focus-visible:bg-accent" />
+        </button>
+        <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+          <ChatArea
+            conversation={selected}
+            messages={messages}
+            isLoading={isMessagesLoading}
+            isTyping={isTyping}
+            onSendMessage={handleSendMessage}
+            onTyping={broadcastTyping}
+            onStatusChange={handleStatusChange}
+            onDelete={() => selectedId && handleDelete(selectedId)}
+            onBack={() => {}}
+            onBotStatusToggle={handleBotToggle}
+            isBotToggling={botTogglingId === selectedId}
+            onPinToggle={handlePinToggle}
+            onPriorityCycle={handlePriorityCycle}
+            onAssign={handleAssign}
+            members={members}
+            infoPanelOpen={infoOpen}
+            onToggleInfoPanel={() => setInfoOpen((v) => !v)}
+            agentMap={agentMap}
+          />
+        </div>
         {infoOpen && (
           // Below lg (1024px) we hide the info panel to keep the chat column
           // readable — user can still toggle it via the chat header button
           // which re-renders when viewport widens enough.
-          <div className="hidden lg:block h-full min-h-0 overflow-hidden">
+          <div className="hidden lg:block h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px]">
             <ContactInfoPanel
               contactId={selected?.contactId ?? null}
               conversationId={selected?.id ?? null}

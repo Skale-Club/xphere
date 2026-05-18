@@ -277,15 +277,15 @@ export function ConversationList({
   const rangeEnd = Math.min(page * pageSize, totalCount)
 
   return (
-    <div className="flex h-full flex-col border-r border-border-subtle bg-bg-secondary/40">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-secondary/40">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 border-b border-border-subtle bg-bg-secondary/95 backdrop-blur px-4 pt-4 pb-3">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-[15px] font-semibold tracking-tight text-text-primary">
+        <div className="mb-3 flex min-w-0 items-baseline justify-between gap-3">
+          <h2 className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-text-primary">
             Inbox
           </h2>
           {totalCount > 0 && (
-            <span className="text-[11px] tabular-nums text-text-tertiary">
+            <span className="shrink-0 text-[11px] tabular-nums text-text-tertiary">
               {totalCount} total
             </span>
           )}
@@ -563,7 +563,7 @@ function ConversationCardBase({
         }
       }}
       className={cn(
-        'group relative flex w-full cursor-pointer items-start gap-3 rounded-[8px] px-3 py-2.5 transition-all duration-150 outline-none',
+        'group relative flex w-full min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-[8px] px-3 py-2.5 transition-all duration-150 outline-none',
         'before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:transition-colors',
         priorityBar,
         selected
@@ -585,29 +585,29 @@ function ConversationCardBase({
       </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             {conversation.pinned && (
               <Pin className="h-3 w-3 shrink-0 text-text-tertiary" fill="currentColor" />
             )}
             <span
               className={cn(
-                'truncate text-[13px] font-semibold tracking-tight',
+                'min-w-0 truncate text-[13px] font-semibold tracking-tight',
                 selected ? 'text-text-primary' : 'text-text-primary',
               )}
             >
               {name}
             </span>
           </div>
-          <span className="shrink-0 whitespace-nowrap text-[10.5px] tabular-nums text-text-tertiary">
+          <span className="shrink-0 whitespace-nowrap text-right text-[10.5px] tabular-nums text-text-tertiary">
             {formatRelative(conversation)}
           </span>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <p
             className={cn(
-              'truncate text-[12px] leading-snug',
+              'min-w-0 flex-1 truncate text-[12px] leading-snug',
               selected ? 'text-text-secondary' : 'text-text-tertiary',
             )}
           >
