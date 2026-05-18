@@ -207,7 +207,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 64. ACCOUNTS-SCHEMA | 3/3 | Complete   | 2026-05-18 |
+| 64. ACCOUNTS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 65. ACCOUNTS-ACTIONS | 0/0 | Not started | — |
 | 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
