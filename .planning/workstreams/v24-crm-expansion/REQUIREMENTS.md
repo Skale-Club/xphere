@@ -105,5 +105,59 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
+| ACC-01 | 65 ACCOUNTS-ACTIONS | Pending |
+| ACC-02 | 65 ACCOUNTS-ACTIONS | Pending |
+| ACC-03 | 65 ACCOUNTS-ACTIONS | Pending |
+| ACC-04 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-05 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-06 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-07 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-08 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-09 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-10 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-11 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-12 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-13 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-14 | 64 ACCOUNTS-SCHEMA | Pending |
+| ACC-15 | 64 ACCOUNTS-SCHEMA | Pending |
+| ACC-16 | 65 ACCOUNTS-ACTIONS | Pending |
+| ACC-17 | 65 ACCOUNTS-ACTIONS | Pending |
+| ACC-18 | 66 ACCOUNTS-LIST-UI | Pending |
+| ACC-19 | 64 ACCOUNTS-SCHEMA | Pending |
+| CF-01 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
+| CF-02 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
+| CF-03 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
+| CF-04 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
+| CF-05 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
+| CF-06 | 71 CUSTOMFIELDS-RENDERER-INTEGRATION | Pending |
+| CF-07 | 69 CUSTOMFIELDS-CORE-LIB | Pending |
+| CF-08 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
+| CF-09 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
+| CF-10 | 71 CUSTOMFIELDS-RENDERER-INTEGRATION | Pending |
+| CF-11 | 68 CUSTOMFIELDS-SCHEMA | Pending |
+| CF-12 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
+| CF-13 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
+| CF-14 | 68 CUSTOMFIELDS-SCHEMA | Pending |
+| CF-15 | 69 CUSTOMFIELDS-CORE-LIB | Pending |
+| IMP-01 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-02 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-03 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-04 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-05 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-06 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-07 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-08 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-09 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-10 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-11 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-12 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-13 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-14 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-15 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-16 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
+| IMP-17 | 74 IMPORT-WIZARD-UI | Pending |
+| IMP-18 | 73 IMPORT-SCHEMA-WORKER | Pending |
+| IMP-19 | 73 IMPORT-SCHEMA-WORKER | Pending |
+| IMP-20 | 75 IMPORT-HISTORY-RETRY-TESTS | Pending |
 
-*(filled by gsd-roadmapper)*
+**Coverage:** 54/54 requirements mapped to exactly one phase. No orphans, no duplicates.

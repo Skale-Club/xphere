@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: CRM Expansion
-status: defining_requirements
-stopped_at: Milestone scaffolded; requirements + roadmap next
+status: roadmap_ready
+stopped_at: Roadmap written; ready to plan Phase 64 (ACCOUNTS-SCHEMA)
 last_updated: "2026-05-18T00:00:00.000Z"
 last_activity: 2026-05-18
 progress:
-  total_phases: 0
+  total_phases: 12
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,10 +17,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 64 ACCOUNTS-SCHEMA (not started — ready to plan)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-18 — Milestone v2.4 started
+Status: Roadmap ready
+Last activity: 2026-05-18 — Roadmap written, 54/54 requirements mapped across 12 phases (64–75)
 
 ## Milestone Progress
 
@@ -38,13 +38,32 @@ Last activity: 2026-05-18 — Milestone v2.4 started
 - v2.1 Calls + Contacts + Pipeline + Design Foundation: ✅ Shipped 2026-05-17
 - v2.2 Chat Redesign — Schema + Server Actions Foundation: 🚧 separate workstream
 - v2.3 Integrations Refactor + Twilio Multi-Number: 🚧 human_uat (workstreams/v23-integrations-multi-number)
-- **v2.4 CRM Expansion: 🚧 defining_requirements (this workstream)**
+- **v2.4 CRM Expansion: 🚧 roadmap_ready (this workstream)**
+
+## Phase Map (v2.4)
+
+| # | Phase | Source | Domain | UI? | Depends on |
+|---|-------|--------|--------|-----|------------|
+| 64 | ACCOUNTS-SCHEMA | SEED-016 | DB + types | no | — |
+| 65 | ACCOUNTS-ACTIONS | SEED-016 | server actions | no | 64 |
+| 66 | ACCOUNTS-LIST-UI | SEED-016 | UI | yes | 65 |
+| 67 | ACCOUNTS-DETAIL-UI | SEED-016 | UI | yes | 66 |
+| 68 | CUSTOMFIELDS-SCHEMA | SEED-017 | DB + types | no | 64 |
+| 69 | CUSTOMFIELDS-CORE-LIB | SEED-017 | lib | no | 68 |
+| 70 | CUSTOMFIELDS-SETTINGS-UI | SEED-017 | UI | yes | 69 |
+| 71 | CUSTOMFIELDS-RENDERER-INTEGRATION | SEED-017 | UI | yes | 70 |
+| 72 | CUSTOMFIELDS-LIST-FILTERS-IO | SEED-017 | UI + CSV | yes | 71 |
+| 73 | IMPORT-SCHEMA-WORKER | SEED-018 | DB + worker | no | 68 |
+| 74 | IMPORT-WIZARD-UI | SEED-018 | UI + realtime | yes | 72, 73 |
+| 75 | IMPORT-HISTORY-RETRY-TESTS | SEED-018 | UI + tests | yes | 65, 74 |
+
+**Coverage:** 54/54 requirements (ACC-01..19 + CF-01..15 + IMP-01..20) mapped to exactly one phase. See `ROADMAP.md` for the full per-phase breakdown and `REQUIREMENTS.md#Traceability` for the REQ→phase table.
 
 ## Project Reference
 
 See `.planning/PROJECT.md` for vision, validated requirements, decisions.
 See `.planning/MILESTONES.md` for shipped history.
-See `.planning/workstreams/v24-crm-expansion/ROADMAP.md` for v2.4 phase details (written next).
+See `.planning/workstreams/v24-crm-expansion/ROADMAP.md` for v2.4 phase details.
 See `.planning/seeds/SEED-016-accounts-crm-companies.md`, `SEED-017-custom-fields-system.md`, `SEED-018-contact-import-pipeline.md` for the source intent.
 
 **Core value:** Xphere is a tenant-aware integration and orchestration platform — reusable platform capabilities over hardcoding any single client's playbook.
@@ -90,6 +109,10 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 (filled by roadmapper + planner during phase work)
 
+- 2026-05-18 — **Phase numbering**: v2.4 starts at 64 (continuing from v2.3's 58–63 in `workstreams/v23-integrations-multi-number/`).
+- 2026-05-18 — **12-phase split**: roadmapper accepted the 12-phase outline from the spawn brief without modification. Each seed's natural boundaries (schema → actions → list UI → detail UI for accounts; schema → core lib → settings UI → renderer → list/filters/IO for custom fields; schema/worker → wizard UI → history/retry/tests for import) produced cleaner cuts than any compressed alternative.
+- 2026-05-18 — **Dependency fan-out**: Phase 73 (IMPORT-SCHEMA-WORKER) depends on 68 (CUSTOMFIELDS-SCHEMA) for type alignment, not on 72; the wizard UI in 74 is what pulls the full custom-fields stack into the import flow.
+
 ## Pending Todos
 
 - ⚠️ v2.3 HUMAN-UAT still owed — operator runs `workstreams/v23-integrations-multi-number/phases/63-polish/63-HUMAN-UAT.md` before v2.3 can be marked complete
@@ -98,4 +121,4 @@ Three coupled features that together promote contacts/opportunities into a full 
 ## Session Continuity
 
 Last session: 2026-05-18
-Stopped at: Milestone v2.4 scaffolded (PROJECT.md updated, STATE.md written). Next: define REQUIREMENTS.md, then spawn roadmapper.
+Stopped at: Roadmap written (12 phases, 54/54 requirements mapped). Next: `/gsd:plan-phase 64` to decompose ACCOUNTS-SCHEMA into plans.
