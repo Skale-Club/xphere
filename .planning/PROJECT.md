@@ -27,6 +27,10 @@ That business logic may differ by client. The invariant is the reliability of th
 - Naming discipline: `accounts` (DB) / "Companies" (UI). `organizations` is reserved for the multi-tenant boundary
 - Execution order: SEED-016 (Accounts) → SEED-017 (Custom Fields) → SEED-018 (Import Pipeline)
 
+**Phase progress (1/12 complete):**
+- ✅ **Phase 64 ACCOUNTS-SCHEMA** (shipped 2026-05-18) — Migration 064_accounts.sql live on remote Supabase. `accounts` table with 18 columns + RLS via `get_current_org_id()`. Nullable `account_id` FKs on contacts and opportunities, plus `opp_has_contact_or_account` CHECK. Idempotent data migration block (no-op on current empty contacts table; ready for future companies). 8/8 schema tests green. Validated: ACC-14, ACC-15, ACC-19.
+- ⏳ **Phase 65 ACCOUNTS-ACTIONS** — next up.
+
 ## Previous In-Flight: v2.3 Integrations Refactor + Twilio Multi-Number 🚧 human_uat
 
 6/6 phases complete in `workstreams/v23-integrations-multi-number/`. Awaiting operator manual testing per `phases/63-polish/63-HUMAN-UAT.md` before close. Orthogonal to v2.4 — does not block.
@@ -317,4 +321,4 @@ All v2.0 requirements shipped. Next milestone to be defined via `/gsd:new-milest
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-18 — v2.4 CRM Expansion milestone started (accounts, custom fields system, structured contact import pipeline). v2.3 Integrations Refactor still pending HUMAN-UAT.*
+*Last updated: 2026-05-18 — v2.4 Phase 64 ACCOUNTS-SCHEMA shipped. Migration 064 live on remote Supabase, 8/8 tests green. v2.3 Integrations Refactor still pending HUMAN-UAT.*
