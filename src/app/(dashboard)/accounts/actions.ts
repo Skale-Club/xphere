@@ -50,6 +50,7 @@ import {
   ACCOUNT_CSV_FIELDS,
   type AccountCsvField,
 } from '@/lib/accounts/csv'
+import { validateCustomFields } from '@/lib/custom-fields'
 
 // ─── List ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,13 @@ export async function createAccount(
   const { data: orgIdData } = await supabase.rpc('get_current_org_id')
   if (!orgIdData) return errResult('no_organization')
 
+  // Validate custom fields (per CF-07)
+  const cfPayload = (input as { custom_fields?: Record<string, unknown> }).custom_fields
+  if (cfPayload && typeof cfPayload === 'object') {
+    const cfResult = await validateCustomFields(orgIdData, 'account', cfPayload)
+    if (!cfResult.ok) return errResult('custom_fields_invalid', cfResult.errors)
+  }
+
   const { data, error } = await supabase
     .from('accounts')
     .insert({
@@ -207,6 +215,16 @@ export async function updateAccount(
   const normalised = normaliseAccountInput(parsed.data)
 
   const supabase = await createClient()
+
+  // Validate custom fields (per CF-07)
+  const cfPayloadUpdate = (input as { custom_fields?: Record<string, unknown> }).custom_fields
+  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+    const { data: orgIdForCf } = await supabase.rpc('get_current_org_id')
+    if (orgIdForCf) {
+      const cfResult = await validateCustomFields(orgIdForCf, 'account', cfPayloadUpdate)
+      if (!cfResult.ok) return errResult('custom_fields_invalid', cfResult.errors)
+    }
+  }
 
   // RLS scopes the UPDATE to the active org. No manual org_id filter needed.
   // We do NOT change org_id, created_by, or source (those stay as on the row).

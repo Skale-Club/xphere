@@ -34,6 +34,7 @@ import {
   type ContactField,
 } from '@/lib/contacts/csv'
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
+import { validateCustomFields } from '@/lib/custom-fields'
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
@@ -243,6 +244,15 @@ export async function createContact(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
+  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
+  const cfPayloadCreate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
+  if (cfPayloadCreate && typeof cfPayloadCreate === 'object') {
+    const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadCreate)
+    if (!cfResult.ok) {
+      return { error: 'custom_fields_invalid', details: cfResult.errors } as { error: string; details?: unknown }
+    }
+  }
+
   // Dedup by phone (preferred) then email
   if (data.phone) {
     const { data: existing } = await supabase
@@ -307,6 +317,18 @@ export async function updateContact(
   }
   const data = normaliseContactInput(parsed.data)
   const supabase = await createClient()
+
+  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
+  const cfPayloadUpdate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
+  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+    const { data: orgId } = await supabase.rpc('get_current_org_id')
+    if (orgId) {
+      const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadUpdate)
+      if (!cfResult.ok) {
+        return { error: 'custom_fields_invalid' }
+      }
+    }
+  }
 
   // Resolve tag IDs → names for the legacy text[] column (kept in sync until 062)
   let tagNames: string[] = []

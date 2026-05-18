@@ -3,4 +3,4 @@
 export * from './reserved-keys'
 export * from './serialize'
 export * from './render-config'
-// validate.ts (Plan 69-02) will be added here after it is created
+export * from './validate'
