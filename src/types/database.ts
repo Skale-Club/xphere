@@ -28,6 +28,9 @@ export type AgentInvocationMode = 'production' | 'playground'
 // v2.1 â€” contacts (CRM) source enum
 export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
 
+// v2.4 — accounts (CRM Companies) source enum (SEED-016)
+export type AccountSource = 'manual' | 'auto_from_contact_company' | 'csv_import' | 'ghl_sync'
+
 // v2.1 â€” call system (SEED-007)
 export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
@@ -1391,6 +1394,7 @@ export interface Database {
           custom_fields: Record<string, unknown>
           source: ContactSource
           external_id: string | null
+          account_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1407,6 +1411,7 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           source?: ContactSource
           external_id?: string | null
+          account_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -1421,11 +1426,86 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           source?: ContactSource
           external_id?: string | null
+          account_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: 'contacts_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contacts_account_id_fkey'
+            columns: ['account_id']
+            isOneToOne: false
+            referencedRelation: 'accounts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      accounts: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          domain: string | null
+          website: string | null
+          industry: string | null
+          size: string | null
+          phone: string | null
+          address: string | null
+          notes: string | null
+          tags: string[]
+          custom_fields: Record<string, unknown>
+          external_id: string | null
+          source: AccountSource
+          assigned_to: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          domain?: string | null
+          website?: string | null
+          industry?: string | null
+          size?: string | null
+          phone?: string | null
+          address?: string | null
+          notes?: string | null
+          tags?: string[]
+          custom_fields?: Record<string, unknown>
+          external_id?: string | null
+          source?: AccountSource
+          assigned_to?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          domain?: string | null
+          website?: string | null
+          industry?: string | null
+          size?: string | null
+          phone?: string | null
+          address?: string | null
+          notes?: string | null
+          tags?: string[]
+          custom_fields?: Record<string, unknown>
+          external_id?: string | null
+          source?: AccountSource
+          assigned_to?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'accounts_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
@@ -1762,6 +1842,7 @@ export interface Database {
           id: string
           org_id: string
           contact_id: string | null
+          account_id: string | null
           pipeline_id: string
           stage_id: string
           title: string
@@ -1780,6 +1861,7 @@ export interface Database {
           id?: string
           org_id: string
           contact_id?: string | null
+          account_id?: string | null
           pipeline_id: string
           stage_id: string
           title: string
@@ -1796,6 +1878,7 @@ export interface Database {
         }
         Update: {
           contact_id?: string | null
+          account_id?: string | null
           pipeline_id?: string
           stage_id?: string
           title?: string
@@ -1821,6 +1904,13 @@ export interface Database {
             columns: ['contact_id']
             isOneToOne: false
             referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'opportunities_account_id_fkey'
+            columns: ['account_id']
+            isOneToOne: false
+            referencedRelation: 'accounts'
             referencedColumns: ['id']
           },
           {
