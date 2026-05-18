@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: milestone
 status: executing
-stopped_at: Completed 67-02-PLAN.md
-last_updated: "2026-05-18T22:37:43.506Z"
+stopped_at: Completed 67-03-PLAN.md
+last_updated: "2026-05-18T22:45:31.570Z"
 last_activity: 2026-05-18
 progress:
   total_phases: 12
   completed_phases: 6
   total_plans: 26
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
@@ -122,6 +122,7 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 66-accounts-list-ui]: account_id added to contactSchema alongside legacy company text for backward compat; AccountCombobox uses debounced getAccounts + inline quick-create
 - [Phase 66]: TopCompanies widget uses direct Supabase aggregation (2 calls) instead of getAccounts() because AccountRow lacks computed opportunity fields
 - [Phase 67-01]: AccountDetailHeader + AccountContactsTab are server components; AccountContactsTab uses narrow ContactItem interface (6 fields) for props — full ContactRow passed from page satisfies it structurally; Opportunities + Activities tabs are intentional placeholders for 67-02
+- [Phase 67-accounts-detail-ui]: setOpportunityAccount added to pipeline/actions.ts to patch account_id post-creation since OpportunityFormInput does not include account_id in v2.4
 
 ## Pending Todos
 
@@ -130,5 +131,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-18T22:37:43.496Z
-Stopped at: Completed 67-02-PLAN.md
+Last session: 2026-05-18T22:45:31.552Z
+Stopped at: Completed 67-03-PLAN.md

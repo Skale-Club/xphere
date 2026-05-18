@@ -114,9 +114,9 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 | ACC-07 | 66 ACCOUNTS-LIST-UI | Pending |
 | ACC-08 | 67 ACCOUNTS-DETAIL-UI | Pending |
 | ACC-09 | 67 ACCOUNTS-DETAIL-UI | Complete |
-| ACC-10 | 67 ACCOUNTS-DETAIL-UI | Pending |
-| ACC-11 | 67 ACCOUNTS-DETAIL-UI | Pending |
-| ACC-12 | 67 ACCOUNTS-DETAIL-UI | Pending |
+| ACC-10 | 67 ACCOUNTS-DETAIL-UI | Complete |
+| ACC-11 | 67 ACCOUNTS-DETAIL-UI | Complete |
+| ACC-12 | 67 ACCOUNTS-DETAIL-UI | Complete |
 | ACC-13 | 66 ACCOUNTS-LIST-UI | Complete |
 | ACC-14 | 64 ACCOUNTS-SCHEMA | Complete |
 | ACC-15 | 64 ACCOUNTS-SCHEMA | Complete |
