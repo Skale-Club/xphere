@@ -130,7 +130,7 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 | CF-04 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
 | CF-05 | 70 CUSTOMFIELDS-SETTINGS-UI | Pending |
 | CF-06 | 71 CUSTOMFIELDS-RENDERER-INTEGRATION | Pending |
-| CF-07 | 69 CUSTOMFIELDS-CORE-LIB | Pending |
+| CF-07 | 69 CUSTOMFIELDS-CORE-LIB | Complete |
 | CF-08 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
 | CF-09 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
 | CF-10 | 71 CUSTOMFIELDS-RENDERER-INTEGRATION | Pending |
@@ -138,7 +138,7 @@ Replace the current 5 MB synchronous CSV import with a queued, observable, runti
 | CF-12 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
 | CF-13 | 72 CUSTOMFIELDS-LIST-FILTERS-IO | Pending |
 | CF-14 | 68 CUSTOMFIELDS-SCHEMA | Complete |
-| CF-15 | 69 CUSTOMFIELDS-CORE-LIB | Pending |
+| CF-15 | 69 CUSTOMFIELDS-CORE-LIB | Complete |
 | IMP-01 | 74 IMPORT-WIZARD-UI | Pending |
 | IMP-02 | 74 IMPORT-WIZARD-UI | Pending |
 | IMP-03 | 74 IMPORT-WIZARD-UI | Pending |
