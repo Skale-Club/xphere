@@ -21,6 +21,7 @@ import { PipelineOverview } from '@/components/dashboard/widgets/pipeline-overvi
 import { RecentCalls } from '@/components/dashboard/widgets/recent-calls'
 import { IntegrationsStatus } from '@/components/dashboard/widgets/integrations-status'
 import { ActivitySnapshot } from '@/components/dashboard/widgets/activity-snapshot'
+import { TopCompanies } from '@/components/dashboard/widgets/top-companies'
 import { WelcomeWizard } from '@/components/dashboard/welcome-wizard'
 
 export const dynamic = 'force-dynamic'
@@ -220,6 +221,15 @@ export default async function DashboardPage({
         <WidgetErrorBoundary name="activity-snapshot" fallback={<WidgetError title="Today" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
             <ActivitySnapshot />
+          </Suspense>
+        </WidgetErrorBoundary>
+      </div>
+
+      {/* Row 4 — Top Companies (ACC-18) */}
+      <div className="grid grid-cols-1 gap-4">
+        <WidgetErrorBoundary name="top-companies" fallback={<WidgetError title="Top Companies" />}>
+          <Suspense fallback={<PanelSkeleton rows={5} />}>
+            <TopCompanies />
           </Suspense>
         </WidgetErrorBoundary>
       </div>
