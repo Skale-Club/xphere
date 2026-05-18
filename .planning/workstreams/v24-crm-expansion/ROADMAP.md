@@ -35,7 +35,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 - [x] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest (completed 2026-05-18)
 - [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types (completed 2026-05-18)
 - [x] **Phase 69: CUSTOMFIELDS-CORE-LIB** — `validate.ts`, `serialize.ts`, `render-config.ts`, wired into contact/opportunity/account server actions (completed 2026-05-18)
-- [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
+- [x] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal (completed 2026-05-18)
 - [ ] **Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION** — `<CustomFieldsForm>` + `<CustomFieldsDisplay>` + 12 per-type components, plugged into every entity form and detail page
 - [ ] **Phase 72: CUSTOMFIELDS-LIST-FILTERS-IO** — Dynamic columns + type-aware filters in entity lists, CSV import/export of custom field values
 - [x] **Phase 73: IMPORT-SCHEMA-WORKER** — `contact_imports` + `contact_import_errors` tables, ENUMs, Storage bucket, Realtime publication, RLS, cleanup cron, storage/worker interfaces (completed 2026-05-18)
@@ -153,10 +153,10 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   5. An admin can create groups, assign fields to a group, and reassign fields between groups
 **Plans**: 4 plans
 Plans:
-- [ ] 70-01-PLAN.md — Server actions (getDefinitions, createDefinition, updateDefinition, archiveDefinition, reorderDefinitions) + Zod schemas
-- [ ] 70-02-PLAN.md — Settings page shell + tabbed definition list with dnd-kit drag-to-reorder, groups, and archive button
-- [ ] 70-03-PLAN.md — Create/edit modal with per-type conditional form sections (options editor, validation fields, toggles)
-- [ ] 70-04-PLAN.md — Sidebar Custom Fields nav link + Vitest unit tests + final npm run build
+- [x] 70-01-PLAN.md — Server actions (getDefinitions, createDefinition, updateDefinition, archiveDefinition, reorderDefinitions) + Zod schemas
+- [x] 70-02-PLAN.md — Settings page shell + tabbed definition list with dnd-kit drag-to-reorder, groups, and archive button
+- [x] 70-03-PLAN.md — Create/edit modal with per-type conditional form sections (options editor, validation fields, toggles)
+- [x] 70-04-PLAN.md — Sidebar Custom Fields nav link + Vitest unit tests + final npm run build
 **UI hint**: yes
 
 ### Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION
@@ -241,7 +241,7 @@ Plans:
 | 67. ACCOUNTS-DETAIL-UI | 4/4 | Complete    | 2026-05-18 |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
 | 69. CUSTOMFIELDS-CORE-LIB | 3/3 | Complete    | 2026-05-18 |
-| 70. CUSTOMFIELDS-SETTINGS-UI | 0/4 | Not started | — |
+| 70. CUSTOMFIELDS-SETTINGS-UI | 4/4 | Complete    | 2026-05-18 |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
 | 72. CUSTOMFIELDS-LIST-FILTERS-IO | 0/0 | Not started | — |
 | 73. IMPORT-SCHEMA-WORKER | 3/3 | Complete    | 2026-05-18 |

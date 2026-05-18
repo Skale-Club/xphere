@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: CRM Expansion
 status: executing
-stopped_at: Completed 73-03-PLAN.md
-last_updated: "2026-05-18T23:30:00.000Z"
+stopped_at: Completed 70-04-PLAN.md
+last_updated: "2026-05-18T23:50:00.000Z"
 last_activity: 2026-05-18
 progress:
   total_phases: 12
-  completed_phases: 7
-  total_plans: 26
-  completed_plans: 26
+  completed_phases: 8
+  total_plans: 30
+  completed_plans: 30
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 70
+Phase: 71
 Plan: Not started
-Next: 70-01 (customfields-settings-ui)
-Status: Phases 64/65/66/67/68/69/73 complete (7/12); next up Phase 70
+Next: 71-01 (customfields-renderer-integration)
+Status: Phases 64/65/66/67/68/69/70/73 complete (8/12); next up Phase 71
 Last activity: 2026-05-18
 
 ## Milestone Progress
@@ -125,6 +125,10 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 67-accounts-detail-ui]: setOpportunityAccount added to pipeline/actions.ts to patch account_id post-creation since OpportunityFormInput does not include account_id in v2.4
 
 - [Phase 67-04]: Companies nav item positioned between Contacts and Pipeline; standard isCurrentPage logic handles /accounts/[id] without a special case; 8 Vitest pure-function smoke tests all pass; npm run build exits 0 — Phase 67 fully complete
+
+- [Phase 70-01]: `'use server'` files can only export async functions — constants (CUSTOM_FIELD_TYPES, CUSTOM_FIELD_ENTITIES) and zod schemas moved to `src/lib/custom-fields/field-config.ts` (non-server); all schemas kept internal in actions.ts; only type aliases exported (erased at build time)
+- [Phase 70-03]: Client-side zodResolver requires schema WITHOUT `.default()` to avoid `z.input<T>` vs `z.output<T>` mismatch in `Resolver<>` generic; clientDefinitionSchema defined in definition-modal.tsx without defaults, form defaults set via useForm `defaultValues`
+- [Phase 70-04]: Phase 70 complete — admin can visit /settings/custom-fields, create/edit/reorder/group/archive custom field definitions of all 13 types; Custom Fields sidebar link added; 11/11 Vitest action tests pass; npm run build clean
 
 ## Pending Todos
 
