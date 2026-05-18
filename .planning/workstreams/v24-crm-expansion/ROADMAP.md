@@ -70,7 +70,12 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   3. Deleting an account with linked contacts or opportunities follows the documented behavior (block / soft-delete) and never orphans data
   4. Merging duplicate accounts moves every contact and opportunity onto the surviving account and removes the duplicates atomically
   5. Importing an accounts CSV dedups by `(org_id, lower(name))` and by domain — running the same CSV twice never produces duplicates
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 65-01-PLAN.md — Lib foundation: zod schemas + types + normalise + barrel for src/lib/accounts/
+- [ ] 65-02-PLAN.md — CRUD server actions (getAccounts, getAccount, createAccount, updateAccount, deleteAccount with block-when-referenced per ACC-03)
+- [ ] 65-03-PLAN.md — Merge + contact-linking actions (mergeAccounts for ACC-16, linkContactToAccount, createAccountFromContact)
+- [ ] 65-04-PLAN.md — CSV import action (previewAccountsCsv + importAccountsCsv with app-layer dedup by name + domain for ACC-17)
+- [ ] 65-05-PLAN.md — Vitest suite: schema units + CRUD/merge/linking integration + CSV import end-to-end (covers ACC-01..03, ACC-16, ACC-17)
 
 ### Phase 66: ACCOUNTS-LIST-UI
 **Goal**: Users can browse, filter, search, and bulk-act on Companies from a dedicated list page, choose a Company from any contact form, and see top accounts on the dashboard.
@@ -108,7 +113,10 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   2. Attempting to create a definition with a reserved key (`id`, `org_id`, `name`, or any native column of the target entity) is rejected at validation time with a clear error
   3. The `custom_field_type` enum exposes all 13 supported types (text, long_text, number, integer, boolean, date, datetime, select, multi_select, url, email, phone, currency)
   4. The `custom_field_entity` enum supports exactly `contact`, `opportunity`, `account` — pipelines/stages are intentionally absent
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 68-01-PLAN.md — Migration `065_custom_field_definitions.sql`: custom_field_type + custom_field_entity ENUMs, custom_field_definitions table with RLS + per-entity reserved-key CHECK + key-format CHECK + UNIQUE + partial indexes + updated_at trigger; applied via `npx supabase db push`
+- [ ] 68-02-PLAN.md — Update `src/types/database.ts` with CustomFieldType / CustomFieldEntity literal unions and custom_field_definitions table type (Row/Insert/Update/Relationships)
+- [ ] 68-03-PLAN.md — Add `tests/customfields-schema.test.ts` with Vitest tests for ENUM contents (SC3+SC4), RLS (schema + cross-org), and the per-entity reserved-key CHECK (real failing inserts for CF-11)
 
 ### Phase 69: CUSTOMFIELDS-CORE-LIB
 **Goal**: Every server action that writes a contact, opportunity, or account validates `custom_fields` against the org's definitions before persisting; invalid values never reach the database.
@@ -208,10 +216,10 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 64. ACCOUNTS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
-| 65. ACCOUNTS-ACTIONS | 0/0 | Not started | — |
+| 65. ACCOUNTS-ACTIONS | 0/5 | Planned     | — |
 | 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
-| 68. CUSTOMFIELDS-SCHEMA | 0/0 | Not started | — |
+| 68. CUSTOMFIELDS-SCHEMA | 0/3 | Planned     | — |
 | 69. CUSTOMFIELDS-CORE-LIB | 0/0 | Not started | — |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
