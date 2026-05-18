@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { MoreHorizontal, Trophy, Frown, Trash2, Pencil } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -24,8 +23,8 @@ import type { OpportunityWithContact } from '@/app/(dashboard)/pipeline/actions'
 
 interface OpportunityCardProps {
   opportunity: OpportunityWithContact
-  onAction: (action: 'edit' | 'won' | 'lost' | 'delete', id: string) => void
-  isDragging?: boolean
+  onOpen: (id: string) => void
+  onAction: (action: 'won' | 'lost' | 'delete' | 'edit', id: string) => void
   isOverlay?: boolean
 }
 
@@ -37,6 +36,7 @@ const TONE_PILL: Record<'neutral' | 'warning' | 'danger', string> = {
 
 export function OpportunityCard({
   opportunity,
+  onOpen,
   onAction,
   isOverlay = false,
 }: OpportunityCardProps) {
@@ -62,15 +62,46 @@ export function OpportunityCard({
   const tone = ageTone(days)
   const contactName = opportunity.contact?.name ?? opportunity.contact?.phone ?? 'Unassigned'
 
+  // Click vs drag: a click only registers if no drag movement happened.
+  // We track pointerdown position and only fire onOpen on pointerup if the
+  // pointer didn't travel further than ~5px (dnd-kit will already have
+  // taken over for actual drags via its activationConstraint).
+  const downPos = React.useRef<{ x: number; y: number } | null>(null)
+
+  function handlePointerDown(e: React.PointerEvent) {
+    downPos.current = { x: e.clientX, y: e.clientY }
+  }
+
+  function handleClick(e: React.MouseEvent) {
+    if (!downPos.current) return
+    const dx = Math.abs(e.clientX - downPos.current.x)
+    const dy = Math.abs(e.clientY - downPos.current.y)
+    downPos.current = null
+    if (dx > 5 || dy > 5) return // dragged, ignore click
+    onOpen(opportunity.id)
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen(opportunity.id)
+        }
+      }}
       className={cn(
-        'group relative cursor-grab active:cursor-grabbing rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-2.5 shadow-elevation-sm transition-all',
+        'group relative cursor-pointer rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-2.5 shadow-elevation-sm transition-all',
         'hover:border-border-strong hover:shadow-elevation-md hover:-translate-y-[1px]',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        isDragging && 'cursor-grabbing',
         isOverlay && 'rotate-[1.5deg] scale-[1.03] shadow-elevation-lg ring-2 ring-accent/40 cursor-grabbing',
       )}
     >
@@ -82,18 +113,15 @@ export function OpportunityCard({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1">
-            <Link
-              href={`/pipeline/${opportunity.id}`}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="text-[12.5px] font-medium text-text-primary leading-tight truncate hover:underline"
-            >
+            <span className="text-[12.5px] font-medium text-text-primary leading-tight truncate">
               {opportunity.title}
-            </Link>
+            </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
+                  type="button"
                   onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   className="opacity-0 group-hover:opacity-100 transition-opacity rounded-[6px] p-0.5 hover:bg-bg-tertiary text-text-tertiary hover:text-text-primary"
                   aria-label="Opportunity actions"
                 >
@@ -101,17 +129,17 @@ export function OpportunityCard({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem onClick={() => onAction('edit', opportunity.id)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAction('edit', opportunity.id) }}>
                   <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAction('won', opportunity.id)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAction('won', opportunity.id) }}>
                   <Trophy className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Mark won
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAction('lost', opportunity.id)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAction('lost', opportunity.id) }}>
                   <Frown className="h-3.5 w-3.5 mr-2 text-rose-400" /> Mark lost
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => onAction('delete', opportunity.id)}
+                  onClick={(e) => { e.stopPropagation(); onAction('delete', opportunity.id) }}
                   className="text-rose-400 focus:text-rose-300"
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete

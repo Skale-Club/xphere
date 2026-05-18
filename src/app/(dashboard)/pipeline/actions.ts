@@ -425,6 +425,30 @@ export async function deleteOpportunity(
 }
 
 /**
+ * Persist the in-stage ordering after the user reorders cards within a
+ * single column. `orderedIds` is the full list of opportunity IDs in that
+ * stage in the new order; positions are written as the array index.
+ */
+export async function reorderOpportunities(
+  stageId: string,
+  orderedIds: string[],
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (orderedIds.length === 0) return
+  const supabase = await createClient()
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await supabase
+      .from('opportunities')
+      .update({ position: i })
+      .eq('id', orderedIds[i])
+      .eq('stage_id', stageId)
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/pipeline')
+}
+
+/**
  * Move an opportunity to a new stage. Creates a stage_change activity entry
  * and, if the new stage is marked won/lost, transitions the opportunity status.
  */

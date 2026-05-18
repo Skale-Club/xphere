@@ -29,12 +29,14 @@ import {
   moveOpportunity,
   deleteOpportunity,
   updateOpportunity,
+  reorderOpportunities,
   type OpportunityWithContact,
 } from '@/app/(dashboard)/pipeline/actions'
 import type { Database } from '@/types/database'
 import { useCelebrate } from '@/components/design-system/celebration-provider'
 import { OpportunityCard } from './opportunity-card'
 import { NewOpportunityDialog } from './new-opportunity-dialog'
+import { OpportunityDetailSheet } from './opportunity-detail-sheet'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 
@@ -47,12 +49,13 @@ interface KanbanBoardProps {
 interface ColumnProps {
   stage: StageRow
   opportunities: OpportunityWithContact[]
-  onAction: (action: 'edit' | 'won' | 'lost' | 'delete', id: string) => void
+  onOpen: (id: string) => void
+  onAction: (action: 'won' | 'lost' | 'delete' | 'edit', id: string) => void
   pipelineId: string
   isOver: boolean
 }
 
-function StageColumn({ stage, opportunities, onAction, pipelineId, isOver }: ColumnProps) {
+function StageColumn({ stage, opportunities, onOpen, onAction, pipelineId, isOver }: ColumnProps) {
   // Make the whole column a sortable drop area by using the SortableContext id
   const { setNodeRef } = useSortable({
     id: `column-${stage.id}`,
@@ -105,7 +108,7 @@ function StageColumn({ stage, opportunities, onAction, pipelineId, isOver }: Col
             </div>
           ) : (
             opportunities.map((o) => (
-              <OpportunityCard key={o.id} opportunity={o} onAction={onAction} />
+              <OpportunityCard key={o.id} opportunity={o} onOpen={onOpen} onAction={onAction} />
             ))
           )}
         </SortableContext>
@@ -131,13 +134,17 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
 
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const [overColumnId, setOverColumnId] = React.useState<string | null>(null)
+  const [openSheetId, setOpenSheetId] = React.useState<string | null>(null)
   const celebrate = useCelebrate()
 
   // Track if the deal already lived in a won stage to avoid double-firing.
   const wonStageIds = React.useMemo(() => new Set(stages.filter((s) => s.is_won).map((s) => s.id)), [stages])
 
+  // Wider distance + tolerance + small delay so clicks register as clicks, not drags.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8, tolerance: 5, delay: 80 },
+    }),
   )
 
   const byStage = React.useMemo(() => {
@@ -193,16 +200,38 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
       if (idx >= 0) newPosition = idx
     }
 
-    // Same stage + same neighbour ⇒ no-op
-    if (opp.stage_id === targetStageId && newPosition === undefined) return
+    const sameStage = opp.stage_id === targetStageId
 
-    // Optimistic reordering
+    // Same stage + no specific position change ⇒ no-op
+    if (sameStage && newPosition === undefined) return
+
+    // Optimistic local reorder
     setItems((prev) => {
-      const next = prev.map((o) =>
-        o.id === active.id ? { ...o, stage_id: targetStageId } : o,
-      )
-      return next
+      // Build new array with the moved card in its new position
+      const without = prev.filter((o) => o.id !== active.id)
+      const stageOpps = without.filter((o) => o.stage_id === targetStageId)
+      const others = without.filter((o) => o.stage_id !== targetStageId)
+      const moved = { ...opp, stage_id: targetStageId }
+      const insertAt = newPosition ?? stageOpps.length
+      stageOpps.splice(insertAt, 0, moved)
+      return [...others, ...stageOpps]
     })
+
+    // Branch: same-stage reorder vs cross-stage move
+    if (sameStage) {
+      const orderedIds = [
+        ...(byStage.get(targetStageId) ?? []).filter((o) => o.id !== active.id).map((o) => o.id),
+      ]
+      orderedIds.splice(newPosition ?? orderedIds.length, 0, opp.id)
+      const res = await reorderOpportunities(targetStageId, orderedIds)
+      if (res && 'error' in res && res.error) {
+        toast.error(res.error)
+        setItems(opportunities)
+      } else {
+        router.refresh()
+      }
+      return
+    }
 
     const movedToWon = wonStageIds.has(targetStageId) && !wonStageIds.has(opp.stage_id)
     const res = await moveOpportunity(opp.id, targetStageId, newPosition)
@@ -215,7 +244,15 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
     }
   }
 
-  async function handleAction(action: 'edit' | 'won' | 'lost' | 'delete', id: string) {
+  function handleOpen(id: string) {
+    setOpenSheetId(id)
+  }
+
+  async function handleAction(action: 'won' | 'lost' | 'delete' | 'edit', id: string) {
+    if (action === 'edit') {
+      setOpenSheetId(id)
+      return
+    }
     if (action === 'delete') {
       if (!confirm('Delete this opportunity? This cannot be undone.')) return
       const res = await deleteOpportunity(id)
@@ -250,9 +287,6 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
       }
       return
     }
-    if (action === 'edit') {
-      router.push(`/pipeline/${id}`)
-    }
   }
 
   return (
@@ -269,6 +303,7 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
             key={s.id}
             stage={s}
             opportunities={byStage.get(s.id) ?? []}
+            onOpen={handleOpen}
             onAction={handleAction}
             pipelineId={pipelineId}
             isOver={overColumnId === s.id}
@@ -280,11 +315,18 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
         {activeOpp ? (
           <OpportunityCard
             opportunity={activeOpp}
+            onOpen={() => {}}
             onAction={() => {}}
             isOverlay
           />
         ) : null}
       </DragOverlay>
+
+      <OpportunityDetailSheet
+        opportunityId={openSheetId}
+        stages={stages}
+        onOpenChange={(o) => !o && setOpenSheetId(null)}
+      />
     </DndContext>
   )
 }
