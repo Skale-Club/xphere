@@ -19,6 +19,7 @@ export const runtime = 'nodejs'
 
 const bodySchema = z.object({
   to: z.string().min(3).max(32),
+  from: z.string().min(3).max(32).optional(),
 })
 
 export async function POST(request: Request): Promise<Response> {
@@ -30,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success) {
     return Response.json({ error: 'Invalid request body — expected { to: string }' }, { status: 400 })
   }
-  const { to } = parsed.data
+  const { to, from: fromOverride } = parsed.data
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
@@ -53,7 +54,23 @@ export async function POST(request: Request): Promise<Response> {
   if (!creds) {
     return Response.json({ error: 'Twilio is not connected for this organization.' }, { status: 400 })
   }
-  if (!creds.fromNumber) {
+
+  // Validate the requested from-number belongs to this org
+  let fromNumber = creds.fromNumber
+  if (fromOverride) {
+    const { data: phoneRow } = await supabase
+      .from('twilio_phone_numbers')
+      .select('e164')
+      .eq('e164', fromOverride)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!phoneRow) {
+      return Response.json({ error: 'From-number not found in this organization.' }, { status: 400 })
+    }
+    fromNumber = phoneRow.e164
+  }
+
+  if (!fromNumber) {
     return Response.json({ error: 'No Twilio from-number configured.' }, { status: 400 })
   }
 
@@ -64,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const { sid } = await createOutboundCall(creds, {
       to,
-      from: creds.fromNumber,
+      from: fromNumber,
       twimlUrl,
       statusCallback,
       record: settings.record_calls,
@@ -76,7 +93,7 @@ export async function POST(request: Request): Promise<Response> {
       call_sid: sid,
       direction: 'outbound',
       routing_mode: settings.routing_mode,
-      from_number: creds.fromNumber,
+      from_number: fromNumber,
       to_number: to,
       status: 'initiated',
       started_at: new Date().toISOString(),

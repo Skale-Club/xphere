@@ -7,6 +7,7 @@ import { TopBar } from '@/components/layout/top-bar'
 import { CommandPaletteProvider } from '@/components/command-palette'
 import { BreadcrumbOverrideProvider } from '@/components/layout/breadcrumb-override-context'
 import { VoiceDeviceShell } from '@/components/calls/voice-device-shell'
+import { DialPadPanelServer } from '@/components/calls/dial-pad-panel-server'
 import { BrandingStyle } from '@/components/layout/branding-style'
 import { CelebrationProvider } from '@/components/design-system/celebration-provider'
 import { OnboardingTour } from '@/components/onboarding/tour'
@@ -111,6 +112,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 </div>
               </div>
               <OnboardingTour />
+              <DialPadPanelServer />
             </CelebrationProvider>
           </VoiceDeviceShell>
         </CommandPaletteProvider>

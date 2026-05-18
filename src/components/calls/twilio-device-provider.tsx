@@ -29,9 +29,11 @@ interface TwilioDeviceCtx {
   error: string | null
   identity: string | null
   incoming: Call | null
+  activeCall: Call | null
   acceptIncoming: () => void
   rejectIncoming: () => void
   placeCall: (to: string) => Promise<Call | null>
+  hangUp: () => void
 }
 
 const ctx = React.createContext<TwilioDeviceCtx | null>(null)
@@ -44,9 +46,11 @@ export function useTwilioDevice(): TwilioDeviceCtx {
       error: null,
       identity: null,
       incoming: null,
+      activeCall: null,
       acceptIncoming: () => undefined,
       rejectIncoming: () => undefined,
       placeCall: async () => null,
+      hangUp: () => undefined,
     }
   }
   return value
@@ -63,6 +67,7 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
   const [error, setError] = React.useState<string | null>(null)
   const [identity, setIdentity] = React.useState<string | null>(null)
   const [incoming, setIncoming] = React.useState<Call | null>(null)
+  const [activeCall, setActiveCall] = React.useState<Call | null>(null)
   const deviceRef = React.useRef<Device | null>(null)
 
   React.useEffect(() => {
@@ -102,6 +107,7 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
           call.on('cancel', () => setIncoming(null))
           call.on('disconnect', () => {
             setIncoming(null)
+            setActiveCall(null)
             setState('ready')
           })
         })
@@ -135,6 +141,7 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
   const acceptIncoming = React.useCallback(() => {
     if (!incoming) return
     incoming.accept()
+    setActiveCall(incoming)
     setState('on-call')
   }, [incoming])
 
@@ -150,8 +157,15 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
     setState('on-call')
     try {
       const call = await device.connect({ params: { To: to } })
-      call.on('disconnect', () => setState('ready'))
-      call.on('error', () => setState('error'))
+      setActiveCall(call)
+      call.on('disconnect', () => {
+        setActiveCall(null)
+        setState('ready')
+      })
+      call.on('error', () => {
+        setActiveCall(null)
+        setState('error')
+      })
       return call
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Outbound dial failed')
@@ -160,9 +174,15 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
     }
   }, [])
 
+  const hangUp = React.useCallback(() => {
+    activeCall?.disconnect()
+    setActiveCall(null)
+    setState('ready')
+  }, [activeCall])
+
   const value: TwilioDeviceCtx = React.useMemo(
-    () => ({ state, error, identity, incoming, acceptIncoming, rejectIncoming, placeCall }),
-    [state, error, identity, incoming, acceptIncoming, rejectIncoming, placeCall],
+    () => ({ state, error, identity, incoming, activeCall, acceptIncoming, rejectIncoming, placeCall, hangUp }),
+    [state, error, identity, incoming, activeCall, acceptIncoming, rejectIncoming, placeCall, hangUp],
   )
 
   return <ctx.Provider value={value}>{children}</ctx.Provider>

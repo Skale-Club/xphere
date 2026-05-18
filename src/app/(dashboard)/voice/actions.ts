@@ -313,3 +313,55 @@ export async function getCallLogsForContact(
 
 // Exported for tests
 export { decrypt }
+
+// ─── Dial-pad panel helpers ──────────────────────────────────────────────────
+
+export interface OrgPhoneNumber {
+  id: string
+  e164: string
+  friendly_name: string
+  is_default: boolean
+}
+
+export async function getOrgPhoneNumbers(): Promise<OrgPhoneNumber[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('twilio_phone_numbers')
+    .select('id, e164, friendly_name, is_default')
+    .eq('is_active', true)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true })
+  return data ?? []
+}
+
+export async function toggleRecordCalls(record: boolean): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('call_settings')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('call_settings')
+      .update({ record_calls: record })
+      .eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    const { data: orgId } = await supabase.rpc('get_current_org_id')
+    if (!orgId) return { error: 'No active organization.' }
+    const { error } = await supabase.from('call_settings').insert({
+      org_id: orgId,
+      user_id: user.id,
+      routing_mode: 'phone_forward',
+      record_calls: record,
+    })
+    if (error) return { error: error.message }
+  }
+  return {}
+}
