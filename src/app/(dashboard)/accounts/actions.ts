@@ -98,8 +98,55 @@ export async function getAccounts(
   const { data, count, error } = await query
   if (error) return errResult(error.message, error)
 
+  const rows = (data ?? []) as AccountRow[]
+
+  // Compute per-account counts in two batch queries (contact_count, open_opportunity_count, pipeline_value)
+  let rowsWithCounts: AccountWithCounts[]
+  if (rows.length === 0) {
+    rowsWithCounts = []
+  } else {
+    const ids = rows.map((r) => r.id)
+
+    const [
+      { data: contactCounts },
+      { data: oppData },
+    ] = await Promise.all([
+      supabase
+        .from('contacts')
+        .select('account_id')
+        .in('account_id', ids),
+      supabase
+        .from('opportunities')
+        .select('account_id, value, status')
+        .in('account_id', ids),
+    ])
+
+    const contactCountMap = new Map<string, number>()
+    for (const c of contactCounts ?? []) {
+      if (c.account_id) {
+        contactCountMap.set(c.account_id, (contactCountMap.get(c.account_id) ?? 0) + 1)
+      }
+    }
+
+    const oppCountMap = new Map<string, number>()
+    const pipelineValueMap = new Map<string, number>()
+    for (const o of oppData ?? []) {
+      if (o.account_id && o.status === 'open') {
+        oppCountMap.set(o.account_id, (oppCountMap.get(o.account_id) ?? 0) + 1)
+        pipelineValueMap.set(o.account_id, (pipelineValueMap.get(o.account_id) ?? 0) + (Number(o.value) || 0))
+      }
+    }
+
+    rowsWithCounts = rows.map((r) => ({
+      ...r,
+      contact_count: contactCountMap.get(r.id) ?? 0,
+      open_opportunity_count: oppCountMap.get(r.id) ?? 0,
+      pipeline_value: pipelineValueMap.get(r.id) ?? 0,
+    }))
+  }
+
   return okResult<AccountListResult>({
-    rows: (data ?? []) as AccountRow[],
+    rows: rowsWithCounts,
     total: count ?? 0,
     page: f.page,
     pageSize: f.pageSize,
@@ -118,7 +165,7 @@ export async function getAccount(
   const [
     { data: account, error: accErr },
     { count: contactCount, error: cErr },
-    { count: oppCount, error: oErr },
+    { data: oppData, error: oErr },
   ] = await Promise.all([
     supabase.from('accounts').select('*').eq('id', id).maybeSingle(),
     supabase
@@ -127,7 +174,7 @@ export async function getAccount(
       .eq('account_id', id),
     supabase
       .from('opportunities')
-      .select('id', { count: 'exact', head: true })
+      .select('value, status')
       .eq('account_id', id)
       .eq('status', 'open'),
   ])
@@ -137,10 +184,14 @@ export async function getAccount(
   if (cErr) return errResult(cErr.message, cErr)
   if (oErr) return errResult(oErr.message, oErr)
 
+  const openOpps = oppData ?? []
+  const pipelineValue = openOpps.reduce((sum, o) => sum + (Number(o.value) || 0), 0)
+
   return okResult<AccountWithCounts>({
     ...(account as AccountRow),
     contact_count: contactCount ?? 0,
-    open_opportunity_count: oppCount ?? 0,
+    open_opportunity_count: openOpps.length,
+    pipeline_value: pipelineValue,
   })
 }
 

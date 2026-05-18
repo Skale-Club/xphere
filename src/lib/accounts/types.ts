@@ -26,11 +26,12 @@ export type AccountUpdate = Database['public']['Tables']['accounts']['Update']
 export interface AccountWithCounts extends AccountRow {
   contact_count: number
   open_opportunity_count: number
+  pipeline_value: number
 }
 
 /** Paginated list response. */
 export interface AccountListResult {
-  rows: AccountRow[]
+  rows: AccountWithCounts[]
   total: number
   page: number
   pageSize: number
