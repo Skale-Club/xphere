@@ -30,10 +30,12 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 ## Phases
 
 - [x] **Phase 64: ACCOUNTS-SCHEMA** — `accounts` table + FKs from contacts/opportunities + CHECK constraint + idempotent data migration from `contacts.company` (completed 2026-05-18)
-- [x] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI) (completed 2026-05-18)
+- [x] **Phase 65: ACCOUNTS-ACTIONS** — Server actions for account CRUD, merge, CSV import, and contact/opportunity wiring (no UI)
+ (completed 2026-05-18)
 - [ ] **Phase 66: ACCOUNTS-LIST-UI** — `/dashboard/accounts` list with filters/search/bulk actions, contact-form combobox, Top Companies dashboard widget
 - [ ] **Phase 67: ACCOUNTS-DETAIL-UI** — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows, email-domain auto-suggest
-- [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types (completed 2026-05-18)
+- [x] **Phase 68: CUSTOMFIELDS-SCHEMA** — ENUMs, `custom_field_definitions` table, RLS, reserved-keys list, derived TS types
+ (completed 2026-05-18)
 - [ ] **Phase 69: CUSTOMFIELDS-CORE-LIB** — `validate.ts`, `serialize.ts`, `render-config.ts`, wired into contact/opportunity/account server actions
 - [ ] **Phase 70: CUSTOMFIELDS-SETTINGS-UI** — `/dashboard/settings/custom-fields` with per-entity tabs, drag-reorder, archive, groups, per-type config modal
 - [ ] **Phase 71: CUSTOMFIELDS-RENDERER-INTEGRATION** — `<CustomFieldsForm>` + `<CustomFieldsDisplay>` + 12 per-type components, plugged into every entity form and detail page
@@ -127,7 +129,10 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
   2. A currency-type value persists in `jsonb` as `{amount, currency}` and round-trips through the serializer with both fields intact
   3. The validator runs identically on contact, opportunity, and account writes — there is one shared library, not three copies
   4. A write whose `custom_fields` payload contains a key not present in the org's definitions is rejected (no silent acceptance of unknown keys)
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 69-01-PLAN.md — Pure-function foundation: reserved-keys.ts, serialize.ts, render-config.ts, index.ts (no I/O)
+- [ ] 69-02-PLAN.md — validate.ts with dynamic zod validation wired into contacts, accounts, and pipeline server actions
+- [ ] 69-03-PLAN.md — Unit tests (mocked Supabase): unknown key, required, type check, unique_per_org, currency round-trip, serializer
 
 ### Phase 70: CUSTOMFIELDS-SETTINGS-UI
 **Goal**: Admins can fully manage custom field definitions for each entity from a settings page — create, edit, reorder, group, and archive — without touching SQL.
@@ -220,7 +225,7 @@ Accounts (SEED-016) → Custom Fields (SEED-017) → Import Pipeline (SEED-018).
 | 66. ACCOUNTS-LIST-UI | 0/0 | Not started | — |
 | 67. ACCOUNTS-DETAIL-UI | 0/0 | Not started | — |
 | 68. CUSTOMFIELDS-SCHEMA | 3/3 | Complete    | 2026-05-18 |
-| 69. CUSTOMFIELDS-CORE-LIB | 0/0 | Not started | — |
+| 69. CUSTOMFIELDS-CORE-LIB | 0/3 | Not started | — |
 | 70. CUSTOMFIELDS-SETTINGS-UI | 0/0 | Not started | — |
 | 71. CUSTOMFIELDS-RENDERER-INTEGRATION | 0/0 | Not started | — |
 | 72. CUSTOMFIELDS-LIST-FILTERS-IO | 0/0 | Not started | — |
