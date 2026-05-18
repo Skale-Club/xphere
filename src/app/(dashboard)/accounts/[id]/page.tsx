@@ -3,9 +3,15 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { getAccountDetail } from './actions'
+import {
+  getAccountDetail,
+  getAccountOpportunities,
+  getAccountActivities,
+} from './actions'
 import { AccountDetailHeader } from '@/components/accounts/account-detail-header'
 import { AccountContactsTab } from '@/components/accounts/account-contacts-tab'
+import { AccountOpportunitiesTab } from '@/components/accounts/account-opportunities-tab'
+import { AccountActivitiesTab } from '@/components/accounts/account-activities-tab'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -13,9 +19,17 @@ interface Props {
 
 export default async function AccountDetailPage({ params }: Props) {
   const { id } = await params
-  const result = await getAccountDetail(id)
-  if (!result.ok) notFound()
-  const { account, contacts } = result.data
+
+  const [detailResult, oppsResult, activitiesResult] = await Promise.all([
+    getAccountDetail(id),
+    getAccountOpportunities(id),
+    getAccountActivities(id),
+  ])
+
+  if (!detailResult.ok) notFound()
+  const { account, contacts } = detailResult.data
+  const opportunities = oppsResult.ok ? oppsResult.data : []
+  const activities = activitiesResult.ok ? activitiesResult.data : []
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -30,19 +44,17 @@ export default async function AccountDetailPage({ params }: Props) {
       <Tabs defaultValue="contacts" className="space-y-4">
         <TabsList>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
-          <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-          <TabsTrigger value="activities">Activities</TabsTrigger>
+          <TabsTrigger value="opportunities">Opportunities ({opportunities.length})</TabsTrigger>
+          <TabsTrigger value="activities">Activities ({activities.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="contacts">
           <AccountContactsTab contacts={contacts} accountId={id} />
         </TabsContent>
         <TabsContent value="opportunities">
-          {/* Plan 67-02 */}
-          <p className="text-text-tertiary text-[13px] py-8 text-center">Coming in next plan</p>
+          <AccountOpportunitiesTab opportunities={opportunities} accountId={id} />
         </TabsContent>
         <TabsContent value="activities">
-          {/* Plan 67-02 */}
-          <p className="text-text-tertiary text-[13px] py-8 text-center">Coming in next plan</p>
+          <AccountActivitiesTab activities={activities} />
         </TabsContent>
       </Tabs>
     </div>
