@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import { getUser } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { LandingPage } from '@/components/landing/landing-page'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'
@@ -61,8 +59,6 @@ const jsonLd = {
 }
 
 export default async function RootPage() {
-  const user = await getUser()
-  if (user) redirect('/dashboard')
   return (
     <>
       <script
