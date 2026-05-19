@@ -53,6 +53,8 @@ export function BookingForm({ eventTypeId, slot, onSuccess }: BookingFormProps) 
       if (!result.ok) {
         if (result.error === 'slot_taken') {
           toast.error('This slot was just taken — please pick another time.')
+        } else if (result.error === 'rate_limited') {
+          toast.error('Too many booking attempts. Please try again in an hour.')
         } else {
           toast.error(result.error)
         }

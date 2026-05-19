@@ -1,6 +1,7 @@
 'use server'
 
 import { z } from 'zod'
+import { headers } from 'next/headers'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
@@ -8,7 +9,25 @@ import { addMinutes, startOfDay, endOfDay, addDays } from 'date-fns'
 import { fromZonedTime } from 'date-fns-tz'
 import { generateSlots } from '@/lib/scheduling/slots'
 import { fetchBusyTimes } from '@/lib/scheduling/google-calendar'
+import { rateLimit } from '@/lib/rate-limit'
 import type { TimeSlot } from '@/lib/scheduling/slots'
+
+// Extract the client IP from the incoming request headers. Vercel + most
+// reverse proxies populate x-forwarded-for (comma-separated). We take the
+// first entry. Falls back to x-real-ip, then 'unknown' so rate limiting
+// degrades to a single shared bucket rather than crashing.
+async function getClientIp(): Promise<string> {
+  try {
+    const h = await headers()
+    const xff = h.get('x-forwarded-for')
+    if (xff) return xff.split(',')[0].trim()
+    const xri = h.get('x-real-ip')
+    if (xri) return xri.trim()
+  } catch {
+    // headers() throws outside a request context — treat as unknown.
+  }
+  return 'unknown'
+}
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -185,6 +204,16 @@ export async function createBooking(
 ): Promise<ActionResult<{ id: string; cancel_token: string }>> {
   const parsed = createBookingSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'validation_error' }
+
+  // Rate limit per (IP, event_type) — 5 bookings per hour. Fails open if
+  // Redis is unreachable so we never block legitimate traffic on infra hiccups.
+  const ip = await getClientIp()
+  const rl = await rateLimit(
+    `booking:${ip}:${parsed.data.event_type_id}`,
+    5,
+    3600,
+  )
+  if (!rl.allowed) return { ok: false, error: 'rate_limited' }
 
   const supabase = createServiceRoleClient()
 
