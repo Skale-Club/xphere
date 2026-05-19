@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -22,7 +22,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/pipeline/format'
 import {
@@ -35,7 +34,6 @@ import {
 import type { Database } from '@/types/database'
 import { useCelebrate } from '@/components/design-system/celebration-provider'
 import { OpportunityCard } from './opportunity-card'
-import { NewOpportunityDialog } from './new-opportunity-dialog'
 import { OpportunityDetailSheet } from './opportunity-detail-sheet'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
@@ -51,11 +49,10 @@ interface ColumnProps {
   opportunities: OpportunityWithContact[]
   onOpen: (id: string) => void
   onAction: (action: 'won' | 'lost' | 'delete' | 'edit', id: string) => void
-  pipelineId: string
   isOver: boolean
 }
 
-function StageColumn({ stage, opportunities, onOpen, onAction, pipelineId, isOver }: ColumnProps) {
+function StageColumn({ stage, opportunities, onOpen, onAction, isOver }: ColumnProps) {
   // Make the whole column a sortable drop area by using the SortableContext id
   const { setNodeRef } = useSortable({
     id: `column-${stage.id}`,
@@ -113,19 +110,11 @@ function StageColumn({ stage, opportunities, onOpen, onAction, pipelineId, isOve
           )}
         </SortableContext>
       </div>
-
-      <div className="border-t border-border-subtle px-2 py-2">
-        <NewOpportunityDialog pipelineId={pipelineId} stageId={stage.id}>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-text-tertiary hover:text-text-primary">
-            <Plus className="h-3.5 w-3.5" /> Add opportunity
-          </Button>
-        </NewOpportunityDialog>
-      </div>
     </div>
   )
 }
 
-export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardProps) {
+export function KanbanBoard({ stages, opportunities }: KanbanBoardProps) {
   const router = useRouter()
 
   // Local optimistic state so drag-and-drop feels instant.
@@ -306,22 +295,27 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
             opportunities={byStage.get(s.id) ?? []}
             onOpen={handleOpen}
             onAction={handleAction}
-            pipelineId={pipelineId}
             isOver={overColumnId === s.id}
           />
         ))}
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 280, easing: 'cubic-bezier(0.18, 0.89, 0.32, 1.28)' }}>
-        {activeOpp ? (
-          <OpportunityCard
-            opportunity={activeOpp}
-            onOpen={() => {}}
-            onAction={() => {}}
-            isOverlay
-          />
-        ) : null}
-      </DragOverlay>
+      {/* Portal to document.body — parent has framer-motion transform which
+          would otherwise break position:fixed used by DragOverlay, causing
+          the dragged card to render far from the cursor. */}
+      {typeof document !== 'undefined' && createPortal(
+        <DragOverlay dropAnimation={{ duration: 280, easing: 'cubic-bezier(0.18, 0.89, 0.32, 1.28)' }}>
+          {activeOpp ? (
+            <OpportunityCard
+              opportunity={activeOpp}
+              onOpen={() => {}}
+              onAction={() => {}}
+              isOverlay
+            />
+          ) : null}
+        </DragOverlay>,
+        document.body,
+      )}
 
       <OpportunityDetailSheet
         opportunityId={openSheetId}

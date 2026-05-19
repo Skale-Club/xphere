@@ -30,6 +30,7 @@ import {
 } from '@/app/(dashboard)/voice/actions'
 import { useTwilioDevice } from './twilio-device-provider'
 import { useCallRecorder } from '@/hooks/use-call-recorder'
+import { useDialPadPrefill } from './dial-pad-context'
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -76,6 +77,14 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
       if (def) setFromNumber(def.e164)
     })
   }, [])
+
+  // External callers (e.g. contact detail) can prefill the dial-pad without
+  // initiating a call — opens the panel and fills the number field.
+  const handlePrefill = React.useCallback((phone: string) => {
+    setNumber(phone)
+    setOpen(true)
+  }, [])
+  useDialPadPrefill(handlePrefill)
 
   // Call duration timer
   React.useEffect(() => {
