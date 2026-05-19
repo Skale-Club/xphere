@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { previewCsv, importContactsCsv } from '@/app/(dashboard)/contacts/actions'
+import { getDefinitions, type CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { CONTACT_FIELDS, type ContactField } from '@/lib/contacts/csv'
 import { cn } from '@/lib/utils'
 
@@ -45,13 +46,21 @@ export function ImportCsvDialog() {
     rows: string[][]
     totalRows: number
   } | null>(null)
-  const [mapping, setMapping] = React.useState<Record<string, ContactField | null>>({})
+  const [mapping, setMapping] = React.useState<Record<string, string | null>>({})
+  const [customDefs, setCustomDefs] = React.useState<CustomFieldDefinitionRow[]>([])
   const [summary, setSummary] = React.useState<{
     inserted: number
     skipped: number
     errors: number
   } | null>(null)
   const router = useRouter()
+
+  React.useEffect(() => {
+    if (!open) return
+    getDefinitions({ entity: 'contact', includeArchived: false }).then((res) => {
+      if (res.ok) setCustomDefs(res.data)
+    })
+  }, [open])
 
   function reset() {
     setStage('pick')
@@ -78,7 +87,7 @@ export function ImportCsvDialog() {
       rows: res.preview.rows,
       totalRows: res.preview.totalRows,
     })
-    setMapping(res.preview.suggestedMapping)
+    setMapping(res.preview.suggestedMapping as Record<string, string | null>)
     setStage('mapping')
   }
 
@@ -171,7 +180,7 @@ export function ImportCsvDialog() {
                       onValueChange={(v) =>
                         setMapping((prev) => ({
                           ...prev,
-                          [h]: v === 'ignore' ? null : (v as ContactField),
+                          [h]: v === 'ignore' ? null : v,
                         }))
                       }
                     >
@@ -182,9 +191,21 @@ export function ImportCsvDialog() {
                         <SelectItem value="ignore">Ignore</SelectItem>
                         {CONTACT_FIELDS.map((f) => (
                           <SelectItem key={f} value={f}>
-                            {FIELD_LABEL[f]}
+                            {FIELD_LABEL[f as ContactField]}
                           </SelectItem>
                         ))}
+                        {customDefs.length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-text-tertiary">
+                              Custom fields
+                            </div>
+                            {customDefs.map((def) => (
+                              <SelectItem key={def.id} value={`cf:${def.key}`}>
+                                {def.label}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

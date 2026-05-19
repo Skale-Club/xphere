@@ -17,9 +17,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ContactDetailSheet } from './contact-detail-sheet'
-import { deleteContacts } from '@/app/(dashboard)/contacts/actions'
+import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
+import { deleteContacts, exportContactsCsv } from '@/app/(dashboard)/contacts/actions'
 import type { Database } from '@/types/database'
 import type { TagRow } from '@/app/(dashboard)/settings/tags/actions'
+import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
+import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
+import type { CustomFieldType } from '@/types/database'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +39,9 @@ interface ContactsTableProps {
   currentSource?: string
   currentSort: string
   currentQuery?: string
+  visibleDefs?: CustomFieldDefinitionRow[]
+  filterableDefs?: CustomFieldDefinitionRow[]
+  activeCfFilters?: Record<string, string>
 }
 
 function initialsOf(name: string | null, phone: string | null, email: string | null): string {
@@ -68,6 +75,9 @@ export function ContactsTable({
   currentSource,
   currentSort,
   currentQuery,
+  visibleDefs = [],
+  filterableDefs = [],
+  activeCfFilters = {},
 }: ContactsTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -197,8 +207,33 @@ export function ContactsTable({
               <SelectItem value="name">By name</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              const res = await exportContactsCsv()
+              if (res.error) { toast.error(res.error); return }
+              if (!res.csv) return
+              const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url; a.download = 'contacts.csv'; a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="text-[12.5px]"
+          >
+            Export CSV
+          </Button>
         </div>
       </div>
+
+      {filterableDefs.length > 0 && (
+        <CustomFieldsFilterBar
+          filterableDefs={filterableDefs}
+          activeFilters={activeCfFilters}
+          onChange={(key, value) => setParam(`cff_${key}`, value)}
+        />
+      )}
 
       {/* Tag chips */}
       {allTags.length > 0 && (
@@ -230,7 +265,10 @@ export function ContactsTable({
 
       {/* Table */}
       <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
-        <div className="grid grid-cols-[40px_2fr_1.5fr_1.2fr_1fr_100px] items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+        <div
+          className="grid items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary"
+          style={{ gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr${visibleDefs.map(() => ' 1fr').join('')} 100px` }}
+        >
           <Checkbox
             checked={selected.size === rows.length && rows.length > 0}
             onCheckedChange={toggleAll}
@@ -240,6 +278,9 @@ export function ContactsTable({
           <div>Phone</div>
           <div>Email</div>
           <div>Tags</div>
+          {visibleDefs.map((def) => (
+            <div key={def.id}>{def.label}</div>
+          ))}
           <div className="text-right">Added</div>
         </div>
 
@@ -264,10 +305,11 @@ export function ContactsTable({
                   }
                 }}
                 className={cn(
-                  'grid grid-cols-[40px_2fr_1.5fr_1.2fr_1fr_100px] items-center gap-3 px-4 py-3 cursor-pointer',
+                  'grid items-center gap-3 px-4 py-3 cursor-pointer',
                   'transition-all duration-200 ease-out hover:bg-bg-tertiary/40 focus:outline-none focus-visible:bg-bg-tertiary/40',
                   pendingDelete.has(c.id) && 'opacity-30 -translate-x-2 pointer-events-none',
                 )}
+                style={{ gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr${visibleDefs.map(() => ' 1fr').join('')} 100px` }}
               >
                 <div onClick={(e) => e.stopPropagation()}>
                   <Checkbox
@@ -324,6 +366,17 @@ export function ContactsTable({
                     <span className="text-[10.5px] text-text-tertiary">+{c.tags.length - 2}</span>
                   )}
                 </div>
+                {visibleDefs.map((def) => {
+                  const cf = (c.custom_fields ?? {}) as Record<string, unknown>
+                  const val = cf[def.key]
+                  const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
+                  const display = val !== undefined && val !== null ? config.displayFormatter(val) : '—'
+                  return (
+                    <div key={def.id} className="truncate text-[12.5px] text-text-secondary">
+                      {display}
+                    </div>
+                  )
+                })}
                 <div className="text-right text-[11.5px] text-text-tertiary">
                   {relativeTime(c.created_at)}
                 </div>

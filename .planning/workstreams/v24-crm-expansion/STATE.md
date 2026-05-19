@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: CRM Expansion
 status: executing
-stopped_at: Completed 71-02-PLAN.md
-last_updated: "2026-05-19T00:10:00.000Z"
+stopped_at: Completed 72-02-PLAN.md
+last_updated: "2026-05-19T00:20:00.000Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 12
-  completed_phases: 9
-  total_plans: 32
-  completed_plans: 32
+  completed_phases: 10
+  total_plans: 34
+  completed_plans: 34
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 72
+Phase: 74
 Plan: Not started
-Next: 72-01 (customfields-list-filters-io)
-Status: Phases 64/65/66/67/68/69/70/71/73 complete (9/12); next up Phase 72
+Next: 74-01 (import-wizard-ui)
+Status: Phases 64/65/66/67/68/69/70/71/72/73 complete (10/12); next up Phase 74
 Last activity: 2026-05-19
 
 ## Milestone Progress
@@ -131,6 +131,8 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 70-04]: Phase 70 complete — admin can visit /settings/custom-fields, create/edit/reorder/group/archive custom field definitions of all 13 types; Custom Fields sidebar link added; 11/11 Vitest action tests pass; npm run build clean
 - [Phase 71-01]: opportunitySchema custom_fields uses `.optional()` only (no `.default({})`) — `OpportunityFormInput = z.infer` resolves to output type where `.default({})` would make custom_fields required, breaking existing call sites; action handles undefined via `?? {}`
 - [Phase 71-02]: Phase 71 complete — CustomFieldsForm + CustomFieldsDisplay wired into contact form, contact detail sheet, opportunity detail sheet, and account detail page; both contact and opportunity actions now persist custom_fields to DB; 16/16 Vitest tests pass; npm run build clean
+- [Phase 72-01]: cfFilters applied via jsonb contains (custom_fields @> '{key:val}'); value coerced from URL string to boolean/number/string. All filterable field types supported; multi_select and currency skipped (exact jsonb match sufficient for text, boolean, select, number, date)
+- [Phase 72-02]: Phase 72 complete — dynamic columns (visible_in_list) + type-aware filters (filterable) in contacts+accounts lists; CSV export for contacts/accounts/opportunities; ImportCsvDialog extended with cf:key mapping targets; 15/15 Vitest tests pass; npm run build clean
 
 ## Pending Todos
 
@@ -139,5 +141,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-19T00:10:00.000Z
-Stopped at: Completed 71-02-PLAN.md
+Last session: 2026-05-19T00:20:00.000Z
+Stopped at: Completed 72-02-PLAN.md

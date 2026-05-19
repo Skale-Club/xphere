@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Building2 } from 'lucide-react'
 
 import { getAccounts } from './actions'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
@@ -32,6 +33,13 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
 
   const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
+
+  const cfFilters: Record<string, string> = {}
+  for (const [key, val] of Object.entries(sp)) {
+    if (key.startsWith('cff_') && typeof val === 'string' && val) {
+      cfFilters[key.slice(4)] = val
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -71,6 +79,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
           assignedTo={assignedTo}
           source={source}
           page={page}
+          cfFilters={cfFilters}
         />
       </Suspense>
     </div>
@@ -85,6 +94,7 @@ async function AccountsBody({
   assignedTo,
   source,
   page,
+  cfFilters,
 }: {
   q?: string
   industry?: string
@@ -93,17 +103,15 @@ async function AccountsBody({
   assignedTo?: string
   source?: (typeof ACCOUNT_SOURCES)[number]
   page: number
+  cfFilters: Record<string, string>
 }) {
-  const result = await getAccounts({
-    q,
-    industry,
-    size,
-    tag,
-    assignedTo,
-    source,
-    page,
-    pageSize: 25,
-  })
+  const [result, defsResult] = await Promise.all([
+    getAccounts({ q, industry, size, tag, assignedTo, source, page, pageSize: 25 }, cfFilters),
+    getDefinitions({ entity: 'account', includeArchived: false }),
+  ])
+  const defs = defsResult.ok ? defsResult.data : []
+  const visibleDefs = defs.filter((d) => d.visible_in_list)
+  const filterableDefs = defs.filter((d) => d.filterable)
 
   if (!result.ok) {
     return (
@@ -112,6 +120,9 @@ async function AccountsBody({
         total={0}
         page={1}
         pageSize={25}
+        visibleDefs={visibleDefs}
+        filterableDefs={filterableDefs}
+        activeCfFilters={cfFilters}
       />
     )
   }
@@ -122,6 +133,9 @@ async function AccountsBody({
       total={result.data.total}
       page={result.data.page}
       pageSize={result.data.pageSize}
+      visibleDefs={visibleDefs}
+      filterableDefs={filterableDefs}
+      activeCfFilters={cfFilters}
     />
   )
 }

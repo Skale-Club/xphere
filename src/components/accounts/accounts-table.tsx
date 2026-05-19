@@ -4,10 +4,16 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Building2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatCurrency } from '@/lib/pipeline/format'
+import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
+import { exportAccountsCsv } from '@/app/(dashboard)/accounts/actions'
+import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
+import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
+import type { CustomFieldType } from '@/types/database'
 import { cn } from '@/lib/utils'
 import type { AccountRow } from '@/lib/accounts'
 import { AccountsBulkActions } from './accounts-bulk-actions'
@@ -38,6 +44,9 @@ interface AccountsTableProps {
   total: number
   page: number
   pageSize: number
+  visibleDefs?: CustomFieldDefinitionRow[]
+  filterableDefs?: CustomFieldDefinitionRow[]
+  activeCfFilters?: Record<string, string>
 }
 
 export function AccountsTable({
@@ -45,6 +54,9 @@ export function AccountsTable({
   total,
   page,
   pageSize,
+  visibleDefs = [],
+  filterableDefs = [],
+  activeCfFilters = {},
 }: AccountsTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -84,8 +96,38 @@ export function AccountsTable({
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
+  const gridTemplate = `40px 2.5fr 1.5fr 80px 80px 100px 1.2fr${visibleDefs.map(() => ' 1fr').join('')} 90px`
+
   return (
     <div className="space-y-4">
+      {filterableDefs.length > 0 && (
+        <CustomFieldsFilterBar
+          filterableDefs={filterableDefs}
+          activeFilters={activeCfFilters}
+          onChange={(key, value) => setParam(`cff_${key}`, value)}
+        />
+      )}
+
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={async () => {
+            const res = await exportAccountsCsv()
+            if (res.error) { toast.error(res.error); return }
+            if (!res.csv) return
+            const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = 'accounts.csv'; a.click()
+            URL.revokeObjectURL(url)
+          }}
+          className="text-[12.5px]"
+        >
+          Export CSV
+        </Button>
+      </div>
+
       {/* Bulk-actions bar — visible when 1+ rows are selected */}
       {selected.size > 0 && (
         <AccountsBulkActions
@@ -98,7 +140,10 @@ export function AccountsTable({
       {/* Table */}
       <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[40px_2.5fr_1.5fr_80px_80px_100px_1.2fr_90px] items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+        <div
+          className="grid items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary"
+          style={{ gridTemplateColumns: gridTemplate }}
+        >
           <Checkbox
             checked={selected.size === rows.length && rows.length > 0}
             onCheckedChange={toggleAll}
@@ -110,6 +155,9 @@ export function AccountsTable({
           <div className="tabular-nums">Deals</div>
           <div className="tabular-nums">Pipeline</div>
           <div>Tags</div>
+          {visibleDefs.map((def) => (
+            <div key={def.id}>{def.label}</div>
+          ))}
           <div className="text-right">Added</div>
         </div>
 
@@ -125,9 +173,10 @@ export function AccountsTable({
                 <div
                   key={row.id}
                   className={cn(
-                    'grid grid-cols-[40px_2.5fr_1.5fr_80px_80px_100px_1.2fr_90px] items-center gap-3 px-4 py-3',
+                    'grid items-center gap-3 px-4 py-3',
                     'transition-colors duration-150 hover:bg-bg-tertiary/40',
                   )}
+                  style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {/* Checkbox */}
                   <div onClick={(e) => e.stopPropagation()}>
@@ -186,6 +235,19 @@ export function AccountsTable({
                       </span>
                     )}
                   </div>
+
+                  {/* Custom field columns */}
+                  {visibleDefs.map((def) => {
+                    const cf = (row.custom_fields ?? {}) as Record<string, unknown>
+                    const val = cf[def.key]
+                    const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
+                    const display = val !== undefined && val !== null ? config.displayFormatter(val) : '—'
+                    return (
+                      <div key={def.id} className="truncate text-[12.5px] text-text-secondary">
+                        {display}
+                      </div>
+                    )
+                  })}
 
                   {/* Created at */}
                   <div className="text-right text-[11.5px] text-text-tertiary">

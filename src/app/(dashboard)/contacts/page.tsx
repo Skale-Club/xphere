@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Sparkles, Users } from 'lucide-react'
 
 import { getContacts } from './actions'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { ContactsTable } from '@/components/contacts/contacts-table'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { ImportCsvDialog } from '@/components/contacts/import-csv-dialog'
@@ -26,6 +27,14 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   const sort = sortRaw === 'name' ? 'name' : 'recent'
   const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
+
+  // Extract custom field filters from cff_* URL params
+  const cfFilters: Record<string, string> = {}
+  for (const [key, val] of Object.entries(sp)) {
+    if (key.startsWith('cff_') && typeof val === 'string' && val) {
+      cfFilters[key.slice(4)] = val
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -58,6 +67,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
           source={source}
           sort={sort}
           page={page}
+          cfFilters={cfFilters}
         />
       </Suspense>
     </div>
@@ -70,14 +80,22 @@ async function ContactsBody({
   source,
   sort,
   page,
+  cfFilters,
 }: {
   q?: string
   tag?: string
   source?: (typeof CONTACT_SOURCES)[number]
   sort: 'recent' | 'name'
   page: number
+  cfFilters: Record<string, string>
 }) {
-  const result = await getContacts({ q, tag, source, sort, page, pageSize: 25 })
+  const [result, defsResult] = await Promise.all([
+    getContacts({ q, tag, source, sort, page, pageSize: 25 }, cfFilters),
+    getDefinitions({ entity: 'contact', includeArchived: false }),
+  ])
+  const defs = defsResult.ok ? defsResult.data : []
+  const visibleDefs = defs.filter((d) => d.visible_in_list)
+  const filterableDefs = defs.filter((d) => d.filterable)
 
   // Show EmptyContacts ONLY for the true unfiltered empty state — otherwise we
   // still want the toolbar and search visible so the user can clear filters.
@@ -107,6 +125,9 @@ async function ContactsBody({
       currentSource={source}
       currentSort={sort}
       currentQuery={q}
+      visibleDefs={visibleDefs}
+      filterableDefs={filterableDefs}
+      activeCfFilters={cfFilters}
     />
   )
 }
