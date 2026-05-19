@@ -12,7 +12,15 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current State: v2.4 CRM Expansion ✅ Shipped 2026-05-19
+## Active: v2.6 Admin Panel + Landing Page + SEO 🔄 In Progress
+
+3 phases (82–84), 10 plans — Phase 82 (SUPER-ADMIN-PANEL) planning underway (82-01, 82-02 drafted). Parallel active workstream alongside v2.5.
+
+## Active: v2.5 Tasks & Notes CRM System 🚧 In Progress
+
+6 phases (76–81), 26 requirements (TSK-01..14, NOT-01..12) — 1/6 phases complete. Phase 76 (DB-FOUNDATION) shipped: migrations 067 (tasks table + enums + RLS) and 068 (notes table + RLS + TypeScript types). Phase 77 (TASKS-ACTIONS) is next.
+
+## Previous: v2.4 CRM Expansion ✅ Shipped 2026-05-19
 
 **12 phases, 93 commits, 167 files, +31,256 / −31 lines — single-session marathon.**
 
@@ -241,9 +249,11 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Custom Fields system: `custom_field_definitions` table (13 types, 3 entities, reserved-key enforcement), server-side zod validation, settings UI with drag-reorder/groups/archive, `CustomFieldsForm`/`CustomFieldsDisplay` in all forms/detail pages, dynamic list columns+filters, CSV IO — v2.4 (CF-01..15)
 - Contact Import Pipeline: queued background import with direct-to-Storage XHR upload (50MB/200k rows), mapping wizard, dedup preview, Realtime progress, per-row errors, retry-failed, account auto-create, imports history page — v2.4 (IMP-01..20)
 
-### Active (v2.4 shipped — planning v2.5 next)
+### Active (v2.5 + v2.6 in progress)
 
-All v2.4 requirements shipped. Next milestone to be defined via `/gsd:new-milestone`.
+**v2.5 Tasks & Notes (workstreams/v25-tasks-notes):** Phase 76 complete — tasks + notes DB migrations applied, TypeScript types updated. Phases 77–81 pending.
+
+**v2.6 Admin Panel + Landing + SEO (workstreams/v26-admin-landing-seo):** Phase 82 planning underway. 0/3 phases complete.
 
 ### Backlog (next milestone candidates)
 
@@ -319,4 +329,4 @@ All v2.4 requirements shipped. Next milestone to be defined via `/gsd:new-milest
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-19 — v2.4 CRM Expansion shipped (12/12 phases, 54/54 requirements). Accounts + Custom Fields + Import Pipeline delivered. v2.3 Integrations Refactor still pending HUMAN-UAT.*
+*Last updated: 2026-05-19 — v2.5 (1/6 phases) + v2.6 (0/3 phases) both in progress. v2.4 CRM Expansion shipped (12/12 phases, 54/54 requirements). v2.3 Integrations Refactor still pending HUMAN-UAT.*

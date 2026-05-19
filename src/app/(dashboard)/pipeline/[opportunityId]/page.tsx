@@ -12,8 +12,11 @@ import { OppTagsWidget } from '@/components/pipeline/opp-tags-widget'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, initialsOf, relativeTime } from '@/lib/pipeline/format'
 import { getOpportunityTagIds, listTags } from '@/app/(dashboard)/settings/tags/actions'
+import { TasksPanel } from '@/components/tasks/tasks-panel'
+import { NotesPanel } from '@/components/notes/notes-panel'
 
 interface Props {
   params: Promise<{ opportunityId: string }>
@@ -90,13 +93,28 @@ export default async function OpportunityDetailPage({ params }: Props) {
 
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-        {/* Activity feed + composer */}
-        <OpportunityDetailClient
-          opportunityId={opp.id}
-          stages={stages}
-          currentStageId={opp.stage_id}
-          activities={activities}
-        />
+        {/* Main content: activity + tasks + notes */}
+        <Tabs defaultValue="activity" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+          </TabsList>
+          <TabsContent value="activity">
+            <OpportunityDetailClient
+              opportunityId={opp.id}
+              stages={stages}
+              currentStageId={opp.stage_id}
+              activities={activities}
+            />
+          </TabsContent>
+          <TabsContent value="tasks">
+            <TasksPanel entityType="opportunity" entityId={opp.id} />
+          </TabsContent>
+          <TabsContent value="notes">
+            <NotesPanel entityType="opportunity" entityId={opp.id} />
+          </TabsContent>
+        </Tabs>
 
         {/* Metadata sidebar */}
         <Card>

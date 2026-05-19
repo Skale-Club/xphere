@@ -13,6 +13,8 @@ import { AccountContactsTab } from '@/components/accounts/account-contacts-tab'
 import { AccountOpportunitiesTab } from '@/components/accounts/account-opportunities-tab'
 import { AccountActivitiesTab } from '@/components/accounts/account-activities-tab'
 import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
+import { TasksPanel } from '@/components/tasks/tasks-panel'
+import { NotesPanel } from '@/components/notes/notes-panel'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -52,6 +54,8 @@ export default async function AccountDetailPage({ params }: Props) {
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="opportunities">Opportunities ({opportunities.length})</TabsTrigger>
           <TabsTrigger value="activities">Activities ({activities.length})</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
         <TabsContent value="contacts">
           <AccountContactsTab contacts={contacts} accountId={id} />
@@ -61,6 +65,12 @@ export default async function AccountDetailPage({ params }: Props) {
         </TabsContent>
         <TabsContent value="activities">
           <AccountActivitiesTab activities={activities} />
+        </TabsContent>
+        <TabsContent value="tasks">
+          <TasksPanel entityType="account" entityId={id} />
+        </TabsContent>
+        <TabsContent value="notes">
+          <NotesPanel entityType="account" entityId={id} />
         </TabsContent>
       </Tabs>
     </div>
