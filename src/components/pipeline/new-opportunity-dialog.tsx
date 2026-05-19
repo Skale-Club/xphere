@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Search, Plus, X } from 'lucide-react'
+import { Search, Plus, X, UserPlus } from 'lucide-react'
 
 import {
   Dialog,
@@ -33,6 +33,7 @@ import {
   setOpportunityTags,
   type TagRow,
 } from '@/app/(dashboard)/settings/tags/actions'
+import { createContact } from '@/app/(dashboard)/contacts/actions'
 import { TagPicker } from '@/components/tags/tag-picker'
 import type { Database } from '@/types/database'
 
@@ -69,8 +70,16 @@ export function NewOpportunityDialog({
   const [contactQuery, setContactQuery] = React.useState('')
   const [suggestions, setSuggestions] = React.useState<ContactSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = React.useState(false)
+  const [contactError, setContactError] = React.useState<string | null>(null)
   const [allTags, setAllTags] = React.useState<TagRow[]>([])
   const [tagIds, setTagIds] = React.useState<string[]>([])
+
+  // Inline quick-create contact state
+  const [showQuickCreate, setShowQuickCreate] = React.useState(false)
+  const [quickName, setQuickName] = React.useState('')
+  const [quickPhone, setQuickPhone] = React.useState('')
+  const [quickEmail, setQuickEmail] = React.useState('')
+  const [quickCreating, setQuickCreating] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
@@ -83,8 +92,6 @@ export function NewOpportunityDialog({
 
   React.useEffect(() => {
     if (defaultContactId && open && !contact) {
-      // Defer contact-loading: when opened from contact detail, the consumer
-      // can pre-supply contact, but if we only get the id, fetch via search.
       searchContactsForOpportunity('').then((rows) => {
         const match = rows.find((r) => r.id === defaultContactId)
         if (match) setContact(match)
@@ -111,11 +118,53 @@ export function NewOpportunityDialog({
     setContact(null)
     setContactQuery('')
     setShowSuggestions(false)
+    setContactError(null)
     setTagIds([])
+    setShowQuickCreate(false)
+    setQuickName('')
+    setQuickPhone('')
+    setQuickEmail('')
+  }
+
+  async function handleQuickCreate() {
+    if (!quickName.trim() && !quickPhone.trim() && !quickEmail.trim()) {
+      toast.error('Enter at least a name, phone, or email')
+      return
+    }
+    setQuickCreating(true)
+    const res = await createContact({
+      name: quickName.trim() || undefined,
+      phone: quickPhone.trim() || undefined,
+      email: quickEmail.trim() || undefined,
+    })
+    setQuickCreating(false)
+    if (res.error) {
+      toast.error(res.error)
+      return
+    }
+    // Select the newly created contact
+    const newContact: ContactSuggestion = {
+      id: res.id!,
+      name: quickName.trim() || null,
+      phone: quickPhone.trim() || null,
+      email: quickEmail.trim() || null,
+    }
+    setContact(newContact)
+    setContactError(null)
+    setShowQuickCreate(false)
+    setShowSuggestions(false)
+    setQuickName('')
+    setQuickPhone('')
+    setQuickEmail('')
+    toast.success('Contact created')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!contact) {
+      setContactError('Select or create a contact before saving')
+      return
+    }
     if (!selectedStage) {
       toast.error('Pick a stage')
       return
@@ -128,7 +177,7 @@ export function NewOpportunityDialog({
       currency: 'BRL',
       pipeline_id: pipelineId,
       stage_id: selectedStage,
-      contact_id: contact?.id ?? null,
+      contact_id: contact.id,
       status: 'open',
     })
     setSubmitting(false)
@@ -144,6 +193,8 @@ export function NewOpportunityDialog({
     reset()
     router.refresh()
   }
+
+  const fieldHeight = 'h-9'
 
   return (
     <Dialog
@@ -168,6 +219,7 @@ export function NewOpportunityDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
           <div className="space-y-1.5">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -177,9 +229,11 @@ export function NewOpportunityDialog({
               placeholder="Setup + onboarding"
               required
               maxLength={160}
+              className={fieldHeight}
             />
           </div>
 
+          {/* Value + Stage */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="value">Value (BRL)</Label>
@@ -189,12 +243,16 @@ export function NewOpportunityDialog({
                 onChange={(e) => setValue(e.target.value)}
                 inputMode="decimal"
                 placeholder="0,00"
+                className={fieldHeight}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="stage">Stage</Label>
               <Select value={selectedStage} onValueChange={setSelectedStage}>
-                <SelectTrigger id="stage">
+                <SelectTrigger
+                  id="stage"
+                  className={`${fieldHeight} bg-bg-secondary border-border-subtle text-text-primary`}
+                >
                   <SelectValue placeholder="Choose stage" />
                 </SelectTrigger>
                 <SelectContent>
@@ -214,22 +272,27 @@ export function NewOpportunityDialog({
             </div>
           </div>
 
+          {/* Contact */}
           <div className="space-y-1.5">
-            <Label htmlFor="contact">Contact</Label>
+            <Label htmlFor="contact" className={contactError ? 'text-destructive' : ''}>
+              Contact <span className="text-destructive">*</span>
+            </Label>
             {contact ? (
-              <div className="flex items-center justify-between gap-2 rounded-[8px] border border-border-subtle bg-bg-secondary px-3 py-2">
+              <div className={`flex items-center justify-between gap-2 rounded-[8px] border ${contactError ? 'border-destructive' : 'border-border-subtle'} bg-bg-secondary px-3 ${fieldHeight}`}>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-text-primary truncate">
+                  <span className="text-[13px] font-medium text-text-primary truncate">
                     {contact.name ?? 'Unnamed'}
-                  </div>
-                  <div className="text-[11.5px] text-text-tertiary truncate">
-                    {contact.phone ?? contact.email ?? ''}
-                  </div>
+                  </span>
+                  {(contact.phone ?? contact.email) && (
+                    <span className="ml-2 text-[11.5px] text-text-tertiary truncate">
+                      {contact.phone ?? contact.email}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => setContact(null)}
-                  className="text-text-tertiary hover:text-text-primary"
+                  className="text-text-tertiary hover:text-text-primary shrink-0"
                   aria-label="Clear contact"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -244,24 +307,28 @@ export function NewOpportunityDialog({
                   onChange={(e) => {
                     setContactQuery(e.target.value)
                     setShowSuggestions(true)
+                    setShowQuickCreate(false)
+                    if (contactError) setContactError(null)
                   }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => { setShowSuggestions(true); setShowQuickCreate(false) }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   placeholder="Search by name, phone, or email"
-                  className="pl-8"
+                  className={`pl-8 ${fieldHeight} ${contactError ? 'border-destructive' : ''}`}
                 />
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute z-50 mt-1 w-full rounded-[8px] border border-border-subtle bg-bg-primary shadow-elevation-md max-h-[220px] overflow-y-auto">
+                {(showSuggestions || showQuickCreate) && (
+                  <div className="absolute z-50 mt-1 w-full rounded-[8px] border border-border-subtle bg-bg-primary shadow-elevation-md max-h-[260px] overflow-y-auto">
                     {suggestions.map((s) => (
                       <button
                         key={s.id}
                         type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setContact(s)
+                          setContactError(null)
                           setShowSuggestions(false)
                           setContactQuery('')
                         }}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 hover:bg-bg-secondary text-left"
+                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-bg-secondary text-left"
                       >
                         <div className="min-w-0">
                           <div className="text-[12.5px] font-medium text-text-primary truncate">
@@ -273,12 +340,80 @@ export function NewOpportunityDialog({
                         </div>
                       </button>
                     ))}
+
+                    {/* Quick-create toggle */}
+                    {!showQuickCreate && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setShowQuickCreate(true)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] text-text-secondary hover:bg-bg-secondary border-t border-border-subtle"
+                      >
+                        <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                        Create new contact
+                        {contactQuery && (
+                          <span className="text-text-tertiary">"{contactQuery}"</span>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Inline quick-create form */}
+                    {showQuickCreate && (
+                      <div className="p-3 border-t border-border-subtle space-y-2">
+                        <p className="text-[11.5px] text-text-tertiary font-medium uppercase tracking-wide">New contact</p>
+                        <Input
+                          placeholder="Name"
+                          value={quickName}
+                          onChange={(e) => setQuickName(e.target.value)}
+                          className="h-8 text-[13px]"
+                          autoFocus
+                        />
+                        <Input
+                          placeholder="Phone"
+                          value={quickPhone}
+                          onChange={(e) => setQuickPhone(e.target.value)}
+                          className="h-8 text-[13px]"
+                          inputMode="tel"
+                        />
+                        <Input
+                          placeholder="Email"
+                          value={quickEmail}
+                          onChange={(e) => setQuickEmail(e.target.value)}
+                          className="h-8 text-[13px]"
+                          type="email"
+                        />
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-[12px] flex-1"
+                            disabled={quickCreating}
+                            onClick={handleQuickCreate}
+                          >
+                            {quickCreating ? 'Creating…' : 'Create & select'}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[12px]"
+                            onClick={() => setShowQuickCreate(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
+            {contactError && (
+              <p className="text-[12px] text-destructive">{contactError}</p>
+            )}
           </div>
 
+          {/* Tags */}
           <div className="space-y-1.5">
             <Label>Tags</Label>
             <TagPicker

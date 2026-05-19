@@ -40,7 +40,7 @@ export function useCallRecorder(call: Call | null, shouldRecord: boolean) {
           const blob = new Blob(chunksRef.current, { type: recorder?.mimeType ?? 'audio/webm' })
           if (blob.size === 0) return
 
-          const callSid = (call.parameters as Record<string, string>).CallSid
+          const callSid = (call!.parameters as Record<string, string>).CallSid
           if (!callSid) return
 
           try {
