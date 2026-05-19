@@ -271,7 +271,14 @@ export async function createBooking(
     .select('id, cancel_token')
     .single()
 
-  if (error || !booking) return { ok: false, error: error?.message ?? 'create_failed' }
+  if (error || !booking) {
+    // 23505 = Postgres unique_violation. The partial unique index
+    // idx_bookings_event_slot_unique (migration 072) fires when a concurrent
+    // request booked this slot between our pre-SELECT and INSERT.
+    const code = (error as { code?: string } | null)?.code
+    if (code === '23505') return { ok: false, error: 'slot_taken' }
+    return { ok: false, error: error?.message ?? 'create_failed' }
+  }
 
   // Create Google Calendar event (fire-and-forget, non-fatal)
   try {
