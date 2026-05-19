@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: true
 preset: default / neutral base / cssVariables
 created: 2026-05-18
+revised: 2026-05-18
 ---
 
 # Phase 82 — UI Design Contract: SUPER-ADMIN-PANEL
@@ -49,9 +50,14 @@ Declared values (must be multiples of 4). Using the project's existing 8-point s
 | 2xl | 48px | Major section separators |
 | 3xl | 64px | Page-level vertical rhythm (not used in this phase) |
 
-Exceptions: Sidebar nav items use 10px vertical padding (matches existing sidebar pattern at `[cmdk-item]`). Touch targets for Switch toggles: minimum 44px tall row.
+### Spacing Exceptions
 
-Source: `globals.css` design system + project sidebar patterns.
+| Element | Value | Token | Rationale |
+|---------|-------|-------|-----------|
+| Sidebar nav item vertical padding | 8px | `sm` | Matches existing sidebar `[cmdk-item]` compact pattern |
+| Switch toggle row minimum height | 48px | `2xl` | Touch target AA compliance; full 48px row height |
+
+Source: `globals.css` design system + project sidebar patterns. **Note:** 10px is off-scale; 8px (`sm`) is used instead. 44px is off-scale; 48px (`2xl`) is used instead.
 
 ---
 
@@ -68,6 +74,8 @@ All sizes from the established project type scale. No new sizes introduced.
 
 Letter-spacing: `-0.015em` on headings, `-0.005em` on body (project standard from `globals.css`).
 Tabular numerals (`font-variant-numeric: tabular-nums`) on all metric counts and ID columns — use `.tabular` utility class.
+
+**Note on 13px vs 14px:** The 1px difference between label (13px) and body (14px) is intentional. It creates a clear label-vs-body hierarchy at small scale without introducing a third weight. Executors must not round 13px up to 14px.
 
 Source: `globals.css` — heading rules and body base style.
 
@@ -91,7 +99,9 @@ The admin accent is a **red-to-orange gradient** (`from-red-500 to-orange-500`) 
 1. The "SUPER ADMIN" badge in the header
 2. Active sidebar nav item indicator (left border or background tint)
 3. The sidebar logo/brand mark area background tint (`rgba(239, 68, 68, 0.08)`)
-4. Primary action button ("Save Changes" on feature flags form) — use `bg-red-600 hover:bg-red-700`
+4. Primary action button ("Save Feature Flags" on feature flags form) — use `bg-red-600 hover:bg-red-700`
+
+**Note on primary CTA vs destructive:** The primary CTA ("Save Feature Flags") uses `bg-red-600` (one stop darker than the destructive `red-500`). This is intentional: red-600 signals "privileged admin action" while red-500 is reserved for destructive/danger semantics. The two roles must never share the same shade.
 
 The admin accent is **NOT used** on: table rows, metric numbers, regular text, links, or any non-privileged UI element.
 
@@ -150,6 +160,8 @@ Source: CONTEXT.md decisions, `globals.css` dark mode tokens.
 | Hover | `bg-[#1A1A1D] text-[#FAFAFA]`, transition 100ms ease-out |
 | Active | `bg-red-500/10 text-red-400 border-l-2 border-red-500` |
 
+Sidebar nav item padding: `py-2 px-3` (8px vertical / 12px horizontal).
+
 ---
 
 ## Component Inventory
@@ -162,7 +174,7 @@ All components already installed in `src/components/ui/`. No new shadcn componen
 | `Card`, `CardHeader`, `CardContent` | Metric stat cards on org detail page |
 | `Badge` | Org status pill, member count badge |
 | `Switch` | Feature flag toggles on org detail / preferences page |
-| `Button` | "Save Changes" (admin accent), "Back to Orgs" (ghost) |
+| `Button` | "Save Feature Flags" (admin accent `bg-red-600`), "Back to Organizations" (ghost) |
 | `Separator` | Section dividers in org detail |
 | `Skeleton` | Loading states for table rows and metric cards |
 | `Input` | Admin notes field per feature flag |
@@ -181,7 +193,7 @@ Icon map (lucide-react):
 | `ToggleLeft` / `ToggleRight` | Feature flags section header |
 | `ChevronRight` | Table row action link |
 | `ArrowLeft` | Back navigation |
-| `Save` | Save feature flags CTA |
+| `Save` | Save Feature Flags CTA |
 
 ---
 
@@ -194,6 +206,8 @@ No content rendered — immediate redirect.
 ### `/admin/orgs` — Organizations List
 
 **Layout:** Full-width table inside content area with page header.
+
+**Focal point:** The organizations table is the primary focal point; the page heading and search bar act as secondary anchors. All visual weight flows toward the table.
 
 **Page header:**
 - Heading: "Organizations" at 20px / semibold
@@ -212,7 +226,7 @@ No content rendered — immediate redirect.
 
 **Empty state:** See Copywriting Contract.
 
-**Loading state:** 5 `Skeleton` rows, each 44px tall, column widths matching table layout.
+**Loading state:** 5 `Skeleton` rows, each 48px tall, column widths matching table layout.
 
 ### `/admin/orgs/[orgId]` — Organization Detail
 
@@ -228,9 +242,9 @@ No content rendered — immediate redirect.
 
 **Feature flags panel:** Right sidebar column using `Card`.
 - Section heading: "Feature Flags" 14px / semibold
-- Each flag: `Switch` + label (14px regular) + description (12px text-tertiary) in a `flex items-center justify-between` row, 44px minimum height
+- Each flag: `Switch` + label (14px regular) + description (12px text-tertiary) in a `flex items-center justify-between` row, **48px minimum height** (`2xl` token)
 - Admin notes: `Input` below each flag, placeholder "Admin note…", 13px, only shown when flag is enabled (conditional render)
-- Save button: "Save Changes" — `bg-red-600 hover:bg-red-700 text-white`, full width, bottom of card
+- Save button: "Save Feature Flags" — `bg-red-600 hover:bg-red-700 text-white`, full width, bottom of card
 
 **Back navigation:** `Button variant="ghost"` with `ArrowLeft` icon, label "Back to Organizations", positioned above page heading.
 
@@ -250,8 +264,8 @@ Source: CONTEXT.md — "Claude's Discretion" for flag naming; specific flags fro
 
 | Element | Copy |
 |---------|------|
-| Primary CTA | "Save Changes" |
-| Orgs page empty state heading | "No organizations found" |
+| Primary CTA | "Save Feature Flags" |
+| Orgs page empty state heading | "No organizations yet" |
 | Orgs page empty state body | "There are no tenant organizations in the system yet." |
 | Orgs search empty state | "No organizations match your search." |
 | Error state (data load failure) | "Failed to load organizations. Check your connection and refresh the page." |
