@@ -104,10 +104,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   brandName={branding.appName}
                   logoUrl={branding.logoUrl}
                 />
-                <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex min-w-0 flex-1 flex-col h-dvh">
                   <TopBar />
-                  <main className="flex-1 overflow-auto">
-                    <PageTransition>{children}</PageTransition>
+                  <main className="flex-1 min-h-0 overflow-auto">
+                    <div className="h-full">
+                      <PageTransition>{children}</PageTransition>
+                    </div>
                   </main>
                 </div>
               </div>

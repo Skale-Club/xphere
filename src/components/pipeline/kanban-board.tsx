@@ -69,7 +69,7 @@ function StageColumn({ stage, opportunities, onOpen, onAction, pipelineId, isOve
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full w-[300px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors',
+        'flex h-full max-h-full w-[300px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors',
         isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle',
       )}
     >
@@ -140,10 +140,11 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
   // Track if the deal already lived in a won stage to avoid double-firing.
   const wonStageIds = React.useMemo(() => new Set(stages.filter((s) => s.is_won).map((s) => s.id)), [stages])
 
-  // Wider distance + tolerance + small delay so clicks register as clicks, not drags.
+  // Wider distance so clicks register as clicks, not drags. No delay — delay
+  // makes drag feel laggy / unresponsive on first attempt.
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8, tolerance: 5, delay: 80 },
+      activationConstraint: { distance: 6 },
     }),
   )
 
@@ -297,7 +298,7 @@ export function KanbanBoard({ pipelineId, stages, opportunities }: KanbanBoardPr
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 sm:px-6 lg:px-8 pb-2">
         {stages.map((s) => (
           <StageColumn
             key={s.id}

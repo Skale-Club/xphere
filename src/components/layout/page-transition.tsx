@@ -23,7 +23,7 @@ export function PageTransition({ children }: Props) {
     setEnabled(!reduce && !small)
   }, [])
 
-  if (!enabled) return <>{children}</>
+  if (!enabled) return <div className="h-full">{children}</div>
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -33,7 +33,7 @@ export function PageTransition({ children }: Props) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-        className="will-change-transform"
+        className="will-change-transform h-full"
       >
         {children}
       </motion.div>

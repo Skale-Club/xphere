@@ -31,8 +31,8 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     null
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="animate-fade-in flex flex-col gap-2">
+    <div className="flex h-full flex-col">
+      <div className="animate-fade-in flex flex-col gap-2 px-4 sm:px-6 lg:px-8 pt-8 pb-6">
         <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
           <TrendingUp className="h-3.5 w-3.5 text-accent" />
           <span>Sales pipeline</span>
@@ -73,7 +73,7 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
       </div>
 
       {!activePipeline ? (
-        <div className="rounded-[12px] border border-border bg-bg-secondary p-10 text-center">
+        <div className="mx-4 sm:mx-6 lg:mx-8 rounded-[12px] border border-border bg-bg-secondary p-10 text-center">
           <h2 className="text-[15px] font-semibold text-text-primary">No pipelines yet</h2>
           <p className="mt-1 text-[13px] text-text-secondary">
             Create a pipeline to start tracking deals.
