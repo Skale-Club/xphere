@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: CRM Expansion
 status: executing
-stopped_at: Completed 74-01-PLAN.md
-last_updated: "2026-05-19T00:50:00.000Z"
+stopped_at: Completed 75-01-PLAN.md
+last_updated: "2026-05-19T01:20:00.000Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 12
-  completed_phases: 11
-  total_plans: 35
-  completed_plans: 35
+  completed_phases: 12
+  total_plans: 36
+  completed_plans: 36
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
@@ -18,9 +18,9 @@ progress:
 ## Current Position
 
 Phase: 75
-Plan: Not started
-Next: 75-01 (import-history-retry-tests)
-Status: Phases 64/65/66/67/68/69/70/71/72/73/74 complete (11/12); next up Phase 75
+Plan: complete
+Next: v2.4 milestone complete — all 12 phases done
+Status: ALL phases complete (12/12) — v2.4 CRM Expansion feature-complete
 Last activity: 2026-05-19
 
 ## Milestone Progress
@@ -39,7 +39,7 @@ Last activity: 2026-05-19
 - v2.1 Calls + Contacts + Pipeline + Design Foundation: ✅ Shipped 2026-05-17
 - v2.2 Chat Redesign — Schema + Server Actions Foundation: 🚧 separate workstream
 - v2.3 Integrations Refactor + Twilio Multi-Number: 🚧 human_uat (workstreams/v23-integrations-multi-number)
-- **v2.4 CRM Expansion: 🚧 roadmap_ready (this workstream)**
+- **v2.4 CRM Expansion: ✅ feature-complete (this workstream) — awaiting human UAT**
 
 ## Phase Map (v2.4)
 
@@ -134,6 +134,7 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 72-01]: cfFilters applied via jsonb contains (custom_fields @> '{key:val}'); value coerced from URL string to boolean/number/string. All filterable field types supported; multi_select and currency skipped (exact jsonb match sufficient for text, boolean, select, number, date)
 - [Phase 72-02]: Phase 72 complete — dynamic columns (visible_in_list) + type-aware filters (filterable) in contacts+accounts lists; CSV export for contacts/accounts/opportunities; ImportCsvDialog extended with cf:key mapping targets; 15/15 Vitest tests pass; npm run build clean
 - [Phase 74-01]: parseCsvLimit + countCsvDataRows + suggestColumnMappingEnhanced added to csv.ts; 5 import server actions (createImportRecord, finalizeUpload, saveImportConfig, dryRunImport, enqueueImport); ImportWizardDialog 7-stage multi-step wizard with XHR upload progress, dry-run preview, dedup config, defaults; IMP-17 gate in both UI + action; 30/30 Vitest tests pass; npm run build clean
+- [Phase 75-01]: process-imports Edge Function (chunked/cancellable worker, concurrency caps, account auto-create, Realtime progress); import-history-actions (getImports, cancelImport, retryImport, exportImportErrors); /contacts/imports list page; /contacts/imports/[id] detail page with Supabase Realtime subscription; 31/31 Vitest tests pass; npm run build clean — v2.4 milestone COMPLETE (12/12 phases, 54/54 requirements)
 
 ## Pending Todos
 

@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Upload, CheckCircle2, ChevronUp, ChevronDown, X, Loader2 } from 'lucide-react'
+import { Upload, CheckCircle2, ChevronUp, ChevronDown, X, Loader2, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 import {
   Dialog,
@@ -595,6 +596,11 @@ export function ImportWizardDialog() {
             </p>
             <div className="mt-4 flex items-center gap-2">
               <Button variant="ghost" onClick={reset}>Import another</Button>
+              <Button asChild variant="secondary">
+                <Link href="/contacts/imports">
+                  <History className="h-3.5 w-3.5" /> View progress
+                </Link>
+              </Button>
               <Button onClick={() => setOpen(false)}>Done</Button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { parseCsvLimit, countCsvDataRows, suggestColumnMappingEnhanced } from '@/lib/contacts/csv'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -299,5 +300,14 @@ export async function enqueueImport(importId: string): Promise<{ ok: true } | Er
     .eq('id', importId)
 
   if (error) return { ok: false, error: error.message }
+
+  // Trigger the processing worker (returns fast; actual processing is async)
+  const admin = createServiceRoleClient()
+  await admin.functions
+    .invoke('process-imports', { body: { importId } })
+    .catch(() => {
+      // Worker invocation failed — job stays queued; DB webhook acts as backup trigger
+    })
+
   return { ok: true }
 }

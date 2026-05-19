@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
-import { Sparkles, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Users, History } from 'lucide-react'
 
 import { getContacts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -54,6 +55,12 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/contacts/imports"
+              className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
+            >
+              <History className="h-3.5 w-3.5" /> History
+            </Link>
             <ImportWizardDialog />
             <NewContactDialog />
           </div>
