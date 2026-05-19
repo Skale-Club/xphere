@@ -21,6 +21,71 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.
 // Returns 'your host' as a final fallback so the email body always reads ok.
+// Build a defaults map for required custom_field_definitions on contacts.
+// The public booker has no UI to fill these in; we provide sensible
+// type-appropriate defaults so the contact insert satisfies any required-
+// field invariant the org has configured. If the org has none, returns {}.
+//
+// Service role read — public booking has no auth.uid() context.
+async function buildRequiredCustomFieldDefaults(
+  orgId: string,
+): Promise<Record<string, unknown>> {
+  try {
+    const svc = createServiceRoleClient()
+    const { data } = await svc
+      .from('custom_field_definitions')
+      .select('key, type, default_value')
+      .eq('org_id', orgId)
+      .eq('entity', 'contact')
+      .eq('required', true)
+      .eq('archived', false)
+
+    const defaults: Record<string, unknown> = {}
+    for (const def of data ?? []) {
+      // Honor an explicit default_value if the admin set one.
+      if (def.default_value !== null && def.default_value !== undefined) {
+        defaults[def.key] = def.default_value
+        continue
+      }
+      defaults[def.key] = defaultForType(def.type as string)
+    }
+    return defaults
+  } catch (err) {
+    console.warn(
+      '[scheduling/bookings] failed to load custom field defaults:',
+      err instanceof Error ? err.message : err,
+    )
+    return {}
+  }
+}
+
+function defaultForType(type: string): unknown {
+  switch (type) {
+    case 'text':
+    case 'long_text':
+    case 'select':
+    case 'email':
+    case 'url':
+    case 'phone':
+      return ''
+    case 'number':
+    case 'integer':
+      return 0
+    case 'boolean':
+      return false
+    case 'date':
+      return '1970-01-01'
+    case 'datetime':
+      return '1970-01-01T00:00:00.000Z'
+    case 'multi_select':
+      return []
+    case 'currency':
+      return { amount: 0, currency: 'USD' }
+    default:
+      return null
+  }
+}
+
 async function resolveHostName(userId: string): Promise<string> {
   try {
     const svc = createServiceRoleClient()
@@ -343,8 +408,12 @@ export async function createBooking(
     if (existing) {
       linkedContactId = existing.id
     } else {
-      const nameParts = parsed.data.booker_name.trim().split(/\s+/)
-      const { data: newContact } = await supabase
+      // Build defaults for required custom_field_definitions so the insert
+      // does not violate any org-level required-field invariant. If the org
+      // has no required custom fields this returns {} and the insert is a no-op.
+      const customFieldsDefaults = await buildRequiredCustomFieldDefaults(et.org_id)
+
+      const { data: newContact, error: insertErr } = await supabase
         .from('contacts')
         .insert({
           org_id: et.org_id,
@@ -352,13 +421,26 @@ export async function createBooking(
           email: parsed.data.booker_email,
           phone: parsed.data.booker_phone ?? null,
           source: 'manual',
+          custom_fields: customFieldsDefaults,
         })
         .select('id')
         .single()
-      linkedContactId = newContact?.id ?? null
+      if (insertErr) {
+        // Validation / constraint failure — log + fall back to no link.
+        console.warn(
+          '[scheduling/bookings] contact auto-create failed; booking will proceed without contact link:',
+          insertErr.message,
+        )
+      } else {
+        linkedContactId = newContact?.id ?? null
+      }
     }
-  } catch {
-    // CRM link failure is non-fatal
+  } catch (err) {
+    // CRM link failure is non-fatal — log + proceed.
+    console.warn(
+      '[scheduling/bookings] contact link pipeline failed:',
+      err instanceof Error ? err.message : err,
+    )
   }
 
   // Insert booking
