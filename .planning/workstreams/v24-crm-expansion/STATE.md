@@ -3,24 +3,24 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: CRM Expansion
 status: executing
-stopped_at: Completed 72-02-PLAN.md
-last_updated: "2026-05-19T00:20:00.000Z"
+stopped_at: Completed 74-01-PLAN.md
+last_updated: "2026-05-19T00:50:00.000Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 12
-  completed_phases: 10
-  total_plans: 34
-  completed_plans: 34
+  completed_phases: 11
+  total_plans: 35
+  completed_plans: 35
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 74
+Phase: 75
 Plan: Not started
-Next: 74-01 (import-wizard-ui)
-Status: Phases 64/65/66/67/68/69/70/71/72/73 complete (10/12); next up Phase 74
+Next: 75-01 (import-history-retry-tests)
+Status: Phases 64/65/66/67/68/69/70/71/72/73/74 complete (11/12); next up Phase 75
 Last activity: 2026-05-19
 
 ## Milestone Progress
@@ -133,6 +133,7 @@ Three coupled features that together promote contacts/opportunities into a full 
 - [Phase 71-02]: Phase 71 complete — CustomFieldsForm + CustomFieldsDisplay wired into contact form, contact detail sheet, opportunity detail sheet, and account detail page; both contact and opportunity actions now persist custom_fields to DB; 16/16 Vitest tests pass; npm run build clean
 - [Phase 72-01]: cfFilters applied via jsonb contains (custom_fields @> '{key:val}'); value coerced from URL string to boolean/number/string. All filterable field types supported; multi_select and currency skipped (exact jsonb match sufficient for text, boolean, select, number, date)
 - [Phase 72-02]: Phase 72 complete — dynamic columns (visible_in_list) + type-aware filters (filterable) in contacts+accounts lists; CSV export for contacts/accounts/opportunities; ImportCsvDialog extended with cf:key mapping targets; 15/15 Vitest tests pass; npm run build clean
+- [Phase 74-01]: parseCsvLimit + countCsvDataRows + suggestColumnMappingEnhanced added to csv.ts; 5 import server actions (createImportRecord, finalizeUpload, saveImportConfig, dryRunImport, enqueueImport); ImportWizardDialog 7-stage multi-step wizard with XHR upload progress, dry-run preview, dedup config, defaults; IMP-17 gate in both UI + action; 30/30 Vitest tests pass; npm run build clean
 
 ## Pending Todos
 

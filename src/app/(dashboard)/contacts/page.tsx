@@ -5,7 +5,7 @@ import { getContacts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { ContactsTable } from '@/components/contacts/contacts-table'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
-import { ImportCsvDialog } from '@/components/contacts/import-csv-dialog'
+import { ImportWizardDialog } from '@/components/contacts/import-wizard-dialog'
 import { EmptyContacts } from '@/components/empty-states/empty-contacts'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
@@ -54,7 +54,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <ImportCsvDialog />
+            <ImportWizardDialog />
             <NewContactDialog />
           </div>
         </div>
