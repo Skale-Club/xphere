@@ -70,14 +70,14 @@ beforeEach(() => {
 describe('createTask', () => {
   it('returns not_authenticated when user is null', async () => {
     mockGetUser.mockResolvedValue(null)
-    const result = await createTask({ title: 'Test' })
+    const result = await createTask({ title: 'Test', priority: 'medium', status: 'todo' })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('not_authenticated')
   })
 
   it('returns validation_error for empty title', async () => {
     mockGetUser.mockResolvedValue({ id: 'user-1', email: 'a@b.com' })
-    const result = await createTask({ title: '' })
+    const result = await createTask({ title: '', priority: 'medium', status: 'todo' })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('validation_error')
   })
@@ -86,7 +86,7 @@ describe('createTask', () => {
     mockGetUser.mockResolvedValue({ id: 'user-1', email: 'a@b.com' })
     const sb = makeSupabase({ rpc: vi.fn().mockResolvedValue({ data: null, error: null }) })
     mockCreateClient.mockResolvedValue(sb)
-    const result = await createTask({ title: 'Test task' })
+    const result = await createTask({ title: 'Test task', priority: 'medium', status: 'todo' })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('no_active_org')
   })
@@ -96,7 +96,7 @@ describe('createTask', () => {
     mockGetUser.mockResolvedValue({ id: 'user-1', email: 'a@b.com' })
     const sb = makeSupabase({ single: vi.fn().mockResolvedValue({ data: taskRow, error: null }) })
     mockCreateClient.mockResolvedValue(sb)
-    const result = await createTask({ title: 'Test task' })
+    const result = await createTask({ title: 'Test task', priority: 'medium', status: 'todo' })
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.id).toBe('task-1')
   })
@@ -105,7 +105,7 @@ describe('createTask', () => {
     mockGetUser.mockResolvedValue({ id: 'user-1', email: 'a@b.com' })
     const sb = makeSupabase({ single: vi.fn().mockResolvedValue({ data: null, error: { message: 'db error' } }) })
     mockCreateClient.mockResolvedValue(sb)
-    const result = await createTask({ title: 'Test task' })
+    const result = await createTask({ title: 'Test task', priority: 'medium', status: 'todo' })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('db error')
   })

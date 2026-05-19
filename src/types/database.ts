@@ -291,7 +291,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar'
           name: string
           encrypted_api_key: string
           key_hint: string | null
@@ -305,7 +305,7 @@ export interface Database {
         Insert: {
           id?: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar'
           name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -2336,6 +2336,216 @@ export interface Database {
           }
         ]
       }
+      bookings: {
+        Row: {
+          id: string
+          org_id: string
+          event_type_id: string
+          booker_name: string
+          booker_email: string
+          booker_phone: string | null
+          booker_timezone: string
+          start_at: string
+          end_at: string
+          notes: string | null
+          status: 'confirmed' | 'cancelled' | 'no_show'
+          linked_contact_id: string | null
+          cancel_token: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          event_type_id: string
+          booker_name: string
+          booker_email: string
+          booker_phone?: string | null
+          booker_timezone?: string
+          start_at: string
+          end_at: string
+          notes?: string | null
+          status?: 'confirmed' | 'cancelled' | 'no_show'
+          linked_contact_id?: string | null
+          cancel_token?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          booker_name?: string
+          booker_email?: string
+          booker_phone?: string | null
+          booker_timezone?: string
+          start_at?: string
+          end_at?: string
+          notes?: string | null
+          status?: 'confirmed' | 'cancelled' | 'no_show'
+          linked_contact_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'bookings_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bookings_event_type_id_fkey'
+            columns: ['event_type_id']
+            isOneToOne: false
+            referencedRelation: 'event_types'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bookings_linked_contact_id_fkey'
+            columns: ['linked_contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      event_types: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          title: string
+          slug: string
+          description: string | null
+          duration_minutes: number
+          color: string
+          location_type: 'video' | 'phone' | 'in_person'
+          location_value: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          title: string
+          slug: string
+          description?: string | null
+          duration_minutes?: number
+          color?: string
+          location_type?: 'video' | 'phone' | 'in_person'
+          location_value?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          title?: string
+          slug?: string
+          description?: string | null
+          duration_minutes?: number
+          color?: string
+          location_type?: 'video' | 'phone' | 'in_person'
+          location_value?: string | null
+          active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_types_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_types_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      scheduling_profiles: {
+        Row: {
+          user_id: string
+          org_id: string
+          slug: string
+          timezone: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          org_id: string
+          slug: string
+          timezone?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          slug?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'scheduling_profiles_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: true
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'scheduling_profiles_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      user_availability: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          day_of_week: number
+          start_time: string
+          end_time: string
+          created_at?: string
+        }
+        Update: {
+          day_of_week?: number
+          start_time?: string
+          end_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'user_availability_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'user_availability_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       seo_config: {
         Row: {
           id: string
@@ -2958,7 +3168,7 @@ export interface Database {
     Enums: {
       user_role: UserRole
       action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
-      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts'
+      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar'
       // v2.0 (Phase 33) â€” agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus

@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   CheckSquare,
   FileText,
+  CalendarDays,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -60,6 +61,7 @@ const navItems = [
   { icon: TrendingUp, label: 'Pipeline', href: '/pipeline', active: true },
   { icon: CheckSquare, label: 'Tasks', href: '/tasks', active: true },
   { icon: FileText, label: 'Notes', href: '/notes', active: true },
+  { icon: CalendarDays, label: 'Scheduling', href: '/scheduling', active: true },
   { icon: Users, label: 'Members', href: '/members', active: true },
   { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]
