@@ -12,13 +12,13 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Active: v2.6 Admin Panel + Landing Page + SEO 🔄 In Progress
+## Previous: v2.6 Admin Panel + Landing Page + SEO ✅ Shipped 2026-05-19
 
-3 phases (82–84), 10 plans — Phase 82 (SUPER-ADMIN-PANEL) planning underway (82-01, 82-02 drafted). Parallel active workstream alongside v2.5.
+3 phases (82–84), super admin panel + landing page + SEO structure. Migrations 069 (org settings jsonb) + 070 (seo_config table) applied.
 
-## Active: v2.5 Tasks & Notes CRM System 🚧 In Progress
+## Previous: v2.5 Tasks & Notes CRM System ✅ Shipped 2026-05-19
 
-6 phases (76–81), 26 requirements (TSK-01..14, NOT-01..12) — 1/6 phases complete. Phase 76 (DB-FOUNDATION) shipped: migrations 067 (tasks table + enums + RLS) and 068 (notes table + RLS + TypeScript types). Phase 77 (TASKS-ACTIONS) is next.
+6 phases (76–81), tasks + notes CRM with full CRUD, overdue indicators, pinned notes, entity integration. Migrations 067 (tasks) + 068 (notes) applied.
 
 ## Previous: v2.4 CRM Expansion ✅ Shipped 2026-05-19
 
@@ -249,11 +249,16 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Custom Fields system: `custom_field_definitions` table (13 types, 3 entities, reserved-key enforcement), server-side zod validation, settings UI with drag-reorder/groups/archive, `CustomFieldsForm`/`CustomFieldsDisplay` in all forms/detail pages, dynamic list columns+filters, CSV IO — v2.4 (CF-01..15)
 - Contact Import Pipeline: queued background import with direct-to-Storage XHR upload (50MB/200k rows), mapping wizard, dedup preview, Realtime progress, per-row errors, retry-failed, account auto-create, imports history page — v2.4 (IMP-01..20)
 
-### Active (v2.5 + v2.6 in progress)
+### Validated (v2.5 + v2.6 additions)
 
-**v2.5 Tasks & Notes (workstreams/v25-tasks-notes):** Phase 76 complete — tasks + notes DB migrations applied, TypeScript types updated. Phases 77–81 pending.
-
-**v2.6 Admin Panel + Landing + SEO (workstreams/v26-admin-landing-seo):** Phase 82 planning underway. 0/3 phases complete.
+- Tasks entity: createTask / updateTask / deleteTask / getTasks / toggleTaskDone with Zod validation + RLS — v2.5 (TSK-01..14)
+- Notes entity: createNote / updateNote / deleteNote / getNotes / toggleNotePin, pinned-first ordering, content search — v2.5 (NOT-01..12)
+- /tasks page with TasksTable (overdue indicators, priority/status badges), TaskForm + TaskSlideOver — v2.5
+- /notes page with NotesGrid (pinned/unpinned sections, pin toggle), NoteForm + NoteSlideOver — v2.5
+- Tasks + Notes panels embedded in Account and Opportunity detail pages — v2.5
+- Super admin panel `/admin/*` restricted to platform admin email with service-role data access — v2.6 (ADM-01..06)
+- Landing page with Framer Motion animations, dark-mode-first, fully responsive — v2.6 (LND-01..06)
+- SEO structure: metadata, OG, sitemap, robots.txt, JSON-LD, `/admin/seo` config panel — v2.6 (SEO-01..06)
 
 ### Backlog (next milestone candidates)
 
@@ -329,4 +334,4 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-19 — v2.5 (1/6 phases) + v2.6 (0/3 phases) both in progress. v2.4 CRM Expansion shipped (12/12 phases, 54/54 requirements). v2.3 Integrations Refactor still pending HUMAN-UAT.*
+*Last updated: 2026-05-19 — v2.5 Tasks & Notes + v2.6 Admin/Landing/SEO both shipped. v2.3 Integrations Refactor still pending HUMAN-UAT.*

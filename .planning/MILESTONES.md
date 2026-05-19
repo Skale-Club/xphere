@@ -1,5 +1,23 @@
 # Milestones
 
+## v2.6 Admin Landing SEO (Shipped: 2026-05-19)
+
+**Stats:** 3 phases, 10 summaries, 56 files, +3,998 / −230 lines
+**Timeline:** 2026-05-19 (single session)
+
+**Key accomplishments:**
+
+1. **Super Admin Panel** — `/admin/*` route group restricted to `skale.club@gmail.com`; `(admin)` layout with `AdminSidebar`; service-role server actions for org listing with parallel usage counts, org detail with member resolution via `auth.admin.listUsers`, `updateOrgSettings` jsonb patch; `OrgsTable`, `OrgDetailView` components (ADM-01..06)
+2. **Platform Settings** — `/admin/settings` with `getPlatformStats` (6 parallel counts), `bulkApplyFeatureFlag` patching all orgs in parallel; `PlatformSettingsView` with 6 stat cards and feature-flag toggle UI (ADM-05)
+3. **Landing Page** — `/` public route with `LandingPage` component: hero, features grid (6 items), pricing CTA; Framer Motion stagger entrance + `whileInView` scroll reveal; dark-mode-first, fully responsive at sm/lg breakpoints; authenticated users redirect to `/dashboard`
+4. **Auth Redesign** — `/login` split-layout with dark left panel (feature bullets, stagger animations) and right auth form; `(auth)` layout with full-screen `#08090A` background; consistent visual with landing; `npm run build` exits 0, 70 pages generated
+5. **SEO Structure** — `metadata` export with Open Graph + Twitter Card on public pages; `sitemap.ts` dynamic sitemap; `robots.ts` blocking private routes; JSON-LD `@graph` with Organization + WebSite + SearchAction schemas on landing
+6. **SEO Config Panel** — `seo_config` Supabase table (RLS, service-role only, seeded default row); `getSeoConfig` / `updateSeoConfig` server actions; `/admin/seo` panel with `SeoConfigForm` (SEO-05, SEO-06)
+
+**Archives:** [v2.6-ROADMAP.md](milestones/v2.6-ROADMAP.md) | [v2.6-REQUIREMENTS.md](milestones/v2.6-REQUIREMENTS.md)
+
+---
+
 ## v2.4 CRM Expansion (Shipped: 2026-05-19)
 
 **Stats:** 12 phases, 30 plans, 93 commits, 167 files, +31,256 / −31 lines
