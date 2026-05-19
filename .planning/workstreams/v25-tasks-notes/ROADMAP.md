@@ -18,9 +18,9 @@
 5. `src/types/database.ts` updated to reflect all new tables and types
 6. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 2/2 plans complete
 - [x] 76-01-PLAN.md — Migration 067: tasks table + enums + RLS
-- [ ] 76-02-PLAN.md — Migration 068: notes table + RLS + TypeScript types update
+- [x] 76-02-PLAN.md — Migration 068: notes table + RLS + TypeScript types update
 
 ---
 
@@ -133,7 +133,7 @@
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 76. DB-FOUNDATION | 1/2 | 🔄 In Progress | — |
+| 76. DB-FOUNDATION | 2/2 | Complete   | 2026-05-19 |
 | 77. TASKS-ACTIONS | 0/2 | ○ Not Started | — |
 | 78. TASKS-LIST-UI | 0/3 | ○ Not Started | — |
 | 79. NOTES-ACTIONS | 0/2 | ○ Not Started | — |
