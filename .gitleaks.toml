@@ -1,0 +1,26 @@
+# Gitleaks configuration for xphere
+# Docs: https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+title = "xphere gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-wide false positive suppressions"
+
+# Build and tooling artifacts (not committed but scanned on disk)
+paths = [
+  '''^\.next/''',
+  '''^\.vercel/''',
+  '''^node_modules/''',
+  '''^\.planning/ui-reviews/''',
+]
+
+# Widget public token — data-token is intentionally embedded in HTML for end-users
+# This is a public org token by design (no user auth required for widget)
+regexes = [
+  '''c06072f88f9a4e10b03681792fb1d172''',
+  # Test helper passwords: dynamically generated with suffix, never real creds
+  '''const password = [`][A-Za-z]+-[A-Za-z]+-\$\{suffix\}''',
+]
