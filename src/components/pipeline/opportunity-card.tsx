@@ -98,8 +98,8 @@ export function OpportunityCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-2.5 shadow-elevation-sm transition-all',
-        'hover:border-border-strong hover:shadow-elevation-md hover:-translate-y-[1px]',
+        'group relative cursor-pointer rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-2.5 shadow-elevation-sm transition-colors',
+        'hover:bg-bg-tertiary/40',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         isDragging && 'cursor-grabbing',
         isOverlay && 'rotate-[1.5deg] scale-[1.03] shadow-elevation-lg ring-2 ring-accent/40 cursor-grabbing',
