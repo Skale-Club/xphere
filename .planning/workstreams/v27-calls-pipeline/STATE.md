@@ -1,24 +1,24 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.7
-milestone_name: Unified Calls Hub + Pipeline UX
-status: in_progress
-last_updated: "2026-05-19T00:00:00.000Z"
+milestone_name: milestone
+status: executing
+last_updated: "2026-05-19T11:45:22.529Z"
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 14
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Xphere - State (v2.7 Unified Calls Hub + Pipeline UX)
 
 ## Current Position
 
-Phase: 85 — UNIFIED-CALLS-DB
-Plan: not started
+Phase: 85 (unified-calls-db) — EXECUTING
+Plan: 2 of 2
 Next: Plan and execute phase 85
-Status: 0/8 phases complete
+Status: Ready to execute
 
 ## Milestone Progress
 
@@ -37,6 +37,8 @@ Status: 0/8 phases complete
 ## Decisions Log
 
 - Seeds SEED-014 and SEED-015 promoted to v2.7 milestone on 2026-05-19
+- 85-01: unified_calls VIEW (063), UnifiedCall TypeScript type, and server actions verified fully correct — no changes needed
+- 85-01: Stale .next cache caused false build failure from old /tools/ route; cleared and confirmed exit 0
 
 ## Blockers / Concerns
 
