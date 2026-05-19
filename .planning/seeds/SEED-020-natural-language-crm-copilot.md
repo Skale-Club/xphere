@@ -2,8 +2,11 @@
 id: SEED-020
 status: dormant
 planted: 2026-05-19
+enriched: 2026-05-19 (after analyzing Vercel Chatbot template v3.1 / AI SDK 6 patterns)
 planted_during: post-SEED-019 Visual Automation Builder Phases A–D
 research: null
+reference_implementations:
+  - "Vercel Chatbot template (chat.vercel.ai) — github.com/vercel/ai-chatbot — AI SDK 6, resumable streams, artifacts, generative UI"
 trigger_when: explicit user request OR milestone planning with theme "AI copilot", "chat with your CRM", "natural language CRM", "Notion/Linear AI copy", "operator productivity"; OR users start treating the AI builder chat as a general-purpose CRM assistant; OR competitor (Attio AI, HubSpot Breeze, Salesforce Einstein) ships a comparable feature
 scope: Large
 priority: high
@@ -78,19 +81,46 @@ Every query the copilot issues goes through the authenticated Supabase client, w
 
 ---
 
-## Recommended Stack (mostly reused)
+## Recommended Stack (mostly reused + AI SDK 6 patterns from Vercel Chatbot)
 
 | Layer | Pick | Rationale |
 |-------|------|-----------|
-| **AI transport** | Existing pattern: OpenAI SDK against OpenRouter base URL OR Anthropic SDK native | Already proven in `ai-build.ts`; same `getProviderKey` resolution |
-| **Tool schema** | Anthropic `Tool[]` (canonical) + translation to OpenAI function tools | Same as flow builder — one schema, two transports |
-| **Tool dispatch** | New `src/lib/copilot/tools/` directory: ~6 modules (contacts, accounts, pipeline, tasks-notes, scheduling, email) each exporting `Tool[]` + dispatch handlers | Modular, easy to grow. Per-domain prompts in each module |
+| **Framework** | **AI SDK 6 (`ai@^6`)** with `streamText` + `createUIMessageStream` + `tool()` factory | Battle-tested in Vercel Chatbot template v3.1; replaces raw OpenAI/Anthropic SDK calls. Native multi-step (`stopWhen: stepCountIs(N)`), typed tools, streaming UI parts |
+| **AI transport** | Existing BYOK pattern: AI SDK with `@ai-sdk/openai` `createOpenAI({ baseURL: 'openrouter.ai/api/v1', apiKey: orgKey })` OR `@ai-sdk/anthropic` native | Replaces the raw `OpenAI` SDK calls in `ai-build.ts` with AI SDK's provider abstraction. Same `getProviderKey` resolution; cleaner streaming API |
+| **Tool schema** | AI SDK `tool({ description, inputSchema: z.object(...), execute: async ({...}) => {...} })` | One canonical shape; AI SDK handles translation to provider-native formats automatically |
+| **Tool dispatch** | New `src/lib/copilot/tools/` directory: ~6 modules (contacts, accounts, pipeline, tasks-notes, scheduling, email) each exporting `Record<string, Tool>` (named export per tool) | Modular; AI SDK lets you pass `tools: { ...contactTools, ...accountTools, ... }` directly to `streamText` |
+| **Resumable streams** | **`resumable-stream` package + Redis** (same pattern as Vercel Chatbot) | Operator launches a 10-step query, closes laptop, comes back — stream resumes. `REDIS_URL` already configured in env |
+| **Streaming UI events** | AI SDK 6 `dataStream.write({ type: 'data-entity-card', data, transient: true })` typed parts | Tools push custom UI events (entity cards, charts, confirmation widgets) mid-stream. Frontend `data-stream-handler.tsx` listens by type. Same pattern flow builder uses for canvas mutations |
+| **UI components** | **`ai-elements` shadcn registry** (`npx shadcn add https://registry.ai-sdk.dev/...`) — Conversation, Message, MessageContent, etc. | Don't roll our own chat bubbles. Vercel-maintained, accessible, matches shadcn primitives already in tree |
 | **Auth** | Existing `createClient()` from `@/lib/supabase/server` — every query auto-scoped by RLS | No new permission layer |
 | **State** | Zustand store: `copilot-store.ts` — conversation history, active turn, context (current entity if launched from a detail page) | Mirrors flow-store pattern |
-| **UI** | Slide-over panel triggered by a global `/` shortcut or floating "AI" button; pinned chat history per-session | shadcn `Sheet` already used elsewhere |
-| **Streaming** | Already supported via OpenAI/Anthropic SDKs; chunk events into the panel | Existing knowledge-query path is non-streaming — copilot needs streaming for UX |
-| **Citation / source** | Every "answer" that quotes data includes inline links to the entity (`<a href="/contacts/abc-123">João Silva</a>`) | Markdown rendering in chat output, no special widget |
+| **Chat panel** | Slide-over Sheet triggered by global `Cmd+K` (or `/`) shortcut + floating AI button | shadcn `Sheet` already used elsewhere |
+| **Streaming smoothing** | `experimental_transform: smoothStream({ chunking: 'word' })` from AI SDK | Word-by-word streaming, smoother than raw token output |
+| **Multi-turn cap** | `stopWhen: stepCountIs(12)` (AI SDK native) | Replaces manual loop counter; cleaner than what flow builder does today |
+| **Tool filtering per turn** | `experimental_activeTools: [...]` per request | Lets us disable destructive tools by default, require explicit "enable write mode" toggle |
+| **Citation / source** | Every "answer" that quotes data includes inline links via markdown (`<a href="/contacts/abc-123">João Silva</a>`) | `ai-elements` Message component renders markdown out of the box |
 | **Memory** | Per-conversation only at v1. Cross-session memory deferred — operators don't trust it yet anyway | Avoid the "AI remembers wrong things" footgun |
+| **Telemetry** | `experimental_telemetry: { isEnabled: isProductionEnvironment, functionId: 'copilot-turn' }` | OpenTelemetry traces in prod; debug slow tool chains via Vercel observability |
+| **Bot protection** (if any public endpoint) | Skip — copilot is auth-only, RLS-scoped | Vercel Chatbot uses `botid/server` for public-facing chat; not needed for our authenticated copilot |
+
+### Why upgrade to AI SDK 6 (vs. raw provider SDKs)
+
+The flow builder currently uses raw OpenAI / Anthropic SDKs in a manual tool-use loop. That works but is ~200 lines of orchestration code. AI SDK 6 replaces it with:
+
+```ts
+const result = streamText({
+  model: getCopilotModel(orgId), // BYOK resolved
+  system: buildSystemPrompt({ currentEntity, locale }),
+  messages: modelMessages,
+  tools: { ...contactsTools, ...accountsTools, ...pipelineTools, ... },
+  stopWhen: stepCountIs(12),
+  experimental_activeTools: writeMode ? allToolNames : readOnlyToolNames,
+  experimental_transform: smoothStream({ chunking: 'word' }),
+  experimental_telemetry: { isEnabled: isProductionEnvironment },
+});
+```
+
+That's the entire loop. AI SDK handles: streaming, tool-call extraction, multi-turn iteration, message conversion, provider translation. The flow builder Phase C can also be refactored to use this (post-v1).
 
 ---
 
@@ -124,42 +154,57 @@ Every query the copilot issues goes through the authenticated Supabase client, w
 - **Milestone B — v3.2:** scheduling + email marketing tools, bulk actions with confirmation flow, custom-field-aware querying
 - **Milestone C — v3.3:** cross-session memory, suggested prompts (per page), saved "ask templates", AI-generated dashboards / reports
 
-### Milestone A — Phase decomposition (proposed)
+### Milestone A — Phase decomposition (updated with AI SDK 6 patterns)
 
 **Phase A — Foundation (1 week)**
-- Migration: `copilot_conversations`, `copilot_messages`, `copilot_runs`, `copilot_tool_calls` (RLS, indexes, FK to organizations)
-- BYOK resolver `src/lib/copilot/resolve-provider.ts` (extracted from `ai-build.ts` so flow + copilot share it)
-- Tool registry `src/lib/copilot/registry.ts` — collects Tool[] from all domain modules, builds OpenAI translation
-- `src/lib/copilot/dispatch.ts` — generic tool dispatcher that routes by name to domain handlers, persists to `copilot_tool_calls`
-- Server action `runCopilotTurn({ conversationId, userMessage, currentEntity? })` — orchestrates the multi-turn loop, BYOK-aware, streams via Server-Sent Events
-- API route `/api/copilot/stream` for streaming responses (Vercel Fluid Compute up to 800s on Pro)
+- Install: `ai@^6`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/react`, `resumable-stream`
+- Install ai-elements: `npx shadcn add https://registry.ai-sdk.dev/conversation` + message + reasoning
+- Migration: `copilot_conversations`, `copilot_messages` (with `parts` JSONB), `copilot_runs`, `copilot_tool_calls`, `copilot_streams` (RLS, indexes, FK to organizations)
+- BYOK resolver `src/lib/copilot/resolve-provider.ts` — returns AI SDK provider instance configured with org's key (extracted from `ai-build.ts`; flow builder refactors to use same helper)
+- Tool registry `src/lib/copilot/tools/index.ts` — collects `Record<string, Tool>` from all domain modules
+- Server action `runCopilotTurn({ conversationId, userMessage, currentEntity?, writeMode? })` — uses `streamText` + `createUIMessageStream` + `stopWhen: stepCountIs(12)`
+- API route `/api/copilot/stream` — Vercel Fluid Compute, returns `createUIMessageStreamResponse` with resumable stream registration
+- Two-layer rate limit: per-user (60/hr soft) + per-IP (200/hr hard)
 
 **Phase B — Read tools (1 week)**
-- `src/lib/copilot/tools/contacts.ts` — query_contacts (filter, sort, paginate), get_contact, list_recent_contacts
-- `src/lib/copilot/tools/accounts.ts` — query_accounts, get_account, list_account_contacts
-- `src/lib/copilot/tools/pipeline.ts` — query_opportunities (by stage / owner / value), get_opportunity, list_recent_activity
-- `src/lib/copilot/tools/tasks_notes.ts` — query_tasks, query_notes, get_task, get_note
-- Each module: Zod input schemas, RLS-scoped Supabase queries, response shapes optimized for LLM token budget (truncate long fields, summarize arrays)
-- Domain-specific system prompts mixed into the master prompt
+- `src/lib/copilot/tools/contacts.ts` — `query_contacts` (filter, sort, paginate, max 50 rows), `get_contact`, `list_recent_contacts`, `find_duplicate_contacts`
+- `src/lib/copilot/tools/accounts.ts` — `query_accounts`, `get_account`, `list_account_contacts`
+- `src/lib/copilot/tools/pipeline.ts` — `query_opportunities` (by stage/owner/value), `get_opportunity`, `list_recent_activity`, `summarize_pipeline_health`, `identify_stalled_opportunities`
+- `src/lib/copilot/tools/tasks_notes.ts` — `query_tasks`, `query_notes`, `get_task`, `get_note`
+- `src/lib/copilot/tools/custom_fields.ts` — `list_custom_fields`, `get_entity_custom_fields`, `search_by_custom_field`
+- Each module: `tool({ description, inputSchema: z.object(...), execute })` factory; RLS-scoped Supabase queries; LLM-token-budget-optimized response shapes
+- Domain-specific system prompt blocks composed into the master prompt
+- Read-only mode is the default — these tools are always available
 
 **Phase C — Write tools + UI (1.5 weeks)**
-- Write tools for the same 5 domains: create / update / delete + bulk variants where safe
-- Destructive op confirmation flow (AI asks "type CONFIRM"; client wires that through)
-- Copilot slide-over Sheet component `src/components/copilot/copilot-sheet.tsx`
-- Floating launcher button in the app shell + global `/` keyboard shortcut
-- Markdown rendering for AI responses (existing dep `react-markdown` already used in chat?)
-- Inline entity citation rendering (links to `/contacts/[id]`, `/accounts/[id]`, etc.)
-- Page-context awareness — when on a detail page, the panel auto-includes `current_entity`
+- Write tools for the same 5 domains: create / update / delete (delete + bulk-update require button-based approval flow, not literal "CONFIRM" text)
+- Tool approval flow: AI emits `data-confirmation` stream part → frontend renders button → user clicks → frontend re-sends history with `isToolApprovalFlow = true`
+- `experimental_activeTools` filters write tools out unless `writeMode: true` is passed
+- Copilot slide-over Sheet component `src/components/copilot/copilot-sheet.tsx` (uses ai-elements `Conversation` + `Message` primitives)
+- Floating launcher button in app shell + global `Cmd+K` shortcut
+- Write-mode toggle in sheet header (✏ icon, persists per session)
+- `data-stream-handler.tsx` — listens for `data-entity-card`, `data-tool-call`, `data-confirmation`, `data-cost-update` events
+- Page-context awareness — when on a detail page, the panel auto-includes `current_entity` in system prompt
+- Greeting component with 4 hand-curated suggested prompts per page (contacts page → "find duplicates" / etc.)
+- `smoothStream({ chunking: 'word' })` for streaming UX
 
 **Phase D — Polish + Observability (1 week)**
+- Resumable streams enabled (`resumable-stream` + Redis registration)
 - Conversation history view `/copilot/conversations` (list + per-conversation replay)
-- Per-run debug view at `/copilot/runs/[id]` showing prompt, every tool call's input/output, token + cost breakdown
-- Cost telemetry display in the panel ("$0.04 this session" badge)
-- Suggested prompts based on current page (contacts page → "find duplicates", "summarize this week")
+- Per-run debug view at `/copilot/runs/[id]` — prompt, every tool call's input/output, token + cost breakdown
+- Cost telemetry display in panel header ("~$0.04 this session" badge)
+- Cost ceiling: per-org soft cap with warning toast at threshold
 - Master system prompt + few-shot library covering 20 archetypal CRM tasks
-- Documentation: tool-authoring guide for future domain additions
+- `experimental_telemetry` enabled in production
+- Vitest tests for each tool (mocked Supabase) + integration tests using `ai/test` `MockLanguageModelV1`
+- Documentation: tool-authoring guide; "what the copilot can do" page
 
-**Total:** ~5 weeks with buffer.
+**Optional (if scope allows) — Artifacts in v1:**
+- `pipeline_report` artifact kind — AI generates a side-panel report
+- `contact_csv` artifact kind — AI generates a downloadable filtered export
+- Pattern: copy Vercel chatbot's `artifacts/text/server.ts` + `createDocumentHandler` shape
+
+**Total:** ~5 weeks with buffer. Optional artifacts add 0.5 week.
 
 ### Database schema (Phase A)
 
@@ -281,6 +326,210 @@ This is the exact pattern proven in the flow AI builder Phase C:
 
 ---
 
+## Patterns Borrowed from Vercel Chatbot Template (v3.1, AI SDK 6)
+
+The Vercel chatbot template at `chat.vercel.ai` ([github.com/vercel/ai-chatbot](https://github.com/vercel/ai-chatbot)) is the most polished open-source reference for AI SDK 6. Audit of its `app/(chat)/api/chat/route.ts` + tools surfaced these patterns worth adopting:
+
+### 1. **Resumable streams — `resumable-stream` package**
+
+```ts
+import { createResumableStreamContext } from 'resumable-stream';
+
+const streamContext = createResumableStreamContext({ waitUntil: after });
+const streamId = generateId();
+await createStreamId({ streamId, chatId: id });
+await streamContext.createNewResumableStream(streamId, async () => stream);
+```
+
+**Why this matters for copilot:** operator runs *"find all stalled deals and create follow-up tasks for each"* → 10 tool calls, 30 seconds. User closes the tab. Comes back: stream picks up where it left off. Same Redis we already use for chat sessions.
+
+### 2. **Artifacts — extensible "side panel" outputs**
+
+The Vercel chatbot has 4 artifact kinds: `text`, `code`, `image`, `sheet`. Each is a tool (`createDocument`, `updateDocument`) that streams content into a side panel while the chat continues in the main view.
+
+**Apply to SEED-020 (Milestone C):** add CRM artifact kinds:
+- `pipeline_report` — AI generates a stage-by-stage health table with stalled-deal callouts
+- `contact_csv` — AI generates a filtered contact export as a downloadable artifact
+- `dashboard` — AI generates a chart/table dashboard for the question being asked
+- `email_draft` — AI drafts an email template that the operator can edit before sending
+
+Pattern: copilot answers *"Show me Q3 pipeline health"* in the chat with a one-paragraph summary, AND opens a `pipeline_report` artifact in the side panel with the data table + chart. Click-through to entity pages from the artifact.
+
+### 3. **Generative UI via typed `data-*` stream parts**
+
+Tools write custom events into the stream:
+
+```ts
+dataStream.write({ type: 'data-entity-card', data: { id, type: 'contact' }, transient: true });
+dataStream.write({ type: 'data-confirmation', data: { action: 'delete', target: id } });
+dataStream.write({ type: 'data-pipeline-chart', data: chartData });
+```
+
+Frontend `data-stream-handler.tsx` listens by type and renders rich components inline with the chat. Same generative-UI pattern as v0 — but for CRM data.
+
+**Copilot data types to support at v1:**
+- `data-entity-card` — inline card preview when AI references a contact/account/opportunity (more than just a link)
+- `data-tool-call` — collapsible "AI called query_contacts({status: 'lead'}) → 23 results" block
+- `data-confirmation` — destructive op confirmation widget (button-based, not "type CONFIRM")
+- `data-cost-update` — running session cost badge update
+
+### 4. **Message persistence with `parts` JSONB**
+
+Vercel chatbot stores messages as:
+
+```ts
+{
+  id, chatId, role,
+  parts: jsonb,        // [{ type: 'text', text: '...' }, { type: 'tool-call', toolName, args, result }, ...]
+  attachments: jsonb,  // file references
+  createdAt
+}
+```
+
+The `parts` array preserves the exact tool-call sequence (tool name, input, output) inline with the assistant message. Replay is lossless.
+
+**Replaces my SEED-020 schema's separate `tool_call_id` / `tool_name` columns** — parts pattern is cleaner. Updated schema in the section below.
+
+### 5. **Tool approval flow (better than literal "CONFIRM")**
+
+Vercel chatbot pattern: when the model wants to confirm something, it streams a `data-confirmation` event with the action + target. The frontend renders a button. User clicks "Confirm" → frontend re-sends the full message history with `isToolApprovalFlow = true`. The model sees the approval and proceeds with the actual tool call.
+
+```ts
+const isToolApprovalFlow = Boolean(messages);
+const uiMessages = isToolApprovalFlow ? messages : [...convertToUIMessages(messagesFromDb), message];
+```
+
+**Updates my "type CONFIRM" decision:** use buttons + flow re-entry, not literal text. Better UX, works with voice input too.
+
+### 6. **Two-layer rate limiting**
+
+```ts
+await checkIpRateLimit(ipAddress(request));               // per-IP
+const messageCount = await getMessageCountByUserId({ id, differenceInHours: 1 });
+if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) ...;  // per-user
+```
+
+**For copilot:** per-user soft cap (60/hr) + per-IP hard cap (200/hr) + per-org spend cap ($X/day from cost telemetry). Three layers.
+
+### 7. **`stopWhen: stepCountIs(N)` from AI SDK**
+
+Replaces manual loop counters. Clean, declarative, capped.
+
+### 8. **`experimental_activeTools` for per-turn tool filtering**
+
+```ts
+experimental_activeTools: writeMode
+  ? Object.keys(allTools)
+  : Object.keys(allTools).filter(name => name.startsWith('query_') || name.startsWith('get_'))
+```
+
+**New decision: default to read-only mode.** Operator toggles "✏ Enable write mode" in the panel header to expose write tools. Reduces the blast radius of an early-session misclick. Write mode persists per session.
+
+### 9. **Geolocation context auto-injected**
+
+Vercel chatbot passes `geolocation(request)` into the system prompt. For Xphere copilot, equivalent is: pass `current_entity` (if launched from a detail page) and `active_org_id` + `user_locale` into the system prompt automatically.
+
+### 10. **AI Gateway as optional fallback (alternative to BYOK)**
+
+The Vercel chatbot uses Vercel's hosted AI Gateway by default. For Xphere, we can offer:
+- **Primary path:** BYOK (operator's OpenRouter / Anthropic key) — free for Xphere
+- **Optional fallback:** Vercel AI Gateway — Xphere fronts the cost, charges a per-seat upgrade
+
+This makes the copilot accessible to operators who don't want to manage API keys, while preserving BYOK as the default. Pricing TBD; out of scope for v1 but worth noting.
+
+### 11. **AI SDK 6 testing primitives**
+
+`models.mock.ts` + `models.test.ts` in the Vercel chatbot show how to mock providers for Vitest. Reuse for copilot integration tests:
+
+```ts
+import { simulateReadableStream } from 'ai/test';
+import { MockLanguageModelV1 } from 'ai/test';
+```
+
+**Adds:** unit tests for each tool dispatcher + integration tests for multi-turn flows with mock provider responses.
+
+### 12. **`smoothStream({ chunking: 'word' })` for streaming UX**
+
+Prevents the LLM output from appearing in awkward token chunks. Word-by-word feels conversational.
+
+### 13. **`onFinish` callback for persistence**
+
+```ts
+onFinish: async ({ messages: finishedMessages }) => {
+  await saveMessages({ messages: finishedMessages.map(...) });
+}
+```
+
+Persists final message state to DB once the stream completes. Replaces ad-hoc try/finally persistence in raw SDK code.
+
+### 14. **Greeting + suggested actions** (the empty state)
+
+Vercel chatbot shows a `<Greeting />` component when the chat is empty: title + 4 suggested prompts. **For copilot:** context-aware suggestions based on the page:
+- On `/contacts` empty chat: "Find duplicate contacts" / "Show contacts not touched in 30 days" / "Tag all leads from last week"
+- On `/pipeline` empty chat: "Summarize this week's pipeline health" / "Identify stalled deals" / "Compare conversion by owner"
+- Anywhere: "Search across everything"
+
+### 15. **Don't reinvent UI primitives — use `ai-elements`**
+
+```bash
+npx shadcn add https://registry.ai-sdk.dev/conversation
+npx shadcn add https://registry.ai-sdk.dev/message
+npx shadcn add https://registry.ai-sdk.dev/reasoning
+```
+
+Vercel-maintained, accessible, matches shadcn primitives we already use. Saves 1–2 weeks of UI work.
+
+---
+
+## Updated Database Schema (incorporating Vercel chatbot patterns)
+
+```sql
+copilot_conversations (
+  id uuid pk, org_id uuid, title text,
+  visibility text default 'private',  -- 'private' | 'shared' (future: shared with org)
+  started_at, ended_at,
+  created_by uuid, created_at, updated_at
+)
+
+-- Single table replaces my earlier copilot_messages (parts pattern preserves tool calls inline)
+copilot_messages (
+  id uuid pk, conversation_id uuid fk,
+  role text,                  -- 'user' | 'assistant'
+  parts jsonb,                -- [{type:'text', text:'...'}, {type:'tool-call', toolName, args, result}, ...]
+  attachments jsonb default '[]',
+  created_at
+)
+
+copilot_runs (
+  id uuid pk, org_id uuid, conversation_id uuid fk,
+  provider text,              -- 'openrouter' | 'anthropic' | 'ai-gateway'
+  model text,
+  input_tokens int, output_tokens int,
+  estimated_cost_usd numeric(10,4),
+  status text,                -- 'streaming' | 'succeeded' | 'failed'
+  error text,
+  started_at, ended_at, created_at, created_by uuid
+)
+
+-- Per-tool-call trace (kept for fine-grained debugging; redundant with parts but useful for SQL queries)
+copilot_tool_calls (
+  id uuid pk, run_id uuid fk,
+  tool_name text, input jsonb, output jsonb, error text,
+  status text,                -- 'succeeded' | 'failed'
+  duration_ms int,
+  created_at
+)
+
+-- Resumable stream registry (mirrors Vercel chatbot pattern)
+copilot_streams (
+  id uuid pk, conversation_id uuid fk,
+  redis_stream_id text,       -- key in Redis for resumption
+  created_at, expires_at
+)
+```
+
+---
+
 ## Open Questions (resolve in /gsd:discuss-phase)
 
 1. **Should the copilot share the same chat panel as the flow AI builder, or be separate?** Same UI saves work but mixes "build a flow" vs "do something on my CRM" — different mental models.
@@ -298,6 +547,11 @@ This is the exact pattern proven in the flow AI builder Phase C:
 13. **Provider fallback if OpenRouter is down:** auto-fail over to Anthropic if both configured? Or surface the error and let the operator retry? Probably the latter — silent failover masks real problems.
 14. **Embedding model usage:** any v1 tools need vector search (e.g. semantic find contacts)? Out of scope for v1; revisit when "find me contacts that look like X" is a real ask.
 15. **Localization:** does the master system prompt force English / Portuguese / detect from the user message? Probably detect-and-match.
+16. **Migrate flow builder to AI SDK 6 in the same milestone?** Phase C of flow builder uses raw OpenAI/Anthropic SDKs (~200 LOC). Refactoring to AI SDK 6 is a half-day. Doing it in v3.1 means both surfaces share infra; skipping it means tech debt.
+17. **Default tool mode:** read-only or read-write? Vercel chatbot exposes all tools always; safer default for CRM is read-only with toggle.
+18. **Artifacts in v1 or defer to Milestone C?** The pattern is well-understood (Vercel ships 4 kinds). Could ship `pipeline_report` + `contact_csv` in v1 for an early "wow" moment. Trade-off: scope creep.
+19. **Resumable streams in v1 or defer?** Requires Redis (already configured) + `resumable-stream` package. Adds ~50 LOC. Probably yes — operator UX is much better.
+20. **Greeting / suggested prompts source:** hand-curated per page (Phase D scope), or hybrid (5 hand-curated defaults + LLM-augmented based on the page's recent data)?
 
 ---
 
@@ -316,6 +570,41 @@ This is the exact pattern proven in the flow AI builder Phase C:
 - **dnd-kit + Zustand:** both already installed (pipeline kanban, flow editor) — reuse for any copilot drag-drop interactions or store patterns.
 - **Cost table for OpenRouter:** OpenRouter publishes per-model pricing via API; can fetch + cache. For Anthropic native, use the static pricing page.
 - **Flow builder tool dispatch:** `src/lib/flows/ai-tools.ts` is a clean reference for how to structure `Tool[]` + a `dispatchTool(name, input, state)` helper. Copilot's `dispatch.ts` follows the same shape, with state being the Supabase client + conversation context.
+
+### Reference implementation: Vercel Chatbot template (study before Phase A)
+
+Located at `C:\Users\Vanildo\Dev\chatbot` (or [github.com/vercel/ai-chatbot](https://github.com/vercel/ai-chatbot)). The most polished AI SDK 6 reference available.
+
+**Files to read in order:**
+
+1. `app/(chat)/api/chat/route.ts` (314 LOC) — the **entire chat handler**: streaming, tools, resumable streams, persistence, rate limiting. Copilot's `runCopilotTurn` server action follows this shape almost line-for-line.
+
+2. `lib/ai/tools/create-document.ts` — canonical `tool({ description, inputSchema, execute })` pattern. Copy this exact factory shape for every copilot tool.
+
+3. `lib/ai/providers.ts` — provider abstraction. We replace `gateway` with our BYOK resolver but keep the `customProvider` + `wrapLanguageModel` + `extractReasoningMiddleware` patterns.
+
+4. `lib/ai/prompts.ts` — system prompt composition with request hints (geolocation, time, model selection). Pattern for our `current_entity` + `active_org_id` + `user_locale` injection.
+
+5. `components/chat.tsx` + `components/messages.tsx` — frontend chat container using `useChat` from `@ai-sdk/react`. Wires resumable stream resumption + tool approval flow.
+
+6. `components/data-stream-handler.tsx` — listens for typed `data-*` stream parts and updates app state. Pattern for our entity-card / confirmation / chart rendering.
+
+7. `artifacts/text/server.ts` + `artifacts/sheet/server.ts` — pattern for AI-generated side-panel content. Reference when we ship `pipeline_report` / `contact_csv` artifacts in Milestone C (or v1 if we want the wow moment).
+
+8. `lib/db/schema.ts` (Drizzle) — message persistence with `parts` JSONB pattern. Translate to Supabase migration for `copilot_messages`.
+
+9. `lib/ratelimit.ts` — IP rate limiting via Upstash. Adapt to our existing Redis or Supabase pgmq.
+
+10. `app/(chat)/api/chat/schema.ts` — Zod schema for the chat POST body. Pattern for `runCopilotTurn` input validation.
+
+**License:** MIT. Free to study + copy patterns. Direct code lifts should attribute if substantial.
+
+**What NOT to copy from the Vercel chatbot:**
+- AI Gateway as primary path (we want BYOK)
+- `botid/server` (overkill for authenticated copilot)
+- Document artifacts as the only artifact kinds (we add CRM-specific kinds)
+- Next-auth (we use Supabase Auth)
+- Vercel Blob storage for attachments (we use Supabase Storage)
 
 ---
 
