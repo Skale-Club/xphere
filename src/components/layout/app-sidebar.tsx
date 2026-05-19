@@ -20,6 +20,8 @@ import {
   TrendingUp,
   Building2,
   SlidersHorizontal,
+  CheckSquare,
+  FileText,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -56,6 +58,8 @@ const navItems = [
   { icon: Contact2, label: 'Contacts', href: '/contacts', active: true },
   { icon: Building2, label: 'Companies', href: '/accounts', active: true },
   { icon: TrendingUp, label: 'Pipeline', href: '/pipeline', active: true },
+  { icon: CheckSquare, label: 'Tasks', href: '/tasks', active: true },
+  { icon: FileText, label: 'Notes', href: '/notes', active: true },
   { icon: Users, label: 'Members', href: '/members', active: true },
   { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]

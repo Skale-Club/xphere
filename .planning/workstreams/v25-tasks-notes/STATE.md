@@ -6,24 +6,19 @@ status: in_progress
 last_updated: "2026-05-19T00:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 6
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Xphere - State (v2.5 Tasks & Notes CRM System)
 
 ## Current Position
 
-Phase: 77
-Plan: Not started
-Next: Phase 77 (TASKS-ACTIONS) — server actions for tasks CRUD
-Status: Phase 76 complete — both migrations + TypeScript types done
-
-### Completed Plans
-
-- 76-01: Migration 067 — tasks table + enums + RLS (commit 396b8ac, 2026-05-19)
-- 76-02: Migration 068 — notes table + TypeScript types for tasks + notes (commits 115a502, dc5cc51, 2026-05-18)
+Phase: complete
+Plan: complete
+Next: v2.5 milestone complete — awaiting operator actions (db push + deploy)
+Status: ALL 6 phases complete (12/12 plans) — v2.5 feature-complete
 
 ## Milestone Progress
 
@@ -42,55 +37,74 @@ Status: Phase 76 complete — both migrations + TypeScript types done
 - v2.2 Chat Redesign: 🚧 separate workstream
 - v2.3 Integrations Refactor + Twilio Multi-Number: 🚧 human_uat
 - v2.4 CRM Expansion: ✅ Shipped 2026-05-19
-- **v2.5 Tasks & Notes CRM System: 🔲 In Progress (this workstream)**
+- **v2.5 Tasks & Notes CRM System: 🔄 in progress (feature-complete — awaiting db push)**
+- v2.6 Admin Panel + Landing Page + SEO: ✅ Shipped 2026-05-19
 
 ## Phase Map (v2.5)
 
-| # | Phase | Domain | UI? | Depends on |
-|---|-------|--------|-----|------------|
-| 76 | DB-FOUNDATION | DB + types | no | — |
-| 77 | TASKS-ACTIONS | server actions | no | 76 |
-| 78 | TASKS-LIST-UI | UI | yes | 77 |
-| 79 | NOTES-ACTIONS | server actions | no | 76 |
-| 80 | NOTES-LIST-UI | UI | yes | 79 |
-| 81 | ENTITY-INTEGRATION | UI + sidebar | yes | 78, 80 |
+| # | Phase | Status |
+|---|-------|--------|
+| 76 | DB-FOUNDATION | ✅ Complete (2/2 plans) |
+| 77 | TASKS-ACTIONS | ✅ Complete (2/2 plans) |
+| 78 | TASKS-LIST-UI | ✅ Complete (3/3 plans) |
+| 79 | NOTES-ACTIONS | ✅ Complete (2/2 plans) |
+| 80 | NOTES-LIST-UI | ✅ Complete (3/3 plans) |
+| 81 | ENTITY-INTEGRATION | ✅ Complete (2/2 plans) |
 
-## Project Reference
+### Phase 77 Plans
 
-See `.planning/PROJECT.md` for vision, validated requirements, decisions.
-See `.planning/MILESTONES.md` for shipped history.
-See `.planning/workstreams/v25-tasks-notes/ROADMAP.md` for v2.5 phase details.
+- [x] 77-01: taskCreateSchema + taskUpdateSchema + taskFiltersSchema in actions.ts + Vitest tests (2026-05-19)
+- [x] 77-02: createTask / updateTask / deleteTask / getTasks / toggleTaskDone (2026-05-19)
 
-**Core value:** Xphere is a tenant-aware integration and orchestration platform — reusable platform capabilities over hardcoding any single client's playbook.
-**App name:** Xphere
-**Production origin:** https://xphere.skale.club
-**Next migration number:** 069
+### Phase 78 Plans
+
+- [x] 78-01: tasks page route + TasksTable + filter/sort + overdue indicators (2026-05-19)
+- [x] 78-02: TaskForm + TaskSlideOver components (2026-05-19)
+- [x] 78-03: /tasks page wiring + sidebar nav item (2026-05-19)
+
+### Phase 79 Plans
+
+- [x] 79-01: noteCreateSchema + noteFiltersSchema in actions.ts + Vitest tests (2026-05-19)
+- [x] 79-02: createNote / updateNote / deleteNote / getNotes / toggleNotePin (2026-05-19)
+
+### Phase 80 Plans
+
+- [x] 80-01: notes page route + NotesGrid card grid (2026-05-19)
+- [x] 80-02: NoteForm + NoteSlideOver components (2026-05-19)
+- [x] 80-03: /notes page wiring + pin toggle + sidebar nav item (2026-05-19)
+
+### Phase 81 Plans
+
+- [x] 81-01: TasksPanel + NotesPanel reusable server components (2026-05-19)
+- [x] 81-02: Wire panels into account/[id] + pipeline/[opportunityId] detail pages (2026-05-19)
+
+## Blockers / Concerns
+
+- ⚠️ `npx supabase db push` required to apply migrations 067 (tasks) and 068 (notes) before app is usable
+- ⚠️ v2.3 HUMAN-UAT still owed — orthogonal, no overlap with v2.5
 
 ## Accumulated Context
 
 ### v2.5 Scope
 
-Two coupled CRM primitives — Tasks and Notes — modeled after standard CRM systems (HubSpot, Pipedrive, Close CRM). Both are:
+Two CRM primitives — Tasks and Notes — modeled after standard CRM systems. Both are:
 
 - Multi-tenant (RLS via get_current_org_id())
 - Polymorphically linked to contacts/accounts/opportunities via entity_type + entity_id
 - Accessible from standalone pages (/dashboard/tasks, /dashboard/notes)
-- Accessible inline from entity detail pages (contact, account, opportunity)
+- Accessible inline from entity detail pages (account, opportunity)
 
-**Tasks** are action-items with priority, status, due dates, and optional assignment to a user.
-**Notes** are freeform text records with optional pinning and entity association.
+### Key Files
 
-### Key Design Decisions
-
-- DB enums: task_priority (low/medium/high/urgent), task_status (todo/in_progress/done/cancelled), crm_entity_type (contact/account/opportunity) — shared by tasks and notes
-- Forms: react-hook-form + zod + zodResolver (project standard)
-- Toasts: sonner (project standard)
-- Auth: getUser() + createClient() from @/lib/supabase/server (project standard)
-- Server actions only (no separate API routes)
-- RLS handles org scoping — never manually filter by org_id in queries
-- UI components: shadcn/ui primitives (project standard)
-
-## Pending Todos
-
-- ⚠️ v2.3 HUMAN-UAT still owed — orthogonal, no overlap with v2.5
-- 🧹 npm run lint broken (Next.js 16 removed next lint) — not blocking, use npm run build
+- `src/app/(dashboard)/tasks/actions.ts` — 5 server actions + TaskRow/ActionResult types
+- `src/app/(dashboard)/notes/actions.ts` — 5 server actions + NoteRow/ActionResult types
+- `src/components/tasks/tasks-table.tsx` — TasksTable client component
+- `src/components/tasks/task-form.tsx` — react-hook-form + zod form
+- `src/components/tasks/task-slide-over.tsx` — Sheet wrapper
+- `src/components/tasks/tasks-panel.tsx` — Server component for entity detail pages
+- `src/components/notes/notes-grid.tsx` — NotesGrid client component (card grid + pin toggle)
+- `src/components/notes/note-form.tsx` — react-hook-form + zod form
+- `src/components/notes/note-slide-over.tsx` — Sheet wrapper
+- `src/components/notes/notes-panel.tsx` — Server component for entity detail pages
+- `tests/tasks-actions.test.ts` — Tier 1 + Tier 2 Vitest tests
+- `tests/notes-actions.test.ts` — Tier 1 + Tier 2 Vitest tests
