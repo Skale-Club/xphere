@@ -37,7 +37,7 @@
 5. `/calls` rota funciona sem quebrar `/phone` e `/voice` existentes
 6. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 1/1 plans complete
 - [ ] 86-01-PLAN.md — Layout + page + UnifiedCallTimeline component
 - [ ] 86-02-PLAN.md — UnifiedCallFilters + badge visual AI vs Human
 
@@ -55,7 +55,7 @@
 3. Navegação pelo layout.tsx tabs funciona corretamente
 4. `npm run build` exits 0
 
-**Plans:** 1
+**Plans:** 1/1 plans complete
 - [ ] 87-01-PLAN.md — Campaigns + Assistants sub-routes
 
 ---
@@ -71,7 +71,7 @@
 2. Rota acessível via tab "Settings" no layout
 3. `npm run build` exits 0
 
-**Plans:** 1
+**Plans:** 1/1 plans complete
 - [ ] 88-01-PLAN.md — Settings page consolidation
 
 ---
@@ -89,7 +89,7 @@
 4. Shell visual compartilhado (header + metadados comuns)
 5. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 1/1 plans complete
 - [ ] 89-01-PLAN.md — Detail router + shared shell
 - [ ] 89-02-PLAN.md — AI variant + Human variant components
 
@@ -109,7 +109,7 @@
 5. Webhooks `/api/twilio/*` e `/api/vapi/*` intactos (sem alteração)
 6. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 1/1 plans complete
 - [ ] 90-01-PLAN.md — Sidebar update + redirects
 - [ ] 90-02-PLAN.md — Cleanup de componentes não mais referenciados
 
@@ -129,7 +129,7 @@
 5. `updateOpportunity(id, patch)` chamado ao salvar edições
 6. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 1/1 plans complete
 - [ ] 91-01-PLAN.md — DnD fix + card onClick body
 - [ ] 91-02-PLAN.md — OpportunityDetailSheet component (view + edit + tabs)
 
@@ -148,6 +148,6 @@
 4. `/pipeline/[id]` ainda funciona mostrando OpportunityDetailSheet em modo standalone
 5. `npm run build` exits 0
 
-**Plans:** 2
+**Plans:** 1/1 plans complete
 - [ ] 92-01-PLAN.md — reorderOpportunities server action
 - [ ] 92-02-PLAN.md — kanban onDragEnd same-column reorder + standalone page update
