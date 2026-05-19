@@ -28,6 +28,9 @@ import {
   type OpportunityFilters,
 } from '@/lib/pipeline/zod-schemas'
 import { validateCustomFields } from '@/lib/custom-fields'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
+import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
+import type { CustomFieldType } from '@/types/database'
 
 type PipelineRow = Database['public']['Tables']['pipelines']['Row']
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
@@ -345,9 +348,9 @@ export async function createOpportunity(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
-  // Validate custom fields (per CF-07)
-  const cfPayload = (data as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayload && typeof cfPayload === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayload = data.custom_fields ?? {}
+  if (Object.keys(cfPayload).length > 0) {
     const cfResult = await validateCustomFields(orgId, 'opportunity', cfPayload)
     if (!cfResult.ok) return { error: 'custom_fields_invalid' }
   }
@@ -377,6 +380,7 @@ export async function createOpportunity(
       assigned_to: data.assigned_to ?? user.id,
       position: nextPos,
       created_by: user.id,
+      ...(Object.keys(cfPayload).length > 0 && { custom_fields: cfPayload }),
     })
     .select('id')
     .single()
@@ -404,9 +408,9 @@ export async function updateOpportunity(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Validate custom fields (per CF-07)
-  const cfPayloadUpdate = (input as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadUpdate = input.custom_fields ?? {}
+  if (Object.keys(cfPayloadUpdate).length > 0) {
     const { data: orgIdForCf } = await supabase.rpc('get_current_org_id')
     if (orgIdForCf) {
       const cfResult = await validateCustomFields(orgIdForCf, 'opportunity', cfPayloadUpdate)
@@ -424,6 +428,7 @@ export async function updateOpportunity(
   if (input.expected_close_date !== undefined) patch.expected_close_date = input.expected_close_date ?? null
   if (input.assigned_to !== undefined) patch.assigned_to = input.assigned_to ?? null
   if (input.status !== undefined) patch.status = input.status as OpportunityStatus
+  if (Object.keys(cfPayloadUpdate).length > 0) patch.custom_fields = cfPayloadUpdate
 
   const { error } = await supabase.from('opportunities').update(patch).eq('id', id)
   if (error) return { error: error.message }
@@ -758,4 +763,69 @@ export async function searchContactsForOpportunity(q: string): Promise<
   }
   const { data } = await query
   return data ?? []
+}
+
+// ─── Export (CF-13) ──────────────────────────────────────────────────────────
+
+function csvEscape(val: string): string {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
+export async function exportOpportunitiesCsv(): Promise<{ error?: string; csv?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const [{ data: opps }, defsResult] = await Promise.all([
+    supabase
+      .from('opportunities')
+      .select('*, pipeline_stages(name)')
+      .order('created_at', { ascending: false })
+      .limit(5000),
+    getDefinitions({ entity: 'opportunity', includeArchived: false }),
+  ])
+  if (!opps) return { error: 'Failed to fetch opportunities.' }
+  const defs = defsResult.ok ? defsResult.data : []
+
+  const stdHeaders = ['title', 'value', 'currency', 'status', 'stage', 'expected_close_date', 'created_at']
+  const cfHeaders: string[] = []
+  for (const def of defs) {
+    if (def.type === 'currency') {
+      cfHeaders.push(`${def.key}_amount`, `${def.key}_currency`)
+    } else {
+      cfHeaders.push(def.label)
+    }
+  }
+
+  const lines: string[] = [[...stdHeaders, ...cfHeaders].map(csvEscape).join(',')]
+
+  for (const o of opps) {
+    const cf = (o.custom_fields ?? {}) as Record<string, unknown>
+    const stage = (o as unknown as { pipeline_stages?: { name: string } | null }).pipeline_stages
+    const row: string[] = [
+      o.title ?? '',
+      String(o.value ?? ''),
+      o.currency ?? '',
+      o.status ?? '',
+      stage?.name ?? '',
+      o.expected_close_date ?? '',
+      o.created_at ?? '',
+    ]
+    for (const def of defs) {
+      const val = cf[def.key]
+      if (def.type === 'currency') {
+        const curr = val as { amount?: number; currency?: string } | null | undefined
+        row.push(String(curr?.amount ?? ''), curr?.currency ?? '')
+      } else {
+        const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
+        row.push(val !== undefined && val !== null ? config.displayFormatter(val) : '')
+      }
+    }
+    lines.push(row.map(csvEscape).join(','))
+  }
+
+  return { csv: lines.join('\n') }
 }

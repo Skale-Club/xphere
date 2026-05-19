@@ -18,6 +18,9 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import type { Database, ContactSource } from '@/types/database'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
+import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
+import type { CustomFieldType } from '@/types/database'
 import {
   contactSchema,
   contactListFiltersSchema,
@@ -48,6 +51,7 @@ export interface ContactListResult {
 
 export async function getContacts(
   filters: Partial<ContactListFilters> = {},
+  cfFilters: Record<string, string> = {},
 ): Promise<ContactListResult> {
   const user = await getUser()
   if (!user) {
@@ -110,6 +114,16 @@ export async function getContacts(
     }
   }
   if (f.source) query = query.eq('source', f.source)
+
+  // Custom field exact-match filters (CF-09)
+  for (const [key, rawValue] of Object.entries(cfFilters)) {
+    if (!key || rawValue === undefined) continue
+    let val: unknown = rawValue
+    if (rawValue === 'true') val = true
+    else if (rawValue === 'false') val = false
+    else if (rawValue !== '' && !isNaN(Number(rawValue))) val = Number(rawValue)
+    query = query.filter('custom_fields', 'cs', JSON.stringify({ [key]: val }))
+  }
 
   if (f.sort === 'name') {
     query = query.order('name', { ascending: true, nullsFirst: false })
@@ -244,9 +258,9 @@ export async function createContact(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
-  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
-  const cfPayloadCreate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadCreate && typeof cfPayloadCreate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadCreate = parsed.data.custom_fields ?? {}
+  if (Object.keys(cfPayloadCreate).length > 0) {
     const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadCreate)
     if (!cfResult.ok) {
       return { error: 'custom_fields_invalid', details: cfResult.errors } as { error: string; details?: unknown }
@@ -293,6 +307,7 @@ export async function createContact(
       tags: tagNames,
       source: data.source,
       created_by: user.id,
+      ...(Object.keys(cfPayloadCreate).length > 0 && { custom_fields: cfPayloadCreate }),
     })
     .select('id')
     .single()
@@ -319,15 +334,13 @@ export async function updateContact(
   const data = normaliseContactInput(parsed.data)
   const supabase = await createClient()
 
-  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
-  const cfPayloadUpdate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadUpdate = parsed.data.custom_fields ?? {}
+  if (Object.keys(cfPayloadUpdate).length > 0) {
     const { data: orgId } = await supabase.rpc('get_current_org_id')
     if (orgId) {
       const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadUpdate)
-      if (!cfResult.ok) {
-        return { error: 'custom_fields_invalid' }
-      }
+      if (!cfResult.ok) return { error: 'custom_fields_invalid' }
     }
   }
 
@@ -351,6 +364,7 @@ export async function updateContact(
       account_id: data.account_id,
       notes: data.notes,
       tags: tagNames,
+      ...(Object.keys(cfPayloadUpdate).length > 0 && { custom_fields: cfPayloadUpdate }),
     })
     .eq('id', id)
   if (error) return { error: error.message }
@@ -428,7 +442,7 @@ export interface ImportSummary {
 
 export async function importContactsCsv(
   csvText: string,
-  mapping: Record<string, ContactField | null>,
+  mapping: Record<string, string | null>,
 ): Promise<{ error?: string; summary?: ImportSummary }> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
@@ -439,10 +453,17 @@ export async function importContactsCsv(
 
   // Build index lookup: contact field → header column index
   const fieldToIdx: Partial<Record<ContactField, number>> = {}
+  const cfFieldToIdx: Record<string, number> = {}
   for (const [header, field] of Object.entries(mapping)) {
-    if (!field || !CONTACT_FIELDS.includes(field)) continue
-    const idx = parsed.headers.indexOf(header)
-    if (idx >= 0) fieldToIdx[field] = idx
+    if (!field) continue
+    if (field.startsWith('cf:')) {
+      const cfKey = field.slice(3)
+      const idx = parsed.headers.indexOf(header)
+      if (idx >= 0) cfFieldToIdx[cfKey] = idx
+    } else if ((CONTACT_FIELDS as readonly string[]).includes(field)) {
+      const idx = parsed.headers.indexOf(header)
+      if (idx >= 0) fieldToIdx[field as ContactField] = idx
+    }
   }
 
   if (
@@ -504,6 +525,13 @@ export async function importContactsCsv(
       ? tagsRaw.split(/[;,|]/).map((t) => t.trim()).filter(Boolean).slice(0, 50)
       : []
 
+    // Extract custom field values from cf: mapped columns
+    const rowCustomFields: Record<string, string> = {}
+    for (const [cfKey, idx] of Object.entries(cfFieldToIdx)) {
+      const v = (row[idx] ?? '').trim()
+      if (v) rowCustomFields[cfKey] = v
+    }
+
     if (!name && !phone && !email) {
       summary.skipped++
       continue
@@ -534,6 +562,7 @@ export async function importContactsCsv(
       tags,
       source: 'csv_import' as ContactSource,
       created_by: user.id,
+      ...(Object.keys(rowCustomFields).length > 0 && { custom_fields: rowCustomFields }),
     })
   }
 
@@ -609,4 +638,66 @@ export async function linkConversationsToContacts(): Promise<{
 
   revalidatePath('/contacts')
   return { linked }
+}
+
+// ─── Export (CF-13) ──────────────────────────────────────────────────────────
+
+function csvEscape(val: string): string {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
+export async function exportContactsCsv(): Promise<{ error?: string; csv?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const [{ data: contacts }, defsResult] = await Promise.all([
+    supabase.from('contacts').select('*').order('created_at', { ascending: false }).limit(5000),
+    getDefinitions({ entity: 'contact', includeArchived: false }),
+  ])
+  if (!contacts) return { error: 'Failed to fetch contacts.' }
+  const defs = defsResult.ok ? defsResult.data : []
+
+  // Standard headers
+  const stdHeaders = ['name', 'phone', 'email', 'company', 'notes', 'source', 'created_at']
+  // Custom field headers — currency expands to two columns
+  const cfHeaders: string[] = []
+  for (const def of defs) {
+    if (def.type === 'currency') {
+      cfHeaders.push(`${def.key}_amount`, `${def.key}_currency`)
+    } else {
+      cfHeaders.push(def.label)
+    }
+  }
+
+  const lines: string[] = [[...stdHeaders, ...cfHeaders].map(csvEscape).join(',')]
+
+  for (const c of contacts) {
+    const cf = (c.custom_fields ?? {}) as Record<string, unknown>
+    const row: string[] = [
+      c.name ?? '',
+      c.phone ?? '',
+      c.email ?? '',
+      c.company ?? '',
+      c.notes ?? '',
+      c.source ?? '',
+      c.created_at ?? '',
+    ]
+    for (const def of defs) {
+      const val = cf[def.key]
+      if (def.type === 'currency') {
+        const curr = val as { amount?: number; currency?: string } | null | undefined
+        row.push(String(curr?.amount ?? ''), curr?.currency ?? '')
+      } else {
+        const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
+        row.push(val !== undefined && val !== null ? config.displayFormatter(val) : '')
+      }
+    }
+    lines.push(row.map(csvEscape).join(','))
+  }
+
+  return { csv: lines.join('\n') }
 }

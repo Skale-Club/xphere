@@ -53,6 +53,8 @@ import {
   type OpportunityWithContact,
   type ActivityWithMeta,
 } from '@/app/(dashboard)/pipeline/actions'
+import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
+import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
 import {
   listTags,
   setOpportunityTags,
@@ -106,6 +108,7 @@ export function OpportunityDetailSheet({
   const [contactQuery, setContactQuery] = React.useState('')
   const [contactSuggestions, setContactSuggestions] = React.useState<ContactSuggestion[]>([])
   const [contactPickerOpen, setContactPickerOpen] = React.useState(false)
+  const [customFields, setCustomFields] = React.useState<Record<string, unknown>>({})
 
   // Load opportunity, tags, activities when sheet opens
   React.useEffect(() => {
@@ -141,6 +144,7 @@ export function OpportunityDetailSheet({
           phone: o.contact.phone,
           email: o.contact.email,
         } : null)
+        setCustomFields((o.custom_fields as Record<string, unknown>) ?? {})
       }
       setLoading(false)
     })
@@ -172,6 +176,7 @@ export function OpportunityDetailSheet({
       contact_id: contact?.id ?? null,
       expected_close_date: expectedClose || undefined,
       status,
+      custom_fields: customFields,
     })
     if (res && 'error' in res && res.error) {
       setSaving(false)
@@ -450,6 +455,12 @@ export function OpportunityDetailSheet({
                       />
                     </Field>
 
+                    <CustomFieldsForm
+                      entity="opportunity"
+                      value={customFields}
+                      onChange={setCustomFields}
+                    />
+
                     <div className="flex items-center justify-end gap-2 pt-2">
                       <Button variant="ghost" onClick={() => { setEditing(false); /* reset state */ }}>
                         Cancel
@@ -465,6 +476,11 @@ export function OpportunityDetailSheet({
                     <MetaRow icon={Calendar} label="Expected close" value={opp.expected_close_date ?? 'Not set'} />
                     <MetaRow icon={Calendar} label="Created" value={new Date(opp.created_at).toLocaleDateString()} />
                     <MetaRow icon={Calendar} label="Last updated" value={new Date(opp.updated_at).toLocaleDateString()} />
+
+                    <CustomFieldsDisplay
+                      entity="opportunity"
+                      customFields={opp.custom_fields as Record<string, unknown>}
+                    />
 
                     {opp.contact && (
                       <>

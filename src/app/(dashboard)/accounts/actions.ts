@@ -19,6 +19,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
+import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
+import type { CustomFieldType } from '@/types/database'
 import {
   accountSchema,
   accountListFiltersSchema,
@@ -56,6 +59,7 @@ import { validateCustomFields } from '@/lib/custom-fields'
 
 export async function getAccounts(
   filters: Partial<AccountListFilters> = {},
+  cfFilters: Record<string, string> = {},
 ): Promise<ActionResult<AccountListResult>> {
   const user = await getUser()
   if (!user) return errResult('not_authenticated')
@@ -85,6 +89,16 @@ export async function getAccounts(
   if (f.tag) query = query.contains('tags', [f.tag])
   if (f.assignedTo) query = query.eq('assigned_to', f.assignedTo)
   if (f.source) query = query.eq('source', f.source)
+
+  // Custom field exact-match filters (CF-09)
+  for (const [key, rawValue] of Object.entries(cfFilters)) {
+    if (!key || rawValue === undefined) continue
+    let val: unknown = rawValue
+    if (rawValue === 'true') val = true
+    else if (rawValue === 'false') val = false
+    else if (rawValue !== '' && !isNaN(Number(rawValue))) val = Number(rawValue)
+    query = query.filter('custom_fields', 'cs', JSON.stringify({ [key]: val }))
+  }
 
   if (f.sort === 'recent') {
     query = query.order('created_at', { ascending: false })
@@ -837,4 +851,66 @@ export async function importAccountsCsv(
 
   revalidatePath('/accounts')
   return okResult<AccountImportSummary>(summary)
+}
+
+// ─── Export (CF-13) ──────────────────────────────────────────────────────────
+
+function csvEscape(val: string): string {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`
+  }
+  return val
+}
+
+export async function exportAccountsCsv(): Promise<{ error?: string; csv?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const [{ data: accounts }, defsResult] = await Promise.all([
+    supabase.from('accounts').select('*').order('name', { ascending: true }).limit(5000),
+    getDefinitions({ entity: 'account', includeArchived: false }),
+  ])
+  if (!accounts) return { error: 'Failed to fetch accounts.' }
+  const defs = defsResult.ok ? defsResult.data : []
+
+  const stdHeaders = ['name', 'domain', 'website', 'industry', 'size', 'phone', 'notes', 'source', 'created_at']
+  const cfHeaders: string[] = []
+  for (const def of defs) {
+    if (def.type === 'currency') {
+      cfHeaders.push(`${def.key}_amount`, `${def.key}_currency`)
+    } else {
+      cfHeaders.push(def.label)
+    }
+  }
+
+  const lines: string[] = [[...stdHeaders, ...cfHeaders].map(csvEscape).join(',')]
+
+  for (const a of accounts) {
+    const cf = (a.custom_fields ?? {}) as Record<string, unknown>
+    const row: string[] = [
+      a.name ?? '',
+      a.domain ?? '',
+      a.website ?? '',
+      a.industry ?? '',
+      a.size ?? '',
+      a.phone ?? '',
+      a.notes ?? '',
+      a.source ?? '',
+      a.created_at ?? '',
+    ]
+    for (const def of defs) {
+      const val = cf[def.key]
+      if (def.type === 'currency') {
+        const curr = val as { amount?: number; currency?: string } | null | undefined
+        row.push(String(curr?.amount ?? ''), curr?.currency ?? '')
+      } else {
+        const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
+        row.push(val !== undefined && val !== null ? config.displayFormatter(val) : '')
+      }
+    }
+    lines.push(row.map(csvEscape).join(','))
+  }
+
+  return { csv: lines.join('\n') }
 }

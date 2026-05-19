@@ -1,27 +1,27 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.4
-milestone_name: milestone
-status: completed
-stopped_at: Completed 67-04-PLAN.md
-last_updated: "2026-05-18T23:00:56.147Z"
-last_activity: 2026-05-18
+milestone_name: CRM Expansion
+status: executing
+stopped_at: Completed 75-01-PLAN.md
+last_updated: "2026-05-19T01:20:00.000Z"
+last_activity: 2026-05-19
 progress:
   total_phases: 12
-  completed_phases: 7
-  total_plans: 26
-  completed_plans: 26
+  completed_phases: 12
+  total_plans: 36
+  completed_plans: 36
 ---
 
 # Xphere - State (v2.4 CRM Expansion)
 
 ## Current Position
 
-Phase: 68
-Plan: Not started
-Next: 70-01 (customfields-settings-ui)
-Status: Phase 67 complete; next up Phase 70
-Last activity: 2026-05-18
+Phase: 75
+Plan: complete
+Next: v2.4 milestone complete — all 12 phases done
+Status: ALL phases complete (12/12) — v2.4 CRM Expansion feature-complete
+Last activity: 2026-05-19
 
 ## Milestone Progress
 
@@ -39,7 +39,7 @@ Last activity: 2026-05-18
 - v2.1 Calls + Contacts + Pipeline + Design Foundation: ✅ Shipped 2026-05-17
 - v2.2 Chat Redesign — Schema + Server Actions Foundation: 🚧 separate workstream
 - v2.3 Integrations Refactor + Twilio Multi-Number: 🚧 human_uat (workstreams/v23-integrations-multi-number)
-- **v2.4 CRM Expansion: 🚧 roadmap_ready (this workstream)**
+- **v2.4 CRM Expansion: ✅ feature-complete (this workstream) — awaiting human UAT**
 
 ## Phase Map (v2.4)
 
@@ -126,6 +126,16 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 - [Phase 67-04]: Companies nav item positioned between Contacts and Pipeline; standard isCurrentPage logic handles /accounts/[id] without a special case; 8 Vitest pure-function smoke tests all pass; npm run build exits 0 — Phase 67 fully complete
 
+- [Phase 70-01]: `'use server'` files can only export async functions — constants (CUSTOM_FIELD_TYPES, CUSTOM_FIELD_ENTITIES) and zod schemas moved to `src/lib/custom-fields/field-config.ts` (non-server); all schemas kept internal in actions.ts; only type aliases exported (erased at build time)
+- [Phase 70-03]: Client-side zodResolver requires schema WITHOUT `.default()` to avoid `z.input<T>` vs `z.output<T>` mismatch in `Resolver<>` generic; clientDefinitionSchema defined in definition-modal.tsx without defaults, form defaults set via useForm `defaultValues`
+- [Phase 70-04]: Phase 70 complete — admin can visit /settings/custom-fields, create/edit/reorder/group/archive custom field definitions of all 13 types; Custom Fields sidebar link added; 11/11 Vitest action tests pass; npm run build clean
+- [Phase 71-01]: opportunitySchema custom_fields uses `.optional()` only (no `.default({})`) — `OpportunityFormInput = z.infer` resolves to output type where `.default({})` would make custom_fields required, breaking existing call sites; action handles undefined via `?? {}`
+- [Phase 71-02]: Phase 71 complete — CustomFieldsForm + CustomFieldsDisplay wired into contact form, contact detail sheet, opportunity detail sheet, and account detail page; both contact and opportunity actions now persist custom_fields to DB; 16/16 Vitest tests pass; npm run build clean
+- [Phase 72-01]: cfFilters applied via jsonb contains (custom_fields @> '{key:val}'); value coerced from URL string to boolean/number/string. All filterable field types supported; multi_select and currency skipped (exact jsonb match sufficient for text, boolean, select, number, date)
+- [Phase 72-02]: Phase 72 complete — dynamic columns (visible_in_list) + type-aware filters (filterable) in contacts+accounts lists; CSV export for contacts/accounts/opportunities; ImportCsvDialog extended with cf:key mapping targets; 15/15 Vitest tests pass; npm run build clean
+- [Phase 74-01]: parseCsvLimit + countCsvDataRows + suggestColumnMappingEnhanced added to csv.ts; 5 import server actions (createImportRecord, finalizeUpload, saveImportConfig, dryRunImport, enqueueImport); ImportWizardDialog 7-stage multi-step wizard with XHR upload progress, dry-run preview, dedup config, defaults; IMP-17 gate in both UI + action; 30/30 Vitest tests pass; npm run build clean
+- [Phase 75-01]: process-imports Edge Function (chunked/cancellable worker, concurrency caps, account auto-create, Realtime progress); import-history-actions (getImports, cancelImport, retryImport, exportImportErrors); /contacts/imports list page; /contacts/imports/[id] detail page with Supabase Realtime subscription; 31/31 Vitest tests pass; npm run build clean — v2.4 milestone COMPLETE (12/12 phases, 54/54 requirements)
+
 ## Pending Todos
 
 - ⚠️ v2.3 HUMAN-UAT still owed — operator runs `workstreams/v23-integrations-multi-number/phases/63-polish/63-HUMAN-UAT.md` before v2.3 can be marked complete
@@ -133,5 +143,5 @@ Three coupled features that together promote contacts/opportunities into a full 
 
 ## Session Continuity
 
-Last session: 2026-05-18T22:56:34.000Z
-Stopped at: Completed 67-04-PLAN.md
+Last session: 2026-05-19T00:20:00.000Z
+Stopped at: Completed 72-02-PLAN.md

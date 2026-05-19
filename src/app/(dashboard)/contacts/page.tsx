@@ -1,10 +1,12 @@
 import { Suspense } from 'react'
-import { Sparkles, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Users, History } from 'lucide-react'
 
 import { getContacts } from './actions'
+import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { ContactsTable } from '@/components/contacts/contacts-table'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
-import { ImportCsvDialog } from '@/components/contacts/import-csv-dialog'
+import { ImportWizardDialog } from '@/components/contacts/import-wizard-dialog'
 import { EmptyContacts } from '@/components/empty-states/empty-contacts'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
@@ -27,6 +29,14 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
+  // Extract custom field filters from cff_* URL params
+  const cfFilters: Record<string, string> = {}
+  for (const [key, val] of Object.entries(sp)) {
+    if (key.startsWith('cff_') && typeof val === 'string' && val) {
+      cfFilters[key.slice(4)] = val
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Hero */}
@@ -45,7 +55,13 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <ImportCsvDialog />
+            <Link
+              href="/contacts/imports"
+              className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
+            >
+              <History className="h-3.5 w-3.5" /> History
+            </Link>
+            <ImportWizardDialog />
             <NewContactDialog />
           </div>
         </div>
@@ -58,6 +74,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
           source={source}
           sort={sort}
           page={page}
+          cfFilters={cfFilters}
         />
       </Suspense>
     </div>
@@ -70,14 +87,22 @@ async function ContactsBody({
   source,
   sort,
   page,
+  cfFilters,
 }: {
   q?: string
   tag?: string
   source?: (typeof CONTACT_SOURCES)[number]
   sort: 'recent' | 'name'
   page: number
+  cfFilters: Record<string, string>
 }) {
-  const result = await getContacts({ q, tag, source, sort, page, pageSize: 25 })
+  const [result, defsResult] = await Promise.all([
+    getContacts({ q, tag, source, sort, page, pageSize: 25 }, cfFilters),
+    getDefinitions({ entity: 'contact', includeArchived: false }),
+  ])
+  const defs = defsResult.ok ? defsResult.data : []
+  const visibleDefs = defs.filter((d) => d.visible_in_list)
+  const filterableDefs = defs.filter((d) => d.filterable)
 
   // Show EmptyContacts ONLY for the true unfiltered empty state — otherwise we
   // still want the toolbar and search visible so the user can clear filters.
@@ -107,6 +132,9 @@ async function ContactsBody({
       currentSource={source}
       currentSort={sort}
       currentQuery={q}
+      visibleDefs={visibleDefs}
+      filterableDefs={filterableDefs}
+      activeCfFilters={cfFilters}
     />
   )
 }

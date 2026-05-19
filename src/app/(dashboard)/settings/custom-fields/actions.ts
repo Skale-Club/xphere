@@ -27,7 +27,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { isReservedKey } from '@/lib/custom-fields'
-import type { CustomFieldType, CustomFieldEntity, Database } from '@/types/database'
+import { CUSTOM_FIELD_TYPES, CUSTOM_FIELD_ENTITIES } from '@/lib/custom-fields/field-config'
+import type { Database } from '@/types/database'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -45,31 +46,7 @@ function err(msg: string, details?: unknown): ActionResult<never> {
 
 const REVALIDATE_PATH = '/settings/custom-fields'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-export const CUSTOM_FIELD_TYPES = [
-  'text',
-  'long_text',
-  'number',
-  'integer',
-  'boolean',
-  'date',
-  'datetime',
-  'select',
-  'multi_select',
-  'url',
-  'email',
-  'phone',
-  'currency',
-] as const satisfies readonly CustomFieldType[]
-
-export const CUSTOM_FIELD_ENTITIES = [
-  'contact',
-  'opportunity',
-  'account',
-] as const satisfies readonly CustomFieldEntity[]
-
-// ─── Shared sub-schemas ───────────────────────────────────────────────────────
+// ─── Shared sub-schemas (internal) ────────────────────────────────────────────
 
 const selectOptionSchema = z.object({
   value: z.string().min(1),
@@ -85,14 +62,14 @@ const validationSchema = z.object({
   currency_code: z.string().length(3).optional(),
 })
 
-// ─── Zod schemas ─────────────────────────────────────────────────────────────
+// ─── Zod schemas (internal — not exported; 'use server' only allows async fn exports) ─
 
-export const getDefinitionsSchema = z.object({
+const getDefinitionsSchema = z.object({
   entity: z.enum(CUSTOM_FIELD_ENTITIES),
   includeArchived: z.boolean().optional(),
 })
 
-export const createDefinitionSchema = z.object({
+const createDefinitionSchema = z.object({
   entity: z.enum(CUSTOM_FIELD_ENTITIES),
   key: z
     .string()
@@ -111,7 +88,7 @@ export const createDefinitionSchema = z.object({
   validation: validationSchema.nullable().optional(),
 })
 
-export const updateDefinitionSchema = z.object({
+const updateDefinitionSchema = z.object({
   id: z.string().uuid(),
   // type is intentionally excluded — type changes blocked after creation (D-07)
   label: z.string().min(1).max(100).optional(),
@@ -127,16 +104,16 @@ export const updateDefinitionSchema = z.object({
   validation: validationSchema.nullable().optional(),
 })
 
-export const archiveDefinitionSchema = z.object({
+const archiveDefinitionSchema = z.object({
   id: z.string().uuid(),
 })
 
-export const reorderDefinitionsSchema = z.object({
+const reorderDefinitionsSchema = z.object({
   entity: z.enum(CUSTOM_FIELD_ENTITIES),
   orderedIds: z.array(z.string().uuid()),
 })
 
-// ─── Exported TS types ────────────────────────────────────────────────────────
+// ─── Exported TS types (type exports are safe in 'use server' files) ──────────
 
 export type GetDefinitionsInput = z.infer<typeof getDefinitionsSchema>
 export type CreateDefinitionInput = z.infer<typeof createDefinitionSchema>

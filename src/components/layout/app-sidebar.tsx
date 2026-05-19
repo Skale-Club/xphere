@@ -19,6 +19,7 @@ import {
   Contact2,
   TrendingUp,
   Building2,
+  SlidersHorizontal,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -157,6 +158,25 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
                   </SidebarMenuItem>
                 )
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith('/settings')}
+                  data-active={pathname.startsWith('/settings')}
+                >
+                  <Link href="/settings/custom-fields">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span>Custom Fields</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
