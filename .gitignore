@@ -41,3 +41,4 @@ public/reviews-widget.js
 
 # supabase CLI cache
 supabase/.temp/
+.env*.local
