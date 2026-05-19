@@ -49,6 +49,11 @@ export type CustomFieldType =
 
 export type CustomFieldEntity = 'contact' | 'opportunity' | 'account'
 
+// v2.5 — tasks & notes (v2.5 Tasks & Notes CRM System)
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type CrmEntityType = 'contact' | 'account' | 'opportunity'
+
 // v2.4 — contact_imports (Import Pipeline) — SEED-018
 export type ContactImportStatus =
   | 'uploading'
@@ -2782,6 +2787,122 @@ export interface Database {
           }
         ]
       }
+      tasks: {
+        Row: {
+          id: string
+          org_id: string
+          title: string
+          description: string | null
+          due_date: string | null
+          priority: TaskPriority
+          status: TaskStatus
+          assigned_to: string | null
+          entity_type: CrmEntityType | null
+          entity_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          title: string
+          description?: string | null
+          due_date?: string | null
+          priority?: TaskPriority
+          status?: TaskStatus
+          assigned_to?: string | null
+          entity_type?: CrmEntityType | null
+          entity_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          title?: string
+          description?: string | null
+          due_date?: string | null
+          priority?: TaskPriority
+          status?: TaskStatus
+          assigned_to?: string | null
+          entity_type?: CrmEntityType | null
+          entity_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tasks_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tasks_assigned_to_fkey'
+            columns: ['assigned_to']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tasks_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      notes: {
+        Row: {
+          id: string
+          org_id: string
+          title: string | null
+          content: string
+          pinned: boolean
+          entity_type: CrmEntityType | null
+          entity_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          title?: string | null
+          content: string
+          pinned?: boolean
+          entity_type?: CrmEntityType | null
+          entity_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          title?: string | null
+          content?: string
+          pinned?: boolean
+          entity_type?: CrmEntityType | null
+          entity_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'notes_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'notes_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -2810,6 +2931,10 @@ export interface Database {
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
       agent_invocation_mode: AgentInvocationMode
+      // v2.5 — tasks & notes enums
+      task_priority: TaskPriority
+      task_status: TaskStatus
+      crm_entity_type: CrmEntityType
     }
   }
 }
