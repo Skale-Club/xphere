@@ -12,30 +12,19 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
-## Current Milestone: v2.4 CRM Expansion 🚧 In Progress
+## Current State: v2.4 CRM Expansion ✅ Shipped 2026-05-19
 
-**Goal:** Promote contacts/opportunities into a complete CRM model — companies as a first-class entity, structured custom fields across all entities, and a production-grade bulk import pipeline.
+**12 phases, 93 commits, 167 files, +31,256 / −31 lines — single-session marathon.**
 
-**Target features:**
-- **Accounts (Companies)** — new first-class entity (`accounts` in DB, "Companies" in UI), FK from contacts and opportunities, account detail with contacts/deals/activities tabs, lookup by email domain ([SEED-016](seeds/SEED-016-accounts-crm-companies.md))
-- **Custom Fields System** — structured metadata layer over `custom_fields jsonb` for contacts/opportunities/accounts, 13 field types (text/number/date/select/multi_select/boolean/url/email/phone/currency/...), settings UI with drag-reorder, server-side validation, dynamic columns + filters ([SEED-017](seeds/SEED-017-custom-fields-system.md))
-- **Contact Import Pipeline** — replaces the current 5MB sync import; 50MB/200k rows, queued background worker, real progress via Supabase Realtime, mapping wizard with custom-fields support, dedup preview, per-row errors + retry ([SEED-018](seeds/SEED-018-contact-import-pipeline.md))
+v2.4 delivers a complete CRM upgrade: Companies as a first-class entity, a structured custom fields layer across all three entity types, and a production-grade bulk contact import pipeline.
 
-**Key context:**
-- v2.3 (Integrations Refactor + Twilio Multi-Number) still in `human_uat` in `workstreams/v23-integrations-multi-number` — runs in parallel, no overlap with this work
-- Hetzner migration is on the future roadmap — designs in this milestone must stay runtime-portable (worker behind an interface, storage abstracted via `@aws-sdk/client-s3` when needed, queue = status column not BullMQ in v1)
-- Naming discipline: `accounts` (DB) / "Companies" (UI). `organizations` is reserved for the multi-tenant boundary
-- Execution order: SEED-016 (Accounts) → SEED-017 (Custom Fields) → SEED-018 (Import Pipeline)
+**Accounts (SEED-016):** `accounts` table + RLS + idempotent migration from `contacts.company`. Full CRUD/merge/CSV-import server actions. `/dashboard/accounts` list with filters/search/bulk, combobox in contact form, TopCompanies widget, detail page with Contacts/Opportunities/Activities tabs, email-domain auto-suggest, two-path opportunity creation.
 
-**Phase progress (7/12 complete):**
-- ✅ **Phase 64 ACCOUNTS-SCHEMA** (shipped 2026-05-18) — Migration 064 live on remote Supabase. `accounts` table with 18 columns + RLS via `get_current_org_id()`. Nullable `account_id` FKs on contacts and opportunities, plus `opp_has_contact_or_account` CHECK. 8/8 schema tests green. Validated: ACC-14, ACC-15, ACC-19.
-- ✅ **Phase 65 ACCOUNTS-ACTIONS** (shipped 2026-05-18, **paralleled with 68**) — Full server-action layer for accounts: 10 actions (CRUD + merge + linking + CSV preview/import). Lib foundation in `src/lib/accounts/` (zod schemas, normalisers, types, csv parser). Delete blocks when referenced (ACC-03 LOCKED). Merge is 3-step sequential with `partial_state` recovery. CSV import dedups by `(org_id, lower(name))` and normalized domain. 53/53 tests green across 3 files. Validated: ACC-01, ACC-02, ACC-03, ACC-16, ACC-17.
-- ✅ **Phase 66 ACCOUNTS-LIST-UI** (shipped 2026-05-18) — `/dashboard/accounts` list with 8-column table, debounced search, 5 filter dropdowns, bulk assign/tag/delete. `AccountCombobox` wired into contact form (FK combobox + inline quick-create). `TopCompanies` dashboard widget. Validated: ACC-04, ACC-05, ACC-06, ACC-07, ACC-13, ACC-18.
-- ✅ **Phase 67 ACCOUNTS-DETAIL-UI** (shipped 2026-05-18) — `/dashboard/accounts/[id]` with Contacts/Opportunities/Activities tabs, add-contact/add-opportunity flows (two-path), email-domain auto-suggest, Companies sidebar nav item. 8/8 smoke tests green. Validated: ACC-08, ACC-09, ACC-10, ACC-11, ACC-12.
-- ✅ **Phase 68 CUSTOMFIELDS-SCHEMA** (shipped 2026-05-18, **paralleled with 65**) — Migration 065 live on remote. `custom_field_definitions` table with 20 columns, per-entity reserved-key CHECK (CASE entity), 13-value `custom_field_type` ENUM, 3-value `custom_field_entity` ENUM, RLS via `get_current_org_id()`. 15/15 schema tests green. Validated: CF-11, CF-14.
-- ✅ **Phase 69 CUSTOMFIELDS-CORE-LIB** (shipped 2026-05-18) — Pure-function validation lib (`validate.ts`, `serialize.ts`, `render-config.ts`) wired into contact, opportunity, and account server actions. Unknown-key rejection, required/type/unique_per_org checks, currency round-trip. Unit tests green. Validated: CF-07, CF-15.
-- ✅ **Phase 73 IMPORT-SCHEMA-WORKER** (shipped 2026-05-18) — Migration 066 live on remote. `contact_imports` + `contact_import_errors` tables with ENUMs, generated `progress_percent`, RLS, Realtime publication, pg_cron cleanup cron. `ContactImportStorage` + worker entry point defined as interfaces. Schema tests green. Validated: IMP-18, IMP-19.
-- ⏳ **Phase 70 CUSTOMFIELDS-SETTINGS-UI** — next up.
+**Custom Fields (SEED-017):** `custom_field_definitions` table with 13-type ENUM and per-entity reserved-key enforcement. Pure-function validation lib wired into all 3 entity server actions. Settings page with dnd-kit drag-reorder, groups, archive. `CustomFieldsForm`/`CustomFieldsDisplay` rendered in every form and detail page. Dynamic columns + type-aware filters in list views. CSV import mapping + export expansion.
+
+**Contact Import Pipeline (SEED-018):** `contact_imports` + `contact_import_errors` tables, Realtime publication, pg_cron 30-day cleanup, Storage bucket with per-org path RLS. 7-stage mapping wizard with direct-to-Storage XHR upload (signed URL, byte-level progress), auto-mapping heuristics, dedup picker, dry-run preview. process-imports Deno Edge Function with chunked/cancellable/concurrency-capped execution, account auto-create, Realtime progress, imports history + detail pages, error CSV export, retry-failed flow.
+
+**Pending operator action:** v2.3 (Integrations Refactor + Twilio Multi-Number) still in `human_uat` in `workstreams/v23-integrations-multi-number` — orthogonal, no overlap.
 
 ## Previous In-Flight: v2.3 Integrations Refactor + Twilio Multi-Number 🚧 human_uat
 
@@ -248,10 +237,13 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Schema: `agent_model_pricing` global reference table seeded with 7 launch models (Anthropic + OpenAI + Google) — v2.0 Phase 33 (OBS-03)
 - Schema: `manychat_rules.agent_id` + `meta_channels.agent_id` additive nullable columns (Phase 37 dispatcher branches on these) — v2.0 Phase 33 (CHAN-06)
 - Every existing org has a seeded "Main Agent" with system_prompt byte-equal to v1.4 chat template + all active tool_configs granted + web_widget channel default — v2.0 Phase 33 (GATE-07 surrogate; literal verification in Phase 35)
+- Accounts (Companies) as first-class entity: `accounts` table + RLS + idempotent migration, CRUD/merge/CSV-import server actions, list/detail UI with filters/bulk/tabs — v2.4 (ACC-01..19)
+- Custom Fields system: `custom_field_definitions` table (13 types, 3 entities, reserved-key enforcement), server-side zod validation, settings UI with drag-reorder/groups/archive, `CustomFieldsForm`/`CustomFieldsDisplay` in all forms/detail pages, dynamic list columns+filters, CSV IO — v2.4 (CF-01..15)
+- Contact Import Pipeline: queued background import with direct-to-Storage XHR upload (50MB/200k rows), mapping wizard, dedup preview, Realtime progress, per-row errors, retry-failed, account auto-create, imports history page — v2.4 (IMP-01..20)
 
-### Active (v2.0 shipped — planning v2.1 next)
+### Active (v2.4 shipped — planning v2.5 next)
 
-All v2.0 requirements shipped. Next milestone to be defined via `/gsd:new-milestone`.
+All v2.4 requirements shipped. Next milestone to be defined via `/gsd:new-milestone`.
 
 ### Backlog (next milestone candidates)
 
@@ -327,4 +319,4 @@ All v2.0 requirements shipped. Next milestone to be defined via `/gsd:new-milest
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-18 — v2.4 Phases 64/65/66/67/68/69/73 shipped (7/12). Phase 73 (IMPORT-SCHEMA-WORKER) ran concurrently with the accounts UI chain. 26/26 plans complete across 7 phases. Next: Phase 70 CUSTOMFIELDS-SETTINGS-UI. v2.3 Integrations Refactor still pending HUMAN-UAT.*
+*Last updated: 2026-05-19 — v2.4 CRM Expansion shipped (12/12 phases, 54/54 requirements). Accounts + Custom Fields + Import Pipeline delivered. v2.3 Integrations Refactor still pending HUMAN-UAT.*

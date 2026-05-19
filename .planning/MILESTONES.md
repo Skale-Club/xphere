@@ -1,5 +1,24 @@
 # Milestones
 
+## v2.4 CRM Expansion (Shipped: 2026-05-19)
+
+**Stats:** 12 phases, 30 plans, 93 commits, 167 files, +31,256 / −31 lines
+**Timeline:** 2026-05-18 (single-session marathon)
+**Stack:** Next.js 16, Supabase (PostgreSQL + RLS + Realtime + Storage + Edge Functions), Deno, dnd-kit, Vitest
+
+**Key accomplishments:**
+
+1. **Accounts (Companies) entity** — `accounts` table (18 cols + RLS) with FK links from contacts/opportunities, `opp_has_contact_or_account` CHECK, idempotent data migration from `contacts.company`, full CRUD + merge + CSV import server actions (validated: ACC-01..19)
+2. **Companies UI** — `/dashboard/accounts` list with 8-column table, debounced search, 5 filter dropdowns, bulk assign/tag/delete; `AccountCombobox` in contact form with inline quick-create; TopCompanies dashboard widget; `/dashboard/accounts/[id]` detail page with Contacts/Opportunities/Activities tabs, two-path opportunity creation, email-domain auto-suggest
+3. **Custom Fields system** — `custom_field_definitions` table (20 cols, 13-type ENUM, 3-entity ENUM, per-entity reserved-key CHECK, RLS); pure-function validation lib (`validate.ts`, `serialize.ts`, `render-config.ts`) wired into all 3 entity server actions; settings page `/dashboard/settings/custom-fields` with drag-reorder (dnd-kit), groups, archive (validated: CF-01..15)
+4. **Custom Fields rendering** — `CustomFieldsForm` + `CustomFieldsDisplay` wired into every contact/opportunity/account form and detail page; dynamic columns (`visible_in_list`) and type-aware filters (`filterable`) with jsonb `@>` operator; CSV import column mapping + CSV export with expanded custom-field columns
+5. **Contact Import Pipeline** — `contact_imports` + `contact_import_errors` tables, Realtime publication, pg_cron 30-day cleanup cron, Storage bucket with per-org path RLS, `ContactImportStorage` + worker interfaces; 7-stage mapping wizard with direct-to-Storage XHR upload (signed URL, byte-level progress), heuristic auto-mapping, dedup picker, dry-run preview (validated: IMP-01..09, IMP-17..19)
+6. **Import worker + history** — process-imports Deno Edge Function with chunked/cancellable execution, per-org cap (2) + global cap (8) via `SELECT FOR UPDATE SKIP LOCKED`, account auto-create on import, Realtime progress; `/dashboard/contacts/imports` list + detail pages, error CSV export, retry-failed flow (validated: IMP-10..16, IMP-20)
+
+**Archives:** [v2.4-ROADMAP.md](milestones/v2.4-ROADMAP.md) | [v2.4-REQUIREMENTS.md](milestones/v2.4-REQUIREMENTS.md)
+
+---
+
 ## v2.0 Multi-Bot Platform (Shipped: 2026-05-17)
 
 **Phases completed:** 1 phases, 5 plans, 0 tasks

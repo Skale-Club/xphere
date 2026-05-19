@@ -2,6 +2,38 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v2.4 — CRM Expansion
+
+**Shipped:** 2026-05-19
+**Phases:** 12 (64–75) | **Plans:** 35 | **Timeline:** 1 day (2026-05-18 → 2026-05-19, single-session)
+**Stats:** 93 commits, 167 files, +31,256 / −31 lines
+
+### What Was Built
+- Accounts (Companies): `accounts` table + RLS + idempotent migration from `contacts.company`, full CRUD/merge/CSV-import server actions, list/detail UI with filters/search/bulk/tabs, email-domain auto-suggest
+- Custom Fields: `custom_field_definitions` table (13 types × 3 entities), server-side zod validation, settings UI with dnd-kit reorder/groups/archive, type-aware form inputs and read-only display, dynamic list columns + filters, CSV IO
+- Contact Import Pipeline: direct-to-Storage XHR upload (50MB/200k rows), 7-stage mapping wizard with heuristic auto-suggestions, dedup picker, dry-run preview, Deno Edge Function worker with concurrency caps + cancellation, Realtime progress, per-row error CSV export, retry-failed, account auto-create, imports history UI
+
+### What Worked
+- **Workstream isolation** — keeping v2.4 in `workstreams/v24-crm-expansion/` let phases 65 and 68 run in parallel without state conflicts; workstream pattern validated for multi-seed milestones
+- **Phase sequencing** — the 3-seed fan-out (accounts → custom fields → import) kept dependencies clean: each seed's schema landed before UI phases that consumed it
+- **Interface-first design for the worker** — defining `ContactImportStorage` and worker entry-point as interfaces before implementation made the Edge Function pluggable; swapping to Node/S3 post-Hetzner will touch only one file
+- **Zod server-side validation** shared across 3 entity server actions from a single pure-function library — no code drift across contact/opportunity/account paths
+
+### What Was Inefficient
+- **Phases 71, 72, 74, 75 executed without formal PLAN.md files** — work was done directly in a worktree/agent session; GSD treated these phases as "pending" in the progress bar even though all summaries were `status: complete`. Adds friction at milestone-close time.
+- **ROADMAP.md progress table not updated during execution** — phases 71–75 still showed "Not started" at archive time despite all being complete; required manual correction in the archived roadmap
+
+### Patterns Established
+- `SELECT FOR UPDATE SKIP LOCKED` pattern for queue-free import concurrency control — reusable for any future background processing without BullMQ/pg-boss
+- Direct-to-Storage signed URL upload pattern (XHR + byte-level progress) avoids Vercel body size limits — template for future large-file features
+- `CustomFieldsForm` + `CustomFieldsDisplay` pair as the standard rendering contract for metadata overlays
+
+### Key Lessons
+- When executing phases outside GSD's plan→execute flow (e.g., from a worktree agent), write PLAN.md stubs retroactively or the progress system stays confused
+- Three seeds in one milestone is viable when they have a clear serial dependency chain; avoid parallel seeds that share schema writes in the same migration window
+
+---
+
 ## Milestone: v1.0 — VoiceOps MVP
 
 **Shipped:** 2026-04-03
