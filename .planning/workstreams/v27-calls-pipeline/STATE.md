@@ -2,23 +2,24 @@
 gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: milestone
-status: executing
-last_updated: "2026-05-19T11:45:22.529Z"
+status: verifying
+last_updated: "2026-05-19T11:53:25.132Z"
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Xphere - State (v2.7 Unified Calls Hub + Pipeline UX)
 
 ## Current Position
 
-Phase: 85 (unified-calls-db) — EXECUTING
-Plan: 2 of 2
-Next: Plan and execute phase 85
-Status: Ready to execute
+Phase: 85 (unified-calls-db) — COMPLETE
+Plan: 2 of 2 (all plans done)
+Next: Execute phase 86 (unified-timeline-page)
+Status: Phase 85 complete — both plans executed and committed
+Last session: 2026-05-19 — Completed 85-02-PLAN.md (Vitest test suite for getUnifiedCalls/getUnifiedCall)
 
 ## Milestone Progress
 
@@ -39,6 +40,7 @@ Status: Ready to execute
 - Seeds SEED-014 and SEED-015 promoted to v2.7 milestone on 2026-05-19
 - 85-01: unified_calls VIEW (063), UnifiedCall TypeScript type, and server actions verified fully correct — no changes needed
 - 85-01: Stale .next cache caused false build failure from old /tools/ route; cleared and confirmed exit 0
+- 85-02: maybeSingle() in fake Supabase client must return Promise directly (not proxy) to match action await pattern — chainable thenable proxy works for getUnifiedCalls, but maybeSingle terminates the chain in getUnifiedCall
 
 ## Blockers / Concerns
 
