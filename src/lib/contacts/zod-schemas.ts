@@ -56,6 +56,7 @@ export const contactSchema = z
     notes: z.string().trim().max(5000).optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(50).default([]),
     source: z.enum(CONTACT_SOURCES).default('manual'),
+    custom_fields: z.record(z.string(), z.unknown()).optional().default({}),
   })
   .refine(
     (v) => Boolean(v.name || v.phone || v.email),

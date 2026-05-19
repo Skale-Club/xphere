@@ -345,9 +345,9 @@ export async function createOpportunity(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
-  // Validate custom fields (per CF-07)
-  const cfPayload = (data as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayload && typeof cfPayload === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayload = data.custom_fields ?? {}
+  if (Object.keys(cfPayload).length > 0) {
     const cfResult = await validateCustomFields(orgId, 'opportunity', cfPayload)
     if (!cfResult.ok) return { error: 'custom_fields_invalid' }
   }
@@ -377,6 +377,7 @@ export async function createOpportunity(
       assigned_to: data.assigned_to ?? user.id,
       position: nextPos,
       created_by: user.id,
+      ...(Object.keys(cfPayload).length > 0 && { custom_fields: cfPayload }),
     })
     .select('id')
     .single()
@@ -404,9 +405,9 @@ export async function updateOpportunity(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Validate custom fields (per CF-07)
-  const cfPayloadUpdate = (input as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadUpdate = input.custom_fields ?? {}
+  if (Object.keys(cfPayloadUpdate).length > 0) {
     const { data: orgIdForCf } = await supabase.rpc('get_current_org_id')
     if (orgIdForCf) {
       const cfResult = await validateCustomFields(orgIdForCf, 'opportunity', cfPayloadUpdate)
@@ -424,6 +425,7 @@ export async function updateOpportunity(
   if (input.expected_close_date !== undefined) patch.expected_close_date = input.expected_close_date ?? null
   if (input.assigned_to !== undefined) patch.assigned_to = input.assigned_to ?? null
   if (input.status !== undefined) patch.status = input.status as OpportunityStatus
+  if (Object.keys(cfPayloadUpdate).length > 0) patch.custom_fields = cfPayloadUpdate
 
   const { error } = await supabase.from('opportunities').update(patch).eq('id', id)
   if (error) return { error: error.message }

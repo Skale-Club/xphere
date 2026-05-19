@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { listTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
+import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
 import { cn } from '@/lib/utils'
 
 interface ContactFormProps {
@@ -46,6 +47,7 @@ export function ContactForm({
       notes: defaultValues?.notes ?? '',
       tags: defaultValues?.tags ?? [],
       source: defaultValues?.source ?? 'manual',
+      custom_fields: (defaultValues?.custom_fields as Record<string, unknown>) ?? {},
     },
   })
 
@@ -114,6 +116,12 @@ export function ContactForm({
           {...register('notes')}
         />
       </Field>
+
+      <CustomFieldsForm
+        entity="contact"
+        value={(watch('custom_fields') as Record<string, unknown>) ?? {}}
+        onChange={(v) => setValue('custom_fields', v, { shouldDirty: true })}
+      />
 
       <div className="flex items-center justify-end gap-2 pt-2">
         {onCancel && (

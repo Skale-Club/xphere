@@ -244,9 +244,9 @@ export async function createContact(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
-  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
-  const cfPayloadCreate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadCreate && typeof cfPayloadCreate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadCreate = parsed.data.custom_fields ?? {}
+  if (Object.keys(cfPayloadCreate).length > 0) {
     const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadCreate)
     if (!cfResult.ok) {
       return { error: 'custom_fields_invalid', details: cfResult.errors } as { error: string; details?: unknown }
@@ -293,6 +293,7 @@ export async function createContact(
       tags: tagNames,
       source: data.source,
       created_by: user.id,
+      ...(Object.keys(cfPayloadCreate).length > 0 && { custom_fields: cfPayloadCreate }),
     })
     .select('id')
     .single()
@@ -319,15 +320,13 @@ export async function updateContact(
   const data = normaliseContactInput(parsed.data)
   const supabase = await createClient()
 
-  // Validate custom fields (per CF-07) — custom_fields not in NormalisedContact yet (Phase 71)
-  const cfPayloadUpdate = (data as unknown as { custom_fields?: Record<string, unknown> }).custom_fields
-  if (cfPayloadUpdate && typeof cfPayloadUpdate === 'object') {
+  // Validate and persist custom fields (CF-07, Phase 71)
+  const cfPayloadUpdate = parsed.data.custom_fields ?? {}
+  if (Object.keys(cfPayloadUpdate).length > 0) {
     const { data: orgId } = await supabase.rpc('get_current_org_id')
     if (orgId) {
       const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadUpdate)
-      if (!cfResult.ok) {
-        return { error: 'custom_fields_invalid' }
-      }
+      if (!cfResult.ok) return { error: 'custom_fields_invalid' }
     }
   }
 
@@ -351,6 +350,7 @@ export async function updateContact(
       account_id: data.account_id,
       notes: data.notes,
       tags: tagNames,
+      ...(Object.keys(cfPayloadUpdate).length > 0 && { custom_fields: cfPayloadUpdate }),
     })
     .eq('id', id)
   if (error) return { error: error.message }

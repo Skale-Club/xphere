@@ -32,6 +32,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { ContactForm } from './contact-form'
+import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
 import {
   getContact,
   updateContact,
@@ -130,6 +131,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   company: contact.company ?? '',
                   notes: contact.notes ?? '',
                   tags: contact.tagIds ?? [],
+                  custom_fields: (contact.custom_fields as Record<string, unknown>) ?? {},
                 }}
                 submitLabel="Save changes"
                 onCancel={() => setEditing(false)}
@@ -226,6 +228,10 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                       </p>
                     </div>
                   )}
+                  <CustomFieldsDisplay
+                    entity="contact"
+                    customFields={contact.custom_fields as Record<string, unknown>}
+                  />
                 </TabsContent>
 
                 <TabsContent value="conversations" className="mt-0">

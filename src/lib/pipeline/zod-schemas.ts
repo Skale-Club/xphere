@@ -53,6 +53,7 @@ export const opportunitySchema = z.object({
   expected_close_date: z.string().optional().nullable(),
   assigned_to: z.string().uuid().optional().nullable(),
   status: z.enum(['open', 'won', 'lost']).optional().default('open'),
+  custom_fields: z.record(z.string(), z.unknown()).optional(),
 })
 export type OpportunityFormInput = z.infer<typeof opportunitySchema>
 

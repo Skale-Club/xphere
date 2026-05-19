@@ -12,6 +12,7 @@ import { AccountDetailHeader } from '@/components/accounts/account-detail-header
 import { AccountContactsTab } from '@/components/accounts/account-contacts-tab'
 import { AccountOpportunitiesTab } from '@/components/accounts/account-opportunities-tab'
 import { AccountActivitiesTab } from '@/components/accounts/account-activities-tab'
+import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -40,6 +41,11 @@ export default async function AccountDetailPage({ params }: Props) {
       </Button>
 
       <AccountDetailHeader account={account} />
+
+      <CustomFieldsDisplay
+        entity="account"
+        customFields={account.custom_fields as Record<string, unknown>}
+      />
 
       <Tabs defaultValue="contacts" className="space-y-4">
         <TabsList>
