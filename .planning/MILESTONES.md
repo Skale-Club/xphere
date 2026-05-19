@@ -1,5 +1,24 @@
 # Milestones
 
+## v2.8 Scheduling Hardening (Shipped: 2026-05-19)
+
+**Stats:** 4 phases, 7 plans, 12 commits — closes audit gaps from v2.7 scheduling review
+
+**Key accomplishments:**
+
+1. **Race condition eliminated** — partial unique index `(event_type_id, start_at) WHERE status='confirmed'` (migration 072); `createBooking` maps Postgres `23505` → `slot_taken` instead of leaking 500 (SCHED-01, SCHED-02)
+2. **Rate limiter** — `src/lib/rate-limit.ts` Redis-backed fixed-window (5 bookings per IP+eventType per hour); fail-open if Redis unreachable; integrated into `createBooking` (SCHED-03)
+3. **Booker emails** — `src/lib/scheduling/emails.ts` with Resend client; `sendBookingConfirmation` + `sendBookingCancellation` with HTML templates; soft-disabled when `RESEND_API_KEY` absent (SCHED-04, SCHED-05, SCHED-06)
+4. **Email integration** — wired into `createBooking`, `cancelBookingByToken`, and dashboard `cancelBooking`; all fire-and-forget via `void` + `.catch` (SCHED-06)
+5. **Custom fields integration** — `buildRequiredCustomFieldDefaults` queries org's required `custom_field_definitions` and seeds defaults respecting admin-set `default_value`; try/catch fallback creates contact without custom_fields_data on validation error (SCHED-07, SCHED-08)
+6. **Test coverage** — `tests/scheduling-slots.test.ts` (8 cases: timezone, DST, advance notice, durations) + `tests/scheduling-bookings.test.ts` (6 cases: race condition via 23505 mock, cancel token validation, contact link) — 14/14 passing (SCHED-09..12)
+
+**Operator actions:** ✅ migration 072 applied during audit · ⚠ set `RESEND_API_KEY` on Vercel · ⚠ verify Resend domain `bookings@xphere.skale.club`
+
+**Archives:** [v2.8-ROADMAP.md](milestones/v2.8-ROADMAP.md) | [v2.8-REQUIREMENTS.md](milestones/v2.8-REQUIREMENTS.md) | [v2.8-MILESTONE-AUDIT.md](milestones/v2.8-MILESTONE-AUDIT.md)
+
+---
+
 ## v2.7 Unified Calls Hub + Pipeline UX (Shipped: 2026-05-19)
 
 **Stats:** 8 phases, 9 plans, 17 commits, 41 files, +2,685 / −2 lines

@@ -1,6 +1,7 @@
 ---
 id: SEED-003
-status: partial
+status: shipped
+shipped_in: v2.0
 planted: 2026-05-16
 planted_during: post-v2.0 Phase 36 (Agent CRUD Dashboard completed)
 partial_note: Fase 42 executada (org_invites, OAuth callback, /dashboard/members) — pendente apenas 42-02 (config manual Google Cloud Console + Supabase OAuth provider + NEXT_PUBLIC_SITE_URL no Vercel)

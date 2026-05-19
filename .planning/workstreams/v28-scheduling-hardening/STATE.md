@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.8
-milestone_name: Scheduling Hardening
-status: shipped
-last_updated: "2026-05-19T15:50:00.000Z"
+milestone_name: milestone
+status: completed
+last_updated: "2026-05-19T19:48:29.054Z"
 progress:
   total_phases: 4
   completed_phases: 4

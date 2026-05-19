@@ -12,6 +12,10 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
 
+## Previous: v2.8 Scheduling Hardening ✅ Shipped 2026-05-19
+
+4 phases (93–96): partial unique index (migration 072) + rate limiter, Resend booker emails, custom fields integration on auto-created contacts, and 14/14 passing tests for slots + bookings.
+
 ## Previous: v2.7 Unified Calls Hub + Pipeline UX ✅ Shipped 2026-05-19
 
 8 phases (85–92): unified /calls hub merging AI+Human calls, tabs sub-routes, detail variants, sidebar cleanup, OpportunityDetailSheet, DnD fix, same-column kanban reorder.
@@ -265,6 +269,7 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - SEO structure: metadata, OG, sitemap, robots.txt, JSON-LD, `/admin/seo` config panel — v2.6 (SEO-01..06)
 - Unified Calls Hub: `unified_calls` VIEW, `/calls` timeline with AI+Human filter, tabs sub-routes, detail variants — v2.7 (CALL-01..10)
 - Pipeline UX: OpportunityDetailSheet with edit mode, DnD click/drag fix, same-column kanban reorder — v2.7 (PIPE-01..08)
+- Scheduling Hardening: partial unique index, rate limiter, Resend booker emails, custom fields integration, 14 tests — v2.8 (SCHED-01..12)
 
 ### Backlog (next milestone candidates)
 
@@ -340,4 +345,4 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 
 Update this file whenever deployment assumptions, validated requirements, or core constraints change.
 
-*Last updated: 2026-05-19 — v2.5, v2.6, v2.7 all shipped. v2.3 Integrations Refactor still pending HUMAN-UAT.*
+*Last updated: 2026-05-19 — v2.5, v2.6, v2.7, v2.8 all shipped. v2.3 Integrations Refactor still pending HUMAN-UAT.*
