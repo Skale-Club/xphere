@@ -20,9 +20,9 @@
 6. `npm run build` exits 0
 
 **Plans:** 3
-- [ ] 102-01-PLAN.md — Create all /workflows/** pages (copy + update route strings, unified landing with tabs)
-- [ ] 102-02-PLAN.md — Update cross-cutting references: sidebar href, flow-canvas import, new-flow-form push, command palette
-- [ ] 102-03-PLAN.md — Replace /automations/** pages with redirect stubs + npm run build gate
+- [x] 102-01-PLAN.md — Create all /workflows/** pages (copy + update route strings, unified landing with tabs)
+- [x] 102-02-PLAN.md — Update cross-cutting references: sidebar href, flow-canvas import, new-flow-form push, command palette
+- [x] 102-03-PLAN.md — Replace /automations/** pages with redirect stubs + npm run build gate
 
 ---
 
