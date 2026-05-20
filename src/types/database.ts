@@ -2408,6 +2408,10 @@ export interface Database {
           cancel_token: string
           created_at: string
           updated_at: string
+          location_kind: string | null
+          location_data: Json
+          meeting_url: string | null
+          meeting_phone: string | null
         }
         Insert: {
           id?: string
@@ -2425,6 +2429,10 @@ export interface Database {
           cancel_token?: string
           created_at?: string
           updated_at?: string
+          location_kind?: string | null
+          location_data?: Json
+          meeting_url?: string | null
+          meeting_phone?: string | null
         }
         Update: {
           booker_name?: string
@@ -2437,6 +2445,10 @@ export interface Database {
           status?: 'confirmed' | 'cancelled' | 'no_show'
           linked_contact_id?: string | null
           updated_at?: string
+          location_kind?: string | null
+          location_data?: Json
+          meeting_url?: string | null
+          meeting_phone?: string | null
         }
         Relationships: [
           {
