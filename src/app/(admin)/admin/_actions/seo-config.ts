@@ -1,6 +1,9 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+
+// Next.js 16 requires a cache profile as the second arg to revalidateTag.
+const REVALIDATE_PROFILE = 'max'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 export type SeoConfig = {
@@ -33,6 +36,7 @@ export async function updateFaviconUrl(id: string, favicon_url: string | null): 
     .update({ favicon_url, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(`Failed to update favicon: ${error.message}`)
+  revalidateTag('seo-favicon', REVALIDATE_PROFILE)
   revalidatePath('/', 'layout')
 }
 
@@ -54,5 +58,6 @@ export async function updateSeoConfig(
     .eq('id', id)
 
   if (error) throw new Error(`Failed to update SEO config: ${error.message}`)
+  revalidateTag('seo-favicon', REVALIDATE_PROFILE)
   revalidatePath('/', 'layout')
 }
