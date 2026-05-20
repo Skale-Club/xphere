@@ -263,6 +263,17 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
     input: params.triggerInput,
   }
 
+  // Promote top-level keys of the trigger payload into the scope so that
+  // event-triggered workflows can reference {{opportunity.title}}, {{contact.name}},
+  // {{meeting.attendee_contact.name}}, etc. directly without the `input.`
+  // prefix. Reserved keys (trigger/input) are never overwritten.
+  if (isObject(params.triggerInput)) {
+    for (const [key, value] of Object.entries(params.triggerInput)) {
+      if (key === 'trigger' || key === 'input') continue
+      if (scope[key] === undefined) scope[key] = value
+    }
+  }
+
   // Build a topological ordering by following edges from `trigger` (or first
   // node) breadth-first. We don't fully support condition branching here —
   // condition nodes are evaluated trivially (always take 'true' branch) and a
