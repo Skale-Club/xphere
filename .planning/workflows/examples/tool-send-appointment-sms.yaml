@@ -1,0 +1,26 @@
+# Canonical example — a tool-kind workflow callable by name from any
+# AI agent, voice handler, or webhook. After SEED-025 every "tool" is a
+# 1-node workflow with trigger.type='tool_call'.
+#
+# This is what the migrated tool_configs rows look like.
+
+name: send_appointment_sms
+description: |
+  Sends a transactional SMS. Designed to be invoked by name from voice
+  call handlers (Vapi) and conversational agents via the unified tool
+  registry.
+trigger:
+  type: tool_call
+  config:
+    tool_name: send_appointment_sms
+
+nodes:
+  - id: action
+    kind: send_sms
+    integration: twilio
+    to: "{{input.to}}"
+    body: "{{input.body}}"
+
+edges:
+  - from: trigger
+    to: action

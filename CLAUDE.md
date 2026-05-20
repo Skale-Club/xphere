@@ -98,6 +98,21 @@ supabase/
 tests/                 Vitest tests
 ```
 
+## Workflows
+
+The platform has a **single unified workflow system** (SEED-025). There is no separate "Automations" — that name was retired. Everything callable, scheduled, or event-driven is a Workflow with `kind='tool'` (single action invokable by name) or `kind='flow'` (multi-node DAG).
+
+When you need to author a workflow (manually, via Copilot, or from a Claude Code agent):
+
+1. Read `WORKFLOWS.md` at the repo root — the authoring contract
+2. Read `.planning/agents/workflow-authoring.md` for decision tree + checklist
+3. Browse `.planning/workflows/examples/` for canonical patterns to copy
+4. Workflow files are declarative YAML; `npm run workflows:validate <file>` runs the full validator with structured errors
+5. Platform-default workflows live in `supabase/seeds/workflows/` (validated in CI)
+6. The org-filtered capability spec is at `GET /api/workflows/spec` (auth required)
+
+**Key principle:** the validator is the contract. Integrations that aren't connected for the org never appear in the spec — AI cannot generate workflows referencing them. Variables that aren't in scope at a node produce structured errors with `suggestion` fields engineered for LLM self-correction.
+
 ## Deployment
 
 - Vercel Hobby hosts the Next.js app

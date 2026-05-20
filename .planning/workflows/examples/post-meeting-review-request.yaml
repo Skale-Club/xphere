@@ -1,0 +1,34 @@
+# Canonical example — wait + condition + multi-channel notification.
+
+name: post-meeting-review-request
+description: |
+  60 minutes after a meeting completes, ask the attendee for a review.
+  Skips clients who already left a review in the past 30 days
+  (gated by a condition reading the contact's CRM fields).
+trigger:
+  type: event
+  event: meeting.completed
+
+nodes:
+  - id: wait
+    kind: wait
+    duration: "1h"
+
+  - id: was_reviewed_recently
+    kind: condition
+    expression: "{{meeting.attendee_contact.last_review_at_within_days}} <= 30"
+
+  - id: ask_review_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.name}}, mind leaving us a quick review? https://review.xphere.app/{{meeting.org_id}}"
+
+edges:
+  - from: trigger
+    to: wait
+  - from: wait
+    to: was_reviewed_recently
+  - from: was_reviewed_recently
+    to: ask_review_sms
+    when: "false"

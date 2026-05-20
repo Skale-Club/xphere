@@ -11,6 +11,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "workflows:validate": "tsx scripts/validate-workflows.ts",
+    "workflows:validate-all": "tsx scripts/validate-workflows.ts",
     "vercel:pull": "vercel pull --yes --environment preview --scope skaleclub",
     "vercel:build": "vercel build --yes --scope skaleclub",
     "vercel:build:prod": "vercel build --prod --yes --scope skaleclub",
@@ -82,6 +84,7 @@
     "unpdf": "^1.4.0",
     "wavesurfer.js": "^7.12.7",
     "web-push": "^3.6.7",
+    "yaml": "^2.9.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.13"
   },

@@ -1,0 +1,29 @@
+# Canonical example — pre-meeting reminder via SMS, 5 minutes before start.
+# This is the "Hello World" of calendar-triggered workflows. If you can read
+# this and understand every line, you can author 80% of real workflows.
+#
+# Trigger: meeting.starts_in fires when (booking.starts_at - 5m) is reached.
+# Scope:   meeting.*, contact.* are populated by the calendar trigger.
+# Output:  An SMS via Twilio with the dynamic meeting link.
+
+name: sms-meeting-reminder-5min
+description: |
+  Sends an SMS to the attendee 5 minutes before any confirmed meeting,
+  containing the dynamic meeting link ({{meeting.link}} — resolved per
+  booking by SEED-028).
+trigger:
+  type: event
+  event: meeting.starts_in
+  config:
+    offset: "-5m"
+
+nodes:
+  - id: notify
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.name}}, your appointment starts in 5 minutes: {{meeting.link}}"
+
+edges:
+  - from: trigger
+    to: notify
