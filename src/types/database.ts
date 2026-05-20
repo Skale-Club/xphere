@@ -303,6 +303,10 @@ export interface Database {
           manychat_channel_id: string | null
           created_at: string
           updated_at: string
+          health_status: 'connected' | 'degraded' | 'disconnected' | 'unknown'
+          last_checked_at: string | null
+          last_error: string | null
+          failure_count: number
         }
         Insert: {
           id?: string
@@ -317,6 +321,10 @@ export interface Database {
           manychat_channel_id?: string | null
           created_at?: string
           updated_at?: string
+          health_status?: 'connected' | 'degraded' | 'disconnected' | 'unknown'
+          last_checked_at?: string | null
+          last_error?: string | null
+          failure_count?: number
         }
         Update: {
           name?: string
@@ -327,6 +335,10 @@ export interface Database {
           is_active?: boolean
           manychat_channel_id?: string | null
           updated_at?: string
+          health_status?: 'connected' | 'degraded' | 'disconnected' | 'unknown'
+          last_checked_at?: string | null
+          last_error?: string | null
+          failure_count?: number
         }
         Relationships: [
           {
@@ -3378,6 +3390,13 @@ export interface Database {
           created_by: string | null
           created_at: string
           updated_at: string
+          kind: 'flow' | 'tool'
+          tool_name: string | null
+          trigger_type: 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url'
+          trigger_config: Record<string, unknown>
+          health_blocked: boolean
+          health_blocked_reason: string | null
+          legacy_tool_config_id: string | null
         }
         Insert: {
           id?: string
@@ -3390,6 +3409,13 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          kind?: 'flow' | 'tool'
+          tool_name?: string | null
+          trigger_type?: 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url'
+          trigger_config?: Record<string, unknown>
+          health_blocked?: boolean
+          health_blocked_reason?: string | null
+          legacy_tool_config_id?: string | null
         }
         Update: {
           id?: string
@@ -3402,6 +3428,13 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          kind?: 'flow' | 'tool'
+          tool_name?: string | null
+          trigger_type?: 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url'
+          trigger_config?: Record<string, unknown>
+          health_blocked?: boolean
+          health_blocked_reason?: string | null
+          legacy_tool_config_id?: string | null
         }
         Relationships: [
           {
