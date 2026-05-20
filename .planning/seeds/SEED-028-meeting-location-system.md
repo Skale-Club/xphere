@@ -8,9 +8,9 @@ scope: Medium
 priority: high
 depends_on: []
 unblocks: [SEED-027 Phase E (calendar variable scope)]
-phases_shipped: [A, B, D]
-phases_pending: [C, E, F]
-last_commit: 40777ea
+phases_shipped: [A, B, C, D, E, F]
+phases_pending: []
+last_commit: a177783
 ---
 
 # SEED-028: Meeting Location System — Rich Location Model + Dynamic Links

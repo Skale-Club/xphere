@@ -7,9 +7,9 @@ trigger_when: SEED-025 Phase B (unified engine) ships; OR explicit request to ma
 scope: Large
 priority: high
 depends_on: [SEED-025 (unified data model + spec), SEED-020 (Copilot tool framework)]
-phases_shipped: [A, B, D]
-phases_pending: [C, E]
-last_commit: 6530c39
+phases_shipped: [A, B, C, D]
+phases_pending: [E]
+last_commit: a177783
 ---
 
 # SEED-026: AI Workflow Authoring — Copilot + Claude Code Build Workflows Perfectly
