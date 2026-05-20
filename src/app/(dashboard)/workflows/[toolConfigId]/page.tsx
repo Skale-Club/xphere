@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { Wrench } from 'lucide-react'
 
@@ -88,7 +88,19 @@ export default async function ToolDetailPage({
     .eq('id', toolConfigId)
     .single()
 
-  if (toolError || !toolConfig) notFound()
+  if (toolError || !toolConfig) {
+    // SEED-037: if the id belongs to a unified workflow with kind='flow',
+    // redirect to the flow editor instead of returning 404.
+    const { data: flow } = await supabase
+      .from('workflows')
+      .select('id, kind')
+      .eq('id', toolConfigId)
+      .maybeSingle()
+    if (flow?.kind === 'flow') {
+      redirect(`/workflows/flows/${flow.id}`)
+    }
+    notFound()
+  }
 
   const typedToolConfig = toolConfig as ToolConfigDetail
   const basePath = `/workflows/${toolConfigId}`

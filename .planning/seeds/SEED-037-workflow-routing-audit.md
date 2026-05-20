@@ -1,7 +1,8 @@
 ---
 id: SEED-037
-status: active
+status: complete
 planted: 2026-05-20
+shipped: 2026-05-20
 trigger_when: now (autonomous execution)
 scope: Small-Medium
 priority: critical

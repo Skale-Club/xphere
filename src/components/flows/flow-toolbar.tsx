@@ -139,9 +139,9 @@ export function FlowToolbar({ workflowId, workflowName, isActive, onToggleAi, ai
       {/* Left — back + name (flex-grow) */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Button asChild variant="ghost" size="sm" className="shrink-0 px-2">
-          <Link href="/workflows/flows" aria-label="Back to flows">
+          <Link href="/workflows" aria-label="Back to workflows">
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden md:inline ml-1">Flows</span>
+            <span className="hidden md:inline ml-1">Workflows</span>
           </Link>
         </Button>
         <div className="min-w-0 flex items-center gap-1.5">
