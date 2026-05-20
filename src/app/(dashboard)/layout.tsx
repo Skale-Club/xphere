@@ -15,6 +15,7 @@ import { PageTransition } from '@/components/layout/page-transition'
 import { CopilotShell } from '@/components/copilot/copilot-launcher'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getOrgBranding } from '@/lib/branding.server'
+import { getFaviconUrl } from '@/lib/seo'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -68,6 +69,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     branding = DEFAULT_BRANDING
   }
 
+  // Fallback to platform favicon when the org has no custom logo set.
+  // Order: org logo → platform favicon → "X" placeholder (handled in Sidebar).
+  const platformFaviconUrl = await getFaviconUrl()
+  const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
+
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
 
   // Decide whether to mount the Twilio Voice SDK Device for this user.
@@ -91,9 +97,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <CommandPaletteProvider>
           <VoiceDeviceShell enabled={browserVoiceEnabled}>
             <BrandingStyle branding={branding} />
-            {branding.logoUrl && (
+            {effectiveLogoUrl && (
               // eslint-disable-next-line @next/next/no-sync-scripts
-              <link rel="icon" href={branding.logoUrl} />
+              <link rel="icon" href={effectiveLogoUrl} />
             )}
             <CelebrationProvider>
               <div className="flex min-h-dvh bg-bg-primary">
@@ -103,7 +109,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   activeOrgId={activeOrgId}
                   activeOrgName={activeOrgName}
                   brandName={branding.appName}
-                  logoUrl={branding.logoUrl}
+                  logoUrl={effectiveLogoUrl}
                 />
                 <div className="flex min-w-0 flex-1 flex-col h-dvh">
                   <TopBar
