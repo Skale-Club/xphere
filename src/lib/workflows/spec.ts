@@ -68,6 +68,16 @@ export const TRIGGERS: TriggerSpec[] = [
   // ─── Calendar events (SEED-027 — only available once that seed ships;
   // declared here so the spec is the unified registry).
   {
+    type: 'event:contact.created',
+    description: 'A new contact row was inserted.',
+    variables: ['contact.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:workflow.run.failed',
+    description: 'A workflow run failed. Payload includes workflow.name and workflow.error.',
+    variables: ['workflow.*', 'trigger.fired_at'],
+  },
+  {
     type: 'event:meeting.scheduled',
     description: 'A new booking row was inserted (any status).',
     variables: ['meeting.*', 'trigger.fired_at'],
@@ -172,6 +182,25 @@ export const NODES: NodeSpec[] = [
       },
       required: ['subscriber_id', 'message'],
     },
+  },
+  {
+    type: 'send_telegram_notification',
+    kind: 'action',
+    description: 'Send a Telegram message to a group, channel, or DM (supports HTML).',
+    integration_required: ['telegram'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Message content; supports HTML when parse_mode=HTML.' },
+        chat_id: { type: 'string', description: 'Override target chat ID. Falls back to the bot\'s configured notification_chat_ids.' },
+        parse_mode: { type: 'string', enum: ['HTML', 'Markdown', 'plain'], description: 'Default HTML.' },
+        disable_notification: { type: 'boolean' },
+      },
+      required: ['text'],
+    },
+    examples: [
+      { text: '🆕 <b>Novo lead</b>\n{{contact.name}} — {{contact.phone}}', parse_mode: 'HTML' },
+    ],
   },
 
   // ─── Action — CRM

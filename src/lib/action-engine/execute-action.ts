@@ -20,6 +20,7 @@ import { sendSms } from '@/lib/twilio/send-sms'
 import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
 import { sendWhatsappMessageAction } from '@/lib/action-engine/executors/send-whatsapp-message'
 import { sendWhatsappMentionAllAction } from '@/lib/action-engine/executors/send-whatsapp-mention-all'
+import { executeSendTelegramNotification } from '@/lib/action-engine/executors/send-telegram-notification'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -116,6 +117,26 @@ export async function executeAction(
         throw new Error('send_whatsapp_mention_all requires ctx.organizationId and ctx.supabase')
       }
       return sendWhatsappMentionAllAction(params, ctx)
+    }
+    case 'send_telegram_notification': {
+      if (!ctx?.organizationId) {
+        throw new Error('send_telegram_notification requires ctx.organizationId')
+      }
+      const rawParseMode = typeof params.parse_mode === 'string' ? params.parse_mode : undefined
+      const parseMode: 'HTML' | 'MarkdownV2' | 'plain' | undefined =
+        rawParseMode === 'HTML' ? 'HTML'
+        : rawParseMode === 'Markdown' || rawParseMode === 'MarkdownV2' ? 'MarkdownV2'
+        : rawParseMode === 'plain' ? 'plain'
+        : undefined
+      const result = await executeSendTelegramNotification({
+        orgId: ctx.organizationId,
+        text: String(params.text ?? ''),
+        chatId: typeof params.chat_id === 'string' ? params.chat_id : undefined,
+        parseMode,
+        disableNotification: Boolean(params.disable_notification),
+      })
+      if (!result.ok) throw new Error(result.error ?? 'send_telegram_notification failed')
+      return `Telegram sent. Message IDs: ${result.messageIds.join(', ')}`
     }
     default: {
       // TypeScript exhaustiveness check

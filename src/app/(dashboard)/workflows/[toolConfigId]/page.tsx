@@ -47,6 +47,7 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   google_contacts_delete: 'Google Contacts: Delete',
   send_whatsapp_message: 'WhatsApp: Send Message',
   send_whatsapp_mention_all: 'WhatsApp: Group Mention-All',
+  send_telegram_notification: 'Telegram: Notification',
 }
 
 function buildPageUrl(

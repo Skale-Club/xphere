@@ -62,6 +62,12 @@ function buildInitialScope(triggerType: string): Set<string> {
     scope.add('meeting')
     scope.add('contact')
   }
+  if (triggerType.startsWith('event:contact.')) {
+    scope.add('contact')
+  }
+  if (triggerType.startsWith('event:workflow.')) {
+    scope.add('workflow')
+  }
   if (triggerType === 'tool_call' || triggerType === 'webhook_url' || triggerType === 'manual') {
     scope.add('contact')          // contact is opportunistic — present when caller provides it
   }

@@ -415,7 +415,7 @@ export interface Database {
           organization_id: string
           integration_id: string | null
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -429,7 +429,7 @@ export interface Database {
           organization_id: string
           integration_id?: string | null
           tool_name: string
-          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
+          action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification'
           config?: Json
           fallback_message: string
           is_active?: boolean
@@ -441,7 +441,7 @@ export interface Database {
         Update: {
           integration_id?: string | null
           tool_name?: string
-          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
+          action_type?: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification'
           config?: Json
           fallback_message?: string
           is_active?: boolean
@@ -4149,7 +4149,7 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all'
+      action_type: 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification'
       integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram'
       // v2.0 (Phase 33) — agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel

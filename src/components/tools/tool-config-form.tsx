@@ -52,6 +52,7 @@ const toolConfigSchema = z.object({
     'google_contacts_delete',
     'send_whatsapp_message',
     'send_whatsapp_mention_all',
+    'send_telegram_notification',
   ]),
   integrationId: z.string().optional().nullable(),
   fallbackMessage: z
@@ -111,6 +112,7 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'google_contacts_delete', label: 'Google Contacts: Delete' },
   { value: 'send_whatsapp_message',    label: 'WhatsApp: Send Message' },
   { value: 'send_whatsapp_mention_all', label: 'WhatsApp: Group Mention-All' },
+  { value: 'send_telegram_notification', label: 'Telegram: Notification' },
 ] as const
 
 interface ToolConfigFormProps {
