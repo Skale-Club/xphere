@@ -1,0 +1,25 @@
+# Platform-default workflow — ships to every org with Telegram connected.
+# Notifies the configured Telegram chat(s) whenever a new contact is created.
+
+name: Notify new lead via Telegram
+description: |
+  Platform-default. Sends a Telegram notification (HTML formatted) to all
+  configured notification chats when a new contact is created.
+trigger:
+  type: event
+  event: contact.created
+
+nodes:
+  - id: notify
+    kind: send_telegram_notification
+    integration: telegram
+    text: |
+      🆕 <b>Novo Lead</b>
+      👤 {{contact.name}}
+      📱 {{contact.phone}}
+      📧 {{contact.email}}
+    parse_mode: HTML
+
+edges:
+  - from: trigger
+    to: notify

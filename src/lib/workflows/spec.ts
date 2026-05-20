@@ -14,6 +14,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { listAvailableIntegrations } from '@/lib/workflows/health'
+import {
+  getWorkflowInputSchema,
+  getWorkflowOutputSchema,
+  type InputSchemaMap,
+} from '@/lib/workflows/derive-input-schema'
 
 export const SPEC_VERSION = '2026.05.20'
 
@@ -263,6 +268,21 @@ export const VARIABLE_NAMESPACES = {
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────
 
+// SEED-033: each org-defined kind='tool'/'flow' workflow callable via
+// `tool_call` shows up here so AI surfaces (Copilot, agent runtime) know
+// what's available and can satisfy the input contract.
+export interface WorkflowToolSpec {
+  id: string
+  tool_name: string
+  name: string
+  description: string | null
+  kind: 'tool' | 'flow'
+  is_active: boolean
+  health_blocked: boolean
+  input_schema: InputSchemaMap
+  output_schema: InputSchemaMap
+}
+
 export interface WorkflowSpec {
   version: string
   org_id: string
@@ -270,6 +290,7 @@ export interface WorkflowSpec {
   triggers: TriggerSpec[]
   nodes: NodeSpec[]
   variable_namespaces: typeof VARIABLE_NAMESPACES
+  workflows: WorkflowToolSpec[]
 }
 
 // Build the org-filtered spec. Nodes are filtered out when their
@@ -286,6 +307,50 @@ export async function getWorkflowSpec(
     return n.integration_required.some((p) => availableProviders.has(p))
   })
 
+  // SEED-033: list org workflows callable by name. Includes both kind='tool'
+  // (single-action) and kind='flow' (multi-step). Health-blocked entries are
+  // included but flagged so the AI can warn the user.
+  const { data: workflowRows } = await supabase
+    .from('workflows')
+    .select('id, name, tool_name, description, kind, is_active, health_blocked, current_version_id, trigger_type')
+    .eq('org_id', orgId)
+    .in('kind', ['tool', 'flow'])
+    .eq('trigger_type', 'tool_call')
+
+  const versionIds = (workflowRows ?? [])
+    .map((w) => w.current_version_id)
+    .filter((id): id is string => Boolean(id))
+
+  const definitionsById = new Map<string, unknown>()
+  if (versionIds.length > 0) {
+    const { data: versions } = await supabase
+      .from('workflow_versions')
+      .select('id, definition')
+      .in('id', versionIds)
+    for (const v of versions ?? []) {
+      definitionsById.set(v.id as string, v.definition)
+    }
+  }
+
+  const workflows: WorkflowToolSpec[] = (workflowRows ?? [])
+    .filter((w) => Boolean(w.tool_name))
+    .map((w) => {
+      const def = w.current_version_id
+        ? definitionsById.get(w.current_version_id)
+        : null
+      return {
+        id: w.id as string,
+        tool_name: w.tool_name as string,
+        name: w.name as string,
+        description: (w.description as string | null) ?? null,
+        kind: w.kind as 'tool' | 'flow',
+        is_active: w.is_active as boolean,
+        health_blocked: w.health_blocked as boolean,
+        input_schema: getWorkflowInputSchema(def),
+        output_schema: getWorkflowOutputSchema(def),
+      }
+    })
+
   return {
     version: SPEC_VERSION,
     org_id: orgId,
@@ -293,5 +358,6 @@ export async function getWorkflowSpec(
     triggers: TRIGGERS,
     nodes: filteredNodes,
     variable_namespaces: VARIABLE_NAMESPACES,
+    workflows,
   }
 }

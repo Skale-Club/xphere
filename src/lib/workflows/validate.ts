@@ -133,6 +133,32 @@ export function validateWorkflow(
     })
   }
 
+  // SEED-033: tool_call triggers must declare an `input_schema` so the agent
+  // runtime can derive a Zod schema for the LLM to satisfy. Workflows whose
+  // trigger is `tool_call` without `input_schema` are blocked because the
+  // LLM has no idea what shape the input should take.
+  if (triggerKey === 'tool_call') {
+    const triggerConfig = (trigger.config ?? {}) as Record<string, unknown>
+    const inputSchema = triggerConfig.input_schema as Record<string, unknown> | undefined
+    if (
+      !inputSchema ||
+      typeof inputSchema !== 'object' ||
+      Array.isArray(inputSchema) ||
+      Object.keys(inputSchema).length === 0
+    ) {
+      errors.push({
+        path: 'trigger.config.input_schema',
+        code: 'missing_field',
+        message:
+          'tool_call triggers require an `input_schema` describing the fields the AI agent must provide.',
+        suggestion:
+          'Add `trigger.config.input_schema` with one entry per input field, e.g. ' +
+          '`{ to: { type: "string", required: true, description: "Phone number" } }`. ' +
+          'See WORKFLOWS.md for the full shape.',
+      })
+    }
+  }
+
   const scope = buildInitialScope(triggerKey)
 
   // ─── Nodes ──────────────────────────────────────────────────────────────────

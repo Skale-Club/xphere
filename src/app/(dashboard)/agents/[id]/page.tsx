@@ -5,10 +5,16 @@ import { Bot, FlaskConical, History, ListTree } from 'lucide-react'
 
 import { AgentForm } from '@/components/agents/agent-form'
 import { AgentMetricsWidget } from '@/components/agents/agent-metrics-widget'
+import { AgentWorkflowTools } from '@/components/agents/agent-workflow-tools'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
-import { getAgentById, getToolPickerData } from '../actions'
+import {
+  getAgentById,
+  getAgentWorkflows,
+  getAvailableWorkflowsForAgent,
+  getToolPickerData,
+} from '../actions'
 import type { AgentChannel } from '@/lib/agents/channels'
 import type { AvailableModel } from '@/lib/agents/models'
 import type { AgentFormInput } from '@/lib/agents/zod-schemas'

@@ -13,7 +13,13 @@
 import { useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 
-import { ConversationSummary, ConversationMessage, ConversationPriority } from '@/types/chat'
+import {
+  ConversationSummary,
+  ConversationMessage,
+  ConversationPriority,
+  ConversationStatus,
+  ConversationLabel,
+} from '@/types/chat'
 import { ChatHeader } from '@/components/chat/chat-area/chat-header'
 import { MessageList } from '@/components/chat/chat-area/message-list'
 import { MessageBanner } from '@/components/chat/chat-area/message-banner'
@@ -41,7 +47,8 @@ interface ChatAreaProps {
   isAgentThinking?: boolean
   onSendMessage: (content: string, opts?: { media?: Array<{ url: string; mime_type: string; filename?: string; size?: number }> }) => Promise<void>
   onTyping?: () => void
-  onStatusChange: (status: 'open' | 'closed') => void
+  /** SEED-035: accepts 5 status values plus optional wait_until ISO string. */
+  onStatusChange: (status: ConversationStatus, waitUntil?: string | null) => void
   onDelete: () => void
   onBack: () => void
   onBotStatusToggle: (conversationId: string, currentStatus: string) => void
@@ -49,6 +56,12 @@ interface ChatAreaProps {
   onPinToggle: (id: string, pinned: boolean) => void
   onPriorityCycle: (id: string, next: ConversationPriority) => void
   onAssign: (id: string, userId: string | null) => void
+  /** SEED-035 */
+  onStarToggle?: (id: string, starred: boolean) => void
+  /** SEED-035 */
+  orgLabels?: Array<{ id: string; name: string; color: string }>
+  /** SEED-035 */
+  onLabelsChange?: (id: string, labels: ConversationLabel[]) => void
   members: OrgMember[]
   infoPanelOpen: boolean
   onToggleInfoPanel: () => void

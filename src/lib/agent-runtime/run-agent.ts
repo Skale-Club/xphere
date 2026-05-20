@@ -28,6 +28,10 @@ import {
 } from './guardrails'
 import { resolveAgent } from './resolve-agent'
 import { resolveAgentTool } from './resolve-agent-tool'
+import {
+  buildWorkflowTools,
+  buildWorkflowSystemPromptSuffix,
+} from './build-workflow-tools'
 import { insertInvocationStart, updateInvocationEnd } from './invocations'
 import {
   deriveIdempotencyKey,
@@ -681,6 +685,28 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         })
       }
 
+      // SEED-033: workflow tools (kind='tool' or kind='flow') attached via
+      // agent_tools.workflow_id. Injected alongside legacy tool_configs.
+      const workflowToolsResult = await buildWorkflowTools({
+        agentId: resolvedAgentId,
+        orgId,
+        channel,
+        currentChain,
+        invocationId,
+        traceId,
+        conversationId,
+        serviceClient,
+        toolCallsLog,
+        getNextToolCallIndex: () => toolCallIndex++,
+      })
+      Object.assign(toolSet, workflowToolsResult.toolSet)
+
+      // Append "## Available Workflows" block to the system prompt only when
+      // there is at least one workflow tool to mention.
+      if (workflowToolsResult.summaries.length > 0) {
+        systemPrompt = `${systemPrompt}${buildWorkflowSystemPromptSuffix(workflowToolsResult.summaries)}`
+      }
+
       // DELEG-02: Inject synthetic partner tools for each configured partner agent
       const partnerTools = await buildPartnerTools({
         agentId: resolvedAgentId,
@@ -1063,6 +1089,25 @@ function runAgentStreaming(
                 return result
               },
             })
+          }
+
+          // SEED-033: workflow tools (kind='tool' or kind='flow') attached
+          // via agent_tools.workflow_id, same as the blocking path.
+          const workflowToolsStream = await buildWorkflowTools({
+            agentId: resolvedAgentId!,
+            orgId,
+            channel,
+            currentChain,
+            invocationId,
+            traceId,
+            conversationId,
+            serviceClient,
+            toolCallsLog,
+            getNextToolCallIndex: () => toolCallIndex++,
+          })
+          Object.assign(toolSet, workflowToolsStream.toolSet)
+          if (workflowToolsStream.summaries.length > 0) {
+            systemPrompt = `${systemPrompt}${buildWorkflowSystemPromptSuffix(workflowToolsStream.summaries)}`
           }
 
           // DELEG-02: Inject synthetic partner tools for each configured partner agent
