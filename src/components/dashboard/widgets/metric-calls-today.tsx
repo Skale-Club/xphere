@@ -75,7 +75,7 @@ export async function MetricCallsToday() {
 
   if (everCount === 0) {
     return (
-      <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm">
+      <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm h-full">
         <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
           Calls today
         </div>

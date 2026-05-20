@@ -64,7 +64,7 @@ export async function MetricOpenConversations() {
   // Empty state when there has never been any conversation at all
   if (total === 0) {
     return (
-      <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm">
+      <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm h-full">
         <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
           Open conversations
         </div>
