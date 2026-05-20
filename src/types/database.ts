@@ -14,6 +14,8 @@ export type Json =
 
 export type UserRole = 'admin' | 'member'
 
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed'
+
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'paused' | 'completed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
 
@@ -28,10 +30,10 @@ export type AgentInvocationMode = 'production' | 'playground'
 // v2.1 â€” contacts (CRM) source enum
 export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
 
-// v2.4 — accounts (CRM Companies) source enum (SEED-016)
+// v2.4 ï¿½ accounts (CRM Companies) source enum (SEED-016)
 export type AccountSource = 'manual' | 'auto_from_contact_company' | 'csv_import' | 'ghl_sync'
 
-// v2.4 — custom_field_definitions (Custom Fields System) — SEED-017
+// v2.4 ï¿½ custom_field_definitions (Custom Fields System) ï¿½ SEED-017
 export type CustomFieldType =
   | 'text'
   | 'long_text'
@@ -49,12 +51,12 @@ export type CustomFieldType =
 
 export type CustomFieldEntity = 'contact' | 'opportunity' | 'account'
 
-// v2.5 — tasks & notes (v2.5 Tasks & Notes CRM System)
+// v2.5 ï¿½ tasks & notes (v2.5 Tasks & Notes CRM System)
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type CrmEntityType = 'contact' | 'account' | 'opportunity'
 
-// v2.4 — contact_imports (Import Pipeline) — SEED-018
+// v2.4 ï¿½ contact_imports (Import Pipeline) ï¿½ SEED-018
 export type ContactImportStatus =
   | 'uploading'
   | 'parsing'
@@ -1687,7 +1689,7 @@ export interface Database {
           updated_rows?: number
           skipped_rows?: number
           error_rows?: number
-          // progress_percent OMITTED — GENERATED ALWAYS, never writable
+          // progress_percent OMITTED ï¿½ GENERATED ALWAYS, never writable
           started_at?: string | null
           finished_at?: string | null
           created_by?: string | null
@@ -1714,7 +1716,7 @@ export interface Database {
           updated_rows?: number
           skipped_rows?: number
           error_rows?: number
-          // progress_percent OMITTED — GENERATED ALWAYS, never writable
+          // progress_percent OMITTED ï¿½ GENERATED ALWAYS, never writable
           started_at?: string | null
           finished_at?: string | null
           updated_at?: string
@@ -3284,6 +3286,45 @@ export interface Database {
           }
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          type: NotificationType
+          payload: Json
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          type: NotificationType
+          payload?: Json
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          read_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'notifications_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       workflows: {
         Row: {
           id: string
@@ -3683,7 +3724,7 @@ export interface Database {
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
       agent_invocation_mode: AgentInvocationMode
-      // v2.5 — tasks & notes enums
+      // v2.5 ï¿½ tasks & notes enums
       task_priority: TaskPriority
       task_status: TaskStatus
       crm_entity_type: CrmEntityType
