@@ -18,9 +18,17 @@ progress:
 Phase: 103 — Notifications (next to plan)
 Status: 0/2 phases complete
 
+Last activity: 2026-05-20 - Completed quick task 260520-kc1: Remove redundant page titles from dashboard pages
+
 ## Phase Summary
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
 | 103 | In-App Notifications | 0 | 🔲 Not started |
 | 104 | Light Theme | 0 | 🔲 Not started |
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260520-kc1 | Remove redundant page titles from dashboard pages | 2026-05-20 | f5d4562 | [260520-kc1-remove-redundant-page-titles-from-dashbo](./quick/260520-kc1-remove-redundant-page-titles-from-dashbo/) |
