@@ -185,6 +185,36 @@ export interface ContactDetail extends ContactRow {
     updated_at: string
     stage: { id: string; name: string; color: string } | null
   }>
+  /** SEED-039: tasks linked to this contact (limit 5, soonest due first). */
+  tasks: Array<{
+    id: string
+    title: string
+    due_date: string | null
+    priority: string
+    status: string
+  }>
+  /** SEED-039: bookings linked to this contact (limit 5). */
+  bookings: Array<{
+    id: string
+    booker_name: string
+    start_at: string
+    end_at: string
+    status: string
+    event_type_name: string | null
+  }>
+  /** SEED-039: notes from the `notes` table for this contact (limit 5). */
+  contact_notes: Array<{
+    id: string
+    content: string
+    created_at: string
+  }>
+  /** SEED-039: custom field definitions for the `contact` entity. */
+  customFieldDefs: Array<{
+    id: string
+    key: string
+    label: string
+    type: string
+  }>
 }
 
 export async function getContact(id: string): Promise<ContactDetail | null> {
@@ -197,6 +227,10 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     { data: convs },
     { data: calls },
     { data: opps },
+    { data: tasks },
+    { data: bookings },
+    { data: notes },
+    defsResult,
   ] = await Promise.all([
     supabase.from('contacts').select('*').eq('id', id).maybeSingle(),
     supabase
@@ -221,6 +255,32 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
       .eq('contact_id', id)
       .order('updated_at', { ascending: false })
       .limit(20),
+    // SEED-039: tasks for this contact
+    supabase
+      .from('tasks')
+      .select('id, title, due_date, priority, status')
+      .eq('entity_type', 'contact')
+      .eq('entity_id', id)
+      .neq('status', 'cancelled')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(5),
+    // SEED-039: bookings for this contact (event_type joined for label)
+    supabase
+      .from('bookings')
+      .select('id, booker_name, start_at, end_at, status, event_types(name)')
+      .eq('linked_contact_id', id)
+      .order('start_at', { ascending: false })
+      .limit(5),
+    // SEED-039: notes from the dedicated notes table (separate from contacts.notes)
+    supabase
+      .from('notes')
+      .select('id, content, created_at')
+      .eq('entity_type', 'contact')
+      .eq('entity_id', id)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // SEED-039: custom field definitions for the contact entity
+    getDefinitions({ entity: 'contact', includeArchived: false }),
   ])
   if (!contact) return null
 
@@ -229,6 +289,23 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     .filter((t): t is ContactTagEntity => Boolean(t))
   const tagIds = tagEntities.map((t) => t.id)
 
+  const bookingRows = (bookings ?? []).map((b) => {
+    const et = b.event_types as { name?: string | null } | { name?: string | null }[] | null
+    const eventName = Array.isArray(et) ? et[0]?.name ?? null : et?.name ?? null
+    return {
+      id: b.id,
+      booker_name: b.booker_name,
+      start_at: b.start_at,
+      end_at: b.end_at,
+      status: b.status,
+      event_type_name: eventName,
+    }
+  })
+
+  const customFieldDefs = defsResult.ok
+    ? defsResult.data.map((d) => ({ id: d.id, key: d.key, label: d.label, type: d.type as string }))
+    : []
+
   return {
     ...(contact as ContactRow),
     tagIds,
@@ -236,6 +313,10 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     conversations: convs ?? [],
     call_logs: (calls ?? []) as ContactDetail['call_logs'],
     opportunities: ((opps ?? []) as unknown as ContactDetail['opportunities']),
+    tasks: (tasks ?? []) as ContactDetail['tasks'],
+    bookings: bookingRows,
+    contact_notes: (notes ?? []) as ContactDetail['contact_notes'],
+    customFieldDefs,
   }
 }
 
@@ -584,6 +665,115 @@ export async function importContactsCsv(
 
   revalidatePath('/contacts')
   return { summary }
+}
+
+// ─── Inline field update (SEED-039) ─────────────────────────────────────────
+
+const INLINE_BUILTIN_FIELDS = ['name', 'phone', 'email', 'company'] as const
+type InlineBuiltinField = (typeof INLINE_BUILTIN_FIELDS)[number]
+
+export interface UpdateContactFieldResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Patch a single inline-editable field on a contact. Supports builtin columns
+ * (`name`/`phone`/`email`/`company`) and JSONB custom fields via dotted path
+ * `custom_fields.{key}`. Validates the field name and normalises phone/email
+ * before writing. Returns `{ ok: false, error }` on failure rather than
+ * throwing — callers (inline editor) display the message via toast.
+ */
+export async function updateContactField(
+  contactId: string,
+  patch: { field: string; value: string },
+): Promise<UpdateContactFieldResult> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!contactId) return { ok: false, error: 'Missing contact id' }
+
+  const { field, value } = patch
+  const supabase = await createClient()
+
+  if ((INLINE_BUILTIN_FIELDS as readonly string[]).includes(field)) {
+    const f = field as InlineBuiltinField
+    let normalised: string | null = value.trim()
+    if (f === 'phone') normalised = normalisePhone(normalised) ?? null
+    if (f === 'email') normalised = normaliseEmail(normalised) ?? null
+    if (!normalised) normalised = null
+    const updates: Record<string, string | null> = { [f]: normalised }
+    const { error } = await supabase.from('contacts').update(updates).eq('id', contactId)
+    if (error) return { ok: false, error: error.message }
+    revalidatePath('/contacts')
+    return { ok: true }
+  }
+
+  // Custom field path: "custom_fields.<key>"
+  if (field.startsWith('custom_fields.')) {
+    const key = field.slice('custom_fields.'.length)
+    if (!key) return { ok: false, error: 'Invalid custom field key' }
+
+    // Read current jsonb so we can merge — there is no convenient jsonb_set
+    // shortcut through PostgREST that handles non-existent paths cleanly.
+    const { data: row, error: readErr } = await supabase
+      .from('contacts')
+      .select('custom_fields, org_id')
+      .eq('id', contactId)
+      .maybeSingle()
+    if (readErr) return { ok: false, error: readErr.message }
+    if (!row) return { ok: false, error: 'Contact not found' }
+
+    const current = (row.custom_fields as Record<string, unknown> | null) ?? {}
+    const trimmed = value.trim()
+    const next: Record<string, unknown> = { ...current }
+    if (trimmed === '') {
+      delete next[key]
+    } else {
+      next[key] = trimmed
+    }
+
+    // Validate via the shared custom-fields validator (skips empty payloads).
+    if (Object.keys(next).length > 0) {
+      const cfResult = await validateCustomFields(row.org_id, 'contact', next)
+      if (!cfResult.ok) return { ok: false, error: 'custom_fields_invalid' }
+    }
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({ custom_fields: next })
+      .eq('id', contactId)
+    if (error) return { ok: false, error: error.message }
+    revalidatePath('/contacts')
+    return { ok: true }
+  }
+
+  return { ok: false, error: `Unsupported field "${field}"` }
+}
+
+// ─── Inline note add (SEED-039) ─────────────────────────────────────────────
+
+export async function addContactNote(
+  contactId: string,
+  content: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  const trimmed = content.trim()
+  if (!trimmed) return { ok: false, error: 'Empty note' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active org' }
+
+  const { error } = await supabase.from('notes').insert({
+    org_id: orgId,
+    content: trimmed,
+    entity_type: 'contact',
+    entity_id: contactId,
+    created_by: user.id,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/contacts')
+  return { ok: true }
 }
 
 /**

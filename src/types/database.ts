@@ -1541,6 +1541,8 @@ export interface Database {
           metadata: Record<string, unknown> | null
           /** SEED-030: primary content type */
           message_type: string
+          /** SEED-039: per-message channel origin (NULL = inherit from conversation). */
+          channel: string | null
         }
         Insert: {
           id?: string
@@ -1552,12 +1554,15 @@ export interface Database {
           metadata?: Record<string, unknown> | null
           /** SEED-030: defaults to 'text' in DB */
           message_type?: string
+          /** SEED-039: optional per-message channel origin. */
+          channel?: string | null
         }
         Update: {
           role?: string
           content?: string
           metadata?: Record<string, unknown> | null
           message_type?: string
+          channel?: string | null
         }
         Relationships: [
           {
