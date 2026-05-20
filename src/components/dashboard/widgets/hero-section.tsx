@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { MessageSquarePlus, UserPlus, TrendingUp, Sparkles, Wallet } from 'lucide-react'
+import { MessageSquarePlus, UserPlus, TrendingUp, Sparkles } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { StatusPill } from '@/components/design-system/status-pill'
@@ -14,8 +14,6 @@ import { StatusPill } from '@/components/design-system/status-pill'
  */
 export async function HeroSection() {
   let userName = 'there'
-  let costToday: number | null = null
-  let dailyCap: number | null = null
   let healthLabel = 'All systems operational'
   let healthTone: 'live' | 'warning' | 'danger' | 'idle' = 'live'
 
@@ -29,39 +27,6 @@ export async function HeroSection() {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[dashboard:hero] getUser failed', err)
-  }
-
-  // Cost today — sum agent_invocations.cost_usd for today
-  try {
-    const supabase = await createClient()
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
-
-    const { data: rows } = await supabase
-      .from('agent_invocations')
-      .select('cost_usd')
-      .not('cost_usd', 'is', null)
-      .gte('created_at', startOfDay.toISOString())
-
-    costToday = (rows ?? []).reduce((sum, r) => sum + (Number(r.cost_usd) || 0), 0)
-
-    // Daily cap from org row
-    const { data: orgId } = await supabase.rpc('get_current_org_id')
-    if (orgId) {
-      const { data: orgRow } = await supabase
-        .from('organizations')
-        .select('daily_cost_cap_usd_override')
-        .eq('id', orgId as string)
-        .maybeSingle()
-      const envCap = parseFloat(process.env.AGENT_DAILY_COST_CAP_USD ?? '50.00')
-      dailyCap =
-        orgRow?.daily_cost_cap_usd_override !== null && orgRow?.daily_cost_cap_usd_override !== undefined
-          ? Number(orgRow.daily_cost_cap_usd_override)
-          : envCap
-    }
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[dashboard:hero] cost lookup failed', err)
   }
 
   // Workspace health — count disconnected integrations
@@ -88,7 +53,6 @@ export async function HeroSection() {
   }
 
   const greeting = greetingFor(new Date())
-  const pct = costToday !== null && dailyCap && dailyCap > 0 ? Math.min(100, Math.round((costToday / dailyCap) * 100)) : 0
 
   return (
     <div className="animate-fade-in rounded-[12px] border border-border bg-bg-secondary p-6 shadow-elevation-sm">
@@ -103,15 +67,6 @@ export async function HeroSection() {
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill tone={healthTone}>{healthLabel}</StatusPill>
-            {costToday !== null && (
-              <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-border-subtle bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary tabular">
-                <Wallet className="h-3 w-3 text-text-tertiary" />
-                {`$${costToday.toFixed(2)} spent today`}
-                {dailyCap && dailyCap > 0 && (
-                  <span className="text-text-tertiary">{` · ${pct}% of $${dailyCap.toFixed(0)} cap`}</span>
-                )}
-              </span>
-            )}
           </div>
         </div>
 
@@ -122,14 +77,6 @@ export async function HeroSection() {
         </div>
       </div>
 
-      {costToday !== null && dailyCap && dailyCap > 0 && (
-        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-bg-tertiary">
-          <div
-            className="h-full rounded-full bg-accent transition-all duration-500 ease-out"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
     </div>
   )
 }
