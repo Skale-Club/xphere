@@ -114,7 +114,9 @@ export default function LoginPage() {
           style={{ background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.10) 0%, transparent 70%)' }}
         />
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/api/pwa/icons/32" alt="" width={22} height={22} className="rounded-[6px]" />
           <span className="font-semibold text-sm text-[#FAFAFA] tracking-tight">Xphere</span>
         </div>
 
@@ -163,7 +165,9 @@ export default function LoginPage() {
           className="w-full max-w-[380px]"
         >
           {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
+          <div className="lg:hidden mb-8 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/api/pwa/icons/32" alt="" width={22} height={22} className="rounded-[6px]" />
             <span className="font-semibold text-sm text-[#FAFAFA]">Xphere</span>
           </div>
 

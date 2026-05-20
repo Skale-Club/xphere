@@ -105,17 +105,8 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
             className="max-w-3xl text-[2.5rem] sm:text-[3.5rem] font-semibold leading-[1.08] tracking-[-0.03em]"
           >
-            Run your agency{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #818CF8 0%, #A78BFA 50%, #C4B5FD 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              on autopilot
-            </span>
+            Run your business{' '}
+            <span className="text-gradient-flow">on autopilot</span>
           </motion.h1>
 
           <motion.p
@@ -165,16 +156,18 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
               <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
               <span className="ml-2 text-[0.6875rem] text-[#52525B] font-mono">xphere.app/dashboard</span>
             </div>
-            <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5 p-6">
               {[
                 { label: 'AI Calls Today', value: '284', trend: '+12%' },
                 { label: 'Active Contacts', value: '14,382', trend: '+340' },
                 { label: 'Open Conversations', value: '47', trend: '8 new' },
               ].map(({ label, value, trend }) => (
-                <div key={label} className="px-6 first:pl-0 last:pr-0">
+                <div key={label} className="flex flex-col items-center text-center px-0 sm:px-6 first:sm:pl-0 last:sm:pr-0 py-4 sm:py-0 first:pt-0 last:pb-0">
                   <p className="text-[0.75rem] text-[#71717A] mb-1">{label}</p>
-                  <p className="text-[1.5rem] font-semibold text-[#FAFAFA] tabular-nums">{value}</p>
-                  <p className="text-[0.75rem] text-indigo-400 mt-0.5">{trend}</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-[1.5rem] font-semibold text-[#FAFAFA] tabular-nums">{value}</p>
+                    <p className="text-[0.75rem] text-indigo-400">{trend}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -192,7 +185,7 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
               className="text-center mb-12"
             >
               <h2 className="text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.025em]">
-                Everything your agency needs
+                Everything your business needs
               </h2>
               <p className="mt-3 text-[#A1A1AA] text-[1rem]">
                 One platform. All the primitives. Zero duct-tape.
@@ -230,7 +223,7 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             className="mx-auto max-w-2xl text-center rounded-2xl border border-white/8 bg-gradient-to-b from-indigo-500/6 to-transparent p-12"
           >
             <h2 className="text-[1.75rem] font-semibold tracking-[-0.025em] mb-3">
-              Ready to scale your agency?
+              Ready to scale your business?
             </h2>
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
               Start automating client workflows today — no setup fees, no lock-in.

@@ -15,6 +15,7 @@ import {
   Mic,
   MicOff,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -200,10 +201,10 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   if (!open) return null
 
   return (
-    <div className="fixed top-16 right-4 z-50">
-      <div className="w-[272px] rounded-[18px] border border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 sm:inset-auto sm:top-16 sm:right-4">
+      <div className="w-full h-full sm:w-[272px] sm:h-auto sm:max-h-[calc(100vh-5rem)] rounded-none sm:rounded-[18px] border-0 sm:border sm:border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between border-b border-border px-6 sm:px-4 py-4 sm:py-3">
             <div className="flex items-center gap-2">
               <PhoneCall className="h-4 w-4 text-accent" />
               <span className="text-[13px] font-semibold text-text-primary">Dial pad</span>
@@ -211,14 +212,15 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-text-tertiary hover:text-text-primary transition-colors"
+              className="flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center rounded-full sm:rounded-none bg-bg-tertiary sm:bg-transparent text-text-secondary sm:text-text-tertiary hover:text-text-primary transition-colors"
               aria-label="Close dial pad"
             >
-              <ChevronDown className="h-4 w-4" />
+              <X className="h-5 w-5 sm:hidden" />
+              <ChevronDown className="hidden sm:block h-4 w-4" />
             </button>
           </div>
 
-          <div className="p-4 space-y-4">
+          <div className="flex-1 sm:flex-none min-h-0 p-6 sm:p-4 flex flex-col gap-4 sm:gap-0 sm:space-y-4">
             {/* Active call view (browser mode) */}
             {device.activeCall && (
               <div className="rounded-[12px] border border-accent/30 bg-accent/[0.06] p-3 space-y-3">
@@ -262,25 +264,25 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               placeholder="+14155551234"
-              className="h-11 text-center text-[17px] font-medium tracking-wide"
+              className="h-16 sm:h-11 text-center text-[28px] sm:text-[17px] font-semibold sm:font-medium tracking-wide"
               disabled={Boolean(device.activeCall)}
             />
 
-            {/* Dial pad grid */}
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* Dial pad grid — flex-1 on mobile so it absorbs remaining space without scroll */}
+            <div className="grid grid-cols-3 grid-rows-4 gap-2 sm:gap-1.5 flex-1 sm:flex-none min-h-0">
               {DIAL_KEYS.map((k) => (
                 <button
                   key={k.digit}
                   type="button"
                   onClick={() => appendDigit(k.digit)}
                   className={cn(
-                    'flex aspect-square flex-col items-center justify-center rounded-[10px] border border-border bg-bg-secondary text-text-primary transition-all',
+                    'flex h-full w-full sm:aspect-square flex-col items-center justify-center rounded-[14px] sm:rounded-[10px] border border-border bg-bg-secondary text-text-primary transition-all',
                     'hover:border-border-strong hover:bg-bg-tertiary active:scale-95',
                   )}
                 >
-                  <span className="text-[18px] font-medium leading-none">{k.digit}</span>
+                  <span className="text-[clamp(24px,7vw,34px)] sm:text-[18px] font-semibold sm:font-medium leading-none">{k.digit}</span>
                   {k.letters && (
-                    <span className="mt-0.5 text-[8.5px] uppercase tracking-wide text-text-tertiary">
+                    <span className="mt-1 sm:mt-0.5 text-[11px] sm:text-[8.5px] uppercase tracking-wide text-text-tertiary">
                       {k.letters}
                     </span>
                   )}
@@ -311,23 +313,23 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
 
             {/* Action row: backspace + call */}
             {!device.activeCall && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:gap-2">
                 <button
                   type="button"
                   onClick={backspace}
                   disabled={!number || calling}
                   aria-label="Backspace"
-                  className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-border bg-bg-secondary text-text-secondary transition-colors hover:text-text-primary disabled:opacity-40"
+                  className="flex h-16 w-16 sm:h-10 sm:w-10 items-center justify-center rounded-full sm:rounded-[10px] border border-border bg-bg-secondary text-text-secondary transition-colors hover:text-text-primary disabled:opacity-40"
                 >
-                  <Delete className="h-4 w-4" />
+                  <Delete className="h-5 w-5 sm:h-4 sm:w-4" />
                 </button>
                 <Button
                   onClick={handleCall}
                   loading={calling}
                   disabled={!number || calling}
-                  className="flex-1 h-10"
+                  className="flex-1 h-16 sm:h-10 text-base sm:text-sm rounded-full sm:rounded-[10px]"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-5 w-5 sm:h-4 sm:w-4" />
                   Call
                 </Button>
               </div>

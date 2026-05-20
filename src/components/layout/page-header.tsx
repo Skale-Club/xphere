@@ -1,38 +1,44 @@
 import * as React from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Sparkles } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
-  /** Small uppercase eyebrow above the title (defaults to "Workspace") */
+  /** Kept for API compatibility — no longer rendered (header breadcrumb shows it). */
   eyebrow?: string
-  /** Icon shown next to the eyebrow */
+  /** Kept for API compatibility — no longer rendered. */
   eyebrowIcon?: React.ComponentType<{ className?: string }>
-  /** Page title — supports rich nodes (badges, etc.) */
-  title: React.ReactNode
-  /** Secondary description */
+  /** Kept for API compatibility — no longer rendered. */
+  title?: React.ReactNode
+  /** Kept for API compatibility — no longer rendered. */
   description?: React.ReactNode
-  /** Right-aligned action area (buttons, switches, etc.) */
+  /** Right-aligned action area (buttons, switches, etc.). Still rendered. */
   actions?: React.ReactNode
-  /** Optional back link rendered above the eyebrow */
+  /** Optional back link. Still rendered. */
   back?: { href: string; label: string }
   className?: string
 }
 
 /**
- * Consistent page hero used across dashboard screens.
- * Pairs with mx-auto max-w-7xl wrapper.
+ * Page header. The title/description/eyebrow used to render here, but the
+ * top-bar breadcrumb already shows the page name + icon, so rendering them
+ * again on every screen was redundant. This component now only renders the
+ * `back` link and the right-aligned `actions` row. The other props are
+ * accepted for backward compatibility (so we don't have to edit 68 pages).
  */
 export function PageHeader({
-  eyebrow = 'Workspace',
-  eyebrowIcon: EyebrowIcon = Sparkles,
-  title,
-  description,
   actions,
   back,
   className,
+  // intentionally unused — kept for backward compatibility:
+  eyebrow: _eyebrow,
+  eyebrowIcon: _eyebrowIcon,
+  title: _title,
+  description: _description,
 }: PageHeaderProps) {
+  if (!back && !actions) return null
+
   return (
     <div className={cn('animate-fade-in flex flex-col gap-3', className)}>
       {back && (
@@ -45,24 +51,9 @@ export function PageHeader({
         </Link>
       )}
 
-      <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-        <EyebrowIcon className="h-3.5 w-3.5 text-accent" />
-        <span>{eyebrow}</span>
-      </div>
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-3 text-[28px] font-semibold tracking-tight text-text-primary sm:text-[32px]">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-1 max-w-2xl text-[14px] text-text-secondary">{description}</p>
-          )}
-        </div>
-        {actions && (
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
-        )}
-      </div>
+      {actions && (
+        <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+      )}
     </div>
   )
 }
@@ -79,8 +70,11 @@ export function PageContainer({
   className?: string
   size?: 'narrow' | 'wide' | 'full'
 }) {
-  const maxW =
-    size === 'narrow' ? 'max-w-4xl' : 'max-w-none'
+  // All pages are full-width; `size` prop is kept for API compatibility
+  // but no longer constrains horizontal layout. Use card widths inside
+  // pages for form readability instead of constraining the whole page.
+  const maxW = 'max-w-none'
+  void size
 
   return (
     <div

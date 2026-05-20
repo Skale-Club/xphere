@@ -17,5 +17,5 @@ export const getFaviconUrl = unstable_cache(
     }
   },
   ['seo-favicon'],
-  { revalidate: 3600 }
+  { revalidate: 3600, tags: ['seo-favicon'] }
 )

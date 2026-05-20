@@ -18,11 +18,17 @@ export function SidebarStateProvider({ children }: { children: React.ReactNode }
   const [collapsed, setCollapsedState] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
-  // Hydrate from localStorage
+  // Hydrate from localStorage on mount. If the user has never set a
+  // preference on this device, default to collapsed on mobile (<1024px)
+  // and expanded on desktop. The choice still persists on toggle.
   React.useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY)
-      if (stored !== null) setCollapsedState(stored === '1')
+      if (stored !== null) {
+        setCollapsedState(stored === '1')
+      } else if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+        setCollapsedState(true)
+      }
     } catch {}
   }, [])
 

@@ -3,6 +3,7 @@ import { getUser } from '@/lib/supabase/server'
 import { getWorkflow } from '../_actions/workflows'
 import { getActiveIntegrations } from '@/lib/flows/active-integrations'
 import { FlowCanvas } from '@/components/flows/flow-canvas'
+import { DesktopOnly } from '@/components/layout/desktop-only'
 
 export default async function FlowEditorPage({
   params,
@@ -20,14 +21,16 @@ export default async function FlowEditorPage({
   if (!result.ok) notFound()
 
   return (
-    <div className="h-[calc(100vh-0px)] flex flex-col">
-      <FlowCanvas
-        workflowId={result.data.id}
-        workflowName={result.data.name}
-        isActive={result.data.is_active ?? false}
-        initialDefinition={result.data.definition}
-        activeIntegrations={activeIntegrations}
-      />
-    </div>
+    <DesktopOnly message="The visual flow editor uses drag-and-drop and a large canvas that's not designed for small touch screens.">
+      <div className="h-[calc(100vh-0px)] flex flex-col">
+        <FlowCanvas
+          workflowId={result.data.id}
+          workflowName={result.data.name}
+          isActive={result.data.is_active ?? false}
+          initialDefinition={result.data.definition}
+          activeIntegrations={activeIntegrations}
+        />
+      </div>
+    </DesktopOnly>
   )
 }

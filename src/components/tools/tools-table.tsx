@@ -75,6 +75,7 @@ import {
 } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { ToolConfigForm } from './tool-config-form'
+import { DesktopOnly } from '@/components/layout/desktop-only'
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
   create_contact: 'Create Contact',
@@ -1022,13 +1023,15 @@ export function ToolsTable({
               Configure a tool that the agent can call during conversations.
             </SheetDescription>
           </VisuallyHidden>
-          <ToolConfigForm
-            mode={editingTool ? 'edit' : 'create'}
-            toolConfig={editingTool ?? undefined}
-            integrations={integrations}
-            existingFolders={existingFolders}
-            onSuccess={handleSheetSuccess}
-          />
+          <DesktopOnly message="Tool configuration uses complex forms with conditional fields. Please open Xphere on a desktop to edit.">
+            <ToolConfigForm
+              mode={editingTool ? 'edit' : 'create'}
+              toolConfig={editingTool ?? undefined}
+              integrations={integrations}
+              existingFolders={existingFolders}
+              onSuccess={handleSheetSuccess}
+            />
+          </DesktopOnly>
         </SheetContent>
       </Sheet>
 

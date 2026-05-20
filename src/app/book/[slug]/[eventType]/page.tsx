@@ -84,9 +84,11 @@ export default async function PublicBookingPage({ params }: Props) {
           </div>
         </div>
 
-        <p className="text-center text-xs text-[#52525B] mt-6">
+        <div className="flex items-center justify-center gap-1.5 text-center text-xs text-[#52525B] mt-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/api/pwa/icons/32" alt="" width={14} height={14} className="rounded-[3px] opacity-70" />
           Powered by Xphere Scheduling
-        </p>
+        </div>
       </div>
     </div>
   )

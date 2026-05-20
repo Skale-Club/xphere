@@ -106,9 +106,13 @@ export function WelcomeWizard({
               <Sparkles className="h-3 w-3" />
               Welcome
             </div>
-            <h1 className="mt-3 text-[26px] font-semibold tracking-tight text-text-primary sm:text-[32px]">
-              Welcome to Xphere, {userName}.
-            </h1>
+            <div className="mt-3 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/api/pwa/icons/48" alt="" width={32} height={32} className="rounded-[8px]" />
+              <h1 className="text-[26px] font-semibold tracking-tight text-text-primary sm:text-[32px]">
+                Welcome to Xphere, {userName}.
+              </h1>
+            </div>
             <p className="mt-2 max-w-xl text-[14px] text-text-secondary leading-relaxed">
               Let&apos;s get your workspace running in 5 quick steps. You can always
               come back to this checklist by reloading the dashboard.

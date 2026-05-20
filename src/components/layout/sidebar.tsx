@@ -5,27 +5,16 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import {
-  Zap,
-  Plug2,
-  Phone,
-  BookOpen,
-  MessageSquare,
-  Star,
+  Building2,
   ChevronUp,
   LogOut,
   Settings,
-  LayoutDashboard,
   ShieldCheck,
-  Bot,
-  Users,
   PanelLeftClose,
   PanelLeftOpen,
-  TrendingUp,
-  Contact,
   UserCog,
-  Building2,
-  CalendarDays,
 } from 'lucide-react'
+import { NAV_ITEMS as nav, NAV_GROUPS as groups } from './nav-items'
 
 import { createClient } from '@/lib/supabase/client'
 import { APP_NAME } from '@/lib/config'
@@ -41,37 +30,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarContext, useSidebarState } from './sidebar-context'
-
-type NavItem = {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  href: string
-  group: string
-}
-
-const nav: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview' },
-  { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
-  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
-  { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
-  { icon: Building2,       label: 'Companies',    href: '/companies',     group: 'sales' },
-  { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
-  { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
-  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
-  { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build' },
-  { icon: BookOpen,        label: 'Knowledge',    href: '/knowledge',    group: 'build' },
-  { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
-  { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },
-  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage' },
-]
-
-const groups: { id: string; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'engage',   label: 'Engage' },
-  { id: 'sales',    label: 'Sales' },
-  { id: 'build',    label: 'Build' },
-  { id: 'manage',   label: 'Manage' },
-]
 
 function getInitials(user: User): string {
   const fullName = user.user_metadata?.full_name as string | undefined

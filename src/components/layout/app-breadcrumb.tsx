@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { LayoutDashboard } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,6 +13,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { useBreadcrumbOverride } from './breadcrumb-override-context'
+import { findNavItemForPath } from './nav-items'
 
 function toTitleCase(str: string) {
   return str
@@ -24,11 +26,17 @@ export function AppBreadcrumb() {
   const segments = pathname.split('/').filter(Boolean)
   const { getSegmentLabel } = useBreadcrumbOverride()
 
+  // Match the top-level path segment to a sidebar nav item so the icon
+  // shown in the header is the same as the icon highlighted in the sidebar.
+  const navItem = findNavItemForPath(pathname)
+  const Icon = navItem?.icon ?? LayoutDashboard
+
   if (segments.length === 0) {
     return (
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem>
+          <BreadcrumbItem className="flex items-center gap-2">
+            <Icon className="h-4 w-4 text-text-secondary" />
             <BreadcrumbPage>Dashboard</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
@@ -42,11 +50,13 @@ export function AppBreadcrumb() {
         {segments.map((segment, index) => {
           const isLast = index === segments.length - 1
           const href = `/${segments.slice(0, index + 1).join('/')}`
+          const isFirst = index === 0
 
           return (
             <React.Fragment key={href}>
               {index > 0 && <BreadcrumbSeparator />}
-              <BreadcrumbItem>
+              <BreadcrumbItem className={isFirst ? 'flex items-center gap-2' : undefined}>
+                {isFirst && <Icon className="h-4 w-4 text-text-secondary shrink-0" />}
                 {isLast ? (
                   <BreadcrumbPage>{getSegmentLabel(segment) ?? toTitleCase(segment)}</BreadcrumbPage>
                 ) : (

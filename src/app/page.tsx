@@ -5,7 +5,7 @@ import { getFaviconUrl } from '@/lib/seo'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
 export const metadata: Metadata = {
-  title: 'Xphere — The AI Operations Platform for Modern Agencies',
+  title: 'Xphere — The AI Operations Platform for Modern Businesses',
   description:
     'Centralize AI assistants, automate client workflows, and manage every interaction — voice, chat, SMS, and WhatsApp — from one powerful dashboard.',
   metadataBase: new URL(SITE_URL),
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     description:
       'Centralize AI assistants, automate client workflows, and manage every interaction from one powerful dashboard.',
   },
-  keywords: ['AI operations', 'agency platform', 'AI assistants', 'workflow automation', 'CRM', 'multi-channel inbox'],
+  keywords: ['AI operations', 'business platform', 'AI assistants', 'workflow automation', 'CRM', 'multi-channel inbox'],
   alternates: { canonical: SITE_URL },
 }
 
@@ -35,7 +35,7 @@ const jsonLd = {
       '@type': 'Organization',
       name: 'Xphere',
       url: SITE_URL,
-      description: 'The AI Operations Platform for Modern Agencies',
+      description: 'The AI Operations Platform for Modern Businesses',
     },
     {
       '@type': 'WebSite',
