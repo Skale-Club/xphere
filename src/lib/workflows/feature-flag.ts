@@ -1,12 +1,11 @@
-// SEED-025 Phase B: feature flag gating the unified workflow engine.
+// SEED-025 Phase C: unified workflow engine is now ON by default.
 //
-// While the flag is OFF, every resolver/executor reads from the legacy
-// tool_configs table — behavior identical to pre-SEED-025.
-//
-// Flip the flag ON (env var UNIFIED_WORKFLOW_ENGINE=on) to route the same
-// callsites through workflows WHERE kind='tool'. The resolver returns the
-// same shape either way so callers do not change.
+// Opt out by setting UNIFIED_WORKFLOW_ENGINE=off.
+// The resolver returns the same ToolConfigWithIntegration shape whether
+// reading from legacy tool_configs or from workflows WHERE kind='tool',
+// so all callers (Vapi, ManyChat, Evolution, Meta, Twilio, agent runtime)
+// continue to work unchanged.
 
 export function isUnifiedEngineEnabled(): boolean {
-  return process.env.UNIFIED_WORKFLOW_ENGINE === 'on'
+  return process.env.UNIFIED_WORKFLOW_ENGINE !== 'off'
 }
