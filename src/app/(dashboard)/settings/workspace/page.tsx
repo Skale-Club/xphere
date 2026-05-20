@@ -4,6 +4,8 @@ import { Palette } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { WorkspaceBrandingForm } from '@/components/settings/workspace-branding-form'
+import { WhatsAppProviderSettings } from './whatsapp-provider-settings'
+import { getActiveWhatsAppProvider } from './actions'
 
 export default async function WorkspaceSettingsPage() {
   const user = await getUser()
@@ -20,6 +22,8 @@ export default async function WorkspaceSettingsPage() {
     .single()
 
   if (!org) redirect('/organizations')
+
+  const whatsapp = await getActiveWhatsAppProvider()
 
   return (
     <PageContainer size="narrow">
@@ -39,6 +43,9 @@ export default async function WorkspaceSettingsPage() {
           daily_cost_cap_usd: org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
         }}
       />
+      <div className="mt-8">
+        <WhatsAppProviderSettings initial={whatsapp} />
+      </div>
     </PageContainer>
   )
 }

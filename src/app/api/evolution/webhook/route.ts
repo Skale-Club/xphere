@@ -1,19 +1,21 @@
 // src/app/api/evolution/webhook/route.ts
 // Evolution Go webhook receiver — always returns HTTP 200.
 //
-// Evolution Go sends one POST per event (configured at instance create time).
-// The instance name arrives either in the JSON body (`instance` field) or as
-// a path/query parameter — we handle both. Signature validation is optional:
-// if the instance has a configured webhook_secret, we verify a SHA-256 HMAC
-// over the raw body (Evolution Go header: `x-webhook-signature`).
-//
-// Processing runs in after() so the response returns immediately, avoiding
-// upstream retries on slow agent dispatch.
+// SEED-031: refactored to use the unified WhatsApp pipeline. For
+// messages.upsert, payloads are normalized via the Evolution adapter and
+// dispatched through processWhatsAppMessage. connection.update still updates
+// the legacy evolution_instances row when present.
 
 import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { processEvolutionEvent, type EvolutionWebhookPayload } from '@/lib/evolution/process-event'
-import { resolveEvolutionInstanceByName } from '@/lib/evolution/credentials'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
+import {
+  evolutionAdapter,
+  normalizeEvolution,
+  type EvolutionWebhookPayload,
+} from '@/lib/whatsapp/adapters/evolution'
+import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
+import { resolveProviderByInstanceName } from '@/lib/whatsapp/resolve-provider'
 
 export const runtime = 'nodejs'
 
@@ -25,6 +27,57 @@ function verifySignature(rawBody: string, signature: string | null, secret: stri
     return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(stripped, 'hex'))
   } catch {
     return false
+  }
+}
+
+interface ConnectionUpdateData {
+  state?: string
+  instance?: { state?: string; wuid?: string }
+  wuid?: string
+}
+
+function jidToPhone(jid: string): string {
+  const num = jid.split('@')[0]
+  if (!num) return jid
+  return num.startsWith('+') ? num : `+${num}`
+}
+
+async function handleConnectionUpdate(payload: EvolutionWebhookPayload): Promise<void> {
+  const data = payload.data as ConnectionUpdateData
+  const rawState = data?.state ?? data?.instance?.state ?? ''
+  let status: 'disconnected' | 'connecting' | 'connected' | 'qr_pending' = 'disconnected'
+  if (rawState === 'open') status = 'connected'
+  else if (rawState === 'qr') status = 'qr_pending'
+  else if (rawState === 'connecting') status = 'connecting'
+
+  let phone: string | null = null
+  const wuid = data?.instance?.wuid ?? data?.wuid
+  if (typeof wuid === 'string' && wuid.length > 0) {
+    phone = jidToPhone(wuid)
+  }
+
+  const supabase = createServiceRoleClient()
+
+  // Update the unified row if it exists
+  const resolved = await resolveProviderByInstanceName(payload.instance)
+  if (resolved) {
+    const update: Record<string, unknown> = { status }
+    if (status === 'connected') {
+      update.connected_at = new Date().toISOString()
+      update.last_error = null
+      if (phone) update.phone_number = phone
+    }
+    // Update whatsapp_providers when row exists there; fall back to legacy table
+    const { data: wp } = await supabase
+      .from('whatsapp_providers')
+      .select('id')
+      .eq('id', resolved.id)
+      .maybeSingle()
+    if (wp) {
+      await supabase.from('whatsapp_providers').update(update).eq('id', resolved.id)
+    } else {
+      await supabase.from('evolution_instances').update(update).eq('id', resolved.id)
+    }
   }
 }
 
@@ -40,36 +93,46 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ ok: true })
     }
 
-    // Fallback: pull instance from query if not in body
     if (!payload.instance) {
       const url = new URL(request.url)
       const fromQuery = url.searchParams.get('instance') ?? request.headers.get('x-instance-name')
       if (fromQuery) payload.instance = fromQuery
     }
-
     if (!payload.instance) {
       console.warn('[evolution/webhook] missing instance name')
       return Response.json({ ok: true })
     }
 
-    // Optional signature check — only enforced when instance has a secret configured
-    const instance = await resolveEvolutionInstanceByName(payload.instance)
-    if (instance?.webhookSecret) {
+    const provider = await resolveProviderByInstanceName(payload.instance)
+    if (provider?.webhookSecret) {
       const sig =
         request.headers.get('x-webhook-signature') ??
         request.headers.get('x-hub-signature-256')
-      if (!verifySignature(rawBody, sig, instance.webhookSecret)) {
+      if (!verifySignature(rawBody, sig, provider.webhookSecret)) {
         console.warn('[evolution/webhook] invalid signature for instance:', payload.instance)
-        // Still return 200 — we just won't process. Evolution Go would otherwise retry forever.
         return Response.json({ ok: true })
       }
     }
 
     after(async () => {
       try {
-        await processEvolutionEvent(payload)
+        const eventType = (payload.event ?? '').toLowerCase()
+        if (eventType === 'messages.upsert' || eventType === 'messages_upsert') {
+          if (!provider) {
+            console.warn('[evolution/webhook] no provider for instance:', payload.instance)
+            return
+          }
+          const messages = normalizeEvolution(payload, provider)
+          for (const m of messages) {
+            await processWhatsAppMessage(m, provider, evolutionAdapter)
+          }
+          return
+        }
+        if (eventType === 'connection.update' || eventType === 'connection_update') {
+          await handleConnectionUpdate(payload)
+        }
       } catch (err) {
-        console.error('[evolution/webhook] processEvolutionEvent error:', err)
+        console.error('[evolution/webhook] processing error:', err)
       }
     })
 

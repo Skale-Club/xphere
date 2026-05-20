@@ -1253,6 +1253,61 @@ export interface Database {
           }
         ]
       }
+      whatsapp_providers: {
+        Row: {
+          id: string
+          org_id: string
+          provider: 'evolution' | 'zapi' | 'wapi'
+          display_name: string
+          phone_number: string | null
+          status: 'disconnected' | 'connecting' | 'connected' | 'qr_pending' | 'error'
+          is_active: boolean
+          config_encrypted: string
+          webhook_secret_encrypted: string | null
+          last_error: string | null
+          connected_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          provider: 'evolution' | 'zapi' | 'wapi'
+          display_name?: string
+          phone_number?: string | null
+          status?: 'disconnected' | 'connecting' | 'connected' | 'qr_pending' | 'error'
+          is_active?: boolean
+          config_encrypted: string
+          webhook_secret_encrypted?: string | null
+          last_error?: string | null
+          connected_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          provider?: 'evolution' | 'zapi' | 'wapi'
+          display_name?: string
+          phone_number?: string | null
+          status?: 'disconnected' | 'connecting' | 'connected' | 'qr_pending' | 'error'
+          is_active?: boolean
+          config_encrypted?: string
+          webhook_secret_encrypted?: string | null
+          last_error?: string | null
+          connected_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_providers_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       evolution_instances: {
         Row: {
           id: string
@@ -1335,7 +1390,6 @@ export interface Database {
           evolution_instance_id: string | null
           pinned: boolean
           priority: string
-          typing_at: string | null
         }
         Insert: {
           id?: string
@@ -1363,7 +1417,6 @@ export interface Database {
           evolution_instance_id?: string | null
           pinned?: boolean
           priority?: string
-          typing_at?: string | null
         }
         Update: {
           status?: string
@@ -1385,7 +1438,6 @@ export interface Database {
           evolution_instance_id?: string | null
           pinned?: boolean
           priority?: string
-          typing_at?: string | null
         }
         Relationships: [
           {
@@ -1406,6 +1458,8 @@ export interface Database {
           content: string
           created_at: string
           metadata: Record<string, unknown> | null
+          /** SEED-030: primary content type */
+          message_type: string
         }
         Insert: {
           id?: string
@@ -1415,11 +1469,14 @@ export interface Database {
           content: string
           created_at?: string
           metadata?: Record<string, unknown> | null
+          /** SEED-030: defaults to 'text' in DB */
+          message_type?: string
         }
         Update: {
           role?: string
           content?: string
           metadata?: Record<string, unknown> | null
+          message_type?: string
         }
         Relationships: [
           {
@@ -3963,6 +4020,8 @@ export interface Database {
       task_priority: TaskPriority
       task_status: TaskStatus
       crm_entity_type: CrmEntityType
+      // SEED-031 — WhatsApp multi-provider
+      whatsapp_provider_type: 'evolution' | 'zapi' | 'wapi'
     }
   }
 }

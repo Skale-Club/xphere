@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { decrypt, encrypt } from '@/lib/crypto'
+import type { WhatsAppProvider, WhatsAppProviderStatus } from '@/lib/whatsapp/types'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -115,4 +118,163 @@ export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | n
 
   revalidatePath('/settings/workspace')
   return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// SEED-031 — WhatsApp provider settings
+// ---------------------------------------------------------------------------
+
+const whatsappProviderSchema = z.object({
+  provider: z.enum(['evolution', 'zapi', 'wapi']),
+  displayName: z.string().trim().max(64).optional().default(''),
+  config: z.record(z.string(), z.string()),
+})
+
+export interface SaveWhatsAppProviderInput {
+  provider: WhatsAppProvider
+  displayName?: string
+  config: Record<string, string>
+}
+
+export interface ActiveWhatsAppProvider {
+  id: string
+  provider: WhatsAppProvider
+  displayName: string
+  config: Record<string, string>
+  status: WhatsAppProviderStatus
+  phoneNumber: string | null
+}
+
+function validateConfigForProvider(
+  provider: WhatsAppProvider,
+  config: Record<string, string>,
+): string | null {
+  const need = (keys: string[]) =>
+    keys.find((k) => !config[k] || config[k].trim().length === 0)
+
+  if (provider === 'evolution') {
+    const missing = need(['base_url', 'token', 'instance_name'])
+    if (missing) return `Evolution: ${missing} is required`
+  } else if (provider === 'zapi') {
+    const missing = need(['instance_id', 'token'])
+    if (missing) return `Z-API: ${missing} is required`
+  } else if (provider === 'wapi') {
+    const missing = need(['instance_key', 'token', 'base_url'])
+    if (missing) return `W-API: ${missing} is required`
+  }
+  return null
+}
+
+/**
+ * Activate (or insert) a WhatsApp provider for the current org. Atomically
+ * deactivates any previously active provider so the partial unique index
+ * (org_id where is_active=true) is satisfied. Uses the service-role client to
+ * bypass RLS for the multi-row mutation; org_id is resolved via the
+ * authenticated client before the privileged write.
+ */
+export async function saveWhatsAppProvider(
+  input: SaveWhatsAppProviderInput,
+): Promise<ActionResult> {
+  const parsed = whatsappProviderSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+  }
+
+  const supabase = await createClient()
+  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
+  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+
+  const configErr = validateConfigForProvider(parsed.data.provider, parsed.data.config)
+  if (configErr) return { ok: false, error: configErr }
+
+  const admin = createServiceRoleClient()
+  const orgIdStr = orgId as string
+
+  // 1. Deactivate any current active provider for the org
+  const { error: deactErr } = await admin
+    .from('whatsapp_providers')
+    .update({ is_active: false })
+    .eq('org_id', orgIdStr)
+    .eq('is_active', true)
+  if (deactErr) {
+    return { ok: false, error: `Failed to deactivate previous provider: ${deactErr.message}` }
+  }
+
+  // 2. Encrypt config + look for existing row to update; otherwise insert
+  const configEncrypted = await encrypt(JSON.stringify(parsed.data.config))
+
+  const { data: existing } = await admin
+    .from('whatsapp_providers')
+    .select('id')
+    .eq('org_id', orgIdStr)
+    .eq('provider', parsed.data.provider)
+    .limit(1)
+    .maybeSingle()
+
+  if (existing?.id) {
+    const { error: upErr } = await admin
+      .from('whatsapp_providers')
+      .update({
+        display_name: parsed.data.displayName ?? '',
+        config_encrypted: configEncrypted,
+        is_active: true,
+      })
+      .eq('id', existing.id)
+    if (upErr) return { ok: false, error: upErr.message }
+  } else {
+    const { error: insErr } = await admin.from('whatsapp_providers').insert({
+      org_id: orgIdStr,
+      provider: parsed.data.provider,
+      display_name: parsed.data.displayName ?? '',
+      config_encrypted: configEncrypted,
+      is_active: true,
+    })
+    if (insErr) return { ok: false, error: insErr.message }
+  }
+
+  // 3. Deactivate legacy evolution_instances rows when the new provider is
+  //    non-Evolution. When evolution is selected we keep the legacy row in sync
+  //    so older code that still queries evolution_instances keeps working.
+  if (parsed.data.provider !== 'evolution') {
+    await admin
+      .from('evolution_instances')
+      .update({ is_active: false })
+      .eq('org_id', orgIdStr)
+      .eq('is_active', true)
+  }
+
+  revalidatePath('/settings/workspace')
+  return { ok: true }
+}
+
+export async function getActiveWhatsAppProvider(): Promise<ActiveWhatsAppProvider | null> {
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+
+  const { data, error } = await supabase
+    .from('whatsapp_providers')
+    .select('id, provider, display_name, config_encrypted, status, phone_number')
+    .eq('org_id', orgId as string)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  try {
+    const configJson = await decrypt(data.config_encrypted)
+    const config = JSON.parse(configJson) as Record<string, string>
+    return {
+      id: data.id,
+      provider: data.provider,
+      displayName: data.display_name,
+      config,
+      status: data.status,
+      phoneNumber: data.phone_number,
+    }
+  } catch (err) {
+    console.error('[settings/whatsapp] decrypt failed:', err)
+    return null
+  }
 }
