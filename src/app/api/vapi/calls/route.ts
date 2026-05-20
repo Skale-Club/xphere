@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { VapiEndOfCallMessageSchema } from '@/types/vapi'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
+import { insertNotification } from '@/lib/notifications/insert'
 
 export const runtime = 'nodejs'
 
@@ -82,6 +83,15 @@ export async function POST(request: Request): Promise<Response> {
       if (error.code !== '23505') {
         console.error('[vapi/calls] Insert error:', error.message)
       }
+    }
+
+    // Emit missed_call notification for unanswered calls (NOTIF-04)
+    const missedCallReasons = ['no-answer', 'customer-did-not-answer']
+    if (!error && endedReason && missedCallReasons.includes(endedReason)) {
+      await insertNotification(organizationId, 'missed_call', {
+        call_log_id: vapiCallId,
+        customer_number: call?.customer?.number ?? null,
+      })
     }
 
     return new Response(null, { status: 200 })
