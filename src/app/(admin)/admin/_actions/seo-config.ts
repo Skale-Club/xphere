@@ -26,6 +26,16 @@ export async function getSeoConfig(): Promise<SeoConfig> {
   return data as SeoConfig
 }
 
+export async function updateFaviconUrl(id: string, favicon_url: string | null): Promise<void> {
+  const admin = createServiceRoleClient()
+  const { error } = await admin
+    .from('seo_config')
+    .update({ favicon_url, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(`Failed to update favicon: ${error.message}`)
+  revalidatePath('/', 'layout')
+}
+
 export async function updateSeoConfig(
   id: string,
   values: {

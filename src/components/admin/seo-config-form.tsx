@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { updateSeoConfig } from '@/app/(admin)/admin/_actions/seo-config'
+import { updateSeoConfig, updateFaviconUrl } from '@/app/(admin)/admin/_actions/seo-config'
 import type { SeoConfig } from '@/app/(admin)/admin/_actions/seo-config'
 
 const schema = z.object({
@@ -56,8 +56,10 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
       const res = await fetch('/api/admin/favicon/upload', { method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Upload failed')
-      setFaviconUrl(json.url as string)
-      toast.success('Favicon uploaded — save settings to apply.')
+      const newUrl = json.url as string
+      setFaviconUrl(newUrl)
+      await updateFaviconUrl(config.id, newUrl)
+      toast.success('Favicon saved.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -198,7 +200,7 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setFaviconUrl(null)}
+                    onClick={async () => { setFaviconUrl(null); await updateFaviconUrl(config.id, null) }}
                     className="h-8 w-8 p-0 hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
