@@ -1,15 +1,18 @@
 // SEED-027 Phase C: time-based workflow tick scheduler.
 //
-// Vercel Cron hits this endpoint every minute. For each minute window:
+// Invoked by the GitHub Actions workflow `.github/workflows/scheduling-tick.yml`
+// (Vercel Hobby crons are capped at daily; GitHub Actions runs every 5 min).
+// For each tick window:
 //   1. Query active workflows with trigger_type='event' and event in
 //      ('meeting.starts_in', 'meeting.ended')
 //   2. For each, find bookings whose target moment falls in [now, now + 1min)
 //   3. Enqueue exactly once per (workflow, booking, event, fired_minute)
-//      using scheduled_workflow_ticks idempotency table
+//      using scheduled_workflow_ticks idempotency table — duplicates are
+//      safely dropped at the DB level
 //   4. Dispatch via lib/scheduling/transition.emitCalendarEvent
 //
-// Vercel Cron sends the CRON_SECRET as Authorization header — we verify
-// it to prevent unauthorized invocations.
+// The caller sends CRON_SECRET as Authorization: Bearer header — required
+// to prevent unauthorized invocations.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
