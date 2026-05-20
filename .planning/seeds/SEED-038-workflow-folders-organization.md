@@ -1,12 +1,21 @@
 ---
 id: SEED-038
-status: planted
+status: complete
 planted: 2026-05-20
+shipped: 2026-05-20
 trigger_when: now (autonomous execution)
 scope: Large
 priority: medium
 depends_on: [SEED-037]
 ---
+
+> **Shipped 2026-05-20.** Migration landed as `100_workflow_folders.sql`
+> (099 was already claimed by SEED-036). Bonus features deferred for a
+> follow-up: full icon picker, RunWorkflowPanel ("Executar agora"), and
+> inline folder creation in the tree (we ship a small dialog instead).
+> Folder reordering uses the menu/dialog flow; only workflow-to-folder
+> drag & drop is wired for the initial ship.
+
 
 # SEED-038: Workflow Folders — Organização, Drag & Drop, Arquivo e Lixeira
 
