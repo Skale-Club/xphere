@@ -106,7 +106,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   logoUrl={branding.logoUrl}
                 />
                 <div className="flex min-w-0 flex-1 flex-col h-dvh">
-                  <TopBar />
+                  <TopBar
+                    activeOrgId={activeOrgId}
+                    activeOrgName={activeOrgName}
+                    isPlatformAdmin={isPlatformAdmin}
+                  />
                   <main className="flex-1 min-h-0 overflow-auto">
                     <div className="h-full">
                       <PageTransition>{children}</PageTransition>

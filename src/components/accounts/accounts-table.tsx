@@ -4,13 +4,11 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Building2 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
-import { exportAccountsCsv } from '@/app/(dashboard)/accounts/actions'
 import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
@@ -107,26 +105,6 @@ export function AccountsTable({
           onChange={(key, value) => setParam(`cff_${key}`, value)}
         />
       )}
-
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={async () => {
-            const res = await exportAccountsCsv()
-            if (res.error) { toast.error(res.error); return }
-            if (!res.csv) return
-            const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url; a.download = 'accounts.csv'; a.click()
-            URL.revokeObjectURL(url)
-          }}
-          className="text-[12.5px]"
-        >
-          Export CSV
-        </Button>
-      </div>
 
       {/* Bulk-actions bar — visible when 1+ rows are selected */}
       {selected.size > 0 && (

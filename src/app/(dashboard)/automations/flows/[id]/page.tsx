@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { getUser } from '@/lib/supabase/server'
 import { getWorkflow } from '../_actions/workflows'
+import { getActiveIntegrations } from '@/lib/flows/active-integrations'
 import { FlowCanvas } from '@/components/flows/flow-canvas'
 
 export default async function FlowEditorPage({
@@ -12,7 +13,10 @@ export default async function FlowEditorPage({
   if (!user) redirect('/login')
 
   const { id } = await params
-  const result = await getWorkflow(id)
+  const [result, activeIntegrations] = await Promise.all([
+    getWorkflow(id),
+    getActiveIntegrations(),
+  ])
   if (!result.ok) notFound()
 
   return (
@@ -21,6 +25,7 @@ export default async function FlowEditorPage({
         workflowId={result.data.id}
         workflowName={result.data.name}
         initialDefinition={result.data.definition}
+        activeIntegrations={activeIntegrations}
       />
     </div>
   )

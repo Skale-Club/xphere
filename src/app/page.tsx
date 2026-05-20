@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { LandingPage } from '@/components/landing/landing-page'
+import { getFaviconUrl } from '@/lib/seo'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
@@ -59,13 +60,14 @@ const jsonLd = {
 }
 
 export default async function RootPage() {
+  const faviconUrl = await getFaviconUrl()
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <LandingPage />
+      <LandingPage faviconUrl={faviconUrl} />
     </>
   )
 }

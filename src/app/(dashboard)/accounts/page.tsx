@@ -5,6 +5,7 @@ import { getAccounts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
+import { AccountsExportButton } from '@/components/accounts/accounts-export-button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 
@@ -57,6 +58,9 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
             <p className="mt-1 text-[14px] text-text-secondary">
               Every company in your CRM, with linked contacts and open deals.
             </p>
+          </div>
+          <div className="shrink-0">
+            <AccountsExportButton />
           </div>
         </div>
       </div>

@@ -1,18 +1,25 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Search } from 'lucide-react'
+import Link from 'next/link'
+import { Bell, Search, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AppBreadcrumb } from './app-breadcrumb'
+import { OrgSwitcher } from './org-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useCommandPalette } from '@/components/command-palette'
-import { useSidebarState } from './sidebar-context'
+import { DialPadHeaderButton } from '@/components/calls/dial-pad-header-button'
 import { cn } from '@/lib/utils'
 
-export function TopBar() {
+interface TopBarProps {
+  activeOrgId: string | null
+  activeOrgName: string | null
+  isPlatformAdmin: boolean
+}
+
+export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin }: TopBarProps) {
   const { setOpen } = useCommandPalette()
-  const { collapsed } = useSidebarState()
   const [hasNotifications] = React.useState(false) // mock
 
   return (
@@ -27,6 +34,14 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-1.5">
+        {/* Org switcher */}
+        <div className="hidden sm:block min-w-0">
+          <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} />
+        </div>
+
+        {/* Dial pad */}
+        <DialPadHeaderButton />
+
         {/* Command Palette trigger */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -68,6 +83,26 @@ export function TopBar() {
         </Tooltip>
 
         <ThemeToggle />
+
+        {/* Super Admin shield — only visible to platform admins */}
+        {isPlatformAdmin && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/admin"
+                aria-label="Super Admin"
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-[8px] motion-fast',
+                  'text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10',
+                  'border border-amber-500/20 hover:border-amber-500/40',
+                )}
+              >
+                <ShieldCheck className="h-[15px] w-[15px]" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Super Admin</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </header>
   )

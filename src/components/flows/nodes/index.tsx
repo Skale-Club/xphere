@@ -5,6 +5,7 @@ import type { NodeProps } from '@xyflow/react'
 import { Zap, Play, GitBranch, Clock, Bot, Square } from 'lucide-react'
 import { BaseNode } from './base-node'
 import type { CanvasNode } from '@/stores/flow-store'
+import { getActionMetadata, getTriggerMetadata } from '@/lib/flows/node-metadata'
 
 const ICON_SIZE = 'h-3.5 w-3.5'
 
@@ -12,12 +13,12 @@ const ICON_SIZE = 'h-3.5 w-3.5'
 
 function TriggerNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   const flow = data.flowData
-  const subtitle = flow.kind === 'trigger' ? flow.event_type : ''
+  const meta = flow.kind === 'trigger' ? getTriggerMetadata(flow.event_type) : undefined
   return (
     <BaseNode
       icon={<Zap className={ICON_SIZE} />}
       title={data.label || 'Trigger'}
-      subtitle={subtitle}
+      subtitle={meta?.label ?? (flow.kind === 'trigger' ? flow.event_type : '')}
       color="#f59e0b"
       selected={selected}
       hasInput={false}
@@ -30,12 +31,12 @@ export const TriggerNode = memo(TriggerNodeImpl)
 
 function ActionNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   const flow = data.flowData
-  const subtitle = flow.kind === 'action' ? flow.action_type : ''
+  const meta = flow.kind === 'action' ? getActionMetadata(flow.action_type) : undefined
   return (
     <BaseNode
       icon={<Play className={ICON_SIZE} />}
       title={data.label || 'Action'}
-      subtitle={subtitle}
+      subtitle={meta?.label ?? (flow.kind === 'action' ? flow.action_type : '')}
       color="#6366f1"
       selected={selected}
     />
@@ -47,7 +48,8 @@ export const ActionNode = memo(ActionNodeImpl)
 
 function ConditionNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   const flow = data.flowData
-  const subtitle = flow.kind === 'condition' && flow.expression ? flow.expression.slice(0, 30) : 'if/else branch'
+  const subtitle =
+    flow.kind === 'condition' && flow.expression ? flow.expression.slice(0, 30) : 'if/else branch'
   return (
     <BaseNode
       icon={<GitBranch className={ICON_SIZE} />}

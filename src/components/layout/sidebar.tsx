@@ -8,7 +8,6 @@ import {
   Zap,
   Plug2,
   Phone,
-  PhoneCall,
   BookOpen,
   MessageSquare,
   Star,
@@ -25,7 +24,6 @@ import {
   Contact,
   UserCog,
   Building2,
-  Sparkles,
 } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
@@ -41,7 +39,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { OrgSwitcher } from './org-switcher'
 import { SidebarContext, useSidebarState } from './sidebar-context'
 
 type NavItem = {
@@ -52,15 +49,14 @@ type NavItem = {
 }
 
 const nav: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard',    href: '/',             group: 'overview' },
+  { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview' },
   { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: Building2,       label: 'Companies',    href: '/accounts',     group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
-  { icon: Sparkles,        label: 'Copilot',      href: '/copilot/conversations', group: 'build' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
-  { icon: Zap,             label: 'Automations',   href: '/automations',  group: 'build' },
+  { icon: Zap,             label: 'Workflows',    href: '/automations',  group: 'build' },
   { icon: BookOpen,        label: 'Knowledge',    href: '/knowledge',    group: 'build' },
   { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
   { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },
@@ -259,13 +255,8 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
         })}
       </nav>
 
-      {/* Footer — org switcher + user menu */}
+      {/* Footer — user menu (org switcher moved to header) */}
       <div className="border-t border-border-subtle p-2 space-y-1">
-        <OrgSwitcher
-          currentOrgId={activeOrgId}
-          currentOrgName={activeOrgName}
-          collapsed={collapsed}
-        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

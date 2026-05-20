@@ -19,6 +19,7 @@ import { NodeConfigPanel } from './node-config-panel'
 import { FlowToolbar } from './flow-toolbar'
 import { AiBuilderChat } from './ai-builder-chat'
 import type { FlowDefinition, FlowNodeType } from '@/lib/flows/schema'
+import type { IntegrationKey } from '@/lib/flows/node-metadata'
 import { saveWorkflowDefinition } from '@/app/(dashboard)/automations/flows/_actions/workflows'
 import { toast } from 'sonner'
 
@@ -26,11 +27,21 @@ interface FlowCanvasProps {
   workflowId: string
   workflowName: string
   initialDefinition: FlowDefinition
+  activeIntegrations: IntegrationKey[]
 }
 
-function CanvasInner({ workflowId, workflowName, initialDefinition }: FlowCanvasProps) {
+const NODE_TYPE_COLORS: Record<string, string> = {
+  trigger: '#f59e0b',
+  action: '#6366f1',
+  condition: '#8b5cf6',
+  wait: '#06b6d4',
+  agent: '#ec4899',
+  end: '#64748b',
+}
+
+function CanvasInner({ workflowId, workflowName, initialDefinition, activeIntegrations }: FlowCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null)
+  const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const { screenToFlowPosition } = useReactFlow()
 
@@ -46,12 +57,10 @@ function CanvasInner({ workflowId, workflowName, initialDefinition }: FlowCanvas
   const toDefinition = useFlowStore((s) => s.toDefinition)
   const markSaved = useFlowStore((s) => s.markSaved)
 
-  // ── Hydrate on mount ────────────────────────────────────────────────────────
   useEffect(() => {
     hydrate(workflowId, initialDefinition)
   }, [workflowId, initialDefinition, hydrate])
 
-  // ── Autosave on debounce ────────────────────────────────────────────────────
   useEffect(() => {
     if (!dirty) return
     const timer = setTimeout(async () => {
@@ -66,8 +75,6 @@ function CanvasInner({ workflowId, workflowName, initialDefinition }: FlowCanvas
 
     return () => clearTimeout(timer)
   }, [dirty, workflowId, toDefinition, markSaved])
-
-  // ── Drag-from-palette → drop onto canvas ────────────────────────────────────
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault()
@@ -111,20 +118,29 @@ function CanvasInner({ workflowId, workflowName, initialDefinition }: FlowCanvas
             nodeTypes={nodeTypes}
             fitView
             proOptions={{ hideAttribution: true }}
+            defaultEdgeOptions={{
+              style: { stroke: 'rgba(148, 163, 184, 0.5)', strokeWidth: 1.5 },
+            }}
           >
             <Background gap={16} size={1} />
-            <Controls />
+            <Controls
+              className="!bg-bg-secondary !border !border-border-subtle !rounded-[10px] !shadow-lg overflow-hidden [&>button]:!bg-transparent [&>button]:!border-0 [&>button]:!border-b [&>button]:!border-border-subtle [&>button:last-child]:!border-b-0 [&>button]:!text-text-secondary [&>button:hover]:!text-text-primary [&>button:hover]:!bg-bg-tertiary [&>button>svg]:!fill-current"
+              showInteractive={false}
+            />
             <MiniMap
               nodeStrokeWidth={3}
               pannable
               zoomable
-              className="!bg-card !border !border-border"
+              nodeColor={(node) => NODE_TYPE_COLORS[node.type ?? 'action'] ?? '#64748b'}
+              nodeBorderRadius={6}
+              maskColor="rgba(8, 9, 10, 0.7)"
+              className="!bg-bg-secondary !border !border-border-subtle !rounded-[10px]"
             />
           </ReactFlow>
         </div>
       </div>
 
-      <NodeConfigPanel />
+      <NodeConfigPanel activeIntegrations={activeIntegrations} />
       <AiBuilderChat workflowId={workflowId} open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   )

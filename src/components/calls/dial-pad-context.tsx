@@ -1,24 +1,38 @@
 'use client'
 
 // Lightweight pub/sub so any client component can ask the floating
-// DialPadPanel to open with a phone number pre-filled (without actually
-// placing the call). The panel subscribes once on mount.
+// DialPadPanel to open or pre-fill a number. The panel subscribes once on mount.
 
 import * as React from 'react'
 
 type Listener = (phone: string) => void
+type ToggleListener = () => void
 
-const listeners = new Set<Listener>()
+const prefillListeners = new Set<Listener>()
+const toggleListeners = new Set<ToggleListener>()
 
 export function prefillDialPad(phone: string) {
-  listeners.forEach((l) => l(phone))
+  prefillListeners.forEach((l) => l(phone))
+}
+
+export function toggleDialPad() {
+  toggleListeners.forEach((l) => l())
 }
 
 export function useDialPadPrefill(handler: Listener) {
   React.useEffect(() => {
-    listeners.add(handler)
+    prefillListeners.add(handler)
     return () => {
-      listeners.delete(handler)
+      prefillListeners.delete(handler)
+    }
+  }, [handler])
+}
+
+export function useDialPadToggle(handler: ToggleListener) {
+  React.useEffect(() => {
+    toggleListeners.add(handler)
+    return () => {
+      toggleListeners.delete(handler)
     }
   }, [handler])
 }

@@ -43,7 +43,8 @@ const features = [
   },
 ]
 
-export function LandingPage() {
+export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
+  const logoSrc = faviconUrl ?? '/favicon.ico'
   return (
     <div className="dark min-h-screen bg-[#08090A] text-[#FAFAFA] overflow-x-hidden">
       {/* Grid background */}
@@ -69,7 +70,11 @@ export function LandingPage() {
       <div className="relative z-10">
         {/* Nav */}
         <header className="flex items-center justify-between px-6 sm:px-10 h-16 border-b border-white/5 backdrop-blur-sm">
-          <Link href="/" className="font-semibold text-sm tracking-tight text-[#FAFAFA] hover:text-white transition-colors">Xphere</Link>
+          <Link href="/" className="inline-flex items-center gap-2 font-semibold text-base tracking-tight text-[#FAFAFA] hover:text-white transition-colors">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoSrc} alt="" width={22} height={22} className="rounded-[5px]" />
+            Xphere
+          </Link>
           <Link href="/login">
             <Button
               size="sm"
@@ -83,7 +88,7 @@ export function LandingPage() {
         </header>
 
         {/* Hero */}
-        <section className="flex flex-col items-center text-center px-6 pt-24 pb-20 sm:pt-32 sm:pb-28">
+        <section className="flex flex-col items-center text-center px-6 pt-12 pb-14 sm:pt-16 sm:pb-20">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -240,9 +245,13 @@ export function LandingPage() {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-white/5 px-6 py-8">
+        <footer className="border-t border-white/5 bg-[#0A0A0B]/90 backdrop-blur-sm px-6 py-8">
           <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Link href="/" className="text-sm font-medium text-[#FAFAFA] hover:text-white transition-colors">Xphere</Link>
+            <Link href="/" className="inline-flex items-center gap-2 text-base font-semibold text-[#FAFAFA] hover:text-white transition-colors">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoSrc} alt="" width={22} height={22} className="rounded-[5px]" />
+              Xphere
+            </Link>
             <p className="text-[0.8125rem] text-[#52525B]">
               © {new Date().getFullYear()} Skale Club. All rights reserved.
             </p>

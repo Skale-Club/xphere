@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import { unstable_cache } from 'next/cache'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/components/theme-provider'
 import { APP_NAME } from '@/lib/config'
+import { getFaviconUrl } from '@/lib/seo'
 import './globals.css'
 
 // Only preload the Inter weights actually used in the dashboard shell on first
@@ -25,25 +25,6 @@ const mono = JetBrains_Mono({
   variable: '--font-mono',
   preload: false,
 })
-
-const getFaviconUrl = unstable_cache(
-  async (): Promise<string | null> => {
-    try {
-      const { createServiceRoleClient } = await import('@/lib/supabase/admin')
-      const admin = createServiceRoleClient()
-      const { data } = await admin
-        .from('seo_config')
-        .select('favicon_url')
-        .limit(1)
-        .single()
-      return (data as { favicon_url?: string | null } | null)?.favicon_url ?? null
-    } catch {
-      return null
-    }
-  },
-  ['seo-favicon'],
-  { revalidate: 3600 }
-)
 
 export async function generateMetadata(): Promise<Metadata> {
   const faviconUrl = await getFaviconUrl()

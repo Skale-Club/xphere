@@ -30,7 +30,7 @@ import {
 } from '@/app/(dashboard)/voice/actions'
 import { useTwilioDevice } from './twilio-device-provider'
 import { useCallRecorder } from '@/hooks/use-call-recorder'
-import { useDialPadPrefill } from './dial-pad-context'
+import { useDialPadPrefill, useDialPadToggle } from './dial-pad-context'
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -85,6 +85,12 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
     setOpen(true)
   }, [])
   useDialPadPrefill(handlePrefill)
+
+  // Header button toggles the panel open/closed.
+  const handleToggle = React.useCallback(() => {
+    setOpen((v) => !v)
+  }, [])
+  useDialPadToggle(handleToggle)
 
   // Call duration timer
   React.useEffect(() => {
@@ -191,11 +197,11 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
     return `${m}:${sec.toString().padStart(2, '0')}`
   }
 
+  if (!open) return null
+
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
-      {/* Expanded panel */}
-      {open && (
-        <div className="w-[272px] rounded-[18px] border border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed top-16 right-4 z-50">
+      <div className="w-[272px] rounded-[18px] border border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
@@ -341,28 +347,6 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
             </div>
           </div>
         </div>
-      )}
-
-      {/* Toggle button */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'Close dial pad' : 'Open dial pad'}
-        className={cn(
-          'flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all',
-          isOnCall
-            ? 'bg-accent text-white animate-pulse'
-            : 'bg-bg-primary border border-border text-text-secondary hover:text-accent hover:border-accent',
-        )}
-      >
-        {open ? (
-          <ChevronDown className="h-5 w-5" />
-        ) : isOnCall ? (
-          <PhoneCall className="h-5 w-5" />
-        ) : (
-          <Phone className="h-5 w-5" />
-        )}
-      </button>
     </div>
   )
 }
