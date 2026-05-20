@@ -1,7 +1,28 @@
 # Roadmap: v2.9 UX Polish & Feature Completeness
 
 **Workstream:** v29-ux-polish
-**Phases:** 2 (103–104) | **Requirements:** 8 (NOTIF-01..05, THEME-01..03)
+**Phases:** 3 (102–104) | **Requirements:** 13 (FLOW-01..05, NOTIF-01..05, THEME-01..03)
+
+---
+
+## Phase 102: WORKFLOWS-UNIFICATION
+
+**Goal:** Merge "Automations" (Action Engine tool registry) + "Visual Flows" into a single system named Workflows — unified sidebar nav, unified UX, full feature parity.
+**Depends on:** Nothing
+**Requirements:** FLOW-01, FLOW-02, FLOW-03, FLOW-04, FLOW-05
+**UI hint:** yes
+**Success Criteria:**
+1. Sidebar has a single "Workflows" entry (no separate "Automations" and "Flows" items)
+2. `/workflows` route shows both automation tools and visual flows in one unified view
+3. All existing automations (action engine tool configs) accessible and functional
+4. All existing visual flows accessible and functional — no data loss
+5. Folders, logs, integrations, all existing capabilities preserved
+6. `npm run build` exits 0
+
+**Plans:** 3
+- [ ] 102-01-PLAN.md — Create all /workflows/** pages (copy + update route strings, unified landing with tabs)
+- [ ] 102-02-PLAN.md — Update cross-cutting references: sidebar href, flow-canvas import, new-flow-form push, command palette
+- [ ] 102-03-PLAN.md — Replace /automations/** pages with redirect stubs + npm run build gate
 
 ---
 
