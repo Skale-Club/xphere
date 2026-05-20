@@ -3,7 +3,7 @@
 // the route token + query params through to the bundle.
 //
 // Usage:
-//   <iframe src="https://operator.skale.club/widget/reviews/{token}?layout=grid&min_rating=4">
+//   <iframe src="https://xphere.app/widget/reviews/{token}?layout=grid&min_rating=4">
 
 export const runtime = 'nodejs'
 
