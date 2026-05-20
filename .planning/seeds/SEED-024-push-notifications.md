@@ -1,6 +1,6 @@
 ---
 id: SEED-024
-status: planted
+status: shipped
 planted: 2026-05-20
 planted_during: post-SEED-021 PWA (service worker already installed)
 trigger_when: next milestone OR after SEED-021 lands in production (SW active on devices)

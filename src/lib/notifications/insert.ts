@@ -45,11 +45,43 @@ export async function insertNotification(
       payload: payload as import('@/types/database').Json,
     }))
 
-    const { error } = await supabase.from('notifications').insert(rows)
+    const { data: inserted, error } = await supabase
+      .from('notifications')
+      .insert(rows)
+      .select('id, user_id')
     if (error) {
       console.error('[notifications/insert] Insert error:', error.message)
+      return
+    }
+
+    // Fan out push notifications asynchronously — do not await so callers aren't blocked
+    if (inserted && inserted.length > 0) {
+      void sendPushNotifications(inserted as { id: string; user_id: string }[])
     }
   } catch (err) {
     console.error('[notifications/insert] Unexpected error:', err)
   }
+}
+
+async function sendPushNotifications(rows: { id: string; user_id: string }[]): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) return
+
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/push-sender`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ user_id: row.user_id, notification_id: row.id }),
+        })
+      } catch (err) {
+        console.error('[notifications/insert] push-sender invoke error:', err)
+      }
+    }),
+  )
 }

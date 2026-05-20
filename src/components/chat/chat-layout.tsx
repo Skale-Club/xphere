@@ -49,6 +49,7 @@ import {
 import { ChatArea } from '@/components/chat/chat-area'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
+import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -528,6 +529,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
+      <PushPermissionBanner />
       {/* Desktop — 3-column grid */}
       <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
         <div className="h-full min-h-0 shrink-0 overflow-hidden" style={{ width: inboxWidth }}>

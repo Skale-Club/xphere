@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Check, Loader2, Upload, Trash2 } from 'lucide-react'
+import { Bell, BellOff, Check, Loader2, Upload, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { updatePassword, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
+import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 interface Props {
   initial: { email: string; full_name: string; avatar_url: string | null }
@@ -258,6 +259,76 @@ export function ProfileForm({ initial }: Props) {
           </form>
         </CardContent>
       </Card>
+
+      <PushNotificationsCard />
     </div>
+  )
+}
+
+function PushNotificationsCard() {
+  const { supported, permission, subscribed, loading, subscribe, unsubscribe } =
+    usePushNotifications()
+
+  async function handleToggle() {
+    if (subscribed) {
+      await unsubscribe()
+      toast.success('Push notifications disabled')
+    } else {
+      const granted = await subscribe()
+      if (granted) {
+        toast.success('Push notifications enabled')
+      } else if (permission === 'denied') {
+        toast.error('Notifications are blocked — update your browser site settings')
+      } else {
+        toast.error('Could not enable notifications')
+      }
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Push notifications</CardTitle>
+        <CardDescription>
+          Get notified about new messages and missed calls, even when the app is in the background.
+          {' '}
+          On iOS, the app must be installed to your home screen first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!supported ? (
+          <p className="text-sm text-text-tertiary">
+            Push notifications are not supported in this browser.
+          </p>
+        ) : permission === 'denied' ? (
+          <p className="text-sm text-text-tertiary">
+            Notifications are blocked. Open your browser site settings to allow them, then reload.
+          </p>
+        ) : (
+          <div className="flex items-center justify-between max-w-md">
+            <div className="flex items-center gap-2">
+              {subscribed ? (
+                <Bell className="h-4 w-4 text-accent" />
+              ) : (
+                <BellOff className="h-4 w-4 text-text-tertiary" />
+              )}
+              <span className="text-sm text-text-primary">
+                {subscribed ? 'Enabled on this device' : 'Disabled'}
+              </span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant={subscribed ? 'outline' : 'default'}
+              disabled={loading}
+              onClick={handleToggle}
+            >
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {subscribed ? 'Turn off' : 'Turn on'}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
