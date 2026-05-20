@@ -2697,6 +2697,8 @@ export interface Database {
           color: string
           location_type: 'video' | 'phone' | 'in_person'
           location_value: string | null
+          allowed_location_kinds: string[]
+          default_store_location_id: string | null
           active: boolean
           created_at: string
           updated_at: string
@@ -2712,6 +2714,8 @@ export interface Database {
           color?: string
           location_type?: 'video' | 'phone' | 'in_person'
           location_value?: string | null
+          allowed_location_kinds?: string[]
+          default_store_location_id?: string | null
           active?: boolean
           created_at?: string
           updated_at?: string
@@ -2724,6 +2728,8 @@ export interface Database {
           color?: string
           location_type?: 'video' | 'phone' | 'in_person'
           location_value?: string | null
+          allowed_location_kinds?: string[]
+          default_store_location_id?: string | null
           active?: boolean
           updated_at?: string
         }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,13 +24,35 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+const LOCATION_KIND_LABELS: Record<string, string> = {
+  google_meet: 'Google Meet',
+  custom_link: 'Video link',
+  phone_call: 'Phone call',
+  client_phone: 'My phone',
+  store_location: 'In person',
+  custom_address: 'Address (you provide)',
+  client_address: 'Address (on file)',
+  custom_phone: 'Custom phone',
+  video: 'Video call',
+}
+
 interface BookingFormProps {
   eventTypeId: string
   slot: TimeSlot
   onSuccess: (bookingId: string, cancelToken: string) => void
+  allowedLocationKinds?: string[]
+  selectedLocationKind?: string
+  onLocationKindChange?: Dispatch<SetStateAction<string>>
 }
 
-export function BookingForm({ eventTypeId, slot, onSuccess }: BookingFormProps) {
+export function BookingForm({
+  eventTypeId,
+  slot,
+  onSuccess,
+  allowedLocationKinds = [],
+  selectedLocationKind,
+  onLocationKindChange,
+}: BookingFormProps) {
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<FormValues>({
@@ -99,6 +122,27 @@ export function BookingForm({ eventTypeId, slot, onSuccess }: BookingFormProps) 
             <FormMessage />
           </FormItem>
         )} />
+
+        {allowedLocationKinds.length > 1 && onLocationKindChange && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-[#A1A1AA]">Meeting location</p>
+            <div className="flex flex-col gap-2">
+              {allowedLocationKinds.map((kind) => (
+                <label key={kind} className="flex items-center gap-2 cursor-pointer text-sm text-[#FAFAFA]">
+                  <input
+                    type="radio"
+                    name="location_kind"
+                    value={kind}
+                    checked={selectedLocationKind === kind}
+                    onChange={() => onLocationKindChange(kind)}
+                    className="accent-indigo-500"
+                  />
+                  {LOCATION_KIND_LABELS[kind] ?? kind}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Button type="submit" disabled={isPending} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
           {isPending ? 'Confirming…' : 'Confirm booking'}

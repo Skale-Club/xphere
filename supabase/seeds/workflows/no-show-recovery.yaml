@@ -1,0 +1,27 @@
+# Platform-default workflow — ships to every org.
+# After a no-show, waits 1 hour then sends an SMS with a reschedule link.
+
+name: Recuperação de no-show
+description: |
+  Platform-default. Quando um agendamento é marcado como não comparecimento,
+  aguarda 1 hora e envia um SMS ao participante com link para reagendamento.
+trigger:
+  type: event
+  event: meeting.no_show
+
+nodes:
+  - id: wait
+    kind: wait
+    duration: "1h"
+
+  - id: recovery_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Olá {{meeting.attendee_contact.name}}, sentimos sua falta! Que tal reagendarmos? Escolha um novo horário aqui: {{meeting.event_type.booking_url}}"
+
+edges:
+  - from: trigger
+    to: wait
+  - from: wait
+    to: recovery_sms

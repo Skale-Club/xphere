@@ -132,6 +132,103 @@ export async function fetchBusyTimes(
   return data.calendars?.[calendarId]?.busy ?? []
 }
 
+// Create a Google Calendar event with a Meet link for google_meet bookings.
+// Returns { meeting_url, google_event_id } or null on any failure.
+export async function createMeetingLink(
+  orgId: string,
+  bookingDetails: {
+    title: string
+    startAt: string // ISO 8601
+    endAt: string   // ISO 8601
+    attendeeEmail?: string
+  },
+): Promise<{ meeting_url: string; google_event_id: string } | null> {
+  try {
+    const supabase = createServiceRoleClient()
+
+    const { data: row } = await supabase
+      .from('integrations')
+      .select('id, encrypted_api_key, config')
+      .eq('organization_id', orgId)
+      .eq('provider', GOOGLE_CALENDAR_PROVIDER)
+      .maybeSingle()
+
+    if (!row) return null
+
+    const stored = JSON.parse(await decrypt(row.encrypted_api_key)) as StoredTokens
+    const config = row.config as Record<string, unknown>
+    const expiry = config?.token_expiry as number | undefined
+
+    let accessToken = stored.access_token
+
+    // Refresh if token is stale (less than 60s remaining)
+    if (!expiry || Date.now() >= (expiry as number) - 60_000) {
+      if (!stored.refresh_token) return null
+      const refreshed = await refreshAccessToken(stored.refresh_token)
+      const newBlob: StoredTokens = {
+        access_token: refreshed.access_token,
+        refresh_token: stored.refresh_token,
+      }
+      const newExpiry = Date.now() + refreshed.expires_in * 1000
+      await supabase
+        .from('integrations')
+        .update({
+          encrypted_api_key: await encrypt(JSON.stringify(newBlob)),
+          config: { ...config, token_expiry: newExpiry } as unknown as Json,
+        })
+        .eq('id', row.id)
+      accessToken = refreshed.access_token
+    }
+
+    const requestId = `xphere-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    const body: Record<string, unknown> = {
+      summary: bookingDetails.title,
+      start: { dateTime: bookingDetails.startAt },
+      end: { dateTime: bookingDetails.endAt },
+      conferenceData: {
+        createRequest: { requestId, conferenceSolutionKey: { type: 'hangoutsMeet' } },
+      },
+    }
+
+    if (bookingDetails.attendeeEmail) {
+      body.attendees = [{ email: bookingDetails.attendeeEmail }]
+    }
+
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+      },
+    )
+
+    if (!res.ok) {
+      console.error('[google-calendar] createMeetingLink error:', res.status)
+      return null
+    }
+
+    const data = (await res.json()) as { id: string; hangoutLink?: string }
+    if (!data.hangoutLink) {
+      console.warn('[google-calendar] createMeetingLink: no hangoutLink in response')
+      return null
+    }
+
+    return { meeting_url: data.hangoutLink, google_event_id: data.id }
+  } catch (err) {
+    console.error(
+      '[google-calendar] createMeetingLink threw:',
+      err instanceof Error ? err.message : err,
+    )
+    return null
+  }
+}
+
 // Create a Google Calendar event for a confirmed booking.
 // Returns the created event ID or null on failure.
 export async function createCalendarEvent(

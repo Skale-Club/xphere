@@ -14,6 +14,7 @@ interface BookingPageClientProps {
   availableDows: number[]
   durationMinutes: number
   color: string
+  allowedLocationKinds: string[]
 }
 
 export function BookingPageClient({
@@ -21,10 +22,15 @@ export function BookingPageClient({
   availableDows,
   durationMinutes,
   color,
+  allowedLocationKinds,
 }: BookingPageClientProps) {
   const [step, setStep] = useState<Step>('pick')
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  // Default to the first available kind; only matters when there are multiple.
+  const [selectedLocationKind, setSelectedLocationKind] = useState<string>(
+    allowedLocationKinds[0] ?? 'video',
+  )
 
   function handleSlotSelect(slot: TimeSlot) {
     setSelectedSlot(slot)
@@ -82,6 +88,9 @@ export function BookingPageClient({
           eventTypeId={eventTypeId}
           slot={selectedSlot}
           onSuccess={handleBookingSuccess}
+          allowedLocationKinds={allowedLocationKinds}
+          selectedLocationKind={selectedLocationKind}
+          onLocationKindChange={setSelectedLocationKind}
         />
       </div>
     )

@@ -27,7 +27,7 @@ export default async function PublicBookingPage({ params }: Props) {
   // Resolve event type
   const { data: et } = await supabase
     .from('event_types')
-    .select('id, title, slug, description, duration_minutes, color, location_type, location_value, active')
+    .select('id, title, slug, description, duration_minutes, color, location_type, location_value, allowed_location_kinds, active')
     .eq('user_id', profile.user_id)
     .eq('slug', eventTypeSlug)
     .eq('active', true)
@@ -80,6 +80,7 @@ export default async function PublicBookingPage({ params }: Props) {
               availableDows={availableDows}
               durationMinutes={et.duration_minutes}
               color={et.color}
+              allowedLocationKinds={et.allowed_location_kinds ?? ['video']}
             />
           </div>
         </div>

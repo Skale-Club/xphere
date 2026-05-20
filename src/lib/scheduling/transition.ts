@@ -113,7 +113,7 @@ export async function confirmBooking(
 ): Promise<{ ok: boolean; error?: string }> {
   const { data: booking, error } = await ctx.supabase
     .from('bookings')
-    .select('id, org_id, status')
+    .select('id, org_id, status, location_kind, event_type_id, start_at, end_at')
     .eq('id', bookingId)
     .single()
 
@@ -122,9 +122,50 @@ export async function confirmBooking(
   // Idempotent: re-confirm is a no-op (no event re-fire).
   if (booking.status === 'confirmed') return { ok: true }
 
+  const updatePayload: Record<string, unknown> = { status: 'confirmed' as BookingStatus }
+
+  // If the booking uses Google Meet and no meeting_url has been set yet,
+  // create a Meet link and store it on the booking row.
+  if (booking.location_kind === 'google_meet') {
+    try {
+      // Fetch event type title and booker email for the calendar event
+      const { data: et } = await ctx.supabase
+        .from('event_types')
+        .select('title')
+        .eq('id', booking.event_type_id as string)
+        .maybeSingle()
+
+      const { data: bk } = await ctx.supabase
+        .from('bookings')
+        .select('booker_email, meeting_url')
+        .eq('id', bookingId)
+        .maybeSingle()
+
+      if (!bk?.meeting_url) {
+        const { createMeetingLink } = await import('@/lib/scheduling/google-calendar')
+        const result = await createMeetingLink(booking.org_id as string, {
+          title: et?.title ?? 'Meeting',
+          startAt: booking.start_at as string,
+          endAt: booking.end_at as string,
+          attendeeEmail: bk?.booker_email ?? undefined,
+        })
+        if (result) {
+          updatePayload.meeting_url = result.meeting_url
+          updatePayload.location_data = { google_event_id: result.google_event_id }
+        }
+      }
+    } catch (meetErr) {
+      // Non-fatal — confirm proceeds without the Meet link
+      console.warn(
+        '[scheduling/transition] Google Meet link creation failed:',
+        meetErr instanceof Error ? meetErr.message : meetErr,
+      )
+    }
+  }
+
   await ctx.supabase
     .from('bookings')
-    .update({ status: 'confirmed' as BookingStatus })
+    .update(updatePayload)
     .eq('id', bookingId)
 
   await emitCalendarEvent(ctx, {
