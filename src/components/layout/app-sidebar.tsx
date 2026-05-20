@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Mail,
   Sparkles,
+  Workflow,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
@@ -53,7 +54,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/', active: true },
   { icon: Phone, label: 'Calls', href: '/calls', active: true },
-  { icon: Zap, label: 'Automations', href: '/automations', active: true },
+  { icon: Workflow, label: 'Workflows', href: '/workflows', active: true },
   { icon: Bot, label: 'Agents', href: '/agents', active: true },
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },

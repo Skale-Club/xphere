@@ -58,7 +58,7 @@ export async function createFolder(
     position: 0,
   })
   if (error) return { error: error.message }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function updateFolder(
@@ -73,7 +73,7 @@ export async function updateFolder(
     .update(data)
     .eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function deleteFolder(id: string): Promise<{ error?: string } | void> {
@@ -82,7 +82,7 @@ export async function deleteFolder(id: string): Promise<{ error?: string } | voi
   const supabase = await createClient()
   const { error } = await supabase.from('tool_folders').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function deleteFolderWithTools(id: string): Promise<{ error?: string } | void> {
@@ -114,7 +114,7 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
     .eq('id', id)
 
   if (folderError) return { error: folderError.message }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function createToolConfig(data: {
@@ -156,7 +156,7 @@ export async function createToolConfig(data: {
     return { error: error.message }
   }
 
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function updateToolConfig(
@@ -195,7 +195,7 @@ export async function updateToolConfig(
     return { error: error.message }
   }
 
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function getToolConfigs(): Promise<ToolConfigWithIntegration[]> {
@@ -226,7 +226,7 @@ export async function renameToolConfig(
     if (error.code === '23505') return { error: 'A tool with this name already exists for your organization.' }
     return { error: error.message }
   }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
   revalidatePath(`/automations/${id}`)
 }
 
@@ -239,7 +239,7 @@ export async function deleteToolConfig(id: string): Promise<{ error?: string } |
 
   if (error) return { error: error.message }
 
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function reorderFolders(orderedIds: string[]): Promise<{ error?: string } | void> {
@@ -253,7 +253,7 @@ export async function reorderFolders(orderedIds: string[]): Promise<{ error?: st
   const results = await Promise.all(updates)
   const failed = results.find((r) => r.error)
   if (failed) return { error: 'Failed to save folder order.' }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }
 
 export async function moveToolToFolder(
@@ -268,5 +268,5 @@ export async function moveToolToFolder(
     .update({ folder_id: folderId })
     .eq('id', toolId)
   if (error) return { error: error.message }
-  revalidatePath('/automations')
+  revalidatePath('/workflows')
 }

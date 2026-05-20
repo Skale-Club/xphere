@@ -127,7 +127,7 @@ export async function createWorkflow(
     .update({ current_version_id: version.id })
     .eq('id', workflow.id)
 
-  revalidatePath('/automations/flows')
+  revalidatePath('/workflows/flows')
   return { ok: true, data: { ...workflow, current_version_id: version.id } }
 }
 
@@ -237,7 +237,7 @@ export async function updateWorkflow(
     .single()
 
   if (error || !data) return { ok: false, error: error?.message ?? 'not_found' }
-  revalidatePath('/automations/flows')
+  revalidatePath('/workflows/flows')
   revalidatePath(`/automations/flows/${id}`)
   return { ok: true, data }
 }
@@ -252,6 +252,6 @@ export async function deleteWorkflow(id: string): Promise<ActionResult<void>> {
   const { error } = await supabase.from('workflows').delete().eq('id', id)
 
   if (error) return { ok: false, error: error.message }
-  revalidatePath('/automations/flows')
+  revalidatePath('/workflows/flows')
   return { ok: true, data: undefined }
 }

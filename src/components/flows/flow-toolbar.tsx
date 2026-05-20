@@ -137,7 +137,7 @@ export function FlowToolbar({ workflowId, workflowName, onToggleAi, aiOpen }: Fl
       {/* Left — back + name (flex-grow) */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Button asChild variant="ghost" size="sm" className="shrink-0 px-2">
-          <Link href="/automations/flows" aria-label="Back to flows">
+          <Link href="/workflows/flows" aria-label="Back to flows">
             <ArrowLeft className="h-3.5 w-3.5" />
             <span className="hidden md:inline ml-1">Flows</span>
           </Link>
@@ -178,7 +178,7 @@ export function FlowToolbar({ workflowId, workflowName, onToggleAi, aiOpen }: Fl
       {/* Right — actions (shrink-0, gracefully collapse labels on small widths) */}
       <div className="flex items-center gap-1.5 shrink-0">
         <Button asChild size="sm" variant="ghost" className="gap-1.5 px-2">
-          <Link href={`/automations/flows/${workflowId}/runs`}>
+          <Link href={`/workflows/flows/${workflowId}/runs`}>
             <History className="h-3.5 w-3.5" />
             <span className="hidden md:inline">Runs</span>
           </Link>

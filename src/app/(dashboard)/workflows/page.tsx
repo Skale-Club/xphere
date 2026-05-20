@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Zap, Plus, Power, Workflow } from 'lucide-react'
+import { Plus, Power, Workflow } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,18 +33,18 @@ export default async function WorkflowsPage({
     <PageContainer>
       <PageHeader
         eyebrow="Build"
-        eyebrowIcon={Zap}
+        eyebrowIcon={Workflow}
         title="Workflows"
-        description="Tool automations and visual flows — two systems, one place."
+        description="Action tools and visual flows — configure triggers, conditions, and multi-step automations."
       />
 
       <Tabs defaultValue={tab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="automations" asChild>
-            <Link href="/workflows?tab=automations">Automations</Link>
+            <Link href="/workflows?tab=automations">Action Tools</Link>
           </TabsTrigger>
           <TabsTrigger value="flows" asChild>
-            <Link href="/workflows?tab=flows">Visual flows</Link>
+            <Link href="/workflows?tab=flows">Visual Flows</Link>
           </TabsTrigger>
         </TabsList>
 

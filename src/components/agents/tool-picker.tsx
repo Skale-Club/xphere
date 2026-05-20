@@ -152,7 +152,7 @@ export function ToolPicker({ data, value, onChange }: ToolPickerProps) {
                   </TooltipProvider>
                 )}
                 <Link
-                  href={`/automations/${tool.id}`}
+                  href={`/workflows/${tool.id}`}
                   target="_blank"
                   rel="noopener"
                   className="ml-auto text-muted-foreground hover:text-foreground"
