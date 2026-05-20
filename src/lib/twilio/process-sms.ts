@@ -16,6 +16,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendSms } from './send-sms'
 import { formatOutbound as formatSms } from '@/lib/agent-runtime/adapters/sms'
+import { insertNotification } from '@/lib/notifications/insert'
 
 export type TwilioSmsPayload = {
   From: string         // sender phone (+E.164)
@@ -88,6 +89,7 @@ export async function processTwilioSms(
       return
     }
     conversationId = created.id
+    void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: 'sms' })
   }
 
   // --- 2. Insert inbound user message (idempotent by message_sid in metadata) ---

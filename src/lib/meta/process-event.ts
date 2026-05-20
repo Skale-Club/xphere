@@ -12,6 +12,7 @@ import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendMetaMessage } from './send-message'
 import { formatOutbound as formatMeta } from '@/lib/agent-runtime/adapters/meta'
+import { insertNotification } from '@/lib/notifications/insert'
 
 export type MetaWebhookPayload = {
   object: string
@@ -115,6 +116,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             continue
           }
           conversationId = created.id
+          void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: channelType })
         }
 
         // 3. Insert user message

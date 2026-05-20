@@ -44,9 +44,9 @@
 9. `npm run build` exits 0
 
 **Plans:** 3
-- [ ] 103-01-PLAN.md — DB migration: notifications table + RLS policies
-- [ ] 103-02-PLAN.md — Notification panel component + bell wiring in top-bar
-- [ ] 103-03-PLAN.md — Event emitters: insert notifications from conversation/call/flow webhooks
+- [x] 103-01-PLAN.md — DB migration: notifications table + RLS policies
+- [x] 103-02-PLAN.md — Notification panel component + bell wiring in top-bar
+- [x] 103-03-PLAN.md — Event emitters: insert notifications from conversation/call/flow webhooks
 
 ---
 
@@ -65,5 +65,5 @@
 6. `npm run build` exits 0
 
 **Plans:** 2
-- [ ] 104-01-PLAN.md — Remove forcedTheme lock + define light CSS variables in globals.css
-- [ ] 104-02-PLAN.md — Audit and fix dark:-prefixed classes + component-level light mode corrections
+- [x] 104-01-PLAN.md — Remove forcedTheme lock + define light CSS variables in globals.css
+- [x] 104-02-PLAN.md — Audit and fix dark:-prefixed classes + component-level light mode corrections

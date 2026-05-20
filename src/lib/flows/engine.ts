@@ -11,6 +11,7 @@ import type { FlowDefinition, FlowEdge, FlowNode } from './schema'
 import { FlowDefinition as FlowDefinitionSchema } from './schema'
 import { interpolate, evaluateCondition } from './interpolate'
 import { executeNode, type ExecutorContext } from './executors'
+import { insertNotification } from '@/lib/notifications/insert'
 
 const MAX_STEPS = 100 // hard cap to prevent runaway loops in v1
 
@@ -141,6 +142,15 @@ export async function runFlow(input: RunInput): Promise<RunResult> {
   }
 
   await finalizeRun(input.supabase, runRow.id, runError ? 'failed' : 'succeeded', state, runError)
+
+  if (runError) {
+    void insertNotification(input.orgId, 'flow_failed', {
+      workflow_id: input.workflowId,
+      workflow_run_id: runRow.id,
+      error: runError,
+    })
+  }
+
   return { runId: runRow.id, status: runError ? 'failed' : 'succeeded', error: runError }
 }
 

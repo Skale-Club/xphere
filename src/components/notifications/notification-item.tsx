@@ -19,7 +19,7 @@ function getNavigationTarget(notification: NotificationRow): string {
     case 'missed_call':
       return `/calls?highlight=${payload.call_log_id ?? ''}`
     case 'flow_failed':
-      return `/automations/logs?id=${payload.action_log_id ?? ''}`
+      return `/workflows/logs`
     default:
       return '/'
   }
