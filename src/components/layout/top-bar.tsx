@@ -1,26 +1,25 @@
 'use client'
 
-import * as React from 'react'
 import Link from 'next/link'
-import { Bell, Search, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Search, ShieldCheck } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AppBreadcrumb } from './app-breadcrumb'
 import { OrgSwitcher } from './org-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useCommandPalette } from '@/components/command-palette'
 import { DialPadHeaderButton } from '@/components/calls/dial-pad-header-button'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 import { cn } from '@/lib/utils'
 
 interface TopBarProps {
   activeOrgId: string | null
   activeOrgName: string | null
   isPlatformAdmin: boolean
+  userId: string | null
 }
 
-export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin }: TopBarProps) {
+export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: TopBarProps) {
   const { setOpen } = useCommandPalette()
-  const [hasNotifications] = React.useState(false) // mock
 
   return (
     <header
@@ -65,22 +64,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin }: TopBarPr
           <TooltipContent side="bottom" kbd="⌘K">Command palette</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Notifications"
-              className="relative text-text-secondary hover:text-text-primary"
-            >
-              <Bell className="h-[15px] w-[15px]" />
-              {hasNotifications && (
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent ring-2 ring-bg-primary" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Notifications</TooltipContent>
-        </Tooltip>
+        <NotificationBell userId={userId} />
 
         <ThemeToggle />
 

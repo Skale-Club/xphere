@@ -110,6 +110,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     activeOrgId={activeOrgId}
                     activeOrgName={activeOrgName}
                     isPlatformAdmin={isPlatformAdmin}
+                    userId={user.id}
                   />
                   <main className="flex-1 min-h-0 overflow-auto">
                     <div className="h-full">
