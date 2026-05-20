@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { LandingPage } from '@/components/landing/landing-page'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
 export const metadata: Metadata = {
   title: 'Xphere — The AI Operations Platform for Modern Agencies',

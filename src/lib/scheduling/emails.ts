@@ -15,7 +15,7 @@ import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 import { Resend } from 'resend'
 
-const RESEND_FROM = process.env.RESEND_FROM ?? 'Xphere Scheduling <bookings@xphere.skale.club>'
+const RESEND_FROM = process.env.RESEND_FROM ?? 'Xphere Scheduling <bookings@xphere.app>'
 
 let _client: Resend | null | undefined = undefined
 

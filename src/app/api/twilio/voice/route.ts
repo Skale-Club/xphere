@@ -1,6 +1,6 @@
 // src/app/api/twilio/voice/route.ts
 // Main Twilio Voice webhook (SEED-007 / v2.1).
-// Public URL: https://xphere.skale.club/api/twilio/voice
+// Public URL: https://xphere.app/api/twilio/voice
 //
 // Reads call_settings for the org-of-record (resolved via the `To` number) and
 // returns TwiML directing the call to:

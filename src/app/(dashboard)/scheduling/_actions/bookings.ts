@@ -16,7 +16,7 @@ import {
 } from '@/lib/scheduling/emails'
 import type { TimeSlot } from '@/lib/scheduling/slots'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.

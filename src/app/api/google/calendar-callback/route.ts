@@ -6,7 +6,7 @@ import { exchangeCodeForTokens, fetchGoogleUserEmail } from '@/lib/google-contac
 
 export const runtime = 'nodejs'
 
-const CALLBACK_URI = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'}/api/google/calendar-callback`
+const CALLBACK_URI = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'}/api/google/calendar-callback`
 const STATE_COOKIE = 'google_cal_oauth_state'
 
 export async function GET(request: NextRequest): Promise<Response> {

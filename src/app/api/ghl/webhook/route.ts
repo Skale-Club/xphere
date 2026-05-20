@@ -7,7 +7,7 @@
 //
 // GHL Workflow setup:
 //   Trigger:  Customer Replied (or Inbound Message)
-//   Action:   Webhook → POST https://xphere.skale.club/api/ghl/webhook
+//   Action:   Webhook → POST https://xphere.app/api/ghl/webhook
 //   Headers:  X-Operator-Secret: <your webhook_secret from Operator>
 //   Body:     default GHL payload (includes type, locationId, contactId, body, etc.)
 

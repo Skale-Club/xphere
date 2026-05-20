@@ -110,7 +110,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
       },
 
       // Help
-      { id: 'help-docs', label: 'Documentation', icon: HelpCircle, action: () => window.open('https://xphere.skale.club', '_blank'), group: 'Help' },
+      { id: 'help-docs', label: 'Documentation', icon: HelpCircle, action: () => window.open('https://xphere.app', '_blank'), group: 'Help' },
     ],
     [setTheme]
   )

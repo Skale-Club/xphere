@@ -153,7 +153,7 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
                     <Input
                       {...field}
                       value={field.value ?? ''}
-                      placeholder="https://xphere.skale.club/og-image.png"
+                      placeholder="https://xphere.app/og-image.png"
                       className="h-9 bg-[#0A0A0B] border-[#2A2A2F] text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-red-500/30"
                     />
                   </FormControl>

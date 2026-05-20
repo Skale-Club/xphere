@@ -82,7 +82,7 @@ export function WidgetSettingsForm({
 
   const previewValues = form.watch()
   const embedCode = useMemo(
-    () => `<script src="https://xphere.skale.club/widget.js" data-token="${currentToken}"></script>`,
+    () => `<script src="https://xphere.app/widget.js" data-token="${currentToken}"></script>`,
     [currentToken]
   )
 

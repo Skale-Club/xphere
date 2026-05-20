@@ -2,7 +2,7 @@
  * Xphere Reviews Widget — embeddable IIFE bundle.
  *
  * Usage (recommended — iframe):
- *   <iframe src="https://xphere.skale.club/widget/reviews/{token}?layout=grid&min_rating=4"
+ *   <iframe src="https://xphere.app/widget/reviews/{token}?layout=grid&min_rating=4"
  *           width="100%" height="640" frameborder="0"></iframe>
  *
  * Or directly inline via the script bundle:
@@ -12,7 +12,7 @@
  *        data-theme="light"
  *        data-min-rating="4"
  *        data-limit="12"></div>
- *   <script src="https://xphere.skale.club/reviews-widget.js" defer></script>
+ *   <script src="https://xphere.app/reviews-widget.js" defer></script>
  *
  * Reads its config from either:
  *   1. The query string when running inside an iframe (?token=...&layout=...)

@@ -158,7 +158,7 @@ export function LandingPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-              <span className="ml-2 text-[0.6875rem] text-[#52525B] font-mono">xphere.skale.club/dashboard</span>
+              <span className="ml-2 text-[0.6875rem] text-[#52525B] font-mono">xphere.app/dashboard</span>
             </div>
             <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 p-6">
               {[

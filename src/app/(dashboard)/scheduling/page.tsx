@@ -26,7 +26,7 @@ export default async function SchedulingPage({ searchParams }: Props) {
   const profile = profileResult.ok ? profileResult.data : null
   const eventTypes = eventTypesResult.ok ? eventTypesResult.data : []
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.skale.club'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -35,7 +35,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-const WEBHOOK_URL = 'https://xphere.skale.club/api/manychat/webhook'
+const WEBHOOK_URL = 'https://xphere.app/api/manychat/webhook'
 
 // Payload template defined inline to avoid importing a non-function from a 'use server' module
 const PAYLOAD_TEMPLATE = {

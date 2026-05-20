@@ -19,7 +19,7 @@ export function xmlEscape(value: string): string {
 }
 
 export interface TwimlContext {
-  /** Public base URL (e.g. https://xphere.skale.club) — used for recording/status callbacks */
+  /** Public base URL (e.g. https://xphere.app) — used for recording/status callbacks */
   baseUrl: string
   recordCalls: boolean
   callerId?: string

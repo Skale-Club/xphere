@@ -50,7 +50,7 @@ export interface TwilioIntegrationView {
 }
 
 const OPERATOR_ORIGIN =
-  process.env.XPHERE_PUBLIC_ORIGIN ?? 'https://xphere.skale.club'
+  process.env.XPHERE_PUBLIC_ORIGIN ?? 'https://xphere.app'
 
 function maskSnippet(value: string | null | undefined): string | null {
   if (!value) return null
