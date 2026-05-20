@@ -8,6 +8,7 @@ type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string
 export interface SendMessageInput {
   conversationId: string
   message: string
+  images?: string[]      // base64 data URLs (max ~800px, compressed client-side)
   writeMode?: boolean
   currentEntity?: { type: 'contact' | 'account' | 'opportunity'; id: string } | null
 }
@@ -56,13 +57,17 @@ export async function sendCopilotMessage(
     parts: (r.parts as unknown as MessagePart[]) ?? [],
   }))
 
-  // Persist the user message.
+  // Persist the user message (text + any image parts).
+  const userParts: Record<string, unknown>[] = [
+    { type: 'text', text: input.message },
+    ...(input.images ?? []).map((url) => ({ type: 'image', url })),
+  ]
   const { data: userMsg, error: userMsgErr } = await supabase
     .from('copilot_messages')
     .insert({
       conversation_id: input.conversationId,
       role: 'user',
-      parts: [{ type: 'text', text: input.message }] as unknown as Record<string, unknown>[],
+      parts: userParts as unknown as Record<string, unknown>[],
     })
     .select('id')
     .single()
@@ -77,6 +82,7 @@ export async function sendCopilotMessage(
       userId: user.id,
       conversationId: input.conversationId,
       userMessage: input.message,
+      images: input.images,
       writeMode: Boolean(input.writeMode),
       currentEntity: input.currentEntity ?? null,
       history,

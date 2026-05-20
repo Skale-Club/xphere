@@ -31,6 +31,18 @@ export function MessageBubble({ message }: { message: CopilotMessage }) {
               </p>
             )
           }
+          if (part.type === 'image' && part.url) {
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={idx}
+                src={part.url}
+                alt="attachment"
+                className="mt-1.5 max-w-full rounded-lg border border-white/20 object-contain"
+                style={{ maxHeight: 240 }}
+              />
+            )
+          }
           if (part.type === 'tool_call') {
             return <ToolCallBlock key={idx} part={part} />
           }

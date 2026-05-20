@@ -16,8 +16,9 @@ import type { ToolContext } from './tools/types'
 const MAX_TURNS = 12
 
 export interface MessagePart {
-  type: 'text' | 'tool_call'
+  type: 'text' | 'tool_call' | 'image'
   text?: string
+  url?: string           // for type='image': base64 data URL
   tool_name?: string
   input?: Record<string, unknown>
   output?: unknown
@@ -41,6 +42,7 @@ interface RunTurnInput {
   userId: string
   conversationId: string
   userMessage: string
+  images?: string[]      // base64 data URLs
   writeMode: boolean
   currentEntity?: { type: 'contact' | 'account' | 'opportunity'; id: string } | null
   history: Array<{ role: 'user' | 'assistant'; parts: MessagePart[] }>
@@ -92,6 +94,7 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
         system,
         history: input.history,
         userMessage: input.userMessage,
+        images: input.images,
         toolDefs,
         toolCtx,
         runId,
@@ -106,6 +109,7 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
         system,
         history: input.history,
         userMessage: input.userMessage,
+        images: input.images,
         toolDefs,
         toolCtx,
         runId,
@@ -158,6 +162,7 @@ interface LoopArgs {
   system: string
   history: Array<{ role: 'user' | 'assistant'; parts: MessagePart[] }>
   userMessage: string
+  images?: string[]
   toolDefs: Anthropic.Tool[]
   toolCtx: ToolContext
   runId: string
@@ -189,10 +194,23 @@ function historyToOpenAiMessages(
 
 async function loopOpenRouter(args: LoopArgs): Promise<{ inputTokens: number; outputTokens: number }> {
   const client = new OpenAI({ apiKey: args.provider.apiKey, baseURL: 'https://openrouter.ai/api/v1' })
+
+  // Build the first user message. If images are attached, use multipart content.
+  const firstUserContent: OpenAI.ChatCompletionContentPart[] = [
+    { type: 'text', text: args.userMessage },
+    ...(args.images ?? []).map((dataUrl): OpenAI.ChatCompletionContentPart => ({
+      type: 'image_url',
+      image_url: { url: dataUrl, detail: 'auto' },
+    })),
+  ]
+
   const messages: OpenAI.ChatCompletionMessageParam[] = [
     { role: 'system', content: args.system },
     ...historyToOpenAiMessages(args.history),
-    { role: 'user', content: args.userMessage },
+    {
+      role: 'user',
+      content: firstUserContent.length === 1 ? args.userMessage : firstUserContent,
+    },
   ]
 
   let inputTokens = 0
@@ -286,9 +304,23 @@ function historyToAnthropicMessages(
 
 async function loopAnthropic(args: LoopArgs): Promise<{ inputTokens: number; outputTokens: number }> {
   const client = new Anthropic({ apiKey: args.provider.apiKey })
+
+  const firstUserContent: Anthropic.ContentBlockParam[] = [
+    { type: 'text', text: args.userMessage },
+    ...(args.images ?? []).map((dataUrl): Anthropic.ContentBlockParam => {
+      const [meta, data] = dataUrl.split(',')
+      const mediaType = (meta.split(';')[0].split(':')[1] ?? 'image/jpeg') as
+        | 'image/jpeg'
+        | 'image/png'
+        | 'image/gif'
+        | 'image/webp'
+      return { type: 'image', source: { type: 'base64', media_type: mediaType, data: data ?? '' } }
+    }),
+  ]
+
   const messages: Anthropic.MessageParam[] = [
     ...historyToAnthropicMessages(args.history),
-    { role: 'user', content: args.userMessage },
+    { role: 'user', content: firstUserContent.length === 1 ? args.userMessage : firstUserContent },
   ]
 
   let inputTokens = 0

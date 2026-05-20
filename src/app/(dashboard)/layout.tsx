@@ -13,6 +13,7 @@ import { CelebrationProvider } from '@/components/design-system/celebration-prov
 import { OnboardingTour } from '@/components/onboarding/tour'
 import { PageTransition } from '@/components/layout/page-transition'
 import { CopilotShell } from '@/components/copilot/copilot-launcher'
+import { CopilotPanel } from '@/components/copilot/copilot-panel'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
@@ -111,18 +112,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   brandName={branding.appName}
                   logoUrl={effectiveLogoUrl}
                 />
-                <div className="flex min-w-0 flex-1 flex-col h-dvh">
+                <div className="flex min-w-0 flex-1 flex-col h-dvh overflow-hidden">
                   <TopBar
                     activeOrgId={activeOrgId}
                     activeOrgName={activeOrgName}
                     isPlatformAdmin={isPlatformAdmin}
                     userId={user.id}
                   />
-                  <main className="flex-1 min-h-0 overflow-auto">
-                    <div className="h-full">
+                  <div className="flex flex-1 min-h-0">
+                    <main className="flex-1 min-h-0 overflow-auto">
                       <PageTransition>{children}</PageTransition>
-                    </div>
-                  </main>
+                    </main>
+                    <CopilotPanel />
+                  </div>
                 </div>
               </div>
               <OnboardingTour />
