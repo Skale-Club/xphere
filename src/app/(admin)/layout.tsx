@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 
@@ -17,7 +19,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               SUPER ADMIN
             </span>
           </div>
-          <span className="text-[#71717A] text-xs">{user.email}</span>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex h-8 items-center gap-2 rounded-md border border-[#2A2A2F] px-3 text-xs font-medium text-[#A1A1AA] transition-colors duration-100 hover:border-red-500/40 hover:bg-red-500/10 hover:text-[#FAFAFA]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Voltar ao painel
+            </Link>
+            <span className="text-[#71717A] text-xs">{user.email}</span>
+          </div>
         </header>
         <main className="flex-1 min-h-0 overflow-auto">
           {children}

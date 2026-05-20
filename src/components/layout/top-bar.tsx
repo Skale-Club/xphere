@@ -24,7 +24,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: 
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 px-4',
+        'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 px-4 sm:px-6 lg:px-8',
         'border-b border-border-subtle bg-bg-primary/80 backdrop-blur-md',
       )}
     >
