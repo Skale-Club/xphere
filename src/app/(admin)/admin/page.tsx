@@ -55,7 +55,7 @@ function DashboardSkeleton() {
 
 export default function AdminOverviewPage() {
   return (
-    <div className="p-6 max-w-7xl">
+    <div className="p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-text-primary">Platform Overview</h1>
         <p className="text-sm text-text-secondary mt-1">Cross-platform metrics and activity at a glance</p>

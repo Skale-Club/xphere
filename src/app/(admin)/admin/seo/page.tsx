@@ -18,7 +18,7 @@ export default async function AdminSeoPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-text-primary">SEO &amp; Branding</h1>
         <p className="text-sm text-text-secondary mt-1">

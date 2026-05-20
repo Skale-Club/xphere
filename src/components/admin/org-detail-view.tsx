@@ -68,7 +68,7 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
   }
 
   return (
-    <div className="p-6 max-w-7xl">
+    <div className="p-6">
       <Link href="/admin/orgs" className="inline-flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm mb-6 transition-colors duration-100">
         <ArrowLeft className="h-4 w-4" />
         Back to Organizations

@@ -16,7 +16,7 @@ export default async function AdminActivityPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-text-primary">Activity Feed</h1>
         <p className="text-sm text-text-secondary mt-1">Cross-platform events from the last 72 hours</p>
