@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Save } from 'lucide-react'
+import { ImagePlus, Loader2, Save, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,9 @@ type FormValues = z.infer<typeof schema>
 export function SeoConfigForm({ config }: { config: SeoConfig }) {
   const [isPending, startTransition] = useTransition()
   const [lastSaved, setLastSaved] = useState<string | null>(null)
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(config.favicon_url ?? null)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -40,6 +44,27 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
       keywords_raw: config.keywords.join(', '),
     },
   })
+
+  async function handleFaviconChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/favicon/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Upload failed')
+      setFaviconUrl(json.url as string)
+      toast.success('Favicon uploaded — save settings to apply.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   function onSubmit(values: FormValues) {
     startTransition(async () => {
@@ -54,6 +79,7 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
           title_template: values.title_template,
           description: values.description,
           og_image_url: values.og_image_url || null,
+          favicon_url: faviconUrl,
           keywords,
         })
 
@@ -111,6 +137,83 @@ export function SeoConfigForm({ config }: { config: SeoConfig }) {
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#111113] border-[#2A2A2F]">
+          <CardHeader className="pb-3 pt-4 px-4">
+            <p className="text-sm font-semibold text-[#FAFAFA]">Favicon</p>
+          </CardHeader>
+          <Separator className="bg-[#2A2A2F]" />
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              {/* Preview */}
+              <div className="h-12 w-12 rounded-lg border border-[#2A2A2F] bg-[#0A0A0B] flex items-center justify-center shrink-0 overflow-hidden">
+                {faviconUrl ? (
+                  <Image
+                    src={faviconUrl}
+                    alt="Favicon preview"
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                    unoptimized
+                  />
+                ) : (
+                  <ImagePlus className="h-5 w-5 text-[#3F3F46]" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-[0.8125rem] text-[#A1A1AA]">
+                  {faviconUrl ? (
+                    <span className="truncate block text-[#FAFAFA] font-mono text-xs">
+                      {faviconUrl.split('/').pop()}
+                    </span>
+                  ) : (
+                    'No favicon uploaded'
+                  )}
+                </p>
+                <p className="text-[0.75rem] text-[#52525B] mt-0.5">
+                  PNG, ICO, SVG or WEBP · max 2 MB · recommended 32×32 px
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".png,.ico,.svg,.webp,.jpg,.jpeg"
+                  className="sr-only"
+                  onChange={handleFaviconChange}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 text-xs border-[#2A2A2F] bg-[#0A0A0B] text-[#A1A1AA] hover:bg-[#1A1A1F] hover:text-[#FAFAFA]"
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  {isUploading ? 'Uploading…' : 'Upload'}
+                </Button>
+                {faviconUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFaviconUrl(null)}
+                    className="h-8 w-8 p-0 border-[#2A2A2F] bg-[#0A0A0B] text-[#A1A1AA] hover:bg-red-950/40 hover:border-red-900/50 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
 

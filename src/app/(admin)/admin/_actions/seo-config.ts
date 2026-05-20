@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 export type SeoConfig = {
@@ -8,6 +9,7 @@ export type SeoConfig = {
   title_template: string
   description: string
   og_image_url: string | null
+  favicon_url: string | null
   keywords: string[]
   updated_at: string
 }
@@ -21,7 +23,7 @@ export async function getSeoConfig(): Promise<SeoConfig> {
     .single()
 
   if (error) throw new Error(`Failed to load SEO config: ${error.message}`)
-  return data
+  return data as SeoConfig
 }
 
 export async function updateSeoConfig(
@@ -31,6 +33,7 @@ export async function updateSeoConfig(
     title_template: string
     description: string
     og_image_url: string | null
+    favicon_url: string | null
     keywords: string[]
   }
 ): Promise<void> {
@@ -41,4 +44,5 @@ export async function updateSeoConfig(
     .eq('id', id)
 
   if (error) throw new Error(`Failed to update SEO config: ${error.message}`)
+  revalidatePath('/', 'layout')
 }

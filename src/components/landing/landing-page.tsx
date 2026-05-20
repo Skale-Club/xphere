@@ -69,7 +69,7 @@ export function LandingPage() {
       <div className="relative z-10">
         {/* Nav */}
         <header className="flex items-center justify-between px-6 sm:px-10 h-16 border-b border-white/5 backdrop-blur-sm">
-          <span className="font-semibold text-sm tracking-tight text-[#FAFAFA]">Xphere</span>
+          <Link href="/" className="font-semibold text-sm tracking-tight text-[#FAFAFA] hover:text-white transition-colors">Xphere</Link>
           <Link href="/login">
             <Button
               size="sm"
@@ -242,7 +242,7 @@ export function LandingPage() {
         {/* Footer */}
         <footer className="border-t border-white/5 px-6 py-8">
           <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="text-sm font-medium text-[#FAFAFA]">Xphere</span>
+            <Link href="/" className="text-sm font-medium text-[#FAFAFA] hover:text-white transition-colors">Xphere</Link>
             <p className="text-[0.8125rem] text-[#52525B]">
               © {new Date().getFullYear()} Skale Club. All rights reserved.
             </p>

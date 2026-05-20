@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { unstable_cache } from 'next/cache'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -25,9 +26,38 @@ const mono = JetBrains_Mono({
   preload: false,
 })
 
-export const metadata: Metadata = {
-  title: APP_NAME,
-  description: 'AI Operations Platform',
+const getFaviconUrl = unstable_cache(
+  async (): Promise<string | null> => {
+    try {
+      const { createServiceRoleClient } = await import('@/lib/supabase/admin')
+      const admin = createServiceRoleClient()
+      const { data } = await admin
+        .from('seo_config')
+        .select('favicon_url')
+        .limit(1)
+        .single()
+      return (data as { favicon_url?: string | null } | null)?.favicon_url ?? null
+    } catch {
+      return null
+    }
+  },
+  ['seo-favicon'],
+  { revalidate: 3600 }
+)
+
+export async function generateMetadata(): Promise<Metadata> {
+  const faviconUrl = await getFaviconUrl()
+  return {
+    title: APP_NAME,
+    description: 'AI Operations Platform',
+    ...(faviconUrl && {
+      icons: {
+        icon: [{ url: faviconUrl }],
+        shortcut: faviconUrl,
+        apple: faviconUrl,
+      },
+    }),
+  }
 }
 
 export default function RootLayout({
