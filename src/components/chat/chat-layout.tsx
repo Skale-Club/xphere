@@ -387,7 +387,10 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     [getInboxMaxWidth],
   )
 
-  async function handleSendMessage(content: string) {
+  async function handleSendMessage(
+    content: string,
+    opts?: { media?: Array<{ url: string; mime_type: string; filename?: string; size?: number }> }
+  ) {
     if (!selectedId) return
     const tempId = `temp-${crypto.randomUUID()}`
     const tempMsg: ConversationMessage = {
@@ -396,13 +399,14 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
       role: 'assistant',
       content,
       createdAt: new Date().toISOString(),
+      metadata: opts?.media?.length ? { media: opts.media } : undefined,
     }
     setMessages((prev) => [...prev, tempMsg])
     try {
       const res = await fetch(`/api/chat/conversations/${selectedId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant' }),
+        body: JSON.stringify({ content, role: 'assistant', ...(opts ?? {}) }),
       })
       if (!res.ok) throw new Error('Failed to send')
       await fetchMessages(selectedId)

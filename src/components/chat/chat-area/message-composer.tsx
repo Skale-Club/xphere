@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Redesigned composer (v2.2 / SEED-011).
+ * Redesigned composer (v2.2 / SEED-011 + SEED-030 file upload).
  *
  * Features:
  *   - Auto-resizing textarea (rows grow up to maxRows)
@@ -9,10 +9,12 @@
  *   - Outbound channel hint
  *   - Disabled hint when bot is active (with quick "pause bot" affordance)
  *   - Optional typing broadcast via onTyping callback (debounced 500ms)
+ *   - File attachment via Paperclip button (image/audio/video/PDF, max 5MB)
+ *   - Preview of selected file before sending
  */
 
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Send, Paperclip, Smile, Mic } from 'lucide-react'
+import { Send, Paperclip, Smile, Mic, X, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -23,8 +25,19 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
+interface MediaItem {
+  url: string
+  mime_type: string
+  filename?: string
+  size?: number
+}
+
+interface SendMessageOpts {
+  media?: MediaItem[]
+}
+
 interface MessageComposerProps {
-  onSendMessage: (content: string) => Promise<void>
+  onSendMessage: (content: string, opts?: SendMessageOpts) => Promise<void>
   /** Optional — fired (debounced ~500ms) while the user is typing. */
   onTyping?: () => void
   /** Channel hint shown in the footer ("Sending via WhatsApp"). */
@@ -37,6 +50,7 @@ interface MessageComposerProps {
 }
 
 const MAX_ROWS = 8
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export function MessageComposer({
   onSendMessage,
@@ -48,7 +62,12 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const [value, setValue] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingFileUrl, setPendingFileUrl] = useState<string | null>(null)
+  const [pendingFileMime, setPendingFileMime] = useState<string>('')
+  const [isUploading, setIsUploading] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const lastTypingRef = useRef(0)
 
   // Auto-resize
@@ -63,11 +82,26 @@ export function MessageComposer({
 
   async function handleSend() {
     const content = value.trim()
-    if (!content || isSending || disabled) return
+    // Allow send if there's content OR a pending uploaded file
+    if ((!content && !pendingFileUrl) || isSending || disabled) return
     setValue('')
     setIsSending(true)
     try {
-      await onSendMessage(content)
+      const opts: SendMessageOpts | undefined = pendingFileUrl
+        ? {
+            media: [
+              {
+                url: pendingFileUrl,
+                mime_type: pendingFileMime,
+                filename: pendingFile?.name,
+                size: pendingFile?.size,
+              },
+            ],
+          }
+        : undefined
+      await onSendMessage(content, opts)
+      // Clear pending file after successful send
+      clearPendingFile()
     } finally {
       setIsSending(false)
       ref.current?.focus()
@@ -91,8 +125,56 @@ export function MessageComposer({
     }
   }
 
+  function clearPendingFile() {
+    setPendingFile(null)
+    setPendingFileUrl(null)
+    setPendingFileMime('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File too large. Maximum size is 5 MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    setPendingFile(file)
+    setPendingFileMime(file.type || 'application/octet-stream')
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/chat/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+        alert(err.error ?? 'Upload failed')
+        clearPendingFile()
+        return
+      }
+
+      const data = await res.json() as { url: string }
+      setPendingFileUrl(data.url)
+    } catch {
+      alert('Upload failed — please try again')
+      clearPendingFile()
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const isDisabled = isSending || disabled
-  const canSend = value.trim().length > 0 && !isDisabled
+  const canSend = (value.trim().length > 0 || !!pendingFileUrl) && !isDisabled && !isUploading
+  const isImage = pendingFileMime.startsWith('image/')
 
   return (
     <div className="shrink-0 border-t border-border-subtle bg-bg-primary/95 px-4 py-3 backdrop-blur md:px-6">
@@ -107,6 +189,36 @@ export function MessageComposer({
         </div>
       )}
 
+      {/* File preview */}
+      {pendingFile && (
+        <div className="mb-2 flex items-center gap-2 rounded-[8px] border border-border-subtle bg-bg-secondary px-3 py-2">
+          {isImage && pendingFileUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pendingFileUrl}
+              alt={pendingFile.name}
+              className="h-12 w-12 rounded-[4px] object-cover shrink-0"
+            />
+          ) : (
+            <FileText className="h-8 w-8 shrink-0 text-text-tertiary" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-medium text-text-primary truncate">{pendingFile.name}</p>
+            <p className="text-[11px] text-text-tertiary">
+              {isUploading ? 'Uploading…' : `${(pendingFile.size / 1024).toFixed(0)} KB`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearPendingFile}
+            className="shrink-0 rounded-full p-1 hover:bg-bg-tertiary transition-colors"
+            aria-label="Remove attachment"
+          >
+            <X className="h-3.5 w-3.5 text-text-tertiary" />
+          </button>
+        </div>
+      )}
+
       <div
         className={cn(
           'relative flex items-end gap-2 rounded-[12px] border bg-bg-secondary px-3 py-2 transition-shadow',
@@ -115,14 +227,32 @@ export function MessageComposer({
         )}
       >
         <TooltipProvider delayDuration={200}>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,audio/*,video/*,application/pdf"
+            className="hidden"
+            onChange={handleFileSelected}
+            disabled={isDisabled}
+          />
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-text-tertiary" disabled>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-text-tertiary"
+                disabled={isDisabled || isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
                 <Paperclip className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Attach (coming soon)</TooltipContent>
+            <TooltipContent>Attach file</TooltipContent>
           </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-text-tertiary" disabled>

@@ -98,9 +98,46 @@ function extractText(msg: MessagesUpsertData['message']): string {
   if (!msg) return ''
   if (typeof msg.conversation === 'string' && msg.conversation.trim()) return msg.conversation.trim()
   if (msg.extendedTextMessage?.text) return msg.extendedTextMessage.text.trim()
-  if (msg.imageMessage?.caption) return msg.imageMessage.caption.trim()
-  if (msg.videoMessage?.caption) return msg.videoMessage.caption.trim()
-  if (msg.documentMessage?.caption) return msg.documentMessage.caption.trim()
+  if (msg.imageMessage?.caption) return msg.imageMessage.caption?.trim() ?? ''
+  if (msg.videoMessage?.caption) return msg.videoMessage.caption?.trim() ?? ''
+  if (msg.documentMessage?.caption) return msg.documentMessage.caption?.trim() ?? ''
+  return ''
+}
+
+/**
+ * Determines the message_type for an Evolution WhatsApp message.
+ * Returns 'text' for plain text, or the appropriate media type.
+ */
+function determineEvolutionMessageType(msg: MessagesUpsertData['message'], textContent: string): string {
+  if (!msg) return 'text'
+  if (msg.imageMessage) return textContent ? 'mixed' : 'image'
+  if (msg.audioMessage) return 'audio'
+  if (msg.videoMessage) return textContent ? 'mixed' : 'video'
+  if (msg.documentMessage) return textContent ? 'mixed' : 'document'
+  return 'text'
+}
+
+/**
+ * Returns true if the Evolution message has any media (image, audio, video, document).
+ * Used to decide whether to process messages without text content.
+ */
+function hasEvolutionMedia(msg: MessagesUpsertData['message']): boolean {
+  if (!msg) return false
+  return !!(msg.imageMessage || msg.audioMessage || msg.videoMessage || msg.documentMessage)
+}
+
+/**
+ * Returns a human-readable last_message label for media-only Evolution messages.
+ */
+function formatEvolutionLastMessage(msg: MessagesUpsertData['message']): string {
+  if (!msg) return ''
+  if (msg.imageMessage) return '📷 Foto'
+  if (msg.audioMessage) return '🎵 Áudio'
+  if (msg.videoMessage) return '🎬 Vídeo'
+  if (msg.documentMessage) {
+    const doc = msg.documentMessage as { fileName?: string }
+    return `📎 ${doc.fileName ?? 'Documento'}`
+  }
   return ''
 }
 
@@ -137,7 +174,12 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
     if (isGroupJid(m.key.remoteJid)) continue // skip groups for inbound auto-reply
 
     const messageText = extractText(m.message)
-    if (!messageText) continue
+    const hasMedia = hasEvolutionMedia(m.message)
+
+    // Skip messages with no text and no recognized media type
+    if (!messageText && !hasMedia) continue
+
+    const messageType = determineEvolutionMessageType(m.message, messageText)
 
     const senderJid = m.key.remoteJid
     const fromPhone = jidToPhone(senderJid)
@@ -156,12 +198,15 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
     const now = new Date().toISOString()
     let conversationId: string
 
+    // Build a display text for last_message (handles media-only messages)
+    const lastMessageDisplay = messageText || formatEvolutionLastMessage(m.message)
+
     if (existing) {
       conversationId = existing.id
       await supabase
         .from('conversations')
         .update({
-          last_message: messageText,
+          last_message: lastMessageDisplay,
           last_message_at: now,
           last_inbound_at: now,
           updated_at: now,
@@ -209,7 +254,7 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
           visitor_name: m.pushName ?? null,
           contact_id: contactId,
           evolution_instance_id: instance.id,
-          last_message: messageText,
+          last_message: lastMessageDisplay,
           last_message_at: now,
           last_inbound_at: now,
         })
@@ -242,6 +287,7 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
       org_id: orgId,
       role: 'user',
       content: messageText,
+      message_type: messageType,
       metadata: {
         channel: 'whatsapp',
         evolution_message_id: evolutionMessageId,
@@ -253,6 +299,9 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
     // --- 3. Bot status gate -----------------------------------------------
     const botStatus = existing?.bot_status ?? 'active'
     if (botStatus !== 'active') continue
+
+    // Cannot auto-reply to media-only messages without text
+    if (!messageText) continue
 
     // --- 4. Resolve channel agent ----------------------------------------
     const { data: defaultRow } = await supabase

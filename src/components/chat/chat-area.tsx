@@ -39,7 +39,7 @@ interface ChatAreaProps {
   isTyping?: boolean
   /** "Agent thinking" — set while runAgent is processing. */
   isAgentThinking?: boolean
-  onSendMessage: (content: string) => Promise<void>
+  onSendMessage: (content: string, opts?: { media?: Array<{ url: string; mime_type: string; filename?: string; size?: number }> }) => Promise<void>
   onTyping?: () => void
   onStatusChange: (status: 'open' | 'closed') => void
   onDelete: () => void

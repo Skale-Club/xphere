@@ -84,11 +84,20 @@ export async function GET(
   return Response.json({ messages, hasMore })
 }
 
+const MediaItemSchema = z.object({
+  url: z.string().url(),
+  mime_type: z.string(),
+  size: z.number().optional(),
+  filename: z.string().optional(),
+})
+
 const SendMessageSchema = z.object({
-  content: z.string().min(1),
+  content: z.string().default(''),
   role: z.literal('assistant'),
   // operator_prefix: true → prepend "Name:\n" to outbound GHL messages
   operator_prefix: z.boolean().optional().default(false),
+  /** Optional media attachments (uploaded via /api/chat/upload beforehand). */
+  media: z.array(MediaItemSchema).optional(),
 })
 
 export async function POST(
@@ -120,7 +129,12 @@ export async function POST(
     return Response.json({ error: parsed.error.errors[0]?.message ?? 'Invalid request' }, { status: 400 })
   }
 
-  const { content, role, operator_prefix } = parsed.data
+  const { content, role, operator_prefix, media } = parsed.data
+
+  // Require either content or media
+  if (!content && (!media || media.length === 0)) {
+    return Response.json({ error: 'Either content or media is required' }, { status: 400 })
+  }
 
   // Resolve operator display name for the prefix feature
   const operatorName: string | null = operator_prefix
@@ -130,6 +144,20 @@ export async function POST(
       ?? null
     : null
 
+  // Determine message_type
+  const messageType = media?.length ? (content ? 'mixed' : (() => {
+    const first = media[0]
+    if (first.mime_type.startsWith('image/')) return 'image'
+    if (first.mime_type.startsWith('audio/')) return 'audio'
+    if (first.mime_type.startsWith('video/')) return 'video'
+    return 'document'
+  })()) : 'text'
+
+  // Compose metadata
+  const msgMetadata: Record<string, unknown> = {}
+  if (operatorName) msgMetadata.sender_name = operatorName
+  if (media?.length) msgMetadata.media = media
+
   const { data: msg, error } = await supabase
     .from('conversation_messages')
     .insert({
@@ -137,8 +165,8 @@ export async function POST(
       org_id: conv.org_id,
       role,
       content,
-      // Store sender_name in metadata so the UI can render "Name:" header
-      ...(operatorName ? { metadata: { sender_name: operatorName } } : {}),
+      message_type: messageType,
+      ...(Object.keys(msgMetadata).length > 0 ? { metadata: msgMetadata } : {}),
     })
     .select('id, conversation_id, role, content, created_at, metadata')
     .single()
@@ -148,10 +176,20 @@ export async function POST(
     return Response.json({ error: 'Failed to send message' }, { status: 500 })
   }
 
+  // Compute last_message — use media label when content is empty
+  let lastMessageDisplay = content
+  if (!content && media?.length) {
+    const first = media[0]
+    if (first.mime_type.startsWith('image/')) lastMessageDisplay = '📷 Foto'
+    else if (first.mime_type.startsWith('audio/')) lastMessageDisplay = '🎵 Áudio'
+    else if (first.mime_type.startsWith('video/')) lastMessageDisplay = '🎬 Vídeo'
+    else lastMessageDisplay = `📎 ${first.filename ?? 'Arquivo'}`
+  }
+
   // Update last_message and last_message_at on parent conversation
   await supabase
     .from('conversations')
-    .update({ last_message: content, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
+    .update({ last_message: lastMessageDisplay, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
     .eq('id', id)
 
   // --- Outbound channel routing ---

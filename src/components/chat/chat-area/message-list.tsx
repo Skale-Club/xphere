@@ -20,10 +20,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown, Info } from 'lucide-react'
 
-import { ConversationMessage } from '@/types/chat'
+import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { MediaBlock } from './media-block'
 
 interface MessageListProps {
   messages: ConversationMessage[]
@@ -170,6 +171,8 @@ export function MessageList({
                 const agentId = message.metadata?.agent_id as string | undefined
                 const agentName = agentId ? agentMap?.[agentId] ?? null : null
 
+                const mediaItems = message.metadata?.media as MediaAttachment[] | undefined
+
                 if (isVisitor) {
                   return (
                     <div
@@ -190,7 +193,10 @@ export function MessageList({
                       )}
                       <div className="flex max-w-[85%] flex-col items-start md:max-w-[70%]">
                         <div className="rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle">
-                          {message.content}
+                          {mediaItems?.map((item, idx) => (
+                            <MediaBlock key={idx} attachment={item} isVisitor={true} />
+                          ))}
+                          {message.content && <span>{message.content}</span>}
                         </div>
                         <span className="mt-0.5 px-1 text-[10.5px] tabular-nums text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100">
                           {formatTime(message.createdAt)}
@@ -199,6 +205,8 @@ export function MessageList({
                     </div>
                   )
                 }
+
+                const msgMediaItems = message.metadata?.media as MediaAttachment[] | undefined
 
                 // Bot/admin/assistant — right-aligned bubble
                 return (
@@ -211,7 +219,10 @@ export function MessageList({
                   >
                     <div className="flex max-w-[85%] flex-col items-end md:max-w-[70%]">
                       <div className="rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
-                        {message.content}
+                        {msgMediaItems?.map((item, idx) => (
+                          <MediaBlock key={idx} attachment={item} isVisitor={false} />
+                        ))}
+                        {message.content && <span>{message.content}</span>}
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 px-1 opacity-0 transition-opacity group-hover:opacity-100">
                         {agentName && (
