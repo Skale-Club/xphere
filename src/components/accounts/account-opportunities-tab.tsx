@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import type { OpportunityWithStage } from '@/app/(dashboard)/accounts/[id]/actions'
+import type { OpportunityWithStage } from '@/app/(dashboard)/companies/[id]/actions'
 import { formatCurrency, relativeTime } from '@/lib/pipeline/format'
 import { AddOpportunityDialog } from './add-opportunity-dialog'
 

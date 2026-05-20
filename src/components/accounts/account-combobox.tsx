@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Building2, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { getAccounts, createAccount } from '@/app/(dashboard)/accounts/actions'
+import { getAccounts, createAccount } from '@/app/(dashboard)/companies/actions'
 import type { AccountWithCounts } from '@/lib/accounts'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'

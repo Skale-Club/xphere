@@ -59,7 +59,7 @@ const navItems = [
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },
   { icon: MessageSquare, label: 'Chat', href: '/chat', active: true },
   { icon: Contact2, label: 'Contacts', href: '/contacts', active: true },
-  { icon: Building2, label: 'Companies', href: '/accounts', active: true },
+  { icon: Building2, label: 'Companies', href: '/companies', active: true },
   { icon: TrendingUp, label: 'Pipeline', href: '/pipeline', active: true },
   { icon: CheckSquare, label: 'Tasks', href: '/tasks', active: true },
   { icon: FileText, label: 'Notes', href: '/notes', active: true },

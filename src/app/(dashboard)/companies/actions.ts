@@ -260,7 +260,7 @@ export async function createAccount(
   if (error) return errResult(error.message, error)
   if (!data) return errResult('insert_returned_no_row')
 
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   return okResult<AccountRow>(data as AccountRow)
 }
 
@@ -316,7 +316,7 @@ export async function updateAccount(
   if (error) return errResult(error.message, error)
   if (!data) return errResult('not_found')
 
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   revalidatePath(`/accounts/${id}`)
   return okResult<AccountRow>(data as AccountRow)
 }
@@ -366,7 +366,7 @@ export async function deleteAccount(
 
   if (delErr) return errResult(delErr.message, delErr)
 
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   return okResult({ deleted: id })
 }
 
@@ -451,7 +451,7 @@ export async function mergeAccounts(
     })
   }
 
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   revalidatePath(`/accounts/${primaryId}`)
   for (const sid of secondaryIds) revalidatePath(`/accounts/${sid}`)
 
@@ -606,7 +606,7 @@ export async function createAccountFromContact(
 
   revalidatePath('/contacts')
   revalidatePath(`/contacts/${contactId}`)
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   revalidatePath(`/accounts/${account.id}`)
 
   return okResult<AccountRow>(account)
@@ -628,7 +628,7 @@ export async function bulkAssignOwner(
     .in('id', ids)
     .select('id')
   if (error) return errResult(error.message)
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   return okResult({ updated: data?.length ?? 0, errors: 0 })
 }
 
@@ -657,7 +657,7 @@ export async function bulkAddTag(
       .eq('id', row.id)
     if (!error) updated++
   }
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   return okResult({ updated })
 }
 
@@ -849,7 +849,7 @@ export async function importAccountsCsv(
     summary.errors = summary.errors.slice(0, 50)
   }
 
-  revalidatePath('/accounts')
+  revalidatePath('/companies')
   return okResult<AccountImportSummary>(summary)
 }
 

@@ -53,7 +53,7 @@ const nav: NavItem[] = [
   { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
-  { icon: Building2,       label: 'Companies',    href: '/accounts',     group: 'sales' },
+  { icon: Building2,       label: 'Companies',    href: '/companies',     group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
   { icon: Zap,             label: 'Workflows',    href: '/automations',  group: 'build' },

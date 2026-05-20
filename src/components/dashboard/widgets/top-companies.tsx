@@ -83,7 +83,7 @@ export async function TopCompanies() {
           icon={Building2}
           title="No active deals yet"
           description="Companies with open opportunities will appear here."
-          cta={{ label: 'View companies', href: '/accounts' }}
+          cta={{ label: 'View companies', href: '/companies' }}
         />
       </WidgetCard>
     )

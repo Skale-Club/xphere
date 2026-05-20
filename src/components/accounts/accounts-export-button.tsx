@@ -5,7 +5,7 @@ import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { exportAccountsCsv } from '@/app/(dashboard)/accounts/actions'
+import { exportAccountsCsv } from '@/app/(dashboard)/companies/actions'
 
 export function AccountsExportButton() {
   const [pending, setPending] = useState(false)

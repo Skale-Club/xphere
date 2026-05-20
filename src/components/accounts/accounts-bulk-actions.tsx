@@ -17,7 +17,7 @@ import {
   bulkAssignOwner,
   bulkAddTag,
   deleteAccount,
-} from '@/app/(dashboard)/accounts/actions'
+} from '@/app/(dashboard)/companies/actions'
 
 interface AccountsBulkActionsProps {
   selected: Set<string>
