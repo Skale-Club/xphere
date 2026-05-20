@@ -47,13 +47,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`dark ${inter.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          forcedTheme="dark"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem={true}
           disableTransitionOnChange
         >
           <TooltipProvider delayDuration={300}>
@@ -63,7 +62,7 @@ export default function RootLayout({
             richColors
             closeButton
             position="bottom-right"
-            theme="dark"
+            theme="system"
             duration={4000}
             visibleToasts={5}
             toastOptions={{
