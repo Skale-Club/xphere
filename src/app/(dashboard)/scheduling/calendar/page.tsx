@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { ArrowLeft, Calendar } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { getUser } from '@/lib/supabase/server'
@@ -30,16 +30,6 @@ export default async function SchedulingCalendarPage() {
       <Button asChild variant="ghost" size="sm">
         <Link href="/scheduling"><ArrowLeft className="h-3.5 w-3.5" /> Back</Link>
       </Button>
-
-      <div>
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1">
-          <Calendar className="h-3.5 w-3.5" /> Scheduling
-        </div>
-        <h1 className="text-2xl font-semibold">Calendar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Weekly view of all your confirmed bookings.
-        </p>
-      </div>
 
       <CalendarView bookings={bookings} eventTypeColors={eventTypeColors} />
     </div>

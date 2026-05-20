@@ -34,7 +34,7 @@ export default async function RunDetailPage({
     : null
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Button asChild variant="ghost" size="sm">
         <Link href={`/workflows/flows/${run.workflow_id}/runs`}>
           <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Runs

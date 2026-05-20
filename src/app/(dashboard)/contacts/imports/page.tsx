@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Upload, ArrowLeft } from 'lucide-react'
+import { Upload } from 'lucide-react'
 
 import { getImports } from '@/app/(dashboard)/contacts/import-history-actions'
 import type { Database, ContactImportStatus } from '@/types/database'
@@ -10,28 +10,6 @@ type ImportRow = Database['public']['Tables']['contact_imports']['Row']
 export default async function ImportsPage() {
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="animate-fade-in flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-          <Upload className="h-3.5 w-3.5 text-accent" />
-          <span>CRM</span>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Link href="/contacts" className="text-[12px] text-text-tertiary hover:text-text-primary flex items-center gap-1">
-                <ArrowLeft className="h-3 w-3" /> Contacts
-              </Link>
-            </div>
-            <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight text-text-primary">
-              Import History
-            </h1>
-            <p className="mt-1 text-[14px] text-text-secondary">
-              Every CSV import for your organization, with live progress and error details.
-            </p>
-          </div>
-        </div>
-      </div>
-
       <Suspense fallback={<div className="text-[13px] text-text-tertiary">Loading imports…</div>}>
         <ImportsList />
       </Suspense>

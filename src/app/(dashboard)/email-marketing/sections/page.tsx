@@ -93,13 +93,7 @@ export default function EmailSectionsPage() {
         <Link href="/email-marketing"><ArrowLeft className="h-3.5 w-3.5 mr-1" /> Templates</Link>
       </Button>
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Seções globais</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Headers, footers e blocos reutilizáveis entre templates.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button size="sm" onClick={openCreate} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" /> Nova seção
         </Button>

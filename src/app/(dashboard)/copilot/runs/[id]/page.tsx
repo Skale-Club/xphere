@@ -20,7 +20,7 @@ export default async function CopilotRunPage(
     : null
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-none px-4 sm:px-6 lg:px-8 py-8">
       <Link
         href={`/copilot/conversations/${run.conversation_id}`}
         className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"

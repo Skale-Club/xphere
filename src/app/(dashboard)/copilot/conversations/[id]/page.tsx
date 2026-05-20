@@ -22,7 +22,7 @@ export default async function ConversationDetailPage(
   const c = res.data
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-none px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-4">
         <Link
           href="/copilot/conversations"

@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Sparkles, Users, History } from 'lucide-react'
+import { Users, History } from 'lucide-react'
 
 import { getContacts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -39,32 +39,15 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Hero */}
-      <div className="animate-fade-in flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-          <Sparkles className="h-3.5 w-3.5 text-accent" />
-          <span>CRM</span>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight text-text-primary">
-              Contacts
-            </h1>
-            <p className="mt-1 text-[14px] text-text-secondary">
-              Every person you talk to, in one place. Conversations and calls link here automatically.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/contacts/imports"
-              className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
-            >
-              <History className="h-3.5 w-3.5" /> History
-            </Link>
-            <ImportWizardDialog />
-            <NewContactDialog />
-          </div>
-        </div>
+      <div className="animate-fade-in flex items-center justify-end gap-2">
+        <Link
+          href="/contacts/imports"
+          className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
+        >
+          <History className="h-3.5 w-3.5" /> History
+        </Link>
+        <ImportWizardDialog />
+        <NewContactDialog />
       </div>
 
       <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>

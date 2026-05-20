@@ -17,17 +17,7 @@ export default async function FlowsListPage() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1">
-            <Workflow className="h-3.5 w-3.5" /> Workflows · Flows
-          </div>
-          <h1 className="text-2xl font-semibold">Visual flows</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Multi-step workflows triggered by events, schedules, or manual runs.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button asChild size="sm" className="gap-1.5">
           <Link href="/workflows/flows/new">
             <Plus className="h-3.5 w-3.5" /> New flow

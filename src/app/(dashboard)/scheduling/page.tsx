@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { CalendarDays, Plus, Settings2, ExternalLink, Calendar } from 'lucide-react'
+import { CalendarDays, Settings2, ExternalLink, Calendar } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import { getEventTypes } from './_actions/event-types'
 import { getSchedulingProfile } from './_actions/scheduling-profile'
@@ -30,33 +30,18 @@ export default async function SchedulingPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5" />
-          <span>Scheduling</span>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] sm:text-[32px] font-semibold tracking-tight">Scheduling</h1>
-            <p className="mt-1 text-[14px] text-muted-foreground">
-              Share your booking page and let people schedule meetings directly.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/scheduling/calendar">
-                <Calendar className="h-3.5 w-3.5 mr-1.5" /> Calendar
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/scheduling/availability">
-                <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Availability
-              </Link>
-            </Button>
-            {profile && <NewEventTypeDialog />}
-          </div>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/scheduling/calendar">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" /> Calendar
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/scheduling/availability">
+            <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Availability
+          </Link>
+        </Button>
+        {profile && <NewEventTypeDialog />}
       </div>
 
       {/* Google Calendar banner */}

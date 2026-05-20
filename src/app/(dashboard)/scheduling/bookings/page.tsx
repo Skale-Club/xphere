@@ -30,16 +30,6 @@ export default async function BookingsPage() {
         <Link href="/scheduling"><ArrowLeft className="h-3.5 w-3.5" /> Back</Link>
       </Button>
 
-      <div>
-        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1">
-          <CalendarCheck className="h-3.5 w-3.5" /> Scheduling
-        </div>
-        <h1 className="text-2xl font-semibold">Bookings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          All scheduled meetings — upcoming and past.
-        </p>
-      </div>
-
       {bookings.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-12 text-center">
           <CalendarCheck className="mx-auto h-8 w-8 text-muted-foreground mb-3" />

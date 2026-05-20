@@ -17,16 +17,7 @@ export default async function ConversationsPage() {
   const conversations = res.data
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Copilot conversations</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">
-            History of chats with the CRM copilot. Click any to replay it in the panel.
-          </p>
-        </div>
-      </div>
-
+    <div className="mx-auto max-w-none px-4 sm:px-6 lg:px-8 py-8">
       {conversations.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-text-secondary">
           <MessageSquare className="mx-auto mb-2 h-8 w-8 text-text-tertiary" />
