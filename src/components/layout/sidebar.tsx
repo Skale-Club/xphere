@@ -56,7 +56,7 @@ const nav: NavItem[] = [
   { icon: Building2,       label: 'Companies',    href: '/companies',     group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
-  { icon: Zap,             label: 'Workflows',    href: '/automations',  group: 'build' },
+  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
   { icon: BookOpen,        label: 'Knowledge',    href: '/knowledge',    group: 'build' },
   { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
   { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },

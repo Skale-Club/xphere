@@ -20,7 +20,7 @@ import { FlowToolbar } from './flow-toolbar'
 import { AiBuilderChat } from './ai-builder-chat'
 import type { FlowDefinition, FlowNodeType } from '@/lib/flows/schema'
 import type { IntegrationKey } from '@/lib/flows/node-metadata'
-import { saveWorkflowDefinition } from '@/app/(dashboard)/automations/flows/_actions/workflows'
+import { saveWorkflowDefinition } from '@/app/(dashboard)/workflows/flows/_actions/workflows'
 import { toast } from 'sonner'
 
 interface FlowCanvasProps {

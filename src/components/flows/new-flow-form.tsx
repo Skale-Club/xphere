@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createWorkflow } from '@/app/(dashboard)/automations/flows/_actions/workflows'
+import { createWorkflow } from '@/app/(dashboard)/workflows/flows/_actions/workflows'
 
 function slugify(text: string): string {
   return text
@@ -48,7 +48,7 @@ export function NewFlowForm() {
         return
       }
       toast.success('Flow created')
-      router.push(`/automations/flows/${result.data.id}`)
+      router.push(`/workflows/flows/${result.data.id}`)
     })
   }
 
