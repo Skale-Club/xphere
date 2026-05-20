@@ -1,6 +1,6 @@
 ---
 id: SEED-025
-status: planted
+status: active
 planted: 2026-05-20
 planted_during: post-SEED-024 push notifications; nav-level "Workflows" unification complete (fa1f826) but data model still split
 trigger_when: explicit user request OR before any major workflow-builder UX investment OR before SEED-026 AI authoring can ship
@@ -8,6 +8,9 @@ scope: Large
 priority: critical
 depends_on: [SEED-019 (visual flow engine), SEED-002 (action engine)]
 blocks: [SEED-026, SEED-027]
+phases_shipped: [A, B, D, E]
+phases_pending: [C, F]
+last_commit: e558768
 ---
 
 # SEED-025: Unified Workflow System — Single Data Model, Single Engine, Single UI

@@ -1,12 +1,15 @@
 ---
 id: SEED-027
-status: planted
+status: active
 planted: 2026-05-20
 planted_during: post-SEED-024; planted alongside SEED-025/026/028 to unify automation surfaces
 trigger_when: SEED-025 Phase B (unified engine) ships AND SEED-028 (meeting locations) ships, OR explicit request to drive automations from calendar events
 scope: Large
 priority: high
 depends_on: [SEED-025 (unified workflow engine with trigger registry), SEED-028 (meeting locations + dynamic links)]
+phases_shipped: [A, B, C]
+phases_pending: [D, E, F]
+last_commit: f72b5f1
 ---
 
 # SEED-027: Calendar as First-Class Workflow Surface

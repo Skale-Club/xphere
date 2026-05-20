@@ -1,6 +1,6 @@
 ---
 id: SEED-028
-status: planted
+status: active
 planted: 2026-05-20
 planted_during: post-SEED-024; planted alongside SEED-025/026/027 to unify calendar + workflow surfaces
 trigger_when: explicit user request OR before SEED-027 Phase E (which needs {{meeting.link}} variable resolved) OR before any tenant onboards with physical service locations
@@ -8,6 +8,9 @@ scope: Medium
 priority: high
 depends_on: []
 unblocks: [SEED-027 Phase E (calendar variable scope)]
+phases_shipped: [A, B, D]
+phases_pending: [C, E, F]
+last_commit: 40777ea
 ---
 
 # SEED-028: Meeting Location System — Rich Location Model + Dynamic Links
