@@ -1,7 +1,8 @@
 ---
 id: SEED-041
-status: planted
+status: complete
 planted: 2026-05-20
+shipped: 2026-05-21
 trigger_when: now (autonomous execution)
 scope: Small
 priority: high

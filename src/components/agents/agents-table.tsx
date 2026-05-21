@@ -12,7 +12,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import { formatDistanceToNow } from 'date-fns'
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { FlaskConical, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -209,6 +209,12 @@ export function AgentsTable({
                 <Link href={`/agents/${agent.id}`}>
                   <Pencil className="mr-2 h-3.5 w-3.5" />
                   Edit
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/agents/${agent.id}/playground`}>
+                  <FlaskConical className="mr-2 h-3.5 w-3.5" />
+                  Test
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem

@@ -18,6 +18,7 @@ import { Send, RotateCcw, Bot, User, Wrench, Clock } from 'lucide-react'
 type AgentChannel =
   | 'web_widget'
   | 'whatsapp'
+  | 'sms'
   | 'messenger'
   | 'instagram'
   | 'manychat'
@@ -26,6 +27,7 @@ type AgentChannel =
 const CHANNEL_LABELS: Record<AgentChannel, string> = {
   web_widget: 'Web Widget',
   whatsapp: 'WhatsApp',
+  sms: 'SMS',
   messenger: 'Messenger',
   instagram: 'Instagram',
   manychat: 'ManyChat',

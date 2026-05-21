@@ -1,14 +1,11 @@
-// Admin chat — Inbox tab + Playground tab
-// Tab is URL-driven: ?tab=inbox (default) | ?tab=playground
+// Admin chat — Inbox only.
+// SEED-041: the playground tab moved to /agents/{id}/playground where it
+// belongs (per-agent test surface). Legacy ?tab=playground redirects to /agents.
 // Auth: handled by (dashboard)/layout.tsx
-import Link from 'next/link'
-import { FlaskConical, Inbox } from 'lucide-react'
+import { redirect } from 'next/navigation'
 
 import { ChatLayout } from '@/components/chat/chat-layout'
-import { PlaygroundChat } from '@/components/chat/playground-chat'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { cn } from '@/lib/utils'
-import { getPlaygroundConfig } from './actions'
 import { getActiveAgents } from '@/app/(dashboard)/agents/actions'
 
 export default async function ChatPage({
@@ -17,7 +14,7 @@ export default async function ChatPage({
   searchParams: Promise<{ tab?: string }>
 }) {
   const params = await searchParams
-  const tab = params.tab === 'playground' ? 'playground' : 'inbox'
+  if (params.tab === 'playground') redirect('/agents')
 
   // Resolve active org for Realtime subscription filter (defense-in-depth alongside RLS)
   const supabase = await createClient()
@@ -38,73 +35,13 @@ export default async function ChatPage({
     // so each inner panel can scroll independently and the dashboard sidebar/top bar
     // never scroll out of view.
     <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden">
-      {/* Tab bar */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-secondary/40 px-4 pt-3">
-        <ChatTab href="/chat?tab=inbox" active={tab === 'inbox'} icon={Inbox}>
-          Inbox
-        </ChatTab>
-        <ChatTab href="/chat?tab=playground" active={tab === 'playground'} icon={FlaskConical}>
-          Playground
-        </ChatTab>
-      </div>
-
-      {/* Tab content */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {tab === 'inbox' ? (
-          <ChatLayout
-            currentOrgId={(activeOrgId as string | null) ?? null}
-            currentUserId={user?.id ?? null}
-            agentMap={agentMap}
-          />
-        ) : (
-          <PlaygroundTab />
-        )}
+        <ChatLayout
+          currentOrgId={(activeOrgId as string | null) ?? null}
+          currentUserId={user?.id ?? null}
+          agentMap={agentMap}
+        />
       </div>
     </div>
-  )
-}
-
-function ChatTab({
-  href,
-  active,
-  icon: Icon,
-  children,
-}: {
-  href: string
-  active: boolean
-  icon: React.ComponentType<{ className?: string }>
-  children: React.ReactNode
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-medium transition-colors',
-        active
-          ? 'border-accent text-text-primary'
-          : 'border-transparent text-text-tertiary hover:text-text-secondary',
-      )}
-    >
-      <Icon className={cn('h-3.5 w-3.5', active ? 'text-accent' : 'text-text-tertiary')} />
-      {children}
-    </Link>
-  )
-}
-
-async function PlaygroundTab() {
-  const config = await getPlaygroundConfig()
-  if (!config) {
-    return (
-      <div className="flex h-full items-center justify-center text-[13px] text-text-tertiary">
-        Could not load playground — widget token not found.
-      </div>
-    )
-  }
-  return (
-    <PlaygroundChat
-      widgetToken={config.widgetToken}
-      displayName={config.displayName}
-      avatarUrl={config.avatarUrl}
-    />
   )
 }
