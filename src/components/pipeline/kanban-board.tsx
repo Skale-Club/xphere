@@ -10,7 +10,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
+  getFirstCollision,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -140,6 +143,34 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
       activationConstraint: { distance: 6 },
     }),
   )
+
+  /**
+   * Hybrid collision detection for kanban boards.
+   *
+   * Default `closestCorners` requires the dragged card's corners to be closer
+   * to the target than to any other element — which means you have to drag
+   * the card almost fully over the target column for it to register.
+   *
+   * Strategy used here:
+   * 1. `pointerWithin`: if the cursor is inside any droppable, use that.
+   *    Activates instantly when the cursor crosses into a target column,
+   *    regardless of how much of the card overlaps.
+   * 2. Fallback to `rectIntersection` for the (rare) case where the pointer
+   *    is between droppables (e.g. above/below the columns area).
+   */
+  const collisionDetectionStrategy: CollisionDetection = React.useCallback((args) => {
+    const pointerCollisions = pointerWithin(args)
+    if (pointerCollisions.length > 0) {
+      // If the pointer is over multiple droppables (e.g. card inside a column),
+      // prefer the first hit — dnd-kit already sorts by depth.
+      const firstId = getFirstCollision(pointerCollisions, 'id')
+      if (firstId != null) {
+        return pointerCollisions.filter((c) => c.id === firstId)
+      }
+      return pointerCollisions
+    }
+    return rectIntersection(args)
+  }, [])
 
   const byStage = React.useMemo(() => {
     const map = new Map<string, OpportunityWithContact[]>()
@@ -286,7 +317,7 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
