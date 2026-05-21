@@ -49,13 +49,13 @@ interface Props {
 
 const TRIGGER_META: Record<
   WorkflowSummary['trigger_type'],
-  { label: string; Icon: LucideIcon }
+  { label: string; Icon: LucideIcon; color: string }
 > = {
-  tool_call: { label: 'Tool call', Icon: MousePointerClick },
-  event: { label: 'Event', Icon: Calendar },
-  schedule: { label: 'Schedule', Icon: Clock },
-  manual: { label: 'Manual', Icon: MousePointerClick },
-  webhook_url: { label: 'Webhook', Icon: Webhook },
+  tool_call:   { label: 'Tool call', Icon: MousePointerClick, color: '#6366f1' },
+  event:       { label: 'Event',     Icon: Calendar,          color: '#f59e0b' },
+  schedule:    { label: 'Schedule',  Icon: Clock,             color: '#06b6d4' },
+  manual:      { label: 'Manual',    Icon: MousePointerClick, color: '#64748b' },
+  webhook_url: { label: 'Webhook',   Icon: Webhook,           color: '#f97316' },
 }
 
 function triggerLabel(workflow: WorkflowSummary): string {
@@ -111,12 +111,15 @@ export function WorkflowsList({ workflows }: Props) {
         </thead>
         <tbody className="divide-y divide-border-subtle">
           {workflows.map((w) => {
-            const Icon = TRIGGER_META[w.trigger_type].Icon
+            const { Icon, color } = TRIGGER_META[w.trigger_type]
             return (
               <tr key={w.id} className="hover:bg-bg-secondary/40 transition-colors">
                 <td className="pl-4 pr-0 py-3 w-10">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-[7px] bg-bg-tertiary ring-1 ring-border-subtle shrink-0">
-                    <Icon className="h-3.5 w-3.5 text-text-secondary" />
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-[7px] shrink-0"
+                    style={{ backgroundColor: color }}
+                  >
+                    <Icon className="h-3.5 w-3.5 text-white" />
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -133,7 +136,7 @@ export function WorkflowsList({ workflows }: Props) {
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-                    <Icon className="h-3 w-3 text-text-tertiary" />
+                    <Icon className="h-3 w-3" style={{ color }} />
                     {triggerLabel(w)}
                   </span>
                 </td>
