@@ -5,13 +5,14 @@
 // SEED-038: adds folders, archive toggle (?archived=1), and trash entry.
 
 import Link from 'next/link'
-import { Workflow, Plus, ScrollText, Sparkles, Trash2, Archive } from 'lucide-react'
+import { Workflow, Plus, ScrollText, Trash2, Archive } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { listUnifiedWorkflows } from '@/lib/workflows/list'
 import { WorkflowsList } from '@/components/workflows/workflows-list'
+import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import type { Database } from '@/types/database'
 
 type WorkflowFolderRow = Database['public']['Tables']['workflow_folders']['Row']
@@ -82,16 +83,12 @@ export default async function WorkflowsPage({ searchParams }: PageProps) {
               )}
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/copilot/conversations">
-              <Sparkles className="h-3.5 w-3.5" /> Build with Copilot
-            </Link>
-          </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/workflows/logs">
               <ScrollText className="h-3.5 w-3.5" /> Logs
             </Link>
           </Button>
+          <NewFolderButton />
           <Button asChild size="sm">
             <Link href="/workflows/flows/new">
               <Plus className="h-3.5 w-3.5" /> New workflow
