@@ -4,6 +4,8 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
+export const PER_PAGE = 10
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 async function requireAdmin() {
@@ -30,19 +32,33 @@ async function requireAdmin() {
 
 // ── listMembers ───────────────────────────────────────────────────────────────
 
-export async function listMembers() {
+export type MemberProfile = {
+  id: string
+  user_id: string
+  role: string
+  joined_at: string
+  email: string | null
+  phone: string | null
+  full_name: string | null
+  total_count: number
+}
+
+export async function listMembers(page = 1) {
   const { error, orgId } = await requireAdmin()
-  if (error || !orgId) return { members: [], error }
+  if (error || !orgId) return { members: [], total: 0, error }
 
   const supabase = await createClient()
-  const { data, error: dbError } = await supabase
-    .from('org_members')
-    .select('id, user_id, role, created_at')
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: true })
+  const { data, error: dbError } = await supabase.rpc('get_org_member_profiles', {
+    p_org_id: orgId,
+    p_page: page,
+    p_per_page: PER_PAGE,
+  })
 
-  if (dbError) return { members: [], error: dbError.message }
-  return { members: data ?? [], error: null }
+  if (dbError) return { members: [], total: 0, error: dbError.message }
+
+  const rows = (data ?? []) as MemberProfile[]
+  const total = rows[0]?.total_count ?? 0
+  return { members: rows, total: Number(total), error: null }
 }
 
 // ── listInvites ───────────────────────────────────────────────────────────────
@@ -109,7 +125,7 @@ export async function revokeInvite(inviteId: string) {
     .from('org_invites')
     .delete()
     .eq('id', inviteId)
-    .eq('org_id', orgId) // safety: ensures we only delete our own org's invites
+    .eq('org_id', orgId)
 
   if (dbError) return { error: dbError.message }
 
@@ -125,7 +141,6 @@ export async function removeMember(memberId: string) {
 
   const supabase = await createClient()
 
-  // Prevent admin from removing themselves
   const { data: targetMember } = await supabase
     .from('org_members')
     .select('user_id')
@@ -141,7 +156,7 @@ export async function removeMember(memberId: string) {
     .from('org_members')
     .delete()
     .eq('id', memberId)
-    .eq('organization_id', orgId) // safety
+    .eq('organization_id', orgId)
 
   if (dbError) return { error: dbError.message }
 
