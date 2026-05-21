@@ -278,7 +278,7 @@ export function MembersClient({
                       onValueChange={(v) => handleRoleChange(member.id, v as 'admin' | 'member')}
                       disabled={isPending}
                     >
-                      <SelectTrigger className="h-7 w-[90px] text-xs border-0 bg-transparent px-2 gap-1 focus:ring-0">
+                      <SelectTrigger className="h-7 w-[90px] text-xs border-0 bg-transparent px-2 gap-1 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
