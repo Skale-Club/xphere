@@ -102,6 +102,7 @@ export function WorkflowsList({ workflows }: Props) {
       <table className="w-full text-sm">
         <thead className="bg-bg-secondary/60">
           <tr className="text-xs text-text-tertiary uppercase tracking-wide">
+            <th className="w-10 px-4 py-2.5" />
             <th className="text-left font-medium px-4 py-2.5">Name</th>
             <th className="text-left font-medium px-4 py-2.5">Trigger</th>
             <th className="text-left font-medium px-4 py-2.5">Status</th>
@@ -113,6 +114,11 @@ export function WorkflowsList({ workflows }: Props) {
             const Icon = TRIGGER_META[w.trigger_type].Icon
             return (
               <tr key={w.id} className="hover:bg-bg-secondary/40 transition-colors">
+                <td className="pl-4 pr-0 py-3 w-10">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-[7px] bg-bg-tertiary ring-1 ring-border-subtle shrink-0">
+                    <Icon className="h-3.5 w-3.5 text-text-secondary" />
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <Link href={w.kind === 'flow' ? `/workflows/flows/${w.id}` : `/workflows/${w.id}`} className="block group">
                     <p className="text-sm font-medium text-text-primary group-hover:underline truncate">
