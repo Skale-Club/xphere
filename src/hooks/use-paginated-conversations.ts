@@ -260,7 +260,11 @@ export function usePaginatedConversations(
         return prev.filter((x) => x.id !== c.id)
       }
       const next = [...prev]
-      next[idx] = { ...c, channelAccountName: c.channelAccountName ?? prev[idx].channelAccountName }
+      next[idx] = {
+        ...c,
+        channelAccountName: c.channelAccountName ?? prev[idx].channelAccountName,
+        contactName: c.contactName ?? prev[idx].contactName,
+      }
       return next.sort(compareConversations)
     })
     setConversations((prev) => {
@@ -277,7 +281,11 @@ export function usePaginatedConversations(
         return prev.filter((x) => x.id !== c.id)
       }
       const next = [...prev]
-      next[idx] = { ...c, channelAccountName: c.channelAccountName ?? prev[idx].channelAccountName }
+      next[idx] = {
+        ...c,
+        channelAccountName: c.channelAccountName ?? prev[idx].channelAccountName,
+        contactName: c.contactName ?? prev[idx].contactName,
+      }
       return next.sort(compareConversations)
     })
   }, [])

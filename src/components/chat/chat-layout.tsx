@@ -83,6 +83,7 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     pinned: Boolean(row.pinned),
     priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
     contactId: (row.contact_id as string | null) ?? null,
+    contactName: null, // realtime raw row has no joined contact — preserved from API state via upsert
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
     starred: Boolean(row.starred),
     waitUntil: (row.wait_until as string | null) ?? null,

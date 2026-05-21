@@ -50,6 +50,8 @@ export interface ConversationSummary {
   priority?: ConversationPriority
   /** v2.2 — Optional contact link. Used by the right-side ContactInfoPanel. */
   contactId?: string | null
+  /** Resolved contact name (from contacts table JOIN). Preferred over visitorName in display. */
+  contactName?: string | null
   /** v2.2 — User the conversation is assigned to (assigned_user_id). */
   assignedUserId?: string | null
   /** SEED-035 — starred (favorite). Independent of pinned. */

@@ -53,7 +53,7 @@ const CHANNEL_ALIAS: Record<string, string> = {
 }
 
 const SELECT_COLS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, contacts:contact_id ( name )'
 
 const VALID_STATUSES = new Set<ConversationStatus>([
   'open',
@@ -205,7 +205,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error('[GET /api/chat/conversations] pinned', pinnedErr)
     return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
   }
-  const pinnedRows = pinnedData ?? []
+  const pinnedRows = (pinnedData ?? []) as Record<string, unknown>[]
 
   // ─────────── Unpinned page (range + exact count) ───────────
   const from = (page - 1) * pageSize
@@ -228,7 +228,7 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
   }
 
-  const pageRows = pageData ?? []
+  const pageRows = (pageData ?? []) as Record<string, unknown>[]
   const totalCount = count ?? 0
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
@@ -296,6 +296,7 @@ export async function GET(request: Request): Promise<Response> {
     const meta = (row.channel_metadata as Record<string, string>) ?? {}
     const pageId = meta?.page_id
     const id = row.id as string
+    const contact = row.contacts as { name?: string | null } | null
     return {
       id,
       status: (row.status as ConversationStatus) ?? 'open',
@@ -313,6 +314,7 @@ export async function GET(request: Request): Promise<Response> {
       pinned: Boolean(row.pinned),
       priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
       contactId: (row.contact_id as string | null) ?? null,
+      contactName: contact?.name?.trim() || null,
       assignedUserId: (row.assigned_user_id as string | null) ?? null,
       starred: Boolean(row.starred),
       waitUntil: (row.wait_until as string | null) ?? null,
