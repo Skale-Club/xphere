@@ -67,5 +67,8 @@ export async function listUnifiedWorkflows(
     archived_at: (r as { archived_at: string | null }).archived_at ?? null,
   }))
 
-  return fromWorkflows.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  return fromWorkflows.sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position
+    return b.updated_at.localeCompare(a.updated_at)
+  })
 }

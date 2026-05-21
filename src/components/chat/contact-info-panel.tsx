@@ -1172,8 +1172,8 @@ function UnregisteredCard({
           </Button>
         )}
       </div>
-      <div className="p-5">
-        <div className="rounded-[12px] border border-dashed border-border-subtle bg-bg-primary p-5 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center p-5">
+        <div className="w-full rounded-[12px] border border-dashed border-border-subtle bg-bg-primary p-5 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
             <UserPlus className="h-5 w-5" />
           </div>

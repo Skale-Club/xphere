@@ -161,7 +161,7 @@ function formatRelative(c: ConversationSummary): string {
 }
 
 function displayNameOf(c: ConversationSummary): string {
-  return c.visitorName ?? c.visitorPhone ?? c.visitorEmail ?? 'Anonymous'
+  return c.contactName || c.visitorName || c.visitorPhone || c.visitorEmail || 'Anonymous'
 }
 
 function initialOf(name: string): string {

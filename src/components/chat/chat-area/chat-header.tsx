@@ -132,7 +132,9 @@ export function ChatHeader({
   onChannelFilterChange: _onChannelFilterChange,
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
-  const name = conversation.visitorName ?? conversation.visitorPhone ?? conversation.visitorEmail ?? 'Anonymous'
+  const [waitingOpen, setWaitingOpen] = useState(false)
+  const [waitUntilInput, setWaitUntilInput] = useState<string>('')
+  const name = conversation.contactName || conversation.visitorName || conversation.visitorPhone || conversation.visitorEmail || 'Anonymous'
   const initial = name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
   const channel = (CHANNEL_MAP[conversation.channel] ?? 'unknown') as Channel
   const isBotActive = conversation.botStatus === 'active'
