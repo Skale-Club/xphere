@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import {
   Send, Pencil, ShieldCheck, RotateCcw, History, X,
-  Mic, MicOff, ImagePlus, Loader2,
+  Mic, ImagePlus, Loader2,
+  Sparkles, Square, Users, Activity, ListTodo, GitMerge,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -54,13 +55,18 @@ export function CopilotPanel() {
   const [listening, setListening] = useState(false)
   const [, startSend] = useTransition()
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const mobileScrollerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mobileFileInputRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
 
   useEffect(() => {
     if (scrollerRef.current) {
       scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight
+    }
+    if (mobileScrollerRef.current) {
+      mobileScrollerRef.current.scrollTop = mobileScrollerRef.current.scrollHeight
     }
   }, [messages])
 
@@ -188,9 +194,9 @@ export function CopilotPanel() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Desktop render (compact sidebar) ───────────────────────────────────────
 
-  const panelContent = (
+  const desktopPanelContent = (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">
@@ -232,7 +238,7 @@ export function CopilotPanel() {
       </div>
 
       {/* Input area */}
-      <div className="border-t border-border p-3 shrink-0">
+      <div className="relative border-t border-border p-3 shrink-0">
         {/* Image previews */}
         {images.length > 0 && (
           <div className="flex gap-2 mb-2 flex-wrap">
@@ -279,12 +285,12 @@ export function CopilotPanel() {
               type="button"
               size="sm"
               variant={listening ? 'secondary' : 'ghost'}
-              className={cn('h-8 w-8 p-0', listening && 'text-red-500 animate-pulse')}
+              className={cn('h-8 w-8 p-0', listening && 'text-red-500')}
               onClick={toggleMic}
               title={listening ? 'Stop recording' : 'Voice input'}
               disabled={sending}
             >
-              {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-text-secondary" />}
+              {listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4 text-text-secondary" />}
             </Button>
             <Button
               size="sm"
@@ -298,6 +304,11 @@ export function CopilotPanel() {
           </div>
         </div>
 
+        {/* Desktop recording overlay (covers composer while recording) */}
+        {listening && (
+          <VoiceRecordingOverlay onStop={toggleMic} compact />
+        )}
+
         <p className="mt-1.5 text-[10px] text-text-tertiary">
           Enter to send · Shift+Enter for newline · ⌘I to toggle
         </p>
@@ -306,6 +317,171 @@ export function CopilotPanel() {
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => { void handleImageFiles(e.target.files); e.target.value = '' }}
+      />
+    </div>
+  )
+
+  // ── Mobile render (rebranded fullscreen experience) ────────────────────────
+
+  const mobilePanelContent = (
+    <div className="relative flex h-full flex-col bg-bg-primary">
+      {/* Branded header */}
+      <header className="flex items-center gap-3 border-b border-border bg-bg-primary px-4 pt-safe-3 pb-3 shrink-0">
+        <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-lg shadow-indigo-500/30">
+          <Sparkles className="h-4 w-4 text-white" strokeWidth={2.5} />
+        </div>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="text-[15px] font-semibold text-text-primary">Copilot</span>
+          <span className={cn(
+            'text-[11px] leading-tight',
+            writeMode ? 'text-amber-500' : 'text-text-tertiary',
+          )}>
+            {writeMode ? 'Write mode' : 'Read-only'}
+            {sessionCostUsd > 0 && (
+              <span className="text-text-tertiary"> · ~${sessionCostUsd.toFixed(4)}</span>
+            )}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-0.5">
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setWriteMode(!writeMode)}
+            className={cn('h-9 w-9 p-0', writeMode ? 'text-amber-500' : 'text-text-secondary')}
+            title={writeMode ? 'Write mode ON' : 'Read-only mode'}
+          >
+            {writeMode ? <Pencil className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            onClick={newSession}
+            className="h-9 w-9 p-0 text-text-secondary"
+            title="New conversation"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Link
+            href="/copilot/conversations"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary hover:bg-bg-tertiary"
+            onClick={() => setOpen(false)}
+            title="History"
+          >
+            <History className="h-4 w-4" />
+          </Link>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setOpen(false)}
+            className="h-9 w-9 p-0 text-text-secondary"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div
+        ref={mobileScrollerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0"
+      >
+        {messages.length === 0 && <MobileGreetingPanel onPick={setInput} />}
+        {messages.map((m) => <MessageBubble key={m.id} message={m} />)}
+      </div>
+
+      {/* Composer */}
+      <div className="relative border-t border-border bg-bg-primary px-3 pt-3 pb-safe-3 shrink-0">
+        {/* Image previews */}
+        {images.length > 0 && (
+          <div className="flex gap-2 mb-2 flex-wrap">
+            {images.map((src, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary active:text-text-primary"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-10 w-10 p-0 shrink-0"
+            onClick={() => mobileFileInputRef.current?.click()}
+            title="Attach image"
+            disabled={sending || images.length >= 4}
+          >
+            <ImagePlus className="h-5 w-5 text-text-secondary" />
+          </Button>
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={listening ? 'Listening…' : 'Ask Copilot…'}
+            rows={1}
+            // text-base = 16px keeps iOS Safari from auto-zooming when the field
+            // gets focus. Without this, the page would zoom in and break the
+            // mobile layout. enterKeyHint hints the iOS keyboard "send" button.
+            className="flex-1 min-h-[44px] max-h-32 resize-none text-base"
+            enterKeyHint="send"
+            autoCapitalize="sentences"
+            disabled={sending || listening}
+          />
+          {input.trim() || images.length > 0 ? (
+            <Button
+              size="sm"
+              onClick={handleSend}
+              disabled={sending}
+              className="h-10 w-10 p-0 shrink-0"
+              title="Send"
+            >
+              {sending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant={listening ? 'primary' : 'ghost'}
+              className={cn(
+                'h-10 w-10 p-0 shrink-0',
+                listening
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                  : 'text-text-secondary',
+              )}
+              onClick={toggleMic}
+              title={listening ? 'Stop recording' : 'Voice input'}
+              disabled={sending}
+            >
+              {listening
+                ? <Square className="h-3.5 w-3.5 fill-current" />
+                : <Mic className="h-5 w-5" />}
+            </Button>
+          )}
+        </div>
+
+        {/* Recording overlay */}
+        {listening && (
+          <VoiceRecordingOverlay onStop={toggleMic} />
+        )}
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={mobileFileInputRef}
         type="file"
         accept="image/*"
         multiple
@@ -325,18 +501,20 @@ export function CopilotPanel() {
           open ? 'w-[380px]' : 'w-0',
         )}
       >
-        <div className="w-[380px] h-full">{panelContent}</div>
+        <div className="w-[380px] h-full">{desktopPanelContent}</div>
       </aside>
 
-      {/* Mobile: fixed full-screen overlay */}
+      {/* Mobile: fixed full-screen overlay with rebranded UI */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50 bg-bg-primary flex flex-col">
-          {panelContent}
+        <div className="md:hidden fixed inset-0 z-50 bg-bg-primary flex flex-col animate-fade-in">
+          {mobilePanelContent}
         </div>
       )}
     </>
   )
 }
+
+// ─── Greeting panels ──────────────────────────────────────────────────────────
 
 function GreetingPanel({ onPick }: { onPick: (text: string) => void }) {
   const suggestions = [
@@ -364,6 +542,117 @@ function GreetingPanel({ onPick }: { onPick: (text: string) => void }) {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
+  const suggestions: Array<{
+    icon: typeof Users
+    label: string
+  }> = [
+    { icon: Users,    label: 'List my 10 most recent contacts' },
+    { icon: Activity, label: 'Summarize pipeline health' },
+    { icon: ListTodo, label: 'Show all open tasks due this week' },
+    { icon: GitMerge, label: 'Find duplicate contacts by email' },
+  ]
+  return (
+    <div className="flex flex-col gap-5 py-4 animate-fade-in">
+      <div className="flex flex-col items-center text-center gap-3">
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-xl shadow-indigo-500/30">
+          <Sparkles className="h-8 w-8 text-white" strokeWidth={2.25} />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-text-primary">Chat with your CRM</h2>
+          <p className="text-[13px] text-text-secondary max-w-[280px] mx-auto leading-relaxed">
+            Query, summarize, and mutate contacts, deals, tasks, and notes.
+            Attach images or hold the mic to ask anything.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-2">
+        {suggestions.map(({ icon: Icon, label }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onPick(label)}
+            className="flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-3 text-left text-[13px] text-text-primary active:bg-bg-tertiary active:scale-[0.99] transition"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-bg-tertiary text-accent shrink-0">
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="leading-snug">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Voice recording overlay ──────────────────────────────────────────────────
+
+function VoiceRecordingOverlay({
+  onStop,
+  compact = false,
+}: {
+  onStop: () => void
+  compact?: boolean
+}) {
+  const bars = compact ? 7 : 11
+  return (
+    <div
+      className={cn(
+        'absolute inset-0 z-10 flex flex-col items-center justify-center gap-3',
+        'bg-bg-primary/95 backdrop-blur-md animate-fade-in',
+        compact ? 'rounded-md' : 'pt-3 pb-safe-3',
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        </span>
+        <span className={cn(
+          'font-medium text-text-primary',
+          compact ? 'text-xs' : 'text-sm',
+        )}>
+          Listening…
+        </span>
+      </div>
+
+      <div className={cn(
+        'flex items-center justify-center gap-1',
+        compact ? 'h-7' : 'h-10',
+      )}>
+        {Array.from({ length: bars }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              'voice-bar rounded-full bg-red-500',
+              compact ? 'w-1' : 'w-1.5',
+            )}
+            style={{
+              height: compact ? '20px' : '32px',
+              animationDelay: `${i * 80}ms`,
+            }}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onStop}
+        className={cn(
+          'flex items-center gap-2 rounded-full bg-red-500 font-semibold text-white shadow-lg shadow-red-500/30',
+          'active:scale-95 transition',
+          compact ? 'px-3 py-1 text-xs' : 'px-5 py-2 text-sm',
+        )}
+      >
+        <Square className={cn('fill-white', compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+        Stop
+      </button>
     </div>
   )
 }
