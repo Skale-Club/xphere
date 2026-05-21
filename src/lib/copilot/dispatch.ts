@@ -1,4 +1,4 @@
-// Tool dispatcher — runs the named tool with the auth-scoped Supabase client.
+// Tool dispatcher | runs the named tool with the auth-scoped Supabase client.
 
 import { ALL_TOOLS } from './tools'
 import type { ToolContext, ToolResult } from './tools/types'

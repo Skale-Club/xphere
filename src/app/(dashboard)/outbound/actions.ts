@@ -151,7 +151,7 @@ export async function importContacts(
     .single()
   if (!campaign) throw new Error('Campaign not found')
 
-  // Batch insert — use service-role to bypass RLS for upsert
+  // Batch insert | use service-role to bypass RLS for upsert
   // UNIQUE(campaign_id, phone) enforces deduplication at DB level
   const serviceClient = createServiceClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -173,7 +173,7 @@ export async function importContacts(
     .insert(rows, { count: 'exact' })
     .select('id')
 
-  // Code 23505 = unique_violation — count duplicates by difference
+  // Code 23505 = unique_violation | count duplicates by difference
   if (error && error.code !== '23505') throw new Error(error.message)
 
   const imported = data?.length ?? 0

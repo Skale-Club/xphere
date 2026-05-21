@@ -3,7 +3,7 @@
 // SEED-038: Workflow folders.
 //
 // CRUD for the `workflow_folders` table plus cascade helpers (archive/delete).
-// All actions are org-scoped via RLS — the active org resolves through
+// All actions are org-scoped via RLS | the active org resolves through
 // `get_current_org_id()`, so we never need to filter by org_id manually.
 
 import { revalidatePath } from 'next/cache'
@@ -190,7 +190,7 @@ async function collectDescendantFolderIds(
 ): Promise<string[]> {
   const ids: string[] = [rootId]
   let frontier: string[] = [rootId]
-  // Bounded loop — practical folder trees are shallow; cap at 16 levels.
+  // Bounded loop | practical folder trees are shallow; cap at 16 levels.
   for (let depth = 0; depth < 16 && frontier.length > 0; depth++) {
     const { data: children } = await supabase
       .from('workflow_folders')
@@ -231,7 +231,7 @@ export async function archiveFolder(id: string): Promise<ActionResult<void>> {
 // ─── Delete folder ────────────────────────────────────────────────────────────
 //
 // Soft-deletes workflows inside (sets `deleted_at`) and hard-deletes the
-// folder rows themselves — folders have no lifecycle of their own; the
+// folder rows themselves | folders have no lifecycle of their own; the
 // content lives in the trash, the empty folder is gone.
 
 export async function deleteFolder(

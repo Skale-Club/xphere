@@ -65,7 +65,7 @@ export const TRIGGERS: TriggerSpec[] = [
     },
   },
 
-  // ─── Calendar events (SEED-027 — only available once that seed ships;
+  // ─── Calendar events (SEED-027 | only available once that seed ships;
   // declared here so the spec is the unified registry).
   {
     type: 'event:contact.created',
@@ -134,7 +134,7 @@ export const TRIGGERS: TriggerSpec[] = [
   {
     type: 'event:opportunity.stage_changed',
     description:
-      'An opportunity was moved between stages (excludes won/lost — those have their own events).',
+      'An opportunity was moved between stages (excludes won/lost | those have their own events).',
     variables: ['opportunity.*', 'contact.*', 'stage.from.*', 'stage.to.*', 'pipeline.*', 'trigger.fired_at'],
   },
   {
@@ -162,6 +162,39 @@ export const TRIGGERS: TriggerSpec[] = [
     description: 'The value of an opportunity changed.',
     variables: ['opportunity.*', 'contact.*', 'changes.*', 'trigger.fired_at'],
   },
+
+  // ─── Pipeline time-based events (SEED-036). Emitted by the scheduling
+  // tick cron (src/app/api/cron/scheduling-tick/route.ts).
+  {
+    type: 'event:opportunity.aged_in_stage',
+    description:
+      'Time-based: an open opportunity has spent N days in its current stage. Configure via trigger_config.days (and optional stage_id).',
+    variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:opportunity.no_activity',
+    description:
+      'Time-based: no activities (notes, calls, messages, etc.) have been recorded on the opportunity for N days. Configure via trigger_config.days.',
+    variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:opportunity.close_date_approaching',
+    description:
+      'Time-based: expected_close_date is N days away. Configure via trigger_config.days_before.',
+    variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:opportunity.close_date_passed',
+    description:
+      'Time-based: expected_close_date has passed and the opportunity is still open.',
+    variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:opportunity.stale',
+    description:
+      'Time-based: opportunity updated_at has not changed for N days. Configure via trigger_config.days.',
+    variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
+  },
 ]
 
 // ─── Node types ───────────────────────────────────────────────────────────────
@@ -176,7 +209,7 @@ export interface NodeSpec {
 }
 
 export const NODES: NodeSpec[] = [
-  // ─── Action — messaging
+  // ─── Action | messaging
   {
     type: 'send_sms',
     kind: 'action',
@@ -238,11 +271,11 @@ export const NODES: NodeSpec[] = [
       required: ['text'],
     },
     examples: [
-      { text: '🆕 <b>Novo lead</b>\n{{contact.name}} — {{contact.phone}}', parse_mode: 'HTML' },
+      { text: '🆕 <b>Novo lead</b>\n{{contact.name}} | {{contact.phone}}', parse_mode: 'HTML' },
     ],
   },
 
-  // ─── Action — CRM
+  // ─── Action | CRM
   {
     type: 'create_contact',
     kind: 'action',
@@ -265,7 +298,7 @@ export const NODES: NodeSpec[] = [
     integration_required: ['google_contacts'],
   },
 
-  // ─── Action — knowledge
+  // ─── Action | knowledge
   {
     type: 'knowledge_base',
     kind: 'action',
@@ -277,7 +310,7 @@ export const NODES: NodeSpec[] = [
     },
   },
 
-  // ─── Action — webhook escape hatch
+  // ─── Action | webhook escape hatch
   {
     type: 'custom_webhook',
     kind: 'action',
@@ -294,7 +327,7 @@ export const NODES: NodeSpec[] = [
     },
   },
 
-  // ─── Action — pipeline (SEED-036). Built-in nodes; no integration required.
+  // ─── Action | pipeline (SEED-036). Built-in nodes; no integration required.
   {
     type: 'pipeline_move_opportunity',
     kind: 'action',

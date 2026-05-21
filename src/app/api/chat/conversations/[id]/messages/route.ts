@@ -1,5 +1,5 @@
-// GET /api/chat/conversations/[id]/messages — paginated message history
-// POST /api/chat/conversations/[id]/messages — admin sends message
+// GET /api/chat/conversations/[id]/messages | paginated message history
+// POST /api/chat/conversations/[id]/messages | admin sends message
 import { createClient, getUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { ConversationMessage } from '@/types/chat'
@@ -182,7 +182,7 @@ export async function POST(
     return Response.json({ error: 'Failed to send message' }, { status: 500 })
   }
 
-  // Compute last_message — use media label when content is empty
+  // Compute last_message | use media label when content is empty
   let lastMessageDisplay = content
   if (!content && media?.length) {
     const first = media[0]
@@ -200,7 +200,7 @@ export async function POST(
 
   // --- Outbound channel routing ---
   // DB insert and last_message update are complete for ALL channels at this point.
-  // Widget: no outbound call needed — SSE picks up the persisted message.
+  // Widget: no outbound call needed | SSE picks up the persisted message.
   // Messenger / Instagram: call Meta Send API synchronously.
   // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
   if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
@@ -223,7 +223,7 @@ export async function POST(
 
     const apiKey = await decrypt(ghlChannel.encrypted_api_key)
 
-    // Build the outbound message — optionally prefix with operator name
+    // Build the outbound message | optionally prefix with operator name
     const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
 
     try {
@@ -261,7 +261,7 @@ export async function POST(
     const pageToken = await decrypt(metaChannel.encrypted_page_access_token)
 
     // messenger → sender_id, instagram → igsid (per process-event.ts lines 93-96)
-    // NOTE: Migration 020 SQL comment says "psid" — this is WRONG. Use sender_id.
+    // NOTE: Migration 020 SQL comment says "psid" | this is WRONG. Use sender_id.
     const recipientId =
       conv.channel === 'instagram'
         ? (metadata.igsid ?? '')

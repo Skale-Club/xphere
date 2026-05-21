@@ -1,7 +1,7 @@
 // src/lib/agent-runtime/invocations.ts
 // INSERT-at-start and UPDATE-at-end helpers for agent_invocations table.
 // D-34-03: two-phase write (running → final status).
-// RLS explicitly blocks authenticated INSERT — must use service-role client.
+// RLS explicitly blocks authenticated INSERT | must use service-role client.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { Json } from '@/types/database'
@@ -70,14 +70,14 @@ export async function insertInvocationStart(
         orgId: params.organizationId,
       })
     )
-    // Return a placeholder — the invocation proceeds even if logging fails
+    // Return a placeholder | the invocation proceeds even if logging fails
     return 'insert-failed'
   }
 
   return data.id
 }
 
-// UPDATE at the END of runAgent() — fills cost, tokens, latency, final status.
+// UPDATE at the END of runAgent() | fills cost, tokens, latency, final status.
 // D-34-15: cost computed here via agent_model_pricing join.
 export async function updateInvocationEnd(
   params: InvocationEndParams

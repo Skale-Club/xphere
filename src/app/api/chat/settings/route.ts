@@ -1,4 +1,4 @@
-// GET /api/chat/settings — widget display name and avatar URL for the active org
+// GET /api/chat/settings | widget display name and avatar URL for the active org
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'

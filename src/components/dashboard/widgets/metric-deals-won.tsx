@@ -6,7 +6,7 @@ import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { formatCurrency } from '@/lib/pipeline/format'
 
 /**
- * Deals won this month — count + summed BRL value + 4-week sparkline.
+ * Deals won this month | count + summed BRL value + 4-week sparkline.
  */
 export async function MetricDealsWon() {
   let countThis = 0

@@ -26,7 +26,7 @@ export async function TopCompanies() {
   try {
     const supabase = await createClient()
 
-    // Fetch all accounts (name + id only — lightweight)
+    // Fetch all accounts (name + id only | lightweight)
     const { data: accounts } = await supabase
       .from('accounts')
       .select('id, name')

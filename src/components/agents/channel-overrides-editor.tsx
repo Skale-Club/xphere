@@ -23,7 +23,7 @@ interface ChannelOverridesEditorProps {
 /**
  * Per-channel structured override editor (D-36-03).
  * One card per channel in `allowed_channels`. Empty fields stay undefined so
- * `channelOverrideSchema.transform()` strips them before save — the runtime
+ * `channelOverrideSchema.transform()` strips them before save | the runtime
  * then falls back to base agent values.
  */
 export function ChannelOverridesEditor({

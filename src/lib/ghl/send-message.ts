@@ -1,7 +1,7 @@
 // src/lib/ghl/send-message.ts
 // Generalized GHL message sender for the push-pull inbox architecture.
 // Sends messages via the GHL Conversations API for SMS, WhatsApp, IG DM, etc.
-// The contact must already exist in GHL — contactId is required.
+// The contact must already exist in GHL | contactId is required.
 
 import { ghlFetchJson, type GhlCredentials } from './client'
 

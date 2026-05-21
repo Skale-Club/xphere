@@ -19,7 +19,7 @@ interface CallRow {
 }
 
 function formatDuration(s: number | null): string {
-  if (!s || s <= 0) return '—'
+  if (!s || s <= 0) return '|'
   const m = Math.floor(s / 60)
   const sec = s % 60
   return `${m}:${sec.toString().padStart(2, '0')}`

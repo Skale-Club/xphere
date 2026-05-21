@@ -1,6 +1,6 @@
 'use server'
 /**
- * Twilio integration server actions (v2.1 — per-org credentials).
+ * Twilio integration server actions (v2.1 | per-org credentials).
  *
  * All Twilio Voice SDK + SIP + SMS credentials are stored PER ORG inside the
  * `integrations` table:
@@ -8,7 +8,7 @@
  *   - config (JSONB):                from_number, twiml_app_sid, sip_domain
  *
  * The encryption format is the standard AES-256-GCM from `@/lib/crypto`.
- * NEVER return decrypted credentials from the server actions in this file —
+ * NEVER return decrypted credentials from the server actions in this file |
  * the UI receives masked / boolean-presence indicators only.
  */
 
@@ -26,7 +26,7 @@ export interface TwilioIntegrationView {
   id: string | null
   name: string
   isActive: boolean
-  /** Boolean presence — the actual values are never sent to the client. */
+  /** Boolean presence | the actual values are never sent to the client. */
   hasAccountSid: boolean
   hasAuthToken: boolean
   hasApiKeySid: boolean
@@ -34,7 +34,7 @@ export interface TwilioIntegrationView {
   /** Masked snippets so the user can confirm which credential is on file. */
   accountSidHint: string | null
   apiKeySidHint: string | null
-  /** Legacy single-number field — kept for one release. Use `numbers` instead. */
+  /** Legacy single-number field | kept for one release. Use `numbers` instead. */
   fromNumber: string | null
   twimlAppSid: string | null
   sipDomain: string | null
@@ -117,7 +117,7 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
   try {
     blob = JSON.parse(await decrypt(row.encrypted_api_key)) as DecryptedBlob
   } catch {
-    // Decryption failure — surface the row as "needs reconfiguration"
+    // Decryption failure | surface the row as "needs reconfiguration"
     blob = {}
   }
 
@@ -158,13 +158,13 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
 }
 
 export interface SaveTwilioInput {
-  /** Optional new value — if blank/omitted, the existing value is kept. */
+  /** Optional new value | if blank/omitted, the existing value is kept. */
   accountSid?: string
   authToken?: string
   apiKeySid?: string
   apiKeySecret?: string
   /**
-   * @deprecated v2.3 — phone numbers are managed via numbers-actions.ts.
+   * @deprecated v2.3 | phone numbers are managed via numbers-actions.ts.
    * This field is accepted for backwards compatibility but is no longer
    * written to `integrations.config.from_number`. Will be removed next milestone.
    */
@@ -223,7 +223,7 @@ export async function saveTwilioIntegration(
   }
 
   const currentConfig = (existing?.config ?? {}) as TwilioConfig
-  // Note: `from_number` is no longer written here — numbers are managed via
+  // Note: `from_number` is no longer written here | numbers are managed via
   // numbers-actions.ts (v2.3). The legacy field on `currentConfig.from_number`
   // is preserved as-is so resolveTwilioCredentials can fall back to it.
   const newConfig: TwilioConfig = {
@@ -235,7 +235,7 @@ export async function saveTwilioIntegration(
   const encrypted = await encrypt(JSON.stringify(newBlob))
   const keyHint = maskApiKey(newBlob.account_sid)
 
-  // `integrations.config` is JSONB — Supabase generates a structural Json type
+  // `integrations.config` is JSONB | Supabase generates a structural Json type
   // that requires an index signature. Casting through unknown keeps strict-mode
   // happy while preserving the field-level shape via TwilioConfig in our code.
   const configForDb = newConfig as unknown as TwilioConfigUpdate
@@ -399,7 +399,7 @@ export async function testSendSms(
 
   const to = input.to.trim()
   if (!to) return { success: false, error: 'Provide a destination phone number.' }
-  const body = input.body?.trim() || 'Test SMS from Xphere — Twilio integration is connected.'
+  const body = input.body?.trim() || 'Test SMS from Xphere | Twilio integration is connected.'
 
   const basicAuth = btoa(`${blob.account_sid}:${blob.auth_token}`)
   const url = `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/Messages.json`
@@ -487,7 +487,7 @@ export async function testSipConfig(): Promise<{ success: boolean; error?: strin
   if (!view.sipDomain) {
     return { success: false, error: 'SIP domain not configured. Paste the *.sip.twilio.com domain from your Twilio console.' }
   }
-  // No remote-side check available without provisioning a SIP endpoint — surface
+  // No remote-side check available without provisioning a SIP endpoint | surface
   // the configured domain so the user can confirm it matches Twilio.
   return { success: true, sipDomain: view.sipDomain }
 }

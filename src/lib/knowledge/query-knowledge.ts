@@ -1,6 +1,6 @@
 // src/lib/knowledge/query-knowledge.ts
 // Hot path: LangChain SupabaseVectorStore similarity search → synthesize answer
-// Keys fetched from DB integrations table (not env vars) — supports OpenRouter + Anthropic.
+// Keys fetched from DB integrations table (not env vars) | supports OpenRouter + Anthropic.
 // Budget: ~50ms embed + ~50ms search + ~200ms synthesis = ~300ms (within 500ms Vapi limit)
 
 import OpenAI from 'openai'
@@ -32,7 +32,7 @@ export async function queryKnowledge(
     })
 
     // LangChain's SupabaseVectorStore types against an untyped SupabaseClient,
-    // but it only uses .from()/.rpc() at runtime — both work with our typed client.
+    // but it only uses .from()/.rpc() at runtime | both work with our typed client.
     const vectorStore = new SupabaseVectorStore(embeddings, {
       client: supabase as unknown as SupabaseClient,
       tableName: 'documents',
@@ -46,10 +46,10 @@ export async function queryKnowledge(
 
     if (results.length === 0) return FALLBACK_RESPONSE
 
-    // Step 4: Synthesize answer — prefer OpenRouter, fall back to Anthropic (~200ms)
+    // Step 4: Synthesize answer | prefer OpenRouter, fall back to Anthropic (~200ms)
     const context = results.map((doc) => doc.pageContent).join('\n\n---\n\n')
 
-    const synthesisPrompt = `Answer the following question using ONLY the provided context. Be concise — 2-3 sentences maximum. If the context does not contain the answer, say you don't have that information.\n\nContext:\n${context}\n\nQuestion: ${query}`
+    const synthesisPrompt = `Answer the following question using ONLY the provided context. Be concise | 2-3 sentences maximum. If the context does not contain the answer, say you don't have that information.\n\nContext:\n${context}\n\nQuestion: ${query}`
 
     const openrouterKey = await getProviderKey('openrouter', organizationId, supabase)
     if (openrouterKey) {

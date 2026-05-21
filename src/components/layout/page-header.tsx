@@ -5,13 +5,13 @@ import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
-  /** Kept for API compatibility — no longer rendered (header breadcrumb shows it). */
+  /** Kept for API compatibility | no longer rendered (header breadcrumb shows it). */
   eyebrow?: string
-  /** Kept for API compatibility — no longer rendered. */
+  /** Kept for API compatibility | no longer rendered. */
   eyebrowIcon?: React.ComponentType<{ className?: string }>
-  /** Kept for API compatibility — no longer rendered. */
+  /** Kept for API compatibility | no longer rendered. */
   title?: React.ReactNode
-  /** Kept for API compatibility — no longer rendered. */
+  /** Kept for API compatibility | no longer rendered. */
   description?: React.ReactNode
   /** Right-aligned action area (buttons, switches, etc.). Still rendered. */
   actions?: React.ReactNode
@@ -31,7 +31,7 @@ export function PageHeader({
   actions,
   back,
   className,
-  // intentionally unused — kept for backward compatibility:
+  // intentionally unused | kept for backward compatibility:
   eyebrow: _eyebrow,
   eyebrowIcon: _eyebrowIcon,
   title: _title,

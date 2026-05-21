@@ -26,7 +26,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 // type-appropriate defaults so the contact insert satisfies any required-
 // field invariant the org has configured. If the org has none, returns {}.
 //
-// Service role read — public booking has no auth.uid() context.
+// Service role read | public booking has no auth.uid() context.
 async function buildRequiredCustomFieldDefaults(
   orgId: string,
 ): Promise<Record<string, unknown>> {
@@ -116,7 +116,7 @@ async function getClientIp(): Promise<string> {
     const xri = h.get('x-real-ip')
     if (xri) return xri.trim()
   } catch {
-    // headers() throws outside a request context — treat as unknown.
+    // headers() throws outside a request context | treat as unknown.
   }
   return 'unknown'
 }
@@ -191,7 +191,7 @@ export async function cancelBooking(id: string): Promise<ActionResult<void>> {
 
 // Shared helper for cancellation paths. Looks up the booking + event type
 // + scheduling profile + host name, then queues the cancellation email.
-// Never throws — caller wraps with .catch already.
+// Never throws | caller wraps with .catch already.
 async function sendCancellationEmailForBooking(bookingId: string): Promise<void> {
   try {
     const svc = createServiceRoleClient()
@@ -351,7 +351,7 @@ export async function createBooking(
   const parsed = createBookingSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'validation_error' }
 
-  // Rate limit per (IP, event_type) — 5 bookings per hour. Fails open if
+  // Rate limit per (IP, event_type) | 5 bookings per hour. Fails open if
   // Redis is unreachable so we never block legitimate traffic on infra hiccups.
   const ip = await getClientIp()
   const rl = await rateLimit(
@@ -427,7 +427,7 @@ export async function createBooking(
         .select('id')
         .single()
       if (insertErr) {
-        // Validation / constraint failure — log + fall back to no link.
+        // Validation / constraint failure | log + fall back to no link.
         console.warn(
           '[scheduling/bookings] contact auto-create failed; booking will proceed without contact link:',
           insertErr.message,
@@ -437,7 +437,7 @@ export async function createBooking(
       }
     }
   } catch (err) {
-    // CRM link failure is non-fatal — log + proceed.
+    // CRM link failure is non-fatal | log + proceed.
     console.warn(
       '[scheduling/bookings] contact link pipeline failed:',
       err instanceof Error ? err.message : err,

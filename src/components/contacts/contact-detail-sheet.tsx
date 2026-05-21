@@ -111,12 +111,16 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
       <DialogContent className="flex h-[min(780px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[560px] flex-col overflow-hidden p-0 gap-0">
         {loading && !contact ? (
           <div className="p-6 space-y-3 animate-pulse">
+            <DialogTitle className="sr-only">Loading contact</DialogTitle>
             <div className="h-16 w-16 rounded-full bg-bg-tertiary" />
             <div className="h-5 w-2/3 rounded bg-bg-tertiary" />
             <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
           </div>
         ) : !contact ? (
-          <div className="p-6 text-[13px] text-text-secondary">Contact not found.</div>
+          <div className="p-6 text-[13px] text-text-secondary">
+            <DialogTitle className="sr-only">Contact not found</DialogTitle>
+            Contact not found.
+          </div>
         ) : editing ? (
           <div className="flex flex-col overflow-hidden h-full">
             <DialogHeader className="border-b border-border-subtle px-6 py-4">
@@ -264,7 +268,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           <ChannelBadge channel={c.channel as Channel} showLabel={false} size="md" />
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary">
-                              {c.last_message || '—'}
+                              {c.last_message || '|'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.last_message_at)} · {c.status}
@@ -299,7 +303,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary capitalize">
-                              {c.direction} · {c.status ?? '—'}
+                              {c.direction} · {c.status ?? '|'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.started_at)}

@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — Generic api_key panel.
+// SEED-042 | Generic api_key panel.
 // Renders the IntegrationDefinition.fields as a form, with Test → Save → Activate flow.
 
 import { useState } from 'react'

@@ -10,7 +10,7 @@ export function verifyVapiSecret(request: Request): boolean {
   const expected = process.env.VAPI_WEBHOOK_SECRET
   if (!expected) {
     if (!warnedMissing) {
-      console.warn('[vapi] VAPI_WEBHOOK_SECRET is not set — webhook signature verification disabled.')
+      console.warn('[vapi] VAPI_WEBHOOK_SECRET is not set | webhook signature verification disabled.')
       warnedMissing = true
     }
     return true

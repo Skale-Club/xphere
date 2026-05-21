@@ -1,5 +1,5 @@
 // Variable interpolation for flow node parameters.
-// Syntax: {{ path.to.value }} — walks a dot-separated path through the run state.
+// Syntax: {{ path.to.value }} | walks a dot-separated path through the run state.
 //
 // Examples:
 //   "Hello {{ trigger.payload.name }}" + state.trigger.payload.name = "Alice"
@@ -50,7 +50,7 @@ function resolvePath(obj: unknown, path: string): unknown {
 }
 
 // Evaluates a condition expression. Linear-first scope: supports very small
-// surface — `path op value` where op is ==, !=, >, <, >=, <=, contains.
+// surface | `path op value` where op is ==, !=, >, <, >=, <=, contains.
 // JSONata can be wired in later as a richer alternative.
 export function evaluateCondition(expression: string, state: Record<string, unknown>): boolean {
   if (!expression.trim()) return true

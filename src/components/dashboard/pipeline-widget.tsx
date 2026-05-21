@@ -9,7 +9,7 @@ import { formatCurrency } from '@/lib/pipeline/format'
 
 /**
  * Home-dashboard widget summarising the active sales pipeline.
- * Server component — fetches metrics inline.
+ * Server component | fetches metrics inline.
  */
 export async function PipelineWidget() {
   const m = await getPipelineMetrics()

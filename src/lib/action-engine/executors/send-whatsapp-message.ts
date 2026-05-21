@@ -5,7 +5,7 @@
 // Resolves the org's active Evolution Go instance, formats the text via the
 // WhatsApp adapter (1600-char splits, native markup preserved), and sends.
 //
-// Result is always a single line — no newlines (Vapi response parser breaks on \n).
+// Result is always a single line | no newlines (Vapi response parser breaks on \n).
 
 import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import type { ActionContext } from '@/lib/action-engine/execute-action'

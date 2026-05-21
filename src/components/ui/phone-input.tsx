@@ -15,7 +15,7 @@ interface PhoneInputProps {
   value: string
   onChange: (value: string) => void
   defaultCountry?: CountryIso2
-  /** Allowed countries — defaults to the full list. */
+  /** Allowed countries | defaults to the full list. */
   preferredCountries?: CountryIso2[]
   placeholder?: string
   disabled?: boolean
@@ -31,7 +31,7 @@ interface PhoneInputProps {
  *
  * Default country is US (`us`). Phone values are stored in E.164 format
  * (e.g. `+14155551234`). Use this everywhere a user enters a phone number
- * — never a plain text input.
+ * | never a plain text input.
  *
  * Styling is fully Tailwind-driven via design tokens; the underlying lib
  * (react-international-phone) is wrapped to match `<Input>` height and
@@ -49,7 +49,7 @@ export function PhoneInput({
   className,
   ...rest
 }: PhoneInputProps) {
-  // Restrict the country list if `preferredCountries` is passed — otherwise
+  // Restrict the country list if `preferredCountries` is passed | otherwise
   // show all 250+ countries (default).
   const countries = React.useMemo(() => {
     if (!preferredCountries?.length) return defaultCountries

@@ -163,10 +163,10 @@ export function ImportDetailClient({
 
       {/* Config summary */}
       <div className="rounded-[10px] border border-border-subtle bg-bg-secondary/50 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
-        <ConfigItem label="Dedup strategy" value={imp.dedup_strategy?.replace('_', ' ') ?? '—'} />
-        <ConfigItem label="Dedup keys" value={(imp.dedup_keys ?? []).join(' → ') || '—'} />
-        <ConfigItem label="Default source" value={imp.default_source ?? '—'} />
-        <ConfigItem label="Default tags" value={(imp.default_tags ?? []).join(', ') || '—'} />
+        <ConfigItem label="Dedup strategy" value={imp.dedup_strategy?.replace('_', ' ') ?? '|'} />
+        <ConfigItem label="Dedup keys" value={(imp.dedup_keys ?? []).join(' → ') || '|'} />
+        <ConfigItem label="Default source" value={imp.default_source ?? '|'} />
+        <ConfigItem label="Default tags" value={(imp.default_tags ?? []).join(', ') || '|'} />
       </div>
 
       {/* Error rows */}

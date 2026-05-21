@@ -8,7 +8,7 @@ export type ActivityFeedFilter = 'all' | 'messages' | 'calls' | 'deals' | 'revie
 
 export interface ActivityFeedEvent {
   id: string
-  /** Visual category — drives icon + tone in the feed renderer. */
+  /** Visual category | drives icon + tone in the feed renderer. */
   type: 'message' | 'call' | 'agent' | 'tool' | 'review' | 'error'
   title: string
   description?: string

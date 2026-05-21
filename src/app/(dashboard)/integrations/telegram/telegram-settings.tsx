@@ -63,7 +63,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
       }
       toast.success(`Connected: @${res.botUsername}`)
       setToken('')
-      // Optimistic refresh — server will revalidate, but reflect immediately
+      // Optimistic refresh | server will revalidate, but reflect immediately
       window.location.reload()
     })
   }
@@ -179,7 +179,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-success/30 bg-success/5 px-4 py-3">
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-text-primary">
-                Conectado{bot.botUsername ? ` — @${bot.botUsername}` : ''}
+                Conectado{bot.botUsername ? ` | @${bot.botUsername}` : ''}
               </div>
               {bot.botName ? (
                 <div className="text-[12px] text-text-secondary">{bot.botName}</div>
@@ -314,7 +314,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
               <li>
                 Envie <code>/start</code> no grupo.
               </li>
-              <li>O bot responde com o Chat ID — copie e cole aqui.</li>
+              <li>O bot responde com o Chat ID | copie e cole aqui.</li>
             </ol>
           </div>
         </div>

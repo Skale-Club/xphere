@@ -111,7 +111,7 @@ export async function regenerateSection(input: {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      system: `${EMAIL_SYSTEM_PROMPT}\n\nYou are regenerating a SINGLE email section. Return ONLY the HTML fragment for that section — no JSON wrapper, no code fences.`,
+      system: `${EMAIL_SYSTEM_PROMPT}\n\nYou are regenerating a SINGLE email section. Return ONLY the HTML fragment for that section | no JSON wrapper, no code fences.`,
       messages: [
         {
           role: 'user',

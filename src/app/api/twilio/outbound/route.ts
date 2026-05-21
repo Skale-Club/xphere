@@ -1,9 +1,9 @@
 // src/app/api/twilio/outbound/route.ts
-// Server-initiated outbound call (Mode A — phone_forward). Modes B and C dial
+// Server-initiated outbound call (Mode A | phone_forward). Modes B and C dial
 // directly from the user's softphone / browser SDK; this endpoint exists for
 // Mode A users (and the dashboard "click-to-call" fallback for any mode).
 //
-// Auth: getUser() — only authenticated org members can initiate calls.
+// Auth: getUser() | only authenticated org members can initiate calls.
 // Flow:
 //   1. Read the user's call_settings (must exist + have a forward target)
 //   2. Use the Twilio REST API to dial: From=org Twilio number, To={contact}
@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
   const json = (await request.json().catch(() => null)) as unknown
   const parsed = bodySchema.safeParse(json)
   if (!parsed.success) {
-    return Response.json({ error: 'Invalid request body — expected { to: string }' }, { status: 400 })
+    return Response.json({ error: 'Invalid request body | expected { to: string }' }, { status: 400 })
   }
   const { to, from: fromOverride } = parsed.data
 
@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!settings) {
     return Response.json(
-      { error: 'No call settings — configure them in /settings/calls first.' },
+      { error: 'No call settings | configure them in /settings/calls first.' },
       { status: 400 },
     )
   }
@@ -87,7 +87,7 @@ export async function POST(request: Request): Promise<Response> {
       record: settings.record_calls,
     })
 
-    // Insert an initial call_logs row — the status webhook will fill in the rest.
+    // Insert an initial call_logs row | the status webhook will fill in the rest.
     await supabase.from('call_logs').insert({
       org_id: orgId,
       call_sid: sid,

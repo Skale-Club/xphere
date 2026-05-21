@@ -1,8 +1,8 @@
 // src/lib/custom-fields/render-config.ts
-// Phase 69 CUSTOMFIELDS-CORE-LIB — Plan 69-01
+// Phase 69 CUSTOMFIELDS-CORE-LIB | Plan 69-01
 //
 // Read-only render configuration for all 13 CustomFieldType values.
-// No React imports — safe for server components, Edge Functions, and the
+// No React imports | safe for server components, Edge Functions, and the
 // future Phase 71 renderer.
 
 import { z } from 'zod'
@@ -19,7 +19,7 @@ export interface FieldRenderConfig {
 }
 
 /**
- * FIELD_RENDER_CONFIG — one entry per CustomFieldType (13 total).
+ * FIELD_RENDER_CONFIG | one entry per CustomFieldType (13 total).
  * Changing a zodSchema here changes validation behaviour in validate.ts.
  */
 export const FIELD_RENDER_CONFIG: Record<CustomFieldType, FieldRenderConfig> = {

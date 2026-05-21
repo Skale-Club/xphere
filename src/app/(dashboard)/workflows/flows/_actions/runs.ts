@@ -93,7 +93,7 @@ export async function runFlowNow(input: {
   const parsed = FlowDefinition.safeParse(version.definition)
   if (!parsed.success) return { ok: false, error: 'invalid_definition' }
 
-  // Execute (synchronous — Vercel Fluid Compute handles long bursts up to 800s)
+  // Execute (synchronous | Vercel Fluid Compute handles long bursts up to 800s)
   const result = await runFlow({
     workflowId: workflow.id,
     versionId: version.id,

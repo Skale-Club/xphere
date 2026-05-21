@@ -6,7 +6,7 @@
 // Phase 25 ships text-only convenience: pass `text: 'hi'` and the executor
 // builds a minimal v2 dynamic-block. Otherwise pass through `data` unchanged.
 //
-// message_tag defaults to 'ACCOUNT_UPDATE' — the most permissive transactional tag.
+// message_tag defaults to 'ACCOUNT_UPDATE' | the most permissive transactional tag.
 // Operator override via params.message_tag.
 
 import { manychatFetchJson, type ManychatCredentials } from './client'

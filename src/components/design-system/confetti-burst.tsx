@@ -3,7 +3,7 @@
 import * as React from 'react'
 import dynamic from 'next/dynamic'
 
-// react-confetti pulls in window APIs — load only on client.
+// react-confetti pulls in window APIs | load only on client.
 const Confetti = dynamic(() => import('react-confetti'), { ssr: false })
 
 interface ConfettiBurstProps {
@@ -40,7 +40,7 @@ export function ConfettiBurst({
 
   React.useEffect(() => {
     if (!active) return
-    // Respect reduced motion — skip the celebration but still notify.
+    // Respect reduced motion | skip the celebration but still notify.
     if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       onComplete?.()
       return

@@ -1,5 +1,5 @@
 // src/app/api/reviews/[token]/route.ts
-// Public widget endpoint — no authentication, scoped by widget_token.
+// Public widget endpoint | no authentication, scoped by widget_token.
 // Powers the embeddable <iframe> on client sites.
 //
 // Query params:
@@ -169,7 +169,7 @@ export async function GET(
     }
   }
 
-  // Compute distribution (full active set — independent of filters/pagination)
+  // Compute distribution (full active set | independent of filters/pagination)
   const { data: distRows } = await supabase
     .from('google_reviews')
     .select('rating')

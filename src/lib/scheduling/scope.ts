@@ -65,7 +65,7 @@ export async function buildMeetingScope(
 
   if (error || !booking) return null
 
-  // Optional joins (event_type, store, contact). Each is best-effort —
+  // Optional joins (event_type, store, contact). Each is best-effort |
   // missing rows just leave the corresponding fields null.
   const [eventTypeRes, contactRes] = await Promise.all([
     booking.event_type_id

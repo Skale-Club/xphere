@@ -24,7 +24,7 @@ export default async function AgentsPage() {
         eyebrow="Agents"
         eyebrowIcon={Bot}
         title="Agents"
-        description="Configure the chat agents that serve your text channels — pick models, attach tools, and route them to inboxes."
+        description="Configure the chat agents that serve your text channels | pick models, attach tools, and route them to inboxes."
         actions={
           <Button asChild>
             <Link href="/agents/new">

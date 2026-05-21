@@ -1,5 +1,5 @@
 // src/lib/knowledge/chunk-text.ts
-// Token-based text chunker using gpt-tokenizer (cl100k — same as text-embedding-3-small)
+// Token-based text chunker using gpt-tokenizer (cl100k | same as text-embedding-3-small)
 import { encode, decode } from 'gpt-tokenizer'
 
 export function chunkText(

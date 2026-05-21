@@ -4,7 +4,7 @@
 // Called inline by /api/manychat/webhook AFTER the event row has been inserted
 // (with status='unmatched'). This module finds the first matching rule, then:
 //
-// v2.0 agent path (CHAN-04 — Phase 37): when rule.agent_id is non-null, routes
+// v2.0 agent path (CHAN-04 | Phase 37): when rule.agent_id is non-null, routes
 //   through runAgent({ stream: false }) and replies via sendManychatMessage.
 // v1.x legacy path: resolves the bound tool_config, decrypts credentials, executes
 //   via the action engine, logs to action_logs, and updates manychat_events.
@@ -28,7 +28,7 @@ export interface DispatchInput {
   channelId: string
   eventType: string
   payload: Record<string, unknown>
-  /** Subscriber ID from the inbound payload — required for agent reply delivery */
+  /** Subscriber ID from the inbound payload | required for agent reply delivery */
   subscriberId?: string | number
 }
 
@@ -61,7 +61,7 @@ export async function dispatchManychatEvent(
 }
 
 // ---------------------------------------------------------------------------
-// Agent path (v2.0 — CHAN-04)
+// Agent path (v2.0 | CHAN-04)
 // ---------------------------------------------------------------------------
 
 async function dispatchAgentPath(
@@ -71,13 +71,13 @@ async function dispatchAgentPath(
   supabase: SupabaseClient<Database>
 ): Promise<void> {
   try {
-    // Extract user message from payload — field name is 'text' or 'message' by convention
+    // Extract user message from payload | field name is 'text' or 'message' by convention
     const userMessage =
       typeof input.payload.text === 'string' ? input.payload.text :
       typeof input.payload.message === 'string' ? input.payload.message :
       JSON.stringify(input.payload)
 
-    // Run agent (blocking, non-streaming — channel: 'manychat')
+    // Run agent (blocking, non-streaming | channel: 'manychat')
     const result = await runAgent({
       orgId: input.orgId,
       agentId,
@@ -127,7 +127,7 @@ async function dispatchAgentPath(
 }
 
 // ---------------------------------------------------------------------------
-// Legacy path (v1.x — tool_config_id → action engine) — UNCHANGED behavior
+// Legacy path (v1.x | tool_config_id → action engine) | UNCHANGED behavior
 // ---------------------------------------------------------------------------
 
 async function dispatchLegacyPath(

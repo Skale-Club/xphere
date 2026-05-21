@@ -2,13 +2,13 @@
 
 /**
  * Server actions for Custom Field Definition management.
- * Phase 70-01 — CUSTOMFIELDS-SETTINGS-UI
+ * Phase 70-01 | CUSTOMFIELDS-SETTINGS-UI
  *
  * Addresses: CF-01 (list), CF-04 (create/update/archive), CF-05 (reorder).
  *
  * Patterns mirror src/app/(dashboard)/accounts/actions.ts:
  *   - Cached getUser() + createClient() from @/lib/supabase/server (CLAUDE.md)
- *   - RLS-scoped client — never filter by org_id manually on SELECT/UPDATE/DELETE
+ *   - RLS-scoped client | never filter by org_id manually on SELECT/UPDATE/DELETE
  *   - get_current_org_id() RPC for the org_id NOT NULL column on INSERT
  *
  * Action return shape:
@@ -16,7 +16,7 @@
  *
  * Archive behavior (CF-04 LOCKED):
  *   archiveDefinition sets archived=true (soft delete). The row and all stored
- *   values in entity custom_fields jsonb are preserved — no data loss.
+ *   values in entity custom_fields jsonb are preserved | no data loss.
  *
  * Type-change guard (D-07 spirit from SEED-017):
  *   updateDefinitionSchema intentionally omits the `type` field. Type changes
@@ -62,7 +62,7 @@ const validationSchema = z.object({
   currency_code: z.string().length(3).optional(),
 })
 
-// ─── Zod schemas (internal — not exported; 'use server' only allows async fn exports) ─
+// ─── Zod schemas (internal | not exported; 'use server' only allows async fn exports) ─
 
 const getDefinitionsSchema = z.object({
   entity: z.enum(CUSTOM_FIELD_ENTITIES),
@@ -90,7 +90,7 @@ const createDefinitionSchema = z.object({
 
 const updateDefinitionSchema = z.object({
   id: z.string().uuid(),
-  // type is intentionally excluded — type changes blocked after creation (D-07)
+  // type is intentionally excluded | type changes blocked after creation (D-07)
   label: z.string().min(1).max(100).optional(),
   required: z.boolean().optional(),
   unique_per_org: z.boolean().optional(),
@@ -121,7 +121,7 @@ export type UpdateDefinitionInput = z.infer<typeof updateDefinitionSchema>
 export type ArchiveDefinitionInput = z.infer<typeof archiveDefinitionSchema>
 export type ReorderDefinitionsInput = z.infer<typeof reorderDefinitionsSchema>
 
-/** Alias for the database Row type — use this in UI components. */
+/** Alias for the database Row type | use this in UI components. */
 export type CustomFieldDefinitionRow =
   Database['public']['Tables']['custom_field_definitions']['Row']
 
@@ -129,7 +129,7 @@ export type CustomFieldDefinitionRow =
 
 /**
  * Returns all custom field definitions for the given entity.
- * Active org is resolved by RLS — no manual org_id filter needed.
+ * Active org is resolved by RLS | no manual org_id filter needed.
  * By default returns only non-archived definitions, ordered by position ASC.
  */
 export async function getDefinitions(
@@ -185,7 +185,7 @@ export async function createDefinition(
 
   const supabase = await createClient()
 
-  // org_id is required for INSERT — RLS alone does not fill it
+  // org_id is required for INSERT | RLS alone does not fill it
   const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
   if (orgErr || !orgId) return err('no_organization', orgErr)
 
@@ -240,7 +240,7 @@ export async function createDefinition(
 /**
  * Partially updates an existing custom field definition.
  * The `type` field is intentionally excluded from updates (D-07).
- * RLS scopes the UPDATE to the active org — no manual org_id filter needed.
+ * RLS scopes the UPDATE to the active org | no manual org_id filter needed.
  */
 export async function updateDefinition(
   input: UpdateDefinitionInput,
@@ -287,7 +287,7 @@ export async function updateDefinition(
 
 /**
  * Soft-deletes a custom field definition by setting archived=true.
- * Values stored in entity custom_fields jsonb are NOT touched — no data loss.
+ * Values stored in entity custom_fields jsonb are NOT touched | no data loss.
  * RLS scopes the UPDATE to the active org.
  */
 export async function archiveDefinition(
@@ -324,7 +324,7 @@ export async function archiveDefinition(
  * (prior state) and converge to the correct final state. Acceptable for v1 given
  * the low concurrency of settings changes.
  *
- * RLS scopes all UPDATEs to the active org — cross-org rewrites silently no-op.
+ * RLS scopes all UPDATEs to the active org | cross-org rewrites silently no-op.
  */
 export async function reorderDefinitions(
   input: ReorderDefinitionsInput,

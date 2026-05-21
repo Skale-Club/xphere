@@ -15,7 +15,7 @@ CANVAS MODEL:
 - A flow is a directed graph: nodes connected by edges.
 - Node types: trigger (start), action (call integration), condition (if/else branch), wait (sleep or wait for event), agent (AI loop), end (terminate).
 - Every flow needs exactly ONE trigger node. Most flows benefit from an end node.
-- Linear sequences are preferred — most automations are: trigger → 2-5 actions → end.
+- Linear sequences are preferred | most automations are: trigger → 2-5 actions → end.
 
 RULES:
 1. Before mutating, call list_nodes to see the current state.
@@ -36,7 +36,7 @@ Use {{ trigger.payload.field }} or {{ steps.node_id.output.field }} for variable
 
 // ─── Provider selection ──────────────────────────────────────────────────────
 // Resolution order (matches existing knowledge synthesis pattern):
-//   1. Org-stored OpenRouter key (preferred — multi-model, billed per org)
+//   1. Org-stored OpenRouter key (preferred | multi-model, billed per org)
 //   2. Org-stored Anthropic key
 //   3. ANTHROPIC_API_KEY env var (platform fallback for dev)
 

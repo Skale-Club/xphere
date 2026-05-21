@@ -29,7 +29,7 @@ export default async function ConversationDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  // Fetch the conversation — RLS ensures org-scoping automatically
+  // Fetch the conversation | RLS ensures org-scoping automatically
   const { data: conversation } = await supabase
     .from('conversations')
     .select(

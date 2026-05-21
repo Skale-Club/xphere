@@ -140,7 +140,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
               const haystack = (value + ' ' + (keywords ?? []).join(' ')).toLowerCase()
               const needle = search.toLowerCase().trim()
               if (!needle) return 1
-              // Simple fuzzy — every char of needle must appear in order
+              // Simple fuzzy | every char of needle must appear in order
               let i = 0
               for (const c of haystack) {
                 if (c === needle[i]) i++

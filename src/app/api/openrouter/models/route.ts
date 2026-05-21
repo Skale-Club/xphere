@@ -1,4 +1,4 @@
-// SEED-042 — OpenRouter models proxy.
+// SEED-042 | OpenRouter models proxy.
 // Used by the OpenRouter integration panel to populate model selectors.
 // Looks up the org's stored OpenRouter key, queries openrouter.ai/api/v1/models
 // and normalises the response to { id, name, modalities[] }.

@@ -1,16 +1,16 @@
 // src/app/api/twilio/sms/route.ts
-// Twilio Inbound SMS webhook (SEED-005 — omnichannel inbox completion).
+// Twilio Inbound SMS webhook (SEED-005 | omnichannel inbox completion).
 // Public URL: https://xphere.app/api/twilio/sms
 //
 // Auth: HMAC-SHA1 signature in the X-Twilio-Signature header (Twilio convention,
 // NOT SHA256 like Meta). The signature covers: requestUrl + concat(sorted POST params).
-// Twilio's auth token is the SAME credential used to send outbound SMS — we look up
+// Twilio's auth token is the SAME credential used to send outbound SMS | we look up
 // the org by the destination phone number (`To`), then validate the signature against
 // that org's stored auth_token.
 //
 // Behaviour:
 //   - Returns 403 only when signature validation fails AFTER successful org lookup.
-//   - Returns 200 with empty `<Response/>` TwiML on every other path — even malformed
+//   - Returns 200 with empty `<Response/>` TwiML on every other path | even malformed
 //     bodies, missing orgs, processing errors. This is mandatory: Twilio retries 4xx/5xx
 //     aggressively and a bad webhook can wedge an entire SMS conversation.
 //   - Async processing (conversation upsert + agent invocation + auto-reply) runs via
@@ -41,7 +41,7 @@ function ackTwiml(): Response {
  *
  * Twilio docs: https://www.twilio.com/docs/usage/webhooks/webhooks-security
  *
- * We construct this from the request URL (must match what Twilio called — including
+ * We construct this from the request URL (must match what Twilio called | including
  * proto + host + path + query) and the form-encoded POST body parameters.
  */
 function buildSignatureBase(url: string, params: URLSearchParams): string {
@@ -61,7 +61,7 @@ function buildSignatureBase(url: string, params: URLSearchParams): string {
  * HMAC-SHA1 the canonical string with the auth token, then base64-encode.
  * Compare with the provided header using timingSafeEqual to avoid timing attacks.
  *
- * Twilio sends the signature as a base64 string — NOT prefixed with "sha1=".
+ * Twilio sends the signature as a base64 string | NOT prefixed with "sha1=".
  */
 export function verifyTwilioSignature(
   authToken: string,
@@ -93,11 +93,11 @@ export function verifyTwilioSignature(
 
 /**
  * Resolve the absolute URL Twilio used to call us. We prefer X-Forwarded-* headers
- * (Vercel/proxy environments) over the raw request URL — the latter may be
+ * (Vercel/proxy environments) over the raw request URL | the latter may be
  * `http://...` internally even though Twilio called `https://xphere.app`.
  *
  * Production canonical origin is documented in CLAUDE.md as
- * https://xphere.app — but we read the host dynamically to keep
+ * https://xphere.app | but we read the host dynamically to keep
  * preview/staging working.
  */
 function resolveRequestUrl(request: Request): string {
@@ -124,7 +124,7 @@ export async function POST(request: Request): Promise<Response> {
     try {
       params = new URLSearchParams(rawBody)
     } catch {
-      console.warn('[twilio/sms] Unparseable form body — acking with empty TwiML')
+      console.warn('[twilio/sms] Unparseable form body | acking with empty TwiML')
       return ackTwiml()
     }
 
@@ -134,8 +134,8 @@ export async function POST(request: Request): Promise<Response> {
     const messageSid = params.get('MessageSid') ?? ''
 
     if (!to) {
-      // No To number — cannot route to an org. Ack and drop.
-      console.warn('[twilio/sms] Missing To parameter — dropping')
+      // No To number | cannot route to an org. Ack and drop.
+      console.warn('[twilio/sms] Missing To parameter | dropping')
       return ackTwiml()
     }
 
@@ -182,7 +182,7 @@ export async function POST(request: Request): Promise<Response> {
       return new Response('Forbidden', { status: 403 })
     }
 
-    // 4. Schedule async processing — return TwiML 200 immediately
+    // 4. Schedule async processing | return TwiML 200 immediately
     const payload: TwilioSmsPayload = {
       From: from,
       To: to,
@@ -211,7 +211,7 @@ export async function POST(request: Request): Promise<Response> {
       MediaContentType7: params.get('MediaContentType7') ?? undefined,
       MediaContentType8: params.get('MediaContentType8') ?? undefined,
       MediaContentType9: params.get('MediaContentType9') ?? undefined,
-      // Pass credentials for media download (never stored — only used in after())
+      // Pass credentials for media download (never stored | only used in after())
       _authToken: authToken,
     }
     const orgId = integration.organization_id

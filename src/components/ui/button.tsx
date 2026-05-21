@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  // Base — applies to every variant
+  // Base | applies to every variant
   [
     "relative inline-flex items-center justify-center gap-2 whitespace-nowrap",
     "rounded-[8px] text-sm font-medium",
@@ -20,37 +20,37 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Primary — indigo accent, glows on hover
+        // Primary | indigo accent, glows on hover
         primary: [
           "bg-accent text-white shadow-elevation-sm",
           "hover:bg-accent-hover hover:shadow-glow",
         ].join(" "),
 
-        // Secondary — subtle surface, the workhorse
+        // Secondary | subtle surface, the workhorse
         secondary: [
           "bg-bg-tertiary text-text-primary border border-border",
           "hover:bg-bg-elevated hover:border-border-strong",
         ].join(" "),
 
-        // Ghost — minimal, no surface until hover
+        // Ghost | minimal, no surface until hover
         ghost: [
           "text-text-secondary",
           "hover:bg-bg-tertiary hover:text-text-primary",
         ].join(" "),
 
-        // Destructive — red, used for delete/danger actions
+        // Destructive | red, used for delete/danger actions
         destructive: [
           "bg-danger text-white shadow-elevation-sm",
           "hover:brightness-110",
         ].join(" "),
 
-        // Outline — bordered, transparent surface
+        // Outline | bordered, transparent surface
         outline: [
           "border border-border bg-transparent text-text-primary",
           "hover:bg-bg-tertiary hover:border-border-strong",
         ].join(" "),
 
-        // Link — text-only with underline-on-hover
+        // Link | text-only with underline-on-hover
         link: [
           "text-accent underline-offset-4 hover:underline px-0 h-auto",
         ].join(" "),

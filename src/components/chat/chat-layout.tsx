@@ -25,7 +25,7 @@
  * optimistic state with the canonical DB.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -33,7 +33,6 @@ import {
   ConversationMessage,
   ConversationPriority,
   ConversationStatus,
-  ConversationLabel,
 } from '@/types/chat'
 import {
   toggleBotStatus,
@@ -52,7 +51,6 @@ import { ChatArea } from '@/components/chat/chat-area'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
-import { cn } from '@/lib/utils'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -85,10 +83,6 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     contactId: (row.contact_id as string | null) ?? null,
     contactName: null, // realtime raw row has no joined contact — preserved from API state via upsert
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
-    starred: Boolean(row.starred),
-    waitUntil: (row.wait_until as string | null) ?? null,
-    // realtime payloads don't include unread/labels — preserve previous state
-    // via upsert (these are merged in from the API response).
   }
 }
 
@@ -100,7 +94,6 @@ function mapMessageRow(row: Record<string, unknown>): ConversationMessage {
     content: row.content as string,
     createdAt: row.created_at as string,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
-    channel: (row.channel as string | null | undefined) ?? null,
   }
 }
 
@@ -120,51 +113,16 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     channel: null,
   })
 
-  // Stable filter setter — the list calls this from an effect, so we want to
+  // Stable filter setter | the list calls this from an effect, so we want to
   // ignore identical updates to prevent refetch loops.
   const handleFilterChange = useCallback((next: ConversationFilterChange) => {
     setFilters((prev) => {
-      const prevKey = JSON.stringify({
-        s: prev.status ?? null,
-        ss: prev.statuses ?? null,
-        a: prev.assigned ?? null,
-        c: prev.channel ?? null,
-        u: prev.unread ?? false,
-        p: prev.priority ?? [],
-        b: prev.botStatus ?? null,
-        st: prev.starred ?? false,
-        l: prev.labelIds ?? [],
-        au: prev.assignedUserId ?? null,
-      })
-      const nextKey = JSON.stringify({
-        s: next.status ?? null,
-        ss: next.statuses ?? null,
-        a: next.assigned ?? null,
-        c: next.channel ?? null,
-        u: next.unread ?? false,
-        p: next.priority ?? [],
-        b: next.botStatus ?? null,
-        st: next.starred ?? false,
-        l: next.labelIds ?? [],
-        au: next.assignedUserId ?? null,
-      })
-      return prevKey === nextKey ? prev : next
+      if (prev.status === next.status && prev.assigned === next.assigned && prev.channel === next.channel) {
+        return prev
+      }
+      return next
     })
   }, [])
-
-  // Adapt to the hook's filter shape.
-  const hookFilters = useMemo(() => ({
-    status: filters.status,
-    statuses: filters.statuses ?? null,
-    assigned: filters.assigned,
-    channel: filters.channel,
-    unread: filters.unread ?? false,
-    priority: filters.priority ?? null,
-    botStatus: filters.botStatus ?? null,
-    starred: filters.starred ?? false,
-    labelIds: filters.labelIds ?? null,
-    assignedUserId: filters.assignedUserId ?? null,
-  }), [filters])
 
   // ─────────── Paginated conversation feed ───────────
   const {
@@ -185,15 +143,13 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     prepend: prependConversation,
     upsert: upsertConversation,
     remove: removeConversation,
-  } = usePaginatedConversations(hookFilters)
+  } = usePaginatedConversations(filters)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
-  /** SEED-035: org-wide labels for picker + filter panel. */
-  const [orgLabels, setOrgLabels] = useState<Array<{ id: string; name: string; color: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
   const [isTyping, setIsTyping] = useState(false)
@@ -260,47 +216,6 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
   useEffect(() => {
     listOrgMembers().then(setMembers).catch(() => setMembers([]))
   }, [])
-
-  // SEED-035: fetch org labels for the picker + filter panel.
-  const refreshLabels = useCallback(async () => {
-    try {
-      const res = await fetch('/api/chat/labels')
-      if (!res.ok) return
-      const data = await res.json()
-      setOrgLabels(
-        (data.labels ?? []).map((l: { id: string; name: string; color: string }) => ({
-          id: l.id,
-          name: l.name,
-          color: l.color,
-        })),
-      )
-    } catch {
-      // ignore
-    }
-  }, [])
-  useEffect(() => {
-    refreshLabels()
-  }, [refreshLabels])
-
-  // SEED-035: mark the selected conversation as read whenever it changes.
-  // Fire-and-forget; realtime UPDATE on the row (via trigger removing reads
-  // on new messages) will resurface unread state automatically.
-  useEffect(() => {
-    if (!selectedId) return
-    fetch(`/api/chat/conversations/${selectedId}/read`, { method: 'POST' }).catch(() => {})
-  }, [selectedId])
-
-  // SEED-035: surface unread count in the document title.
-  useEffect(() => {
-    const unreadCount =
-      conversations.filter((c) => c.isUnread).length +
-      pinned.filter((c) => c.isUnread).length
-    const base = 'Inbox — Xphere'
-    document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base
-    return () => {
-      document.title = base
-    }
-  }, [conversations, pinned])
 
   // ───────────────────────── Realtime: conversations ─────────────────────────
 
@@ -422,7 +337,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           event: 'typing',
           payload: { user_id: currentUserId, conversation_id: selectedId, ts: Date.now() },
         })
-        // Best-effort cleanup — the receiver auto-times out after 3s.
+        // Best-effort cleanup | the receiver auto-times out after 3s.
         setTimeout(() => {
           supabase.removeChannel(channel)
         }, 500)
@@ -474,14 +389,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     [getInboxMaxWidth],
   )
 
-  async function handleSendMessage(
-    content: string,
-    opts?: {
-      media?: Array<{ url: string; mime_type: string; filename?: string; size?: number }>
-      /** SEED-039: optional channel override for cross-channel send. */
-      channel?: string
-    },
-  ) {
+  async function handleSendMessage(content: string) {
     if (!selectedId) return
     const tempId = `temp-${crypto.randomUUID()}`
     const tempMsg: ConversationMessage = {
@@ -490,19 +398,13 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
       role: 'assistant',
       content,
       createdAt: new Date().toISOString(),
-      metadata: opts?.media?.length ? { media: opts.media } : undefined,
-      channel: opts?.channel ?? null,
     }
     setMessages((prev) => [...prev, tempMsg])
     try {
-      // TODO(SEED-039 phases_pending): when opts.channel differs from the
-      // conversation's primary channel, route the outbound send through that
-      // channel's transport instead. For v1 we still always use the parent
-      // conversation's primary channel.
       const res = await fetch(`/api/chat/conversations/${selectedId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant', ...(opts ?? {}) }),
+        body: JSON.stringify({ content, role: 'assistant' }),
       })
       if (!res.ok) throw new Error('Failed to send')
       await fetchMessages(selectedId)
@@ -512,18 +414,15 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     }
   }
 
-  async function handleStatusChange(
-    status: 'open' | 'pending' | 'waiting' | 'resolved' | 'closed',
-    waitUntil?: string | null,
-  ) {
+  async function handleStatusChange(status: ConversationStatus) {
     if (!selectedId) return
     try {
       await fetch(`/api/chat/conversations/${selectedId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, wait_until: waitUntil ?? null }),
+        body: JSON.stringify({ status }),
       })
-      // Realtime UPDATE will reconcile the list — no manual refetch needed.
+      // Realtime UPDATE will reconcile the list | no manual refetch needed.
     } catch {
       // ignore
     }
@@ -573,7 +472,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         upsertConversation({ ...current, pinned: !pinnedNext })
       }
     } else {
-      // Pin/unpin flips a row between the pinned and unpinned buckets — the
+      // Pin/unpin flips a row between the pinned and unpinned buckets | the
       // optimistic upsert removes it from the source bucket, but only a
       // refetch can put it back in the destination bucket with proper sort.
       refreshConversations()
@@ -592,36 +491,6 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
       if (current) {
         upsertConversation({ ...current, priority: previousPriority })
       }
-    }
-  }
-
-  // SEED-035
-  async function handleStarToggle(id: string, starredNext: boolean) {
-    const current = findVisibleConversation(id)
-    if (current) {
-      upsertConversation({ ...current, starred: starredNext })
-    }
-    try {
-      const res = await fetch(`/api/chat/conversations/${id}/star`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ starred: starredNext }),
-      })
-      if (!res.ok) throw new Error()
-    } catch {
-      if (current) {
-        upsertConversation({ ...current, starred: !starredNext })
-      }
-      toast.error('Could not update star')
-    }
-  }
-
-  // SEED-035: optimistic labels mutation (set by the picker which already
-  // fired the underlying assign/unassign HTTP call).
-  function handleLabelsChange(id: string, labels: ConversationLabel[]) {
-    const current = findVisibleConversation(id)
-    if (current) {
-      upsertConversation({ ...current, labels })
     }
   }
 
@@ -658,34 +527,12 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     [conversations, pinned],
   )
 
-  // SEED-039: derive composer channels for the selected conversation.
-  // We compose this from cheap conversation-level signals (no extra fetch):
-  //   - The conversation's primary channel is always available + active.
-  //   - When a phone is present, surface SMS + WhatsApp as alternatives.
-  // Cross-channel send is a UI-only scaffold for v1: the messages route still
-  // sends via the conversation's primary transport (see SEED-039 phases_pending).
-  const composerChannels = useMemo(() => {
-    if (!selected) return undefined
-    const out: Array<{ channel: string; active?: boolean }> = []
-    const primary = selected.channel
-    if (primary) out.push({ channel: primary, active: true })
-    if (selected.visitorPhone) {
-      if (!out.some((c) => c.channel === 'whatsapp' || c.channel === 'ghl_whatsapp')) {
-        out.push({ channel: 'whatsapp' })
-      }
-      if (!out.some((c) => c.channel === 'sms' || c.channel === 'ghl_sms')) {
-        out.push({ channel: 'sms' })
-      }
-    }
-    return out.length > 1 ? out : undefined
-  }, [selected])
-
   // ───────────────────────── Render ─────────────────────────
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       <PushPermissionBanner />
-      {/* Desktop — 3-column grid */}
+      {/* Desktop | 3-column grid */}
       <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
         <div className="h-full min-h-0 shrink-0 overflow-hidden" style={{ width: inboxWidth }}>
           <ConversationList
@@ -706,7 +553,10 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
             onPrevPage={prevPage}
             onRetry={refreshConversations}
             onFilterChange={handleFilterChange}
-            onSelect={(id) => setSelectedId(id)}
+            onSelect={(id) => {
+              setSelectedId(id)
+              void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
+            }}
             onConversationUpdated={refreshConversations}
             onConversationDeleted={(id) => {
               if (selectedId === id) {
@@ -716,9 +566,6 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               removeConversation(id)
             }}
             onPin={handlePinToggle}
-            onStar={handleStarToggle}
-            members={members}
-            orgLabels={orgLabels}
           />
         </div>
         <button
@@ -747,19 +594,15 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
             onPinToggle={handlePinToggle}
             onPriorityCycle={handlePriorityCycle}
             onAssign={handleAssign}
-            onStarToggle={handleStarToggle}
-            orgLabels={orgLabels}
-            onLabelsChange={handleLabelsChange}
             members={members}
             infoPanelOpen={infoOpen}
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
             agentMap={agentMap}
-            composerChannels={composerChannels}
           />
         </div>
         {infoOpen && (
           // Below lg (1024px) we hide the info panel to keep the chat column
-          // readable — user can still toggle it via the chat header button
+          // readable | user can still toggle it via the chat header button
           // which re-renders when viewport widens enough.
           <div className="hidden lg:block h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px]">
             <ContactInfoPanel
@@ -774,38 +617,10 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         )}
       </div>
 
-      {/*
-        Mobile — single column at a time, slid in/out with CSS transforms.
-        SEED-040: rather than mounting/unmounting on view change (which caused
-        a hard cut), we always render the three columns side-by-side in an
-        absolute stack and translate the container based on `mobileView`. The
-        list lives at translateX(0), chat at translateX(-100%), info at
-        translateX(-200%). Each panel is `inset-0 absolute`, so they only
-        paint when in view.
-
-        Note: panels keep `pointer-events-none` when off-screen so taps don't
-        bleed through during the transition.
-      */}
-      <div className="md:hidden relative flex h-full min-h-0 w-full overflow-hidden">
-        <div
-          className="absolute inset-0 flex w-[300%] transition-transform duration-300 ease-out"
-          style={{
-            transform:
-              mobileView === 'list'
-                ? 'translateX(0%)'
-                : mobileView === 'chat'
-                  ? 'translateX(-33.3333%)'
-                  : 'translateX(-66.6667%)',
-          }}
-        >
-          {/* List pane (1/3) */}
-          <div
-            className={cn(
-              'h-full min-h-0 w-1/3 shrink-0 overflow-hidden',
-              mobileView !== 'list' && 'pointer-events-none',
-            )}
-            aria-hidden={mobileView !== 'list'}
-          >
+      {/* Mobile | single-column with drawer-style navigation */}
+      <div className="md:hidden flex h-full min-h-0 w-full overflow-hidden">
+        {mobileView === 'list' && (
+          <div className="h-full min-h-0 w-full">
             <ConversationList
               conversations={conversations}
               pinned={pinned}
@@ -827,6 +642,8 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               onSelect={(id) => {
                 setSelectedId(id)
                 setMobileView('chat')
+                // SEED-035: mark as read when conversation opens
+                void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
               }}
               onConversationUpdated={refreshConversations}
               onConversationDeleted={(id) => {
@@ -837,20 +654,11 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
                 removeConversation(id)
               }}
               onPin={handlePinToggle}
-              onStar={handleStarToggle}
-              members={members}
-              orgLabels={orgLabels}
             />
           </div>
-
-          {/* Chat pane (1/3) */}
-          <div
-            className={cn(
-              'h-full min-h-0 w-1/3 shrink-0 overflow-hidden',
-              mobileView !== 'chat' && 'pointer-events-none',
-            )}
-            aria-hidden={mobileView !== 'chat'}
-          >
+        )}
+        {mobileView === 'chat' && (
+          <div className="h-full min-h-0 w-full">
             <ChatArea
               conversation={selected}
               messages={messages}
@@ -870,18 +678,11 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               infoPanelOpen={false}
               onToggleInfoPanel={() => setMobileView('info')}
               agentMap={agentMap}
-              composerChannels={composerChannels}
             />
           </div>
-
-          {/* Info pane (1/3) */}
-          <div
-            className={cn(
-              'h-full min-h-0 w-1/3 shrink-0 overflow-hidden',
-              mobileView !== 'info' && 'pointer-events-none',
-            )}
-            aria-hidden={mobileView !== 'info'}
-          >
+        )}
+        {mobileView === 'info' && (
+          <div className="h-full min-h-0 w-full">
             <ContactInfoPanel
               contactId={selected?.contactId ?? null}
               fallbackName={selected?.visitorName ?? null}
@@ -890,7 +691,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               onClose={() => setMobileView('chat')}
             />
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

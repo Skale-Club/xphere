@@ -5,7 +5,7 @@
 // Strategy: query by (org_id, channel_id, event_type, is_active=true) ORDER BY
 // priority ASC, then iterate in JS and check containment. JS containment is
 // chosen over SQL `@>` because:
-//   - Per-org rule sets are small (5–50 typical) — single round-trip is fine
+//   - Per-org rule sets are small (5–50 typical) | single round-trip is fine
 //   - First-match-wins short-circuits cleanly in JS
 //   - JSON-vs-JS type coercion edge cases are avoided
 //   - The matcher is trivially unit-testable with mocked rule arrays
@@ -49,7 +49,7 @@ export async function resolveRule(
  * - Primitive v: strict equality with payload[k]
  * - Object v: recursive containment (payload[k] must also be an object)
  * - Array v: handled as a primitive (strict array reference equality is rare; rules
- *   should use scalar conditions for v1 — nested array containment is deferred)
+ *   should use scalar conditions for v1 | nested array containment is deferred)
  */
 function matchesCondition(
   condition: Record<string, unknown>,

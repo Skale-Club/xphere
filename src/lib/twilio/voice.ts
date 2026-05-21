@@ -3,9 +3,9 @@
 //
 // Resolves org-level Twilio credentials (same pattern as send-sms.ts) and exposes
 // helpers used by the voice webhook + outbound-call endpoint:
-//   * resolveTwilioCredentialsForOrg(orgId) — service-role lookup keyed by org
-//   * createOutboundCall(creds, params)     — REST API call creation
-//   * twilioBasicAuthHeader(creds)          — for recording downloads
+//   * resolveTwilioCredentialsForOrg(orgId) | service-role lookup keyed by org
+//   * createOutboundCall(creds, params)     | REST API call creation
+//   * twilioBasicAuthHeader(creds)          | for recording downloads
 //
 // Twilio Access Tokens (Voice SDK) are generated in `src/lib/twilio/access-token.ts`
 // so they can be Edge-runtime-safe (Web Crypto / HMAC).
@@ -24,7 +24,7 @@ export interface TwilioVoiceCredentials {
 
 /**
  * Look up a Twilio integration by organization_id using the service-role client.
- * Bypasses RLS — only call this from trusted server-only code (webhooks, signed
+ * Bypasses RLS | only call this from trusted server-only code (webhooks, signed
  * server actions). Mirrors the credential shape from send-sms.ts.
  *
  * Number resolution (v2.3):
@@ -106,9 +106,9 @@ export async function resolveTwilioCredentialsForOrg(
  * Used by the inbound voice webhook to resolve which org owns the called number.
  *
  * v2.3 resolution order:
- *   1. `twilio_phone_numbers` table — finds org via the active row whose
+ *   1. `twilio_phone_numbers` table | finds org via the active row whose
  *      `e164` matches the destination number.
- *   2. Legacy fallback — `integrations.config->>'from_number'` for orgs that
+ *   2. Legacy fallback | `integrations.config->>'from_number'` for orgs that
  *      haven't been migrated to the new table (removed in next milestone).
  */
 export async function resolveTwilioOrgByToNumber(

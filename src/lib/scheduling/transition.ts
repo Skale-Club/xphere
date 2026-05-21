@@ -100,7 +100,7 @@ export async function emitCalendarEvent(
   )
 
   // Actually invoking the workflow runtime is intentionally deferred to a
-  // queue worker (or inline for tests) — SEED-027 Phase C ships the worker.
+  // queue worker (or inline for tests) | SEED-027 Phase C ships the worker.
   // Phase B contract: the dispatch row exists and the workflow_ids are
   // captured. Run engine can re-walk recent rows even if it was offline.
 
@@ -155,7 +155,7 @@ export async function confirmBooking(
         }
       }
     } catch (meetErr) {
-      // Non-fatal — confirm proceeds without the Meet link
+      // Non-fatal | confirm proceeds without the Meet link
       console.warn(
         '[scheduling/transition] Google Meet link creation failed:',
         meetErr instanceof Error ? meetErr.message : meetErr,

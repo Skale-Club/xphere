@@ -67,7 +67,7 @@ export async function POST(request: Request): Promise<Response> {
       if (Number.isFinite(duration) && duration > 0) update.duration_seconds = duration
     }
 
-    // Late contact linkage — if status webhook arrives with phone info and we
+    // Late contact linkage | if status webhook arrives with phone info and we
     // didn't have a contact at insert time, try again.
     if (!callLog.contact_id) {
       const lookup = callLog.direction === 'inbound'
@@ -87,7 +87,7 @@ export async function POST(request: Request): Promise<Response> {
 
     await supabase.from('call_logs').update(update).eq('id', callLog.id)
 
-    // Empty TwiML — Twilio doesn't expect any verbs on status callbacks.
+    // Empty TwiML | Twilio doesn't expect any verbs on status callbacks.
     return new Response('<Response/>', { status: 200, headers: { 'Content-Type': 'text/xml' } })
   } catch (err) {
     console.error('[twilio/status] handler error:', err)

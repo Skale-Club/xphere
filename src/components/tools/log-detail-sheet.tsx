@@ -1,11 +1,17 @@
 'use client'
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import type { LogWithCall } from '@/app/(dashboard)/automations/logs/actions'
+import type { LogWithCall } from '@/app/(dashboard)/workflows/logs/actions'
 
 function safeStringify(value: unknown): string {
   try {
@@ -32,16 +38,17 @@ export function LogDetailSheet({ log, open, onOpenChange }: LogDetailSheetProps)
       : 'bg-red-500/15 text-red-400'
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <SheetTitle className="flex items-center gap-2 text-base">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[82vh] w-[min(calc(100vw-32px),760px)] max-w-none flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b px-6 pb-4 pt-6">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <Badge variant="outline" className={statusClassName}>{log.status}</Badge>
             <span className="font-mono text-sm">{log.execution_ms}ms</span>
-          </SheetTitle>
-          <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+          </DialogTitle>
+          <DialogDescription asChild>
+          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             <p>{format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss')}</p>
-            <p>Tool: <span className="font-mono">{log.tool_name}</span></p>
+            <p>Workflow: <span className="font-mono">{log.workflow_name ?? log.tool_name}</span></p>
             <p>Call ID: <span className="font-mono break-all">{log.vapi_call_id}</span></p>
             {log.call && (
               <p>
@@ -57,7 +64,8 @@ export function LogDetailSheet({ log, open, onOpenChange }: LogDetailSheetProps)
               </p>
             )}
           </div>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <ScrollArea className="flex-1">
           <div className="px-6 py-4 space-y-4">
@@ -87,7 +95,7 @@ export function LogDetailSheet({ log, open, onOpenChange }: LogDetailSheetProps)
             </div>
           </div>
         </ScrollArea>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -45,7 +45,7 @@ export function PushPermissionBanner() {
       toast.success('Notifications enabled')
       setVisible(false)
     } else {
-      toast.error('Notifications blocked — check your browser settings')
+      toast.error('Notifications blocked | check your browser settings')
       setVisible(false)
     }
   }
@@ -61,7 +61,7 @@ export function PushPermissionBanner() {
       <p className="flex-1 text-[13px] text-text-secondary">
         Get notified when new messages arrive
         {typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent) && (
-          <span className="text-text-tertiary"> — requires installing the app first</span>
+          <span className="text-text-tertiary"> | requires installing the app first</span>
         )}
       </p>
       <div className="flex items-center gap-2 shrink-0">

@@ -17,7 +17,7 @@ import type { ActivityFeedEvent, ActivityFeedFilter } from './activity-feed-type
  * Implementation pulls 4 source tables in parallel within each shard and
  * mergesorts. Each individual query is bounded to `limit + offset` so a
  * page of 15 events past offset 30 still pulls at most 45 rows from each
- * source — fine at dashboard scale.
+ * source | fine at dashboard scale.
  */
 export async function getActivityFeed(
   offset: number,

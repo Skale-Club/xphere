@@ -1,5 +1,5 @@
 // src/lib/google-contacts/oauth.ts
-// Google OAuth 2.0 utilities — mirrors src/lib/meta/oauth.ts pattern
+// Google OAuth 2.0 utilities | mirrors src/lib/meta/oauth.ts pattern
 
 export const GOOGLE_CALLBACK_PATH = '/api/google/callback'
 export const GOOGLE_CALLBACK_URI = `https://xphere.app${GOOGLE_CALLBACK_PATH}`
@@ -36,7 +36,7 @@ export function buildGoogleOAuthUrl(state: string): string {
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', GOOGLE_OAUTH_SCOPE)
   url.searchParams.set('state', state)
-  url.searchParams.set('access_type', 'offline') // REQUIRED — without this Google omits refresh_token
+  url.searchParams.set('access_type', 'offline') // REQUIRED | without this Google omits refresh_token
 
   return url.toString()
 }

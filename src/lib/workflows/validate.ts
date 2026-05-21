@@ -5,7 +5,7 @@
 // and fix the YAML/JSON on the next attempt without human help.
 //
 // Inputs: a workflow definition (parsed YAML/JSON) + the org-filtered spec.
-// Output: { ok, errors[] } — never throws.
+// Output: { ok, errors[] } | never throws.
 
 import type { WorkflowSpec } from '@/lib/workflows/spec'
 
@@ -55,7 +55,7 @@ export interface ValidationResult {
 
 // Variable scope is tracked as a set of prefixes. A reference like
 // `{{contact.phone}}` is valid if `contact.` is in scope (we don't validate
-// the leaf field — the runtime resolves the actual lookup).
+// the leaf field | the runtime resolves the actual lookup).
 function buildInitialScope(triggerType: string): Set<string> {
   const scope = new Set<string>(['trigger', 'input'])
   if (triggerType.startsWith('event:meeting.')) {
@@ -76,7 +76,7 @@ function buildInitialScope(triggerType: string): Set<string> {
     scope.add('workflow')
   }
   if (triggerType === 'tool_call' || triggerType === 'webhook_url' || triggerType === 'manual') {
-    scope.add('contact')          // contact is opportunistic — present when caller provides it
+    scope.add('contact')          // contact is opportunistic | present when caller provides it
   }
   return scope
 }
@@ -181,7 +181,7 @@ export function validateWorkflow(
       path: 'nodes',
       code: 'missing_field',
       message: 'Workflow must contain at least one node.',
-      suggestion: 'Add an action node — for example { id: "notify", kind: "send_sms", ... }.',
+      suggestion: 'Add an action node | for example { id: "notify", kind: "send_sms", ... }.',
     })
   }
 
@@ -268,7 +268,7 @@ export function validateWorkflow(
       }
     }
 
-    // Variable references — every {{ref}} in the node body must be in scope.
+    // Variable references | every {{ref}} in the node body must be in scope.
     const refs = extractVariableRefs(node)
     for (const ref of refs) {
       if (!variableInScope(ref, scope)) {
@@ -364,7 +364,7 @@ export function validateWorkflow(
           code: 'unreachable_node',
           message: `Node "${node.id}" has no incoming edge from the trigger or any other node.`,
           suggestion:
-            `Add an edge from "trigger" (or another node) to "${node.id}" — or remove this node.`,
+            `Add an edge from "trigger" (or another node) to "${node.id}" | or remove this node.`,
         })
       }
     }

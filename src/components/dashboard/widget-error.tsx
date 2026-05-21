@@ -15,7 +15,7 @@ interface WidgetErrorProps {
 /**
  * Standard widget error fallback. Looks like a normal card with a soft
  * danger tone, an inline retry button, and a one-line "Widget unavailable"
- * message. NEVER throws or imports heavy design-system pieces — keeps the
+ * message. NEVER throws or imports heavy design-system pieces | keeps the
  * dependency graph small so the fallback itself can't crash.
  */
 export function WidgetError({

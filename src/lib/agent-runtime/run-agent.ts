@@ -91,7 +91,7 @@ const FORBIDDEN_HANDOFF_KEYS_RE = /^role$|^system$|^instructions?$/
 function validateHandoffKeys(obj: Record<string, unknown>, path = ''): string | null {
   for (const key of Object.keys(obj)) {
     if (FORBIDDEN_HANDOFF_KEYS_RE.test(key)) {
-      return `forbidden key "${key}" at ${path || 'root'} — prompt injection blocked`
+      return `forbidden key "${key}" at ${path || 'root'} | prompt injection blocked`
     }
     const value = obj[key]
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
@@ -103,7 +103,7 @@ function validateHandoffKeys(obj: Record<string, unknown>, path = ''): string | 
 }
 
 // ---------------------------------------------------------------------------
-// buildPartnerTools — inject call_partner_<slug> synthetic tools (DELEG-02, DELEG-03)
+// buildPartnerTools | inject call_partner_<slug> synthetic tools (DELEG-02, DELEG-03)
 // ---------------------------------------------------------------------------
 // Queries agent_partners for the current agentId, fetches partner slug+name,
 // and returns dynamicTool entries that recursively invoke runAgentBlocking().
@@ -161,7 +161,7 @@ async function buildPartnerTools(params: {
       execute: async (args: unknown) => {
         const handoffArgs = (args as Record<string, unknown>) ?? {}
 
-        // DELEG-05: Validate handoff payload — reject forbidden keys
+        // DELEG-05: Validate handoff payload | reject forbidden keys
         const validationError = validateHandoffKeys(handoffArgs)
         if (validationError) {
           console.warn(JSON.stringify({
@@ -194,12 +194,12 @@ async function buildPartnerTools(params: {
           recent_messages: ((handoffArgs.recent_messages as Array<{ role: string; content: string }>) ?? []).slice(-3),
         })
 
-        // Emit partner_start SSE event (streaming path only — DELEG-08)
+        // Emit partner_start SSE event (streaming path only | DELEG-08)
         if (emit) {
           emit({ event: 'partner_start', partnerName: capturedPartner.name, description: capturedDescription })
         }
 
-        // DELEG-03: Recursive invocation — always blocking (partner returns a string result)
+        // DELEG-03: Recursive invocation | always blocking (partner returns a string result)
         let partnerReply = ''
         try {
           const partnerResult = await runAgentBlocking({
@@ -219,7 +219,7 @@ async function buildPartnerTools(params: {
           console.error(JSON.stringify({ event: 'partner_invocation_failed', partnerSlug: capturedPartner.slug, error: String(err), traceId }))
         }
 
-        // Emit partner_done SSE event (streaming path only — DELEG-08)
+        // Emit partner_done SSE event (streaming path only | DELEG-08)
         if (emit) {
           emit({ event: 'partner_done', partnerName: capturedPartner.name })
         }
@@ -233,23 +233,23 @@ async function buildPartnerTools(params: {
 }
 
 // ---------------------------------------------------------------------------
-// runAgent — function overloads (D-35-01)
+// runAgent | function overloads (D-35-01)
 // ---------------------------------------------------------------------------
 
 export function runAgent(opts: AgentRunOptions & { stream: true }): ReadableStream<Uint8Array>
 export function runAgent(opts: AgentRunOptions & { stream?: false }): Promise<AgentRunResult>
 export function runAgent(opts: AgentRunOptions): ReadableStream<Uint8Array> | Promise<AgentRunResult>
 export function runAgent(opts: AgentRunOptions): ReadableStream<Uint8Array> | Promise<AgentRunResult> {
-  // Streaming path dispatch (D-35-09) — returns synchronously
+  // Streaming path dispatch (D-35-09) | returns synchronously
   if (opts.stream) {
     return runAgentStreaming(opts)
   }
-  // Blocking path — returns Promise<AgentRunResult>
+  // Blocking path | returns Promise<AgentRunResult>
   return runAgentBlocking(opts)
 }
 
 // ---------------------------------------------------------------------------
-// runAgentBlocking — blocking path (generateText) — Phase 34, unchanged
+// runAgentBlocking | blocking path (generateText) | Phase 34, unchanged
 // ---------------------------------------------------------------------------
 
 async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> {
@@ -301,7 +301,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
   // Step 1: Generate traceId
   const traceId = crypto.randomUUID()
 
-  // Step 2: Kill switch check — before any DB writes or LLM calls (GATE-03 / RUNTIME-09)
+  // Step 2: Kill switch check | before any DB writes or LLM calls (GATE-03 / RUNTIME-09)
   const killSwitchResult = checkKillSwitch(traceId)
   if (killSwitchResult) return killSwitchResult
 
@@ -321,7 +321,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 4: is_active check (D-34-13) — denied, no invocation row
+  // Step 4: is_active check (D-34-13) | denied, no invocation row
   if (!resolvedAgent.isActive) {
     console.warn(
       JSON.stringify({ event: 'agent_inactive_denied', agentId: resolvedAgentId, orgId, traceId })
@@ -336,7 +336,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 5: allowed_channels check (D-34-12) — denied, no invocation row
+  // Step 5: allowed_channels check (D-34-12) | denied, no invocation row
   if (!resolvedAgent.allowedChannels.includes(channel)) {
     console.warn(
       JSON.stringify({
@@ -358,7 +358,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 6: Delegation depth check (D-34-10 — Phase 38 activates recursion)
+  // Step 6: Delegation depth check (D-34-10 | Phase 38 activates recursion)
   const depthDenial = checkDelegationDepth(_depth, orgId, resolvedAgentId)
   if (depthDenial) {
     return {
@@ -371,7 +371,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 6b: Visited-set loop detection (DELEG-06 — Phase 38)
+  // Step 6b: Visited-set loop detection (DELEG-06 | Phase 38)
   const visitedDenial = checkVisitedSet(visitedAgentIds, resolvedAgentId, orgId)
   if (visitedDenial) {
     return {
@@ -400,8 +400,8 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 7b: KB injection — ALWAYS query knowledge (null kbScope = full org KB, matching legacy stream.ts)
-  // D-35-02: unconditional call before LLM — kbScope field preserved on ResolvedAgent for future Phase 37 use
+  // Step 7b: KB injection | ALWAYS query knowledge (null kbScope = full org KB, matching legacy stream.ts)
+  // D-35-02: unconditional call before LLM | kbScope field preserved on ResolvedAgent for future Phase 37 use
   let systemPrompt = resolvedAgent.systemPrompt
   const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
   try {
@@ -411,7 +411,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
     }
   } catch {
-    // KB failure is non-fatal — continue without context (matches stream.ts behavior)
+    // KB failure is non-fatal | continue without context (matches stream.ts behavior)
   }
 
   // Step 8: INSERT invocation row with status='running' (D-34-03)
@@ -430,7 +430,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     parentInvocationId,
   })
 
-  // Step 9: Token cap check — estimate history tokens (RUNTIME-06)
+  // Step 9: Token cap check | estimate history tokens (RUNTIME-06)
   const cumulativeHistoryTokens = Math.ceil(
     JSON.stringify(historyWindow).length / 4
   )
@@ -481,7 +481,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     } else {
       const serviceClient = createServiceRoleClient()
 
-      // Get Anthropic API key — Phase 34 supports Anthropic only (ADOPT path)
+      // Get Anthropic API key | Phase 34 supports Anthropic only (ADOPT path)
       // OpenRouter path is deferred to Phase 35 (ai SDK @ai-sdk/openai)
       const anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
       if (!anthropicKey) {
@@ -507,7 +507,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         .eq('tool_configs.is_active', true)
 
       // Build ai@^6 ToolSet dynamically using dynamicTool()
-      // dynamicTool accepts execute: ToolExecuteFunction<unknown, unknown> — no overload conflicts
+      // dynamicTool accepts execute: ToolExecuteFunction<unknown, unknown> | no overload conflicts
       const toolSet: Record<string, ReturnType<typeof dynamicTool>> = {}
 
       // Phase 38 IDEMP-03: tool call index counter (incremented per tool call for idempotency key)
@@ -540,7 +540,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
         toolSet[capturedToolName] = dynamicTool({
           description,
-          // Accept any JSON object as input — actual schema enforcement is by the LLM
+          // Accept any JSON object as input | actual schema enforcement is by the LLM
           inputSchema: jsonSchema<Record<string, unknown>>({
             type: 'object',
             additionalProperties: true,
@@ -552,7 +552,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
             // D-34-14: Gate every tool call through resolveAgentTool
             const resolvedTool = await resolveAgentTool(resolvedAgentId, capturedToolName, channel)
             if (!resolvedTool) {
-              // Denied — log and synthesize denial result (D-34-14)
+              // Denied | log and synthesize denial result (D-34-14)
               toolCallsLog.push({
                 name: capturedToolName,
                 args: JSON.parse(JSON.stringify(toolArgs)) as Json,
@@ -562,7 +562,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               return 'Tool not available to this agent'
             }
 
-            // DELEG-07: Intersection authorization — verify ALL agents in delegation chain
+            // DELEG-07: Intersection authorization | verify ALL agents in delegation chain
             // have this tool attached before allowing execution
             if (currentChain.length > 1) {
               for (const chainAgentId of currentChain.slice(0, -1)) {
@@ -619,7 +619,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               idempotencyKey = deriveIdempotencyKey(invocationId, currentToolCallIndex)
               const cachedResponse = await checkIdempotency(orgId, idempotencyKey)
               if (cachedResponse !== null) {
-                // Cache hit — return without re-executing
+                // Cache hit | return without re-executing
                 toolCallsLog.push({
                   name: capturedToolName,
                   args: JSON.parse(JSON.stringify(toolArgs)) as Json,
@@ -636,7 +636,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
             let result = ''
             try {
               result = await executeAction(
-                // Legacy tool_config path — actionType is always a real
+                // Legacy tool_config path | actionType is always a real
                 // action_type, never the synthetic 'run_flow' used for
                 // workflow-sourced tools (those are handled by
                 // build-workflow-tools.ts and never enter this branch).
@@ -722,7 +722,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         parentInvocationId: invocationId,
         traceId,
         serviceClient,
-        // No emit in blocking path — SSE events only in streaming path
+        // No emit in blocking path | SSE events only in streaming path
       })
       Object.assign(toolSet, partnerTools)
 
@@ -732,7 +732,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         { role: 'user', content: userMessage },
       ]
 
-      // Call LLM via ai@^6 generateText (ADOPT path — locked in 34-01-SUMMARY.md)
+      // Call LLM via ai@^6 generateText (ADOPT path | locked in 34-01-SUMMARY.md)
       // stopWhen: stepCountIs caps the LLM→tool→LLM loop at MAX_LLM_CALLS_PER_TURN
       const llmResult = await generateText({
         model: anthropic(resolvedAgent.model),
@@ -817,7 +817,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 }
 
 // ---------------------------------------------------------------------------
-// runAgentStreaming — streaming path (D-35-01, D-35-09)
+// runAgentStreaming | streaming path (D-35-01, D-35-09)
 // Returns a ReadableStream<Uint8Array> that emits SSE-formatted JSON lines.
 // All async agent resolution happens INSIDE the ReadableStream.start() callback
 // so the function returns synchronously as required by D-35-01.
@@ -942,7 +942,7 @@ function runAgentStreaming(
         visitedAgentIds.add(resolvedAgentId)
         const currentChain = [...delegationChain, resolvedAgentId]
 
-        // KB injection — UNCONDITIONAL (GATE-01: matches legacy stream.ts behavior)
+        // KB injection | UNCONDITIONAL (GATE-01: matches legacy stream.ts behavior)
         let systemPrompt = resolvedAgent.systemPrompt
         const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
         try {
@@ -955,7 +955,7 @@ function runAgentStreaming(
           // KB failure non-fatal
         }
 
-        // Update conversation with agent_id (D-35-05 — new conversations need agent association)
+        // Update conversation with agent_id (D-35-05 | new conversations need agent association)
         if (conversationId) {
           const convClient = createServiceRoleClient()
           await convClient
@@ -973,7 +973,7 @@ function runAgentStreaming(
           controller.close()
           finalStatus = 'skipped'
           errorDetail = 'token_cap_exceeded'
-          // invocationId is '' — no row written for early guards
+          // invocationId is '' | no row written for early guards
           return
         }
 
@@ -1142,7 +1142,7 @@ function runAgentStreaming(
             { role: 'user', content: userMessage },
           ]
 
-          // Call LLM via streamText (D-35-09 — DO NOT await streamText)
+          // Call LLM via streamText (D-35-09 | DO NOT await streamText)
           const result = streamText({
             model: anthropic(resolvedAgent.model),
             system: systemPrompt,

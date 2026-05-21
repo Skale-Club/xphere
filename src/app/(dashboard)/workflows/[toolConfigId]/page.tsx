@@ -161,14 +161,14 @@ export default async function ToolDetailPage({
         <MetricCard
           index={1}
           label="Success rate"
-          value={successRate !== null ? `${successRate}%` : '—'}
+          value={successRate !== null ? `${successRate}%` : '|'}
           tone={successRate !== null && successRate >= 90 ? 'success' : successRate !== null && successRate < 75 ? 'warning' : 'default'}
           hint={`${stats.successCount} successes`}
         />
         <MetricCard
           index={2}
           label="Avg execution"
-          value={stats.averageMs != null ? `${stats.averageMs}` : '—'}
+          value={stats.averageMs != null ? `${stats.averageMs}` : '|'}
           unit={stats.averageMs != null ? 'ms' : undefined}
           tone="info"
         />
@@ -193,11 +193,11 @@ export default async function ToolDetailPage({
             </div>
             <div>
               <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Integration</dt>
-              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.name ?? '—'}</dd>
+              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.name ?? '|'}</dd>
             </div>
             <div>
               <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Provider</dt>
-              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.provider ?? '—'}</dd>
+              <dd className="mt-1 text-text-primary">{typedToolConfig.integrations?.provider ?? '|'}</dd>
             </div>
             <div>
               <dt className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Created</dt>
@@ -217,8 +217,8 @@ export default async function ToolDetailPage({
           Execution logs
         </h2>
         <LogsFilters
-          toolOptions={[]}
-          showToolFilter={false}
+          workflowOptions={[]}
+          showWorkflowFilter={false}
           basePath={basePath}
           status={status}
           from={from}
@@ -230,7 +230,7 @@ export default async function ToolDetailPage({
           total={total}
           page={page}
           pageCount={pageCount}
-          showToolColumn={false}
+          showWorkflowColumn={false}
           prevHref={prevHref}
           nextHref={nextHref}
         />

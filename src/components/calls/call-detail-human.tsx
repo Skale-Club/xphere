@@ -32,7 +32,7 @@ export async function CallDetailHuman({ call }: Props) {
           <div className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed border-border bg-bg-secondary p-10 text-center">
             <span className="text-[13px] font-medium text-text-primary">No recording available</span>
             <p className="max-w-md text-[12px] text-text-secondary">
-              Recordings appear here a few seconds after the call ends — provided the &quot;Record calls&quot; toggle is on.
+              Recordings appear here a few seconds after the call ends | provided the &quot;Record calls&quot; toggle is on.
             </p>
           </div>
         )}
@@ -95,7 +95,7 @@ function MetaRow({
       <div className="min-w-0">
         <div className="text-[10.5px] uppercase tracking-wide text-text-tertiary">{label}</div>
         <div className={`mt-0.5 truncate text-[12.5px] text-text-primary ${mono ? 'font-mono' : ''}`}>
-          {value || '—'}
+          {value || '|'}
         </div>
       </div>
     </div>
@@ -103,14 +103,14 @@ function MetaRow({
 }
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds || seconds < 0) return '—'
+  if (!seconds || seconds < 0) return '|'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '|'
   return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
@@ -118,5 +118,5 @@ function routingLabel(mode: string | null): string {
   if (mode === 'phone_forward') return 'Phone forward'
   if (mode === 'sip') return 'SIP / Zoiper'
   if (mode === 'browser') return 'Browser'
-  return '—'
+  return '|'
 }

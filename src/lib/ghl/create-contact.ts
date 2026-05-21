@@ -37,6 +37,6 @@ export async function createContact(
     credentials
   )
 
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `Contact created. ID: ${data.contact.id}`
 }

@@ -105,7 +105,7 @@ export function UploadForm({ disabled = false, fileCount = 0, urlCount = 0 }: Up
         <div className="flex items-center justify-between">
           <div>
             <Label htmlFor="file" className="text-xs font-medium">Upload File</Label>
-            <p className="text-xs text-muted-foreground mt-0.5">PDF, TXT, or CSV — max 10MB</p>
+            <p className="text-xs text-muted-foreground mt-0.5">PDF, TXT, or CSV | max 10MB</p>
           </div>
           <span className="text-xs text-muted-foreground">{fileCount} / {FILE_LIMIT}</span>
         </div>
@@ -134,7 +134,7 @@ export function UploadForm({ disabled = false, fileCount = 0, urlCount = 0 }: Up
           <p className="text-xs text-destructive">{fileError}</p>
         )}
         {fileStatus === 'success' && (
-          <p className="text-xs text-green-600">File uploaded — processing started.</p>
+          <p className="text-xs text-green-600">File uploaded | processing started.</p>
         )}
       </form>
 
@@ -174,7 +174,7 @@ export function UploadForm({ disabled = false, fileCount = 0, urlCount = 0 }: Up
           <p className="text-xs text-destructive">{urlError}</p>
         )}
         {urlStatus === 'success' && (
-          <p className="text-xs text-green-600">URL added — processing started.</p>
+          <p className="text-xs text-green-600">URL added | processing started.</p>
         )}
       </form>
     </div>

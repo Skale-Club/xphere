@@ -1,7 +1,7 @@
 // src/lib/agent-runtime/adapters/telegram.ts
 // Telegram channel adapter.
 // Hard limit: 4096 characters per message (Telegram Bot API).
-// Markdown: stripped (plain text mode — MarkdownV2 escaping is complex and
+// Markdown: stripped (plain text mode | MarkdownV2 escaping is complex and
 // deferred; future phases can enable parse_mode: 'MarkdownV2' if needed).
 // Returns multiple ChannelMessage chunks when text exceeds 4096 chars.
 

@@ -1,6 +1,6 @@
 // src/lib/crypto.ts
-// AES-256-GCM credential encryption — Edge Runtime safe (Web Crypto API only)
-// NEVER import from 'node:crypto' — throws in Edge Runtime
+// AES-256-GCM credential encryption | Edge Runtime safe (Web Crypto API only)
+// NEVER import from 'node:crypto' | throws in Edge Runtime
 
 const ALGORITHM = 'AES-GCM'
 const KEY_LENGTH = 256
@@ -13,7 +13,7 @@ async function getKey(): Promise<CryptoKey> {
   if (!/^[0-9a-fA-F]{64}$/.test(secret)) {
     throw new Error('ENCRYPTION_SECRET contains non-hex characters')
   }
-  // Decode 64-char hex string to 32 bytes manually — never use Buffer (Node.js only)
+  // Decode 64-char hex string to 32 bytes manually | never use Buffer (Node.js only)
   const keyBytes = new Uint8Array(32)
   for (let i = 0; i < 32; i++) {
     keyBytes[i] = parseInt(secret.slice(i * 2, i * 2 + 2), 16)
@@ -48,7 +48,7 @@ export async function encrypt(plaintext: string): Promise<string> {
 export async function decrypt(stored: string): Promise<string> {
   const key = await getKey()
   const colonIdx = stored.indexOf(':')
-  if (colonIdx === -1) throw new Error('Invalid encrypted format — expected iv:ciphertext')
+  if (colonIdx === -1) throw new Error('Invalid encrypted format | expected iv:ciphertext')
   const iv = base64ToUint8(stored.slice(0, colonIdx))
   const ciphertext = base64ToUint8(stored.slice(colonIdx + 1))
   const plaintext = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, ciphertext)
@@ -56,7 +56,7 @@ export async function decrypt(stored: string): Promise<string> {
 }
 
 export function maskApiKey(apiKey: string): string {
-  // Returns '••••••••{last4}' — never exposes the full key
+  // Returns '••••••••{last4}' | never exposes the full key
   if (apiKey.length <= 4) return '••••••••'
   return `••••••••${apiKey.slice(-4)}`
 }

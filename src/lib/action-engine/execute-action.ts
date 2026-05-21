@@ -40,11 +40,11 @@ type IntegrationProvider = Database['public']['Enums']['integration_provider']
 export interface ActionContext {
   organizationId: string
   supabase: SupabaseClient<Database>
-  /** tool_configs.config JSONB — required for custom_webhook */
+  /** tool_configs.config JSONB | required for custom_webhook */
   toolConfig?: Json
-  /** Provider of the integration bound to this tool — dispatches send_sms to Twilio vs GHL */
+  /** Provider of the integration bound to this tool | dispatches send_sms to Twilio vs GHL */
   integrationProvider?: IntegrationProvider
-  /** Phase 38 DELEG-07: ordered list of agentIds in the delegation chain — for intersection authorization logging */
+  /** Phase 38 DELEG-07: ordered list of agentIds in the delegation chain | for intersection authorization logging */
   delegationChain?: string[]
 }
 

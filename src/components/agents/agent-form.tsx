@@ -99,14 +99,14 @@ function CollapsibleSection({
  * - Basics: name, slug (auto from name until manually edited), description,
  *   system_prompt, model, fallback_message, is_active
  * - Generation: temperature, max_tokens, max_history (AGENT-02)
- * - Tools: tool picker (edit only — TOOL-03 deny-by-default for create mode)
+ * - Tools: tool picker (edit only | TOOL-03 deny-by-default for create mode)
  * - Channels: allowed_channels multi-select + per-channel overrides editor
  *
  * Slug auto-fills via `slugify(name)` until the user manually edits the slug
  * field, after which auto-fill stops (D-36-06).
  *
  * Partial-failure UX: if updateAgent succeeds on the row but setAgentTools
- * fails afterwards (no transaction wrapper — Plan 04 Deferred), the form
+ * fails afterwards (no transaction wrapper | Plan 04 Deferred), the form
  * surfaces a recovery-oriented sonner toast.
  */
 export function AgentForm({
@@ -189,11 +189,11 @@ export function AgentForm({
               form.setError('slug', { message: result.error })
             } else {
               // Partial-failure UX: updateAgent succeeded on the row but
-              // setAgentTools failed afterward — surface the no-transaction
+              // setAgentTools failed afterward | surface the no-transaction
               // caveat (see Plan 04 Task 1 acceptance criterion).
               // We can't distinguish reliably without an error code, so any
               // error from updateAgent gets the recovery-oriented toast.
-              toast.error('Tool changes failed — please retry attaching tools on the form and save again.')
+              toast.error('Tool changes failed | please retry attaching tools on the form and save again.')
             }
             return
           }
@@ -302,7 +302,7 @@ export function AgentForm({
                           if ('error' in result) {
                             toast.error(result.error)
                           } else {
-                            toast.success(`Draft v${result.version} saved — use Publish to make it live`)
+                            toast.success(`Draft v${result.version} saved | use Publish to make it live`)
                           }
                         })
                       }}

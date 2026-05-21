@@ -1,5 +1,5 @@
 // src/app/api/zapi/webhook/route.ts
-// Z-API webhook receiver — always returns HTTP 200.
+// Z-API webhook receiver | always returns HTTP 200.
 // Configure in Z-API panel: "Webhook ao Receber" → https://xphere.app/api/zapi/webhook?instance={instanceId}
 
 import { after } from 'next/server'

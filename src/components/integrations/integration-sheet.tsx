@@ -1,10 +1,10 @@
 'use client'
 
-// SEED-042 — IntegrationSheet
+// SEED-042 | IntegrationSheet
 // Routes between api_key / custom / oauth panel types based on the
 // IntegrationDefinition.
 
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 
 import { ApiKeyPanel } from './api-key-panel'
 import { OAuthPanel } from './oauth-panel'
@@ -24,8 +24,8 @@ export function IntegrationSheet({
   existing,
 }: IntegrationSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="p-0 sm:max-w-[480px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="p-0 sm:max-w-[480px] max-h-[85vh] flex flex-col overflow-hidden">
         {definition && (
           <PanelRouter
             definition={definition}
@@ -33,8 +33,8 @@ export function IntegrationSheet({
             onClose={() => onOpenChange(false)}
           />
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
 

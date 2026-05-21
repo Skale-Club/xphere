@@ -15,7 +15,7 @@
 // If the per-org Twilio integration is missing the Voice SDK fields
 // (`api_key_sid`, `api_key_secret`, `twiml_app_sid`), generateVoiceToken throws.
 // /api/twilio/token surfaces that as a 400 so the UI can guide the admin to
-// /integrations/twilio to finish setup. No env vars are read here — all
+// /integrations/twilio to finish setup. No env vars are read here | all
 // credentials come from the per-org integration row.
 
 function base64url(input: string | Uint8Array): string {

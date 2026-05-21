@@ -14,7 +14,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           "text-sm text-text-primary placeholder:text-text-tertiary",
           // File input styling
           "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-text-primary",
-          // Focus — accent ring
+          // Focus | accent ring
           "transition-[border-color,box-shadow] duration-150 ease-out",
           "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30",
           // Disabled

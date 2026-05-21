@@ -75,9 +75,21 @@ export async function archiveWorkflow(
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
+
+  // Guard: refuse to archive a workflow that is currently active
+  const { data: row } = await supabase
+    .from('workflows')
+    .select('is_active')
+    .eq('id', workflowId)
+    .single()
+
+  if (row?.is_active) {
+    return { ok: false, error: 'Deactivate the workflow before archiving it.' }
+  }
+
   const { error } = await supabase
     .from('workflows')
-    .update({ archived_at: new Date().toISOString(), is_active: false })
+    .update({ archived_at: new Date().toISOString() })
     .eq('id', workflowId)
 
   if (error) return { ok: false, error: error.message }
@@ -111,9 +123,21 @@ export async function softDeleteWorkflow(
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
+
+  // Guard: refuse to trash a workflow that is currently active
+  const { data: row } = await supabase
+    .from('workflows')
+    .select('is_active')
+    .eq('id', workflowId)
+    .single()
+
+  if (row?.is_active) {
+    return { ok: false, error: 'Deactivate the workflow before moving it to trash.' }
+  }
+
   const { error } = await supabase
     .from('workflows')
-    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', workflowId)
 
   if (error) return { ok: false, error: error.message }

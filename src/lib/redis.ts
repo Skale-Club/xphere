@@ -5,7 +5,7 @@
 import { createClient, type RedisClientType } from 'redis'
 
 declare global {
-  // var is required inside declare global (not let/const) — TypeScript strict mode rule
+  // var is required inside declare global (not let/const) | TypeScript strict mode rule
   // eslint-disable-next-line no-var
   var _redisClient: RedisClientType | undefined
 }

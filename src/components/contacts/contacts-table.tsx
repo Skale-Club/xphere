@@ -86,7 +86,7 @@ export function ContactsTable({
   const [query, setQuery] = React.useState(currentQuery ?? '')
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
-  // Optimistic "pending delete" set — rows fade out immediately on delete
+  // Optimistic "pending delete" set | rows fade out immediately on delete
   // and snap back if the server returns an error.
   const [pendingDelete, setPendingDelete] = React.useState<Set<string>>(new Set())
 
@@ -334,9 +334,9 @@ export function ContactsTable({
                   </div>
                 </div>
                 <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
-                  {c.phone || '—'}
+                  {c.phone || '|'}
                 </div>
-                <div className="truncate text-[12.5px] text-text-secondary">{c.email || '—'}</div>
+                <div className="truncate text-[12.5px] text-text-secondary">{c.email || '|'}</div>
                 <div className="flex flex-wrap gap-1 overflow-hidden">
                   {c.tags.slice(0, 2).map((tagName) => {
                     const tagObj = allTags.find((t) => t.name === tagName || t.slug === tagName.toLowerCase())
@@ -370,7 +370,7 @@ export function ContactsTable({
                   const cf = (c.custom_fields ?? {}) as Record<string, unknown>
                   const val = cf[def.key]
                   const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
-                  const display = val !== undefined && val !== null ? config.displayFormatter(val) : '—'
+                  const display = val !== undefined && val !== null ? config.displayFormatter(val) : '|'
                   return (
                     <div key={def.id} className="truncate text-[12.5px] text-text-secondary">
                       {display}

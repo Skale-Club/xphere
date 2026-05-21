@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 type CallRow = Database['public']['Tables']['calls']['Row']
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null) return '—'
+  if (seconds === null) return '|'
   return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0')
 }
 
 function formatCallType(callType: string | null): string {
-  if (!callType) return '—'
+  if (!callType) return '|'
   switch (callType) {
     case 'inboundPhoneCall':
       return 'Inbound'
@@ -25,7 +25,7 @@ function formatCallType(callType: string | null): string {
 }
 
 function EndedReasonBadge({ reason }: { reason: string | null }) {
-  if (!reason) return <span className="text-muted-foreground">—</span>
+  if (!reason) return <span className="text-muted-foreground">|</span>
 
   let className = 'bg-zinc-500/15 text-zinc-400'
   if (reason === 'customer-ended-call' || reason === 'assistant-ended-call') {
@@ -60,7 +60,7 @@ export function CallDetailHeader({ call }: CallDetailHeaderProps) {
             <dd>
               {call.started_at
                 ? format(new Date(call.started_at), 'MMM d, yyyy HH:mm')
-                : '—'}
+                : '|'}
             </dd>
           </div>
           <div>
@@ -70,7 +70,7 @@ export function CallDetailHeader({ call }: CallDetailHeaderProps) {
           <div>
             <dt className="text-muted-foreground">Cost</dt>
             <dd className="font-mono">
-              {call.cost != null ? `$${call.cost.toFixed(6)}` : '—'}
+              {call.cost != null ? `$${call.cost.toFixed(6)}` : '|'}
             </dd>
           </div>
           <div>

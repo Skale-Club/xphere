@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * MediaBlock — renders a single media attachment inside a message bubble.
+ * MediaBlock | renders a single media attachment inside a message bubble.
  * SEED-030: Chat Rich Messages
  *
  * Supported types:

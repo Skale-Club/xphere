@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * TwilioDeviceProvider — wraps the dashboard for users in routing_mode='browser'.
+ * TwilioDeviceProvider | wraps the dashboard for users in routing_mode='browser'.
  *
  * Lifecycle:
  *   1. Fetch /api/twilio/token (server-side mints a VoiceGrant for the user)
@@ -9,7 +9,7 @@
  *   3. Listen for `incoming` events → push to local state, surface banner
  *   4. Provide `placeCall(to)` / `accept()` / `reject()` helpers to children
  *
- * The Device is created lazily — only if the server's token endpoint succeeds.
+ * The Device is created lazily | only if the server's token endpoint succeeds.
  * Users on phone_forward / sip modes skip Voice SDK entirely.
  */
 

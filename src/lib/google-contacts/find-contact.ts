@@ -51,6 +51,6 @@ export async function findGoogleContact(
   const summary = parts.join(' | ')
   const suffix = results.length > 1 ? ` (1 of ${results.length} matches)` : ''
 
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `Found: ${summary}${suffix}`
 }

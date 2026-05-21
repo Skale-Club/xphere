@@ -22,7 +22,7 @@ export default async function CallsSettingsPage() {
       <div>
         <h2 className="text-[18px] font-semibold tracking-tight text-text-primary">Call routing</h2>
         <p className="mt-1 text-[13px] text-text-secondary max-w-2xl">
-          Decide how inbound calls reach you and how you place outbound ones — pick one of three modes and switch any time.
+          Decide how inbound calls reach you and how you place outbound ones | pick one of three modes and switch any time.
         </p>
       </div>
 

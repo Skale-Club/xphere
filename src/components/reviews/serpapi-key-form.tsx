@@ -59,7 +59,7 @@ export function SerpApiKeyForm({ currentHint }: SerpApiKeyFormProps) {
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Free tier includes 100 searches/month — one daily scrape consumes about 30.
+            Free tier includes 100 searches/month | one daily scrape consumes about 30.
           </p>
         )}
       </div>

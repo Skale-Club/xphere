@@ -1,8 +1,8 @@
 // src/lib/custom-fields/serialize.ts
-// Phase 69 CUSTOMFIELDS-CORE-LIB — Plan 69-01
+// Phase 69 CUSTOMFIELDS-CORE-LIB | Plan 69-01
 //
 // Pure functions for normalising raw custom field input to typed values.
-// No I/O, no DB calls — safe in any runtime (Node.js, Deno, Edge).
+// No I/O, no DB calls | safe in any runtime (Node.js, Deno, Edge).
 
 import type { CustomFieldType } from '@/types/database'
 import { FIELD_RENDER_CONFIG } from './render-config'
@@ -14,10 +14,10 @@ export interface CurrencyValue {
 }
 
 /**
- * parseCurrencyValue — coerces raw currency input to { amount, currency }.
+ * parseCurrencyValue | coerces raw currency input to { amount, currency }.
  *
  * Accepted forms:
- *   - Object: { amount: number, currency: string } — passed through after validation
+ *   - Object: { amount: number, currency: string } | passed through after validation
  *   - String: "1500 BRL" (number <space> 3-letter ISO code)
  *
  * Throws Error('invalid_currency_value') on any other input.
@@ -44,7 +44,7 @@ export function parseCurrencyValue(raw: unknown): CurrencyValue {
 }
 
 /**
- * normalizeCustomFieldValues — coerces a raw values object to typed values
+ * normalizeCustomFieldValues | coerces a raw values object to typed values
  * based on the provided definitions.
  *
  * Rules:
@@ -52,12 +52,12 @@ export function parseCurrencyValue(raw: unknown): CurrencyValue {
  *     happens in validate.ts, not here).
  *   - For each matched definition, type coercion is attempted; on failure the
  *     original value is kept (validate.ts will flag it with invalid_type).
- *   - Returns a NEW object — input is never mutated.
+ *   - Returns a NEW object | input is never mutated.
  *
  * Special coercions:
  *   - 'number' / 'integer': Number(val) when val is a parseable string/number
  *   - 'boolean': coerces string "true"/"false" and numeric 0/1
- *   - 'currency': parseCurrencyValue (throws on invalid — validate.ts catches)
+ *   - 'currency': parseCurrencyValue (throws on invalid | validate.ts catches)
  *   - 'multi_select': comma-separated string → string[] or pass-through array
  */
 export function normalizeCustomFieldValues(
@@ -71,7 +71,7 @@ export function normalizeCustomFieldValues(
     const def = defsByKey.get(key)
 
     if (!def) {
-      // No definition — pass through unchanged
+      // No definition | pass through unchanged
       result[key] = val
       continue
     }
@@ -84,7 +84,7 @@ export function normalizeCustomFieldValues(
 
 /** Coerce a single value to the target CustomFieldType. */
 function coerce(type: CustomFieldType, val: unknown): unknown {
-  // Quick schema check first — if it already validates, return as-is.
+  // Quick schema check first | if it already validates, return as-is.
   const schema = FIELD_RENDER_CONFIG[type].zodSchema
   const preCheck = schema.safeParse(val)
   if (preCheck.success) return preCheck.data
@@ -121,7 +121,7 @@ function coerce(type: CustomFieldType, val: unknown): unknown {
       return val
     }
 
-    // date, datetime, text, long_text, select, url, email, phone — pass through
+    // date, datetime, text, long_text, select, url, email, phone | pass through
     default:
       return val
   }

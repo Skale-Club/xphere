@@ -1,7 +1,7 @@
 // src/app/api/manychat/webhook/route.ts
 // ManyChat External Request receiver.
 // Auth: X-Operator-Secret header verified against manychat_channels.webhook_secret.
-// Returns HTTP 403 before secret validation passes; always HTTP 200 after — even
+// Returns HTTP 403 before secret validation passes; always HTTP 200 after | even
 // if JSON parse, DB insert, or dispatch fails. This prevents ManyChat retry storms
 // once the caller has been authenticated.
 //
@@ -10,7 +10,7 @@
 // Phase 23: After insert, dispatch inline. dispatchManychatEvent finds a matching
 // rule (if any), runs the bound action via the existing action engine, logs to
 // action_logs, and updates the manychat_events row with the final status +
-// action_log_id link. The dispatcher contract guarantees no throw — but the outer
+// action_log_id link. The dispatcher contract guarantees no throw | but the outer
 // try/catch is preserved as defense-in-depth.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
     .maybeSingle()
 
   if (!channel) {
-    // Invalid or missing secret — reject before any processing
+    // Invalid or missing secret | reject before any processing
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -42,12 +42,12 @@ export async function POST(request: Request): Promise<Response> {
 
   // --- After this point: always return 200 (prevents ManyChat retry storms) ---
   try {
-    // Parse body — fall back to empty object on malformed JSON
+    // Parse body | fall back to empty object on malformed JSON
     let body: Record<string, unknown> = {}
     try {
       body = (await request.json()) as Record<string, unknown>
     } catch {
-      // Malformed JSON — log with unknown event_type, continue
+      // Malformed JSON | log with unknown event_type, continue
     }
 
     const eventType =
@@ -55,8 +55,8 @@ export async function POST(request: Request): Promise<Response> {
         ? body.event_type
         : 'unknown'
 
-    // Insert event — service role bypasses RLS (no user session in webhook context).
-    // org_id resolved from channel lookup — NEVER from request body.
+    // Insert event | service role bypasses RLS (no user session in webhook context).
+    // org_id resolved from channel lookup | NEVER from request body.
     // .select('id').single() captures the inserted UUID for the dispatcher (ROUTING-04).
     const { data: inserted } = await supabase
       .from('manychat_events')
@@ -71,7 +71,7 @@ export async function POST(request: Request): Promise<Response> {
       .single()
 
     // Phase 23 dispatch: only run if we got an event id back.
-    // dispatchManychatEvent never throws — it captures all errors internally and
+    // dispatchManychatEvent never throws | it captures all errors internally and
     // updates the event row to status='error' on failure.
     if (inserted?.id) {
       await dispatchManychatEvent(
@@ -86,7 +86,7 @@ export async function POST(request: Request): Promise<Response> {
       )
     }
   } catch {
-    // Swallow all errors after secret validation — never expose internals
+    // Swallow all errors after secret validation | never expose internals
   }
 
   return Response.json({ ok: true })

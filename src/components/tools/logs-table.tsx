@@ -14,14 +14,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { LogDetailSheet } from './log-detail-sheet'
-import type { LogWithCall } from '@/app/(dashboard)/automations/logs/actions'
+import type { LogWithCall } from '@/app/(dashboard)/workflows/logs/actions'
 
 interface LogsTableProps {
   logs: LogWithCall[]
   total: number
   page: number
   pageCount: number
-  showToolColumn?: boolean
+  showWorkflowColumn?: boolean
   prevHref: string | null
   nextHref: string | null
 }
@@ -45,7 +45,7 @@ export function LogsTable({
   total,
   page,
   pageCount,
-  showToolColumn = false,
+  showWorkflowColumn = false,
   prevHref,
   nextHref,
 }: LogsTableProps) {
@@ -68,7 +68,7 @@ export function LogsTable({
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Time</TableHead>
-              {showToolColumn && <TableHead className="text-xs">Tool</TableHead>}
+              {showWorkflowColumn && <TableHead className="text-xs">Workflow</TableHead>}
               <TableHead className="text-xs">Status</TableHead>
               <TableHead className="text-xs">Duration</TableHead>
               <TableHead className="text-xs">Call ID</TableHead>
@@ -82,9 +82,9 @@ export function LogsTable({
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                   {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                 </TableCell>
-                {showToolColumn && (
+                {showWorkflowColumn && (
                   <TableCell className="font-mono text-xs max-w-[160px] truncate">
-                    {log.tool_name}
+                    {log.workflow_name ?? log.tool_name}
                   </TableCell>
                 )}
                 <TableCell>
@@ -96,8 +96,8 @@ export function LogsTable({
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {log.call
-                    ? (log.call.customer_name ?? log.call.customer_number ?? '—')
-                    : '—'}
+                    ? (log.call.customer_name ?? log.call.customer_number ?? '|')
+                    : '|'}
                 </TableCell>
                 <TableCell>
                   <Button

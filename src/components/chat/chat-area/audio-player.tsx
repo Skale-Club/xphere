@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * AudioPlayer — minimal audio playback component.
+ * AudioPlayer | minimal audio playback component.
  * SEED-030: Chat Rich Messages
  *
  * Features:
@@ -71,7 +71,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
       setPlaying(false)
     } else {
       audio.play().catch(() => {
-        // Autoplay blocked or other error — silently ignore
+        // Autoplay blocked or other error | silently ignore
         setPlaying(false)
       })
       setPlaying(true)

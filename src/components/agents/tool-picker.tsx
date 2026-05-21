@@ -42,7 +42,7 @@ type ToolRow = ToolPickerData['tools'][number]
  * - Each row: checkbox + tool name + type badge + integration name + warning
  *   icon if integration is inactive/missing (still selectable per TOOL-04)
  * - Client-side search filters by name/type/integration name
- * - NO drag-and-drop, rename, or add-folder UI (RESEARCH §5 — picker reuses
+ * - NO drag-and-drop, rename, or add-folder UI (RESEARCH §5 | picker reuses
  *   existing folder hierarchy in read-only mode)
  */
 export function ToolPicker({ data, value, onChange }: ToolPickerProps) {

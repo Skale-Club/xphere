@@ -237,14 +237,14 @@ export async function deleteStage(
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
-  // Can't delete a stage that still has opportunities (RESTRICT) — caller
+  // Can't delete a stage that still has opportunities (RESTRICT) | caller
   // should move opportunities out first.
   const { count } = await supabase
     .from('opportunities')
     .select('id', { count: 'exact', head: true })
     .eq('stage_id', id)
   if ((count ?? 0) > 0) {
-    return { error: 'Stage has opportunities — move them first.' }
+    return { error: 'Stage has opportunities | move them first.' }
   }
   const { error } = await supabase.from('pipeline_stages').delete().eq('id', id)
   if (error) return { error: error.message }
@@ -610,7 +610,7 @@ export async function moveOpportunity(
   if (updErr) return { error: updErr.message }
 
   // Activity entry for the stage_change. Only insert when the stage actually
-  // changed — drag-to-same-column reorders shouldn't pollute the feed.
+  // changed | drag-to-same-column reorders shouldn't pollute the feed.
   if (current.stage_id !== stageId) {
     const previousStageRel = current.stage as
       | { name?: string; is_won?: boolean; is_lost?: boolean }
@@ -765,7 +765,7 @@ export async function getPipelineMetrics(pipelineId?: string): Promise<PipelineM
       .eq('pipeline_id', pipId)
       .order('position', { ascending: true })
 
-    // Pull all opps in this pipeline — counts are small at the per-org scale we
+    // Pull all opps in this pipeline | counts are small at the per-org scale we
     // optimise for (thousands not millions). Worth revisiting if this widget
     // ever lives in a high-traffic dashboard.
     const { data: opps } = await supabase
@@ -818,7 +818,7 @@ export async function getPipelineMetrics(pipelineId?: string): Promise<PipelineM
       perStage,
     }
   } catch {
-    // Pipeline tables missing / RLS error — render the empty state instead
+    // Pipeline tables missing / RLS error | render the empty state instead
     // of crashing the home dashboard.
     return empty
   }

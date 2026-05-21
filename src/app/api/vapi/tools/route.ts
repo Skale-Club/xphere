@@ -1,5 +1,5 @@
 // src/app/api/vapi/tools/route.ts
-// Node.js Route Handler — receives Vapi tool-call webhooks during live calls.
+// Node.js Route Handler | receives Vapi tool-call webhooks during live calls.
 // Vercel Hobby-friendly: no Edge Runtime dependency, but still must respond fast.
 // MUST always return HTTP 200.
 
@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     try {
       body = await request.json()
     } catch {
-      // Malformed JSON — Vapi may retry; return empty results (not an error from Vapi's perspective)
+      // Malformed JSON | Vapi may retry; return empty results (not an error from Vapi's perspective)
       return Response.json({ results: [] }, { status: 200 })
     }
 
@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ results: [] }, { status: 200 })
     }
 
-    // 2. Create service-role Supabase client (bypasses RLS — no user JWT in Vapi requests)
+    // 2. Create service-role Supabase client (bypasses RLS | no user JWT in Vapi requests)
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -97,7 +97,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const executionMs = Date.now() - startTime
 
-    // 6. Log execution async — does NOT block Vapi response
+    // 6. Log execution async | does NOT block Vapi response
     after(async () => {
       await logAction({
         organization_id: orgId,
@@ -112,13 +112,13 @@ export async function POST(request: Request): Promise<Response> {
       }, supabase)
     })
 
-    // 7. Return to Vapi — always HTTP 200
+    // 7. Return to Vapi | always HTTP 200
     return Response.json({
       results: [{ toolCallId: toolCall.id, result }]
     }, { status: 200 })
 
   } catch (outerErr) {
-    // Truly unexpected error — still return 200 so Vapi doesn't go silent
+    // Truly unexpected error | still return 200 so Vapi doesn't go silent
     console.error('[vapi/tools] Unexpected error:', outerErr)
     return Response.json({
       results: [{ toolCallId: 'unknown', result: 'Service unavailable.' }]

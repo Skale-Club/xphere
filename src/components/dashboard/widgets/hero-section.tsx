@@ -8,7 +8,7 @@ import { StatusPill } from '@/components/design-system/status-pill'
  * Hero / overview row for the home dashboard.
  *
  * Shows a greeting, today's agent spend, a workspace health pill, and
- * three quick-action chips. Server component — fetches its data inline.
+ * three quick-action chips. Server component | fetches its data inline.
  * Any failure is caught by the wrapping WidgetErrorBoundary; the catch
  * here only logs and degrades gracefully (no throw).
  */
@@ -29,7 +29,7 @@ export async function HeroSection() {
     console.error('[dashboard:hero] getUser failed', err)
   }
 
-  // Workspace health — count disconnected integrations
+  // Workspace health | count disconnected integrations
   try {
     const supabase = await createClient()
     const [{ data: evos }, { data: ints }] = [

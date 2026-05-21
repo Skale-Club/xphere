@@ -15,7 +15,7 @@ export type { ManychatChannelForDisplay } from './constants'
  * Get the ManyChat channel for the authenticated org.
  *
  * Returns null if not authenticated or no channel is configured.
- * Never returns encrypted_api_key — only safe display fields.
+ * Never returns encrypted_api_key | only safe display fields.
  */
 export async function getManychatChannel(): Promise<ManychatChannelForDisplay | null> {
   const user = await getUser()
@@ -94,7 +94,7 @@ export async function testManychatConnection(): Promise<{ success: boolean; erro
 /**
  * Fetch the list of flows for the authenticated org's ManyChat channel.
  *
- * Mirrors testManychatConnection — same decrypt + AbortController 5s pattern.
+ * Mirrors testManychatConnection | same decrypt + AbortController 5s pattern.
  * Returns { flows: Array<{name: string; ns: string}> } on success,
  * { error: string } on any failure.
  *
@@ -164,13 +164,13 @@ export async function getManychatFlows(): Promise<
  * - Stores `••••••••last4` masked hint via `maskApiKey` for UI display.
  * - Generates a per-channel `webhook_secret` (Web Crypto UUID v4) for the
  *   `X-Operator-Secret` header gate on `/api/manychat/webhook`.
- * - Does NOT set `org_id` manually — RLS `WITH CHECK (org_id = get_current_org_id())`
+ * - Does NOT set `org_id` manually | RLS `WITH CHECK (org_id = get_current_org_id())`
  *   handles tenant scoping automatically for the authenticated client.
  *
  * Phase 25 (D-03/D-04/D-05): ALSO inserts a bridge `integrations` row with
  * provider='manychat' linked back via `manychat_channel_id`. The bridge row
  * carries the credentials so `tool_configs.integration_id → integrations` joins
- * resolve transparently for outbound actions. The encrypted blob is REUSED —
+ * resolve transparently for outbound actions. The encrypted blob is REUSED |
  * never re-encrypted (would change the IV with no benefit).
  *
  * On bridge-insert failure, the just-created channel row is deleted (compensating
@@ -189,7 +189,7 @@ export async function createManychatChannel(data: {
   const keyHint = maskApiKey(data.apiKey)
   const webhookSecret = crypto.randomUUID()
 
-  // 1. Canonical insert (manychat_channels) — capture the inserted id
+  // 1. Canonical insert (manychat_channels) | capture the inserted id
   const { data: channel, error: channelErr } = await supabase
     .from('manychat_channels')
     .insert({
@@ -207,7 +207,7 @@ export async function createManychatChannel(data: {
     return { error: channelErr?.message ?? 'Failed to create channel.' }
   }
 
-  // 2. Bridge insert (integrations) — same encrypted blob, FK back to channel.
+  // 2. Bridge insert (integrations) | same encrypted blob, FK back to channel.
   //    Resolve organization_id from org_members (same pattern as integrations/actions.ts).
   const { data: member, error: memberErr } = await supabase
     .from('org_members')
@@ -216,7 +216,7 @@ export async function createManychatChannel(data: {
     .single()
 
   if (memberErr || !member) {
-    // Compensating delete — channel insert succeeded but we can't resolve org for bridge.
+    // Compensating delete | channel insert succeeded but we can't resolve org for bridge.
     await supabase.from('manychat_channels').delete().eq('id', channel.id)
     return { error: 'Bridge sync failed: could not resolve organization.' }
   }
@@ -225,7 +225,7 @@ export async function createManychatChannel(data: {
     organization_id: member.organization_id,
     provider: 'manychat',
     name: data.channelName,
-    encrypted_api_key: encryptedApiKey, // reuse — never re-encrypt
+    encrypted_api_key: encryptedApiKey, // reuse | never re-encrypt
     key_hint: keyHint,
     location_id: null,
     config: {},
@@ -234,7 +234,7 @@ export async function createManychatChannel(data: {
   })
 
   if (bridgeErr) {
-    // Compensating delete — keep manychat_channels and integrations consistent.
+    // Compensating delete | keep manychat_channels and integrations consistent.
     await supabase.from('manychat_channels').delete().eq('id', channel.id)
     return { error: `Bridge sync failed: ${bridgeErr.message}` }
   }

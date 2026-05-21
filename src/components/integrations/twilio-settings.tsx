@@ -1,21 +1,21 @@
 'use client'
 /**
- * Twilio integration UI (v2.3 — per-org credentials panel + multi-number).
+ * Twilio integration UI (v2.3 | per-org credentials panel + multi-number).
  *
  * Sections:
- *   1. Connection status   — summary pills (SMS / Voice SDK / SIP)
- *   2. SMS & basics        — account_sid, auth_token, SMS webhook URL
- *   3. Phone numbers       — list + CRUD dialog (TwilioPhoneNumbers component)
- *   4. Voice SDK           — api_key_sid, api_key_secret, twiml_app_sid (+ webhook URL hint)
- *   5. SIP / Zoiper        — sip_domain
+ *   1. Connection status   | summary pills (SMS / Voice SDK / SIP)
+ *   2. SMS & basics        | account_sid, auth_token, SMS webhook URL
+ *   3. Phone numbers       | list + CRUD dialog (TwilioPhoneNumbers component)
+ *   4. Voice SDK           | api_key_sid, api_key_secret, twiml_app_sid (+ webhook URL hint)
+ *   5. SIP / Zoiper        | sip_domain
  *
- * Secrets are NEVER returned to the client — the parent server component passes
+ * Secrets are NEVER returned to the client | the parent server component passes
  * a "view" object with masked hints + boolean presence flags. The user types a
  * new value into an empty input to rotate; leaving it blank keeps the previous
  * value.
  *
  * Phone numbers are managed via numbers-actions.ts and the TwilioPhoneNumbers
- * client component — independent of the credentials save flow.
+ * client component | independent of the credentials save flow.
  */
 
 import * as React from 'react'
@@ -56,7 +56,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
   const [view, setView] = React.useState<TwilioIntegrationView>(initial)
   const [saving, setSaving] = React.useState(false)
 
-  // Form fields — secrets start blank (placeholder shows masked hint).
+  // Form fields | secrets start blank (placeholder shows masked hint).
   const [accountSid, setAccountSid] = React.useState('')
   const [authToken, setAuthToken] = React.useState('')
   const [apiKeySid, setApiKeySid] = React.useState('')
@@ -83,7 +83,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
         return
       }
       toast.success('Twilio settings saved')
-      // Clear secret inputs after save — view will refresh via revalidatePath
+      // Clear secret inputs after save | view will refresh via revalidatePath
       setAccountSid('')
       setAuthToken('')
       setApiKeySid('')
@@ -214,7 +214,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
             onChange={setApiKeySecret}
             visible={showApiKeySecret}
             onToggle={() => setShowApiKeySecret((v) => !v)}
-            hint="Twilio reveals this once. Store it here — Xphere never displays it again."
+            hint="Twilio reveals this once. Store it here | Xphere never displays it again."
           />
           <Field
             label="TwiML App SID"

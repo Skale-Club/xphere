@@ -83,7 +83,7 @@ export async function PipelineOverview() {
     console.error('[dashboard:pipeline-overview]', err)
   }
 
-  // Empty state — no pipeline configured OR every stage is empty
+  // Empty state | no pipeline configured OR every stage is empty
   if (stages.length === 0) {
     return (
       <WidgetCard title="Active pipeline" icon={TrendingUp} href="/pipeline" hrefLabel="View board">

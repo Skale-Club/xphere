@@ -46,7 +46,7 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
   async function placeCall() {
     const norm = normaliseE164(number)
     if (!norm) {
-      toast.error('Use an E.164 number — e.g. +14155551234.')
+      toast.error('Use an E.164 number | e.g. +14155551234.')
       return
     }
     setCalling(true)
@@ -62,7 +62,7 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
         return
       }
       const data = (await res.json()) as { sid: string }
-      toast.success(`Calling ${norm} — your phone will ring shortly.`)
+      toast.success(`Calling ${norm} | your phone will ring shortly.`)
       console.log('[dialer] call sid:', data.sid)
       onComplete?.()
     } finally {

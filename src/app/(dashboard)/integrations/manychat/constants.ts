@@ -1,4 +1,4 @@
-// Shared constants for the ManyChat integration — importable from both server and client code.
+// Shared constants for the ManyChat integration | importable from both server and client code.
 // This file must NOT have 'use server' or 'use client' directives.
 
 export type ManychatChannelForDisplay = {

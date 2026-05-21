@@ -8,7 +8,7 @@ const SUBROUTES = ['/calls/campaigns', '/calls/assistants', '/calls/settings'] a
 
 function isTimelineActive(pathname: string): boolean {
   if (pathname === '/calls') return true
-  // /calls/[id] (detail page) — not a subroute
+  // /calls/[id] (detail page) | not a subroute
   if (SUBROUTES.some((s) => pathname === s || pathname.startsWith(s + '/'))) return false
   return pathname.startsWith('/calls/')
 }

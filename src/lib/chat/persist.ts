@@ -1,6 +1,6 @@
 // src/lib/chat/persist.ts
 // Supabase service-role write helpers for chat persistence.
-// IMPORTANT: Always uses createServiceRoleClient() — no auth session exists on the
+// IMPORTANT: Always uses createServiceRoleClient() | no auth session exists on the
 // public chat API route. Never use the authenticated Supabase client here.
 //
 // Tables: `conversations` + `conversation_messages` (the only persistence world for chat).
@@ -10,11 +10,11 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 /**
  * Create a new conversations row in Supabase.
  * Returns the UUID of the newly created row (conversations.id).
- * Throws on DB error — caller must handle.
+ * Throws on DB error | caller must handle.
  */
 export async function ensureDbSession(opts: {
   orgId: string
-  sessionId: string    // client-facing UUID — stored as session_key for Phase 3 history reload
+  sessionId: string    // client-facing UUID | stored as session_key for Phase 3 history reload
   widgetToken: string
 }): Promise<string> {
   const supabase = createServiceRoleClient()
@@ -36,7 +36,7 @@ export async function ensureDbSession(opts: {
  * Persist a single message turn to conversation_messages.
  * Also updates conversations.last_message, last_message_at, and updated_at
  * so the admin inbox preview row stays current for every visitor message.
- * Throws on DB error — caller should use after() so errors don't block the response.
+ * Throws on DB error | caller should use after() so errors don't block the response.
  */
 export async function persistMessage(opts: {
   dbSessionId: string

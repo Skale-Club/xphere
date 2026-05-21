@@ -34,7 +34,7 @@ export const opportunitySchema = z.object({
       if (typeof v !== 'string') return v
       // Strip currency symbols and spaces. Heuristic for pt-BR strings like
       // "R$ 1.500,00": when both `.` and `,` are present, the `.` is the
-      // thousands separator and `,` is the decimal — drop dots, swap comma.
+      // thousands separator and `,` is the decimal | drop dots, swap comma.
       let s = v.replace(/[^0-9.,-]/g, '')
       const hasDot = s.includes('.')
       const hasComma = s.includes(',')

@@ -4,7 +4,7 @@ import type { AccountSource } from '@/types/database'
 /**
  * Size buckets per SEED-016. Free-text in the DB (CHECK list only on source),
  * but the form/UI restricts to these values. CSV import accepts arbitrary
- * strings — the v2.4 importer does not enforce size membership.
+ * strings | the v2.4 importer does not enforce size membership.
  */
 export const ACCOUNT_SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'] as const
 export type AccountSizeLiteral = (typeof ACCOUNT_SIZES)[number]
@@ -29,7 +29,7 @@ const optionalText = (max: number) =>
 /**
  * Form-facing schema. `name` is required (non-empty after trim). Every other
  * attribute is optional/nullable. Tags constrained to <= 50 items; each tag
- * trimmed and 1..40 chars. custom_fields is a raw record — the structured
+ * trimmed and 1..40 chars. custom_fields is a raw record | the structured
  * definitions layer lands in Phase 68 (SEED-017).
  */
 export const accountSchema = z.object({

@@ -73,7 +73,7 @@ export function OppTagsWidget({ opportunityId, initialTagIds, allTags: initialAl
           onClick={() => setEditing(true)}
           className="text-[12px] text-text-tertiary hover:text-text-secondary transition-colors"
         >
-          No tags — click to add
+          No tags | click to add
         </button>
       )}
     </div>

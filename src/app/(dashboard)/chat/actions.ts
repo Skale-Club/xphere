@@ -20,7 +20,7 @@ export async function toggleBotStatus(
   if (error) return { error: 'Failed to update bot status' }
 
   // System message in the conversation feed so admins can see who toggled what.
-  // Best-effort — failures are silent (don't block the toggle). Wrapped in
+  // Best-effort | failures are silent (don't block the toggle). Wrapped in
   // try/catch so test mocks that don't stub rpc/insert remain happy.
   try {
     const { data: orgId } = await supabase.rpc('get_current_org_id')
@@ -34,14 +34,14 @@ export async function toggleBotStatus(
       })
     }
   } catch {
-    // ignore — system message is best-effort UX
+    // ignore | system message is best-effort UX
   }
 
   return { botStatus: newStatus }
 }
 
 /**
- * v2.2 — Pin/unpin a conversation. Pinned conversations always render first
+ * v2.2 | Pin/unpin a conversation. Pinned conversations always render first
  * in the inbox list (see /api/chat/conversations ordering).
  */
 export async function pinConversation(
@@ -62,7 +62,7 @@ export async function pinConversation(
 }
 
 /**
- * v2.2 — Set conversation priority. Triggers a colored left border on the
+ * v2.2 | Set conversation priority. Triggers a colored left border on the
  * conversation card. 'normal' is the default and shows no decoration.
  */
 export async function setConversationPriority(
@@ -86,7 +86,7 @@ export async function setConversationPriority(
 }
 
 /**
- * v2.2 — Assign or unassign a conversation to a user in the same org.
+ * v2.2 | Assign or unassign a conversation to a user in the same org.
  * Pass `null` to clear the assignment.
  */
 export async function assignConversation(
@@ -125,7 +125,7 @@ export async function listOrgMembers(): Promise<OrgMember[]> {
   if (!orgId) return []
 
   // RLS on org_members only returns rows the caller can see (i.e., their org).
-  // The `users` join is RLS-restricted too — we keep this best-effort. If the
+  // The `users` join is RLS-restricted too | we keep this best-effort. If the
   // join fails (e.g., no display_name on the join target), we still return the
   // user_id list with `?` placeholders so the dropdown is usable.
   const { data: members } = await supabase
@@ -136,7 +136,7 @@ export async function listOrgMembers(): Promise<OrgMember[]> {
   if (!members || members.length === 0) return []
 
   const userIds = members.map((m) => m.user_id)
-  // auth.users isn't readable via the user client — best we can do is return
+  // auth.users isn't readable via the user client | best we can do is return
   // user_id placeholders. Callers can resolve names from a separate fetch if
   // needed. For now we return user_id as both fields so the UI is functional.
   return userIds.map((id) => ({
@@ -159,7 +159,7 @@ export async function linkContactToConversation(
   if (!user) return { error: 'Not authenticated' }
   const supabase = await createClient()
 
-  // RLS will reject cross-org updates — both rows must belong to the current org.
+  // RLS will reject cross-org updates | both rows must belong to the current org.
   const { error } = await supabase
     .from('conversations')
     .update({ contact_id: contactId })
@@ -175,7 +175,7 @@ export async function linkContactToConversation(
 
 /**
  * Lightweight contact search for the link-contact picker. Returns up to 10
- * matches by name / phone / email. Excludes the result count for speed —
+ * matches by name / phone / email. Excludes the result count for speed |
  * the picker is single-select, not a paginated list.
  */
 export async function searchContactsForLink(query: string): Promise<Array<{

@@ -22,7 +22,7 @@ export default async function FlowEditorPage({
 
   return (
     <DesktopOnly message="The visual flow editor uses drag-and-drop and a large canvas that's not designed for small touch screens.">
-      <div className="h-[calc(100vh-0px)] flex flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <FlowCanvas
           workflowId={result.data.id}
           workflowName={result.data.name}

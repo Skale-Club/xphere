@@ -133,7 +133,7 @@ export async function resolveProviderById(id: string): Promise<ResolvedProvider 
 }
 
 /**
- * Webhook helper — given an Evolution instance name, find which provider row
+ * Webhook helper | given an Evolution instance name, find which provider row
  * owns it. Falls back to the legacy evolution_instances table.
  */
 export async function resolveProviderByInstanceName(

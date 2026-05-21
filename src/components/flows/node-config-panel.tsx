@@ -28,6 +28,39 @@ const NODE_TYPE_LABEL: Record<string, string> = {
   end: 'End',
 }
 
+const DURATION_UNITS = [
+  { value: 'm', label: 'Minutes' },
+  { value: 'h', label: 'Hours' },
+  { value: 'd', label: 'Days' },
+  { value: 'w', label: 'Weeks' },
+] as const
+
+type DurationUnit = (typeof DURATION_UNITS)[number]['value']
+
+function parseDurationValue(value: string | undefined, fallback: string): {
+  amount: string
+  unit: DurationUnit
+} {
+  const match = (value ?? fallback).trim().toLowerCase().match(/^(\d+)\s*([mhdw])$/)
+  if (!match) {
+    const fallbackMatch = fallback.match(/^(\d+)([mhdw])$/)
+    return {
+      amount: fallbackMatch?.[1] ?? '1',
+      unit: (fallbackMatch?.[2] as DurationUnit | undefined) ?? 'h',
+    }
+  }
+
+  return {
+    amount: match[1],
+    unit: match[2] as DurationUnit,
+  }
+}
+
+function toDurationValue(amount: string, unit: DurationUnit): string {
+  const safeAmount = Math.max(1, Number(amount) || 1)
+  return `${safeAmount}${unit}`
+}
+
 interface NodeConfigPanelProps {
   activeIntegrations: IntegrationKey[]
 }
@@ -45,7 +78,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
   if (!node) {
     return (
       <div className="w-72 border-l border-border bg-card shrink-0 flex flex-col">
-        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
           Select a node to configure it.
         </div>
       </div>
@@ -67,7 +100,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
 
   return (
     <div className="w-80 border-l border-border bg-card shrink-0 flex flex-col">
-      {/* Header — friendly title + type subtitle */}
+      {/* Header | friendly title + type subtitle */}
       <div className="flex items-start justify-between px-3 py-3 border-b border-border">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-text-primary truncate">{friendlyTitle}</p>
@@ -124,7 +157,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                 <SelectContent>
                   {filterTriggers(activeSet).length === 0 && (
                     <div className="px-2 py-1.5 text-[11px] text-text-tertiary">
-                      No triggers available — connect an integration first.
+                      No triggers available | connect an integration first.
                     </div>
                   )}
                   {/* Always include the currently selected event so user can change away */}
@@ -166,7 +199,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                   className="h-8 text-xs font-mono"
                 />
                 <p className="text-[10.5px] text-text-tertiary">
-                  e.g. <code>0 9 * * 1</code> — every Monday at 9 AM
+                  e.g. <code>0 9 * * 1</code> | every Monday at 9 AM
                 </p>
               </div>
             )}
@@ -284,7 +317,15 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
               <Label className="text-[11px] text-text-tertiary">Mode</Label>
               <Select
                 value={flow.mode}
-                onValueChange={(v) => updateNodeData(node.id, { mode: v as 'sleep' | 'wait_for_event' })}
+                onValueChange={(v) => {
+                  const mode = v as 'sleep' | 'wait_for_event'
+                  updateNodeData(
+                    node.id,
+                    mode === 'sleep'
+                      ? { mode, duration: flow.duration ?? '1h' }
+                      : { mode, timeout: flow.timeout ?? '7d' },
+                  )
+                }}
               >
                 <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -294,25 +335,19 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
               </Select>
             </div>
             {flow.mode === 'sleep' ? (
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-text-tertiary">Duration</Label>
-                <Input
-                  value={flow.duration ?? ''}
-                  onChange={(e) => updateNodeData(node.id, { duration: e.target.value })}
-                  placeholder="1h, 30m, 24h, 7d"
-                  className="h-8 text-xs"
-                />
-              </div>
+              <DurationField
+                label="Duration"
+                value={flow.duration}
+                fallback="1h"
+                onChange={(duration) => updateNodeData(node.id, { duration })}
+              />
             ) : (
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-text-tertiary">Timeout</Label>
-                <Input
-                  value={flow.timeout ?? ''}
-                  onChange={(e) => updateNodeData(node.id, { timeout: e.target.value })}
-                  placeholder="7d"
-                  className="h-8 text-xs"
-                />
-              </div>
+              <DurationField
+                label="Timeout"
+                value={flow.timeout}
+                fallback="7d"
+                onChange={(timeout) => updateNodeData(node.id, { timeout })}
+              />
             )}
           </>
         )}
@@ -386,6 +421,51 @@ function SelectedActionLabel({ value }: { value: string }) {
       </span>
       <span className="truncate">{meta.label}</span>
     </span>
+  )
+}
+
+function DurationField({
+  label,
+  value,
+  fallback,
+  onChange,
+}: {
+  label: string
+  value?: string
+  fallback: string
+  onChange: (value: string) => void
+}) {
+  const parsed = parseDurationValue(value, fallback)
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] text-text-tertiary">{label}</Label>
+      <div className="grid grid-cols-[1fr_120px] gap-2">
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          value={parsed.amount}
+          onChange={(e) => onChange(toDurationValue(e.target.value, parsed.unit))}
+          className="h-8 text-xs"
+        />
+        <Select
+          value={parsed.unit}
+          onValueChange={(unit) => onChange(toDurationValue(parsed.amount, unit as DurationUnit))}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DURATION_UNITS.map((unit) => (
+              <SelectItem key={unit.value} value={unit.value} className="text-xs">
+                {unit.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   )
 }
 

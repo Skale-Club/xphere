@@ -47,7 +47,7 @@ function mimeToExt(mimeType: string): string {
 /**
  * Downloads the media from `url` (optionally with auth headers) and uploads it
  * to the Supabase Storage bucket `chat-media`. Returns the public URL, file
- * size in bytes, and filename. Returns null on any error — callers must handle
+ * size in bytes, and filename. Returns null on any error | callers must handle
  * graceful degradation.
  */
 export async function storeMediaFromUrl(params: StoreMediaParams): Promise<StoredMedia | null> {

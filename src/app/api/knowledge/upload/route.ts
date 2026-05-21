@@ -1,6 +1,6 @@
 // src/app/api/knowledge/upload/route.ts
-// Route Handler for file upload — avoids server action 1MB body limit.
-// DOES NOT run embedding inline — returns immediately with storagePath.
+// Route Handler for file upload | avoids server action 1MB body limit.
+// DOES NOT run embedding inline | returns immediately with storagePath.
 // Caller (client component) then invokes insertDocument server action.
 
 import { createClient as createServerClient, getUser } from '@/lib/supabase/server'
@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { randomUUID } from 'crypto'
 
-// Do NOT set runtime = 'edge' — formData() requires Node.js runtime
+// Do NOT set runtime = 'edge' | formData() requires Node.js runtime
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 
 const ALLOWED_MIME_TYPES = new Set([

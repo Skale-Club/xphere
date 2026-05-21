@@ -10,7 +10,7 @@ export async function deleteGoogleContact(
 
   if (!email) throw new Error('delete_contact requires email param to locate the contact')
 
-  // Step A — Search for the contact
+  // Step A | Search for the contact
   const searchUrl = new URL('https://people.googleapis.com/v1/people:searchContacts')
   searchUrl.searchParams.set('query', email)
   searchUrl.searchParams.set('readMask', 'names,emailAddresses')
@@ -40,7 +40,7 @@ export async function deleteGoogleContact(
 
   const { resourceName } = searchData.results[0].person
 
-  // Step B — DELETE the contact (no etag required for delete)
+  // Step B | DELETE the contact (no etag required for delete)
   const deleteUrl = `https://people.googleapis.com/v1/${resourceName}:deleteContact`
 
   const deleteRes = await callWithRefresh(
@@ -61,6 +61,6 @@ export async function deleteGoogleContact(
     throw new Error(`People API error ${deleteRes.status}: ${text}`)
   }
 
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `Google contact deleted. Resource: ${resourceName}`
 }

@@ -1,5 +1,5 @@
 // src/lib/integrations/registry.ts
-// SEED-042 — Integration registry. Single source of truth for which
+// SEED-042 | Integration registry. Single source of truth for which
 // integrations are surfaced in /integrations and how their config panels
 // are rendered.
 //
@@ -19,7 +19,7 @@ export type IntegrationCategory =
 export type PanelType =
   | 'api_key' // generic field form + Test + Save + Activate
   | 'custom' // bespoke React component (Twilio tabs, WhatsApp selector, etc.)
-  | 'oauth' // OAuth handshake — opens the per-provider connect flow
+  | 'oauth' // OAuth handshake | opens the per-provider connect flow
 
 export interface IntegrationField {
   key: string
@@ -52,7 +52,7 @@ export interface CustomPanelProps {
 }
 
 /**
- * Minimal shape passed to panels — UI-safe (no decrypted secrets).
+ * Minimal shape passed to panels | UI-safe (no decrypted secrets).
  * Mirrors `IntegrationForDisplay` from the integrations actions.
  */
 export interface SavedIntegration {

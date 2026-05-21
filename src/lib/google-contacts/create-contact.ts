@@ -48,6 +48,6 @@ export async function createGoogleContact(
   }
 
   const data = (await res.json()) as { resourceName: string }
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `Google contact created. Resource: ${data.resourceName}`
 }

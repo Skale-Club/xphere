@@ -19,10 +19,26 @@ import {
   Plug2,
   type LucideIcon,
 } from 'lucide-react'
-import { Area, AreaChart, ResponsiveContainer } from 'recharts'
+import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
 
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/design-system/animated-number'
+
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: { value: number | string }[]
+}
+
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-[6px] border border-border bg-bg-secondary px-2.5 py-1 text-[11px] font-semibold text-text-primary shadow-elevation-md">
+        {payload[0].value}
+      </div>
+    )
+  }
+  return null
+}
 
 export interface MetricCardProps {
   label: string
@@ -35,9 +51,9 @@ export interface MetricCardProps {
   trend?: number | null
   /** Optional sparkline data points */
   data?: { value: number }[]
-  /** Optional icon slug — looked up internally because lucide icons are functions and can't cross Server→Client boundary */
+  /** Optional icon slug | looked up internally because lucide icons are functions and can't cross Server→Client boundary */
   icon?: MetricIconName
-  /** Tone hint — affects sparkline color */
+  /** Tone hint | affects sparkline color */
   tone?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   /** Make whole card clickable */
   href?: string
@@ -48,7 +64,7 @@ export interface MetricCardProps {
   index?: number
 }
 
-// Icon registry — string slug → Lucide component. Kept inside the client
+// Icon registry | string slug → Lucide component. Kept inside the client
 // component so server callers can pass a serializable string instead of a
 // function (which would fail Server→Client serialization).
 const ICON_MAP = {
@@ -167,7 +183,7 @@ export function MetricCard({
             )}
           >
             <TrendIcon className="h-3 w-3" />
-            <span>{trend === null || trend === undefined ? '—' : `${Math.abs(trend) > 999 ? '999+' : Math.abs(trend)}%`}</span>
+            <span>{trend === null || trend === undefined ? '|' : `${Math.abs(trend) > 999 ? '999+' : Math.abs(trend)}%`}</span>
           </div>
         )}
       </div>
@@ -193,15 +209,20 @@ export function MetricCard({
       )}
 
       {data && data.length > 0 && (
-        <div className="relative z-0 flex-1 min-h-[48px] -mx-5 -mb-5 overflow-hidden rounded-b-[12px]" aria-hidden>
+        <div className="relative z-0 flex-1 min-h-[48px]">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <AreaChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+            <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.22} />
                   <stop offset="100%" stopColor={color} stopOpacity={0.04} />
                 </linearGradient>
               </defs>
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3', strokeOpacity: 0.4 }}
+                wrapperStyle={{ zIndex: 50 }}
+              />
               <Area
                 type="monotone"
                 dataKey="value"
@@ -211,6 +232,7 @@ export function MetricCard({
                 fill={`url(#${gradientId})`}
                 isAnimationActive={false}
                 dot={false}
+                activeDot={{ r: 4, fill: color, stroke: 'var(--bg-secondary)', strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>

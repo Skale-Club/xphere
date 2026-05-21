@@ -1,6 +1,4 @@
-// Admin chat — Inbox only.
-// SEED-041: the playground tab moved to /agents/{id}/playground where it
-// belongs (per-agent test surface). Legacy ?tab=playground redirects to /agents.
+// Admin chat | Inbox
 // Auth: handled by (dashboard)/layout.tsx
 import { redirect } from 'next/navigation'
 

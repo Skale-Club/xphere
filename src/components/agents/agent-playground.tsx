@@ -48,7 +48,7 @@ type PlaygroundMessage = {
   role: 'user' | 'assistant' | 'tool_call' | 'partner_badge'
   content: string
   streaming?: boolean
-  toolName?: string // for role='tool_call' — live badge during streaming
+  toolName?: string // for role='tool_call' | live badge during streaming
   toolDetails?: ToolCallDetail[] // populated after streaming from invocation details
   partnerName?: string // for role='partner_badge'
   partnerDone?: boolean // true once partner_done received
@@ -111,7 +111,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
           )
         }
       } catch {
-        // Non-fatal — tool details are cosmetic
+        // Non-fatal | tool details are cosmetic
       }
     },
     [agentId]
@@ -309,7 +309,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Channel selector — PLAY-02 */}
+          {/* Channel selector | PLAY-02 */}
           <Select
             value={channel}
             onValueChange={(v) => setChannel(v as AgentChannel)}
@@ -335,7 +335,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
             </Badge>
           )}
 
-          {/* New session — PLAY-03 */}
+          {/* New session | PLAY-03 */}
           <Button
             variant="outline"
             size="sm"
@@ -382,7 +382,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
               )
             }
 
-            // Tool call inline — PLAY-01
+            // Tool call inline | PLAY-01
             if (msg.role === 'tool_call') {
               const detail = msg.toolDetails?.[0]
               return (
@@ -466,7 +466,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
         </div>
       </ScrollArea>
 
-      {/* Stats bar — shows after each completed turn */}
+      {/* Stats bar | shows after each completed turn */}
       {lastInvocationDetails && (
         <div className="px-4 py-1.5 border-t bg-muted/30 flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
           {lastInvocationDetails.duration_ms != null && (

@@ -6,7 +6,7 @@ import { StatusPill } from '@/components/design-system/status-pill'
 type SectionTone = 'live' | 'success' | 'warning' | 'danger' | 'info' | 'idle' | 'loading'
 
 /**
- * SectionCard — canonical primitive for "dedicated integration" pages (v2.3).
+ * SectionCard | canonical primitive for "dedicated integration" pages (v2.3).
  *
  * Each dedicated integration page (Twilio, Google Reviews, Meta, Evolution,
  * ManyChat, Google Contacts) composes these section cards to create a
@@ -20,10 +20,10 @@ type SectionTone = 'live' | 'success' | 'warning' | 'danger' | 'info' | 'idle' |
  *   │  └──┘                                                             │
  *   │  [optional help link chips]                                       │
  *   │                                                                   │
- *   │  {children — typically the form / list for this section}         │
+ *   │  {children | typically the form / list for this section}         │
  *   └──────────────────────────────────────────────────────────────────┘
  *
- * The component is non-interactive itself — all behavior lives in the
+ * The component is non-interactive itself | all behavior lives in the
  * children. The status pill is informational only.
  */
 
@@ -34,7 +34,7 @@ export interface SectionCardProps {
   /**
    * `true` shows `readyLabel` in a success-toned pill; `false` shows
    * `emptyLabel` in a warning-toned pill. Pass both labels even when the
-   * pill is mostly informational — the warning state is what catches the
+   * pill is mostly informational | the warning state is what catches the
    * operator's eye when something needs setup.
    */
   statusReady: boolean

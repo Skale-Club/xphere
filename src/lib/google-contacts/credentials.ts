@@ -61,7 +61,7 @@ export async function callWithRefresh(
   })
 
   if (!refreshRes.ok) {
-    throw new Error('Google token refresh failed — reconnect via /integrations.')
+    throw new Error('Google token refresh failed | reconnect via /integrations.')
   }
 
   const refreshData = (await refreshRes.json()) as { access_token: string; expires_in: number }

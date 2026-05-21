@@ -39,7 +39,7 @@ export async function listAvailableIntegrations(
   return data as IntegrationHealthRow[]
 }
 
-// Full picture (including disconnected) — used by the /integrations page so
+// Full picture (including disconnected) | used by the /integrations page so
 // the user can see what needs reconnecting.
 export async function listIntegrationHealth(
   orgId: string,

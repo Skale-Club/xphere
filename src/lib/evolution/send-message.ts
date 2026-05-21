@@ -1,5 +1,5 @@
 // src/lib/evolution/send-message.ts
-// Outbound WhatsApp dispatcher — single entry point for sending a message via
+// Outbound WhatsApp dispatcher | single entry point for sending a message via
 // Evolution Go. Used by:
 //   - Inbox UI when an admin replies in /conversations
 //   - process-event after runAgent() produces a reply
@@ -17,11 +17,11 @@ export interface SendWhatsappMessageInput {
   orgId: string
   to: string                       // E.164 (or group JID for groups)
   text: string
-  conversationId?: string          // optional — when set, message is persisted
+  conversationId?: string          // optional | when set, message is persisted
   role?: 'assistant' | 'user'      // role to persist as; defaults to 'assistant'
-  instanceName?: string            // optional — picks first active if omitted
+  instanceName?: string            // optional | picks first active if omitted
   delayMs?: number
-  splitIntoChunks?: boolean        // defaults true — uses 1600-char WhatsApp adapter
+  splitIntoChunks?: boolean        // defaults true | uses 1600-char WhatsApp adapter
 }
 
 export interface SendWhatsappMessageResult {
@@ -62,7 +62,7 @@ export async function sendWhatsappMessage(
     })
 
     if (!res.ok) {
-      // Record the failure but don't persist — caller can inspect
+      // Record the failure but don't persist | caller can inspect
       return {
         ok: false,
         error: res.error ?? 'Evolution Go send failed',
@@ -94,7 +94,7 @@ export async function sendWhatsappMessage(
 }
 
 /**
- * Thin pass-through for callers that already have a resolved instance config —
+ * Thin pass-through for callers that already have a resolved instance config |
  * skips DB lookup. Used by executors that pre-resolved the instance.
  */
 export async function sendTextWith(

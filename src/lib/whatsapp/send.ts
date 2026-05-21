@@ -16,7 +16,7 @@ export interface SendWhatsAppMessageInput {
   text: string
   media?: WhatsAppMediaAttachment[]
   conversationId?: string
-  /** Defaults to true — uses the 1600-char WhatsApp adapter chunks. */
+  /** Defaults to true | uses the 1600-char WhatsApp adapter chunks. */
   splitIntoChunks?: boolean
   /** When persisting to conversation_messages, which role to use. */
   role?: 'assistant' | 'user'
@@ -29,7 +29,7 @@ export interface SendWhatsAppMessageResult {
 }
 
 function normalizeTo(to: string): string {
-  // Strip leading + and any @suffix — most providers want digits-only.
+  // Strip leading + and any @suffix | most providers want digits-only.
   let value = to.startsWith('+') ? to.slice(1) : to
   if (value.includes('@')) value = value.split('@')[0]
   return value

@@ -51,9 +51,9 @@ export function AccountCombobox({
     return () => document.removeEventListener('mousedown', handleMouseDown)
   }, [])
 
-  // Debounced search — with email-domain auto-suggest (ACC-12, D-09)
+  // Debounced search | with email-domain auto-suggest (ACC-12, D-09)
   // When the user types something containing '@', extract the domain part and
-  // search by domain (via q= fallback — AccountListFilters has no separate
+  // search by domain (via q= fallback | AccountListFilters has no separate
   // domain key in v2.4, but getAccounts already searches domain via
   // `domain.ilike.%${escaped}%` in the q filter). Domain-matched results are
   // surfaced first, then merged with the name/q results, deduplicated by id.

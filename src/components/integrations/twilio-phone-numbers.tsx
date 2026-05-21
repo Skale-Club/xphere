@@ -1,6 +1,6 @@
 'use client'
 /**
- * Twilio phone numbers — per-org list + CRUD dialog (v2.3).
+ * Twilio phone numbers | per-org list + CRUD dialog (v2.3).
  *
  * Mounted inside `/integrations/twilio` between the Account credentials and
  * Voice SDK sections. Operators can add, edit, set-default, and soft-delete
@@ -110,7 +110,7 @@ export function TwilioPhoneNumbers({ initial }: TwilioPhoneNumbersProps) {
   async function handleDelete(row: TwilioPhoneNumberRow) {
     if (typeof window !== 'undefined') {
       const ok = window.confirm(
-        `Remove ${row.friendly_name} (${row.e164})? This soft-deletes the number — history is preserved but it will no longer be available for outbound or inbound flows.`,
+        `Remove ${row.friendly_name} (${row.e164})? This soft-deletes the number | history is preserved but it will no longer be available for outbound or inbound flows.`,
       )
       if (!ok) return
     }
@@ -393,7 +393,7 @@ function PhoneNumberDialog({ open, onOpenChange, editing, onSaved }: PhoneNumber
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit phone number' : 'Add phone number'}</DialogTitle>
           <DialogDescription>
-            Register a Twilio number already provisioned in your Twilio account. Xphere does not purchase numbers — buy in the{' '}
+            Register a Twilio number already provisioned in your Twilio account. Xphere does not purchase numbers | buy in the{' '}
             <a
               href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
               target="_blank"
@@ -468,7 +468,7 @@ function PhoneNumberDialog({ open, onOpenChange, editing, onSaved }: PhoneNumber
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ROUTING_NONE}>None — handled per call</SelectItem>
+                  <SelectItem value={ROUTING_NONE}>None | handled per call</SelectItem>
                   <SelectItem value="browser">Browser dialer</SelectItem>
                   <SelectItem value="sip">SIP (Zoiper, softphone)</SelectItem>
                   <SelectItem value="forward">Forward to number</SelectItem>

@@ -43,8 +43,8 @@ function mapSupabaseError(message: string): string {
 
 const bullets = [
   { icon: Zap, text: 'Route AI tool calls to any business action' },
-  { icon: Users, text: 'Full CRM — contacts, companies, pipeline' },
-  { icon: Globe, text: 'Multi-channel inbox — voice, chat, WhatsApp' },
+  { icon: Users, text: 'Full CRM | contacts, companies, pipeline' },
+  { icon: Globe, text: 'Multi-channel inbox | voice, chat, WhatsApp' },
 ]
 
 export default function LoginPage() {
@@ -95,7 +95,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex w-full min-h-screen">
-      {/* Left panel — brand */}
+      {/* Left panel | brand */}
       <div className="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-12 overflow-hidden bg-[#0D0D10]">
         {/* Grid */}
         <div
@@ -156,7 +156,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel — form */}
+      {/* Right panel | form */}
       <div className="flex flex-1 items-center justify-center px-6 py-12 bg-[#08090A]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}

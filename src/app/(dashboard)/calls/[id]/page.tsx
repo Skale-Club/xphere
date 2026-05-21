@@ -45,7 +45,7 @@ export default async function CallDetailPage({ params }: Props) {
               : <PhoneOutgoing className="h-3.5 w-3.5 text-accent" />}
             <span className="capitalize">{call.direction}</span>
             <span className="text-text-tertiary">·</span>
-            <span>{call.counterpart_number ?? '—'}</span>
+            <span>{call.counterpart_number ?? '|'}</span>
           </span>
         }
       />

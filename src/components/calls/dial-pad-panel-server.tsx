@@ -1,4 +1,4 @@
-// Server component wrapper — reads call_settings for the current user and
+// Server component wrapper | reads call_settings for the current user and
 // passes initial values down to the client DialPadPanel.
 
 import { createClient, getUser } from '@/lib/supabase/server'

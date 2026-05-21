@@ -265,7 +265,7 @@ export function TemplateEditor({ template: initial }: TemplateEditorProps) {
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
         <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col">
           <div className="px-6 py-4 border-b border-border shrink-0">
-            <h2 className="text-sm font-medium">Preview — {name}</h2>
+            <h2 className="text-sm font-medium">Preview | {name}</h2>
           </div>
           <div className="flex-1 overflow-hidden">
             <EmailPreview

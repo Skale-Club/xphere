@@ -1,17 +1,19 @@
 // SEED-025 Phase E: unified workflows page. No more tabs separating
-// "Action Tools" and "Visual Flows" — everything is a Workflow with a
+// "Action Tools" and "Visual Flows" | everything is a Workflow with a
 // kind/trigger badge, surfaced in one list.
 //
 // SEED-038: adds folders, archive toggle (?archived=1), and trash entry.
 
 import Link from 'next/link'
-import { Workflow, Plus, ScrollText, Sparkles, Trash2, Archive } from 'lucide-react'
+import { Workflow, ScrollText, Trash2, Archive } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { listUnifiedWorkflows } from '@/lib/workflows/list'
 import { WorkflowsList } from '@/components/workflows/workflows-list'
+import { NewFolderButton } from '@/components/workflows/new-folder-button'
+import { NewWorkflowButton } from '@/components/flows/new-workflow-button'
 import type { Database } from '@/types/database'
 
 type WorkflowFolderRow = Database['public']['Tables']['workflow_folders']['Row']
@@ -82,21 +84,13 @@ export default async function WorkflowsPage({ searchParams }: PageProps) {
               )}
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/copilot/conversations">
-              <Sparkles className="h-3.5 w-3.5" /> Build with Copilot
-            </Link>
-          </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/workflows/logs">
               <ScrollText className="h-3.5 w-3.5" /> Logs
             </Link>
           </Button>
-          <Button asChild size="sm">
-            <Link href="/workflows/flows/new">
-              <Plus className="h-3.5 w-3.5" /> New workflow
-            </Link>
-          </Button>
+          <NewFolderButton />
+          <NewWorkflowButton />
         </div>
       </div>
 

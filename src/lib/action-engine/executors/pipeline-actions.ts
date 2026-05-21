@@ -7,7 +7,7 @@
 //
 // They use ctx.supabase (RLS-scoped when called inside a user request, or
 // service-role from the workflow runner) and ctx.organizationId. Each throws
-// on failure with a descriptive message — the action runner catches and
+// on failure with a descriptive message | the action runner catches and
 // surfaces the message.
 
 import type { ActionContext } from '@/lib/action-engine/execute-action'

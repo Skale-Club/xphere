@@ -1,6 +1,6 @@
 // src/lib/meta/types.ts
 // Shared Meta (Messenger + Instagram DM) webhook payload types.
-// SEED-032: attachments[] and richer message shapes were previously ignored —
+// SEED-032: attachments[] and richer message shapes were previously ignored |
 // the canonical interfaces live here so process-event.ts and downstream
 // helpers (media.ts, send.ts) stay in sync.
 
@@ -20,7 +20,7 @@ export interface MetaAttachment {
     url?: string
     is_reusable?: boolean
     sticker_id?: number
-    /** File attachments — Meta may include a filename hint. */
+    /** File attachments | Meta may include a filename hint. */
     name?: string
     /** Location attachments. */
     coordinates?: { lat: number; long: number }

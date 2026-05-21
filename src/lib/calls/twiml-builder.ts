@@ -2,7 +2,7 @@
 // TwiML response generators (SEED-007).
 //
 // Twilio expects an XML response with <Response>…</Response>. We build it as a
-// string (TwiML has a tiny, fixed surface — no need for a builder library) and
+// string (TwiML has a tiny, fixed surface | no need for a builder library) and
 // escape user-controlled values defensively.
 
 const RECORDING_STATUS_PATH = '/api/twilio/recording'
@@ -19,7 +19,7 @@ export function xmlEscape(value: string): string {
 }
 
 export interface TwimlContext {
-  /** Public base URL (e.g. https://xphere.app) — used for recording/status callbacks */
+  /** Public base URL (e.g. https://xphere.app) | used for recording/status callbacks */
   baseUrl: string
   recordCalls: boolean
   callerId?: string
@@ -40,7 +40,7 @@ function dialAttrs(record: boolean, baseUrl: string, callerId?: string): string 
 }
 
 /**
- * Mode A — phone_forward: dial a real phone number.
+ * Mode A | phone_forward: dial a real phone number.
  *   <Response><Dial><Number>{phone}</Number></Dial></Response>
  */
 export function twimlForwardToPhone(
@@ -59,7 +59,7 @@ export function twimlForwardToPhone(
 }
 
 /**
- * Mode B — sip: route to a Twilio SIP domain (Zoiper/softphone).
+ * Mode B | sip: route to a Twilio SIP domain (Zoiper/softphone).
  *   <Response><Dial><Sip>{sip_uri}</Sip></Dial></Response>
  */
 export function twimlForwardToSip(
@@ -78,7 +78,7 @@ export function twimlForwardToSip(
 }
 
 /**
- * Mode C — browser: route to a Twilio Voice SDK Client identity.
+ * Mode C | browser: route to a Twilio Voice SDK Client identity.
  *   <Response><Dial><Client>{identity}</Client></Dial></Response>
  */
 export function twimlForwardToClient(
@@ -97,7 +97,7 @@ export function twimlForwardToClient(
 }
 
 /**
- * Empty acknowledgement TwiML — used when we can't find a routing target and
+ * Empty acknowledgement TwiML | used when we can't find a routing target and
  * want to drop the call gracefully without 4xx-ing Twilio (which would trigger
  * retries).
  */
@@ -115,7 +115,7 @@ export function twimlReject(message?: string): string {
 }
 
 /**
- * Outbound dialer TwiML — used when the Twilio Voice SDK initiates a call from
+ * Outbound dialer TwiML | used when the Twilio Voice SDK initiates a call from
  * the browser. The TwiML App points at /api/twilio/voice with `To=<E.164>` and
  * routes that number out via the connected number.
  */

@@ -96,7 +96,7 @@ export function ManychatSettings({ channel }: ManychatSettingsProps) {
     try {
       const result = await testManychatConnection()
       if (result.success) {
-        toast.success('Connection successful — ManyChat API key is valid.')
+        toast.success('Connection successful | ManyChat API key is valid.')
       } else {
         toast.error(result.error ?? 'Connection test failed.')
       }

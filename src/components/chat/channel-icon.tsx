@@ -47,7 +47,7 @@ export function ChannelIcon({ channel, className = 'h-4 w-4' }: ChannelIconProps
 }
 
 /**
- * Pure helper — maps a channel value to a display label.
+ * Pure helper | maps a channel value to a display label.
  * Used in tests and in the header UI.
  */
 export function channelLabel(channel: string): string {
@@ -57,7 +57,7 @@ export function channelLabel(channel: string): string {
 }
 
 /**
- * Pure filter helper — used by ConversationList and testable without rendering.
+ * Pure filter helper | used by ConversationList and testable without rendering.
  */
 export type ChannelFilter = 'all' | 'widget' | 'instagram' | 'messenger'
 export type BotStateFilter = 'all' | 'bot-active' | 'bot-paused'

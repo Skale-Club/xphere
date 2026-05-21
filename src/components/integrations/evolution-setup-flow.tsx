@@ -175,7 +175,7 @@ function Stepper({ step }: { step: Step }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — Server config
+// Step 1 | Server config
 // ---------------------------------------------------------------------------
 
 function ServerConfigCard({
@@ -280,7 +280,7 @@ function ServerConfigCard({
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Instance create
+// Step 2 | Instance create
 // ---------------------------------------------------------------------------
 
 function InstanceCreateCard({
@@ -323,7 +323,7 @@ function InstanceCreateCard({
       <CardContent className="flex flex-col gap-3">
         <p className="text-[13px] text-text-secondary">
           Xphere will register the instance on your Evolution Go server and subscribe it to inbound message and
-          connection events. The webhook URL is shown to the right — copy it into your Evolution Go dashboard if you
+          connection events. The webhook URL is shown to the right | copy it into your Evolution Go dashboard if you
           prefer manual configuration.
         </p>
         <div className="flex gap-2">
@@ -341,7 +341,7 @@ function InstanceCreateCard({
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — QR scan
+// Step 3 | QR scan
 // ---------------------------------------------------------------------------
 
 function QRCodeCard({
@@ -425,7 +425,7 @@ function QRCodeCard({
 }
 
 // ---------------------------------------------------------------------------
-// Step 4 — Connected
+// Step 4 | Connected
 // ---------------------------------------------------------------------------
 
 function ConnectedCard({

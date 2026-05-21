@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-031 — WhatsApp provider settings UI.
+// SEED-031 | WhatsApp provider settings UI.
 // One active provider per org. Switching providers replaces the previous one
 // (server-side: previous row goes is_active=false, new row goes is_active=true).
 
@@ -77,7 +77,7 @@ export function WhatsAppProviderSettings({ initial }: Props) {
         <CardTitle>WhatsApp</CardTitle>
         <CardDescription>
           Choose which unofficial WhatsApp provider this workspace uses. Only
-          one provider can be active at a time — switching deactivates the
+          one provider can be active at a time | switching deactivates the
           previous one automatically.
         </CardDescription>
       </CardHeader>

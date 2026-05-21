@@ -15,7 +15,7 @@
 //   YAML/spec : { trigger: {...}, nodes: [{id, kind, ...}], edges: [{from,to}] }
 //   Flow eng. : { nodes: [{id, type, data: {kind, ...}}], edges: [{source,target}] }
 //
-// Errors are returned in a structured result rather than thrown — the agent
+// Errors are returned in a structured result rather than thrown | the agent
 // runtime needs to surface them to the LLM as tool-call results.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -120,7 +120,7 @@ function normalizeGraph(definition: unknown): NormalizedGraph {
     if (ykind === 'condition' || ykind === 'wait' || ykind === 'agent' || ykind === 'end') {
       out.nodes.push({ id, kind: ykind, config: { ...node }, raw: node })
     } else {
-      // action node — node.kind is the action_type; remaining fields are config
+      // action node | node.kind is the action_type; remaining fields are config
       const { id: _id, kind: _k, ...rest } = node
       void _id
       void _k
@@ -275,7 +275,7 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
   }
 
   // Build a topological ordering by following edges from `trigger` (or first
-  // node) breadth-first. We don't fully support condition branching here —
+  // node) breadth-first. We don't fully support condition branching here |
   // condition nodes are evaluated trivially (always take 'true' branch) and a
   // warning is logged. Most agent-callable flows are linear.
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]))
@@ -373,7 +373,7 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
       continue
     }
 
-    // Unknown node kind — bail.
+    // Unknown node kind | bail.
     runError = `unknown_node_kind:${node.kind}`
     break
   }

@@ -41,6 +41,6 @@ export async function createAppointment(
     credentials
   )
 
-  // Single-line result — no newlines
+  // Single-line result | no newlines
   return `Appointment confirmed. ID: ${data.id}`
 }

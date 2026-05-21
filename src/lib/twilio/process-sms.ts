@@ -1,23 +1,21 @@
 // src/lib/twilio/process-sms.ts
-// Processes a validated inbound Twilio SMS/MMS webhook (SEED-005, extended in SEED-030).
-// Called from /api/twilio/sms via after() — runs after 200 TwiML is returned.
+// Processes a validated inbound Twilio SMS webhook (SEED-005).
+// Called from /api/twilio/sms via after() | runs after 200 TwiML is returned.
 //
 // Pipeline:
 //   1. Upsert conversation by (org_id, channel='sms', visitor_phone=From).
-//   2. Download any attached media (Twilio MMS) and store in Supabase Storage.
-//   3. Insert conversation_message with message_type + media metadata.
-//   4. If bot_status='active' and an agent is configured for channel='sms' via
+//   2. Insert conversation_message (role='user', content=Body).
+//   3. If bot_status='active' and an agent is configured for channel='sms' via
 //      agent_channel_defaults, invoke runAgent({channel:'sms', stream:false}).
-//   5. Persist the assistant reply as a conversation_message.
-//   6. Send the reply via the existing send_sms executor (Twilio Messages REST API).
+//   4. Persist the assistant reply as a conversation_message.
+//   5. Send the reply via the existing send_sms executor (Twilio Messages REST API).
 //
-// All errors are caught locally — this function never throws (after() context).
+// All errors are caught locally | this function never throws (after() context).
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendSms } from './send-sms'
 import { formatOutbound as formatSms } from '@/lib/agent-runtime/adapters/sms'
-import { insertNotification } from '@/lib/notifications/insert'
 import { downloadAndStoreTwilioMedia } from './media'
 import type { MediaAttachment } from '@/types/chat'
 
@@ -28,52 +26,16 @@ export type TwilioSmsPayload = {
   MessageSid: string
   AccountSid?: string
   NumMedia?: string
-  // MMS media fields (up to 10 attachments)
-  MediaUrl0?: string
-  MediaUrl1?: string
-  MediaUrl2?: string
-  MediaUrl3?: string
-  MediaUrl4?: string
-  MediaUrl5?: string
-  MediaUrl6?: string
-  MediaUrl7?: string
-  MediaUrl8?: string
-  MediaUrl9?: string
-  MediaContentType0?: string
-  MediaContentType1?: string
-  MediaContentType2?: string
-  MediaContentType3?: string
-  MediaContentType4?: string
-  MediaContentType5?: string
-  MediaContentType6?: string
-  MediaContentType7?: string
-  MediaContentType8?: string
+  // MMS media attachments (up to 10)
+  MediaUrl0?: string; MediaUrl1?: string; MediaUrl2?: string; MediaUrl3?: string
+  MediaUrl4?: string; MediaUrl5?: string; MediaUrl6?: string; MediaUrl7?: string
+  MediaUrl8?: string; MediaUrl9?: string
+  MediaContentType0?: string; MediaContentType1?: string; MediaContentType2?: string
+  MediaContentType3?: string; MediaContentType4?: string; MediaContentType5?: string
+  MediaContentType6?: string; MediaContentType7?: string; MediaContentType8?: string
   MediaContentType9?: string
-  // Auth fields passed from route handler
-  _accountSid?: string
+  // Twilio auth token passed internally for media download | never stored
   _authToken?: string
-}
-
-/** Format the last_message preview for a media-only or mixed message. */
-function formatLastMessage(content: string, media?: MediaAttachment[]): string {
-  if (content) return content
-  if (!media?.length) return ''
-  const first = media[0]
-  if (first.mime_type.startsWith('image/')) return '📷 Foto'
-  if (first.mime_type.startsWith('audio/')) return '🎵 Áudio'
-  if (first.mime_type.startsWith('video/')) return '🎬 Vídeo'
-  return `📎 ${first.filename ?? 'Arquivo'}`
-}
-
-/** Determine message_type from text and media attachments. */
-function determineMessageType(content: string, media: MediaAttachment[]): string {
-  if (media.length === 0) return 'text'
-  if (content) return 'mixed'
-  const first = media[0]
-  if (first.mime_type.startsWith('image/')) return 'image'
-  if (first.mime_type.startsWith('audio/')) return 'audio'
-  if (first.mime_type.startsWith('video/')) return 'video'
-  return 'document'
 }
 
 export async function processTwilioSms(
@@ -84,9 +46,8 @@ export async function processTwilioSms(
 
   const messageText = (payload.Body ?? '').trim()
   const numMedia = parseInt(payload.NumMedia ?? '0', 10)
-
-  // Reject messages with neither text nor media
-  if (!messageText && numMedia === 0) return
+  const hasMedia = numMedia > 0
+  if (!messageText && !hasMedia) return
 
   const fromNumber = payload.From
   const toNumber = payload.To
@@ -105,15 +66,12 @@ export async function processTwilioSms(
   const now = new Date().toISOString()
   let conversationId: string
 
-  // Placeholder last_message — will be updated once we know about media
-  const placeholderLastMessage = messageText || '...'
-
   if (existing) {
     conversationId = existing.id
     await supabase
       .from('conversations')
       .update({
-        last_message: placeholderLastMessage,
+        last_message: messageText,
         last_message_at: now,
         last_inbound_at: now,
         updated_at: now,
@@ -132,7 +90,7 @@ export async function processTwilioSms(
           last_message_sid: messageSid,
         },
         visitor_phone: fromNumber,
-        last_message: placeholderLastMessage,
+        last_message: messageText,
         last_message_at: now,
         last_inbound_at: now,
       })
@@ -144,10 +102,10 @@ export async function processTwilioSms(
       return
     }
     conversationId = created.id
-    void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: 'sms' })
   }
 
-  // --- 2. Idempotency check (by message_sid) ---
+  // --- 2. Insert inbound user message (idempotent by message_sid in metadata) ---
+  // Skip insert if a message with this exact MessageSid was already persisted.
   const { data: dupCheck } = await supabase
     .from('conversation_messages')
     .select('id')
@@ -158,36 +116,53 @@ export async function processTwilioSms(
     .maybeSingle()
 
   if (dupCheck) {
-    console.log('[twilio/sms] Duplicate MessageSid — skipping message insert:', messageSid)
+    console.log('[twilio/sms] Duplicate MessageSid | skipping message insert:', messageSid)
     return
   }
 
-  // --- 3. Generate a message ID now so we can use it in Storage paths ---
-  const { data: msgIdRow } = await supabase.rpc('gen_random_uuid' as never)
-  const newMsgId: string = (msgIdRow as string | null) ?? crypto.randomUUID()
+  const messageType = hasMedia && !messageText ? 'image' : hasMedia ? 'mixed' : 'text'
 
-  // --- 4. Download and store any MMS media attachments ---
-  const accountSid = payload._accountSid ?? payload.AccountSid ?? ''
-  const authToken = payload._authToken ?? ''
+  const { data: insertedMsg, error: msgInsertError } = await supabase
+    .from('conversation_messages')
+    .insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      role: 'user',
+      content: messageText,
+      message_type: messageType,
+      metadata: { message_sid: messageSid, from_number: fromNumber },
+    })
+    .select('id')
+    .single()
 
-  const mediaItems: MediaAttachment[] = []
+  if (msgInsertError || !insertedMsg) {
+    console.error('[twilio/sms] Failed to insert message:', msgInsertError?.message)
+    return
+  }
 
-  for (let i = 0; i < numMedia; i++) {
-    const mediaUrl = payload[`MediaUrl${i}` as keyof TwilioSmsPayload] as string | undefined
-    const mimeType = payload[`MediaContentType${i}` as keyof TwilioSmsPayload] as string | undefined
-    if (!mediaUrl || !mimeType) continue
+  // --- 2b. Download and store MMS media attachments --------------------
+  if (hasMedia && payload.AccountSid && payload._authToken) {
+    const mediaItems: MediaAttachment[] = []
 
-    if (accountSid && authToken) {
+    for (let idx = 0; idx < numMedia; idx++) {
+      const mediaUrlKey = `MediaUrl${idx}` as keyof TwilioSmsPayload
+      const mediaTypeKey = `MediaContentType${idx}` as keyof TwilioSmsPayload
+      const mediaUrl = payload[mediaUrlKey] as string | undefined
+      const mimeType = (payload[mediaTypeKey] as string | undefined) ?? 'application/octet-stream'
+
+      if (!mediaUrl) continue
+
       const stored = await downloadAndStoreTwilioMedia({
         mediaUrl,
         mimeType,
-        accountSid,
-        authToken,
+        accountSid: payload.AccountSid,
+        authToken: payload._authToken,
         orgId,
         conversationId,
-        messageId: newMsgId,
-        idx: i,
+        messageId: insertedMsg.id,
+        idx,
       })
+
       if (stored) {
         mediaItems.push({
           url: stored.url,
@@ -195,54 +170,30 @@ export async function processTwilioSms(
           size: stored.size,
           filename: stored.filename,
         })
+      } else {
+        // Fallback: include the original Twilio URL so the attachment isn't lost
+        mediaItems.push({ url: mediaUrl, mime_type: mimeType })
       }
-    } else {
-      // No credentials available — store URL reference without downloading
-      console.warn('[twilio/sms] No Twilio credentials for media download — skipping storage')
+    }
+
+    if (mediaItems.length > 0) {
+      await supabase
+        .from('conversation_messages')
+        .update({
+          metadata: { message_sid: messageSid, from_number: fromNumber, media: mediaItems },
+        })
+        .eq('id', insertedMsg.id)
     }
   }
 
-  // --- 5. Calculate message_type and last_message ---
-  const messageType = determineMessageType(messageText, mediaItems)
-  const lastMessageDisplay = formatLastMessage(messageText, mediaItems)
-
-  // Update last_message with proper media label if text was empty
-  if (!messageText && mediaItems.length > 0) {
-    await supabase
-      .from('conversations')
-      .update({ last_message: lastMessageDisplay })
-      .eq('id', conversationId)
-  }
-
-  // --- 6. Insert inbound user message ---
-  await supabase.from('conversation_messages').insert({
-    id: newMsgId,
-    conversation_id: conversationId,
-    org_id: orgId,
-    role: 'user',
-    content: messageText,
-    message_type: messageType,
-    metadata: {
-      message_sid: messageSid,
-      from_number: fromNumber,
-      ...(mediaItems.length > 0 ? { media: mediaItems } : {}),
-    },
-  })
-
-  // --- 7. Bot status gate — skip AI if a human has taken over -----------
+  // --- 3. Bot status gate | skip AI if a human has taken over -----------
   const botStatus = existing?.bot_status ?? 'active'
   if (botStatus !== 'active') {
     console.log('[twilio/sms] Bot paused for conversation:', conversationId)
     return
   }
 
-  // Cannot auto-reply to media-only messages without text
-  if (!messageText) {
-    console.log('[twilio/sms] Media-only message — no auto-reply without text content')
-    return
-  }
-
-  // --- 8. Resolve an agent for channel='sms' via agent_channel_defaults --
+  // --- 4. Resolve an agent for channel='sms' via agent_channel_defaults --
   const { data: defaultRow } = await supabase
     .from('agent_channel_defaults')
     .select('agent_id')
@@ -251,11 +202,11 @@ export async function processTwilioSms(
     .maybeSingle()
 
   if (!defaultRow?.agent_id) {
-    // No agent configured for SMS on this org — inbound logged, no auto-reply.
+    // No agent configured for SMS on this org | inbound logged, no auto-reply.
     return
   }
 
-  // --- 9. Invoke the agent runtime (blocking path) ----------------------
+  // --- 5. Invoke the agent runtime (blocking path) ----------------------
   let replyText = ''
   try {
     const result = await runAgent({
@@ -274,10 +225,10 @@ export async function processTwilioSms(
 
   if (!replyText) return
 
-  // --- 10. Split the reply into SMS-sized chunks ------------------------
+  // --- 6. Split the reply into SMS-sized chunks ------------------------
   const chunks = formatSms(replyText)
 
-  // --- 11. Send each chunk via the send_sms executor + persist as assistant
+  // --- 7. Send each chunk via the send_sms executor + persist as assistant
   for (const chunk of chunks) {
     if (chunk.type !== 'text') continue
 
@@ -288,7 +239,7 @@ export async function processTwilioSms(
       )
     } catch (err) {
       console.error('[twilio/sms] sendSms error:', err)
-      // Continue trying remaining chunks — don't bail on a partial failure.
+      // Continue trying remaining chunks | don't bail on a partial failure.
       continue
     }
 
@@ -297,7 +248,6 @@ export async function processTwilioSms(
       org_id: orgId,
       role: 'assistant',
       content: chunk.text,
-      message_type: 'text',
       metadata: { channel: 'sms', from_number: toNumber },
     })
   }

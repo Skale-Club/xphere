@@ -172,7 +172,7 @@ export function TagsManager({ initialTags }: TagsManagerProps) {
                         <TagBadge name={tag.name} color={tag.color} size="md" />
                       </td>
                       <td className="px-4 py-3 text-text-tertiary">
-                        {usedIn || <span className="text-text-tertiary/50">—</span>}
+                        {usedIn || <span className="text-text-tertiary/50">|</span>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">

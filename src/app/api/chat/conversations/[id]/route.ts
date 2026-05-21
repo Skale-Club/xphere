@@ -1,5 +1,5 @@
-// GET /api/chat/conversations/[id]  — single conversation detail
-// DELETE /api/chat/conversations/[id] — delete conversation + messages (cascade)
+// GET /api/chat/conversations/[id]  | single conversation detail
+// DELETE /api/chat/conversations/[id] | delete conversation + messages (cascade)
 import { createClient, getUser } from '@/lib/supabase/server'
 import type { ConversationStatus, ConversationSummary } from '@/types/chat'
 

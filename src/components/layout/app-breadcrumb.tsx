@@ -23,8 +23,11 @@ function toTitleCase(str: string) {
 
 export function AppBreadcrumb() {
   const pathname = usePathname()
-  const segments = pathname.split('/').filter(Boolean)
-  const { getSegmentLabel } = useBreadcrumbOverride()
+  const rawSegments = pathname.split('/').filter(Boolean)
+  const segments = rawSegments
+    .map((segment, index) => ({ segment, rawIndex: index }))
+    .filter(({ segment, rawIndex }) => !(rawSegments[0] === 'workflows' && rawSegments[1] === 'flows' && rawIndex === 1))
+  const { getSegmentLabel, suffix } = useBreadcrumbOverride()
 
   // Match the top-level path segment to a sidebar nav item so the icon
   // shown in the header is the same as the icon highlighted in the sidebar.
@@ -47,9 +50,9 @@ export function AppBreadcrumb() {
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {segments.map((segment, index) => {
+        {segments.map(({ segment, rawIndex }, index) => {
           const isLast = index === segments.length - 1
-          const href = `/${segments.slice(0, index + 1).join('/')}`
+          const href = `/${rawSegments.slice(0, rawIndex + 1).join('/')}`
           const isFirst = index === 0
 
           return (
@@ -58,7 +61,10 @@ export function AppBreadcrumb() {
               <BreadcrumbItem className={isFirst ? 'flex items-center gap-2' : undefined}>
                 {isFirst && <Icon className="h-4 w-4 text-text-secondary shrink-0" />}
                 {isLast ? (
-                  <BreadcrumbPage>{getSegmentLabel(segment) ?? toTitleCase(segment)}</BreadcrumbPage>
+                  <BreadcrumbPage className="flex items-center gap-2">
+                    {getSegmentLabel(segment) ?? toTitleCase(segment)}
+                    {suffix}
+                  </BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
                     <Link href={href}>{getSegmentLabel(segment) ?? toTitleCase(segment)}</Link>

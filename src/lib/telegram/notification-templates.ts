@@ -1,7 +1,7 @@
 // src/lib/telegram/notification-templates.ts
 // Pre-built HTML templates used by the platform-default Telegram notification
 // workflows (supabase/seeds/workflows/notify-*.yaml). These templates expect
-// the workflow runtime to inject the variables — they're plain JS helpers
+// the workflow runtime to inject the variables | they're plain JS helpers
 // callable from anywhere (executors, server actions, ad-hoc).
 //
 // Telegram HTML supports: <b>, <i>, <u>, <s>, <code>, <pre>, <a href="…">.
@@ -15,27 +15,27 @@ export function escapeHtml(input: string): string {
     .replace(/>/g, '&gt;')
 }
 
-function safe(value: string | null | undefined, fallback = '—'): string {
+function safe(value: string | null | undefined, fallback = '|'): string {
   if (value === null || value === undefined) return fallback
   const trimmed = String(value).trim()
   return trimmed.length === 0 ? fallback : escapeHtml(trimmed)
 }
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '|'
   try {
     const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return '—'
+    if (Number.isNaN(d.getTime())) return '|'
     return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
   } catch {
-    return '—'
+    return '|'
   }
 }
 
 function relativeTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '|'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '|'
   const diffMs = Date.now() - d.getTime()
   const minutes = Math.round(diffMs / 60000)
   if (minutes < 1) return 'agora há pouco'

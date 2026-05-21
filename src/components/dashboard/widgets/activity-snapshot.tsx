@@ -16,7 +16,7 @@ interface Stat {
 }
 
 /**
- * Snapshot of today's activity numbers — each stat is clickable and
+ * Snapshot of today's activity numbers | each stat is clickable and
  * deep-links to the relevant area filtered to today.
  */
 export async function ActivitySnapshot() {

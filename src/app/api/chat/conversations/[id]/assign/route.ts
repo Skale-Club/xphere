@@ -1,4 +1,4 @@
-// POST /api/chat/conversations/[id]/assign — assign (or unassign) a human operator
+// POST /api/chat/conversations/[id]/assign | assign (or unassign) a human operator
 // body: { user_id: string | null }
 // null = unassign (returns conversation to pool)
 import { createClient, getUser } from '@/lib/supabase/server'

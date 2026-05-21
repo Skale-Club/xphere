@@ -253,7 +253,7 @@ function UnifiedCallRow({ row }: { row: UnifiedCallWithContact }) {
           <TypeBadge type={row.call_type} />
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-text-tertiary">
-          <span className="truncate">{row.counterpart_number ?? '—'}</span>
+          <span className="truncate">{row.counterpart_number ?? '|'}</span>
           {row.routing_mode && (
             <>
               <span>·</span>
@@ -362,7 +362,7 @@ function initialsOf(name: string | null | undefined): string {
 }
 
 function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || seconds < 0) return '—'
+  if (!seconds || seconds < 0) return '|'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`

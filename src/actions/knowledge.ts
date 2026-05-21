@@ -199,7 +199,7 @@ export async function hasOpenAiIntegration(): Promise<boolean> {
 
 /**
  * Fire-and-forget: triggers the process-embeddings Edge Function.
- * Errors are logged but do not throw — source stays in 'processing'
+ * Errors are logged but do not throw | source stays in 'processing'
  * and can be retried later.
  */
 async function triggerEmbeddingJob(sourceId: string, organizationId: string): Promise<void> {

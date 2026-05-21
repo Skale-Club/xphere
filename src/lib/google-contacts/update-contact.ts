@@ -24,7 +24,7 @@ export async function updateGoogleContact(
 
   if (!email) throw new Error('update_contact requires email param to locate the contact')
 
-  // Step A — Search for the contact
+  // Step A | Search for the contact
   const searchUrl = new URL('https://people.googleapis.com/v1/people:searchContacts')
   searchUrl.searchParams.set('query', email)
   searchUrl.searchParams.set('readMask', 'names,emailAddresses,phoneNumbers,organizations,biographies')
@@ -52,7 +52,7 @@ export async function updateGoogleContact(
 
   const { resourceName, etag } = searchData.results[0].person
 
-  // Step B — Build update body with dynamic field mask
+  // Step B | Build update body with dynamic field mask
   const fieldMap: Record<string, string> = {
     name: 'names',
     email: 'emailAddresses',
@@ -76,7 +76,7 @@ export async function updateGoogleContact(
   if (company) updateBody.organizations = [{ name: company }]
   if (notes) updateBody.biographies = [{ value: notes }]
 
-  // Step C — PATCH the contact (etag is mandatory to avoid 400 failedPrecondition)
+  // Step C | PATCH the contact (etag is mandatory to avoid 400 failedPrecondition)
   const patchUrl = `https://people.googleapis.com/v1/${resourceName}:updateContact?updatePersonFields=${mask}`
 
   const patchRes = await callWithRefresh(
@@ -98,6 +98,6 @@ export async function updateGoogleContact(
     throw new Error(`People API error ${patchRes.status}: ${text}`)
   }
 
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `Google contact updated. Resource: ${resourceName}`
 }

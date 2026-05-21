@@ -3,8 +3,8 @@
 // it in Hetzner Object Storage, then updates call_logs.recording_url.
 //
 // POST multipart/form-data
-//   audio    — audio Blob (audio/webm, audio/mp4, audio/ogg)
-//   callSid  — Twilio CallSid to match the call_logs row
+//   audio    | audio Blob (audio/webm, audio/mp4, audio/ogg)
+//   callSid  | Twilio CallSid to match the call_logs row
 
 import { after } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -80,7 +80,7 @@ export async function POST(request: Request): Promise<Response> {
   const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm'
 
   if (!hasHetznerConfig()) {
-    // Dev mode — skip upload, return placeholder
+    // Dev mode | skip upload, return placeholder
     return Response.json({ ok: true, url: null, uploaded: false })
   }
 

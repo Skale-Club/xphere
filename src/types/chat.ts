@@ -44,23 +44,23 @@ export interface ConversationSummary {
   channelMetadata: Record<string, string>     // JSON from channel_metadata column
   botStatus: string                           // 'active' | 'paused'
   channelAccountName?: string | null          // page_name from meta_channels (null for widget)
-  /** v2.2 — pin to the top of the inbox list. */
+  /** v2.2 | pin to the top of the inbox list. */
   pinned?: boolean
-  /** v2.2 — 'normal' | 'high' | 'urgent'. Drives the colored left-border. */
+  /** v2.2 | 'normal' | 'high' | 'urgent'. Drives the colored left-border. */
   priority?: ConversationPriority
-  /** v2.2 — Optional contact link. Used by the right-side ContactInfoPanel. */
+  /** v2.2 | Optional contact link. Used by the right-side ContactInfoPanel. */
   contactId?: string | null
   /** Resolved contact name (from contacts table JOIN). Preferred over visitorName in display. */
   contactName?: string | null
-  /** v2.2 — User the conversation is assigned to (assigned_user_id). */
+  /** v2.2 | User the conversation is assigned to (assigned_user_id). */
   assignedUserId?: string | null
-  /** SEED-035 — starred (favorite). Independent of pinned. */
+  /** SEED-035 | starred (favorite). Independent of pinned. */
   starred?: boolean
-  /** SEED-035 — true when the current user has not read the latest activity. */
+  /** SEED-035 | true when the current user has not read the latest activity. */
   isUnread?: boolean
-  /** SEED-035 — labels currently assigned to this conversation. */
+  /** SEED-035 | labels currently assigned to this conversation. */
   labels?: ConversationLabel[]
-  /** SEED-035 — snooze deadline when status='waiting'. */
+  /** SEED-035 | snooze deadline when status='waiting'. */
   waitUntil?: string | null
 }
 
@@ -77,7 +77,7 @@ export interface ConversationMessage {
    * SEED-039: origin channel for this individual message. Distinct from
    * `conversation.channel` because a single thread can intermix messages from
    * different transports (e.g. customer replies on WhatsApp then Instagram).
-   * NULL on legacy rows — UI falls back to the conversation's primary channel.
+   * NULL on legacy rows | UI falls back to the conversation's primary channel.
    */
   channel?: string | null
 }

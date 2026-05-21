@@ -1,12 +1,12 @@
 // src/lib/manychat/client.ts
-// ManyChat REST API fetch wrapper — mirrors src/lib/ghl/client.ts.
+// ManyChat REST API fetch wrapper | mirrors src/lib/ghl/client.ts.
 // Single auth-header / timeout / base-URL boundary used by all outbound executors.
 //
-// Phase 25: TODO — refactor src/app/(dashboard)/integrations/manychat/actions.ts
+// Phase 25: TODO | refactor src/app/(dashboard)/integrations/manychat/actions.ts
 // `testManychatConnection` (lines 72-91) to use this wrapper. Deferred per CONTEXT.
 
 const MANYCHAT_BASE_URL = 'https://api.manychat.com'
-const TIMEOUT_MS = 5000  // 5s — matches testManychatConnection budget
+const TIMEOUT_MS = 5000  // 5s | matches testManychatConnection budget
 
 export interface ManychatCredentials {
   apiKey: string         // decrypted ManyChat API token (Bearer)

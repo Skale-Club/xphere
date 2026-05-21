@@ -233,7 +233,7 @@ export function ImportCsvDialog() {
                       <tr key={idx}>
                         {r.map((cell, cIdx) => (
                           <td key={cIdx} className="px-3 py-2 text-text-primary truncate max-w-[140px]">
-                            {cell || '—'}
+                            {cell || '|'}
                           </td>
                         ))}
                       </tr>

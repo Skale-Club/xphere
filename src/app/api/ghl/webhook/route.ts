@@ -1,5 +1,5 @@
 // src/app/api/ghl/webhook/route.ts
-// GHL Inbound Webhook — receives Customer Replied events from GoHighLevel.
+// GHL Inbound Webhook | receives Customer Replied events from GoHighLevel.
 // Always returns HTTP 200 on valid requests to prevent GHL retry storms.
 //
 // Auth: X-Operator-Secret header (per-location secret stored in ghl_channels).
@@ -42,11 +42,11 @@ export async function POST(request: Request): Promise<Response> {
 
     const locationId = payload.locationId
     if (!locationId) {
-      console.warn('[ghl/webhook] Missing locationId in payload — skipping')
+      console.warn('[ghl/webhook] Missing locationId in payload | skipping')
       return Response.json({ ok: true })
     }
 
-    // Resolve org and validate secret — use service role (no user session on webhooks)
+    // Resolve org and validate secret | use service role (no user session on webhooks)
     const supabase = createServiceRoleClient()
     const { data: ghlChannel } = await supabase
       .from('ghl_channels')

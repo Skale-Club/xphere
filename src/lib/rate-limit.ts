@@ -18,7 +18,7 @@ export interface RateLimitResult {
 }
 
 /**
- * rateLimit — fixed-window counter per `key`.
+ * rateLimit | fixed-window counter per `key`.
  *
  * @param key            opaque identifier (e.g. `booking:1.2.3.4:event-uuid`)
  * @param limit          max requests allowed in the window

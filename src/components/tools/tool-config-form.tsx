@@ -424,7 +424,7 @@ export function ToolConfigForm({ mode, toolConfig, integrations, existingFolders
                       />
                     </FormControl>
                     <FormDescription>
-                      Use {'{{param_name}}'} placeholders — replaced with tool call parameter values at runtime
+                      Use {'{{param_name}}'} placeholders | replaced with tool call parameter values at runtime
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

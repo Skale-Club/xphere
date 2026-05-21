@@ -1,4 +1,4 @@
-// Contact tools — query, get, create, update, delete, tag.
+// Contact tools | query, get, create, update, delete, tag.
 
 import type { CopilotToolRegistry, ToolContext, ToolResult } from './types'
 

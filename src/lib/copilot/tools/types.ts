@@ -22,9 +22,9 @@ export interface CopilotTool {
   definition: Anthropic.Tool
   handler: (input: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>
   /**
-   * 'read'  — query / get / list. Always available.
-   * 'write' — mutate. Only enabled when writeMode = true.
-   * 'destructive' — delete or bulk. Requires writeMode + confirm_token.
+   * 'read'  | query / get / list. Always available.
+   * 'write' | mutate. Only enabled when writeMode = true.
+   * 'destructive' | delete or bulk. Requires writeMode + confirm_token.
    */
   mode: 'read' | 'write' | 'destructive'
 }

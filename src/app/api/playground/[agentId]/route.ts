@@ -1,5 +1,5 @@
 // src/app/api/playground/[agentId]/route.ts
-// Authenticated playground endpoint — streams agent responses without persisting to conversations.
+// Authenticated playground endpoint | streams agent responses without persisting to conversations.
 // mode='playground' tags the agent_invocations row; no conversationId is passed so
 // conversation_messages are never written (PLAY-04, PLAY-05).
 
@@ -32,7 +32,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ): Promise<Response> {
-  // 1. Auth check — must be logged in
+  // 1. Auth check | must be logged in
   const user = await getUser()
   if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -82,7 +82,7 @@ export async function POST(
   }
 
   // 5. Stream agent response
-  // PLAY-05: conversationId deliberately omitted — runAgentStreaming only persists
+  // PLAY-05: conversationId deliberately omitted | runAgentStreaming only persists
   // conversation_messages when conversationId is truthy. Omitting it means zero
   // rows written to conversations or conversation_messages tables.
   // PLAY-04: mode='playground' tags the agent_invocations row.
@@ -95,7 +95,7 @@ export async function POST(
     historyWindow: historyWindow ?? [],
     mode: 'playground',
     stream: true,
-    // conversationId deliberately omitted — no persistence to conversations table
+    // conversationId deliberately omitted | no persistence to conversations table
   })
 
   return new Response(stream, {

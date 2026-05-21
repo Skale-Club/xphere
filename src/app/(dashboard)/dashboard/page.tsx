@@ -37,7 +37,7 @@ interface FreshOrgSignals {
 
 /**
  * Detect whether the active org has ANY meaningful data yet. Sequential
- * (no Promise.all) — each call is a head:exact count, very cheap. Any
+ * (no Promise.all) | each call is a head:exact count, very cheap. Any
  * failure short-circuits to "not fresh" so the user sees the normal
  * dashboard rather than getting locked in the wizard.
  */
@@ -102,13 +102,13 @@ async function detectFreshOrg(): Promise<FreshOrgSignals> {
 /**
  * Home dashboard orchestrator.
  *
- * Architecture (SEED-012 — see `.planning/seeds/SEED-012-complete-dashboard.md`):
+ * Architecture (SEED-012 | see `.planning/seeds/SEED-012-complete-dashboard.md`):
  *
  * - Each widget is its own Server Component file under
  *   `src/components/dashboard/widgets/`.
  * - Each widget is wrapped at THIS layer in
  *   `<WidgetErrorBoundary><Suspense fallback={...}>...</Suspense></WidgetErrorBoundary>`.
- * - No `Promise.all` and no shared data fetch — every widget queries its
+ * - No `Promise.all` and no shared data fetch | every widget queries its
  *   own slice of data. Killing any single query leaves the rest of the
  *   page intact.
  * - Fresh-org detection (above) decides whether to show the WelcomeWizard
@@ -161,14 +161,14 @@ export default async function DashboardPage({
 
   return (
     <PageContainer>
-      {/* Hero — greeting + cost ticker + workspace status */}
+      {/* Hero | greeting + cost ticker + workspace status */}
       <WidgetErrorBoundary name="hero" fallback={<WidgetError title="Overview" />}>
         <Suspense fallback={<HeroSkeleton />}>
           <HeroSection />
         </Suspense>
       </WidgetErrorBoundary>
 
-      {/* Row 1 — 4 metric cards */}
+      {/* Row 1 | 4 metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <WidgetErrorBoundary name="metric-conversations" fallback={<WidgetError title="Conversations" />}>
           <Suspense fallback={<MetricSkeleton />}>
@@ -192,7 +192,7 @@ export default async function DashboardPage({
         </WidgetErrorBoundary>
       </div>
 
-      {/* Row 2 — large panels */}
+      {/* Row 2 | large panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <WidgetErrorBoundary name="recent-conversations" fallback={<WidgetError title="Recent conversations" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
@@ -206,7 +206,7 @@ export default async function DashboardPage({
         </WidgetErrorBoundary>
       </div>
 
-      {/* Row 3 — medium panels */}
+      {/* Row 3 | medium panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <WidgetErrorBoundary name="recent-calls" fallback={<WidgetError title="Recent calls" />}>
           <Suspense fallback={<PanelSkeleton rows={4} />}>
@@ -225,7 +225,7 @@ export default async function DashboardPage({
         </WidgetErrorBoundary>
       </div>
 
-      {/* Row 4 — Top Companies (ACC-18) */}
+      {/* Row 4 | Top Companies (ACC-18) */}
       <div className="grid grid-cols-1 gap-4">
         <WidgetErrorBoundary name="top-companies" fallback={<WidgetError title="Top Companies" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>

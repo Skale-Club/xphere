@@ -52,7 +52,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return buildRedirect(request, '/integrations/google-contacts?error=csrf')
   }
 
-  // D-09: always resolve org from session — never trust request params
+  // D-09: always resolve org from session | never trust request params
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
 
@@ -64,14 +64,14 @@ export async function GET(request: NextRequest): Promise<Response> {
     const tokens = await exchangeCodeForTokens(code)
 
     // Pitfall 2: refresh_token may be absent on reconnect (Google only issues on first grant).
-    // Log a warning but do not fail — the row will be upserted with whatever tokens are present.
+    // Log a warning but do not fail | the row will be upserted with whatever tokens are present.
     if (!tokens.refresh_token) {
-      console.warn('[google-callback] refresh_token absent — this may be a reconnect. Proceeding with available tokens.')
+      console.warn('[google-callback] refresh_token absent | this may be a reconnect. Proceeding with available tokens.')
     }
 
     const googleEmail = await fetchGoogleUserEmail(tokens.access_token)
 
-    // D-02: encrypt only the token blob — encrypt() takes a STRING, not an object
+    // D-02: encrypt only the token blob | encrypt() takes a STRING, not an object
     const encryptedBlob = await encrypt(JSON.stringify({ access_token: tokens.access_token, refresh_token: tokens.refresh_token ?? null }))
 
     const tokenExpiry = new Date(Date.now() + tokens.expires_in * 1000).toISOString()

@@ -87,7 +87,7 @@ async function ContactsBody({
   const visibleDefs = defs.filter((d) => d.visible_in_list)
   const filterableDefs = defs.filter((d) => d.filterable)
 
-  // Show EmptyContacts ONLY for the true unfiltered empty state — otherwise we
+  // Show EmptyContacts ONLY for the true unfiltered empty state | otherwise we
   // still want the toolbar and search visible so the user can clear filters.
   const noFilters = !q && !tag && !source && page === 1
   if (result.total === 0 && noFilters) {

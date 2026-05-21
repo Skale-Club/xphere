@@ -34,12 +34,12 @@ interface DashboardMetricsProps {
 }
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null) return '—'
+  if (seconds === null) return '|'
   return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0')
 }
 
 function EndedReasonBadge({ reason }: { reason: string | null }) {
-  if (!reason) return <span className="text-muted-foreground text-xs">—</span>
+  if (!reason) return <span className="text-muted-foreground text-xs">|</span>
 
   let className = 'bg-zinc-500/15 text-zinc-400'
   if (reason === 'customer-ended-call' || reason === 'assistant-ended-call') {
@@ -178,7 +178,7 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
                     <span className="text-muted-foreground whitespace-nowrap w-[100px]">
                       {call.started_at
                         ? format(new Date(call.started_at), 'MMM d HH:mm')
-                        : '—'}
+                        : '|'}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground w-[40px]">
                       {formatDuration(call.duration_seconds)}

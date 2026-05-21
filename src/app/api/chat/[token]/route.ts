@@ -4,7 +4,7 @@
 // Unlike /api/vapi/* routes, this returns 401 for invalid tokens (no Vapi retry concern).
 //
 // Persistence: writes to `conversations` and `conversation_messages` via persist.ts.
-// Redis (session.ts) is a transient cache only — never the source of truth.
+// Redis (session.ts) is a transient cache only | never the source of truth.
 // See .planning/codebase/chat-data-boundary.md for the full data lifecycle.
 import { after } from 'next/server'
 import { z } from 'zod'
@@ -76,7 +76,7 @@ export async function POST(
         ctx = existing
         sessionId = incomingSessionId
       } else {
-        // Redis miss or org mismatch — treat as new session
+        // Redis miss or org mismatch | treat as new session
         sessionId = crypto.randomUUID()
         const dbSessionId = await ensureDbSession({ orgId: org.id, sessionId, widgetToken: token })
         ctx = {
@@ -89,7 +89,7 @@ export async function POST(
         }
       }
     } else {
-      // First message — create new session
+      // First message | create new session
       sessionId = crypto.randomUUID()
       const dbSessionId = await ensureDbSession({ orgId: org.id, sessionId, widgetToken: token })
       ctx = {
@@ -116,7 +116,7 @@ export async function POST(
       }
     })
 
-    // 7. Call agent runtime — resolves agent, runs LLM, persists assistant reply (D-35-06)
+    // 7. Call agent runtime | resolves agent, runs LLM, persists assistant reply (D-35-06)
     const stream = runAgent({
       orgId: org.id,
       channel: 'web_widget',

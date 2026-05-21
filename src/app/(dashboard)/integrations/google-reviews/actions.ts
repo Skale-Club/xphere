@@ -42,7 +42,7 @@ export async function saveSerpApiKey(input: { apiKey: string }): Promise<{ error
       .eq('id', existing.id)
     if (error) return { error: error.message }
   } else {
-    // Pre-create with placeholder place_id — user will complete via selectPlaceId
+    // Pre-create with placeholder place_id | user will complete via selectPlaceId
     const { error } = await ctx.supabase
       .from('google_business_profiles')
       .insert({

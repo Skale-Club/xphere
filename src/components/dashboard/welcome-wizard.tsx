@@ -50,7 +50,7 @@ export function WelcomeWizard({
     {
       id: 'integration',
       title: 'Connect your first channel',
-      description: 'WhatsApp via Evolution, SMS/Voice via Twilio, or Meta — pick what you use most.',
+      description: 'WhatsApp via Evolution, SMS/Voice via Twilio, or Meta | pick what you use most.',
       icon: MessageCircle,
       href: '/integrations',
       cta: 'Go to integrations',

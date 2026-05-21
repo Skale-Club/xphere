@@ -20,7 +20,12 @@ function slugify(text: string): string {
     .slice(0, 80)
 }
 
-export function NewFlowForm() {
+interface NewFlowFormProps {
+  /** Called after the flow is created, before navigation (e.g. to close a dialog). */
+  onCreated?: () => void
+}
+
+export function NewFlowForm({ onCreated }: NewFlowFormProps = {}) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -48,6 +53,7 @@ export function NewFlowForm() {
         return
       }
       toast.success('Flow created')
+      onCreated?.()
       router.push(`/workflows/flows/${result.data.id}`)
     })
   }

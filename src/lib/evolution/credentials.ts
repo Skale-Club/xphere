@@ -74,7 +74,7 @@ export async function resolveEvolutionInstance(
 }
 
 /**
- * Resolve instance by name (no org_id) — only used by the webhook handler
+ * Resolve instance by name (no org_id) | only used by the webhook handler
  * which has to identify the org *from* the instance name.
  */
 export async function resolveEvolutionInstanceByName(

@@ -124,12 +124,12 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
     setSipPassword(res.password ?? null)
     if (res.username) setSipUsername(res.username)
     setShowPassword(true)
-    toast.success('SIP credentials generated — copy them now, the password is shown only once.')
+    toast.success('SIP credentials generated | copy them now, the password is shown only once.')
   }
 
   return (
     <div className="space-y-8">
-      {/* Mode selector — 3 BIG cards */}
+      {/* Mode selector | 3 BIG cards */}
       <section className="space-y-3">
         <h2 className="text-[13px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
           Routing mode
@@ -243,23 +243,23 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
             <div className="grid gap-3 sm:grid-cols-2">
               <CopyField
                 label="SIP domain"
-                value={sipDomain ?? '— not yet configured —'}
+                value={sipDomain ?? '| not yet configured |'}
                 disabled={!sipDomain}
               />
-              <CopyField label="Username" value={sipUsername ?? '— generate to view —'} disabled={!sipUsername} />
+              <CopyField label="Username" value={sipUsername ?? '| generate to view |'} disabled={!sipUsername} />
               <CopyField
                 label="Password"
-                value={sipPassword ?? (sipUsername ? '••••••••••••' : '— generate to view —')}
+                value={sipPassword ?? (sipUsername ? '••••••••••••' : '| generate to view |')}
                 disabled={!sipPassword && !sipUsername}
                 hidden={!showPassword && Boolean(sipPassword)}
                 onToggleHidden={sipPassword ? () => setShowPassword((v) => !v) : undefined}
               />
-              <CopyField label="Server / Proxy" value={sipDomain ?? '—'} disabled={!sipDomain} />
+              <CopyField label="Server / Proxy" value={sipDomain ?? '|'} disabled={!sipDomain} />
             </div>
 
             {sipPassword && (
               <div className="rounded-[10px] border border-amber-400/40 bg-amber-400/[0.06] p-3 text-[12px] text-amber-200">
-                Heads up: this password is shown only once. Copy it into Zoiper now — we&apos;ll never reveal it again.
+                Heads up: this password is shown only once. Copy it into Zoiper now | we&apos;ll never reveal it again.
               </div>
             )}
 
@@ -408,7 +408,7 @@ function BrowserTestButton() {
         return
       }
       const data = (await res.json()) as { identity: string }
-      toast.success(`Browser audio ready — identity ${data.identity}`)
+      toast.success(`Browser audio ready | identity ${data.identity}`)
     } finally {
       setTesting(false)
     }

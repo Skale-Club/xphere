@@ -21,7 +21,7 @@ export function RefreshButton({ disabled }: { disabled?: boolean }) {
       if (typeof res.newReviews === 'number') parts.push(`${res.newReviews} new`)
       if (typeof res.upserted === 'number') parts.push(`${res.upserted} synced`)
       if (typeof res.removed === 'number' && res.removed > 0) parts.push(`${res.removed} removed`)
-      toast.success(`Refresh complete — ${parts.join(' · ')}`)
+      toast.success(`Refresh complete | ${parts.join(' · ')}`)
     })
   }
 

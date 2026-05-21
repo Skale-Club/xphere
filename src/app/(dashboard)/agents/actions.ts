@@ -43,7 +43,7 @@ export async function getAgents(): Promise<AgentListItem[]> {
 }
 
 /**
- * Returns only is_active=true agents — used by Channel Defaults dropdowns
+ * Returns only is_active=true agents | used by Channel Defaults dropdowns
  * and (future) partner pickers. Inactive agents are excluded per D-36-08.
  */
 export async function getActiveAgents(): Promise<
@@ -268,7 +268,7 @@ export async function getToolPickerData(): Promise<ToolPickerData> {
 /**
  * Inserts a new agent row scoped to the active org. Returns { id } on success
  * or { error } on failure. TOOL-03: NEW agents are created with ZERO attached
- * tools — this function does NOT call setAgentTools even if input.tool_ids is
+ * tools | this function does NOT call setAgentTools even if input.tool_ids is
  * populated. The form forces tool_ids=[] for create mode, but this is the
  * deny-by-default safety net.
  */
@@ -315,7 +315,7 @@ export async function createAgent(
   // TOOL-03: NEW agents start with zero attached tools. We do NOT call
   // setAgentTools here even if input.tool_ids is populated. The create page
   // enforces an empty tool_ids array (D-36-05 final paragraph). If a non-empty
-  // array slips through, persist nothing — this is the deny-by-default safety net.
+  // array slips through, persist nothing | this is the deny-by-default safety net.
 
   revalidatePath('/agents')
   return { id: data.id }
@@ -323,9 +323,9 @@ export async function createAgent(
 
 /**
  * Updates an agent row + diffs its attached tools. NOT wrapped in a
- * transaction — if setAgentTools fails after the row update succeeded, the
- * form surfaces the recovery toast: "Tool changes failed — please retry
- * attaching tools on the form and save again." See plan 36-04 Deferred —
+ * transaction | if setAgentTools fails after the row update succeeded, the
+ * form surfaces the recovery toast: "Tool changes failed | please retry
+ * attaching tools on the form and save again." See plan 36-04 Deferred |
  * Phase 38 wraps both writes in an RPC.
  */
 export async function updateAgent(
@@ -447,11 +447,11 @@ export async function getPromptVersionHistory(
 
 /**
  * Saves a prompt edit as a DRAFT version row.
- * This does NOT change active_prompt_version_id — the prompt does not go live until Publish.
+ * This does NOT change active_prompt_version_id | the prompt does not go live until Publish.
  *
  * Mechanism: UPDATE agents SET system_prompt = newPrompt, updated_by = userId.
  * This triggers `trg_agent_prompt_version_snapshot` which inserts a new agent_prompt_versions row.
- * active_prompt_version_id remains unchanged — the new version is a draft.
+ * active_prompt_version_id remains unchanged | the new version is a draft.
  *
  * Returns the new version id.
  */
@@ -484,7 +484,7 @@ export async function savePromptDraft(
     .limit(1)
     .single()
 
-  if (!newVersion) return { error: 'Version row not created by trigger — check migration 045' }
+  if (!newVersion) return { error: 'Version row not created by trigger | check migration 045' }
 
   revalidatePath(`/dashboard/agents/${agentId}`)
   revalidatePath(`/dashboard/agents/${agentId}/prompt-history`)
@@ -532,20 +532,20 @@ export async function publishPromptVersion(
 
 /**
  * Rollback: activates a prior version (any version, not necessarily the latest).
- * Updates agents.active_prompt_version_id — version row is NEVER mutated.
+ * Updates agents.active_prompt_version_id | version row is NEVER mutated.
  * Semantically identical to publishPromptVersion but named separately for clarity in UI.
  */
 export async function activatePromptVersion(
   agentId: string,
   versionId: string
 ): Promise<void | { error: string }> {
-  // Delegate to publish — same DB operation
+  // Delegate to publish | same DB operation
   return publishPromptVersion(agentId, versionId)
 }
 
 /**
  * Diffs current vs next tool selection. INSERTs only NEW pairs and DELETEs
- * only REMOVED pairs — NEVER UPDATEs existing rows. This preserves
+ * only REMOVED pairs | NEVER UPDATEs existing rows. This preserves
  * `agent_tools.allowed_channels` for any tools that stay attached across the
  * save (Pitfall 5). New rows leave allowed_channels NULL (DB default = all
  * channels); per-tool channel scoping is a future surface.
@@ -712,7 +712,7 @@ export async function getAvailableWorkflowsForAgent(
 }
 
 /**
- * Attach a workflow to an agent. Per SEED-033, agent_tools rows are XOR —
+ * Attach a workflow to an agent. Per SEED-033, agent_tools rows are XOR |
  * tool_config_id is left NULL when workflow_id is set.
  */
 export async function attachWorkflowToAgent(

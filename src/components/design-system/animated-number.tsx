@@ -44,7 +44,7 @@ export function AnimatedNumber({
       return
     }
     if (startedRef.current) {
-      // value changed after mount — snap
+      // value changed after mount | snap
       setDisplay(value)
       return
     }

@@ -37,7 +37,7 @@ function buildWebhookUrl(orgId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// getTelegramBot — read the active row (or null)
+// getTelegramBot | read the active row (or null)
 // ---------------------------------------------------------------------------
 
 export async function getTelegramBot(): Promise<TelegramBotView | null> {
@@ -76,7 +76,7 @@ export async function getTelegramBot(): Promise<TelegramBotView | null> {
 }
 
 // ---------------------------------------------------------------------------
-// listAgentsForSelect — used by the automation agent picker
+// listAgentsForSelect | used by the automation agent picker
 // ---------------------------------------------------------------------------
 
 export async function listAgentsForSelect(): Promise<AgentOption[]> {
@@ -99,7 +99,7 @@ export async function listAgentsForSelect(): Promise<AgentOption[]> {
 }
 
 // ---------------------------------------------------------------------------
-// connectTelegramBot — validates token, sets webhook, persists row
+// connectTelegramBot | validates token, sets webhook, persists row
 // ---------------------------------------------------------------------------
 
 export interface ConnectTelegramBotInput {
@@ -266,7 +266,7 @@ export async function toggleAutomation(
 }
 
 // ---------------------------------------------------------------------------
-// disconnectTelegramBot — unset webhook + mark row inactive
+// disconnectTelegramBot | unset webhook + mark row inactive
 // ---------------------------------------------------------------------------
 
 export async function disconnectTelegramBot(): Promise<{ ok: true } | { ok: false; error: string }> {

@@ -1,29 +1,22 @@
-// SEED-042 — Unified Integrations page.
-// Single grouped list rendered from INTEGRATION_REGISTRY. Per-integration
-// configuration lives in a side Sheet (see IntegrationList → IntegrationSheet).
-
 import { Plug } from 'lucide-react'
+import { Suspense } from 'react'
 
 import { getIntegrationsForDisplay } from './actions'
 import { IntegrationList } from '@/components/integrations/integration-list'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { SavedIntegration } from '@/lib/integrations/registry'
 
-interface PageProps {
+interface Props {
   searchParams: Promise<{ open?: string }>
 }
 
-export default async function IntegrationsPage({ searchParams }: PageProps) {
-  const [integrations, sp] = await Promise.all([
-    getIntegrationsForDisplay(),
-    searchParams,
-  ])
+export default async function IntegrationsPage({ searchParams }: Props) {
+  const { open } = await searchParams
+  const rows = await getIntegrationsForDisplay()
 
-  // Index by provider so the list can match registry entries to saved rows
-  // in O(1). WhatsApp lives outside the integrations table (its own
-  // whatsapp_providers store); the WhatsApp panel reads that itself.
+  // Index by provider id for O(1) lookup in IntegrationList
   const saved: Record<string, SavedIntegration> = {}
-  for (const row of integrations) {
+  for (const row of rows) {
     saved[row.provider] = {
       id: row.id,
       provider: row.provider,
@@ -41,10 +34,11 @@ export default async function IntegrationsPage({ searchParams }: PageProps) {
         eyebrow="Connections"
         eyebrowIcon={Plug}
         title="Integrations"
-        description="Wire Xphere into the rest of your stack — messaging, voice, CRM, scheduling and AI providers."
+        description="Wire Xphere into the rest of your stack | messaging, voice, CRM, scheduling, and AI providers."
       />
-
-      <IntegrationList saved={saved} initialOpen={sp.open} />
+      <Suspense fallback={null}>
+        <IntegrationList saved={saved} initialOpen={open} />
+      </Suspense>
     </PageContainer>
   )
 }

@@ -6,7 +6,7 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { cn } from "@/lib/utils"
 
 type ScrollAreaProps = React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
-  /** Optional ref to the inner Radix Viewport — handy for scrollTo on
+  /** Optional ref to the inner Radix Viewport | handy for scrollTo on
    *  page-change or programmatic scroll-into-view. */
   viewportRef?: React.Ref<HTMLDivElement>
 }

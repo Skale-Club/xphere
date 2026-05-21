@@ -115,7 +115,7 @@ function computeMessageType(
 }
 
 /**
- * Top-level entrypoint. Wraps everything in try/catch — must never throw
+ * Top-level entrypoint. Wraps everything in try/catch | must never throw
  * because the webhook handler returns 200 unconditionally.
  */
 export async function processTelegramUpdate(
@@ -126,7 +126,7 @@ export async function processTelegramUpdate(
     const msg = update.message
     if (!msg) return
 
-    // Decrypt the token once — used by /start handler and the agent pipeline
+    // Decrypt the token once | used by /start handler and the agent pipeline
     let botToken: string
     try {
       botToken = await decrypt(bot.bot_token_encrypted)

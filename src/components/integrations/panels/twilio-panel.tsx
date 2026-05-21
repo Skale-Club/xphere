@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — Twilio custom panel.
+// SEED-042 | Twilio custom panel.
 // Tabs: Credentials · Numbers · Voice SDK · SIP. Credentials uses the
 // existing saveIntegrationCredentials flow; the other tabs link to the
 // existing dedicated pages (numbers, voice/SIP tests live there).

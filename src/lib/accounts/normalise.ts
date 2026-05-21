@@ -11,7 +11,7 @@ import type { AccountSource } from '@/types/database'
  * dedup-by-domain in importAccountsCsv compares the normalised form, so
  * "Acme.com" and "acme.com" collapse, but "acme.com" and "www.acme.com"
  * remain distinct rows. The UI/import flow can layer a smarter heuristic
- * later — out of scope for v2.4 phase 65).
+ * later | out of scope for v2.4 phase 65).
  *
  * Returns null on null/undefined/empty input.
  */

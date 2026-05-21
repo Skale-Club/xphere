@@ -5,7 +5,7 @@
  *
  * A click-to-edit field used throughout the contact info panel. Click to
  * reveal an input (or textarea when `multiline`), Enter or blur to save,
- * Escape to cancel. Optimistic — shows the new value immediately and rolls
+ * Escape to cancel. Optimistic | shows the new value immediately and rolls
  * back if `onSave` rejects. Toasts on success / error.
  *
  * Intentionally framework-light: no react-hook-form, no zod here. Validation
@@ -70,7 +70,7 @@ export function InlineEditField({
         try {
           inputRef.current.setSelectionRange(len, len)
         } catch {
-          // ignore — some input types don't support selection
+          // ignore | some input types don't support selection
         }
       }
     }

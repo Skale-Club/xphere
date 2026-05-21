@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * ImageLightbox — fullscreen image dialog with download button.
+ * ImageLightbox | fullscreen image dialog with download button.
  * SEED-030: Chat Rich Messages
  */
 

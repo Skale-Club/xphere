@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — Generic OAuth-shaped panel.
+// SEED-042 | Generic OAuth-shaped panel.
 // Defers the actual OAuth handshake to the existing per-provider dedicated
 // page (e.g. /integrations/meta). The Sheet only provides quick context and
 // a launcher.

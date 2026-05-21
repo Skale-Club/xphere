@@ -18,7 +18,7 @@ export interface ManychatRuleInput {
 /**
  * Create a routing rule.
  *
- * org_id is NOT set manually — RLS `WITH CHECK (org_id = get_current_org_id())`
+ * org_id is NOT set manually | RLS `WITH CHECK (org_id = get_current_org_id())`
  * populates it from the active org cookie. This matches the channel-actions
  * pattern (Phase 22 locked decision).
  *
@@ -39,7 +39,7 @@ export async function createManychatRule(
     tool_config_id: data.toolConfigId,
     priority: data.priority ?? 0,
     is_active: data.isActive ?? true,
-    // org_id intentionally omitted — RLS WITH CHECK populates it
+    // org_id intentionally omitted | RLS WITH CHECK populates it
   })
 
   if (error) return { error: error.message }
@@ -49,7 +49,7 @@ export async function createManychatRule(
 }
 
 /**
- * Update a routing rule. Only fields explicitly provided are patched —
+ * Update a routing rule. Only fields explicitly provided are patched |
  * undefined fields are excluded from the UPDATE statement.
  */
 export async function updateManychatRule(
@@ -83,7 +83,7 @@ export async function updateManychatRule(
 /**
  * Delete a routing rule.
  *
- * Note: tool_config_id has ON DELETE RESTRICT — deleting the bound tool_config
+ * Note: tool_config_id has ON DELETE RESTRICT | deleting the bound tool_config
  * is blocked while a rule references it. The Phase 26 UI must surface this as
  * a "this tool is bound to N rules" warning before allowing tool deletion.
  */
@@ -108,7 +108,7 @@ export async function deleteManychatRule(
 
 /**
  * List all rules for the active org, sorted by priority ASC.
- * RLS handles org scoping — no manual filter needed.
+ * RLS handles org scoping | no manual filter needed.
  *
  * Used by Phase 26 UI (rules list page) and as a sanity helper for tests.
  */

@@ -2,10 +2,10 @@
 // Executor for the `send_whatsapp_mention_all` action type.
 //
 // Mentions every participant of a WhatsApp group when posting a message
-// (Evolution Go v0.7.0+ — `mentionsEveryOne: true` flag).
+// (Evolution Go v0.7.0+ | `mentionsEveryOne: true` flag).
 //
 // Required params:
-//   group_jid : string  — e.g. "120363012345678901@g.us"
+//   group_jid : string  | e.g. "120363012345678901@g.us"
 //   text      : string
 // Optional:
 //   media_url   : string

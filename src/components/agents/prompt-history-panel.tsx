@@ -28,7 +28,7 @@ export function PromptHistoryPanel({ agentId, versions }: PromptHistoryPanelProp
       if (result && 'error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Version activated — runtime now uses this prompt')
+        toast.success('Version activated | runtime now uses this prompt')
       }
     })
   }
@@ -172,7 +172,7 @@ type DiffChunk = { type: 'added' | 'removed' | 'unchanged'; line: string }
 
 function computeLineDiff(before: string[], after: string[]): DiffChunk[] {
   // Myers diff algorithm (simplified O(ND) for line-level diffs)
-  // For prompt versioning use case, prompts are <200 lines — O(N²) LCS is fine
+  // For prompt versioning use case, prompts are <200 lines | O(N²) LCS is fine
   const m = before.length
   const n = after.length
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))

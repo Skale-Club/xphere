@@ -11,22 +11,22 @@ const badgeVariants = cva(
         // Neutral default
         default:
           "border-border bg-bg-tertiary text-text-secondary",
-        // Primary — brand accent
+        // Primary | brand accent
         primary:
           "border-accent/30 bg-accent-muted text-accent",
-        // Success — green
+        // Success | green
         success:
           "border-success/30 bg-[var(--success-muted)] text-success",
-        // Warning — amber
+        // Warning | amber
         warning:
           "border-warning/30 bg-[var(--warning-muted)] text-warning",
-        // Danger — red
+        // Danger | red
         danger:
           "border-danger/30 bg-[var(--danger-muted)] text-danger",
-        // Info — blue
+        // Info | blue
         info:
           "border-info/30 bg-[var(--info-muted)] text-info",
-        // Outline — bordered transparent
+        // Outline | bordered transparent
         outline:
           "border-border bg-transparent text-text-secondary",
         // Legacy shadcn names (kept for back-compat)

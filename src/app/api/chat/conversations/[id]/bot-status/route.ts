@@ -1,4 +1,4 @@
-// PATCH /api/chat/conversations/[id]/bot-status — toggle bot active/paused
+// PATCH /api/chat/conversations/[id]/bot-status | toggle bot active/paused
 // 'active'  → bot responds to inbound messages (default)
 // 'paused'  → bot suppressed; human operator handles conversation
 import { createClient, getUser } from '@/lib/supabase/server'

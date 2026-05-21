@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — OpenRouter custom panel.
+// SEED-042 | OpenRouter custom panel.
 // API key form. After Test passes (or when an existing key is detected) we
 // fetch /api/v1/models from openrouter.ai and let the user pick a default
 // text / vision / audio model. Selections persist on the integration `config`.
@@ -261,7 +261,7 @@ export function OpenRouterPanel({ definition, existing, onClose }: CustomPanelPr
 
             <ModelSelector
               label="Audio model (STT)"
-              description="Transcription — Whisper and similar."
+              description="Transcription | Whisper and similar."
               models={audioModels}
               value={audioModel}
               onChange={setAudioModel}

@@ -1,5 +1,5 @@
 /**
- * SupabaseImportStorage — v1 implementation of ContactImportStorage backed by
+ * SupabaseImportStorage | v1 implementation of ContactImportStorage backed by
  * Supabase Storage (contact-imports bucket, per-org path policy).
  *
  * Post-Hetzner migration: replace with storage-node.ts targeting S3/MinIO/R2

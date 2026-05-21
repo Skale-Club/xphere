@@ -1,6 +1,6 @@
 // src/app/api/vapi/campaigns/route.ts
-// Node.js Route Handler — receives Vapi end-of-call-report for outbound campaign calls.
-// Pattern mirrors /api/vapi/calls/route.ts — always returns 200, async DB write.
+// Node.js Route Handler | receives Vapi end-of-call-report for outbound campaign calls.
+// Pattern mirrors /api/vapi/calls/route.ts | always returns 200, async DB write.
 // Register this URL on the Vapi assistant or phone number used for campaigns
 // as the server URL for end-of-call-report events.
 
@@ -44,7 +44,7 @@ async function updateContactStatus(
   }
   if (!contact?.campaign_id) return
 
-  // Check if all contacts are done — auto-complete campaign
+  // Check if all contacts are done | auto-complete campaign
   const { count } = await supabase
     .from('campaign_contacts')
     .select('*', { count: 'exact', head: true })

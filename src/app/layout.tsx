@@ -17,7 +17,7 @@ const inter = Inter({
 })
 
 // JetBrains Mono is only used in code/log views and rarely visible on first
-// paint — skip preloading to stop the "preloaded but not used" console warning.
+// paint | skip preloading to stop the "preloaded but not used" console warning.
 const mono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],

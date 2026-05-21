@@ -68,7 +68,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: 
           <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} />
         </div>
 
-        {/* Super Admin shield — only visible to platform admins */}
+        {/* Super Admin shield | only visible to platform admins */}
         {isPlatformAdmin && (
           <Tooltip>
             <TooltipTrigger asChild>

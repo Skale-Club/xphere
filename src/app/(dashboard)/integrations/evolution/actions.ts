@@ -62,7 +62,7 @@ export async function getEvolutionInstance(): Promise<EvolutionInstanceView | nu
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: Save server config (base_url + token) — validates by listing instances
+// Step 1: Save server config (base_url + token) | validates by listing instances
 // ---------------------------------------------------------------------------
 
 export interface SaveEvolutionConfigInput {
@@ -162,13 +162,13 @@ export async function createEvolutionInstance(): Promise<{ ok: true } | { ok: fa
   const instance = await resolveEvolutionInstance(orgId, undefined, supabase)
   if (!instance) return { ok: false, error: 'Save the server config first.' }
 
-  // Build webhook URL — defaults to xphere.app, overridable via env
+  // Build webhook URL | defaults to xphere.app, overridable via env
   const origin = process.env.XPHERE_PUBLIC_ORIGIN ?? 'https://xphere.app'
   const webhookUrl = `${origin}/api/evolution/webhook`
 
   const res = await evoCreateInstance(instance.config, instance.instance_name, webhookUrl, true)
   if (!res.ok) {
-    // Some Evolution Go servers return 409 if the instance already exists — that's fine
+    // Some Evolution Go servers return 409 if the instance already exists | that's fine
     if (res.status !== 409) {
       await supabase
         .from('evolution_instances')

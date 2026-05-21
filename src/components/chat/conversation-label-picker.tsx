@@ -4,7 +4,7 @@
  * Per-conversation label picker (SEED-035).
  *
  * Lives in the chat header beside the StatusSelector. Renders a popover with
- * the org's labels — clicking toggles assignment for the current conversation.
+ * the org's labels | clicking toggles assignment for the current conversation.
  * Optimistic: mutates `selectedLabelIds` immediately and rolls back on error.
  */
 

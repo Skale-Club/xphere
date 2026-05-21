@@ -1,5 +1,5 @@
 /**
- * ContactImportStorage — Hetzner-portable storage interface for the import pipeline.
+ * ContactImportStorage | Hetzner-portable storage interface for the import pipeline.
  *
  * v1 implementation: SupabaseImportStorage (storage-supabase.ts)
  * Post-Hetzner swap: implement against S3/MinIO/R2 via @aws-sdk/client-s3 in

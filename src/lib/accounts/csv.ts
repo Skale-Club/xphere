@@ -1,7 +1,7 @@
 /**
  * CSV helpers for the accounts importer (ACC-17).
  *
- * Re-exports the canonical parser from @/lib/contacts/csv — do NOT
+ * Re-exports the canonical parser from @/lib/contacts/csv | do NOT
  * duplicate the parsing implementation. Defines the account-specific
  * field list and the heuristic header→field mapper used by the import
  * wizard UI (Phase 66) and the server action below.

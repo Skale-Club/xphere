@@ -1,4 +1,4 @@
-// Google Calendar FreeBusy API — fetch busy intervals for slot generation.
+// Google Calendar FreeBusy API | fetch busy intervals for slot generation.
 // Uses the existing `integrations` table with provider = 'google_calendar'.
 // Tokens stored encrypted with AES-256-GCM via src/lib/crypto.ts.
 

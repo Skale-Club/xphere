@@ -6,7 +6,7 @@ import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 
 /**
  * Open conversations count + 7-day new-conversation sparkline.
- * Server Component — each render runs its own query.
+ * Server Component | each render runs its own query.
  */
 export async function MetricOpenConversations() {
   let openCount = 0
@@ -30,7 +30,7 @@ export async function MetricOpenConversations() {
       .select('id', { count: 'exact', head: true })
     total = anyEver ?? 0
 
-    // Same-time-yesterday open count — best-effort: count created prior to "yesterday now"
+    // Same-time-yesterday open count | best-effort: count created prior to "yesterday now"
     // that were still open as of yesterday. We approximate with count of created_at <= 24h ago AND status='open'.
     const yest = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { count: openYesterday } = await supabase
@@ -40,7 +40,7 @@ export async function MetricOpenConversations() {
       .lte('created_at', yest)
     yesterdayCount = openYesterday ?? 0
 
-    // 7-day sparkline — new conversations per day
+    // 7-day sparkline | new conversations per day
     const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
     sevenDaysAgo.setHours(0, 0, 0, 0)
     const { data: rows } = await supabase

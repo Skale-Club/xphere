@@ -3,13 +3,13 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { encrypt, decrypt, maskApiKey } from '@/lib/crypto'
 
-// Type returned to UI — encrypted_api_key is NEVER included
+// Type returned to UI | encrypted_api_key is NEVER included
 export type IntegrationForDisplay = {
   id: string
   organization_id: string
   provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram'
   name: string
-  masked_api_key: string // ••••••••last4 — never full key
+  masked_api_key: string // ••••••••last4 | never full key
   location_id: string | null
   config: unknown
   is_active: boolean
@@ -162,9 +162,9 @@ export async function testConnection(
     }
 
     if (provider === 'anthropic') {
-      // Validate key format (sk-ant-...) — avoids billing a real API call for test
+      // Validate key format (sk-ant-...) | avoids billing a real API call for test
       if (apiKey.startsWith('sk-ant-')) return { success: true }
-      return { success: false, error: 'Invalid Anthropic API key format — expected key starting with sk-ant-' }
+      return { success: false, error: 'Invalid Anthropic API key format | expected key starting with sk-ant-' }
     }
 
     if (provider === 'openrouter') {
@@ -187,7 +187,7 @@ export async function testConnection(
       return { success: false, error: `Vapi returned status ${response.status}` }
     }
 
-    // Other providers (twilio, calcom, custom_webhook) — no test endpoint defined yet
+    // Other providers (twilio, calcom, custom_webhook) | no test endpoint defined yet
     return { success: false, error: `Test not supported for provider: ${provider}` }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
@@ -200,7 +200,7 @@ export async function testConnection(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// SEED-042 — Registry-driven helpers
+// SEED-042 | Registry-driven helpers
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -293,7 +293,7 @@ export async function testIntegrationConnection(
       return { ok: false, error: `Twilio returned ${res.status}` }
     }
 
-    // No test path defined — assume callers will handle the unconfigured case.
+    // No test path defined | assume callers will handle the unconfigured case.
     return { ok: false, error: `No test endpoint defined for ${provider}` }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
@@ -308,7 +308,7 @@ export async function testIntegrationConnection(
 /**
  * Save (insert or update) credentials for a provider. The api_key column is
  * encrypted at rest; the other fields land on `config` JSONB or `location_id`.
- * Does NOT toggle is_active — use toggleIntegrationActive separately.
+ * Does NOT toggle is_active | use toggleIntegrationActive separately.
  */
 export async function saveIntegrationCredentials(
   provider: string,

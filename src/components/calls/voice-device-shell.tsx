@@ -12,7 +12,7 @@ interface VoiceDeviceShellProps {
 
 /**
  * Mounted from the dashboard layout. Only spins up the Twilio Voice Device when
- * the active user's routing_mode is 'browser' — otherwise it's a pass-through
+ * the active user's routing_mode is 'browser' | otherwise it's a pass-through
  * to keep bundle weight off other dashboards.
  */
 export function VoiceDeviceShell({ enabled, children }: VoiceDeviceShellProps) {

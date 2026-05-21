@@ -2,10 +2,10 @@
 
 // src/lib/agent-runtime/observability.ts
 // Phase 40: Agent observability query helpers.
-// OBS-04: getAgentMetrics — per-agent invocation count, p50/p95 latency, cost, tool success rate
-// OBS-05: getOrgCostTicker — per-org cost totals with daily cap %
-// OBS-06: getConversationDelegationTree — recursive invocation tree for a conversation
-// OBS-07: getAgentInvocations + getInvocationDelegationTree — invocations list + trace tree
+// OBS-04: getAgentMetrics | per-agent invocation count, p50/p95 latency, cost, tool success rate
+// OBS-05: getOrgCostTicker | per-org cost totals with daily cap %
+// OBS-06: getConversationDelegationTree | recursive invocation tree for a conversation
+// OBS-07: getAgentInvocations + getInvocationDelegationTree | invocations list + trace tree
 // All functions use the authenticated Supabase client (RLS auto-scopes to active org).
 
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -307,7 +307,7 @@ export async function getAgentInvocations(params: {
   return { rows, total: count ?? 0 }
 }
 
-// ─── OBS-07: Single invocation — delegation tree from trace ──────────────────
+// ─── OBS-07: Single invocation | delegation tree from trace ──────────────────
 
 export async function getInvocationDelegationTree(
   invocationId: string

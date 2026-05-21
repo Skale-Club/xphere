@@ -8,7 +8,7 @@ interface WidgetEmptyProps {
   icon: React.ComponentType<{ className?: string }>
   title: string
   description?: React.ReactNode
-  /** Primary CTA — either a link or a click handler */
+  /** Primary CTA | either a link or a click handler */
   cta?: {
     label: string
     href?: string

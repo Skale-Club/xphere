@@ -3,7 +3,7 @@
 //
 // Auth: getUser() (cached helper). RLS scopes the call_settings lookup to the
 // active org. The org's Twilio integration must have `api_key_sid`,
-// `api_key_secret`, and `twiml_app_sid` configured — otherwise we return 400
+// `api_key_secret`, and `twiml_app_sid` configured | otherwise we return 400
 // with a helpful error message so the UI can guide the admin through setup.
 
 import { createClient, getUser } from '@/lib/supabase/server'

@@ -1,7 +1,7 @@
 /**
  * Locale-aware formatting helpers for the sales pipeline UI.
  *
- * Currency defaults to BRL (R$ 1.234,56) — matches the rest of the product.
+ * Currency defaults to BRL (R$ 1.234,56) | matches the rest of the product.
  */
 
 const numberFormatters = new Map<string, Intl.NumberFormat>()
@@ -20,7 +20,7 @@ function fmt(currency: string): Intl.NumberFormat {
 }
 
 export function formatCurrency(value: number | null | undefined, currency = 'BRL'): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  if (value === null || value === undefined || Number.isNaN(value)) return '|'
   try {
     return fmt(currency).format(value)
   } catch {

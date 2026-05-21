@@ -1,4 +1,4 @@
-// AI Builder — tool definitions exposed to Claude for graph mutation.
+// AI Builder | tool definitions exposed to Claude for graph mutation.
 // These are described to the model as Anthropic tool-use schemas; their
 // implementations apply mutations to a working FlowDefinition snapshot.
 
@@ -14,7 +14,7 @@ export const NODE_TYPE_VALUES: FlowNodeType[] = [
 export const AI_BUILDER_TOOLS: Anthropic.Tool[] = [
   {
     name: 'list_nodes',
-    description: 'Returns the current flow snapshot — all nodes and edges. Call this first to understand the existing graph before mutating it.',
+    description: 'Returns the current flow snapshot | all nodes and edges. Call this first to understand the existing graph before mutating it.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -75,7 +75,7 @@ export const AI_BUILDER_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'remove_node',
-    description: 'Delete a node and any edges that touch it. Use sparingly — prefer updating in place.',
+    description: 'Delete a node and any edges that touch it. Use sparingly | prefer updating in place.',
     input_schema: {
       type: 'object',
       properties: { node_id: { type: 'string' } },
@@ -84,7 +84,7 @@ export const AI_BUILDER_TOOLS: Anthropic.Tool[] = [
   },
 ]
 
-// ─── Tool dispatch — applies mutations to a FlowDefinition in memory ──────────
+// ─── Tool dispatch | applies mutations to a FlowDefinition in memory ──────────
 
 export interface ToolDispatchResult {
   success: boolean

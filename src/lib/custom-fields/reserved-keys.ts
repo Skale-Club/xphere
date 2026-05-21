@@ -1,5 +1,5 @@
 // src/lib/custom-fields/reserved-keys.ts
-// Phase 69 CUSTOMFIELDS-CORE-LIB — Plan 69-01
+// Phase 69 CUSTOMFIELDS-CORE-LIB | Plan 69-01
 //
 // Single TypeScript source of truth for reserved key sets, matching the
 // custom_field_definitions_key_not_reserved CHECK constraint in
@@ -8,7 +8,7 @@
 
 import type { CustomFieldEntity } from '@/types/database'
 
-/** Keys reserved across ALL entities — universal set (matches Postgres CHECK). */
+/** Keys reserved across ALL entities | universal set (matches Postgres CHECK). */
 const UNIVERSAL_RESERVED: readonly string[] = [
   'id',
   'org_id',

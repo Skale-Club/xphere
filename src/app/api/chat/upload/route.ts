@@ -1,10 +1,10 @@
-// POST /api/chat/upload — uploads a file to the chat-media Supabase Storage bucket.
+// POST /api/chat/upload | uploads a file to the chat-media Supabase Storage bucket.
 // SEED-030: Chat Rich Messages
 //
 // Accepts multipart/form-data with a `file` field.
 // Validates: auth, file size (max 5MB), and MIME type (image/*, audio/*, video/*, application/pdf).
 // Uses the service role client for Storage uploads (bypasses RLS on the bucket).
-// Returns { url: string } — the public URL of the uploaded file.
+// Returns { url: string } | the public URL of the uploaded file.
 
 import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'

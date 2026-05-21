@@ -1,15 +1,15 @@
 // src/lib/calls/upload-recording.ts
 // Downloads a Twilio recording and uploads it to Hetzner Object Storage (S3-
 // compatible). Falls back to returning the Twilio URL when Hetzner credentials
-// are missing in dev — keeps the recording link usable without storage setup.
+// are missing in dev | keeps the recording link usable without storage setup.
 //
 // Env vars expected (set in production only):
-//   HETZNER_S3_ENDPOINT       — e.g. https://fsn1.your-objectstorage.com
-//   HETZNER_S3_REGION         — e.g. fsn1
-//   HETZNER_S3_ACCESS_KEY     — Hetzner access key
-//   HETZNER_S3_SECRET_KEY     — Hetzner secret key
-//   HETZNER_S3_BUCKET         — bucket name (e.g. operator-recordings)
-//   HETZNER_S3_PUBLIC_BASE_URL — optional public CDN base URL prepended to keys
+//   HETZNER_S3_ENDPOINT       | e.g. https://fsn1.your-objectstorage.com
+//   HETZNER_S3_REGION         | e.g. fsn1
+//   HETZNER_S3_ACCESS_KEY     | Hetzner access key
+//   HETZNER_S3_SECRET_KEY     | Hetzner secret key
+//   HETZNER_S3_BUCKET         | bucket name (e.g. operator-recordings)
+//   HETZNER_S3_PUBLIC_BASE_URL | optional public CDN base URL prepended to keys
 //
 // Storage layout: `recordings/<org_id>/<call_sid>/<recording_sid>.<ext>`
 
@@ -19,7 +19,7 @@ export interface UploadRecordingParams {
   orgId: string
   callSid: string
   recordingSid: string
-  recordingUrl: string  // Twilio recording URL (without .mp3 — see appendExt)
+  recordingUrl: string  // Twilio recording URL (without .mp3 | see appendExt)
   recordingDuration?: number
   twilioAccountSid: string
   twilioAuthToken: string
@@ -67,9 +67,9 @@ export async function uploadRecordingToHetzner(
   const mp3Url = appendMp3(params.recordingUrl)
 
   if (!hasHetznerConfig()) {
-    // Dev path — surface Twilio's URL directly. NB: Twilio recordings require
+    // Dev path | surface Twilio's URL directly. NB: Twilio recordings require
     // basic auth, so this is only usable for quick local checks.
-    console.warn('[upload-recording] HETZNER_S3_* env not set — returning Twilio URL as fallback')
+    console.warn('[upload-recording] HETZNER_S3_* env not set | returning Twilio URL as fallback')
     return { storedUrl: mp3Url, uploaded: false, contentType: 'audio/mpeg' }
   }
 
@@ -96,7 +96,7 @@ export async function uploadRecordingToHetzner(
       Key: key,
       Body: audio,
       ContentType: contentType,
-      // Recordings are private by default — surface them through a signed URL or
+      // Recordings are private by default | surface them through a signed URL or
       // a tenant-aware proxy. We deliberately do NOT set ACL: public-read.
     }),
   )

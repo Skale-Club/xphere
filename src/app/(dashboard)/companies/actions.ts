@@ -2,17 +2,17 @@
 
 /**
  * Server actions for the Accounts (Companies) CRM entity.
- * SEED-016 / v2.4 Phase 65 — addresses ACC-01..03, ACC-16, ACC-17.
+ * SEED-016 / v2.4 Phase 65 | addresses ACC-01..03, ACC-16, ACC-17.
  *
  * Patterns mirror src/app/(dashboard)/contacts/actions.ts:
  *   - Cached getUser() + createClient() from @/lib/supabase/server (CLAUDE.md)
- *   - RLS-scoped client — never filter by org_id manually
+ *   - RLS-scoped client | never filter by org_id manually
  *   - get_current_org_id() RPC for the org_id NOT NULL column on insert
  *
  * Action return shape (LOCKED by phase brief §4):
  *   ActionResult<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown }
  *
- * Delete behavior (LOCKED — ACC-03):
+ * Delete behavior (LOCKED | ACC-03):
  *   Block delete when the account is referenced by any contact or opportunity.
  *   No soft-delete column. Users must merge or null out FKs first.
  */
@@ -321,7 +321,7 @@ export async function updateAccount(
   return okResult<AccountRow>(data as AccountRow)
 }
 
-// ─── Delete (reference-blocking — ACC-03 LOCKED behavior) ────────────────────
+// ─── Delete (reference-blocking | ACC-03 LOCKED behavior) ────────────────────
 
 export async function deleteAccount(
   id: string,
@@ -380,7 +380,7 @@ export async function deleteAccount(
 // NON-ATOMIC: if a network blip occurs between calls, the DB can land in a
 // partial state. The brief accepts this trade-off for v1 ("if sequential,
 // document the non-atomic risk"). Recovery is manual: re-run mergeAccounts
-// with the same arguments — every step is idempotent, so a partial state
+// with the same arguments | every step is idempotent, so a partial state
 // converges to a clean merge on retry. A future Postgres RPC can wrap these
 // three statements in BEGIN/COMMIT post-v2.4.
 //
@@ -413,21 +413,21 @@ export async function mergeAccounts(
   if (pErr) return errResult(pErr.message, pErr)
   if (!primary) return errResult('primary_not_found')
 
-  // Step 1 — move contacts.
+  // Step 1 | move contacts.
   const { count: movedContacts, error: c1 } = await supabase
     .from('contacts')
     .update({ account_id: primaryId }, { count: 'exact' })
     .in('account_id', secondaryIds)
   if (c1) return errResult(c1.message, c1)
 
-  // Step 2 — move opportunities.
+  // Step 2 | move opportunities.
   const { count: movedOpps, error: c2 } = await supabase
     .from('opportunities')
     .update({ account_id: primaryId }, { count: 'exact' })
     .in('account_id', secondaryIds)
   if (c2) {
     // Partial-state warning: contacts moved, opportunities did NOT.
-    // Caller can retry mergeAccounts with the same input — step 1 is
+    // Caller can retry mergeAccounts with the same input | step 1 is
     // idempotent (those contacts are already on primaryId).
     return errResult(c2.message, {
       ...c2,
@@ -435,7 +435,7 @@ export async function mergeAccounts(
     })
   }
 
-  // Step 3 — delete secondaries.
+  // Step 3 | delete secondaries.
   const { count: deletedAccts, error: c3 } = await supabase
     .from('accounts')
     .delete({ count: 'exact' })
@@ -511,9 +511,9 @@ export async function linkContactToAccount(
  * Index usage: we filter `org_id` explicitly so the
  * idx_accounts_org_name (org_id, lower(name)) composite index is used by the
  * planner (RLS-only scoping forces a Seq Scan + filter on small orgs but
- * tanks on large ones — the explicit eq keeps both planners happy).
+ * tanks on large ones | the explicit eq keeps both planners happy).
  *
- * Does NOT clear `contacts.company` — phase brief §17 leaves cleanup of the
+ * Does NOT clear `contacts.company` | phase brief §17 leaves cleanup of the
  * legacy column to a future milestone (one-milestone revertibility window
  * per ACC-14).
  */
@@ -566,7 +566,7 @@ export async function createAccountFromContact(
   // take the first deterministically by id as a defensive tiebreaker.
   let account: AccountRow | null = null
   if (existingMatches && existingMatches.length > 0) {
-    // Defensive in-JS exact equality check — belt-and-suspenders against
+    // Defensive in-JS exact equality check | belt-and-suspenders against
     // collation surprises in Postgres ilike for unusual unicode (the index
     // is on lower(name) with default collation; JS toLowerCase is locale-
     // insensitive). If any candidate matches case-insensitively in JS, pick
@@ -668,7 +668,7 @@ export async function bulkAddTag(
 // functions; non-async exports (interfaces, helpers) live in pure-types
 // modules to keep the server-action boundary clean.
 
-const MAX_CSV_BYTES = 5 * 1024 * 1024 // 5MB — keeps the v1 action body small; the
+const MAX_CSV_BYTES = 5 * 1024 * 1024 // 5MB | keeps the v1 action body small; the
 // production import pipeline (Phase 75) handles up to 50MB via direct-to-Storage.
 
 export async function previewAccountsCsv(
@@ -694,7 +694,7 @@ export async function previewAccountsCsv(
 /**
  * Bulk-imports accounts from a CSV string. LOCKED v1 dedup (brief §14):
  *   For each parsed row, if (org_id, lower(name)) OR (org_id, normalised
- *   domain) matches an existing account, SKIP. Do NOT update — that's
+ *   domain) matches an existing account, SKIP. Do NOT update | that's
  *   Phase 75's `update_existing` strategy.
  *
  * App-layer dedup (NOT ON CONFLICT) because migration 064 created only
@@ -734,7 +734,7 @@ export async function importAccountsCsv(
   const { data: orgIdData } = await supabase.rpc('get_current_org_id')
   if (!orgIdData) return errResult('no_organization')
 
-  // Fetch existing accounts for dedup — single round-trip. Scales linearly
+  // Fetch existing accounts for dedup | single round-trip. Scales linearly
   // with org account count; acceptable for v1 (the brief explicitly accepts
   // this scaling profile; Phase 75 introduces the streaming pipeline).
   const { data: existing, error: exErr } = await supabase
@@ -818,7 +818,7 @@ export async function importAccountsCsv(
       address: get(row, 'address'),
       notes: get(row, 'notes'),
       tags,
-      // custom_fields stays default '{}' — CSV import never writes structured CFs in v1
+      // custom_fields stays default '{}' | CSV import never writes structured CFs in v1
       source: 'csv_import',
       created_by: user.id,
     })
@@ -838,7 +838,7 @@ export async function importAccountsCsv(
         row: -1,
         message: `chunk insert failed: ${error.message}`,
       })
-      // Don't bail — try the remaining chunks; partial imports are accepted.
+      // Don't bail | try the remaining chunks; partial imports are accepted.
       continue
     }
     summary.inserted += data?.length ?? 0

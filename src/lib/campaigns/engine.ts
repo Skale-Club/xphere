@@ -1,5 +1,5 @@
 // src/lib/campaigns/engine.ts
-// Campaign execution engine — fires individual Vapi calls per contact.
+// Campaign execution engine | fires individual Vapi calls per contact.
 // Used by the /api/campaigns/[id]/start server action.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -24,7 +24,7 @@ export async function startCampaignBatch(
   supabase: SupabaseClient<Database>,
   vapiApiKey: string
 ): Promise<{ fired: number; errors: number }> {
-  // Fetch campaign — verify it is still in_progress (optimistic guard)
+  // Fetch campaign | verify it is still in_progress (optimistic guard)
   const { data: campaign, error: campaignErr } = await supabase
     .from('campaigns')
     .select('id, organization_id, status, vapi_assistant_id, vapi_phone_number_id, calls_per_minute')
@@ -55,12 +55,12 @@ export async function startCampaignBatch(
     return { fired: 0, errors: 0 }
   }
   if (!contacts || contacts.length === 0) {
-    // No more pending — check if campaign is complete
+    // No more pending | check if campaign is complete
     await checkAndCompleteCampaign(campaignId, supabase)
     return { fired: 0, errors: 0 }
   }
 
-  // Fire calls concurrently (Promise.allSettled — partial failure is acceptable)
+  // Fire calls concurrently (Promise.allSettled | partial failure is acceptable)
   const results = await Promise.allSettled(
     contacts.map((contact) =>
       fireContactCall(contact, campaign, supabase, vapiApiKey)

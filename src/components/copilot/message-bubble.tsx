@@ -65,7 +65,7 @@ export function MessageBubble({ message }: { message: CopilotMessage }) {
 }
 
 // Very small markdown subset: just bold + links. We avoid pulling in
-// react-markdown for v1 — the copilot system prompt keeps responses simple.
+// react-markdown for v1 | the copilot system prompt keeps responses simple.
 function renderInlineMarkdown(text: string): React.ReactNode {
   const linkRe = /\[([^\]]+)\]\(([^)]+)\)/g
   const out: Array<string | React.ReactElement> = []

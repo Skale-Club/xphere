@@ -36,13 +36,13 @@ function statusColor(status: string): string {
 }
 
 function formatMs(ms: number | null): string {
-  if (ms === null) return '—'
+  if (ms === null) return '|'
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
 
 function formatCost(usd: number | null): string {
-  if (usd === null) return '—'
+  if (usd === null) return '|'
   if (usd === 0) return '$0.00'
   if (usd < 0.0001) return '<$0.0001'
   return `$${usd.toFixed(4)}`
@@ -184,7 +184,7 @@ export function InvocationsList({
                     {formatCost(row.costUsd)}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground truncate max-w-[200px]">
-                    {row.errorDetail ?? '—'}
+                    {row.errorDetail ?? '|'}
                   </td>
                 </tr>
               ))}
@@ -218,7 +218,7 @@ export function InvocationsList({
         </div>
       )}
 
-      {/* Detail drawer — opens on row click */}
+      {/* Detail drawer | opens on row click */}
       {selectedId && (
         <InvocationDetailDrawer
           invocationId={selectedId}

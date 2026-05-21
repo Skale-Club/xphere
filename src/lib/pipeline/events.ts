@@ -10,7 +10,7 @@
 // workflow can't infinitely re-fire stage_changed → workflow → move → ...
 //
 // Time-based pipeline triggers (aged_in_stage, no_activity, etc.) are NOT
-// emitted here — they will be produced by a separate scheduler (see
+// emitted here | they will be produced by a separate scheduler (see
 // supabase/migrations/099 scheduled_opportunity_ticks table).
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -29,6 +29,13 @@ export type OpportunityEventType =
   | 'opportunity.assigned'
   | 'opportunity.value_changed'
   | 'opportunity.deleted'
+  // Time-based events emitted by src/app/api/cron/scheduling-tick/route.ts
+  // (SEED-036 scheduler). These are NOT emitted on user request paths.
+  | 'opportunity.aged_in_stage'
+  | 'opportunity.no_activity'
+  | 'opportunity.close_date_approaching'
+  | 'opportunity.close_date_passed'
+  | 'opportunity.stale'
 
 export const OPPORTUNITY_EVENTS: readonly OpportunityEventType[] = [
   'opportunity.created',
@@ -40,6 +47,19 @@ export const OPPORTUNITY_EVENTS: readonly OpportunityEventType[] = [
   'opportunity.assigned',
   'opportunity.value_changed',
   'opportunity.deleted',
+  'opportunity.aged_in_stage',
+  'opportunity.no_activity',
+  'opportunity.close_date_approaching',
+  'opportunity.close_date_passed',
+  'opportunity.stale',
+] as const
+
+export const OPPORTUNITY_TIME_BASED_EVENTS: readonly OpportunityEventType[] = [
+  'opportunity.aged_in_stage',
+  'opportunity.no_activity',
+  'opportunity.close_date_approaching',
+  'opportunity.close_date_passed',
+  'opportunity.stale',
 ] as const
 
 export interface OpportunityEventPayload {
@@ -54,7 +74,7 @@ export interface OpportunityEventPayload {
 }
 
 export interface EmitOpportunityEventOptions {
-  /** Cascade depth — incremented when a workflow action re-emits. Capped at MAX_CASCADE_DEPTH. */
+  /** Cascade depth | incremented when a workflow action re-emits. Capped at MAX_CASCADE_DEPTH. */
   depth?: number
   parentDispatchId?: string | null
   /** Optional explicit supabase client; defaults to service-role. */
@@ -150,7 +170,7 @@ export async function emitOpportunityEvent(
   })
 
   // Look up matching workflows. We still record a dispatch row even when none
-  // match — it's audit data for "why didn't anything fire" debugging.
+  // match | it's audit data for "why didn't anything fire" debugging.
   const matched = await findMatchingWorkflows(supabase, orgId, eventType)
 
   const auditPayload: Json = {
@@ -175,7 +195,7 @@ export async function emitOpportunityEvent(
     return { dispatched: 0, dispatch_id: dispatchId }
   }
 
-  // Build the trigger input — workflow runtime spreads this into scope under
+  // Build the trigger input | workflow runtime spreads this into scope under
   // top-level namespaces (opportunity, contact, stage, pipeline, changes, note).
   const triggerInput: Record<string, unknown> = {
     ...scope,
@@ -185,7 +205,7 @@ export async function emitOpportunityEvent(
   if (payload.note) triggerInput.note = payload.note
 
   // Load each workflow's current definition and dispatch via the synchronous
-  // runner. The runner enforces its own timeout — we fire-and-forget here so
+  // runner. The runner enforces its own timeout | we fire-and-forget here so
   // event emission stays fast on the user request path.
   const versionIds = matched
     .map((m) => m.current_version_id)
@@ -210,7 +230,7 @@ export async function emitOpportunityEvent(
       ? defById.get(wf.current_version_id)
       : null
     if (!definition) continue
-    // Fire-and-forget — propagate cascade depth via context.
+    // Fire-and-forget | propagate cascade depth via context.
     void runFlowSync({
       workflowId: wf.id,
       definition,

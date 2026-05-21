@@ -1,15 +1,15 @@
 // src/lib/ghl/send-sms.ts
 // Executor for the send_sms action type when the bound integration is GoHighLevel.
-// Sends SMS via the GHL Conversations API instead of Twilio — the message lives
+// Sends SMS via the GHL Conversations API instead of Twilio | the message lives
 // inside the sub-account's conversation history, and replies route back through
 // the GHL inbound webhook just like any other CRM-originated SMS.
 //
-// GHL requires a contactId on /conversations/messages — there is no "send to a
+// GHL requires a contactId on /conversations/messages | there is no "send to a
 // raw phone number" endpoint. If the caller (LLM/webhook) passes contactId we
 // use it directly; otherwise we resolve contactId from a phone number with a
 // find-or-create flow (1-2 extra API calls).
 //
-// Result strings never contain newlines — Vapi's response parser breaks on \n.
+// Result strings never contain newlines | Vapi's response parser breaks on \n.
 
 import { ghlFetchJson, type GhlCredentials } from './client'
 

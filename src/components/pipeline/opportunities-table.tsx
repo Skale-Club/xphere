@@ -177,7 +177,7 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
                 </Link>
               </TableCell>
               <TableCell className="text-text-secondary">
-                {o.contact?.name ?? o.contact?.phone ?? '—'}
+                {o.contact?.name ?? o.contact?.phone ?? '|'}
               </TableCell>
               <TableCell>
                 <span className="inline-flex items-center gap-1.5 text-[12px]">
@@ -185,7 +185,7 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: o.stage?.color ?? '#6366F1' }}
                   />
-                  {o.stage?.name ?? '—'}
+                  {o.stage?.name ?? '|'}
                 </span>
               </TableCell>
               <TableCell className="text-right tabular-nums">

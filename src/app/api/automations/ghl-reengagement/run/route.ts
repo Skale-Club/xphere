@@ -2,7 +2,7 @@
 // Phase 32 (v1.9): Protected internal endpoint that runs one pass of the
 // GHL Lost-Lead Reengagement SMS automation. Triggered by a GitHub Actions
 // 15-minute pulse cron OR manual workflow_dispatch (?force=1 to bypass the
-// DB schedule). NOT a public webhook — bearer-secret protected.
+// DB schedule). NOT a public webhook | bearer-secret protected.
 //
 // Pattern source: 32-RESEARCH.md Pattern 7 (bearer auth) + Pattern 3
 // (service-role client) + Pattern 9 (DB-backed schedule check).
@@ -142,7 +142,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(result, { status: 200 })
   } catch (err) {
-    // Sanitized — never echoes the Authorization header value (we never read it
+    // Sanitized | never echoes the Authorization header value (we never read it
     // into a variable that's part of the error chain). Messages come from
     // runReengagement / supabase / ghlFetchJson which are pre-sanitized.
     const message = err instanceof Error ? err.message : String(err)

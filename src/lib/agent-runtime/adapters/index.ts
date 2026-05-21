@@ -1,5 +1,5 @@
 // src/lib/agent-runtime/adapters/index.ts
-// Channel adapter public API — import from here, not from individual files.
+// Channel adapter public API | import from here, not from individual files.
 
 export type ChannelMessage =
   | { type: 'text'; text: string }
@@ -25,7 +25,7 @@ export { formatOutbound as formatSms } from './sms'
 /**
  * Shared: strip markdown formatting characters from text.
  * Removes: **bold**, *italic*, __underline__, ~~strikethrough~~, `code`, [link](url), # headings.
- * WhatsApp uses its own markup (*bold*, _italic_) — callers that need channel-native
+ * WhatsApp uses its own markup (*bold*, _italic_) | callers that need channel-native
  * markup should handle that conversion after stripMarkdown().
  */
 export function stripMarkdown(text: string): string {
@@ -44,7 +44,7 @@ export function stripMarkdown(text: string): string {
     .replace(/_{3}([\s\S]+?)_{3}/g, '$1')
     // Bold: __text__
     .replace(/_{2}([\s\S]+?)_{2}/g, '$1')
-    // Italic: _text_ (word-boundary guard — no lookbehind needed for non-word chars)
+    // Italic: _text_ (word-boundary guard | no lookbehind needed for non-word chars)
     .replace(/(^|[^a-zA-Z0-9])_([\s\S]+?)_(?=[^a-zA-Z0-9]|$)/gm, '$1$2')
     // Strikethrough: ~~text~~
     .replace(/~~([\s\S]+?)?~~/g, '$1')

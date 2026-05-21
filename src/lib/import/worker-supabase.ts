@@ -1,5 +1,5 @@
 /**
- * SupabaseImportWorkerEntry — v1 implementation of ImportWorkerEntry.
+ * SupabaseImportWorkerEntry | v1 implementation of ImportWorkerEntry.
  *
  * This stub will be fleshed out in Phase 75 (IMPORT-HISTORY-RETRY-TESTS) when
  * the full chunked, transactional, cancellable processing logic is added.
@@ -35,7 +35,7 @@ export class SupabaseImportWorkerEntry implements ImportWorkerEntry {
       .single()
 
     if (error || !data) {
-      // No rows in queued state (or concurrency collision — safe to return unclaimed)
+      // No rows in queued state (or concurrency collision | safe to return unclaimed)
       return { claimed: false }
     }
 

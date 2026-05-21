@@ -14,7 +14,7 @@ export async function resolveAgent(
   const supabase = createServiceRoleClient()
 
   // Fetch agent + active prompt version in one query (D-34-06: join via active_prompt_version_id)
-  // Phase 41 (AGENT-12): system_prompt removed from outer select — runtime MUST use the version row.
+  // Phase 41 (AGENT-12): system_prompt removed from outer select | runtime MUST use the version row.
   const { data: agent, error } = await supabase
     .from('agents')
     .select(`
@@ -40,7 +40,7 @@ export async function resolveAgent(
   if (error || !agent) return null
 
   // Phase 41 (AGENT-12): runtime MUST use active_prompt_version_id; never reads agents.system_prompt directly.
-  // If active_prompt_version_id is null, resolveAgent returns null — caller falls back to fallback_message.
+  // If active_prompt_version_id is null, resolveAgent returns null | caller falls back to fallback_message.
   const promptVersionRow = Array.isArray(agent.agent_prompt_versions)
     ? agent.agent_prompt_versions[0]
     : agent.agent_prompt_versions
@@ -59,11 +59,11 @@ export async function resolveAgent(
   }
   const baseSystemPrompt = promptVersionRow.system_prompt
 
-  // D-34-11: apply channel_overrides — JSONB keyed by channel name
+  // D-34-11: apply channel_overrides | JSONB keyed by channel name
   const overrides = (agent.channel_overrides as Record<string, Record<string, unknown>> | null) ?? {}
   const channelOverride = overrides[channel] ?? {}
 
-  // system_prompt: suffix-append only (NOT replace) — D-34-11
+  // system_prompt: suffix-append only (NOT replace) | D-34-11
   const systemPrompt = channelOverride.system_prompt
     ? `${baseSystemPrompt}\n\n${channelOverride.system_prompt}`
     : baseSystemPrompt
@@ -73,12 +73,12 @@ export async function resolveAgent(
     ? channelOverride.model
     : agent.model
 
-  // temperature: replace if present in override (column does not exist in DB — override-only)
+  // temperature: replace if present in override (column does not exist in DB | override-only)
   const temperature = typeof channelOverride.temperature === 'number'
     ? channelOverride.temperature
     : undefined
 
-  // max_tokens: replace if present in override (column does not exist in DB — override-only with default)
+  // max_tokens: replace if present in override (column does not exist in DB | override-only with default)
   const maxTokens = typeof channelOverride.max_tokens === 'number'
     ? channelOverride.max_tokens
     : 1024
@@ -97,7 +97,7 @@ export async function resolveAgent(
     temperature,
     maxTokens,
     maxHistory,
-    fallbackMessage: agent.fallback_message ?? "I can't help with that right now — let me transfer you to a human.",
+    fallbackMessage: agent.fallback_message ?? "I can't help with that right now | let me transfer you to a human.",
     allowedChannels: (agent.allowed_channels ?? []) as AgentChannel[],
     isActive: agent.is_active ?? false,
     kbScope: (agent.kb_scope as string[] | null) ?? null,

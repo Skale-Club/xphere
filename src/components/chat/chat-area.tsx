@@ -46,7 +46,7 @@ interface ChatAreaProps {
   isLoading: boolean
   /** Typing indicator from the other party (Realtime broadcast). */
   isTyping?: boolean
-  /** "Agent thinking" — set while runAgent is processing. */
+  /** "Agent thinking" | set while runAgent is processing. */
   isAgentThinking?: boolean
   onSendMessage: (
     content: string,
@@ -111,6 +111,20 @@ export function ChatArea({
   // SEED-039: operator-selected outbound channel for the composer.
   const [activeChannel, setActiveChannel] = useState<string | null>(null)
 
+  // SEED-039: derive distinct channels present in the thread (for filter UI).
+  // Must be declared before any early return to satisfy Rules of Hooks.
+  const threadChannels = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of messages) {
+      const ch =
+        (m.channel as string | null | undefined) ??
+        ((m.metadata as Record<string, unknown> | null | undefined)?.channel as string | undefined) ??
+        null
+      if (ch) set.add(ch)
+    }
+    return Array.from(set)
+  }, [messages])
+
   if (!conversation) {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-bg-primary px-6">
@@ -124,19 +138,6 @@ export function ChatArea({
       </div>
     )
   }
-
-  // SEED-039: derive distinct channels present in the thread (for filter UI).
-  const threadChannels = useMemo(() => {
-    const set = new Set<string>()
-    for (const m of messages) {
-      const ch =
-        (m.channel as string | null | undefined) ??
-        ((m.metadata as Record<string, unknown> | null | undefined)?.channel as string | undefined) ??
-        null
-      if (ch) set.add(ch)
-    }
-    return Array.from(set)
-  }, [messages])
 
   const visibleMessages = messages.filter((m) => {
     if (!showDebug && m.metadata?.internal) return false
@@ -176,7 +177,7 @@ export function ChatArea({
         onChannelFilterChange={setChannelFilter}
       />
 
-      {/* Internal/debug toggle — small, optional, off by default */}
+      {/* Internal/debug toggle | small, optional, off by default */}
       <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border-subtle bg-bg-secondary/30 px-4 py-1.5">
         <label className="flex items-center gap-1.5 text-[11px] text-text-tertiary cursor-pointer">
           <input
@@ -205,7 +206,7 @@ export function ChatArea({
         disabled={isBotActive}
         disabledHint={
           isBotActive
-            ? 'Bot is active — pause it to send messages manually.'
+            ? 'Bot is active | pause it to send messages manually.'
             : undefined
         }
         onResumeManual={

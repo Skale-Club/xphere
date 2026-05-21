@@ -1,5 +1,5 @@
 // src/lib/agent-runtime/guardrails.ts
-// All Phase 34 cost/safety caps. Each function is pure (or reads DB) — no side effects.
+// All Phase 34 cost/safety caps. Each function is pure (or reads DB) | no side effects.
 // run-agent.ts calls these at the appropriate points in the orchestration loop.
 // RUNTIME-04, RUNTIME-05, RUNTIME-06, RUNTIME-07, RUNTIME-08, RUNTIME-09, GATE-03
 
@@ -81,7 +81,7 @@ export function checkDelegationDepth(
     })
   )
 
-  return 'Delegation depth exceeded — answer from current agent'
+  return 'Delegation depth exceeded | answer from current agent'
 }
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ export function checkDelegationDepth(
 // ---------------------------------------------------------------------------
 // Returns a denial string if the agentId is already in the visited set (cycle detected).
 // Returns null if the agent has not been invoked yet in this delegation chain.
-// Complementary to checkDelegationDepth — visited-set catches A→B→A cycles even within budget.
+// Complementary to checkDelegationDepth | visited-set catches A→B→A cycles even within budget.
 
 export function checkVisitedSet(
   visitedAgentIds: Set<string>,
@@ -108,7 +108,7 @@ export function checkVisitedSet(
     })
   )
 
-  return 'Cycle detected — answer from current agent'
+  return 'Cycle detected | answer from current agent'
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ export function checkTokenCap(
     })
   )
 
-  return 'conversation length exceeded — please start a new chat'
+  return 'conversation length exceeded | please start a new chat'
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ export function checkTokenCap(
 // and sums cost_usd from agent_invocations last 24h.
 // Returns a denial string if over cap; null if within limit.
 // Call this AFTER inserting the invocation row (so the current invocation doesn't
-// double-count — it hasn't been updated with cost yet).
+// double-count | it hasn't been updated with cost yet).
 
 export async function checkDailyCostCap(
   orgId: string,
@@ -197,7 +197,7 @@ export async function checkDailyCostCap(
       ? Number(org.daily_cost_cap_usd_override)
       : getDefaultDailyCostCapUsd()
 
-  // Sum today's cost (last 24h) for this org — exclude playground runs (PLAY-04)
+  // Sum today's cost (last 24h) for this org | exclude playground runs (PLAY-04)
   const { data: costRow } = await supabase
     .from('agent_invocations')
     .select('cost_usd')
@@ -224,5 +224,5 @@ export async function checkDailyCostCap(
     })
   )
 
-  return 'Daily cost limit reached — service temporarily restricted'
+  return 'Daily cost limit reached | service temporarily restricted'
 }

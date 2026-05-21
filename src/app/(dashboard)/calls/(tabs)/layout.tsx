@@ -15,7 +15,7 @@ export default async function CallsLayout({ children }: { children: React.ReactN
         eyebrow="Engage"
         eyebrowIcon={Phone}
         title="Calls"
-        description="Every AI and human call across your workspace — with transcripts, recordings, routing and campaigns."
+        description="Every AI and human call across your workspace | with transcripts, recordings, routing and campaigns."
       />
       <CallsNav />
       <div className="pt-2">{children}</div>

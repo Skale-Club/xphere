@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 
     if (!invite) {
       console.warn('[auth/callback:no-invite] email=', normalizedEmail)
-      // No existing membership AND no pending invite — block access.
+      // No existing membership AND no pending invite | block access.
       // The auth.users row was created by Supabase OAuth (unavoidable) but
       // without an org_members row the user has no access to any org data.
       return NextResponse.redirect(`${origin}/login?error=not_invited`)

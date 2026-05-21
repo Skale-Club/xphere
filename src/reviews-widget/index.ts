@@ -1,7 +1,7 @@
 /**
- * Xphere Reviews Widget — embeddable IIFE bundle.
+ * Xphere Reviews Widget | embeddable IIFE bundle.
  *
- * Usage (recommended — iframe):
+ * Usage (recommended | iframe):
  *   <iframe src="https://xphere.app/widget/reviews/{token}?layout=grid&min_rating=4"
  *           width="100%" height="640" frameborder="0"></iframe>
  *
@@ -424,7 +424,7 @@ function wireInteractions(root: HTMLElement): void {
 async function main() {
   const config = getConfig()
   if (!config) {
-    console.warn('[operator-reviews] no config found — provide ?token= query param or a [data-token] element.')
+    console.warn('[operator-reviews] no config found | provide ?token= query param or a [data-token] element.')
     return
   }
 

@@ -116,7 +116,7 @@ export function CampaignList({ campaigns, children }: CampaignListProps) {
                   <TableCell className="text-sm text-muted-foreground">
                     {c.scheduled_start_at
                       ? format(new Date(c.scheduled_start_at), 'MMM d, HH:mm')
-                      : '—'}
+                      : '|'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(c.created_at), 'MMM d, yyyy')}

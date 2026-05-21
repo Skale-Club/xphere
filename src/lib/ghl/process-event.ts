@@ -1,6 +1,6 @@
 // src/lib/ghl/process-event.ts
 // Processes a validated inbound GHL webhook payload.
-// Called from /api/ghl/webhook via after() — runs after 200 is returned.
+// Called from /api/ghl/webhook via after() | runs after 200 is returned.
 // Pattern mirrors src/lib/meta/process-event.ts.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -34,7 +34,7 @@ export async function processGhlEvent(
 ): Promise<void> {
   const supabase = createServiceRoleClient()
 
-  // Only process inbound text messages — skip outbound echoes and non-text events
+  // Only process inbound text messages | skip outbound echoes and non-text events
   if (payload.direction === 'outbound') return
   if (payload.type !== 'InboundMessage') return
 
@@ -152,10 +152,10 @@ export async function processGhlEvent(
     content: messageText,
   })
 
-  // 5. Check bot_status — skip AI response if human has taken over
+  // 5. Check bot_status | skip AI response if human has taken over
   const botStatus = existing?.bot_status ?? 'active'
   if (botStatus !== 'active') {
-    console.log('[ghl/webhook] Bot paused for conversation:', conversationId, '— skipping AI response')
+    console.log('[ghl/webhook] Bot paused for conversation:', conversationId, '| skipping AI response')
     return
   }
 

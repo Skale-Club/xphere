@@ -31,7 +31,7 @@ export async function getAvailability(
     queryParams
   )
 
-  // Flatten to single line — Vapi parser breaks on newlines
+  // Flatten to single line | Vapi parser breaks on newlines
   const allSlots: string[] = []
   for (const dateKey of Object.keys(data).sort()) {
     allSlots.push(...(data[dateKey]?.slots ?? []))

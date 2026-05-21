@@ -32,7 +32,7 @@ export async function GET(
     return Response.json({ error: 'No organization found' }, { status: 403 })
   }
 
-  // Fetch the invocation — filter by mode='playground' for security
+  // Fetch the invocation | filter by mode='playground' for security
   const { data: invocation } = await supabase
     .from('agent_invocations')
     .select('id, tool_calls, duration_ms, tokens_in, tokens_out, cost_usd, status, mode')

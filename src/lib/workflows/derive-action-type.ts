@@ -30,7 +30,7 @@ export function extractActionTypeFromDefinition(definition: unknown): string {
   const nonTriggerNodes: Array<{ actionType: string }> = []
 
   for (const node of nodes) {
-    // Flow engine shape — node has top-level `type` and `data.kind`
+    // Flow engine shape | node has top-level `type` and `data.kind`
     const fe = node as FlowEngineNode
     if (fe.type && fe.data && typeof fe.data === 'object') {
       const dataKind = fe.data.kind
@@ -39,11 +39,11 @@ export function extractActionTypeFromDefinition(definition: unknown): string {
         nonTriggerNodes.push({ actionType: fe.data.action_type })
         continue
       }
-      // condition/wait/end nodes have no action_type — skip
+      // condition/wait/end nodes have no action_type | skip
       if (dataKind && dataKind !== 'action') continue
     }
 
-    // YAML/spec shape — node has top-level `kind` (the action name)
+    // YAML/spec shape | node has top-level `kind` (the action name)
     const ys = node as YamlStyleNode
     if (typeof ys.kind === 'string' && ys.id !== 'trigger') {
       nonTriggerNodes.push({ actionType: ys.kind })

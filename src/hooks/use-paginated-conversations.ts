@@ -1,18 +1,31 @@
 'use client'
 
 /**
- * usePaginatedConversations — page-based chat inbox feed (v2.2 + SEED-035).
+ * usePaginatedConversations | page-based chat inbox feed (v2.2).
  *
  * Why page-based instead of infinite scroll: appending every page to the DOM
- * makes the inbox scroll bar shrink to a sliver — it's hard to navigate when
+ * makes the inbox scroll bar shrink to a sliver | it's hard to navigate when
  * the user has hundreds of conversations. True pagination keeps the visible
  * list bounded to `pageSize` items (default 30) plus the small pinned set,
  * and exposes Prev / Next / range indicator controls in a sticky footer.
  *
- * SEED-035 extends the filter surface to: priority (csv), label_ids (csv),
- * starred (boolean), unread (boolean), assigned_user_id (uuid|'unassigned'),
- * bot_status ('active'|'paused'). All are server-side; serialized into the
- * fetch URL and re-fetched on any change.
+ * Behaviour:
+ *   - Initial fetch: page 1 for the current filter set.
+ *   - goToPage(n) / nextPage() / prevPage(): change page, refetch.
+ *   - Filter change: any change in the serialized filters resets to page 1
+ *     and refetches.
+ *   - prepend(c): adds a realtime-arrived conversation at the top of the
+ *     current page (only takes effect on page 1 to avoid disrupting ordering
+ *     on other pages).
+ *   - upsert(c): updates a conversation in place if present on the current
+ *     page. Out-of-window updates are ignored | the next fetch will catch
+ *     them.
+ *   - remove(id): drops a conversation from the current page.
+ *   - refresh(): hard refetch the current page (used after mutations that
+ *     might change ordering or counts).
+ *
+ * The hook owns its own AbortController so rapid filter changes don't race |
+ * only the latest fetch's result is committed.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -20,17 +33,14 @@ import type { ConversationSummary } from '@/types/chat'
 
 export interface ConversationFilters {
   status?: string | null
-  /** csv of statuses (preferred over single `status`) */
-  statuses?: string[] | null
   assigned?: string | null
   channel?: string | null
-  /** SEED-035 */
-  unread?: boolean | null
-  priority?: string[] | null
-  botStatus?: string | null
+  /** SEED-035 advanced filters */
   starred?: boolean | null
-  labelIds?: string[] | null
-  assignedUserId?: string | null
+  labelIds?: string[]
+  priority?: string | null
+  botStatus?: string | null
+  unread?: boolean | null
 }
 
 interface FetchPageResponse {
@@ -75,21 +85,13 @@ function buildUrl(filters: ConversationFilters, page: number, pageSize: number):
   sp.set('page', String(page))
   sp.set('pageSize', String(pageSize))
   if (filters.status) sp.set('status', filters.status)
-  if (filters.statuses && filters.statuses.length > 0) {
-    sp.set('statuses', filters.statuses.join(','))
-  }
   if (filters.assigned) sp.set('assigned', filters.assigned)
   if (filters.channel) sp.set('channel', filters.channel)
-  if (filters.unread) sp.set('unread', 'true')
-  if (filters.priority && filters.priority.length > 0) {
-    sp.set('priority', filters.priority.join(','))
-  }
-  if (filters.botStatus) sp.set('bot_status', filters.botStatus)
-  if (filters.starred) sp.set('starred', 'true')
-  if (filters.labelIds && filters.labelIds.length > 0) {
-    sp.set('label_ids', filters.labelIds.join(','))
-  }
-  if (filters.assignedUserId) sp.set('assigned_user_id', filters.assignedUserId)
+  if (filters.starred) sp.set('starred', '1')
+  if (filters.labelIds?.length) sp.set('labelIds', filters.labelIds.join(','))
+  if (filters.priority) sp.set('priority', filters.priority)
+  if (filters.botStatus) sp.set('botStatus', filters.botStatus)
+  if (filters.unread) sp.set('unread', '1')
   return `/api/chat/conversations?${sp.toString()}`
 }
 
@@ -121,28 +123,10 @@ export function usePaginatedConversations(
     () =>
       JSON.stringify({
         s: filters.status ?? null,
-        ss: filters.statuses ?? null,
         a: filters.assigned ?? null,
         c: filters.channel ?? null,
-        u: filters.unread ?? null,
-        p: filters.priority ?? null,
-        b: filters.botStatus ?? null,
-        st: filters.starred ?? null,
-        l: filters.labelIds ?? null,
-        au: filters.assignedUserId ?? null,
       }),
-    [
-      filters.status,
-      filters.statuses,
-      filters.assigned,
-      filters.channel,
-      filters.unread,
-      filters.priority,
-      filters.botStatus,
-      filters.starred,
-      filters.labelIds,
-      filters.assignedUserId,
-    ],
+    [filters.status, filters.assigned, filters.channel],
   )
 
   // Latest in-flight request, used to ignore stale responses.
@@ -237,7 +221,7 @@ export function usePaginatedConversations(
       })
       return
     }
-    // Only mutate the visible page on page 1 — otherwise ordering would drift.
+    // Only mutate the visible page on page 1 | otherwise ordering would drift.
     if (pageRef.current !== 1) return
     setConversations((prev) => {
       if (prev.some((x) => x.id === c.id)) return prev
@@ -255,7 +239,7 @@ export function usePaginatedConversations(
       const idx = prev.findIndex((x) => x.id === c.id)
       if (idx < 0) return prev
       if (!c.pinned) {
-        // Got unpinned — drop from pinned bucket; the unpinned bucket
+        // Got unpinned | drop from pinned bucket; the unpinned bucket
         // refresh below (or the next fetch) will surface it.
         return prev.filter((x) => x.id !== c.id)
       }
@@ -276,7 +260,7 @@ export function usePaginatedConversations(
         return prev
       }
       if (c.pinned) {
-        // It just got pinned — remove from this bucket. The next refresh
+        // It just got pinned | remove from this bucket. The next refresh
         // will surface it in the pinned bucket.
         return prev.filter((x) => x.id !== c.id)
       }

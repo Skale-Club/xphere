@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — WhatsApp custom panel.
+// SEED-042 | WhatsApp custom panel.
 // Inline provider selector (Evolution Go / Z-API / W-API) backed by the same
 // server actions used in /settings/workspace (SEED-031). Both surfaces stay
 // in sync because they call `saveWhatsAppProvider` directly.

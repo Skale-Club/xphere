@@ -1,10 +1,10 @@
 // SEED-033: dispatcher for agent-invoked workflow tools.
 //
-// kind='tool' workflows are 1-action graphs — delegate straight to the action
+// kind='tool' workflows are 1-action graphs | delegate straight to the action
 // engine using the action node's kind/action_type and its declared config
 // merged with the LLM-provided input.
 //
-// kind='flow' workflows are multi-step DAGs — delegate to runFlowSync with a
+// kind='flow' workflows are multi-step DAGs | delegate to runFlowSync with a
 // 30s timeout. The result is returned to the LLM as the tool-call output.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'

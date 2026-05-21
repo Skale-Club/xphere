@@ -1,8 +1,8 @@
 // src/lib/meta/process-event.ts
-// Pure async function — no HTTP layer. Processes a validated Meta webhook payload.
+// Pure async function | no HTTP layer. Processes a validated Meta webhook payload.
 // Called from src/app/api/meta/webhook/route.ts via after().
 //
-// v2.0 agent path (CHAN-05 — Phase 37): when meta_channels.agent_id is non-null,
+// v2.0 agent path (CHAN-05 | Phase 37): when meta_channels.agent_id is non-null,
 //   invokes runAgent({ stream: false }) and replies via sendMetaMessage.
 // v1.x legacy path: uses automation_id / tool_config_id → executeAction, unchanged.
 // SEED-032: inbound attachments downloaded + re-hosted; mid-based de-dup;
@@ -84,7 +84,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
 
         const { org_id: orgId, automation_id: automationId, config, agent_id: agentId } = metaChannel
 
-        // Decrypt page token early — needed for media download
+        // Decrypt page token early | needed for media download
         let pageToken = ''
         try {
           pageToken = await decrypt(metaChannel.encrypted_page_access_token)
@@ -110,7 +110,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
         let conversationId: string
         let existingChannelMetadata: Record<string, string> = {}
 
-        // Placeholder last_message — will overwrite after media is processed
+        // Placeholder last_message | will overwrite after media is processed
         const placeholderLast = messageText || '...'
 
         if (existing) {
@@ -152,7 +152,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: channelType })
         }
 
-        // 2b. Idempotency by mid — skip if we've already inserted this message
+        // 2b. Idempotency by mid | skip if we've already inserted this message
         if (mid) {
           const { data: dupMid } = await supabase
             .from('conversation_messages')
@@ -163,7 +163,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             .limit(1)
             .maybeSingle()
           if (dupMid) {
-            console.log('[meta/webhook] Duplicate meta_mid — skipping:', mid)
+            console.log('[meta/webhook] Duplicate meta_mid | skipping:', mid)
             continue
           }
         }
@@ -251,7 +251,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
         }
 
         // 5. XOR dispatch: agent_id takes priority over automation_id
-        // Skip auto-reply when there's no text (media-only) — agents shouldn't answer "[image]" blindly.
+        // Skip auto-reply when there's no text (media-only) | agents shouldn't answer "[image]" blindly.
         if (agentId && messageText) {
           // v2.0 agent path (CHAN-05)
           await dispatchAgentReply({
@@ -315,7 +315,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
 }
 
 // ---------------------------------------------------------------------------
-// Agent reply dispatch (v2.0 — CHAN-05)
+// Agent reply dispatch (v2.0 | CHAN-05)
 // ---------------------------------------------------------------------------
 
 interface AgentReplyInput {

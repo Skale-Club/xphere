@@ -1,7 +1,7 @@
 /**
  * Per-org branding helpers (SEED-010 R7).
  *
- * Pure utilities only — safe to import from both client and server
+ * Pure utilities only | safe to import from both client and server
  * components. The async `getOrgBranding(...)` server fetcher lives in
  * `@/lib/branding.server`.
  */
@@ -11,11 +11,11 @@ import { APP_NAME } from '@/lib/config'
 export const DEFAULT_ACCENT = '#6366F1'
 
 export interface OrgBranding {
-  /** Resolved brand name — falls back to APP_NAME. */
+  /** Resolved brand name | falls back to APP_NAME. */
   appName: string
   /** Raw logo URL or null. */
   logoUrl: string | null
-  /** Hex string (6 digits, # prefix). Always defined — defaults applied. */
+  /** Hex string (6 digits, # prefix). Always defined | defaults applied. */
   accent: string
   /** True if the org has overridden any default. */
   customized: boolean
@@ -30,7 +30,7 @@ export const DEFAULT_BRANDING: OrgBranding = {
 
 /**
  * Resolves a branding row (typically from Supabase) with defaults.
- * Pure function — safe everywhere.
+ * Pure function | safe everywhere.
  */
 export function resolveOrgBranding(row: {
   logo_url?: string | null
@@ -52,7 +52,7 @@ export function resolveOrgBranding(row: {
 /**
  * Derive a slightly darker hover variant from a hex color. Used to keep
  * the `--accent-hover` token in sync when an org overrides the accent.
- * Simple multiplicative darken — good enough for hover.
+ * Simple multiplicative darken | good enough for hover.
  */
 export function deriveAccentHover(hex: string): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex)

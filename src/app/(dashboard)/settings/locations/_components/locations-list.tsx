@@ -120,7 +120,7 @@ export function LocationsList({ initial }: Props) {
                       )}
                       {loc.latitude == null && (
                         <p className="text-[11px] text-amber-500 mt-1">
-                          Coordinates unavailable — Maps deep links will use the address string only.
+                          Coordinates unavailable | Maps deep links will use the address string only.
                         </p>
                       )}
                     </div>

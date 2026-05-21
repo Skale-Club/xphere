@@ -65,7 +65,7 @@ export async function resolveAgentTool(
     }
 
     if (!isChannelAllowed(legacyRow.allowed_channels as AgentChannel[] | null, channel)) {
-      // Tool attached but not on this channel — keep searching the workflow path
+      // Tool attached but not on this channel | keep searching the workflow path
       // before giving up entirely (a separate workflow attachment could allow it).
     } else {
       return {

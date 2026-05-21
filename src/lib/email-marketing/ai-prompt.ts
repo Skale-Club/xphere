@@ -13,17 +13,17 @@ RULES:
 7. Include an unsubscribe link in the footer using href="{{unsubscribe_url}}".
 8. Include the company address in the footer: use placeholder "{{company_address}}".
 9. Keep copy concise and persuasive. Subject line under 50 characters.
-10. Preview text (preheader) between 85-100 characters — it appears as the inbox snippet.
+10. Preview text (preheader) between 85-100 characters | it appears as the inbox snippet.
 
-OUTPUT FORMAT — return ONLY valid JSON, no markdown, no code fences:
+OUTPUT FORMAT | return ONLY valid JSON, no markdown, no code fences:
 {
-  "subject_line": "string — compelling, under 50 chars",
-  "preview_text": "string — inbox snippet, 85-100 chars",
+  "subject_line": "string | compelling, under 50 chars",
+  "preview_text": "string | inbox snippet, 85-100 chars",
   "sections": [
     {
       "type": "header | hero | cta | text | image | divider | social | footer",
-      "name": "string — human-readable section name",
-      "html_content": "string — email-safe HTML fragment"
+      "name": "string | human-readable section name",
+      "html_content": "string | email-safe HTML fragment"
     }
   ]
 }

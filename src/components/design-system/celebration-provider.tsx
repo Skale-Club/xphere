@@ -12,7 +12,7 @@ const CelebrationContext = React.createContext<CelebrationContextValue | null>(n
 
 /**
  * Mount once near the dashboard root. Any descendant can call
- * `useCelebrate()` to fire a 3s confetti burst — used for deal-won
+ * `useCelebrate()` to fire a 3s confetti burst | used for deal-won
  * moments and other "this is worth celebrating" interactions.
  */
 export function CelebrationProvider({ children }: { children: React.ReactNode }) {

@@ -97,12 +97,12 @@ export async function runReengagement(
   const opportunities = await listOpportunities(ghlCredentials, {
     status: 'lost',
     updatedBefore: thresholdCutoff,
-    // GHL page size — independent of cfg.batchLimit (which caps NEW dispatches per run).
+    // GHL page size | independent of cfg.batchLimit (which caps NEW dispatches per run).
     // Always page-max; the slice on `toDispatch` further down enforces batchLimit.
     limit: 100,
   })
 
-  // ---- 3. JS-side date guard (Pitfall 1 — defense in depth) ----
+  // ---- 3. JS-side date guard (Pitfall 1 | defense in depth) ----
   const cutoffMs = thresholdCutoff.getTime()
   const dateFiltered = opportunities.filter(opp => {
     const t = opportunityTimestamp(opp)

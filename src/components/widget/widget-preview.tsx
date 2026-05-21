@@ -44,7 +44,7 @@ export function WidgetPreview({
             I&apos;d like to learn more.
           </div>
           <div className="max-w-[80%] rounded-2xl rounded-tl-md bg-zinc-100 px-4 py-3 text-sm text-zinc-900">
-            Absolutely — I can answer questions or help route you to the next step.
+            Absolutely | I can answer questions or help route you to the next step.
           </div>
         </div>
 

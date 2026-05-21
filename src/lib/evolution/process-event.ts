@@ -1,6 +1,6 @@
 // src/lib/evolution/process-event.ts
 // Normalizes Evolution Go webhook payloads into Operator domain events.
-// Called from /api/evolution/webhook via after() — never throws.
+// Called from /api/evolution/webhook via after() | never throws.
 //
 // Pipeline for messages.upsert:
 //   1. Resolve instance + org from instanceName.

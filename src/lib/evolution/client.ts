@@ -1,7 +1,7 @@
 // src/lib/evolution/client.ts
 // Typed wrapper around the Evolution Go (whatsmeow) REST API.
 //
-// Evolution Go is a self-hosted WhatsApp gateway — each org runs (or shares)
+// Evolution Go is a self-hosted WhatsApp gateway | each org runs (or shares)
 // its own Evolution Go server and creates one or more "instances" inside it.
 // An instance maps to a single WhatsApp account (a phone number, connected via QR).
 //
@@ -23,7 +23,7 @@ export interface EvolutionResponse<T = unknown> {
 }
 
 // ---------------------------------------------------------------------------
-// Low-level fetch helper — always JSON, never throws, always returns shape
+// Low-level fetch helper | always JSON, never throws, always returns shape
 // ---------------------------------------------------------------------------
 
 async function evoFetch<T = unknown>(
@@ -147,7 +147,7 @@ export async function deleteInstance(
   return evoFetch(cfg, 'DELETE', `/instance/delete/${encodeURIComponent(instanceName)}`)
 }
 
-// Server-level — verifies base_url + token by listing instances
+// Server-level | verifies base_url + token by listing instances
 export interface ListedInstance {
   instanceName: string
   status?: string

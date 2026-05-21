@@ -119,7 +119,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
           <div>
             <CardTitle>Logo</CardTitle>
             <CardDescription>
-              Square image, ideally 256×256 PNG or SVG. Paste a URL — uploads coming soon.
+              Square image, ideally 256×256 PNG or SVG. Paste a URL | uploads coming soon.
             </CardDescription>
           </div>
           {saving && savedLabel === null ? (

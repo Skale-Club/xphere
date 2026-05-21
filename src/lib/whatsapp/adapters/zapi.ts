@@ -1,5 +1,5 @@
 // src/lib/whatsapp/adapters/zapi.ts
-// Z-API adapter — normalizes ReceivedCallback payloads and downloads media
+// Z-API adapter | normalizes ReceivedCallback payloads and downloads media
 // from the Z-API CDN (URLs are temporary, ~24h).
 
 import { storeWhatsAppMedia } from '../storage'

@@ -266,7 +266,7 @@ export function OpportunityDetailSheet({
           </>
         ) : (
           <div className="flex flex-col overflow-hidden h-full">
-            {/* Header — title, value (big), stage/status chips, actions */}
+            {/* Header | title, value (big), stage/status chips, actions */}
             <DialogHeader className="border-b border-border-subtle px-6 pt-5 pb-5 pr-14 space-y-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-2">
@@ -299,7 +299,7 @@ export function OpportunityDetailSheet({
                   <DialogTitle className="text-[22px] leading-[1.2] font-semibold tracking-[-0.01em] truncate">
                     {editing ? 'Edit opportunity' : opp.title}
                   </DialogTitle>
-                  {/* Value — big, prominent */}
+                  {/* Value | big, prominent */}
                   {!editing && (
                     <DialogDescription asChild>
                       <div className="text-[28px] leading-[1.1] font-semibold tabular-nums text-accent">
@@ -652,7 +652,7 @@ function MetaCard({
         <Icon className="h-3 w-3 text-text-tertiary" />
         <span className="text-[10.5px] uppercase tracking-wide text-text-tertiary font-medium">{label}</span>
       </div>
-      <div className={cn('text-[13px] font-medium truncate', accent)}>{value || '—'}</div>
+      <div className={cn('text-[13px] font-medium truncate', accent)}>{value || '|'}</div>
     </div>
   )
 }

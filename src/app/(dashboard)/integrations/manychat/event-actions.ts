@@ -7,8 +7,8 @@ export type ManychatEventRow = Database['public']['Tables']['manychat_events']['
 
 export type ManychatEventsFilter = {
   status?: 'matched' | 'unmatched' | 'error'
-  from?: string   // YYYY-MM-DD — inclusive start date (created_at >= from)
-  to?: string     // YYYY-MM-DD — inclusive end date (created_at <= to + T23:59:59Z)
+  from?: string   // YYYY-MM-DD | inclusive start date (created_at >= from)
+  to?: string     // YYYY-MM-DD | inclusive end date (created_at <= to + T23:59:59Z)
   offset?: number
   limit?: number
 }
@@ -16,7 +16,7 @@ export type ManychatEventsFilter = {
 /**
  * Paginated fetch of manychat_events for the active org.
  *
- * RLS scopes to the active org automatically — no manual org_id filter.
+ * RLS scopes to the active org automatically | no manual org_id filter.
  * Returns { events, total } where total is the full count (for pagination UI).
  * Default: 25 rows, offset 0, no filter.
  */

@@ -19,7 +19,7 @@ export default async function LocationsPage() {
         eyebrow="Workspace"
         eyebrowIcon={MapPin}
         title="Locations"
-        description="Physical addresses bookings can pin to — stores, offices, clinics."
+        description="Physical addresses bookings can pin to | stores, offices, clinics."
       />
       <LocationsList initial={locations} />
     </PageContainer>

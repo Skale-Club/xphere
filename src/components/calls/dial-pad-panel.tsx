@@ -89,7 +89,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   }, [])
 
   // External callers (e.g. contact detail) can prefill the dial-pad without
-  // initiating a call — opens the panel and fills the number field.
+  // initiating a call | opens the panel and fills the number field.
   const handlePrefill = React.useCallback((phone: string) => {
     setNumber(phone)
     setOpen(true)
@@ -102,7 +102,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   }, [])
   useDialPadToggle(handleToggle)
 
-  // Contact search — fires after 3 chars with a small debounce. Matches name,
+  // Contact search | fires after 3 chars with a small debounce. Matches name,
   // company, or phone via ilike on the contacts table.
   React.useEffect(() => {
     const q = search.trim()
@@ -191,7 +191,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   async function handleCall() {
     const norm = normaliseE164(number)
     if (!norm) {
-      toast.error('Enter a valid E.164 number — e.g. +14155551234.')
+      toast.error('Enter a valid E.164 number | e.g. +14155551234.')
       return
     }
     setCalling(true)
@@ -200,13 +200,13 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
       const call = await device.placeCall(norm)
       if (!call) {
         setCalling(false)
-        toast.error('Browser call failed — check your settings.')
+        toast.error('Browser call failed | check your settings.')
       }
       // state tracks via device.activeCall
       return
     }
 
-    // phone_forward / sip — initiate via REST
+    // phone_forward / sip | initiate via REST
     try {
       const body: Record<string, string> = { to: norm }
       if (fromNumber) body.from = fromNumber
@@ -221,12 +221,12 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
         setCalling(false)
         return
       }
-      toast.success(`Calling ${norm} — your phone will ring shortly.`)
+      toast.success(`Calling ${norm} | your phone will ring shortly.`)
       setNumber('')
-      // REST calls don't create a browser Call object — reset after a moment
+      // REST calls don't create a browser Call object | reset after a moment
       setTimeout(() => setCalling(false), 4_000)
     } catch {
-      toast.error('Network error — could not place call.')
+      toast.error('Network error | could not place call.')
       setCalling(false)
     }
   }
@@ -243,7 +243,14 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   const showResults = trimmedSearch.length >= 3
 
   return (
-    <div className="fixed inset-0 z-50 sm:inset-auto sm:top-16 sm:right-4">
+    <>
+      {/* Desktop backdrop overlay with blur */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm sm:block hidden animate-dialpad-overlay"
+        onClick={() => setOpen(false)}
+      />
+
+      <div className="fixed inset-0 z-50 sm:inset-auto sm:top-16 sm:right-4">
       <div className="w-full h-full sm:w-[272px] sm:h-auto sm:max-h-[calc(100vh-5rem)] rounded-none sm:rounded-[18px] border-0 sm:border sm:border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-6 sm:px-4 py-4 sm:py-3">
@@ -263,7 +270,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
           </div>
 
           <div className="flex-1 sm:flex-none min-h-0 p-6 sm:p-4 flex flex-col gap-4 sm:gap-0 sm:space-y-4 overflow-y-auto">
-            {/* Contact search — name / company / phone, min 3 chars */}
+            {/* Contact search | name / company / phone, min 3 chars */}
             <div className="relative">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" />
@@ -373,7 +380,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
               disabled={Boolean(device.activeCall)}
             />
 
-            {/* Dial pad grid — flex-1 on mobile so it absorbs remaining space without scroll */}
+            {/* Dial pad grid | flex-1 on mobile so it absorbs remaining space without scroll */}
             <div className="grid grid-cols-3 grid-rows-4 gap-2 sm:gap-1.5 flex-1 sm:flex-none min-h-0">
               {DIAL_KEYS.map((k) => (
                 <button
@@ -452,8 +459,9 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                 aria-label="Toggle call recording"
               />
             </div>
-          </div>
         </div>
+      </div>
     </div>
-  )
+  </>
+)
 }

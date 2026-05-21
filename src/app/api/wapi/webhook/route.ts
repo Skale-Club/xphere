@@ -1,5 +1,5 @@
 // src/app/api/wapi/webhook/route.ts
-// W-API webhook receiver — always returns HTTP 200.
+// W-API webhook receiver | always returns HTTP 200.
 
 import { after } from 'next/server'
 import {

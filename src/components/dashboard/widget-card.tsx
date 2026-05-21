@@ -27,7 +27,7 @@ interface WidgetCardProps {
 /**
  * Standard wrapper card used by every dashboard widget. Provides a
  * consistent header (icon + title + optional "View all" link) and body
- * spacing. Body content is whatever the widget chooses to render — a list,
+ * spacing. Body content is whatever the widget chooses to render | a list,
  * a chart, a grid, etc.
  */
 export function WidgetCard({

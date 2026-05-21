@@ -150,7 +150,7 @@ export async function processWhatsAppMessage(
     }
     if (msg.instanceName) metadata.instance_name = msg.instanceName
     if (media.length > 0) metadata.media = media
-    // Backwards compat — older code looks up by evolution_message_id
+    // Backwards compat | older code looks up by evolution_message_id
     if (msg.provider === 'evolution') metadata.evolution_message_id = msg.messageId
 
     // --- 4. Insert message ---------------------------------------------------

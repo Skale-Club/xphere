@@ -5,7 +5,7 @@ export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed
 
 /**
  * Fan-out helper: inserts one notification row per target user.
- * Uses service-role key — bypasses RLS. Safe to call from webhook handlers.
+ * Uses service-role key | bypasses RLS. Safe to call from webhook handlers.
  *
  * @param orgId        - Organization that owns this event
  * @param type         - Notification type (NOTIF-04 D-02)
@@ -54,7 +54,7 @@ export async function insertNotification(
       return
     }
 
-    // Fan out push notifications asynchronously — do not await so callers aren't blocked
+    // Fan out push notifications asynchronously | do not await so callers aren't blocked
     if (inserted && inserted.length > 0) {
       void sendPushNotifications(inserted as { id: string; user_id: string }[])
     }

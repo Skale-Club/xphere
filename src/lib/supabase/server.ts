@@ -32,7 +32,7 @@ export const createClient = cache(async () => {
   )
 })
 
-// Single cached auth call per request — replaces supabase.auth.getUser() at every call site
+// Single cached auth call per request | replaces supabase.auth.getUser() at every call site
 export const getUser = cache(async () => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

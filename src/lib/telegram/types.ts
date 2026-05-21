@@ -111,10 +111,10 @@ export interface TelegramFile {
   file_path?: string
 }
 
-/** Telegram parse modes we expose to callers — 'plain' = no formatting. */
+/** Telegram parse modes we expose to callers | 'plain' = no formatting. */
 export type TelegramParseMode = 'HTML' | 'MarkdownV2' | 'plain'
 
-/** Detected category for an inbound Telegram message — drives message_type. */
+/** Detected category for an inbound Telegram message | drives message_type. */
 export type TelegramMediaKind =
   | 'text'
   | 'image'

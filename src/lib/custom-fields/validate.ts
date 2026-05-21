@@ -1,5 +1,5 @@
 // src/lib/custom-fields/validate.ts
-// Phase 69 CUSTOMFIELDS-CORE-LIB — Plan 69-02
+// Phase 69 CUSTOMFIELDS-CORE-LIB | Plan 69-02
 //
 // Server-side validator for custom field payloads.
 // Loads definitions from the DB, builds a dynamic Zod schema, and validates
@@ -25,7 +25,7 @@ export type FieldValidationResult =
   | { ok: false; errors: FieldError[] }
 
 /**
- * validateCustomFields — validates a custom_fields payload against the org's
+ * validateCustomFields | validates a custom_fields payload against the org's
  * active definitions for the given entity.
  *
  * Behaviors:
@@ -75,7 +75,7 @@ export async function validateCustomFields(
     // Required check
     if (def.required && !valuePresent) {
       errors.push({ field: def.key, message: 'required' })
-      continue // Skip further checks for this field — value is absent
+      continue // Skip further checks for this field | value is absent
     }
 
     // Skip optional fields that are absent

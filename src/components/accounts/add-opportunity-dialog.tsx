@@ -128,7 +128,7 @@ export function AddOpportunityDialog({
       return
     }
 
-    // Link to account — createOpportunity does not accept account_id in v2.4,
+    // Link to account | createOpportunity does not accept account_id in v2.4,
     // so we patch it immediately after creation via setOpportunityAccount.
     if (res.id) {
       const linkRes = await setOpportunityAccount(res.id, accountId)
@@ -209,7 +209,7 @@ export function AddOpportunityDialog({
                   <div>
                     <p className="text-[13px] font-medium text-text-primary">Link directly to company</p>
                     <p className="mt-0.5 text-[11.5px] text-text-tertiary">
-                      B2B deal — no specific contact required
+                      B2B deal | no specific contact required
                     </p>
                   </div>
                 </button>

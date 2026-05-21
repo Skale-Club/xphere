@@ -148,7 +148,7 @@ export default async function GoogleReviewsIntegrationPage() {
       <SectionCard
         icon={KeyRound}
         title="Step 1 · SerpAPI key"
-        description="Each org connects its own free SerpAPI account — 100 searches/month at no cost."
+        description="Each org connects its own free SerpAPI account | 100 searches/month at no cost."
         statusReady={hasApiKey}
         readyLabel="Key saved"
         emptyLabel="Key missing"
@@ -190,14 +190,14 @@ export default async function GoogleReviewsIntegrationPage() {
             description="Live snapshot of your reviews pipeline."
             statusReady={true}
             readyLabel="Pipeline healthy"
-            emptyLabel="—"
+            emptyLabel="|"
           >
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Average rating</p>
                 <div className="flex items-baseline gap-2">
                   <span className="font-serif text-3xl font-semibold tabular-nums">
-                    {profile?.average_rating?.toFixed(1) ?? '—'}
+                    {profile?.average_rating?.toFixed(1) ?? '|'}
                   </span>
                   <StarRating rating={profile?.average_rating ?? 0} size="md" />
                 </div>
@@ -241,7 +241,7 @@ export default async function GoogleReviewsIntegrationPage() {
           >
             {recentReviews.length === 0 ? (
               <div className="rounded-[10px] border border-dashed border-border bg-bg-secondary/40 p-6 text-center text-[13px] text-text-secondary">
-                No reviews captured yet — click <em>Refresh now</em> above.
+                No reviews captured yet | click <em>Refresh now</em> above.
               </div>
             ) : (
               <ul className="divide-y divide-border-subtle">
@@ -256,7 +256,7 @@ export default async function GoogleReviewsIntegrationPage() {
                         ) : null}
                       </div>
                     </div>
-                    <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '—'}</p>
+                    <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '|'}</p>
                   </li>
                 ))}
               </ul>
@@ -274,10 +274,10 @@ export default async function GoogleReviewsIntegrationPage() {
           <SectionCard
             icon={Sparkles}
             title="Step 3 · Embed on your site"
-            description="Drop this <iframe> anywhere — no script tags, no API keys exposed."
+            description="Drop this <iframe> anywhere | no script tags, no API keys exposed."
             statusReady={Boolean(profile?.widget_token)}
             readyLabel="Snippet ready"
-            emptyLabel="—"
+            emptyLabel="|"
           >
             {profile?.widget_token ? (
               <EmbedSnippet baseUrl={PRODUCTION_ORIGIN} widgetToken={profile.widget_token} />

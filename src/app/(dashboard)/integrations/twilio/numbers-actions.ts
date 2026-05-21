@@ -1,6 +1,6 @@
 'use server'
 /**
- * Twilio phone numbers — per-org CRUD server actions (v2.3).
+ * Twilio phone numbers | per-org CRUD server actions (v2.3).
  *
  * Each org can register multiple Twilio numbers; one (and only one) is the
  * default for outbound flows. The "exactly one default per org" invariant is
@@ -8,7 +8,7 @@
  * `twilio_phone_numbers_one_default_per_org` (see migration 058).
  *
  * All actions run through the authenticated client and rely on RLS for tenant
- * isolation — never pass `organization_id` from the client.
+ * isolation | never pass `organization_id` from the client.
  */
 
 import { revalidatePath } from 'next/cache'
@@ -146,7 +146,7 @@ export async function createTwilioNumber(
   if (!orgId) return { error: 'No active organization.' }
 
   // If marking as default, clear prior defaults first. RLS scopes the update
-  // to the current org — no need to filter explicitly.
+  // to the current org | no need to filter explicitly.
   if (body.is_default) {
     const { error: clearError } = await supabase
       .from('twilio_phone_numbers')
@@ -240,7 +240,7 @@ export async function softDeleteTwilioNumber(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Clear the default flag at the same time — soft-deleting the default leaves
+  // Clear the default flag at the same time | soft-deleting the default leaves
   // the org with no default, which is the correct prompt to pick a new one.
   const { error } = await supabase
     .from('twilio_phone_numbers')
@@ -260,7 +260,7 @@ export async function setDefaultTwilioNumber(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Verify the target row exists and is active — early error beats a confusing
+  // Verify the target row exists and is active | early error beats a confusing
   // partial-state outcome.
   const { data: target, error: lookupError } = await supabase
     .from('twilio_phone_numbers')

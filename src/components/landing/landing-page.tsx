@@ -14,7 +14,7 @@ const features = [
   {
     icon: Zap,
     title: 'Action Engine',
-    description: 'Route any AI tool call — from Vapi, ManyChat, or any webhook — to any business action in milliseconds.',
+    description: 'Route any AI tool call | from Vapi, ManyChat, or any webhook | to any business action in milliseconds.',
   },
   {
     icon: Users,
@@ -34,7 +34,7 @@ const features = [
   {
     icon: MessageSquare,
     title: 'Chat Widget',
-    description: 'Drop a single script tag anywhere to embed an AI chat widget — no framework dependency required.',
+    description: 'Drop a single script tag anywhere to embed an AI chat widget | no framework dependency required.',
   },
   {
     icon: BarChart3,
@@ -116,7 +116,7 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             className="mt-5 max-w-xl text-[1.0625rem] text-[#A1A1AA] leading-relaxed"
           >
             Centralize AI assistants, automate client workflows, and manage every interaction
-            — voice, chat, SMS, and WhatsApp — from one powerful dashboard.
+            | voice, chat, SMS, and WhatsApp | from one powerful dashboard.
           </motion.p>
 
           <motion.div
@@ -226,7 +226,7 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
               Ready to scale your business?
             </h2>
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
-              Start automating client workflows today — no setup fees, no lock-in.
+              Start automating client workflows today | no setup fees, no lock-in.
             </p>
             <Link href="/login">
               <Button className="h-11 px-8 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">

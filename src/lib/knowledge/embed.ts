@@ -1,5 +1,5 @@
 // src/lib/knowledge/embed.ts
-// OpenAI text-embedding-3-small wrapper — accepts apiKey directly.
+// OpenAI text-embedding-3-small wrapper | accepts apiKey directly.
 // No module-level client; caller is responsible for fetching key from DB.
 
 import OpenAI from 'openai'

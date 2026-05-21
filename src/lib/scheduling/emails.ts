@@ -22,7 +22,7 @@ const RESEND_FROM = process.env.RESEND_FROM ?? 'Xphere Scheduling <bookings@xphe
 let _client: Resend | null | undefined = undefined
 
 // Lazily resolve the Resend client. Returns null when RESEND_API_KEY is
-// missing — callers should treat that as a soft no-op (logged warning).
+// missing | callers should treat that as a soft no-op (logged warning).
 function getResend(): Resend | null {
   if (_client !== undefined) return _client
   const key = process.env.RESEND_API_KEY
@@ -132,7 +132,7 @@ const BUTTON = `
 `
 
 // ──────────────────────────────────────────────────────────────────────────────
-// sendBookingConfirmation — sent after createBooking succeeds.
+// sendBookingConfirmation | sent after createBooking succeeds.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export interface BookingConfirmationParams {
@@ -146,7 +146,7 @@ export interface BookingConfirmationParams {
   timezone: string
   cancelUrl: string
   bookingId?: string
-  // Location fields (optional — omit for legacy bookings without location data)
+  // Location fields (optional | omit for legacy bookings without location data)
   locationKind?: string
   meetingUrl?: string
   meetingPhone?: string
@@ -302,7 +302,7 @@ export async function sendBookingConfirmation(
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// sendBookingCancellation — sent after a booking moves to status='cancelled'.
+// sendBookingCancellation | sent after a booking moves to status='cancelled'.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export interface BookingCancellationParams {

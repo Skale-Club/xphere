@@ -12,7 +12,7 @@
  *   - Custom fields rendered using FIELD_RENDER_CONFIG (read-only display for
  *     non-text types, inline editable for text/long_text/number/email/url)
  *
- * Renders gracefully when `contactId` is null — falls back to the
+ * Renders gracefully when `contactId` is null | falls back to the
  * UnregisteredCard with a CTA to create the contact pre-filled with whatever
  * signals the conversation already has.
  */
@@ -24,6 +24,7 @@ import {
   Mail,
   Building2,
   Calendar,
+  MapPin,
   Pencil,
   PhoneCall,
   TrendingUp,
@@ -39,6 +40,9 @@ import {
   CalendarPlus,
   Briefcase,
   ListTodo,
+  MessageCircle,
+  MessageSquare,
+  ExternalLink,
 } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -57,6 +61,7 @@ import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
 import { formatCurrency } from '@/lib/pipeline/format'
+import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -126,29 +131,45 @@ interface ReachChannel {
   channel: Channel
   label: string
   active: boolean
+  /** When a matching open conversation exists, prefer linking to it. */
+  conversationId?: string
 }
 
 function availableChannelsForContact(contact: ContactDetail): ReachChannel[] {
   const out: ReachChannel[] = []
-  const openByChannel = new Set(
-    (contact.conversations ?? [])
-      .filter((c) => c.status === 'open' || c.status === 'pending' || c.status === 'waiting')
-      .map((c) => c.channel),
+  const openConvs = (contact.conversations ?? []).filter(
+    (c) => c.status === 'open' || c.status === 'pending' || c.status === 'waiting',
   )
+  const firstByChannel = (...names: string[]): string | undefined =>
+    openConvs.find((c) => names.includes(c.channel))?.id
 
   if (contact.phone) {
-    out.push({ channel: 'whatsapp', label: 'WhatsApp', active: openByChannel.has('whatsapp') || openByChannel.has('ghl_whatsapp') })
-    out.push({ channel: 'sms', label: 'SMS', active: openByChannel.has('sms') || openByChannel.has('ghl_sms') })
-    if (openByChannel.has('voice')) out.push({ channel: 'voice', label: 'Voice', active: true })
+    out.push({
+      channel: 'whatsapp',
+      label: 'WhatsApp',
+      active: Boolean(firstByChannel('whatsapp', 'ghl_whatsapp')),
+      conversationId: firstByChannel('whatsapp', 'ghl_whatsapp'),
+    })
+    out.push({
+      channel: 'sms',
+      label: 'SMS',
+      active: Boolean(firstByChannel('sms', 'ghl_sms')),
+      conversationId: firstByChannel('sms', 'ghl_sms'),
+    })
+    const voiceConv = firstByChannel('voice')
+    if (voiceConv) out.push({ channel: 'voice', label: 'Voice', active: true, conversationId: voiceConv })
   }
-  if (openByChannel.has('messenger')) {
-    out.push({ channel: 'messenger', label: 'Messenger', active: true })
+  const messengerConv = firstByChannel('messenger')
+  if (messengerConv) {
+    out.push({ channel: 'messenger', label: 'Messenger', active: true, conversationId: messengerConv })
   }
-  if (openByChannel.has('instagram')) {
-    out.push({ channel: 'instagram', label: 'Instagram', active: true })
+  const instaConv = firstByChannel('instagram')
+  if (instaConv) {
+    out.push({ channel: 'instagram', label: 'Instagram', active: true, conversationId: instaConv })
   }
-  if (openByChannel.has('widget') || openByChannel.has('web')) {
-    out.push({ channel: 'web', label: 'Web', active: true })
+  const webConv = firstByChannel('widget', 'web')
+  if (webConv) {
+    out.push({ channel: 'web', label: 'Web', active: true, conversationId: webConv })
   }
   return out
 }
@@ -293,9 +314,19 @@ export function ContactInfoPanel({
               ariaLabel="Edit name"
               className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
             />
-            {contact.company && (
-              <p className="mt-0.5 truncate text-[12px] text-text-secondary px-1">{contact.company}</p>
-            )}
+            {contact.account ? (
+              <Link
+                href={`/companies/${contact.account.id}`}
+                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate px-1 text-[12px] text-text-secondary hover:text-accent transition-colors"
+                title={`Open account ${contact.account.name}`}
+              >
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{contact.account.name}</span>
+                <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
+              </Link>
+            ) : contact.company ? (
+              <p className="mt-0.5 truncate px-1 text-[12px] text-text-secondary">{contact.company}</p>
+            ) : null}
             {contact.tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {contact.tags.map((t) => (
@@ -311,27 +342,71 @@ export function ContactInfoPanel({
           </div>
         </div>
 
-        {/* SEED-039: available reach channels */}
-        {reach.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wide text-text-tertiary mr-0.5">
-              Reachable on
-            </span>
-            {reach.map((r) => (
-              <span
-                key={`${r.channel}-${r.label}`}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium ring-1',
-                  r.active
-                    ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30'
-                    : 'bg-bg-tertiary text-text-tertiary ring-border-subtle',
-                )}
-                title={r.active ? `${r.label} — open conversation` : `${r.label} — available`}
-              >
-                <ChannelBadge channel={r.channel} showLabel={false} size="sm" className="!h-3.5 !w-3.5" />
-                {r.label}
-              </span>
-            ))}
+        {/* SEED-039: quick channel action buttons (Call / WhatsApp / SMS).
+            Call always available when phone exists. WhatsApp/SMS deep-link to
+            their open conversation when one exists, otherwise rendered disabled
+            to communicate that the channel isn't reachable yet. Additional
+            channels (Messenger/Instagram/Web/Voice) only appear when there is
+            an existing conversation to switch into. */}
+        {(contact.phone || reach.length > 0) && (
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+            {contact.phone && (
+              <ChannelActionButton
+                icon={Phone}
+                label="Call"
+                onClick={() => prefillDialPad(contact.phone!)}
+                title={`Call ${contact.phone}`}
+              />
+            )}
+            {contact.phone && (() => {
+              const wa = reach.find((r) => r.channel === 'whatsapp')
+              return (
+                <ChannelActionButton
+                  icon={MessageCircle}
+                  label="WhatsApp"
+                  href={wa?.conversationId ? `/chat?conversation=${wa.conversationId}` : undefined}
+                  disabled={!wa?.conversationId}
+                  accent="emerald"
+                  title={
+                    wa?.conversationId
+                      ? 'Open WhatsApp thread'
+                      : 'No WhatsApp conversation yet'
+                  }
+                />
+              )
+            })()}
+            {contact.phone && (() => {
+              const sms = reach.find((r) => r.channel === 'sms')
+              return (
+                <ChannelActionButton
+                  icon={MessageSquare}
+                  label="SMS"
+                  href={sms?.conversationId ? `/chat?conversation=${sms.conversationId}` : undefined}
+                  disabled={!sms?.conversationId}
+                  title={sms?.conversationId ? 'Open SMS thread' : 'No SMS conversation yet'}
+                />
+              )
+            })()}
+            {/* Extra channels: only show when there is a thread to jump to */}
+            {reach
+              .filter((r) => !['whatsapp', 'sms'].includes(r.channel) && r.conversationId)
+              .map((r) => (
+                <ChannelActionButton
+                  key={`${r.channel}-${r.conversationId}`}
+                  label={r.label}
+                  href={`/chat?conversation=${r.conversationId}`}
+                  badgeChannel={r.channel}
+                  title={`Open ${r.label} thread`}
+                />
+              ))}
+            {contact.email && (
+              <ChannelActionButton
+                icon={Mail}
+                label="Email"
+                href={`mailto:${contact.email}`}
+                title={`Email ${contact.email}`}
+              />
+            )}
           </div>
         )}
 
@@ -393,13 +468,27 @@ export function ContactInfoPanel({
               />
             </InlineRow>
             <InlineRow icon={Building2} label="Company">
-              <InlineEditField
-                value={contact.company}
-                placeholder="Add company"
-                onSave={saveField('company')}
-                ariaLabel="Edit company"
-              />
+              {contact.account ? (
+                <Link
+                  href={`/companies/${contact.account.id}`}
+                  className="inline-flex w-full items-center gap-1 truncate rounded-[6px] px-1.5 py-0.5 text-[12.5px] text-text-primary hover:bg-bg-tertiary hover:text-accent transition-colors"
+                  title={`Open account ${contact.account.name}`}
+                >
+                  <span className="truncate">{contact.account.name}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+                </Link>
+              ) : (
+                <InlineEditField
+                  value={contact.company}
+                  placeholder="Add company"
+                  onSave={saveField('company')}
+                  ariaLabel="Edit company"
+                />
+              )}
             </InlineRow>
+            {contact.account?.address && (
+              <InfoRow icon={MapPin} label="Address" value={contact.account.address} />
+            )}
             <InfoRow
               icon={Calendar}
               label="Created"
@@ -439,7 +528,7 @@ export function ContactInfoPanel({
                         {editable ? (
                           <InlineEditField
                             value={display || null}
-                            placeholder="—"
+                            placeholder="|"
                             type={def.type === 'email' ? 'email' : 'text'}
                             multiline={def.type === 'long_text'}
                             onSave={saveField(`custom_fields.${def.key}`)}
@@ -452,7 +541,7 @@ export function ContactInfoPanel({
                               display ? 'text-text-primary' : 'italic text-text-tertiary',
                             )}
                           >
-                            {display || '—'}
+                            {display || '|'}
                           </div>
                         )}
                       </div>
@@ -678,7 +767,7 @@ export function ContactInfoPanel({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] capitalize text-text-primary">
-                        {c.direction} · {c.status ?? '—'}
+                        {c.direction} · {c.status ?? '|'}
                       </div>
                       <div className="text-[10.5px] text-text-tertiary">
                         {relativeTime(c.started_at)}
@@ -713,7 +802,7 @@ export function ContactInfoPanel({
                     <ChannelBadge channel={(c.channel as Channel) ?? 'unknown'} showLabel={false} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] text-text-primary">
-                        {c.last_message || '—'}
+                        {c.last_message || '|'}
                       </div>
                       <div className="text-[10.5px] text-text-tertiary">
                         {relativeTime(c.last_message_at)} · {c.status}
@@ -727,6 +816,72 @@ export function ContactInfoPanel({
         </div>
       </ScrollArea>
     </div>
+  )
+}
+
+/**
+ * Compact channel-action button rendered in the contact header. Either
+ * navigates to an existing conversation/url, opens the dial-pad, or remains
+ * disabled when the channel isn't currently reachable.
+ *
+ * Visual language matches the existing reach chips so the row reads as a
+ * cohesive action toolbar rather than a row of generic buttons.
+ */
+function ChannelActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  href,
+  disabled,
+  title,
+  accent,
+  badgeChannel,
+}: {
+  icon?: React.ComponentType<{ className?: string }>
+  label: string
+  onClick?: () => void
+  href?: string
+  disabled?: boolean
+  title?: string
+  accent?: 'emerald'
+  badgeChannel?: Channel
+}) {
+  const baseClasses = cn(
+    'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition-colors',
+    disabled
+      ? 'cursor-not-allowed bg-bg-tertiary text-text-tertiary ring-border-subtle opacity-60'
+      : accent === 'emerald'
+        ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30 hover:bg-emerald-500/25'
+        : 'bg-bg-tertiary text-text-secondary ring-border-subtle hover:bg-bg-tertiary/70 hover:text-text-primary',
+  )
+  const inner = (
+    <>
+      {badgeChannel ? (
+        <ChannelBadge channel={badgeChannel} showLabel={false} size="sm" className="!h-3.5 !w-3.5" />
+      ) : Icon ? (
+        <Icon className="h-3 w-3" />
+      ) : null}
+      <span>{label}</span>
+    </>
+  )
+  if (href && !disabled) {
+    return (
+      <Link href={href} className={baseClasses} title={title} aria-label={title ?? label}>
+        {inner}
+      </Link>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={baseClasses}
+      title={title}
+      aria-label={title ?? label}
+    >
+      {inner}
+    </button>
   )
 }
 
@@ -1017,8 +1172,8 @@ function UnregisteredCard({
           </Button>
         )}
       </div>
-      <div className="p-5">
-        <div className="rounded-[12px] border border-dashed border-border-subtle bg-bg-primary p-5 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center p-5">
+        <div className="w-full rounded-[12px] border border-dashed border-border-subtle bg-bg-primary p-5 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
             <UserPlus className="h-5 w-5" />
           </div>

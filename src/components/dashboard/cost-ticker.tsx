@@ -1,6 +1,6 @@
 // src/components/dashboard/cost-ticker.tsx
 // Phase 40 OBS-05: Per-org cost ticker for /dashboard.
-// Server component — fetches data via observability server action.
+// Server component | fetches data via observability server action.
 // Shows 1h / 24h / 7d cost totals with daily cap % and alert badge at ≥80%.
 
 import { getOrgCostTicker } from '@/lib/agent-runtime/observability'
@@ -16,7 +16,7 @@ function formatCost(usd: number): string {
 export async function CostTicker() {
   const ticker = await getOrgCostTicker()
 
-  // Return null if no org or no data — widget simply disappears
+  // Return null if no org or no data | widget simply disappears
   if (!ticker) return null
 
   const pct = Math.round(ticker.pctOf24hCap)
@@ -55,7 +55,7 @@ export async function CostTicker() {
           </div>
         </div>
 
-        {/* Progress bar — % of daily cap consumed */}
+        {/* Progress bar | % of daily cap consumed */}
         <div className="mt-4 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Daily cap: {capFormatted}</span>

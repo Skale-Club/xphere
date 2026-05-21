@@ -1,11 +1,11 @@
-// SEED-025 Phase C: unified workflow engine is now ON by default.
+// SEED-025 Phase F: feature flag permanently enabled (deprecated).
 //
-// Opt out by setting UNIFIED_WORKFLOW_ENGINE=off.
-// The resolver returns the same ToolConfigWithIntegration shape whether
-// reading from legacy tool_configs or from workflows WHERE kind='tool',
-// so all callers (Vapi, ManyChat, Evolution, Meta, Twilio, agent runtime)
-// continue to work unchanged.
+// The unified workflow engine is now the only path. This function is kept
+// for import compatibility but always returns true. It will be removed in
+// the next cleanup pass once all callers are deleted.
+//
+// @deprecated - always returns true; remove callers and this file.
 
 export function isUnifiedEngineEnabled(): boolean {
-  return process.env.UNIFIED_WORKFLOW_ENGINE !== 'off'
+  return true
 }

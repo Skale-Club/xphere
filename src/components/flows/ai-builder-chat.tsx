@@ -82,7 +82,7 @@ export function AiBuilderChat({ workflowId, open, onClose }: AiBuilderChatProps)
         {history.length === 0 && !isPending && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Describe what your flow should do — the AI will build it on the canvas.
+              Describe what your flow should do | the AI will build it on the canvas.
             </p>
             <div className="space-y-1.5">
               <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">

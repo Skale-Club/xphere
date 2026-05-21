@@ -7,7 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { MediaAttachment } from '@/types/chat'
 
 interface StoreTelegramMediaParams {
-  /** Authenticated download URL — `https://api.telegram.org/file/bot{token}/{file_path}` */
+  /** Authenticated download URL | `https://api.telegram.org/file/bot{token}/{file_path}` */
   downloadUrl: string
   /** Inferred MIME type (Telegram only declares it for some kinds). */
   mimeType: string
@@ -60,7 +60,7 @@ function extFromPath(path: string | undefined): string | null {
  * Download a Telegram file and persist it to chat-media. Returns null on any
  * failure so the caller can still insert the message without media metadata.
  *
- * IMPORTANT: `downloadUrl` contains the bot token — never log it.
+ * IMPORTANT: `downloadUrl` contains the bot token | never log it.
  */
 export async function storeTelegramMedia(
   params: StoreTelegramMediaParams,

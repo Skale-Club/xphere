@@ -1,5 +1,5 @@
 // src/lib/chat/stream.ts
-// createChatStream shim — delegates to runAgent({ stream: true }) (Phase 35 D-35-04).
+// createChatStream shim | delegates to runAgent({ stream: true }) (Phase 35 D-35-04).
 // Preserved through Phase 38 for safe rollback.
 // One-line revert: swap route.ts back to createChatStream call.
 
@@ -37,9 +37,9 @@ export interface CreateChatStreamParams {
 }
 
 /**
- * createChatStream shim — delegates to runAgent({ stream: true }).
+ * createChatStream shim | delegates to runAgent({ stream: true }).
  * Signature preserved for rollback safety through Phase 38.
- * onReplyChunk is intentionally ignored — accumulation now happens inside runAgent.
+ * onReplyChunk is intentionally ignored | accumulation now happens inside runAgent.
  */
 export function createChatStream(params: CreateChatStreamParams): ReadableStream {
   return runAgent({

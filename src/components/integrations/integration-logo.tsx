@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — IntegrationLogo
+// SEED-042 | IntegrationLogo
 // Renders a brand SVG when available, falling back to a colored letter avatar
 // when the SVG file is missing. Loaded as a client component so we can swap
 // to the fallback on <img> error.

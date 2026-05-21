@@ -1,6 +1,6 @@
 // src/lib/telegram/client.ts
 // Thin wrappers around the Telegram Bot API. All calls return ok/error shapes
-// — never throw — so callers (webhooks, executors) can fail soft. SEED-034.
+// | never throw | so callers (webhooks, executors) can fail soft. SEED-034.
 
 import type { TelegramFile } from './types'
 
@@ -32,7 +32,7 @@ async function callTelegram<T>(
     const res = await fetch(url, init)
     const json = (await res.json().catch(() => null)) as TelegramApiResponse<T> | null
     if (!json) {
-      return { ok: false, description: `HTTP ${res.status} — non-JSON response` }
+      return { ok: false, description: `HTTP ${res.status} | non-JSON response` }
     }
     return json
   } catch (err) {
@@ -76,7 +76,7 @@ export async function sendTelegramMessage(
 }
 
 // ---------------------------------------------------------------------------
-// getMe — validates the token and returns bot identity
+// getMe | validates the token and returns bot identity
 // ---------------------------------------------------------------------------
 
 export async function getMe(
@@ -113,7 +113,7 @@ export async function deleteWebhook(botToken: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// getFile — resolves a file_id into a downloadable URL
+// getFile | resolves a file_id into a downloadable URL
 // ---------------------------------------------------------------------------
 
 export async function getFile(botToken: string, fileId: string): Promise<TelegramFile | null> {
@@ -124,7 +124,7 @@ export async function getFile(botToken: string, fileId: string): Promise<Telegra
 
 /**
  * Builds the authenticated CDN URL for a Telegram file. The token is in the
- * URL — never log this string.
+ * URL | never log this string.
  */
 export function getFileDownloadUrl(botToken: string, filePath: string): string {
   return `${TELEGRAM_FILE_BASE}${botToken}/${filePath}`

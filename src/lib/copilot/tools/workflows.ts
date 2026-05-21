@@ -1,4 +1,4 @@
-// Workflow tools — list, get, create, update, validate, run, explain, delete, capabilities.
+// Workflow tools | list, get, create, update, validate, run, explain, delete, capabilities.
 
 import type { CopilotToolRegistry, ToolContext, ToolResult } from './types'
 import { validateWorkflow, type WorkflowDefinition } from '@/lib/workflows/validate'
@@ -267,7 +267,7 @@ async function runWorkflow(
 
   const triggerPayload = (input.payload as Record<string, unknown> | undefined) ?? {}
 
-  // Insert a workflow_runs row with status 'pending' — the runtime will pick it up.
+  // Insert a workflow_runs row with status 'pending' | the runtime will pick it up.
   const { data: run, error: runErr } = await ctx.supabase
     .from('workflow_runs')
     .insert({
@@ -333,7 +333,7 @@ async function explainWorkflow(
     `**${workflow.name as string}** (id: ${workflow.id as string})`,
     workflow.description ? `Description: ${workflow.description as string}` : null,
     `Kind: ${workflow.kind as string} | Trigger: ${workflow.trigger_type as string}`,
-    `Status: ${workflow.is_active ? 'active' : 'inactive'}${workflow.health_blocked ? ' — HEALTH BLOCKED' : ''}`,
+    `Status: ${workflow.is_active ? 'active' : 'inactive'}${workflow.health_blocked ? ' | HEALTH BLOCKED' : ''}`,
     workflow.health_blocked_reason
       ? `Health block reason: ${workflow.health_blocked_reason as string}`
       : null,
@@ -550,7 +550,7 @@ export const workflowTools: CopilotToolRegistry = {
       name: 'delete_workflow',
       description:
         'Deactivate a workflow (sets is_active=false). The workflow is not hard-deleted and can be reactivated. ' +
-        'Requires confirm_token = "CONFIRM" — ask the user before calling.',
+        'Requires confirm_token = "CONFIRM" | ask the user before calling.',
       input_schema: {
         type: 'object',
         properties: {

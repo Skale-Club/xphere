@@ -6,7 +6,7 @@ export async function extractText(file: File): Promise<string> {
   const mimeType = file.type
 
   if (mimeType === 'application/pdf') {
-    // unpdf wraps Mozilla PDF.js — edge-compatible
+    // unpdf wraps Mozilla PDF.js | edge-compatible
     const { extractText: extractPdfText } = await import('unpdf')
     const buffer = await file.arrayBuffer()
     const { text } = await extractPdfText(new Uint8Array(buffer), { mergePages: true })

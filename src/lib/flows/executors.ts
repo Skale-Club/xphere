@@ -78,7 +78,7 @@ async function executeBookingConfirm(
     throw new Error(`booking_confirm: cannot confirm a booking with status '${current}' (must be pending)`)
   }
   if (current === 'confirmed') {
-    // Idempotent — already confirmed
+    // Idempotent | already confirmed
     return { output: { booking_id: bookingId, status: 'confirmed', ok: true } }
   }
 
@@ -87,7 +87,7 @@ async function executeBookingConfirm(
     .update({ status: 'confirmed', updated_at: new Date().toISOString() })
     .eq('id', bookingId)
 
-  if (updateErr) throw new Error(`booking_confirm: update failed — ${updateErr.message}`)
+  if (updateErr) throw new Error(`booking_confirm: update failed | ${updateErr.message}`)
 
   return { output: { booking_id: bookingId, status: 'confirmed', ok: true } }
 }
@@ -120,7 +120,7 @@ async function executeBookingCancel(
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('id', bookingId)
 
-  if (updateErr) throw new Error(`booking_cancel: update failed — ${updateErr.message}`)
+  if (updateErr) throw new Error(`booking_cancel: update failed | ${updateErr.message}`)
 
   return { output: { booking_id: bookingId, status: 'cancelled', ok: true } }
 }
@@ -162,7 +162,7 @@ async function executeBookingReschedule(
     })
     .eq('id', bookingId)
 
-  if (updateErr) throw new Error(`booking_reschedule: update failed — ${updateErr.message}`)
+  if (updateErr) throw new Error(`booking_reschedule: update failed | ${updateErr.message}`)
 
   return { output: { booking_id: bookingId, start_at: startAt, end_at: endAt, ok: true } }
 }
@@ -194,7 +194,7 @@ async function executeBookingMarkNoShow(
     .update({ status: 'no_show', updated_at: new Date().toISOString() })
     .eq('id', bookingId)
 
-  if (updateErr) throw new Error(`booking_mark_no_show: update failed — ${updateErr.message}`)
+  if (updateErr) throw new Error(`booking_mark_no_show: update failed | ${updateErr.message}`)
 
   return { output: { booking_id: bookingId, status: 'no_show', ok: true } }
 }
@@ -228,7 +228,7 @@ async function executeBookingMarkComplete(
     .update({ status: 'completed' as 'confirmed', updated_at: new Date().toISOString() })
     .eq('id', bookingId)
 
-  if (updateErr) throw new Error(`booking_mark_complete: update failed — ${updateErr.message}`)
+  if (updateErr) throw new Error(`booking_mark_complete: update failed | ${updateErr.message}`)
 
   return { output: { booking_id: bookingId, status: 'completed', ok: true } }
 }
@@ -275,7 +275,7 @@ async function executeBookingCreate(
     .single()
 
   if (insertErr || !newBooking) {
-    throw new Error(`booking_create: insert failed — ${insertErr?.message ?? 'unknown error'}`)
+    throw new Error(`booking_create: insert failed | ${insertErr?.message ?? 'unknown error'}`)
   }
 
   return {

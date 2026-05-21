@@ -1,7 +1,7 @@
 // src/lib/manychat/add-tag.ts
 // Endpoint: POST https://api.manychat.com/fb/subscriber/addTag
 // Body:     { subscriber_id, tag_id }
-// Source:   ManyChat PHP SDK — same Subscriber namespace as setCustomField
+// Source:   ManyChat PHP SDK | same Subscriber namespace as setCustomField
 
 import { manychatFetchJson, type ManychatCredentials } from './client'
 import { resolveSubscriberId } from './subscriber-id'

@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     const recordingStatus = params.get('RecordingStatus') ?? ''
 
     if (!callSid || !recordingSid || !recordingUrl) {
-      console.warn('[twilio/recording] Missing params — acking')
+      console.warn('[twilio/recording] Missing params | acking')
       return new Response('', { status: 200 })
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
       .maybeSingle()
 
     if (!callLog) {
-      // Recording may arrive before our call_logs row exists (rare race) —
+      // Recording may arrive before our call_logs row exists (rare race) |
       // store the raw URL keyed by call_sid for later reconciliation.
       console.warn('[twilio/recording] No call_log for CallSid yet:', callSid)
       return new Response('', { status: 200 })
@@ -70,11 +70,11 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (recordingStatus && recordingStatus !== 'completed') {
-      // Twilio also fires 'in-progress' events — only persist the final one.
+      // Twilio also fires 'in-progress' events | only persist the final one.
       return new Response('', { status: 200 })
     }
 
-    // Async upload — return 200 immediately so Twilio doesn't retry on slow S3.
+    // Async upload | return 200 immediately so Twilio doesn't retry on slow S3.
     after(async () => {
       try {
         const result = await uploadRecordingToHetzner({

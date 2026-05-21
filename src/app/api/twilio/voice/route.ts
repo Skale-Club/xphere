@@ -63,13 +63,13 @@ export async function POST(request: Request): Promise<Response> {
     const isOutbound = direction.includes('outbound')
 
     if (!to) {
-      console.warn('[twilio/voice] Missing To — rejecting')
+      console.warn('[twilio/voice] Missing To | rejecting')
       return twimlResponse(twimlReject('We could not route this call. Please try again later.'))
     }
 
     // For inbound calls, resolve org by the destination number. For outbound
     // SDK-bridged calls, the From is the SDK identity (`client:user-…`) and the
-    // To is the dialed number — we resolve the org via the API-Key SID embedded
+    // To is the dialed number | we resolve the org via the API-Key SID embedded
     // in the credentials. As a simpler MVP heuristic, we resolve via the
     // `Caller` parameter (Twilio passes the original From of the bridge).
     const baseUrl = publicBaseUrl(request)
@@ -223,7 +223,7 @@ async function logIncomingCall(input: {
   if (!input.callSid) return
   const supabase = createServiceRoleClient()
 
-  // Idempotent upsert by call_sid (UNIQUE) — Twilio may retry the webhook.
+  // Idempotent upsert by call_sid (UNIQUE) | Twilio may retry the webhook.
   const { data: existing } = await supabase
     .from('call_logs')
     .select('id, contact_id')

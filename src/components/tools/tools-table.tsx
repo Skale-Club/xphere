@@ -210,7 +210,7 @@ function SortableFolderHeader({
   )
 }
 
-// ─── Static folder header (for "Ungrouped" — not draggable) ─────────────────────
+// ─── Static folder header (for "Ungrouped" | not draggable) ─────────────────────
 
 function StaticFolderHeader({ label, count, colSpan }: { label: string; count: number; colSpan: number }) {
   return (
@@ -228,7 +228,7 @@ function StaticFolderHeader({ label, count, colSpan }: { label: string; count: n
   )
 }
 
-// ─── Subfolder header row (static — DnD is Phase 21 scope) ───────────────────
+// ─── Subfolder header row (static | DnD is Phase 21 scope) ───────────────────
 
 function SubfolderHeader({
   folder,
@@ -263,7 +263,7 @@ function SubfolderHeader({
     <TableRow className={cn("bg-muted/30 hover:bg-muted/40 group", isDropTarget && "bg-primary/10 ring-1 ring-inset ring-primary/40")}>
       <TableCell colSpan={colSpan} className="py-1.5 pl-8 pr-4">
         <div className="flex items-center gap-2">
-          {/* Grip spacer — aligns with SortableFolderHeader; DnD Phase 21 */}
+          {/* Grip spacer | aligns with SortableFolderHeader; DnD Phase 21 */}
           <span className="w-3.5" />
           <button
             type="button"
@@ -385,7 +385,7 @@ export function ToolsTable({
   const [newSubfolderName, setNewSubfolderName] = useState('')
   const [folderDeleteTarget, setFolderDeleteTarget] = useState<{ folder: ToolFolder } | null>(null)
 
-  // DnD state — Phase 21
+  // DnD state | Phase 21
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeDragType, setActiveDragType] = useState<'folder' | 'tool' | null>(null)
   const [activeDragTool, setActiveDragTool] = useState<ToolConfigWithIntegration | null>(null)
@@ -631,7 +631,7 @@ export function ToolsTable({
       header: () => <span className="text-xs font-medium">Labels</span>,
       cell: ({ row }) => {
         const labels = row.original.labels ?? []
-        if (labels.length === 0) return <span className="text-muted-foreground text-sm">—</span>
+        if (labels.length === 0) return <span className="text-muted-foreground text-sm">|</span>
         return (
           <div className="flex flex-wrap gap-1">
             {labels.map((label) => (
@@ -647,7 +647,7 @@ export function ToolsTable({
       id: 'integration',
       header: () => <span className="text-xs font-medium">Integration</span>,
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.integrations?.name ?? '—'}</span>
+        <span className="text-sm">{row.original.integrations?.name ?? '|'}</span>
       ),
     },
     {
@@ -852,7 +852,7 @@ export function ToolsTable({
               ))}
             </TableHeader>
             <TableBody>
-              {/* Named folder groups — sortable */}
+              {/* Named folder groups | sortable */}
               <SortableContext
                   items={orderedFolders.map((f) => f.id)}
                   strategy={verticalListSortingStrategy}
@@ -973,7 +973,7 @@ export function ToolsTable({
                   })}
                 </SortableContext>
 
-              {/* "Ungrouped" group — not sortable, always last */}
+              {/* "Ungrouped" group | not sortable, always last */}
               {otherTools.length > 0 && (
                 <>
                   {showHeaders && (
@@ -1056,7 +1056,7 @@ export function ToolsTable({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Folder delete confirmation modal — two options */}
+      {/* Folder delete confirmation modal | two options */}
       <AlertDialog
         open={!!folderDeleteTarget}
         onOpenChange={(open) => !open && setFolderDeleteTarget(null)}

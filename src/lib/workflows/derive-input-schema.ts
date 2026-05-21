@@ -81,7 +81,7 @@ export function deriveWorkflowInputSchema(
   return z.object(shape)
 }
 
-// Returns the raw map without converting to Zod — useful for spec output.
+// Returns the raw map without converting to Zod | useful for spec output.
 export function getWorkflowInputSchema(definition: unknown): InputSchemaMap {
   return extractInputSchemaMap(definition)
 }

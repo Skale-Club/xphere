@@ -60,7 +60,7 @@ export async function getCurrentCallSettings(): Promise<CurrentCallSettings | nu
     routing_mode: data.routing_mode,
     phone_forward: data.phone_forward,
     sip_username: data.sip_username,
-    // We don't decrypt the password by default — exposed only via rotateSipPassword.
+    // We don't decrypt the password by default | exposed only via rotateSipPassword.
     sip_password: null,
     twilio_client_identity: data.twilio_client_identity,
     record_calls: data.record_calls,

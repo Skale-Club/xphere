@@ -23,7 +23,7 @@ export const SIDE_EFFECTING_ACTIONS = new Set([
   'create_appointment',
   'send_sms',
   'create_contact',
-  'custom_webhook',  // non-GET only — checked at call site via toolConfig
+  'custom_webhook',  // non-GET only | checked at call site via toolConfig
 ])
 
 export function requiresIdempotency(actionType: string, toolConfig?: unknown): boolean {
@@ -57,7 +57,7 @@ export async function checkIdempotency(
 
   if (!data) return null
 
-  // response is JSONB — if it's a string, return it directly; if object, JSON.stringify
+  // response is JSONB | if it's a string, return it directly; if object, JSON.stringify
   const response = data.response
   if (typeof response === 'string') return response
   return JSON.stringify(response)
@@ -93,7 +93,7 @@ export async function recordIdempotency(params: {
     )
 
   if (error) {
-    // Non-fatal — log and continue; the tool already executed
+    // Non-fatal | log and continue; the tool already executed
     console.warn(
       JSON.stringify({
         event: 'idempotency_record_failed',
@@ -106,7 +106,7 @@ export async function recordIdempotency(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Request hash — stable fingerprint of tool args for debugging
+// Request hash | stable fingerprint of tool args for debugging
 // ---------------------------------------------------------------------------
 
 export function hashToolArgs(toolArgs: Record<string, unknown>): string {

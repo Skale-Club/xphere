@@ -1,10 +1,10 @@
 // src/lib/campaigns/outbound.ts
-// Vapi outbound call client — used by campaign engine to fire individual POST /call requests.
+// Vapi outbound call client | used by campaign engine to fire individual POST /call requests.
 // Edge-compatible (fetch only, no Node.js APIs).
 
 export interface OutboundCallParams {
-  contactId: string       // campaign_contacts.id — roundtripped in webhook metadata
-  campaignId: string      // campaigns.id — for correlation logging
+  contactId: string       // campaign_contacts.id | roundtripped in webhook metadata
+  campaignId: string      // campaigns.id | for correlation logging
   phone: string           // E.164 format: +15551234567
   name: string | null     // customer name (optional)
   assistantId: string     // Vapi assistant UUID

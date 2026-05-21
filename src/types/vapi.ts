@@ -1,6 +1,6 @@
 // src/types/vapi.ts
 // Zod schemas for Vapi tool-call webhook payloads
-// Validated against Vapi API reference 2024 — assistantId is camelCase, lives at message.call
+// Validated against Vapi API reference 2024 | assistantId is camelCase, lives at message.call
 
 import { z } from 'zod'
 
@@ -21,7 +21,7 @@ export const VapiToolCallMessageSchema = z.object({
     type: z.literal('tool-calls'),
     call: z.object({
       id: z.string(),
-      assistantId: z.string(),   // camelCase — confirmed from Vapi API reference
+      assistantId: z.string(),   // camelCase | confirmed from Vapi API reference
       orgId: z.string().optional(),
     }).passthrough(),            // allow additional Vapi fields without validation failure
     toolCallList: z.array(VapiToolCallSchema),

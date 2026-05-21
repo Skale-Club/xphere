@@ -3,7 +3,7 @@
 // SEED-028 Phase A: tenant_locations CRUD + best-effort geocoding.
 //
 // Geocoding uses Google Geocoding API when GOOGLE_MAPS_API_KEY is set.
-// When unavailable we save without coordinates — the resolver (Phase D)
+// When unavailable we save without coordinates | the resolver (Phase D)
 // still produces a Maps URL from the address string.
 
 import { revalidatePath } from 'next/cache'

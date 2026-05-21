@@ -1,6 +1,6 @@
 // Shared BYOK resolver for the CRM copilot.
 // Resolution order:
-//   1. Org-stored OpenRouter key (preferred — multi-model, billed per org)
+//   1. Org-stored OpenRouter key (preferred | multi-model, billed per org)
 //   2. Org-stored Anthropic key
 //   3. ANTHROPIC_API_KEY env var (dev fallback only)
 

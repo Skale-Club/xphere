@@ -1,12 +1,7 @@
-// SEED-025 Phase E: unified workflow list query.
+// SEED-025 Phase F: unified workflow list query (single source of truth).
 //
-// During the SEED-025 transition there are two data sources:
-//   - workflows + workflow_versions (new, post-migration 082 backfill)
-//   - tool_configs (legacy, still authoritative until Phase F cutover)
-//
-// This function reads from BOTH and dedups by legacy_tool_config_id so the
-// UI shows a single list regardless of which source a workflow lives in.
-// Once Phase F removes tool_configs, the legacy half becomes a no-op.
+// Reads exclusively from the workflows table. The legacy tool_configs fallback
+// has been removed as part of the Phase F cutover.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -40,7 +35,7 @@ export async function listUnifiedWorkflows(
   let query = supabase
     .from('workflows')
     .select(
-      'id, name, slug, description, is_active, kind, trigger_type, trigger_config, health_blocked, health_blocked_reason, updated_at, legacy_tool_config_id, folder_id, position, archived_at, deleted_at',
+      'id, name, slug, description, is_active, kind, trigger_type, trigger_config, health_blocked, health_blocked_reason, updated_at, folder_id, position, archived_at, deleted_at',
     )
     .eq('org_id', orgId)
     .is('deleted_at', null)
@@ -54,24 +49,6 @@ export async function listUnifiedWorkflows(
   const { data: rows, error } = await query
 
   if (error || !rows) return []
-
-  const seenLegacyIds = new Set<string>()
-  for (const r of rows) {
-    const legacy = (r as { legacy_tool_config_id: string | null }).legacy_tool_config_id
-    if (legacy) seenLegacyIds.add(legacy)
-  }
-
-  // Fallback: surface any tool_configs that haven't been backfilled yet
-  // (defensive; the migration is idempotent so this is normally empty).
-  const { data: legacyToolConfigs } = await supabase
-    .from('tool_configs')
-    .select('id, tool_name, action_type, fallback_message, is_active, created_at, updated_at')
-    .eq('organization_id', orgId)
-    .order('updated_at', { ascending: false })
-
-  const unbackfilled = (legacyToolConfigs ?? []).filter(
-    (tc) => !seenLegacyIds.has(tc.id as string),
-  )
 
   const fromWorkflows: UnifiedWorkflow[] = rows.map((r) => ({
     id: r.id as string,
@@ -90,24 +67,8 @@ export async function listUnifiedWorkflows(
     archived_at: (r as { archived_at: string | null }).archived_at ?? null,
   }))
 
-  const fromLegacy: UnifiedWorkflow[] = unbackfilled.map((tc) => ({
-    id: tc.id as string,
-    name: tc.tool_name as string,
-    slug: (tc.tool_name as string).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    description: `Legacy tool (${tc.action_type as string}) — run \`npx supabase db push\` to migrate.`,
-    is_active: tc.is_active as boolean,
-    kind: 'tool',
-    trigger_type: 'tool_call',
-    trigger_config: { tool_name: tc.tool_name as string },
-    health_blocked: false,
-    health_blocked_reason: null,
-    updated_at: (tc.updated_at as string) ?? (tc.created_at as string),
-    folder_id: null,
-    position: 0,
-    archived_at: null,
-  }))
-
-  return [...fromWorkflows, ...fromLegacy].sort((a, b) =>
-    b.updated_at.localeCompare(a.updated_at),
-  )
+  return fromWorkflows.sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position
+    return b.updated_at.localeCompare(a.updated_at)
+  })
 }

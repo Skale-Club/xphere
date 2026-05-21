@@ -2,7 +2,7 @@ import type { Database } from '@/types/database'
 
 /**
  * Discriminated-union return shape for every Phase 65 server action.
- * Locked by phase brief §4 — do NOT switch to the contacts pattern
+ * Locked by phase brief §4 | do NOT switch to the contacts pattern
  * (which uses ad-hoc { id?, error? } objects).
  */
 export type ActionResult<T> =
@@ -37,7 +37,7 @@ export interface AccountListResult {
   pageSize: number
 }
 
-/** Returned by mergeAccounts — counts of records moved + accounts removed. */
+/** Returned by mergeAccounts | counts of records moved + accounts removed. */
 export interface MergeAccountsResult {
   moved_contacts: number
   moved_opportunities: number
@@ -61,7 +61,7 @@ import type { AccountCsvField } from './csv'
 
 /**
  * Returned by previewAccountsCsv. Lives here (NOT inline in the 'use server'
- * actions.ts file) so the server-action module only exports async functions —
+ * actions.ts file) so the server-action module only exports async functions |
  * non-async exports from 'use server' files can be fragile in Next.js.
  */
 export interface AccountCsvPreview {

@@ -7,7 +7,7 @@
 // We pass through unchanged (no coercion) and validate truthiness only.
 
 export function resolveSubscriberId(params: Record<string, unknown>): string | number {
-  // Direct top-level (most common — runtime params from rule-driven dispatch)
+  // Direct top-level (most common | runtime params from rule-driven dispatch)
   if (typeof params.subscriber_id === 'string' || typeof params.subscriber_id === 'number') {
     if (params.subscriber_id !== '' && params.subscriber_id !== 0) {
       return params.subscriber_id

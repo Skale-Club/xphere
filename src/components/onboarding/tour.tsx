@@ -218,7 +218,7 @@ export function OnboardingTour() {
         <div className="absolute inset-0 bg-black/55 pointer-events-auto" onClick={dismiss} />
       )}
 
-      {/* Tooltip — flex-centered when no anchor (perfect viewport center) */}
+      {/* Tooltip | flex-centered when no anchor (perfect viewport center) */}
       {isCenter ? (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {tooltipCard}

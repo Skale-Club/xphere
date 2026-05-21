@@ -104,7 +104,7 @@ export async function finalizeUpload(importId: string): Promise<
 
   const csvText = await blob.text()
 
-  // Parse only first 5 preview rows — fast even for 50MB files
+  // Parse only first 5 preview rows | fast even for 50MB files
   const { headers, rows: previewRows } = parseCsvLimit(csvText, 5)
   if (headers.length === 0) {
     await supabase
@@ -306,7 +306,7 @@ export async function enqueueImport(importId: string): Promise<{ ok: true } | Er
   await admin.functions
     .invoke('process-imports', { body: { importId } })
     .catch(() => {
-      // Worker invocation failed — job stays queued; DB webhook acts as backup trigger
+      // Worker invocation failed | job stays queued; DB webhook acts as backup trigger
     })
 
   return { ok: true }

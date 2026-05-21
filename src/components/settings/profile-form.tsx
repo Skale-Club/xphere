@@ -216,7 +216,7 @@ export function ProfileForm({ initial }: Props) {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={initial.email} disabled className="opacity-70" />
               <p className="text-[11px] text-text-tertiary">
-                Email changes happen via your provider — coming soon.
+                Email changes happen via your provider | coming soon.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -278,7 +278,7 @@ function PushNotificationsCard() {
       if (granted) {
         toast.success('Push notifications enabled')
       } else if (permission === 'denied') {
-        toast.error('Notifications are blocked — update your browser site settings')
+        toast.error('Notifications are blocked | update your browser site settings')
       } else {
         toast.error('Could not enable notifications')
       }

@@ -53,7 +53,7 @@ import {
 } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { CustomFieldEntity, CustomFieldType } from '@/types/database'
 
-// Client-side schema mirror — avoids importing the 'use server' schema object directly
+// Client-side schema mirror | avoids importing the 'use server' schema object directly
 // which causes type inference issues with zodResolver in Next.js build.
 const clientValidationSchema = z.object({
   min: z.number().optional(),
@@ -293,7 +293,7 @@ export function DefinitionModal({ open, onOpenChange, entity, definition }: Defi
               onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-4 py-1"
             >
-              {/* Key — create only */}
+              {/* Key | create only */}
               {!isEditMode && (
                 <FormField
                   control={form.control}

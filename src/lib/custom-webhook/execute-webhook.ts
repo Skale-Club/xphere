@@ -5,7 +5,7 @@
 // {{param_name}} placeholders in the body template are replaced with matching
 // tool call parameter values before the request is sent.
 //
-// Result strings never contain newlines — Vapi's response parser breaks on \n.
+// Result strings never contain newlines | Vapi's response parser breaks on \n.
 
 import type { Json } from '@/types/database'
 

@@ -1,14 +1,14 @@
 'use client'
 
-// SEED-033 — agent edit page surface for attaching workflows as tools.
+// SEED-033 | agent edit page surface for attaching workflows as tools.
 //
 // Renders the list of workflows currently attached to the agent (via
 // agent_tools.workflow_id) with a remove [×] button per row, plus a
 // combobox of available org workflows to attach. Workflows are surfaced
 // distinctly from legacy tool_configs (which the existing ToolPicker
-// already handles) — the icons map per the SEED:
+// already handles) | the icons map per the SEED:
 //   ⚡  workflow kind='tool'
-//   ⚡⚡ workflow kind='flow' (multi-step) — annotated inline as "(multi-step flow)"
+//   ⚡⚡ workflow kind='flow' (multi-step) | annotated inline as "(multi-step flow)"
 
 import { useState, useTransition } from 'react'
 import { Zap, X, Plus, AlertTriangle } from 'lucide-react'
@@ -167,7 +167,7 @@ export function AgentWorkflowTools({
               ) : (
                 available.map((w) => (
                   <SelectItem key={w.id} value={w.id}>
-                    {w.tool_name} —{' '}
+                    {w.tool_name} |{' '}
                     {w.kind === 'flow' ? 'multi-step flow' : 'workflow'}
                   </SelectItem>
                 ))

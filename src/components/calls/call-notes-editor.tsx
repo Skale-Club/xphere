@@ -56,7 +56,7 @@ export function CallNotesEditor({ callId, initialNotes }: CallNotesEditorProps) 
       <Textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Add notes about this call — they auto-save as you type."
+        placeholder="Add notes about this call | they auto-save as you type."
         rows={6}
         className="resize-none"
       />

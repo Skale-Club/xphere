@@ -509,6 +509,25 @@
     animation: gradient-flow 3s linear infinite;
     padding-bottom: 0.05em; /* prevent descender clipping (p, g, y) */
   }
+
+  /* Dialpad overlay fade-in */
+  @keyframes dialpad-overlay-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .animate-dialpad-overlay {
+    animation: dialpad-overlay-fade var(--motion-base) var(--ease-out) both;
+  }
+
+  /* Copilot voice capture — animated waveform bars while recording */
+  @keyframes voice-bar-pulse {
+    0%, 100% { transform: scaleY(0.25); opacity: 0.55; }
+    50%      { transform: scaleY(1);    opacity: 1;    }
+  }
+  .voice-bar {
+    transform-origin: center;
+    animation: voice-bar-pulse 900ms ease-in-out infinite;
+  }
 }
 
 /* ============================================================================

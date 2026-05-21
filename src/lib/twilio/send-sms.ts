@@ -12,9 +12,9 @@
 //   2. Otherwise, the org's default number (is_default=true, is_active=true,
 //      capability_sms=true) is used.
 //   3. Legacy fallback: `integrations.config.from_number` (removed in the
-//      next milestone — the migration 058 backfill covers existing rows).
+//      next milestone | the migration 058 backfill covers existing rows).
 //
-// Result strings never contain newlines — Vapi's response parser breaks on \n.
+// Result strings never contain newlines | Vapi's response parser breaks on \n.
 
 import { decrypt } from '@/lib/crypto'
 import type { ActionContext } from '@/lib/action-engine/execute-action'
@@ -88,7 +88,7 @@ export async function resolveTwilioCredentials(
   }
 
   if (!fromNumber) {
-    // Legacy fallback — kept for one release while orgs migrate.
+    // Legacy fallback | kept for one release while orgs migrate.
     const config = row.config as { from_number?: string } | null
     if (config?.from_number) {
       fromNumber = config.from_number
@@ -145,6 +145,6 @@ export async function sendSms(
   }
 
   const data = (await res.json()) as { sid: string }
-  // Single-line result — no newlines (Vapi parser breaks on \n)
+  // Single-line result | no newlines (Vapi parser breaks on \n)
   return `SMS sent. SID: ${data.sid}`
 }

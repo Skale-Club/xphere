@@ -30,7 +30,7 @@ export async function updateProfile(input: z.infer<typeof profileSchema>): Promi
   if (!user) return { ok: false, error: 'Not authenticated' }
 
   const supabase = await createClient()
-  // Build the metadata update partial — only include fields that were actually
+  // Build the metadata update partial | only include fields that were actually
   // provided, so an avatar-only save doesn't blank out the name.
   const metadata: Record<string, unknown> = {}
   if (parsed.data.full_name !== undefined) metadata.full_name = parsed.data.full_name

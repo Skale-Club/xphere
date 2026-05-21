@@ -32,7 +32,7 @@ export interface EvolutionProviderConfig {
 export interface ZApiProviderConfig {
   instance_id: string
   token: string
-  /** Z-API default is https://api.z-api.io — overridable for self-hosted. */
+  /** Z-API default is https://api.z-api.io | overridable for self-hosted. */
   base_url?: string
 }
 
@@ -49,7 +49,7 @@ export type WhatsAppProviderConfig =
 
 /**
  * A row from whatsapp_providers with its decrypted config blob, ready to use
- * by adapters / sender. Never returned to client code — service-role only.
+ * by adapters / sender. Never returned to client code | service-role only.
  */
 export interface ResolvedProvider {
   id: string
@@ -79,7 +79,7 @@ export interface NormalizedWhatsAppMessage {
   timestamp: number
   text: string
   messageType: WhatsAppMessageType
-  /** Raw provider payload — used by adapter.fetchMedia(). */
+  /** Raw provider payload | used by adapter.fetchMedia(). */
   rawMessage: unknown
   /** Evolution-only: which instance produced the event. */
   instanceName?: string
@@ -97,7 +97,7 @@ export interface WhatsAppMediaAttachment {
 
 /**
  * Contract every provider adapter implements. The pipeline only ever talks to
- * this interface — never directly to Evolution / Z-API / W-API.
+ * this interface | never directly to Evolution / Z-API / W-API.
  */
 export interface WhatsAppAdapter {
   normalize(payload: unknown, provider: ResolvedProvider): NormalizedWhatsAppMessage[]

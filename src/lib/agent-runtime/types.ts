@@ -8,7 +8,7 @@ import type { Database, Json } from '@/types/database'
 // TypeScript projection of the agent_channel DB enum (migration 034)
 export type AgentChannel = Database['public']['Enums']['agent_channel']
 
-// Return type of runAgent() — D-34-02 exact shape. Phase 35 adds stream overload.
+// Return type of runAgent() | D-34-02 exact shape. Phase 35 adds stream overload.
 export type AgentRunResult = {
   text: string
   usage: { tokensIn: number; tokensOut: number }
@@ -32,7 +32,7 @@ export type AgentRunContext = {
   // Delegation guard stub (D-34-10; Phase 38 activates recursion)
   _depth: number           // 0 for top-level calls
 
-  // Resolved agent fields (after channel_overrides applied — D-34-11)
+  // Resolved agent fields (after channel_overrides applied | D-34-11)
   systemPrompt: string     // from agent_prompt_versions via active_prompt_version_id (D-34-06)
   model: string            // agents.model or channel_override
   temperature?: number     // channel_override or undefined (let SDK use its default)
@@ -49,7 +49,7 @@ export type AgentRunContext = {
 // Options accepted by runAgent() from callers (channel handlers)
 export type AgentRunOptions = {
   orgId: string
-  agentId?: string                // Optional — resolved from agent_channel_defaults when absent (D-35-06)
+  agentId?: string                // Optional | resolved from agent_channel_defaults when absent (D-35-06)
   channel: AgentChannel
   userMessage: string
   conversationId?: string
@@ -60,7 +60,7 @@ export type AgentRunOptions = {
   // Internal fields set by Phase 38 recursive delegation (not for external callers):
   _depth?: number
   parentInvocationId?: string
-  // Phase 38: visited-set for cycle detection (DELEG-06) — Set of agentIds already in the chain
+  // Phase 38: visited-set for cycle detection (DELEG-06) | Set of agentIds already in the chain
   _visitedAgentIds?: Set<string>
   // Phase 38: ordered list of agentIds in the current delegation chain (for intersection check, DELEG-07)
   _delegationChain?: string[]
@@ -79,14 +79,14 @@ export type ResolvedAgent = {
   fallbackMessage: string
   allowedChannels: AgentChannel[]
   isActive: boolean
-  kbScope: string[] | null   // agents.kb_scope — null = full org KB (AGENT-05)
+  kbScope: string[] | null   // agents.kb_scope | null = full org KB (AGENT-05)
 }
 
 // Shape returned by resolveAgentTool()
 // SEED-033: workflowId/workflowKind populated when the tool is sourced from
 // a `workflows` row (kind='tool' or kind='flow'). actionType is set to
 // 'run_flow' for kind='flow'. For workflow-sourced tools, integrationId,
-// integrationProvider, and credentialsEncrypted are null — credentials are
+// integrationProvider, and credentialsEncrypted are null | credentials are
 // resolved inside the flow engine (per-node credential_ref).
 export type ResolvedToolConfig = {
   toolConfigId: string

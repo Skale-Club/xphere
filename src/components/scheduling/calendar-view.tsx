@@ -182,7 +182,7 @@ export function CalendarView({ bookings, eventTypeColors = {} }: CalendarViewPro
                       backgroundColor: color,
                       opacity: 0.9,
                     }}
-                    title={`${booking.booker_name} — ${format(parseISO(booking.start_at), 'HH:mm')}–${format(parseISO(booking.end_at), 'HH:mm')}`}
+                    title={`${booking.booker_name} | ${format(parseISO(booking.start_at), 'HH:mm')}–${format(parseISO(booking.end_at), 'HH:mm')}`}
                   >
                     <div className="text-[11px] font-semibold leading-tight truncate">
                       {format(parseISO(booking.start_at), 'HH:mm')}

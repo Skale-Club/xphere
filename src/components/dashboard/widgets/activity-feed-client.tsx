@@ -42,7 +42,7 @@ export function ActivityFeedClient({ initial, orgId }: Props) {
   const [hasMore, setHasMore] = useState(initial.length >= 15)
   const [pending, startTransition] = useTransition()
 
-  // Realtime broadcast subscription — best-effort. Failures are silent;
+  // Realtime broadcast subscription | best-effort. Failures are silent;
   // the server-rendered list still works.
   useEffect(() => {
     if (!orgId) return

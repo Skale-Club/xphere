@@ -1,5 +1,5 @@
 // src/lib/whatsapp/adapters/wapi.ts
-// W-API adapter — Baileys-like nested payload, encrypted media fetched via
+// W-API adapter | Baileys-like nested payload, encrypted media fetched via
 // POST {base_url}/message/download/{instanceKey}.
 
 import { storeWhatsAppMedia } from '../storage'

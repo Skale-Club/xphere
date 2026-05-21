@@ -1,6 +1,6 @@
 // src/components/agents/agent-metrics-widget.tsx
 // Phase 40 OBS-04: Per-agent metrics widget for /dashboard/agents/[id].
-// Server component — fetches data via observability server actions.
+// Server component | fetches data via observability server actions.
 
 import { Suspense } from 'react'
 import {
@@ -61,7 +61,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 function formatMs(ms: number): string {
-  if (ms === 0) return '—'
+  if (ms === 0) return '|'
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }

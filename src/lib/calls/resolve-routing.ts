@@ -62,7 +62,7 @@ function toResolved(row: CallSettingsRow): ResolvedRouting {
 /**
  * Build a SIP URI from the user's sip_username + the org's Twilio SIP domain.
  * The domain lives in the Twilio integration's config as `sip_domain` (e.g.
- * `acme.sip.twilio.com`). Falls back to a sane default if not configured —
+ * `acme.sip.twilio.com`). Falls back to a sane default if not configured |
  * the dial will fail loudly at Twilio rather than silently misroute.
  */
 export function buildSipUri(

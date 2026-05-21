@@ -83,7 +83,7 @@ async function sendViaDirect(
 }
 
 /**
- * Outbound via ManyChat is not implemented in SEED-032 — the dispatcher shape
+ * Outbound via ManyChat is not implemented in SEED-032 | the dispatcher shape
  * exists so that flipping `provider='manychat'` switches transport cleanly
  * once ManyChat send is wired up.
  */

@@ -90,7 +90,7 @@ export async function updateWorkspaceBranding(input: UpdateWorkspaceBrandingInpu
     return { ok: false, error: updateErr.message }
   }
 
-  // Branding feeds into the dashboard layout — revalidate all dashboard routes.
+  // Branding feeds into the dashboard layout | revalidate all dashboard routes.
   revalidatePath('/', 'layout')
   return { ok: true }
 }
@@ -121,7 +121,7 @@ export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | n
 }
 
 // ---------------------------------------------------------------------------
-// SEED-031 — WhatsApp provider settings
+// SEED-031 | WhatsApp provider settings
 // ---------------------------------------------------------------------------
 
 const whatsappProviderSchema = z.object({

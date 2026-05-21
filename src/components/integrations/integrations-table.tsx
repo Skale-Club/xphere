@@ -12,7 +12,7 @@ type Provider = IntegrationForDisplay['provider']
 
 // Routing rule for /integrations:
 //   - Single-credential providers (one key + optional config) live here as
-//     inline Sheets — quick to edit, no navigation.
+//     inline Sheets | quick to edit, no navigation.
 //   - Providers with multi-resource setup (numbers, instances, pages, embeds)
 //     have dedicated pages under /integrations/[provider] and appear ONLY in
 //     the "Channels & dedicated" grid on the index page.

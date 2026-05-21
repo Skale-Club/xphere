@@ -17,7 +17,7 @@ export async function POST(
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = await createClient()
 
-  // Get user's org — scope all campaign operations to it
+  // Get user's org | scope all campaign operations to it
   const { data: member } = await supabase
     .from('org_members')
     .select('organization_id')
@@ -51,7 +51,7 @@ export async function POST(
     )
   }
 
-  // Fetch Vapi API key from org's integrations — required for outbound calls
+  // Fetch Vapi API key from org's integrations | required for outbound calls
   const vapiApiKey = await getProviderKey('vapi', updated.organization_id, serviceClient)
   if (!vapiApiKey) {
     // Roll back status since we cannot fire calls without the key
@@ -60,7 +60,7 @@ export async function POST(
       .update({ status: 'draft', updated_at: new Date().toISOString() })
       .eq('id', campaignId)
     if (rollbackErr) {
-      console.error('[start] Rollback failed — campaign may be stuck in_progress:', rollbackErr.message)
+      console.error('[start] Rollback failed | campaign may be stuck in_progress:', rollbackErr.message)
     }
 
     return Response.json(
@@ -69,7 +69,7 @@ export async function POST(
     )
   }
 
-  // Fire first batch asynchronously — UI polls or uses Realtime for progress
+  // Fire first batch asynchronously | UI polls or uses Realtime for progress
   const result = await startCampaignBatch(campaignId, serviceClient, vapiApiKey)
 
   return Response.json({ success: true, fired: result.fired, errors: result.errors })

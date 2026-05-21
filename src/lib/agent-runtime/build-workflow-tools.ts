@@ -46,7 +46,7 @@ export interface BuildWorkflowToolsParams {
   conversationId?: string
   serviceClient: SupabaseClient<Database>
   toolCallsLog: Json[]
-  // Counter ref — caller manages the integer; we increment via closure each call.
+  // Counter ref | caller manages the integer; we increment via closure each call.
   getNextToolCallIndex: () => number
 }
 
@@ -180,7 +180,7 @@ export async function buildWorkflowTools(
           }
         }
 
-        // Idempotency — only for kind='flow' (multi-step side-effecting paths).
+        // Idempotency | only for kind='flow' (multi-step side-effecting paths).
         // kind='tool' already routes through executeAction which has its own
         // idempotency gate, but we mirror the legacy pattern here for flows so
         // tool-call replays don't re-execute the whole DAG.

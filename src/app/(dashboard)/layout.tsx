@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await getUser()
   if (!user) redirect('/login')
 
-  // Read active org from cookie — no DB call on normal navigation
+  // Read active org from cookie | no DB call on normal navigation
   const jar = await cookies()
   const raw = jar.get('vo_active_org')?.value
   let activeOrgId: string | null = null
@@ -34,11 +34,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       activeOrgId = parsed.id ?? null
       activeOrgName = parsed.name ?? null
     } catch {
-      // malformed cookie — ignore, will fall back to DB below
+      // malformed cookie | ignore, will fall back to DB below
     }
   }
 
-  // First load (no cookie): seed from DB. Any failure here is non-fatal —
+  // First load (no cookie): seed from DB. Any failure here is non-fatal |
   // the user can still navigate; we just won't pre-fill the org switcher.
   if (!activeOrgId) {
     try {
@@ -56,7 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }
       }
     } catch {
-      // ignore — fall back to default-shell render
+      // ignore | fall back to default-shell render
     }
   }
 

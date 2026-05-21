@@ -54,7 +54,7 @@ export function AiGenerateForm() {
         <Label htmlFor="name">Nome do template</Label>
         <Input
           id="name"
-          placeholder="ex: Welcome Email — Q3 2026"
+          placeholder="ex: Welcome Email | Q3 2026"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required

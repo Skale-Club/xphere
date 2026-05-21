@@ -1,6 +1,6 @@
 // src/app/api/vapi/calls/route.ts
-// Node.js Route Handler — receives Vapi end-of-call-report webhook after a call ends.
-// No 500ms constraint — Vapi fires and forgets. Write synchronously, always return 200.
+// Node.js Route Handler | receives Vapi end-of-call-report webhook after a call ends.
+// No 500ms constraint | Vapi fires and forgets. Write synchronously, always return 200.
 
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -79,7 +79,7 @@ export async function POST(request: Request): Promise<Response> {
     })
 
     if (error) {
-      // Duplicate vapi_call_id — idempotent: Vapi may retry, ignore unique constraint violations
+      // Duplicate vapi_call_id | idempotent: Vapi may retry, ignore unique constraint violations
       if (error.code !== '23505') {
         console.error('[vapi/calls] Insert error:', error.message)
       }

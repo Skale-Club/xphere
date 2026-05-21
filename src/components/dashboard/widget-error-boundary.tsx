@@ -25,7 +25,7 @@ interface Props {
  * Per-widget client-side error boundary.
  *
  * Used by the home dashboard so a single failing widget can't take down the
- * entire page (see incident 1621801304 — the previous dashboard had a single
+ * entire page (see incident 1621801304 | the previous dashboard had a single
  * segment-level boundary which caused render loops). Each widget on the
  * dashboard is wrapped:
  *

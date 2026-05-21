@@ -7,7 +7,7 @@ import { z } from 'zod'
 export const CALL_ROUTING_MODES = ['phone_forward', 'sip', 'browser'] as const
 export type CallRoutingModeZ = (typeof CALL_ROUTING_MODES)[number]
 
-// E.164 — basic shape check. Accepts +1 234 567 8901 with non-digit separators.
+// E.164 | basic shape check. Accepts +1 234 567 8901 with non-digit separators.
 const E164_RE = /^\+\d{6,16}$/
 
 export function normaliseE164(raw: string | null | undefined): string | null {
@@ -57,7 +57,7 @@ export function generateClientIdentity(userId: string): string {
 }
 
 /**
- * Generate a 24-char alphanumeric password. Used for SIP — never exposed in
+ * Generate a 24-char alphanumeric password. Used for SIP | never exposed in
  * plaintext after creation (encrypted at rest + revealed once in the UI).
  */
 export function generateSipPassword(): string {

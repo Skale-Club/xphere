@@ -1,5 +1,5 @@
 // src/widget/index.ts
-// Opps embeddable chat widget — standalone vanilla TypeScript, no React/Next.js imports
+// Opps embeddable chat widget | standalone vanilla TypeScript, no React/Next.js imports
 
 interface WidgetConfig {
   displayName: string
@@ -296,7 +296,7 @@ const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="2
 
 const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`
 
-// --- Synchronous captures — MUST be before any async boundary ---
+// --- Synchronous captures | MUST be before any async boundary ---
 const _script = document.currentScript as HTMLScriptElement | null
 const _token = _script?.dataset.token ?? ''
 const _apiBase = _script?.src ? new URL(_script.src).origin : location.origin
@@ -323,7 +323,7 @@ function storeSession(token: string, sessionId: string): void {
   try {
     localStorage.setItem(getStorageKey(token), sessionId)
   } catch {
-    // Silent fail — private browsing mode (Safari) may throw SecurityError
+    // Silent fail | private browsing mode (Safari) may throw SecurityError
   }
 }
 
@@ -400,7 +400,7 @@ async function consumeStream(
       try {
         onEvent(JSON.parse(trimmed) as SSEEvent)
       } catch {
-        // Malformed line — skip
+        // Malformed line | skip
       }
     }
   }
@@ -583,7 +583,7 @@ function buildPanel(
           setInputEnabled(true)
           input.focus()
         } else if (evt.event === 'tool_call') {
-          // Typing dots already showing — no extra UI state needed (per D-09)
+          // Typing dots already showing | no extra UI state needed (per D-09)
         } else if (evt.event === 'error') {
           typing.remove()
           const status = evt.sessionId // reused this field for status code
@@ -651,7 +651,7 @@ function buildPanel(
 
 // --- initWidget (top-level orchestrator, per Pattern 3) ---
 function initWidget(token: string, apiBase: string): void {
-  // Shadow host (must be unstyled — no transform/filter or position:fixed breaks)
+  // Shadow host (must be unstyled | no transform/filter or position:fixed breaks)
   const host = document.createElement('div')
   host.id = 'opps-root'
   document.body.appendChild(host)

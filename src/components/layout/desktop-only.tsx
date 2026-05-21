@@ -18,7 +18,7 @@ export function DesktopOnly({
 }) {
   return (
     <>
-      <div className="hidden lg:block">{children}</div>
+      <div className="hidden h-full lg:block">{children}</div>
       <div className="lg:hidden flex flex-col items-center justify-center text-center px-6 py-16 gap-4">
         <div className="h-14 w-14 rounded-2xl bg-accent-muted flex items-center justify-center">
           <Laptop className="h-7 w-7 text-accent" />

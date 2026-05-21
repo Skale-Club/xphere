@@ -5,14 +5,14 @@ import { useEffect } from 'react'
 /**
  * Dashboard segment error boundary.
  *
- * IMPORTANT — this file is intentionally pure HTML + inline styles.
+ * IMPORTANT | this file is intentionally pure HTML + inline styles.
  * It MUST NOT import anything from the dashboard tree (no Button,
  * no PageHeader, no design-system components, no provider hooks).
  *
  * Why: a render error in the dashboard tree bubbles up here. If the
  * error boundary itself depends on the same providers / tokens that
  * threw, it will re-throw immediately and Next will re-mount this
- * boundary in a tight loop — producing the "thousands of `i4 → us`
+ * boundary in a tight loop | producing the "thousands of `i4 → us`
  * recursive frames" we saw in digest 1621801304.
  *
  * Keep it dumb. Keep it dependency-free.

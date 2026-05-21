@@ -6,7 +6,7 @@
  * Rendered inside a Popover from the conversation-list header. Exposes
  * checkbox-style groups for status, priority, bot state, assigned user,
  * labels, and "other" toggles (starred, pinned, unread). On any change,
- * fires `onChange` with the full `AdvancedFilters` shape — parent decides
+ * fires `onChange` with the full `AdvancedFilters` shape | parent decides
  * how/when to translate into the API query.
  */
 
@@ -129,7 +129,7 @@ export function FilterPanel({ value, onChange, members, labels }: FilterPanelPro
     onChange(EMPTY_FILTERS)
   }
 
-  // SEED-040: shared body — rendered inside Popover (desktop) and Sheet (mobile).
+  // SEED-040: shared body | rendered inside Popover (desktop) and Sheet (mobile).
   const body = (
     <>
       <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">

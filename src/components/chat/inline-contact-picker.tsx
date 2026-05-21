@@ -26,7 +26,7 @@ interface InlineContactPickerProps {
 
 /**
  * Compact inline picker for linking an existing CRM contact to the
- * current conversation. Lives inside the "Contact not registered" card —
+ * current conversation. Lives inside the "Contact not registered" card |
  * keeps the operator on the chat screen instead of opening a modal.
  *
  * Collapsed by default to avoid noise. Click "Link existing contact" to

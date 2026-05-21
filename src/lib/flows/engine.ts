@@ -1,4 +1,4 @@
-// Workflow engine — Phase B v1.
+// Workflow engine | Phase B v1.
 // Executes a flow synchronously by walking from the trigger node along
 // outgoing edges. Linear sequences fully supported. Condition nodes branch via
 // edge.sourceHandle ('true' | 'false'). Wait/agent nodes record intent but

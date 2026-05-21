@@ -6,7 +6,7 @@
 //   - all chat IDs configured in `telegram_bots.notification_chat_ids`.
 //
 // IMPORTANT: this module is intentionally NOT wired into
-// `src/lib/workflows/spec.ts` or `src/lib/action-engine/execute-action.ts` —
+// `src/lib/workflows/spec.ts` or `src/lib/action-engine/execute-action.ts` |
 // SEED-033/parent integration will register it. This file only exposes the
 // executor function so other modules can call it once the workflow node is
 // registered. SEED-034.

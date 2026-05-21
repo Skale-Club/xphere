@@ -1,5 +1,5 @@
 // src/lib/whatsapp/adapters/evolution.ts
-// Evolution Go adapter — normalizes messages.upsert webhook payloads and
+// Evolution Go adapter | normalizes messages.upsert webhook payloads and
 // fetches encrypted WhatsApp media via /chat/getBase64FromMediaMessage.
 
 import { storeWhatsAppMedia } from '../storage'

@@ -90,7 +90,7 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Collect subfolder IDs (max 2 levels enforced by product — no recursion needed)
+  // Collect subfolder IDs (max 2 levels enforced by product | no recursion needed)
   const { data: subfolders } = await supabase
     .from('tool_folders')
     .select('id')
@@ -107,7 +107,7 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
 
   if (toolsError) return { error: toolsError.message }
 
-  // Delete the folder — DB ON DELETE CASCADE removes subfolders automatically
+  // Delete the folder | DB ON DELETE CASCADE removes subfolders automatically
   const { error: folderError } = await supabase
     .from('tool_folders')
     .delete()

@@ -54,7 +54,7 @@ function parseTime(timeStr: string): [number, number] {
 // Generate available slots for a given date.
 // All times are handled in the host's timezone (availability is defined in that timezone).
 export function generateSlots(params: {
-  date: string        // 'YYYY-MM-DD' — the date to generate slots for
+  date: string        // 'YYYY-MM-DD' | the date to generate slots for
   timezone: string    // IANA timezone of the host (e.g. 'America/Sao_Paulo')
   durationMinutes: number
   availability: AvailabilityWindow | null  // null = no availability set for this day

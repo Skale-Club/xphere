@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * SEED-035 — workspace-level CRUD for conversation labels.
+ * SEED-035 | workspace-level CRUD for conversation labels.
  *
  * NOTE: integration into the workspace settings page is a follow-up step.
  * This file intentionally only defines the component so it can be embedded

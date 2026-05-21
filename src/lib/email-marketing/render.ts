@@ -57,7 +57,7 @@ export function renderEmailHtml(
   <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="background-color:#f0f0f0;">
     <tr>
       <td align="center" valign="top" style="padding:32px 16px;">
-        <!-- Main container — 600px max -->
+        <!-- Main container | 600px max -->
         <table class="container" border="0" cellpadding="0" cellspacing="0" role="presentation" width="600" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
           <tr>
             <td>

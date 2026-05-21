@@ -72,7 +72,7 @@ export async function MetricAvgRating() {
   return (
     <MetricCard
       label="Avg rating"
-      value={avg !== null ? `★ ${avg.toFixed(1)}` : '—'}
+      value={avg !== null ? `★ ${avg.toFixed(1)}` : 'N/A'}
       animate={false}
       icon="star"
       trend={null}

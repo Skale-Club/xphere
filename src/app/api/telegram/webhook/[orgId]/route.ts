@@ -1,5 +1,5 @@
 // src/app/api/telegram/webhook/[orgId]/route.ts
-// Telegram webhook receiver — always returns HTTP 200.
+// Telegram webhook receiver | always returns HTTP 200.
 // One URL per org: https://xphere.app/api/telegram/webhook/{orgId}
 // SEED-034.
 
@@ -21,7 +21,7 @@ export async function POST(
   try {
     const { orgId } = await params
 
-    // Parse update body — bail out (still 200) on malformed JSON
+    // Parse update body | bail out (still 200) on malformed JSON
     let update: TelegramUpdate | null = null
     try {
       update = (await request.json()) as TelegramUpdate

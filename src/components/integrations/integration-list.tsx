@@ -1,6 +1,6 @@
 'use client'
 
-// SEED-042 — IntegrationList
+// SEED-042 | IntegrationList
 // Single grouped list rendered from INTEGRATION_REGISTRY. Each row opens
 // the unified IntegrationSheet.
 

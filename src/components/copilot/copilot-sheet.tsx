@@ -145,7 +145,7 @@ export function CopilotSheet() {
                 size="sm"
                 onClick={() => setWriteMode(!writeMode)}
                 className={`h-7 gap-1 px-2 text-xs ${writeMode ? 'text-amber-600' : 'text-text-secondary'}`}
-                title={writeMode ? 'Write mode ON — copilot may mutate data' : 'Read-only mode'}
+                title={writeMode ? 'Write mode ON | copilot may mutate data' : 'Read-only mode'}
               >
                 {writeMode ? <Pencil className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
                 {writeMode ? 'Write' : 'Read-only'}

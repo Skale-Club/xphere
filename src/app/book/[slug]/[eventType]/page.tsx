@@ -51,7 +51,7 @@ export default async function PublicBookingPage({ params }: Props) {
         <div className="rounded-xl border border-[#2A2A2F] bg-[#111113] overflow-hidden">
           <div className="h-2" style={{ backgroundColor: et.color }} />
           <div className="p-6 md:p-8 grid md:grid-cols-[260px_1fr] gap-8">
-            {/* Left sidebar — event info */}
+            {/* Left sidebar | event info */}
             <div className="space-y-4">
               <div>
                 <h1 className="text-xl font-semibold text-[#FAFAFA]">{et.title}</h1>
@@ -74,7 +74,7 @@ export default async function PublicBookingPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Right — booking UI (client) */}
+            {/* Right | booking UI (client) */}
             <BookingPageClient
               eventTypeId={et.id}
               availableDows={availableDows}
