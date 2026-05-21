@@ -169,12 +169,16 @@ function ZoomIndicator() {
   const zoom = useStore((s) => s.transform[2])
   const { zoomTo } = useReactFlow()
   const pct = Math.round(zoom * 100)
+  // Bottom-aligned with Controls cluster, sitting just to its right.
+  // Controls is at left: 16, width ~28px (single-column buttons), so the
+  // chip starts at left: 52 to leave an 8px gap.
   return (
     <button
       type="button"
       onClick={() => zoomTo(1, { duration: 200 })}
       title="Reset zoom to 100%"
-      className="absolute bottom-[148px] left-4 z-10 rounded-[8px] border border-border-subtle bg-bg-secondary px-2 py-1 text-[11px] font-mono tabular-nums text-text-secondary shadow-sm hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+      className="absolute left-[52px] z-10 rounded-[8px] border border-border-subtle bg-bg-secondary px-2 py-1 text-[11px] font-mono tabular-nums text-text-secondary shadow-sm hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+      style={{ bottom: 80 }}
     >
       {pct}%
     </button>
