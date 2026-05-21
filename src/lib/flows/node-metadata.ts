@@ -1,25 +1,25 @@
 // Friendly labels + colored icons for trigger event types and action types.
 // Used by the node-config-panel selects and by the canvas node cards.
 
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 import {
-  Hand,
-  CalendarClock,
-  Webhook,
+  HandWaving,
+  CalendarDots,
+  WebhooksLogo,
   PhoneCall,
-  MessageCircle,
+  ChatCircle,
   Camera,
-  MessagesSquare,
+  ChatTeardropDots,
   CalendarCheck,
   UserPlus,
   Globe,
-  Mail,
-  ClipboardList,
-  StickyNote,
-  TrendingUp,
+  EnvelopeSimple,
+  ClipboardText,
+  Note,
+  TrendUp,
   BookOpen,
-  Workflow,
-} from 'lucide-react'
+  GitBranch,
+} from '@phosphor-icons/react'
 
 export type IntegrationKey =
   | 'whatsapp'
@@ -31,14 +31,14 @@ export type IntegrationKey =
   | 'resend'
   | 'evolution'
 
+type IconComponent = ComponentType<{ className?: string }>
+
 export interface TriggerMetadata {
   key: string
   label: string
   description: string
-  icon: LucideIcon
-  /** Tailwind classes for the icon container (bg + text). */
+  icon: IconComponent
   iconClass: string
-  /** If set, this trigger only appears when the integration is active. */
   requiresIntegration?: IntegrationKey
 }
 
@@ -46,7 +46,7 @@ export interface ActionMetadata {
   key: string
   label: string
   description: string
-  icon: LucideIcon
+  icon: IconComponent
   iconClass: string
   requiresIntegration?: IntegrationKey
 }
@@ -56,21 +56,21 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     key: 'manual',
     label: 'Manual',
     description: 'Run manually from the dashboard',
-    icon: Hand,
+    icon: HandWaving,
     iconClass: 'bg-slate-500/15 text-slate-300',
   },
   {
     key: 'cron',
     label: 'Scheduled',
     description: 'Run on a schedule (cron)',
-    icon: CalendarClock,
+    icon: CalendarDots,
     iconClass: 'bg-amber-500/15 text-amber-300',
   },
   {
     key: 'webhook.custom',
     label: 'Webhook',
     description: 'Triggered by an inbound HTTP request',
-    icon: Webhook,
+    icon: WebhooksLogo,
     iconClass: 'bg-violet-500/15 text-violet-300',
   },
   {
@@ -85,7 +85,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     key: 'manychat.inbound',
     label: 'ManyChat inbound',
     description: 'New ManyChat conversation event',
-    icon: MessagesSquare,
+    icon: ChatTeardropDots,
     iconClass: 'bg-blue-500/15 text-blue-300',
     requiresIntegration: 'manychat',
   },
@@ -101,7 +101,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     key: 'chat.message.received',
     label: 'Chat widget',
     description: 'New chat widget message',
-    icon: MessageCircle,
+    icon: ChatCircle,
     iconClass: 'bg-emerald-500/15 text-emerald-300',
   },
   {
@@ -132,7 +132,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     key: 'send_whatsapp',
     label: 'Send WhatsApp',
     description: 'Send a WhatsApp message',
-    icon: MessageCircle,
+    icon: ChatCircle,
     iconClass: 'bg-emerald-500/15 text-emerald-300',
     requiresIntegration: 'whatsapp',
   },
@@ -140,7 +140,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     key: 'send_email',
     label: 'Send email',
     description: 'Send a transactional email',
-    icon: Mail,
+    icon: EnvelopeSimple,
     iconClass: 'bg-blue-500/15 text-blue-300',
     requiresIntegration: 'resend',
   },
@@ -155,21 +155,21 @@ export const ACTION_METADATA: ActionMetadata[] = [
     key: 'create_task',
     label: 'Create task',
     description: 'Create a CRM task',
-    icon: ClipboardList,
+    icon: ClipboardText,
     iconClass: 'bg-amber-500/15 text-amber-300',
   },
   {
     key: 'create_note',
     label: 'Create note',
     description: 'Create a CRM note',
-    icon: StickyNote,
+    icon: Note,
     iconClass: 'bg-yellow-500/15 text-yellow-300',
   },
   {
     key: 'update_pipeline_stage',
     label: 'Update pipeline stage',
     description: 'Move an opportunity through the pipeline',
-    icon: TrendingUp,
+    icon: TrendUp,
     iconClass: 'bg-indigo-500/15 text-indigo-300',
   },
   {
@@ -183,7 +183,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     key: 'execute_flow',
     label: 'Execute another flow',
     description: 'Trigger another workflow',
-    icon: Workflow,
+    icon: GitBranch,
     iconClass: 'bg-purple-500/15 text-purple-300',
   },
 ]

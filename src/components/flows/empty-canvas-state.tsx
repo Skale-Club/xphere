@@ -4,7 +4,7 @@
 // nodes. Renders five trigger choices; clicking any one delegates to the
 // parent which creates a trigger node at viewport center.
 
-import { Zap, Clock, Calendar, MousePointerClick, Webhook } from 'lucide-react'
+import { Lightning, ClockCountdown, CalendarDots, CursorClick, WebhooksLogo } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 export type EmptyCanvasTriggerType =
@@ -15,11 +15,11 @@ export type EmptyCanvasTriggerType =
   | 'webhook_url'
 
 const TRIGGERS = [
-  { id: 'manual',      label: 'Manual',     icon: MousePointerClick, color: '#64748b', description: 'Run on demand' },
-  { id: 'schedule',    label: 'Schedule',   icon: Clock,             color: '#06b6d4', description: 'Cron-based' },
-  { id: 'event',       label: 'Event',      icon: Calendar,          color: '#f59e0b', description: 'When something happens' },
-  { id: 'tool_call',   label: 'Tool call',  icon: Zap,               color: '#6366f1', description: 'Called by an agent' },
-  { id: 'webhook_url', label: 'Webhook',    icon: Webhook,           color: '#f97316', description: 'External HTTP POST' },
+  { id: 'manual',      label: 'Manual',     icon: CursorClick,     color: '#64748b', description: 'Run on demand' },
+  { id: 'schedule',    label: 'Schedule',   icon: ClockCountdown,  color: '#06b6d4', description: 'Cron-based' },
+  { id: 'event',       label: 'Event',      icon: CalendarDots,    color: '#f59e0b', description: 'When something happens' },
+  { id: 'tool_call',   label: 'Tool call',  icon: Lightning,       color: '#6366f1', description: 'Called by an agent' },
+  { id: 'webhook_url', label: 'Webhook',    icon: WebhooksLogo,    color: '#f97316', description: 'External HTTP POST' },
 ] as const
 
 interface EmptyCanvasStateProps {
