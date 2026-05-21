@@ -342,12 +342,39 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                 onChange={(duration) => updateNodeData(node.id, { duration })}
               />
             ) : (
-              <DurationField
-                label="Timeout"
-                value={flow.timeout}
-                fallback="7d"
-                onChange={(timeout) => updateNodeData(node.id, { timeout })}
-              />
+              <div className="space-y-2">
+                <DurationField
+                  label="Timeout"
+                  value={flow.timeout}
+                  fallback="7d"
+                  onChange={(timeout) => updateNodeData(node.id, { timeout })}
+                />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-text-tertiary">Event Type</Label>
+                  <Select
+                    value={flow.event_type ?? ''}
+                    onValueChange={(v) => updateNodeData(node.id, { event_type: v })}
+                  >
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select event..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="meeting.confirmed" className="text-xs">Meeting confirmed</SelectItem>
+                      <SelectItem value="meeting.cancelled" className="text-xs">Meeting cancelled</SelectItem>
+                      <SelectItem value="meeting.starts_in" className="text-xs">Meeting starts in...</SelectItem>
+                      <SelectItem value="meeting.completed" className="text-xs">Meeting completed</SelectItem>
+                      <SelectItem value="meeting.no_show" className="text-xs">Meeting no-show</SelectItem>
+                      <SelectItem value="meeting.rescheduled" className="text-xs">Meeting rescheduled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {flow.event_type === 'meeting.starts_in' && (
+                  <DurationField
+                    label="Offset before event"
+                    value={flow.offset}
+                    fallback="5m"
+                    onChange={(offset) => updateNodeData(node.id, { offset })}
+                  />
+                )}
+              </div>
             )}
           </>
         )}

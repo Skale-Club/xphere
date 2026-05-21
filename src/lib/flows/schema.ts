@@ -45,6 +45,8 @@ const WaitNodeData = z.object({
   mode: z.enum(['sleep', 'wait_for_event']).default('sleep'),
   duration: z.string().optional(),
   event_filter: z.record(z.unknown()).optional(),
+  event_type: z.string().optional(),
+  offset: z.string().optional(),
   timeout: z.string().optional(),
   label: z.string().default('Wait'),
 })

@@ -164,7 +164,7 @@ function WaitNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
     flow.kind === 'wait'
       ? flow.mode === 'sleep'
         ? `Sleep - ${formatWaitDuration(flow.duration) ?? '1 hour'}`
-        : `Wait for event - ${formatWaitDuration(flow.timeout) ?? '7 days'}`
+        : `Wait for event — ${flow.event_type ?? 'no event selected'}`
       : ''
   return (
     <BaseNode
