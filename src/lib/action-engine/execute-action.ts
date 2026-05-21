@@ -30,6 +30,7 @@ import {
   executePipelineAssignUser,
   executePipelineCreateOpportunity,
 } from '@/lib/action-engine/executors/pipeline-actions'
+import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -161,6 +162,18 @@ export async function executeAction(
       return executePipelineAssignUser(params as unknown as Parameters<typeof executePipelineAssignUser>[0], ctx)
     case 'pipeline_create_opportunity':
       return executePipelineCreateOpportunity(params as unknown as Parameters<typeof executePipelineCreateOpportunity>[0], ctx)
+    case 'create_task': {
+      if (!ctx?.organizationId) {
+        throw new Error('create_task requires ctx.organizationId')
+      }
+      return executeCreateTask(params, ctx.organizationId)
+    }
+    case 'create_note': {
+      if (!ctx?.organizationId) {
+        throw new Error('create_note requires ctx.organizationId')
+      }
+      return executeCreateNote(params, ctx.organizationId)
+    }
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType
