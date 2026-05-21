@@ -552,7 +552,10 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
             onPrevPage={prevPage}
             onRetry={refreshConversations}
             onFilterChange={handleFilterChange}
-            onSelect={(id) => setSelectedId(id)}
+            onSelect={(id) => {
+              setSelectedId(id)
+              void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
+            }}
             onConversationUpdated={refreshConversations}
             onConversationDeleted={(id) => {
               if (selectedId === id) {
@@ -638,6 +641,8 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               onSelect={(id) => {
                 setSelectedId(id)
                 setMobileView('chat')
+                // SEED-035: mark as read when conversation opens
+                void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
               }}
               onConversationUpdated={refreshConversations}
               onConversationDeleted={(id) => {

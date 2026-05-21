@@ -86,7 +86,7 @@ export function WorkflowsList({ workflows }: Props) {
             Build your first workflow visually, or ask Copilot to create one from a single sentence.
           </p>
           <Link
-            href="/workflows/new"
+            href="/workflows/flows/new"
             className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline"
           >
             <WorkflowIcon className="h-3.5 w-3.5" />
@@ -114,7 +114,7 @@ export function WorkflowsList({ workflows }: Props) {
             return (
               <tr key={w.id} className="hover:bg-bg-secondary/40 transition-colors">
                 <td className="px-4 py-3">
-                  <Link href={`/workflows/${w.id}`} className="block group">
+                  <Link href={w.kind === 'flow' ? `/workflows/flows/${w.id}` : `/workflows/${w.id}`} className="block group">
                     <p className="text-sm font-medium text-text-primary group-hover:underline truncate">
                       {w.name}
                     </p>

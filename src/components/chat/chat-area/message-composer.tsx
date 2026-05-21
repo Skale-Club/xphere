@@ -161,7 +161,7 @@ export function MessageComposer({
             'placeholder:text-text-tertiary',
             'py-1.5',
           )}
-          style={{ minHeight: '20px' }}
+          style={{ minHeight: '20px', fontSize: '16px' }}  /* 16px prevents iOS auto-zoom on focus */
         />
 
         <TooltipProvider delayDuration={200}>

@@ -58,6 +58,8 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { FilterPanel, type AdvancedFilters, EMPTY_FILTERS, countActiveFilters } from './filter-panel'
+import type { OrgMember } from '@/app/(dashboard)/chat/actions'
 
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -93,6 +95,12 @@ export interface ConversationFilterChange {
   status: string | null
   assigned: string | null
   channel: string | null
+  /** SEED-035: advanced filter params */
+  starred?: boolean | null
+  labelIds?: string[]
+  priority?: string | null
+  botStatus?: string | null
+  unread?: boolean | null
 }
 
 interface ConversationListProps {
@@ -125,6 +133,10 @@ interface ConversationListProps {
   onConversationDeleted: (id: string) => void
   /** Optimistic pin/unpin handled by parent; updates apply on realtime echo. */
   onPin?: (id: string, pinned: boolean) => void
+  /** SEED-035: org labels for advanced filter panel */
+  orgLabels?: Array<{ id: string; name: string; color: string }>
+  /** SEED-035: org members for advanced filter panel */
+  members?: OrgMember[]
 }
 
 function formatRelative(c: ConversationSummary): string {
@@ -182,10 +194,13 @@ export function ConversationList({
   onConversationUpdated,
   onConversationDeleted,
   onPin,
+  orgLabels = [],
+  members = [],
 }: ConversationListProps) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterId>('all')
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(EMPTY_FILTERS)
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)
 
@@ -212,14 +227,31 @@ export function ConversationList({
     let status: string | null = null
     let assigned: string | null = null
     let channel: string | null = null
-    if (activeFilter === 'unread') status = 'open'
+
+    // Pill filter takes precedence
+    if (activeFilter === 'unread') { status = 'open' }
     else if (activeFilter === 'mine') assigned = 'me'
     else if (activeFilter !== 'all') {
       const dbValue = CHANNEL_TO_DB[activeFilter as Channel]
       if (dbValue) channel = dbValue
     }
-    onFilterChange({ status, assigned, channel })
-  }, [activeFilter, onFilterChange])
+
+    // Advanced filter overrides pill status when active
+    if (advancedFilters.statuses.length === 1) status = advancedFilters.statuses[0]
+    else if (advancedFilters.statuses.length > 1) status = advancedFilters.statuses[0] // first wins for now
+    if (advancedFilters.unread) status = 'open'
+
+    onFilterChange({
+      status,
+      assigned,
+      channel,
+      starred: advancedFilters.starred || null,
+      labelIds: advancedFilters.labelIds.length ? advancedFilters.labelIds : undefined,
+      priority: advancedFilters.priorities[0] ?? null,
+      botStatus: advancedFilters.botStatuses[0] ?? null,
+      unread: advancedFilters.unread || null,
+    })
+  }, [activeFilter, advancedFilters, onFilterChange])
 
   // Scroll to top whenever the page changes (so the user always lands at the
   // top of the new page instead of mid-scroll).
@@ -280,15 +312,23 @@ export function ConversationList({
     <div className="flex h-full min-w-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-secondary/40">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 border-b border-border-subtle bg-bg-secondary/95 backdrop-blur px-4 pt-4 pb-3">
-        <div className="mb-3 flex min-w-0 items-baseline justify-between gap-3">
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
           <h2 className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-text-primary">
             Inbox
           </h2>
-          {totalCount > 0 && (
-            <span className="shrink-0 text-[11px] tabular-nums text-text-tertiary">
-              {totalCount} total
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {totalCount > 0 && (
+              <span className="text-[11px] tabular-nums text-text-tertiary">
+                {totalCount} total
+              </span>
+            )}
+            <FilterPanel
+              value={advancedFilters}
+              onChange={setAdvancedFilters}
+              members={members}
+              labels={orgLabels}
+            />
+          </div>
         </div>
 
         <div className="relative">

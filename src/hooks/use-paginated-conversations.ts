@@ -35,6 +35,12 @@ export interface ConversationFilters {
   status?: string | null
   assigned?: string | null
   channel?: string | null
+  /** SEED-035 advanced filters */
+  starred?: boolean | null
+  labelIds?: string[]
+  priority?: string | null
+  botStatus?: string | null
+  unread?: boolean | null
 }
 
 interface FetchPageResponse {
@@ -81,6 +87,11 @@ function buildUrl(filters: ConversationFilters, page: number, pageSize: number):
   if (filters.status) sp.set('status', filters.status)
   if (filters.assigned) sp.set('assigned', filters.assigned)
   if (filters.channel) sp.set('channel', filters.channel)
+  if (filters.starred) sp.set('starred', '1')
+  if (filters.labelIds?.length) sp.set('labelIds', filters.labelIds.join(','))
+  if (filters.priority) sp.set('priority', filters.priority)
+  if (filters.botStatus) sp.set('botStatus', filters.botStatus)
+  if (filters.unread) sp.set('unread', '1')
   return `/api/chat/conversations?${sp.toString()}`
 }
 
