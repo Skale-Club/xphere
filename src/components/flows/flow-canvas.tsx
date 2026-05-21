@@ -5,10 +5,8 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
-  Controls,
-  MiniMap,
+  MarkerType,
   useReactFlow,
-  useStore,
   type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -19,9 +17,12 @@ import { FlowPalette } from './flow-palette'
 import { NodeConfigPanel } from './node-config-panel'
 import { FlowToolbar } from './flow-toolbar'
 import { AiBuilderChat } from './ai-builder-chat'
+import { CanvasToolbar } from './canvas-toolbar'
+import { EmptyCanvasState, type EmptyCanvasTriggerType } from './empty-canvas-state'
 import type { FlowDefinition, FlowNodeType } from '@/lib/flows/schema'
 import type { IntegrationKey } from '@/lib/flows/node-metadata'
 import { saveWorkflowDefinition } from '@/app/(dashboard)/workflows/flows/_actions/workflows'
+import { autoLayoutNodes } from '@/lib/flows/auto-layout'
 import { toast } from 'sonner'
 
 interface FlowCanvasProps {
@@ -32,20 +33,19 @@ interface FlowCanvasProps {
   activeIntegrations: IntegrationKey[]
 }
 
-const NODE_TYPE_COLORS: Record<string, string> = {
-  trigger: '#f59e0b',
-  action: '#6366f1',
-  condition: '#8b5cf6',
-  wait: '#06b6d4',
-  agent: '#ec4899',
-  end: '#64748b',
-}
+// SEED-043 Phase 5 — proximity threshold for "drop on edge = insert" behaviour.
+// Measured in flow-space units (same units as node positions). 80px in the
+// default 100% zoom feels natural; ReactFlow's screenToFlowPosition already
+// returns flow-space coordinates, so we can compare directly to edge midpoints.
+const EDGE_INSERT_THRESHOLD = 80
+const EDGE_INSERT_THRESHOLD_SQ = EDGE_INSERT_THRESHOLD * EDGE_INSERT_THRESHOLD
 
 function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations }: FlowCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
-  const { screenToFlowPosition } = useReactFlow()
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  const { screenToFlowPosition, fitView } = useReactFlow()
 
   const nodes = useFlowStore((s) => s.nodes)
   const edges = useFlowStore((s) => s.edges)
@@ -53,6 +53,8 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
   const onEdgesChange = useFlowStore((s) => s.onEdgesChange)
   const onConnect = useFlowStore((s) => s.onConnect)
   const addNode = useFlowStore((s) => s.addNode)
+  const insertNodeOnEdge = useFlowStore((s) => s.insertNodeOnEdge)
+  const setNodes = useFlowStore((s) => s.setNodes)
   const setSelected = useFlowStore((s) => s.setSelected)
   const hydrate = useFlowStore((s) => s.hydrate)
   const dirty = useFlowStore((s) => s.dirty)
@@ -78,10 +80,47 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
     return () => clearTimeout(timer)
   }, [dirty, workflowId, toDefinition, markSaved])
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-  }, [])
+  // ── Drop-on-edge proximity helper (SEED-043 Phase 5) ─────────────────────
+  // Returns the id of the edge whose midpoint sits closest to `point` and
+  // within EDGE_INSERT_THRESHOLD, or null if no edge qualifies. Uses squared
+  // distances to skip the sqrt in this hot path (fires every dragover tick).
+  const findEdgeNearPoint = useCallback(
+    (point: { x: number; y: number }): string | null => {
+      let bestId: string | null = null
+      let bestDistSq = EDGE_INSERT_THRESHOLD_SQ
+      for (const edge of edges) {
+        const source = nodes.find((n) => n.id === edge.source)
+        const target = nodes.find((n) => n.id === edge.target)
+        if (!source || !target) continue
+        const mx = (source.position.x + target.position.x) / 2
+        const my = (source.position.y + target.position.y) / 2
+        const dx = mx - point.x
+        const dy = my - point.y
+        const distSq = dx * dx + dy * dy
+        if (distSq <= bestDistSq) {
+          bestDistSq = distSq
+          bestId = edge.id
+        }
+      }
+      return bestId
+    },
+    [edges, nodes],
+  )
+
+  const onDragOver = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      const point = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const nearId = findEdgeNearPoint(point)
+      if (nearId !== hoveredEdgeId) setHoveredEdgeId(nearId)
+    },
+    [screenToFlowPosition, findEdgeNearPoint, hoveredEdgeId],
+  )
+
+  const onDragLeave = useCallback(() => {
+    if (hoveredEdgeId !== null) setHoveredEdgeId(null)
+  }, [hoveredEdgeId])
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -89,10 +128,63 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
       const type = event.dataTransfer.getData('application/reactflow') as FlowNodeType
       if (!type) return
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-      addNode(type, position)
+      const nearEdgeId = findEdgeNearPoint(position)
+      if (nearEdgeId) {
+        insertNodeOnEdge(nearEdgeId, type, position)
+      } else {
+        addNode(type, position)
+      }
+      setHoveredEdgeId(null)
     },
-    [screenToFlowPosition, addNode],
+    [screenToFlowPosition, findEdgeNearPoint, insertNodeOnEdge, addNode],
   )
+
+  // ── Phase 4 — empty-state trigger picker ─────────────────────────────────
+  // Drops the first trigger near the centre of the visible canvas so it lands
+  // inside the user's viewport regardless of pan/zoom. fitView then re-frames.
+  const handlePickTrigger = useCallback(
+    (triggerType: EmptyCanvasTriggerType) => {
+      const rect = wrapperRef.current?.getBoundingClientRect()
+      const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
+      const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2
+      const center = screenToFlowPosition({ x: cx, y: cy })
+      // Offset by approx. half a node so the trigger sits visually centred.
+      const position = { x: center.x - 90, y: center.y - 35 }
+      addNode('trigger', position, {
+        kind: 'trigger',
+        event_type: triggerType,
+        label: 'Trigger',
+      })
+      setTimeout(() => fitView({ duration: 250, padding: 0.3 }), 50)
+    },
+    [addNode, screenToFlowPosition, fitView],
+  )
+
+  const handleAutoLayout = useCallback(() => {
+    const current = useFlowStore.getState()
+    if (current.nodes.length === 0) return
+    const laid = autoLayoutNodes(current.nodes, current.edges, 'TB') as typeof current.nodes
+    setNodes(laid)
+    // Defer fitView until after React commits the new positions.
+    setTimeout(() => fitView({ duration: 300, padding: 0.2 }), 50)
+  }, [setNodes, fitView])
+
+  // SEED-043 Phase 5 — overlay a coloured stroke on the hovered edge during
+  // a palette drag to telegraph "drop here = insert into the middle of this
+  // edge". The override is applied at render time so it stays in sync with
+  // any concurrent edge changes from the store.
+  const styledEdges = hoveredEdgeId
+    ? edges.map((edge) =>
+        edge.id === hoveredEdgeId
+          ? {
+              ...edge,
+              style: { ...(edge.style ?? {}), stroke: '#6366f1', strokeWidth: 2.5 },
+            }
+          : edge,
+      )
+    : edges
+
+  const showEmptyState = nodes.length === 0
 
   return (
     <div className="flex h-full w-full">
@@ -109,7 +201,7 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
         <div ref={wrapperRef} className="flex-1 relative">
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={styledEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -118,31 +210,29 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
             onInit={setRfInstance}
             onDrop={onDrop}
             onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
             nodeTypes={nodeTypes}
             fitView
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={{
               style: { stroke: 'rgba(148, 163, 184, 0.5)', strokeWidth: 1.5 },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: 'rgba(148, 163, 184, 0.7)',
+                width: 14,
+                height: 14,
+              },
+            }}
+            connectionLineStyle={{
+              stroke: 'rgba(148, 163, 184, 0.6)',
+              strokeWidth: 1.5,
+              strokeDasharray: '4 4',
             }}
           >
             <Background gap={16} size={1} />
-            <Controls
-              className="!bg-bg-secondary !border !border-border-subtle !rounded-[10px] !shadow-lg overflow-hidden [&>button]:!bg-transparent [&>button]:!border-0 [&>button]:!border-b [&>button]:!border-border-subtle [&>button:last-child]:!border-b-0 [&>button]:!text-text-secondary [&>button:hover]:!text-text-primary [&>button:hover]:!bg-bg-tertiary [&>button>svg]:!fill-current"
-              showInteractive={false}
-              style={{ bottom: 80, left: 16 }}
-            />
-            <ZoomIndicator />
-            <MiniMap
-              nodeStrokeWidth={3}
-              pannable
-              zoomable
-              nodeColor={(node) => NODE_TYPE_COLORS[node.type ?? 'action'] ?? '#64748b'}
-              nodeBorderRadius={6}
-              maskColor="rgba(8, 9, 10, 0.7)"
-              className="!bg-bg-secondary !border !border-border-subtle !rounded-[10px]"
-              style={{ bottom: 80, right: 16 }}
-            />
+            <CanvasToolbar onAutoLayout={handleAutoLayout} />
           </ReactFlow>
+          {showEmptyState && <EmptyCanvasState onPickTrigger={handlePickTrigger} />}
         </div>
       </div>
 
@@ -157,30 +247,5 @@ export function FlowCanvas(props: FlowCanvasProps) {
     <ReactFlowProvider>
       <CanvasInner {...props} />
     </ReactFlowProvider>
-  )
-}
-
-/**
- * Pinned zoom-percentage chip — sits just above the Controls cluster.
- * Reads the live viewport.zoom from the React Flow store and re-renders
- * on every zoom change. Click to reset to 100%.
- */
-function ZoomIndicator() {
-  const zoom = useStore((s) => s.transform[2])
-  const { zoomTo } = useReactFlow()
-  const pct = Math.round(zoom * 100)
-  // Bottom-aligned with Controls cluster, sitting just to its right.
-  // Controls is at left: 16, width ~28px (single-column buttons), so the
-  // chip starts at left: 52 to leave an 8px gap.
-  return (
-    <button
-      type="button"
-      onClick={() => zoomTo(1, { duration: 200 })}
-      title="Reset zoom to 100%"
-      className="absolute left-[52px] z-10 rounded-[8px] border border-border-subtle bg-bg-secondary px-2 py-1 text-[11px] font-mono tabular-nums text-text-secondary shadow-sm hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-      style={{ bottom: 80 }}
-    >
-      {pct}%
-    </button>
   )
 }

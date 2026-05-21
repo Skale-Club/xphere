@@ -38,7 +38,16 @@ interface FlowState {
   addNode: (type: FlowNodeType, position: { x: number; y: number }, data?: Partial<FlowNodeData>) => string
   updateNodeData: (nodeId: string, patch: Partial<FlowNodeData>) => void
   removeNode: (nodeId: string) => void
+  setNodes: (nodes: CanvasNode[]) => void
   setSelected: (nodeId: string | null) => void
+  /** SEED-043 Phase 5 — replace an existing edge with `source -> newNode -> target`.
+   * Returns the new node's id, or null if the target edge does not exist. */
+  insertNodeOnEdge: (
+    edgeId: string,
+    type: FlowNodeType,
+    position: { x: number; y: number },
+    data?: Partial<FlowNodeData>,
+  ) => string | null
 
   // ── Serialization ───────────────────────────────────────────────────────────
   toDefinition: () => FlowDefinition
@@ -163,8 +172,50 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }))
   },
 
+  setNodes(nodes) {
+    set({ nodes, dirty: true })
+  },
+
   setSelected(nodeId) {
     set({ selectedNodeId: nodeId })
+  },
+
+  insertNodeOnEdge(edgeId, type, position, dataPatch) {
+    const state = get()
+    const oldEdge = state.edges.find((e) => e.id === edgeId)
+    if (!oldEdge) return null
+
+    const newId = genId(type)
+    const base = defaultNodeData(type)
+    const merged = { ...base, ...dataPatch } as FlowNodeData
+    const newNode: CanvasNode = {
+      id: newId,
+      type,
+      position,
+      data: { flowData: merged, label: merged.label ?? type },
+    }
+
+    const before: CanvasEdge = {
+      id: genId('edge'),
+      source: oldEdge.source,
+      sourceHandle: oldEdge.sourceHandle ?? null,
+      target: newId,
+      targetHandle: null,
+    }
+    const after: CanvasEdge = {
+      id: genId('edge'),
+      source: newId,
+      sourceHandle: null,
+      target: oldEdge.target,
+      targetHandle: oldEdge.targetHandle ?? null,
+    }
+
+    set({
+      nodes: [...state.nodes, newNode],
+      edges: [...state.edges.filter((e) => e.id !== edgeId), before, after],
+      dirty: true,
+    })
+    return newId
   },
 
   toDefinition() {

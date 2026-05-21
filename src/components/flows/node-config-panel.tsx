@@ -45,7 +45,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
   if (!node) {
     return (
       <div className="w-72 border-l border-border bg-card shrink-0 flex flex-col">
-        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
           Select a node to configure it.
         </div>
       </div>
