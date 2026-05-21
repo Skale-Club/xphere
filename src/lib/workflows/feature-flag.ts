@@ -1,12 +1,11 @@
-// SEED-025 Phase B: feature flag gating the unified workflow engine.
+// SEED-025 Phase F: feature flag permanently enabled (deprecated).
 //
-// While the flag is OFF, every resolver/executor reads from the legacy
-// tool_configs table | behavior identical to pre-SEED-025.
+// The unified workflow engine is now the only path. This function is kept
+// for import compatibility but always returns true. It will be removed in
+// the next cleanup pass once all callers are deleted.
 //
-// Flip the flag ON (env var UNIFIED_WORKFLOW_ENGINE=on) to route the same
-// callsites through workflows WHERE kind='tool'. The resolver returns the
-// same shape either way so callers do not change.
+// @deprecated - always returns true; remove callers and this file.
 
 export function isUnifiedEngineEnabled(): boolean {
-  return process.env.UNIFIED_WORKFLOW_ENGINE === 'on'
+  return true
 }

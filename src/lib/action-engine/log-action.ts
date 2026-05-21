@@ -1,9 +1,8 @@
 // src/lib/action-engine/log-action.ts
-// Writes an action_logs row after the action result is dispatched.
-// IMPORTANT: This function MUST be safe to call without try/catch | it never throws.
-// Returns the inserted action_logs.id on success, or null on any failure.
-// The Vapi caller (in vapi/tools/route.ts) ignores the return value; the ManyChat
-// dispatcher uses it to populate manychat_events.action_log_id (ROUTING-04).
+// SEED-025 Phase F: action_logs table is now read-only for historical queries.
+// This function is a no-op stub kept for call-site compatibility.
+// All parameters are accepted but no DB write is performed.
+// Returns null always (historical log IDs are no longer produced).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
@@ -20,24 +19,11 @@ export interface LogActionPayload {
   error_detail: string | null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function logAction(
   payload: LogActionPayload,
   supabase: SupabaseClient<Database>
 ): Promise<string | null> {
-  try {
-    const { data, error } = await supabase
-      .from('action_logs')
-      .insert(payload)
-      .select('id')
-      .single()
-    if (error || !data?.id) return null
-    return data.id
-  } catch (err) {
-    console.error('[logAction] Failed to write action_logs row:', {
-      error: err instanceof Error ? err.message : String(err),
-      vapi_call_id: payload.vapi_call_id,
-      tool_name: payload.tool_name,
-    })
-    return null
-  }
+  // No-op: action_logs writes stopped in SEED-025 Phase F.
+  return null
 }
