@@ -18,7 +18,7 @@ import {
   Note,
   TrendUp,
   BookOpen,
-  GitBranch,
+  FlowArrow,
 } from '@phosphor-icons/react'
 
 export type IntegrationKey =
@@ -183,7 +183,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     key: 'execute_flow',
     label: 'Execute another flow',
     description: 'Trigger another workflow',
-    icon: GitBranch,
+    icon: FlowArrow,
     iconClass: 'bg-purple-500/15 text-purple-300',
   },
 ]

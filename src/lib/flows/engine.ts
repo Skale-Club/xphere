@@ -162,7 +162,7 @@ function extractNodeConfig(node: FlowNode): Record<string, unknown> {
   if (data.kind === 'trigger') return (data.filter ?? {}) as Record<string, unknown>
   if (data.kind === 'condition') return { expression: data.expression }
   if (data.kind === 'wait') {
-    return { mode: data.mode, duration: data.duration, event_filter: data.event_filter, timeout: data.timeout }
+    return { mode: data.mode, duration: data.duration, event_filter: data.event_filter, timeout: data.timeout, event_type: data.event_type, offset: data.offset }
   }
   if (data.kind === 'agent') {
     return { agent_id: data.agent_id, system_prompt: data.system_prompt, max_steps: data.max_steps }

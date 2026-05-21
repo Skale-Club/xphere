@@ -5,6 +5,7 @@
 import type { FlowNodeData } from './schema'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
 
 export interface ExecutorContext {
   orgId: string
@@ -404,6 +405,14 @@ export async function executeNode(
       case 'booking_mark_complete': return executeBookingMarkComplete(resolvedConfig, _ctx)
       case 'booking_create':      return executeBookingCreate(resolvedConfig, _ctx)
       case 'booking_get':         return executeBookingGet(resolvedConfig, _ctx)
+      case 'create_task': {
+        const taskResult = await executeCreateTask(resolvedConfig, _ctx.orgId)
+        return { output: { result: taskResult } }
+      }
+      case 'create_note': {
+        const noteResult = await executeCreateNote(resolvedConfig, _ctx.orgId)
+        return { output: { result: noteResult } }
+      }
       default:                    return executeStub(data.action_type, resolvedConfig)
     }
   }
