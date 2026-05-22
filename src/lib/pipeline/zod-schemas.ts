@@ -46,7 +46,7 @@ export const opportunitySchema = z.object({
       return Number(s)
     })
     .pipe(z.number().min(0, 'Value must be ≥ 0').max(1_000_000_000)),
-  currency: z.string().length(3).default('BRL'),
+  currency: z.string().length(3).default('USD'),
   pipeline_id: z.string().uuid(),
   stage_id: z.string().uuid(),
   contact_id: z.string().uuid().optional().nullable(),

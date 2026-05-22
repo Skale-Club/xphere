@@ -13,6 +13,7 @@ import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dial
 import { PipelineSwitcher } from '@/components/pipeline/pipeline-switcher'
 import { Button } from '@/components/ui/button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
+import { createClient } from '@/lib/supabase/server'
 
 interface PipelinePageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -88,6 +89,13 @@ async function KanbanBody({
   cardFields: string[]
   assignedTo?: string
 }) {
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  const orgRow = orgId
+    ? (await supabase.from('organizations').select('default_currency').eq('id', orgId as string).single()).data
+    : null
+  const defaultCurrency = orgRow?.default_currency ?? 'USD'
+
   const [stages, opportunities] = await Promise.all([
     getStages(pipelineId),
     getOpportunities({ pipeline_id: pipelineId, assigned_to: assignedTo }),
@@ -113,6 +121,7 @@ async function KanbanBody({
       stages={stages}
       opportunities={opportunities}
       cardFields={cardFields}
+      defaultCurrency={defaultCurrency}
     />
   )
 }

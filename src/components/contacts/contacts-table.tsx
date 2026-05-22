@@ -26,6 +26,8 @@ import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
@@ -82,6 +84,12 @@ export function ContactsTable({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { setSuffix } = useBreadcrumbOverride()
+
+  React.useEffect(() => {
+    setSuffix(<Badge variant="secondary">{total}</Badge>)
+    return () => setSuffix(null)
+  }, [total, setSuffix])
 
   const [query, setQuery] = React.useState(currentQuery ?? '')
   const [openId, setOpenId] = React.useState<string | null>(null)

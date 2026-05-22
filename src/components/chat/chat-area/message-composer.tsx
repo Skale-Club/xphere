@@ -117,22 +117,15 @@ export function MessageComposer({
 
   return (
     <div
-      className="shrink-0 border-t border-border-subtle bg-bg-primary/95 px-4 py-3 pb-safe backdrop-blur md:px-6"
+      className="shrink-0 border-t border-border-subtle bg-bg-primary/95 px-4 py-4 pb-safe-4 backdrop-blur md:px-6"
       style={{
         transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined,
         transition: 'transform 100ms',
       }}
     >
-      {disabled && disabledHint && (
-        <div className="mb-2 flex items-center justify-between gap-3 rounded-[8px] border border-warning/30 bg-[var(--warning-muted)] px-3 py-2">
-          <p className="text-[12px] text-warning">{disabledHint}</p>
-          {onResumeManual && (
-            <Button size="sm" variant="secondary" onClick={onResumeManual} className="h-7">
-              Pause bot
-            </Button>
-          )}
-        </div>
-      )}
+      {/* Bot warning moved to the right contact panel (subtle BotStatusBanner).
+          The composer stays disabled with a "Sending disabled…" placeholder so
+          the user still has a clear affordance here. */}
 
       <div
         className={cn(
@@ -203,7 +196,7 @@ export function MessageComposer({
         </Button>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between px-1 text-[10.5px] text-text-tertiary">
+      <div className="mt-3 flex items-center justify-between px-1 text-[10.5px] text-text-tertiary">
         <span>
           <kbd className="rounded border border-border-subtle bg-bg-tertiary px-1 py-0.5 font-mono text-[9.5px]">
             Enter

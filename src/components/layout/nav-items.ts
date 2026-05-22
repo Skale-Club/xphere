@@ -12,6 +12,7 @@ import {
   Contact,
   Building2,
   CalendarDays,
+  CheckSquare,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -29,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
+  { icon: CheckSquare,    label: 'Tasks',        href: '/tasks',        group: 'sales' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
   { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build' },

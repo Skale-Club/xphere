@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
-import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 import { ConversationSummary } from '@/types/chat'
@@ -84,6 +84,7 @@ const CHANNEL_TO_DB: Record<Channel, string> = {
 }
 
 type FilterId = 'all' | 'unread' | 'mine' | Channel
+type StatusId = 'all' | 'unread' | 'mine'
 
 interface FilterPill {
   id: FilterId
@@ -199,7 +200,8 @@ export function ConversationList({
 }: ConversationListProps) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState<FilterId>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusId>('all')
+  const [selectedChannels, setSelectedChannels] = useState<Set<Channel>>(new Set())
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(EMPTY_FILTERS)
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)
@@ -228,12 +230,16 @@ export function ConversationList({
     let assigned: string | null = null
     let channel: string | null = null
 
-    // Pill filter takes precedence
-    if (activeFilter === 'unread') { status = 'open' }
-    else if (activeFilter === 'mine') assigned = 'me'
-    else if (activeFilter !== 'all') {
-      const dbValue = CHANNEL_TO_DB[activeFilter as Channel]
-      if (dbValue) channel = dbValue
+    // Status pill (single-select)
+    if (statusFilter === 'unread') status = 'open'
+    else if (statusFilter === 'mine') assigned = 'me'
+
+    // Channel pills (multi-select) | comma-separated for the API
+    if (selectedChannels.size > 0) {
+      const dbValues = Array.from(selectedChannels)
+        .map((ch) => CHANNEL_TO_DB[ch])
+        .filter(Boolean)
+      if (dbValues.length > 0) channel = dbValues.join(',')
     }
 
     // Advanced filter overrides pill status when active
@@ -251,7 +257,7 @@ export function ConversationList({
       botStatus: advancedFilters.botStatuses[0] ?? null,
       unread: advancedFilters.unread || null,
     })
-  }, [activeFilter, advancedFilters, onFilterChange])
+  }, [statusFilter, selectedChannels, advancedFilters, onFilterChange])
 
   // Scroll to top whenever the page changes (so the user always lands at the
   // top of the new page instead of mid-scroll).
@@ -348,12 +354,12 @@ export function ConversationList({
         {/* Status filter row */}
         <div className="mt-3 flex gap-1.5">
           {statusPills.map((pill) => {
-            const active = activeFilter === pill.id
+            const active = statusFilter === pill.id
             return (
               <button
                 key={pill.id}
                 type="button"
-                onClick={() => setActiveFilter(pill.id)}
+                onClick={() => setStatusFilter(pill.id as StatusId)}
                 className={cn(
                   'inline-flex items-center shrink-0 rounded-[6px] px-2.5 py-1 text-[11.5px] font-medium tracking-tight transition-all duration-150',
                   active
@@ -373,24 +379,33 @@ export function ConversationList({
             Channel
           </span>
           {channelPills.map((pill) => {
-            const active = activeFilter === pill.id
+            const active = pill.channel ? selectedChannels.has(pill.channel) : false
             return (
               <TooltipProvider key={pill.id} delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      onClick={() => setActiveFilter(active ? 'all' : pill.id)}
+                      onClick={() => {
+                        if (!pill.channel) return
+                        setSelectedChannels((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(pill.channel!)) next.delete(pill.channel!)
+                          else next.add(pill.channel!)
+                          return next
+                        })
+                      }}
                       aria-label={`Filter by ${pill.label}`}
+                      aria-pressed={active}
                       className={cn(
-                        'inline-flex items-center justify-center h-7 w-7 shrink-0 rounded-[6px] transition-all duration-150',
+                        'inline-flex items-center justify-center h-8 w-8 shrink-0 rounded-[6px] transition-all duration-150',
                         active
                           ? 'bg-accent-muted ring-1 ring-accent/30'
                           : 'bg-bg-tertiary/50 hover:bg-bg-tertiary',
                       )}
                     >
                       {pill.channel && (
-                        <ChannelBadge channel={pill.channel} showLabel={false} size="sm" className="ring-0" />
+                        <ChannelBadge channel={pill.channel} showLabel={false} size="md" className="ring-0 bg-transparent" />
                       )}
                     </button>
                   </TooltipTrigger>
@@ -603,7 +618,7 @@ function ConversationCardBase({
         }
       }}
       className={cn(
-        'group relative flex w-full min-w-0 cursor-pointer items-start gap-3 overflow-hidden rounded-[8px] px-3 py-2.5 transition-all duration-150 outline-none',
+        'group relative flex w-full min-w-0 cursor-pointer items-center gap-3 overflow-hidden rounded-[8px] px-3 py-2.5 transition-all duration-150 outline-none',
         'before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-full before:transition-colors',
         priorityBar,
         selected
@@ -611,7 +626,7 @@ function ConversationCardBase({
           : 'hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/60 focus-visible:ring-2 focus-visible:ring-accent/20',
       )}
     >
-      <Avatar className="h-9 w-9 shrink-0 mt-0.5">
+      <Avatar className="h-9 w-9 shrink-0">
         <AvatarFallback
           className={cn(
             'text-[12.5px] font-semibold',
@@ -624,124 +639,97 @@ function ConversationCardBase({
         </AvatarFallback>
       </Avatar>
 
+      {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {conversation.pinned && (
-              <Pin className="h-3 w-3 shrink-0 text-text-tertiary" fill="currentColor" />
-            )}
-            <span
-              className={cn(
-                'min-w-0 truncate text-[13px] font-semibold tracking-tight',
-                selected ? 'text-text-primary' : 'text-text-primary',
-              )}
-            >
-              {name}
-            </span>
-          </div>
-          <span className="shrink-0 whitespace-nowrap text-right text-[10.5px] tabular-nums text-text-tertiary">
-            {formatRelative(conversation)}
+        <div className="flex min-w-0 items-center gap-1.5">
+          {conversation.pinned && (
+            <Pin className="h-3 w-3 shrink-0 text-text-tertiary" fill="currentColor" />
+          )}
+          <span className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-text-primary">
+            {name}
           </span>
+          {isBotPaused && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center text-warning cursor-default"
+                    aria-label="Bot paused"
+                  >
+                    {/* Custom robot SVG (white) */}
+                    <svg viewBox="0 0 100 100" className="h-3 w-3" fill="white" aria-hidden>
+                      <g><path d="M70.18,43.98H29.82c-3.3,0-6,2.71-6,6v23.94c0,3.3,2.7,6,6,6h40.36c3.301,0,6-2.7,6-6V49.98C76.18,46.69,73.48,43.98,70.18,43.98z M36.44,66.99c-2.78,0-5.04-2.25-5.04-5.04c0-2.78,2.26-5.03,5.04-5.03c2.78,0,5.04,2.25,5.04,5.03C41.48,64.74,39.22,66.99,36.44,66.99z M63.56,66.99c-2.779,0-5.029-2.25-5.029-5.04c0-2.78,2.25-5.03,5.029-5.03c2.78,0,5.04,2.25,5.04,5.03C68.6,64.74,66.34,66.99,63.56,66.99z"/></g>
+                      <path d="M55.49,22.733c0,2.06-1.13,3.85-2.811,4.79v13.63H47.32v-13.63c-1.681-0.94-2.811-2.73-2.811-4.79c0-3.03,2.46-5.49,5.49-5.49S55.49,19.703,55.49,22.733z"/>
+                      <g><path d="M20.82,51.145v21.62h-5.54c-3.3,0-6-2.699-6-6v-9.62c0-3.299,2.7-6,6-6H20.82z"/></g>
+                      <g><path d="M90.72,57.145v9.62c0,3.301-2.7,6-6,6h-5.54v-21.62h5.54C88.02,51.145,90.72,53.846,90.72,57.145z"/></g>
+                    </svg>
+                    <svg
+                      className="absolute inset-0 h-full w-full text-warning"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden
+                    >
+                      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.8" />
+                      <line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Bot paused</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <p
-            className={cn(
-              'min-w-0 flex-1 truncate text-[12px] leading-snug',
-              selected ? 'text-text-secondary' : 'text-text-tertiary',
-            )}
-          >
-            {conversation.lastMessage || (
-              <span className="italic text-text-tertiary/70">No messages yet</span>
-            )}
-          </p>
-          <div className="flex shrink-0 items-center gap-1">
-            {channel !== 'unknown' && <ChannelBadge channel={channel} showLabel={false} />}
-          </div>
-        </div>
+        <p className={cn(
+          'min-w-0 truncate text-[12px] leading-snug',
+          selected ? 'text-text-secondary' : 'text-text-tertiary',
+        )}>
+          {conversation.lastMessage || (
+            <span className="italic text-text-tertiary/70">No messages yet</span>
+          )}
+        </p>
 
-        {(isBotPaused || isArchived || conversation.assignedUserId) && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            {isBotPaused && (
-              <StatusPill tone="warning" className="!py-0 !text-[10px]">
-                Bot paused
-              </StatusPill>
-            )}
+        {(isArchived || conversation.assignedUserId) && (
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
             {isArchived && (
-              <StatusPill tone="idle" className="!py-0 !text-[10px]">
-                Archived
-              </StatusPill>
+              <StatusPill tone="idle" className="!py-0 !text-[10px]">Archived</StatusPill>
             )}
             {conversation.assignedUserId && (
-              <StatusPill tone="info" className="!py-0 !text-[10px]">
-                Assigned
-              </StatusPill>
+              <StatusPill tone="info" className="!py-0 !text-[10px]">Assigned</StatusPill>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Right column: timestamp + channel badge stacked + vertically centered */}
+      <div className="flex shrink-0 flex-col items-end gap-1.5 self-center">
+        <span className="whitespace-nowrap text-[10.5px] tabular-nums text-text-tertiary">
+          {formatRelative(conversation)}
+        </span>
+        {channel !== 'unknown' && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <ChannelBadge channel={channel} showLabel={false} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {{
+                  whatsapp: 'WhatsApp',
+                  instagram: 'Instagram',
+                  messenger: 'Messenger',
+                  sms: 'SMS',
+                  voice: 'Voice',
+                  web: 'Web',
+                }[channel] ?? channel}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
 
       {/* Hover-only quick actions (right side) */}
-      <div
-        className="absolute right-2 top-2 hidden gap-0.5 rounded-[6px] bg-bg-elevated/95 p-0.5 ring-1 ring-border-subtle shadow-sm group-hover:flex"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {onPin && (
-          <button
-            type="button"
-            title={conversation.pinned ? 'Unpin' : 'Pin'}
-            onClick={(e) => {
-              e.stopPropagation()
-              onPin(conversation.id, !conversation.pinned)
-            }}
-            className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
-          >
-            <Pin className="h-3 w-3" fill={conversation.pinned ? 'currentColor' : 'none'} />
-          </button>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              title="More"
-              onClick={(e) => e.stopPropagation()}
-              className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <circle cx="5" cy="12" r="2" />
-                <circle cx="12" cy="12" r="2" />
-                <circle cx="19" cy="12" r="2" />
-              </svg>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={handleArchiveClick}>
-              {isArchived ? (
-                <>
-                  <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                  Reopen
-                </>
-              ) : (
-                <>
-                  <Archive className="h-3.5 w-3.5 mr-2" />
-                  Archive
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowDelete(true)
-              }}
-              className="text-rose-500 focus:text-rose-500"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>

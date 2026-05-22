@@ -22,7 +22,8 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { X } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle, DialogClose } from '@/components/ui/dialog'
 
 interface CommandPaletteContextValue {
   open: boolean
@@ -131,6 +132,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
         <DialogContent
           className="overflow-hidden p-0 sm:max-w-[560px] gap-0"
           aria-describedby={undefined}
+          hideCloseButton
         >
           <DialogTitle className="sr-only">Command palette</DialogTitle>
           <Command
@@ -156,9 +158,15 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
                 placeholder="Type a command or search…"
                 className="flex-1 bg-transparent text-[14px] text-text-primary placeholder:text-text-tertiary outline-none"
               />
-              <kbd className="font-mono text-[10.5px] tracking-wider text-text-tertiary border border-border-subtle rounded-[4px] px-1.5 py-0.5 bg-bg-tertiary">
-                ESC
-              </kbd>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <kbd className="font-mono text-[10.5px] tracking-wider text-text-tertiary border border-border-subtle rounded-[4px] px-1.5 py-0.5 bg-bg-tertiary">
+                  ESC
+                </kbd>
+                <DialogClose className="rounded-[6px] p-1 text-text-tertiary opacity-70 transition-all duration-150 hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary focus:outline-none">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </DialogClose>
+              </div>
             </div>
             <Command.List className="py-2">
               <Command.Empty>No results found.</Command.Empty>

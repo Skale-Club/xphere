@@ -115,7 +115,7 @@ export function AddOpportunityDialog({
     const res = await createOpportunity({
       title: title.trim(),
       value: numericValue,
-      currency: 'BRL',
+      currency: 'USD',
       pipeline_id: pipeline.id,
       stage_id: selectedStage,
       contact_id: path === 'contact' ? selectedContactId : null,

@@ -15,6 +15,8 @@ import type { CustomFieldType } from '@/types/database'
 import { cn } from '@/lib/utils'
 import type { AccountRow } from '@/lib/accounts'
 import { AccountsBulkActions } from './accounts-bulk-actions'
+import { Badge } from '@/components/ui/badge'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 
 // Extended row type that includes counts populated by detail queries.
 // The list action (getAccounts) returns AccountRow[]; count fields default to 0
@@ -59,6 +61,12 @@ export function AccountsTable({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { setSuffix } = useBreadcrumbOverride()
+
+  React.useEffect(() => {
+    setSuffix(<Badge variant="secondary">{total}</Badge>)
+    return () => setSuffix(null)
+  }, [total, setSuffix])
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
 

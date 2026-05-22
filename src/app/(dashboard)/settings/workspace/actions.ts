@@ -99,6 +99,27 @@ export async function updateWorkspaceBranding(input: UpdateWorkspaceBrandingInpu
  * Update the per-org daily AI cost cap.
  * Pass null to remove the override and fall back to the platform default.
  */
+export async function updateDefaultCurrency(currency: string): Promise<ActionResult> {
+  const parsed = z.string().length(3).safeParse(currency.toUpperCase())
+  if (!parsed.success) {
+    return { ok: false, error: 'Currency must be a 3-letter ISO code' }
+  }
+
+  const supabase = await createClient()
+  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
+  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({ default_currency: parsed.data })
+    .eq('id', orgId as string)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/settings/workspace')
+  return { ok: true }
+}
+
 export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | null }): Promise<ActionResult> {
   const parsed = costCapSchema.safeParse(input)
   if (!parsed.success) {

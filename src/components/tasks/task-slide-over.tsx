@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { TaskForm } from './task-form'
-import { createTask, updateTask } from '@/app/(dashboard)/tasks/actions'
-import type { TaskRow } from '@/app/(dashboard)/tasks/actions'
+import { createTask, updateTask, getContactsForPicker } from '@/app/(dashboard)/tasks/actions'
+import type { TaskRow, ContactOption } from '@/app/(dashboard)/tasks/actions'
 import type { CrmEntityType } from '@/types/database'
 
 interface TaskSlideOverProps {
@@ -24,6 +24,13 @@ interface TaskSlideOverProps {
 export function TaskSlideOver({ open, onOpenChange, task, prefill }: TaskSlideOverProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [contacts, setContacts] = useState<ContactOption[]>([])
+
+  useEffect(() => {
+    if (open) {
+      getContactsForPicker().then(setContacts)
+    }
+  }, [open])
 
   async function handleSubmit(values: Parameters<React.ComponentProps<typeof TaskForm>['onSubmit']>[0]) {
     startTransition(async () => {
@@ -42,12 +49,15 @@ export function TaskSlideOver({ open, onOpenChange, task, prefill }: TaskSlideOv
     })
   }
 
+  const defaultContactId =
+    task?.entity_type === 'contact' ? (task.entity_id ?? undefined) : undefined
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="mb-4">
-          <SheetTitle>{task ? 'Edit Task' : 'New Task'}</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{task ? 'Edit Task' : 'New Task'}</DialogTitle>
+        </DialogHeader>
         <TaskForm
           defaultValues={
             task
@@ -57,15 +67,17 @@ export function TaskSlideOver({ open, onOpenChange, task, prefill }: TaskSlideOv
                   due_date: task.due_date ?? '',
                   priority: task.priority,
                   status: task.status,
+                  contact_id: defaultContactId,
                 }
               : undefined
           }
           prefill={prefill}
+          contacts={contacts}
           onSubmit={handleSubmit}
           loading={isPending}
           submitLabel={task ? 'Update Task' : 'Create Task'}
         />
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

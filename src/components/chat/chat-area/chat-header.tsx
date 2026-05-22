@@ -28,6 +28,8 @@ import {
   UserPlus,
   Phone,
   CheckCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -108,6 +110,9 @@ interface ChatHeaderProps {
   channelFilter?: string[] | null
   /** SEED-039: update the channel filter. */
   onChannelFilterChange?: React.Dispatch<React.SetStateAction<string[] | null>>
+  /** Show/hide internal debug messages */
+  showDebug?: boolean
+  onToggleDebug?: () => void
 }
 
 export function ChatHeader({
@@ -130,6 +135,8 @@ export function ChatHeader({
   threadChannels: _threadChannels,
   channelFilter: _channelFilter,
   onChannelFilterChange: _onChannelFilterChange,
+  showDebug = false,
+  onToggleDebug,
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
   const [waitingOpen, setWaitingOpen] = useState(false)
@@ -148,7 +155,7 @@ export function ChatHeader({
     (conversation.channelAccountName ? `· ${conversation.channelAccountName}` : '')
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg-primary/95 px-4 py-3 pt-safe backdrop-blur">
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg-primary/95 px-4 py-3 pt-safe-3 backdrop-blur">
       {/* Left cluster | back + avatar + identity */}
       <div className="flex min-w-0 items-center gap-3">
         <Button
@@ -215,67 +222,12 @@ export function ChatHeader({
             </Tooltip>
           )}
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={isBotToggling}
-                onClick={() => onBotStatusToggle(conversation.id, conversation.botStatus)}
-                aria-label={isBotActive ? 'Pause bot' : 'Resume bot'}
-              >
-                {isBotActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{isBotActive ? 'Pause bot' : 'Resume bot'}</TooltipContent>
-          </Tooltip>
+          {/* Bot pause/resume button moved to the right contact panel
+              banner (BotStatusBanner) so the header stays focused on
+              conversation-level actions. */}
 
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Assign</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="min-w-[200px]">
-              <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-text-tertiary">
-                Assign conversation
-              </DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => onAssign(conversation.id, null)}
-                className={cn(!conversation.assignedUserId && 'text-accent')}
-              >
-                {!conversation.assignedUserId && <CheckCheck className="h-3.5 w-3.5 mr-2" />}
-                <span className={cn(!conversation.assignedUserId ? '' : 'ml-[18px]')}>
-                  Unassigned
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {members.length === 0 ? (
-                <DropdownMenuItem disabled>No org members</DropdownMenuItem>
-              ) : (
-                members.map((m) => (
-                  <DropdownMenuItem
-                    key={m.userId}
-                    onClick={() => onAssign(conversation.id, m.userId)}
-                    className={cn(conversation.assignedUserId === m.userId && 'text-accent')}
-                  >
-                    {conversation.assignedUserId === m.userId && (
-                      <CheckCheck className="h-3.5 w-3.5 mr-2" />
-                    )}
-                    <span className={cn(conversation.assignedUserId === m.userId ? '' : 'ml-[18px]')}>
-                      {m.displayName ?? m.email}
-                    </span>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Assign dropdown removed | assignment can be done from the contact
+              panel or list-level controls. */}
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -298,9 +250,10 @@ export function ChatHeader({
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-8 w-8',
-                  priority === 'urgent' && 'text-danger',
-                  priority === 'high' && 'text-warning',
+                  'h-8 w-8 transition-colors',
+                  priority === 'normal'  && 'text-text-tertiary',
+                  priority === 'high'    && 'text-amber-400 hover:text-amber-300',
+                  priority === 'urgent'  && 'text-rose-400 hover:text-rose-300',
                 )}
                 onClick={() => onPriorityCycle(conversation.id, PRIORITY_CYCLE[priority])}
                 aria-label="Cycle priority"
@@ -329,36 +282,58 @@ export function ChatHeader({
           </Tooltip>
         </TooltipProvider>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onStatusChange(isOpen ? 'closed' : 'open')}>
-              {isOpen ? (
-                <>
-                  <Archive className="h-3.5 w-3.5 mr-2" />
-                  Archive
-                </>
-              ) : (
-                <>
-                  <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                  Reopen
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => setShowDelete(true)}
-              className="text-rose-500 focus:text-rose-500"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onStatusChange(isOpen ? 'closed' : 'open')}
+                aria-label={isOpen ? 'Archive conversation' : 'Reopen conversation'}
+              >
+                {isOpen ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{isOpen ? 'Archive' : 'Reopen'}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {onToggleDebug && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn('h-8 w-8', showDebug ? 'text-accent' : 'text-text-tertiary')}
+                  onClick={onToggleDebug}
+                  aria-label="Toggle internal messages"
+                >
+                  {showDebug ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showDebug ? 'Hide internal messages' : 'Show internal messages'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                onClick={() => setShowDelete(true)}
+                aria-label="Delete conversation"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>

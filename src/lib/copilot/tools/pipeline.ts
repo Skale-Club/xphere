@@ -51,7 +51,7 @@ async function createOpportunity(input: Record<string, unknown>, ctx: ToolContex
       stage_id: stageId,
       contact_id: (input.contact_id as string | undefined) ?? null,
       value: Number(input.value ?? 0),
-      currency: (input.currency as string | undefined) ?? 'BRL',
+      currency: (input.currency as string | undefined) ?? 'USD',
       created_by: ctx.userId,
     })
     .select('id, title, value, status')

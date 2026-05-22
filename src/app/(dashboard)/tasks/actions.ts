@@ -164,6 +164,22 @@ export async function getTasks(
   return ok(data ?? [])
 }
 
+// ─── getContactsForPicker ─────────────────────────────────────────────────────
+
+export type ContactOption = { id: string; name: string | null; phone: string | null; email: string | null }
+
+export async function getContactsForPicker(): Promise<ContactOption[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('contacts')
+    .select('id, name, phone, email')
+    .order('name', { ascending: true })
+    .limit(300)
+  return (data ?? []) as ContactOption[]
+}
+
 // ─── toggleTaskDone ───────────────────────────────────────────────────────────
 
 export async function toggleTaskDone(id: string): Promise<ActionResult<TaskRow>> {

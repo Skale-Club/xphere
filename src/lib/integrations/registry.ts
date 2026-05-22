@@ -255,7 +255,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     name: 'Google Reviews',
     description: 'Daily scrape of Google Business reviews for an embeddable widget.',
     category: 'reviews',
-    logo: { path: '/logos/google.svg', letter: 'G', color: 'bg-yellow-500' },
+    logo: { path: '/logos/google-reviews.svg', letter: 'G', color: 'bg-yellow-500' },
     panelType: 'oauth',
     canActivate: false,
     testable: false,

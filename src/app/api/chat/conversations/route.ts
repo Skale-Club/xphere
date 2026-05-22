@@ -75,7 +75,10 @@ export async function GET(request: Request): Promise<Response> {
   const status = url.searchParams.get('status')
   const assigned = url.searchParams.get('assigned')
   const channelParam = url.searchParams.get('channel')
-  const channel = channelParam ? (CHANNEL_ALIAS[channelParam] ?? channelParam) : null
+  // Supports comma-separated values for multi-channel filtering (additive).
+  const channels = channelParam
+    ? channelParam.split(',').map((c) => CHANNEL_ALIAS[c] ?? c).filter(Boolean)
+    : []
 
   const supabase = await createClient()
 
@@ -89,7 +92,8 @@ export async function GET(request: Request): Promise<Response> {
 
   if (status) pinnedQuery = pinnedQuery.eq('status', status)
   if (assigned === 'me') pinnedQuery = pinnedQuery.eq('assigned_user_id', user.id)
-  if (channel) pinnedQuery = pinnedQuery.eq('channel', channel)
+  if (channels.length === 1) pinnedQuery = pinnedQuery.eq('channel', channels[0])
+  else if (channels.length > 1) pinnedQuery = pinnedQuery.in('channel', channels)
 
   const { data: pinnedData, error: pinnedErr } = await pinnedQuery
   if (pinnedErr) {
@@ -112,7 +116,8 @@ export async function GET(request: Request): Promise<Response> {
 
   if (status) pageQuery = pageQuery.eq('status', status)
   if (assigned === 'me') pageQuery = pageQuery.eq('assigned_user_id', user.id)
-  if (channel) pageQuery = pageQuery.eq('channel', channel)
+  if (channels.length === 1) pageQuery = pageQuery.eq('channel', channels[0])
+  else if (channels.length > 1) pageQuery = pageQuery.in('channel', channels)
 
   const { data: pageData, error: pageErr, count } = await pageQuery
   if (pageErr) {

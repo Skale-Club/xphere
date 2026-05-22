@@ -175,20 +175,9 @@ export function ChatArea({
         threadChannels={threadChannels}
         channelFilter={channelFilter}
         onChannelFilterChange={setChannelFilter}
+        showDebug={showDebug}
+        onToggleDebug={() => setShowDebug((v) => !v)}
       />
-
-      {/* Internal/debug toggle | small, optional, off by default */}
-      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border-subtle bg-bg-secondary/30 px-4 py-1.5">
-        <label className="flex items-center gap-1.5 text-[11px] text-text-tertiary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showDebug}
-            onChange={(e) => setShowDebug(e.target.checked)}
-            className="h-3 w-3 rounded border-border accent-accent"
-          />
-          Show internal messages
-        </label>
-      </div>
 
       <MessageList
         messages={visibleMessages}

@@ -19,7 +19,7 @@ function fmt(currency: string): Intl.NumberFormat {
   return f
 }
 
-export function formatCurrency(value: number | null | undefined, currency = 'BRL'): string {
+export function formatCurrency(value: number | null | undefined, currency = 'USD'): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '|'
   try {
     return fmt(currency).format(value)

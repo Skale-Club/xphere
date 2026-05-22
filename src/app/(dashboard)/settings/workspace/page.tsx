@@ -4,6 +4,7 @@ import { Palette } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { WorkspaceBrandingForm } from '@/components/settings/workspace-branding-form'
+import { CurrencySettingsSection } from '@/components/settings/currency-settings-section'
 import { WhatsAppProviderSettings } from './whatsapp-provider-settings'
 import { LabelsSettings } from './labels-settings'
 import { getActiveWhatsAppProvider } from './actions'
@@ -18,7 +19,7 @@ export default async function WorkspaceSettingsPage() {
 
   const { data: org } = await supabase
     .from('organizations')
-    .select('id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override')
+    .select('id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override, default_currency')
     .eq('id', orgId as string)
     .single()
 
@@ -44,6 +45,9 @@ export default async function WorkspaceSettingsPage() {
           daily_cost_cap_usd: org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
         }}
       />
+      <div className="mt-8">
+        <CurrencySettingsSection defaultCurrency={org.default_currency ?? 'USD'} />
+      </div>
       <div className="mt-8">
         <WhatsAppProviderSettings initial={whatsapp} />
       </div>

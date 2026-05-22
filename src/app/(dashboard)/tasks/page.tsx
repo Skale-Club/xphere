@@ -1,25 +1,16 @@
-import { getTasks } from './actions'
-import { TasksTable } from '@/components/tasks/tasks-table'
+import { getTasks, getContactsForPicker } from './actions'
+import { TasksView } from '@/components/tasks/tasks-view'
 
-interface TasksPageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-export default async function TasksPage({ searchParams }: TasksPageProps) {
-  const sp = await searchParams
-
-  const filters = {
-    status: typeof sp.status === 'string' ? sp.status as 'todo' | 'in_progress' | 'done' | 'cancelled' : undefined,
-    priority: typeof sp.priority === 'string' ? sp.priority as 'low' | 'medium' | 'high' | 'urgent' : undefined,
-    q: typeof sp.q === 'string' ? sp.q : undefined,
-  }
-
-  const result = await getTasks(filters)
-  const tasks = result.ok ? result.data : []
+export default async function TasksPage() {
+  const [tasksResult, contacts] = await Promise.all([
+    getTasks(),
+    getContactsForPicker(),
+  ])
+  const tasks = tasksResult.ok ? tasksResult.data : []
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <TasksTable tasks={tasks} />
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <TasksView tasks={tasks} contacts={contacts} />
     </div>
   )
 }

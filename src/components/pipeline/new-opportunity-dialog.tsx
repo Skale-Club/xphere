@@ -53,6 +53,7 @@ interface NewOpportunityDialogProps {
   stageId?: string
   children?: React.ReactNode
   defaultContactId?: string
+  defaultCurrency?: string
 }
 
 export function NewOpportunityDialog({
@@ -60,6 +61,7 @@ export function NewOpportunityDialog({
   stageId,
   children,
   defaultContactId,
+  defaultCurrency = 'USD',
 }: NewOpportunityDialogProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -184,7 +186,7 @@ export function NewOpportunityDialog({
     const res = await createOpportunity({
       title: title.trim(),
       value: numericValue,
-      currency: 'BRL',
+      currency: defaultCurrency,
       pipeline_id: pipelineId,
       stage_id: selectedStage,
       contact_id: contact.id,
@@ -243,43 +245,47 @@ export function NewOpportunityDialog({
             />
           </div>
 
-          {/* Value + Stage */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="value">Value (BRL)</Label>
-              <Input
-                id="value"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-                className={fieldHeight}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="stage">Stage</Label>
-              <Select value={selectedStage} onValueChange={setSelectedStage}>
-                <SelectTrigger
-                  id="stage"
-                  className={`${fieldHeight} bg-bg-secondary border-border-subtle text-text-primary`}
-                >
-                  <SelectValue placeholder="Choose stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: s.color }}
-                        />
-                        {s.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Value */}
+          <div className="space-y-1.5">
+            <Label htmlFor="value">Value ({defaultCurrency})</Label>
+            <Input
+              id="value"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onBlur={(e) => {
+                const n = parseFloat(e.target.value.replace(/[^0-9.,-]/g, '').replace(',', '.'))
+                if (!isNaN(n)) setValue(n.toFixed(2))
+              }}
+              inputMode="decimal"
+              placeholder="0,00"
+              className={fieldHeight}
+            />
+          </div>
+
+          {/* Stage */}
+          <div className="space-y-1.5">
+            <Label htmlFor="stage">Stage</Label>
+            <Select value={selectedStage} onValueChange={setSelectedStage}>
+              <SelectTrigger
+                id="stage"
+                className={`${fieldHeight} bg-bg-secondary border-border-subtle text-text-primary`}
+              >
+                <SelectValue placeholder="Choose stage" />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      {s.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Contact */}

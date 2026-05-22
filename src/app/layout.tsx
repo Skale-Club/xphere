@@ -61,7 +61,8 @@ export async function generateMetadata(): Promise<Metadata> {
       'mobile-web-app-capable': 'yes',
     },
     icons: {
-      ...(faviconUrl && { icon: [{ url: faviconUrl }], shortcut: faviconUrl }),
+      icon: faviconUrl ? [{ url: faviconUrl }] : [{ url: '/favicon.ico', type: 'image/x-icon' }],
+      ...(faviconUrl && { shortcut: faviconUrl }),
       apple: '/api/pwa/icons/180',
     },
   }

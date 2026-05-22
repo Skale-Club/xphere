@@ -120,7 +120,7 @@ export function MessageList({
   return (
     <div className="relative flex-1 min-h-0">
       <ScrollArea ref={scrollRef} className="h-full">
-        <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8">
           {isLoading ? (
             <LoadingShimmer />
           ) : messages.length === 0 ? (
@@ -179,22 +179,20 @@ export function MessageList({
                   return (
                     <div
                       key={message.id}
-                      className={cn(
-                        'flex w-full items-end gap-2 group animate-bubble-in',
-                        sameSender ? 'mt-0.5' : 'mt-3',
-                      )}
+                      className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
                     >
-                      {!sameSender ? (
-                        <Avatar className="h-7 w-7 shrink-0">
-                          <AvatarFallback className="bg-bg-tertiary text-text-secondary text-[10.5px] font-medium">
-                            {(message.content.charAt(0) || '·').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="h-7 w-7 shrink-0" aria-hidden />
-                      )}
-                      <div className="flex max-w-[85%] flex-col items-start md:max-w-[70%]">
-                        <div className="rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle">
+                      {/* avatar + bubble — centered */}
+                      <div className="flex items-center gap-2">
+                        {!sameSender ? (
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarFallback className="bg-bg-tertiary text-text-secondary text-[10.5px] font-medium">
+                              {(message.content.charAt(0) || '·').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="h-7 w-7 shrink-0" aria-hidden />
+                        )}
+                        <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle">
                           {message.content}
                           {attachments.length > 0 && (
                             <div className="mt-1.5 space-y-1">
@@ -204,10 +202,11 @@ export function MessageList({
                             </div>
                           )}
                         </div>
-                        <span className="mt-0.5 px-1 text-[10.5px] tabular-nums text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100">
-                          {formatTime(message.createdAt)}
-                        </span>
                       </div>
+                      {/* timestamp — outside alignment row */}
+                      <span className="mt-0.5 pl-9 block text-[10.5px] tabular-nums text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100">
+                        {formatTime(message.createdAt)}
+                      </span>
                     </div>
                   )
                 }
@@ -216,13 +215,11 @@ export function MessageList({
                 return (
                   <div
                     key={message.id}
-                    className={cn(
-                      'flex w-full items-end justify-end gap-2 group animate-bubble-in',
-                      sameSender ? 'mt-0.5' : 'mt-3',
-                    )}
+                    className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
                   >
-                    <div className="flex max-w-[85%] flex-col items-end md:max-w-[70%]">
-                      <div className="rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
+                    {/* bubble + avatar — centered */}
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
                         {message.content}
                         {attachments.length > 0 && (
                           <div className="mt-1.5 space-y-1">
@@ -232,24 +229,25 @@ export function MessageList({
                           </div>
                         )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 px-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        {agentName && (
-                          <span className="text-[10.5px] text-text-tertiary">via {agentName}</span>
-                        )}
-                        <span className="text-[10.5px] tabular-nums text-text-tertiary">
-                          {formatTime(message.createdAt)}
-                        </span>
-                      </div>
+                      {!sameSender ? (
+                        <Avatar className="h-7 w-7 shrink-0">
+                          <AvatarFallback className="bg-accent text-white text-[10.5px] font-medium">
+                            Op
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="h-7 w-7 shrink-0" aria-hidden />
+                      )}
                     </div>
-                    {!sameSender ? (
-                      <Avatar className="h-7 w-7 shrink-0">
-                        <AvatarFallback className="bg-accent text-white text-[10.5px] font-medium">
-                          Op
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div className="h-7 w-7 shrink-0" aria-hidden />
-                    )}
+                    {/* timestamp — outside alignment row */}
+                    <div className="mt-0.5 pr-9 flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      {agentName && (
+                        <span className="text-[10.5px] text-text-tertiary">via {agentName}</span>
+                      )}
+                      <span className="text-[10.5px] tabular-nums text-text-tertiary">
+                        {formatTime(message.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 )
               })}

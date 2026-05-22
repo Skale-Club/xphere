@@ -51,6 +51,7 @@ import { ChatArea } from '@/components/chat/chat-area'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
+import { cn } from '@/lib/utils'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -574,9 +575,9 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           title="Resize inbox"
           onPointerDown={handleInboxResizeStart}
           onKeyDown={handleInboxResizeKeyDown}
-          className="group relative z-20 h-full w-2 shrink-0 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          className="group relative z-20 h-full w-1 -ml-px shrink-0 cursor-col-resize touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
-          <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border-subtle transition-colors group-hover:bg-accent/70 group-focus-visible:bg-accent" />
+          <span className="absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-accent/70 group-focus-visible:bg-accent" />
         </button>
         <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
           <ChatArea
@@ -604,15 +605,45 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
           // Below lg (1024px) we hide the info panel to keep the chat column
           // readable | user can still toggle it via the chat header button
           // which re-renders when viewport widens enough.
-          <div className="hidden lg:block h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px]">
-            <ContactInfoPanel
-              contactId={selected?.contactId ?? null}
-              conversationId={selected?.id ?? null}
-              fallbackName={selected?.visitorName ?? null}
-              fallbackPhone={selected?.visitorPhone ?? null}
-              fallbackEmail={selected?.visitorEmail ?? null}
-              onCollapse={() => setInfoOpen(false)}
-            />
+          <div className="hidden lg:flex h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px] flex-col">
+            {selected && (() => {
+              const botOn = selected.botStatus === 'active'
+              const toggling = botTogglingId === selected.id
+              return (
+                <div className="shrink-0 border-l border-b border-border-subtle bg-bg-secondary/40 px-4 py-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full shrink-0',
+                        botOn ? 'bg-warning animate-pulse' : 'bg-success',
+                      )}
+                      aria-hidden
+                    />
+                    <span className="text-[11.5px] text-text-secondary truncate">
+                      {botOn ? 'Bot is replying' : 'Manual mode'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleBotToggle(selected.id, selected.botStatus)}
+                    disabled={toggling}
+                    className="text-[11.5px] font-medium text-accent hover:text-accent/80 shrink-0 disabled:opacity-50"
+                  >
+                    {botOn ? 'Pause' : 'Resume bot'}
+                  </button>
+                </div>
+              )
+            })()}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ContactInfoPanel
+                contactId={selected?.contactId ?? null}
+                conversationId={selected?.id ?? null}
+                fallbackName={selected?.visitorName ?? null}
+                fallbackPhone={selected?.visitorPhone ?? null}
+                fallbackEmail={selected?.visitorEmail ?? null}
+                onCollapse={() => setInfoOpen(false)}
+              />
+            </div>
           </div>
         )}
       </div>

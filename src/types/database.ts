@@ -110,6 +110,7 @@ export interface Database {
           logo_url: string | null
           accent_color: string | null
           brand_name: string | null
+          default_currency: string
           settings: Json
           created_at: string
           updated_at: string
@@ -129,6 +130,7 @@ export interface Database {
           logo_url?: string | null
           accent_color?: string | null
           brand_name?: string | null
+          default_currency?: string
           settings?: Json
           created_at?: string
           updated_at?: string
@@ -148,6 +150,7 @@ export interface Database {
           logo_url?: string | null
           accent_color?: string | null
           brand_name?: string | null
+          default_currency?: string
           settings?: Json
           updated_at?: string
         }

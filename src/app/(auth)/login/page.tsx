@@ -6,8 +6,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, Zap, Users, Globe, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Zap, Users, Globe, ArrowRight, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -157,13 +158,24 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel | form */}
-      <div className="flex flex-1 items-center justify-center px-6 py-12 bg-[#08090A]">
+      <div className="flex flex-1 relative items-center justify-center px-6 py-12 bg-[#08090A]">
+          {/* Back to home */}
+          <Link
+            href="/"
+            className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-[0.8125rem] text-[#71717A] hover:text-[#A1A1AA] transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to home
+          </Link>
+
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-[380px]"
         >
+          {/* Card */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -292,6 +304,7 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+          </div>{/* end card */}
         </motion.div>
       </div>
     </div>

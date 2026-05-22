@@ -26,6 +26,8 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { formatCurrency } from '@/lib/pipeline/format'
 import {
   moveOpportunity,
@@ -48,6 +50,7 @@ interface KanbanBoardProps {
   stages: StageRow[]
   opportunities: OpportunityWithContact[]
   cardFields?: string[]
+  defaultCurrency?: string
 }
 
 interface ColumnProps {
@@ -67,7 +70,7 @@ function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOve
   })
 
   const total = opportunities.reduce((acc, o) => acc + Number(o.value ?? 0), 0)
-  const currency = opportunities[0]?.currency ?? 'BRL'
+  const currency = opportunities[0]?.currency ?? 'USD'
 
   return (
     <div
@@ -121,7 +124,7 @@ function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOve
   )
 }
 
-export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_FIELDS }: KanbanBoardProps) {
+export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_FIELDS, defaultCurrency = 'USD' }: KanbanBoardProps) {
   const router = useRouter()
 
   // Local optimistic state so drag-and-drop feels instant.
@@ -135,6 +138,17 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
 
   // Track if the deal already lived in a won stage to avoid double-firing.
   const wonStageIds = React.useMemo(() => new Set(stages.filter((s) => s.is_won).map((s) => s.id)), [stages])
+
+  // Breadcrumb badge — open opportunities (not in a won stage)
+  const { setSuffix } = useBreadcrumbOverride()
+  const openCount = React.useMemo(
+    () => items.filter((o) => !wonStageIds.has(o.stage_id)).length,
+    [items, wonStageIds],
+  )
+  React.useEffect(() => {
+    setSuffix(<Badge variant="secondary">{openCount}</Badge>)
+    return () => setSuffix(null)
+  }, [openCount, setSuffix])
 
   // Wider distance so clicks register as clicks, not drags. No delay | delay
   // makes drag feel laggy / unresponsive on first attempt.
@@ -357,6 +371,7 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
       <OpportunityDetailSheet
         opportunityId={openSheetId}
         stages={stages}
+        defaultCurrency={defaultCurrency}
         onOpenChange={(o) => !o && setOpenSheetId(null)}
       />
     </DndContext>

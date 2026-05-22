@@ -22,7 +22,18 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { CrmEntityType, TaskPriority, TaskStatus } from '@/types/database'
-import type { TaskRow } from '@/app/(dashboard)/tasks/actions'
+import type { TaskRow, ContactOption } from '@/app/(dashboard)/tasks/actions'
+
+function toDatetimeLocal(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+const QUICK_DATES = [
+  { label: 'Today', offset: 0 },
+  { label: 'Tomorrow', offset: 1 },
+  { label: 'Next week', offset: 7 },
+] as const
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
@@ -30,6 +41,7 @@ const schema = z.object({
   due_date: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   status: z.enum(['todo', 'in_progress', 'done', 'cancelled']),
+  contact_id: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -37,7 +49,8 @@ type FormValues = z.infer<typeof schema>
 interface TaskFormProps {
   defaultValues?: Partial<FormValues>
   prefill?: { entity_type?: CrmEntityType; entity_id?: string }
-  onSubmit: (values: FormValues & { entity_type?: CrmEntityType; entity_id?: string }) => Promise<void>
+  contacts?: ContactOption[]
+  onSubmit: (values: Omit<FormValues, 'contact_id'> & { entity_type?: CrmEntityType; entity_id?: string }) => Promise<void>
   loading?: boolean
   submitLabel?: string
 }
@@ -59,6 +72,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 export function TaskForm({
   defaultValues,
   prefill,
+  contacts = [],
   onSubmit,
   loading,
   submitLabel = 'Save Task',
@@ -71,15 +85,22 @@ export function TaskForm({
       due_date: '',
       priority: 'medium',
       status: 'todo',
+      contact_id: undefined,
       ...defaultValues,
     },
   })
 
   async function handleSubmit(values: FormValues) {
+    const { contact_id, due_date, ...rest } = values
+    const entityFromContact =
+      contact_id && !prefill?.entity_type
+        ? { entity_type: 'contact' as CrmEntityType, entity_id: contact_id }
+        : {}
     await onSubmit({
-      ...values,
-      entity_type: prefill?.entity_type,
-      entity_id: prefill?.entity_id,
+      ...rest,
+      due_date: due_date ? new Date(due_date).toISOString() : undefined,
+      entity_type: prefill?.entity_type ?? entityFromContact.entity_type,
+      entity_id: prefill?.entity_id ?? entityFromContact.entity_id,
     })
   }
 
@@ -176,14 +197,64 @@ export function TaskForm({
           name="due_date"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Due Date</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Due Date</FormLabel>
+                <div className="flex gap-1">
+                  {QUICK_DATES.map(({ label, offset }) => {
+                    const d = new Date()
+                    d.setDate(d.getDate() + offset)
+                    d.setHours(17, 0, 0, 0)
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => field.onChange(toDatetimeLocal(d))}
+                        className="text-[0.7rem] px-2 py-0.5 rounded-md border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-colors"
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input type="datetime-local" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {!prefill?.entity_type && contacts.length > 0 && (
+          <FormField
+            control={form.control}
+            name="contact_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Contact{' '}
+                  <span className="text-[0.75rem] text-muted-foreground font-normal">(optional)</span>
+                </FormLabel>
+                <Select onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)} value={field.value ?? '__none__'}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Link to a contact…" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="__none__">No contact</SelectItem>
+                    {contacts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name ?? c.email ?? c.phone ?? 'Unknown'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? 'Saving…' : submitLabel}
