@@ -266,28 +266,15 @@ export async function toggleWorkflowActive(
 
   const supabase = await createClient()
 
-  // Try workflows table first; fall back to legacy tool_configs for unbackfilled rows.
-  const { data: wf, error: wfErr } = await supabase
+  const { error } = await supabase
     .from('workflows')
     .update({ is_active: active })
     .eq('id', id)
-    .select('id')
-    .single()
 
-  if (!wfErr && wf) {
-    revalidatePath('/workflows')
-    revalidatePath(`/workflows/flows/${id}`)
-    return { ok: true, data: undefined }
-  }
-
-  const { error: tcErr } = await supabase
-    .from('tool_configs')
-    .update({ is_active: active })
-    .eq('id', id)
-
-  if (tcErr) return { ok: false, error: tcErr.message }
+  if (error) return { ok: false, error: error.message }
 
   revalidatePath('/workflows')
+  revalidatePath(`/workflows/flows/${id}`)
   return { ok: true, data: undefined }
 }
 

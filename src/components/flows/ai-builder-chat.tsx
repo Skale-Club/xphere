@@ -6,8 +6,8 @@ import { Sparkles, Loader2, X, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useFlowStore } from '@/stores/flow-store'
-import { aiBuildFlow } from '@/app/(dashboard)/automations/flows/_actions/ai-build'
-import { saveWorkflowDefinition } from '@/app/(dashboard)/automations/flows/_actions/workflows'
+import { aiBuildFlow } from '@/app/(dashboard)/workflows/flows/_actions/ai-build'
+import { saveWorkflowDefinition } from '@/app/(dashboard)/workflows/flows/_actions/workflows'
 
 const EXAMPLE_PROMPTS = [
   'When a new contact is created, send a welcome WhatsApp message',

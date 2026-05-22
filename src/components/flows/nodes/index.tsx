@@ -17,7 +17,7 @@ import {
   getActionIntegrationVisual,
   getTriggerIntegrationVisual,
 } from '@/lib/flows/action-to-integration'
-import { isNodeConfigComplete } from '@/lib/flows/node-config-validity'
+import { isNodeConfigComplete, isWaitNodeComplete } from '@/lib/flows/node-config-validity'
 import { formatActionTitle, formatConfigSubtitle } from '@/lib/flows/format'
 
 const ICON_SIZE = 'h-[18px] w-[18px]'
@@ -164,8 +164,11 @@ function WaitNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
     flow.kind === 'wait'
       ? flow.mode === 'sleep'
         ? `Sleep - ${formatWaitDuration(flow.duration) ?? '1 hour'}`
-        : `Wait for event - ${formatWaitDuration(flow.timeout) ?? '7 days'}`
+        : `Wait for event — ${flow.event_type ?? 'no event selected'}`
       : ''
+  const state: NodeVisualState = flow.kind === 'wait' && !isWaitNodeComplete(flow.mode, flow.event_type)
+    ? 'incomplete'
+    : 'default'
   return (
     <BaseNode
       icon={<ClockCountdown className={ICON_SIZE} weight="fill" />}
@@ -173,6 +176,7 @@ function WaitNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
       subtitle={subtitle}
       color="#06b6d4"
       selected={selected}
+      state={state}
     />
   )
 }

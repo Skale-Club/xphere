@@ -36,6 +36,7 @@ const toolConfigSchema = z.object({
     .min(1, 'Tool name is required')
     .max(100, 'Tool name must be 100 characters or fewer'),
   actionType: z.enum([
+    'send_email',
     'create_contact',
     'get_availability',
     'create_appointment',
@@ -60,6 +61,8 @@ const toolConfigSchema = z.object({
     'pipeline_add_note',
     'pipeline_assign_user',
     'pipeline_create_opportunity',
+    'create_task',
+    'create_note',
   ]),
   integrationId: z.string().optional().nullable(),
   fallbackMessage: z
@@ -127,6 +130,8 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'pipeline_add_note',           label: 'Pipeline: Add Note' },
   { value: 'pipeline_assign_user',        label: 'Pipeline: Assign User' },
   { value: 'pipeline_create_opportunity', label: 'Pipeline: Create Opportunity' },
+  { value: 'create_task', label: 'Create Task' },
+  { value: 'create_note', label: 'Create Note' },
 ] as const
 
 interface ToolConfigFormProps {

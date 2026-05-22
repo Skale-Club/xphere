@@ -298,6 +298,41 @@ export const NODES: NodeSpec[] = [
     integration_required: ['google_contacts'],
   },
 
+  // ─── Action | platform tasks & notes
+  {
+    type: 'create_task',
+    kind: 'action',
+    description: 'Creates a task in the CRM. Tasks can be linked to a contact, account, or opportunity.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        description: { type: 'string' },
+        due_date: { type: 'string', description: 'ISO timestamp' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+        entity_type: { type: 'string', enum: ['contact', 'account', 'opportunity'] },
+        entity_id: { type: 'string' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    type: 'create_note',
+    kind: 'action',
+    description: 'Creates a note in the CRM. Notes can be linked to a contact, account, or opportunity.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string' },
+        title: { type: 'string' },
+        pinned: { type: 'boolean' },
+        entity_type: { type: 'string', enum: ['contact', 'account', 'opportunity'] },
+        entity_id: { type: 'string' },
+      },
+      required: ['content'],
+    },
+  },
+
   // ─── Action | knowledge
   {
     type: 'knowledge_base',

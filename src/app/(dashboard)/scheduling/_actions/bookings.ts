@@ -15,6 +15,8 @@ import {
   sendBookingCancellation,
 } from '@/lib/scheduling/emails'
 import type { TimeSlot } from '@/lib/scheduling/slots'
+import { emitCalendarEvent } from '@/lib/scheduling/transition'
+import type { CalendarEventPayload } from '@/lib/scheduling/events'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
@@ -185,6 +187,24 @@ export async function cancelBooking(id: string): Promise<ActionResult<void>> {
 
   // Fire-and-forget booker notification.
   void sendCancellationEmailForBooking(id).catch(() => {})
+
+  // Fire-and-forget meeting.cancelled event dispatch.
+  const svc = createServiceRoleClient()
+  const { data: cancelledBooking } = await svc
+    .from('bookings')
+    .select('org_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (cancelledBooking) {
+    void emitCalendarEvent(
+      { supabase: svc, depth: 0 },
+      {
+        event: 'meeting.cancelled',
+        booking_id: id,
+        org_id: cancelledBooking.org_id,
+      } satisfies CalendarEventPayload,
+    ).catch(() => {})
+  }
 
   return { ok: true, data: undefined }
 }
@@ -530,6 +550,16 @@ export async function createBooking(
     })
   })().catch(() => {})
 
+  // Fire-and-forget meeting.scheduled event dispatch.
+  void emitCalendarEvent(
+    { supabase, depth: 0 },
+    {
+      event: 'meeting.scheduled',
+      booking_id: booking.id,
+      org_id: et.org_id,
+    } satisfies CalendarEventPayload,
+  ).catch(() => {})
+
   return { ok: true, data: { id: booking.id, cancel_token: booking.cancel_token } }
 }
 
@@ -547,13 +577,23 @@ export async function cancelBookingByToken(
     .eq('id', bookingId)
     .eq('cancel_token', cancelToken)
     .eq('status', 'confirmed')
-    .select('id')
+    .select('id, org_id')
     .single()
 
   if (error || !data) return { ok: false, error: 'not_found_or_already_cancelled' }
 
   // Fire-and-forget booker notification.
   void sendCancellationEmailForBooking(bookingId).catch(() => {})
+
+  // Fire-and-forget meeting.cancelled event dispatch.
+  void emitCalendarEvent(
+    { supabase, depth: 0 },
+    {
+      event: 'meeting.cancelled',
+      booking_id: bookingId,
+      org_id: data.org_id,
+    } satisfies CalendarEventPayload,
+  ).catch(() => {})
 
   return { ok: true, data: undefined }
 }

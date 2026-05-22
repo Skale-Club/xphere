@@ -24,6 +24,15 @@ function hasAllOf(config: Config, keys: string[]): boolean {
 }
 
 /**
+ * Returns true when a wait node has enough configuration to plausibly run.
+ * For wait_for_event mode, an event_type is required.
+ */
+export function isWaitNodeComplete(mode: string | undefined, eventType: string | undefined): boolean {
+  if (mode === 'wait_for_event') return hasNonEmptyString(eventType)
+  return true
+}
+
+/**
  * Returns true when the config has enough fields to plausibly run.
  * Unknown action types default to true (we don't want to flag every legacy
  * workflow as incomplete).
@@ -66,6 +75,12 @@ export function isNodeConfigComplete(
 
     case 'manychat_trigger_flow':
       return hasAllOf(config, ['subscriber_id', 'flow_ns'])
+
+    case 'create_task':
+      return hasNonEmptyString(config?.title)
+
+    case 'create_note':
+      return hasAnyOf(config, ['content', 'text'])
 
     default:
       return true

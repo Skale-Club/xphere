@@ -13,8 +13,8 @@ import { validateFlow } from '@/lib/flows/schema'
 import {
   saveWorkflowDefinition,
   updateWorkflow,
-} from '@/app/(dashboard)/automations/flows/_actions/workflows'
-import { runFlowNow } from '@/app/(dashboard)/automations/flows/_actions/runs'
+} from '@/app/(dashboard)/workflows/flows/_actions/workflows'
+import { runFlowNow } from '@/app/(dashboard)/workflows/flows/_actions/runs'
 import { cn } from '@/lib/utils'
 
 interface FlowToolbarProps {

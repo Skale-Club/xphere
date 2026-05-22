@@ -1,5 +1,17 @@
 # Operator
 
+## Current Milestone: v3.0 Workflow Runtime Hardening
+
+**Goal:** Make the workflow runtime actually work — events trigger execution, actions actually run beyond stubs, seeds are loaded at deploy, and the engine is testable.
+
+**Target features:**
+- Wire event dispatch to execution (calendar + pipeline events trigger `runFlow`)
+- Unify flow engine + Action Engine into one canonical execution path
+- Convert YAML seeds (10 platform-default workflows) and load at deploy
+- Clean up duplicate server actions and dead code
+- Add test coverage for engine, executors, schema, validators
+- Register any missing executor types (`send_email`, `knowledge_base`, etc.)
+
 ## What This Is
 
 A multi-tenant SaaS platform that serves as the operational layer for agencies running AI assistants. It centralizes action execution, knowledge base workflows, outbound campaigns, call observability, and embeddable chat widgets in one admin panel so agencies can scale beyond a single-client setup.
@@ -11,6 +23,10 @@ Operator is not meant to encode one universal agency workflow. It is the shared 
 **The Action Engine must work.** When an AI assistant (voice or chat) triggers a tool during a live interaction, the platform must identify the tenant, execute the business logic, and return a result fast enough for production flows.
 
 That business logic may differ by client. The invariant is the reliability of the execution path, not that every tenant follows the same pattern.
+
+## Previous: v2.9 UX Polish & Feature Completeness ✅ Shipped 2026-05-20
+
+3 phases (102–104): Workflows Unification (merged Automations + Visual Flows into one system), In-App Notification System (bell, dropdown, Realtime, DB persistence), Light Theme (full light mode, toggle, system-preference detection). Plus: landing page polish, header reorganization, flow canvas UX overhaul, Companies standardization, deal panel redesign.
 
 ## Previous: v2.8 Scheduling Hardening ✅ Shipped 2026-05-19
 
@@ -343,6 +359,19 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 
 ## Evolution
 
-Update this file whenever deployment assumptions, validated requirements, or core constraints change.
+This document evolves at phase transitions and milestone boundaries.
 
-*Last updated: 2026-05-19 — v2.5, v2.6, v2.7, v2.8 all shipped. v2.3 Integrations Refactor still pending HUMAN-UAT.*
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+*Last updated: 2026-05-21 — v3.0 Workflow Runtime Hardening started.*
