@@ -67,7 +67,10 @@ v3.0 makes the workflow runtime actually work. Events trigger execution through 
   3. `lib/flows/executors.ts` file deleted once all action types it covered are verified working through `executeAction()`
   4. Flow-specific executors (`booking_*`) either moved inline in `engine.ts` or kept with clear documentation — no dead code left behind
   5. Existing action engine test suite still passes after delegation refactor
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 105-01-PLAN.md — Refactor engine.ts: inline flow-internal executors, delegate shared actions to executeAction(), delete executors.ts
 
 ### Phase 106: Executor Completeness
 **Goal**: Missing executor types implemented and registered so all declared action types work at runtime
@@ -137,7 +140,7 @@ Phases execute in numeric order: 105 → 106 → 107 → 108 → 109 → 110
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 105. Engine Unification | 0/TBD | Not started | - |
+| 105. Engine Unification | 0/1 | Not started | - |
 | 106. Executor Completeness | 0/TBD | Not started | - |
 | 107. Event Dispatch | 0/TBD | Not started | - |
 | 108. Seed Loading | 0/TBD | Not started | - |
