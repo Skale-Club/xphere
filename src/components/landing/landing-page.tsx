@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight, Zap, Users, Globe, Phone, MessageSquare, BarChart3, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { LoginDialog } from '@/components/auth/login-dialog'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -75,16 +76,15 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             <img src={logoSrc} alt="" width={22} height={22} />
             Xphere
           </Link>
-          <Link href="/login">
+          <LoginDialog>
             <Button
               size="sm"
-              variant="outline"
-              className="h-8 text-sm border-white/10 bg-white/5 text-[#FAFAFA] hover:bg-white/10 hover:border-white/20"
+              className="h-8 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               Sign in
               <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Button>
-          </Link>
+          </LoginDialog>
         </header>
 
         {/* Hero */}
@@ -125,12 +125,12 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             transition={{ duration: 0.5, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             className="mt-8 flex flex-col sm:flex-row items-center gap-3"
           >
-            <Link href="/login">
+            <LoginDialog>
               <Button className="h-11 px-6 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
                 Get started free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </Link>
+            </LoginDialog>
             <a href="#features">
               <Button
                 variant="ghost"
@@ -228,12 +228,12 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
               Start automating client workflows today | no setup fees, no lock-in.
             </p>
-            <Link href="/login">
+            <LoginDialog>
               <Button className="h-11 px-8 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
                 Get started free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </Link>
+            </LoginDialog>
           </motion.div>
         </section>
 
