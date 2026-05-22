@@ -11,6 +11,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "seed": "tsx scripts/load-workflow-seeds.ts",
     "workflows:validate": "tsx scripts/validate-workflows.ts",
     "workflows:validate-all": "tsx scripts/validate-workflows.ts",
     "workflows:load-seeds": "tsx scripts/load-workflow-seeds.ts",

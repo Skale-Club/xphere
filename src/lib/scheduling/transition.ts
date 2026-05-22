@@ -13,6 +13,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import type { CalendarEvent, CalendarEventPayload } from '@/lib/scheduling/events'
+import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { buildMeetingScope } from '@/lib/scheduling/scope'
 
 type BookingStatus = 'confirmed' | 'cancelled' | 'no_show'
 
@@ -56,14 +58,19 @@ async function recordDispatch(
   return (data as { id: string }).id
 }
 
+interface MatchedWorkflow {
+  id: string
+  current_version_id: string | null
+}
+
 async function findMatchingWorkflows(
   supabase: SupabaseClient<Database>,
   orgId: string,
   event: CalendarEvent,
-): Promise<string[]> {
+): Promise<MatchedWorkflow[]> {
   const { data, error } = await supabase
     .from('workflows')
-    .select('id')
+    .select('id, current_version_id')
     .eq('org_id', orgId)
     .eq('trigger_type', 'event')
     .eq('is_active', true)
@@ -71,7 +78,10 @@ async function findMatchingWorkflows(
     .contains('trigger_config', { event })
 
   if (error || !data) return []
-  return (data as { id: string }[]).map((r) => r.id)
+  return (data as MatchedWorkflow[]).map((r) => ({
+    id: r.id,
+    current_version_id: r.current_version_id ?? null,
+  }))
 }
 
 // Public API ------------------------------------------------------------------
@@ -96,13 +106,64 @@ export async function emitCalendarEvent(
     payload.event,
     payload.booking_id,
     payload as unknown as Json,
-    matched,
+    matched.map((m) => m.id),
   )
 
-  // Actually invoking the workflow runtime is intentionally deferred to a
-  // queue worker (or inline for tests) | SEED-027 Phase C ships the worker.
-  // Phase B contract: the dispatch row exists and the workflow_ids are
-  // captured. Run engine can re-walk recent rows even if it was offline.
+  if (matched.length === 0) {
+    return { dispatched: 0, dispatch_id }
+  }
+
+  // Build the meeting scope for workflow variable interpolation.
+  // If the booking is gone by the time we query, bail (the audit row
+  // still exists for debugging).
+  const scope = await buildMeetingScope(ctx.supabase, payload.booking_id, {
+    rescheduled_from: payload.rescheduled_from,
+    rescheduled_to: payload.rescheduled_to,
+  })
+  if (!scope) {
+    return { dispatched: 0, dispatch_id }
+  }
+
+  const triggerInput: Record<string, unknown> = {
+    meeting: scope,
+    event: payload.event,
+  }
+
+  // Load each matched workflow's current definition.
+  const versionIds = matched
+    .map((m) => m.current_version_id)
+    .filter((id): id is string => Boolean(id))
+
+  if (versionIds.length === 0) {
+    return { dispatched: 0, dispatch_id }
+  }
+
+  const { data: versions } = await ctx.supabase
+    .from('workflow_versions')
+    .select('id, definition')
+    .in('id', versionIds)
+
+  const defById = new Map<string, unknown>()
+  for (const v of versions ?? []) {
+    defById.set(v.id as string, v.definition)
+  }
+
+  // Fire-and-forget each matched workflow. A failing workflow does not
+  // block the event or the originating booking mutation.
+  for (const wf of matched) {
+    const definition = wf.current_version_id
+      ? defById.get(wf.current_version_id)
+      : null
+    if (!definition) continue
+    void runFlowSync({
+      workflowId: wf.id,
+      definition,
+      triggerInput,
+      context: { orgId: payload.org_id },
+    }).catch((err) => {
+      console.error('[scheduling/transition] runFlowSync error:', err)
+    })
+  }
 
   return { dispatched: matched.length, dispatch_id }
 }

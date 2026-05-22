@@ -40,7 +40,7 @@
   - v2.6 Admin Landing SEO — Phases 99-101 (shipped 2026-05-19)
   - v2.7 Unified Calls Hub + Pipeline UX — Phases 102-104 (shipped 2026-05-19)
 </details>
-- **v3.0 Workflow Runtime Hardening — Phases 105-110 (in progress)**
+- **v3.0 Workflow Runtime Hardening — Phases 105-110 (complete ✅)**
 
 ## Overview
 
@@ -48,12 +48,12 @@ v3.0 makes the workflow runtime actually work. Events trigger execution through 
 
 ## Phases
 
-- [ ] **Phase 105: Engine Unification** — Delegate flow engine action execution to the shared Action Engine
-- [ ] **Phase 106: Executor Completeness** — Register missing executor types (send_email, knowledge_base, custom_webhook)
-- [ ] **Phase 107: Event Dispatch** — Wire calendar and pipeline events to trigger workflow execution
-- [ ] **Phase 108: Seed Loading** — Convert YAML seeds and load platform-default workflows at deploy
-- [ ] **Phase 109: Testing** — Add unit test coverage for engine, executors, schema, validators, and event wiring
-- [ ] **Phase 110: Cleanup** — Remove duplicate directories, dead code, and deprecated artifacts
+- [x] **Phase 105: Engine Unification** — Delegate flow engine action execution to the shared Action Engine
+- [x] **Phase 106: Executor Completeness** — Register missing executor types (send_email, knowledge_base, custom_webhook)
+- [x] **Phase 107: Event Dispatch** — Wire calendar events to trigger workflow execution
+- [x] **Phase 108: Seed Loading** — Convert YAML seeds and load platform-default workflows at deploy
+- [x] **Phase 109: Testing** — Add unit test coverage for engine, executors, schema, validators, and event wiring
+- [x] **Phase 110: Cleanup** — Remove duplicate directories, dead code, and deprecated artifacts
 
 ## Phase Details
 
@@ -140,9 +140,9 @@ Phases execute in numeric order: 105 → 106 → 107 → 108 → 109 → 110
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 105. Engine Unification | 0/1 | Not started | - |
-| 106. Executor Completeness | 0/TBD | Not started | - |
-| 107. Event Dispatch | 0/TBD | Not started | - |
-| 108. Seed Loading | 0/TBD | Not started | - |
-| 109. Testing | 0/TBD | Not started | - |
-| 110. Cleanup | 0/TBD | Not started | - |
+| 105. Engine Unification | 1/1 | Complete ✅ | 2026-05-22 |
+| 106. Executor Completeness | 1/1 | Complete ✅ | 2026-05-22 |
+| 107. Event Dispatch | 1/1 | Complete ✅ | 2026-05-22 |
+| 108. Seed Loading | 1/1 | Complete ✅ | 2026-05-22 |
+| 109. Testing | 1/1 | Complete ✅ | 2026-05-22 |
+| 110. Cleanup | 1/1 | Complete ✅ | 2026-05-22 |

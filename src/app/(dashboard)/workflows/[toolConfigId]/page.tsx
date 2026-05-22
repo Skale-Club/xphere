@@ -31,6 +31,7 @@ type ToolConfigDetail = ToolConfigRow & {
 }
 
 const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
+  send_email: 'Send Email',
   create_contact: 'Create Contact',
   get_availability: 'Check Availability',
   create_appointment: 'Book Appointment',

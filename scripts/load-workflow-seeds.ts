@@ -24,6 +24,7 @@ import { parse as parseYaml } from 'yaml'
 import type { Database } from '../src/types/database'
 import { TRIGGERS, NODES, VARIABLE_NAMESPACES, SPEC_VERSION, type WorkflowSpec } from '../src/lib/workflows/spec'
 import { validateWorkflow, type WorkflowDefinition } from '../src/lib/workflows/validate'
+import { yamlToFlow } from '../src/lib/workflows/yaml-to-flow'
 
 const REPO_ROOT = resolve(__dirname, '..')
 const SEEDS_DIR = join(REPO_ROOT, 'supabase', 'seeds', 'workflows')
@@ -84,6 +85,10 @@ async function loadForOrg(
   orgId: string,
   seed: ParsedSeed,
 ): Promise<{ inserted: boolean; updated: boolean; skipped: boolean; reason?: string }> {
+  // Convert YAML seed format → FlowDefinition with auto-layout positions
+  // so seeded workflows are immediately editable in the canvas.
+  const flowDefinition = yamlToFlow(seed.definition, { slug: seed.slug })
+
   // Look for an existing workflow with this slug for this org.
   const { data: existing } = await supabase
     .from('workflows')
@@ -117,7 +122,7 @@ async function loadForOrg(
       .insert({
         workflow_id: existing.id,
         version_number: nextVersion,
-        definition: seed.definition as unknown as Database['public']['Tables']['workflow_versions']['Insert']['definition'],
+        definition: flowDefinition as unknown as Database['public']['Tables']['workflow_versions']['Insert']['definition'],
         notes: `Seed load ${new Date().toISOString()}`,
       })
       .select('id')
@@ -161,7 +166,7 @@ async function loadForOrg(
     .insert({
       workflow_id: workflow.id,
       version_number: 1,
-      definition: seed.definition as unknown as Database['public']['Tables']['workflow_versions']['Insert']['definition'],
+      definition: flowDefinition as unknown as Database['public']['Tables']['workflow_versions']['Insert']['definition'],
       notes: 'Initial platform-default seed load',
     })
     .select('id')

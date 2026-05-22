@@ -78,6 +78,7 @@ import { ToolConfigForm } from './tool-config-form'
 import { DesktopOnly } from '@/components/layout/desktop-only'
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
+  send_email: 'Send Email',
   create_contact: 'Create Contact',
   get_availability: 'Check Availability',
   create_appointment: 'Book Appointment',

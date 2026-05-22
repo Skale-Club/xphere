@@ -80,7 +80,7 @@ export function isNodeConfigComplete(
       return hasNonEmptyString(config?.title)
 
     case 'create_note':
-      return hasNonEmptyString(config?.content)
+      return hasAnyOf(config, ['content', 'text'])
 
     default:
       return true

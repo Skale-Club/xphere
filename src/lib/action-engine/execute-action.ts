@@ -31,6 +31,7 @@ import {
   executePipelineCreateOpportunity,
 } from '@/lib/action-engine/executors/pipeline-actions'
 import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
+import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -173,6 +174,9 @@ export async function executeAction(
         throw new Error('create_note requires ctx.organizationId')
       }
       return executeCreateNote(params, ctx.organizationId)
+    }
+    case 'send_email': {
+      return executeSendEmail(params)
     }
     default: {
       // TypeScript exhaustiveness check

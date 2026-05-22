@@ -36,6 +36,7 @@ const toolConfigSchema = z.object({
     .min(1, 'Tool name is required')
     .max(100, 'Tool name must be 100 characters or fewer'),
   actionType: z.enum([
+    'send_email',
     'create_contact',
     'get_availability',
     'create_appointment',

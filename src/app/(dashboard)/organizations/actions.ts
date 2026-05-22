@@ -3,6 +3,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
+import { seedOrgWorkflows } from '@/lib/workflows/seed-org'
 
 const ORG_COOKIE = 'vo_active_org'
 const COOKIE_OPTS = { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' as const }
@@ -60,6 +61,9 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
 
   await setActiveOrgCookie(org.id, data.name)
   revalidatePath('/', 'layout')
+
+  // Seed platform-default workflows for the new org (fire-and-forget).
+  void seedOrgWorkflows(org.id).catch(() => {})
 }
 
 export async function switchOrganization(organizationId: string): Promise<{ error?: string }> {
