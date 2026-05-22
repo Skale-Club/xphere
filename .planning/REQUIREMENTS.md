@@ -42,3 +42,33 @@
 - [ ] **EXEC-01**: `send_email` executor implemented and registered in `execute-action.ts`
 - [ ] **EXEC-02**: `knowledge_base` action type implemented and registered
 - [ ] **EXEC-03**: `custom_webhook` runtime parity verified against spec
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| EVNT-01 | Phase 107 (Event Dispatch) | Pending |
+| EVNT-02 | Phase 107 (Event Dispatch) | Pending |
+| EVNT-03 | Phase 107 (Event Dispatch) | Pending |
+| EVNT-04 | Phase 107 (Event Dispatch) | Pending |
+| ENG-01 | Phase 105 (Engine Unification) | Pending |
+| ENG-02 | Phase 105 (Engine Unification) | Pending |
+| ENG-03 | Phase 105 (Engine Unification) | Pending |
+| SEED-01 | Phase 108 (Seed Loading) | Pending |
+| SEED-02 | Phase 108 (Seed Loading) | Pending |
+| SEED-03 | Phase 108 (Seed Loading) | Pending |
+| SEED-04 | Phase 108 (Seed Loading) | Pending |
+| CLN-01 | Phase 110 (Cleanup) | Pending |
+| CLN-02 | Phase 110 (Cleanup) | Pending |
+| CLN-03 | Phase 110 (Cleanup) | Pending |
+| CLN-04 | Phase 110 (Cleanup) | Pending |
+| CLN-05 | Phase 110 (Cleanup) | Pending |
+| TEST-01 | Phase 109 (Testing) | Pending |
+| TEST-02 | Phase 109 (Testing) | Pending |
+| TEST-03 | Phase 109 (Testing) | Pending |
+| TEST-04 | Phase 109 (Testing) | Pending |
+| TEST-05 | Phase 109 (Testing) | Pending |
+| TEST-06 | Phase 109 (Testing) | Pending |
+| EXEC-01 | Phase 106 (Executor Completeness) | Pending |
+| EXEC-02 | Phase 106 (Executor Completeness) | Pending |
+| EXEC-03 | Phase 106 (Executor Completeness) | Pending |
