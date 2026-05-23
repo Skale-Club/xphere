@@ -79,16 +79,32 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
         'group/sidebar relative flex h-dvh shrink-0 flex-col',
         'border-r border-border-subtle bg-bg-secondary',
         'transition-[width] duration-300 ease-spring',
-        collapsed ? 'w-[60px]' : 'w-[232px]',
+        collapsed ? 'w-[48px]' : 'w-[186px]',
       )}
     >
       {/* Header | brand + collapse */}
       <div className="flex h-14 items-center justify-between px-3">
+        {collapsed && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={toggle}
+                aria-label="Expand sidebar"
+                className="w-full text-text-tertiary hover:text-text-primary"
+              >
+                <PanelLeftOpen className="h-[15px] w-[15px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" kbd="Ctrl+B">Expand</TooltipContent>
+          </Tooltip>
+        )}
         <Link
-          href="/dashboard"
+          href="/"
           className={cn(
             'group/logo flex items-center gap-2 px-1.5 py-1 rounded-[8px] motion-fast',
-            collapsed && 'justify-center w-full px-0',
+            collapsed && 'hidden',
           )}
         >
           <div className="relative">
@@ -97,7 +113,7 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
               <img
                 src={logoUrl}
                 alt={brandName ?? APP_NAME}
-                className="h-6 w-6 rounded-[7px] object-cover ring-1 ring-border-subtle transition-shadow duration-200 group-hover/logo:shadow-glow"
+                className="h-6 w-6 rounded-full object-cover transition-shadow duration-200 group-hover/logo:shadow-glow"
               />
             ) : (
               <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover flex items-center justify-center transition-shadow duration-200 group-hover/logo:shadow-glow">
@@ -126,27 +142,34 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
                 <PanelLeftClose className="h-[15px] w-[15px]" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" kbd="⌘B">Collapse</TooltipContent>
+            <TooltipContent side="right" kbd="Ctrl+B">Collapse</TooltipContent>
           </Tooltip>
         )}
       </div>
 
       {collapsed && (
         <div className="px-2 pb-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={toggle}
-                aria-label="Expand sidebar"
-                className="w-full text-text-tertiary hover:text-text-primary"
-              >
-                <PanelLeftOpen className="h-[15px] w-[15px]" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" kbd="⌘B">Expand</TooltipContent>
-          </Tooltip>
+          <Link
+            href="/"
+            className="group/logo flex items-center justify-center rounded-[8px] py-1 motion-fast"
+          >
+            <div className="relative">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt={brandName ?? APP_NAME}
+                  className="h-6 w-6 rounded-full object-cover transition-shadow duration-200 group-hover/logo:shadow-glow"
+                />
+              ) : (
+                <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover flex items-center justify-center transition-shadow duration-200 group-hover/logo:shadow-glow">
+                  <span className="text-[11px] font-bold text-white tracking-tighter">
+                    {(brandName ?? APP_NAME).charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </Link>
         </div>
       )}
 

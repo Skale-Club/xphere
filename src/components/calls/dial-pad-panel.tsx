@@ -54,6 +54,10 @@ const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '#' },
 ]
 
+const DESKTOP_QUERY = '(min-width: 640px)'
+const DESKTOP_PANEL_GAP = 16
+const DESKTOP_PANEL_TOP = 64
+
 interface DialPadPanelProps {
   initialRecordCalls: boolean
   routingMode: 'phone_forward' | 'sip' | 'browser'
@@ -72,12 +76,73 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   const [search, setSearch] = React.useState('')
   const [searchResults, setSearchResults] = React.useState<DialPadContactHit[]>([])
   const [searching, setSearching] = React.useState(false)
+  const [isDesktop, setIsDesktop] = React.useState(false)
+  const [position, setPosition] = React.useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = React.useState(false)
+  const panelRef = React.useRef<HTMLDivElement | null>(null)
+  const dragStartRef = React.useRef<{
+    pointerId: number
+    pointerX: number
+    pointerY: number
+    panelX: number
+    panelY: number
+  } | null>(null)
 
   const device = useTwilioDevice()
   const isOnCall = device.activeCall !== null || (calling && routingMode !== 'browser')
 
+  const getPanelBounds = React.useCallback(() => {
+    const rect = panelRef.current?.getBoundingClientRect()
+    return {
+      width: rect?.width ?? 272,
+      height: rect?.height ?? 520,
+    }
+  }, [])
+
+  const clampPosition = React.useCallback((next: { x: number; y: number }) => {
+    if (typeof window === 'undefined') return next
+    const { width, height } = getPanelBounds()
+    const maxX = Math.max(DESKTOP_PANEL_GAP, window.innerWidth - width - DESKTOP_PANEL_GAP)
+    const maxY = Math.max(DESKTOP_PANEL_GAP, window.innerHeight - height - DESKTOP_PANEL_GAP)
+    return {
+      x: Math.min(Math.max(next.x, DESKTOP_PANEL_GAP), maxX),
+      y: Math.min(Math.max(next.y, DESKTOP_PANEL_GAP), maxY),
+    }
+  }, [getPanelBounds])
+
+  const getDefaultPosition = React.useCallback(() => {
+    if (typeof window === 'undefined') return { x: 0, y: DESKTOP_PANEL_TOP }
+    const { width } = getPanelBounds()
+    return clampPosition({
+      x: window.innerWidth - width - DESKTOP_PANEL_GAP,
+      y: DESKTOP_PANEL_TOP,
+    })
+  }, [clampPosition, getPanelBounds])
+
   // Attach client-side recorder for browser-mode calls
   useCallRecorder(device.activeCall, recordCalls && routingMode === 'browser')
+
+  React.useEffect(() => {
+    const media = window.matchMedia(DESKTOP_QUERY)
+    const sync = () => setIsDesktop(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
+
+  React.useEffect(() => {
+    if (!open || !isDesktop) return
+    setPosition((current) => current ? clampPosition(current) : getDefaultPosition())
+  }, [clampPosition, getDefaultPosition, isDesktop, open])
+
+  React.useEffect(() => {
+    if (!isDesktop) return
+    const handleResize = () => {
+      setPosition((current) => current ? clampPosition(current) : getDefaultPosition())
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [clampPosition, getDefaultPosition, isDesktop])
 
   // Load org phone numbers once
   React.useEffect(() => {
@@ -188,6 +253,39 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
     setMuted(false)
   }
 
+  function handleDragStart(event: React.PointerEvent<HTMLDivElement>) {
+    if (!isDesktop || event.button !== 0) return
+    const current = position ?? getDefaultPosition()
+    dragStartRef.current = {
+      pointerId: event.pointerId,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      panelX: current.x,
+      panelY: current.y,
+    }
+    setPosition(current)
+    setDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function handleDragMove(event: React.PointerEvent<HTMLDivElement>) {
+    const start = dragStartRef.current
+    if (!start || start.pointerId !== event.pointerId) return
+    event.preventDefault()
+    setPosition(clampPosition({
+      x: start.panelX + event.clientX - start.pointerX,
+      y: start.panelY + event.clientY - start.pointerY,
+    }))
+  }
+
+  function handleDragEnd(event: React.PointerEvent<HTMLDivElement>) {
+    const start = dragStartRef.current
+    if (!start || start.pointerId !== event.pointerId) return
+    dragStartRef.current = null
+    setDragging(false)
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
   async function handleCall() {
     const norm = normaliseE164(number)
     if (!norm) {
@@ -250,10 +348,26 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
         onClick={() => setOpen(false)}
       />
 
-      <div className="fixed inset-0 z-50 sm:inset-auto sm:top-16 sm:right-4">
-      <div className="w-full h-full sm:w-[272px] sm:h-auto sm:max-h-[calc(100vh-5rem)] rounded-none sm:rounded-[18px] border-0 sm:border sm:border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      <div
+        className="fixed inset-0 z-50 sm:inset-auto sm:top-16 sm:right-4"
+        style={isDesktop && position ? { left: position.x, top: position.y, right: 'auto' } : undefined}
+      >
+        <div
+          ref={panelRef}
+          className="w-full h-full sm:w-[272px] sm:h-auto sm:max-h-[calc(100vh-5rem)] rounded-none sm:rounded-[18px] border-0 sm:border sm:border-border bg-bg-primary shadow-2xl flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-6 sm:px-4 py-4 sm:py-3">
+          <div
+            className={cn(
+              'flex items-center justify-between border-b border-border px-6 sm:px-4 py-4 sm:py-3 select-none',
+              'sm:cursor-grab sm:touch-none',
+              dragging && 'sm:cursor-grabbing',
+            )}
+            onPointerDown={handleDragStart}
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragEnd}
+          >
             <div className="flex items-center gap-2">
               <PhoneCall className="h-4 w-4 text-accent" />
               <span className="text-[13px] font-semibold text-text-primary">Dial pad</span>
@@ -261,6 +375,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
             <button
               type="button"
               onClick={() => setOpen(false)}
+              onPointerDown={(event) => event.stopPropagation()}
               className="flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center rounded-full sm:rounded-none bg-bg-tertiary sm:bg-transparent text-text-secondary sm:text-text-tertiary hover:text-text-primary transition-colors"
               aria-label="Close dial pad"
             >
