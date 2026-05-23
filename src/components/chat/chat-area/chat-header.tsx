@@ -22,6 +22,7 @@ import {
   Play,
   Trash2,
   Pin,
+  Star,
   Flag,
   PanelRight,
   PanelRightClose,
@@ -71,6 +72,7 @@ const CHANNEL_MAP: Record<string, Channel> = {
   messenger: 'messenger',
   sms: 'sms',
   voice: 'voice',
+  email: 'email',
   widget: 'web',
   web: 'web',
 }
@@ -125,7 +127,7 @@ export function ChatHeader({
   onPinToggle,
   onPriorityCycle,
   onAssign,
-  onStarToggle: _onStarToggle,
+  onStarToggle,
   orgLabels: _orgLabels,
   onLabelsChange: _onLabelsChange,
   members,
@@ -147,6 +149,7 @@ export function ChatHeader({
   const isBotActive = conversation.botStatus === 'active'
   const isOpen = conversation.status === 'open'
   const priority = conversation.priority ?? 'normal'
+  const isStarred = Boolean(conversation.starred)
 
   // Subtitle: phone OR email if available
   const subtitle =
@@ -243,6 +246,26 @@ export function ChatHeader({
             </TooltipTrigger>
             <TooltipContent>{conversation.pinned ? 'Unpin' : 'Pin to top'}</TooltipContent>
           </Tooltip>
+
+          {onStarToggle && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-8 w-8 transition-colors',
+                    isStarred ? 'text-amber-400 hover:text-amber-300' : 'text-text-tertiary',
+                  )}
+                  onClick={() => onStarToggle(conversation.id, !isStarred)}
+                  aria-label={isStarred ? 'Unstar conversation' : 'Star conversation'}
+                >
+                  <Star className="h-4 w-4" fill={isStarred ? 'currentColor' : 'none'} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isStarred ? 'Unstar' : 'Star'}</TooltipContent>
+            </Tooltip>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>

@@ -138,7 +138,9 @@ export function suggestColumnMapping(
   const map: Record<string, ContactField | null> = {}
   for (const h of headers) {
     const key = h.toLowerCase().trim()
-    if (/^(name|full[_ ]?name|contact|nome)$/.test(key)) map[h] = 'name'
+    if (/^(first[_ ]?name|given[_ ]?name|nome)$/.test(key)) map[h] = 'first_name'
+    else if (/^(last[_ ]?name|surname|family[_ ]?name|sobrenome)$/.test(key)) map[h] = 'last_name'
+    else if (/^(name|full[_ ]?name|contact|nome completo)$/.test(key)) map[h] = 'name'
     else if (/^(phone|telephone|mobile|whatsapp|tel|telefone|celular)$/.test(key))
       map[h] = 'phone'
     else if (/^(email|e[-_ ]?mail)$/.test(key)) map[h] = 'email'
@@ -188,5 +190,5 @@ export function suggestColumnMappingEnhanced(
   return base
 }
 
-export const CONTACT_FIELDS = ['name', 'phone', 'email', 'company', 'notes', 'tags'] as const
+export const CONTACT_FIELDS = ['first_name', 'last_name', 'name', 'phone', 'email', 'company', 'notes', 'tags'] as const
 export type ContactField = (typeof CONTACT_FIELDS)[number]

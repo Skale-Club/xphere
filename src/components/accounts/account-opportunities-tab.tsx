@@ -6,6 +6,8 @@ import { AddOpportunityDialog } from './add-opportunity-dialog'
 
 interface AccountContact {
   id: string
+  first_name?: string | null
+  last_name?: string | null
   name: string | null
   phone: string | null
   email: string | null

@@ -16,6 +16,7 @@ import { listTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
 import { cn } from '@/lib/utils'
+import { splitContactName } from '@/lib/contacts/names'
 
 interface ContactFormProps {
   defaultValues?: Partial<ContactFormInput>
@@ -30,6 +31,7 @@ export function ContactForm({
   submitLabel = 'Save contact',
   onCancel,
 }: ContactFormProps) {
+  const splitName = splitContactName(defaultValues?.name)
   const {
     register,
     handleSubmit,
@@ -39,6 +41,8 @@ export function ContactForm({
   } = useForm<ContactFormInput>({
     resolver: zodResolver(contactSchema),
     defaultValues: {
+      first_name: defaultValues?.first_name ?? splitName.firstName ?? '',
+      last_name: defaultValues?.last_name ?? splitName.lastName ?? '',
       name: defaultValues?.name ?? '',
       phone: defaultValues?.phone ?? '',
       email: defaultValues?.email ?? '',
@@ -68,9 +72,14 @@ export function ContactForm({
       })}
       className="flex flex-col gap-4"
     >
-      <Field label="Name" htmlFor="contact-name" error={errors.name?.message}>
-        <Input id="contact-name" placeholder="Jane Doe" {...register('name')} />
-      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="First name" htmlFor="contact-first-name" error={errors.first_name?.message}>
+          <Input id="contact-first-name" placeholder="Jane" {...register('first_name')} />
+        </Field>
+        <Field label="Last name" htmlFor="contact-last-name" error={errors.last_name?.message}>
+          <Input id="contact-last-name" placeholder="Doe" {...register('last_name')} />
+        </Field>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Phone" htmlFor="contact-phone" error={errors.phone?.message}>

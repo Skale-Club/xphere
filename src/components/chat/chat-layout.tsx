@@ -37,6 +37,7 @@ import {
 import {
   toggleBotStatus,
   pinConversation,
+  starConversation,
   setConversationPriority,
   assignConversation,
   listOrgMembers,
@@ -80,6 +81,7 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     botStatus: (row.bot_status as string) ?? 'active',
     channelAccountName: pageId,
     pinned: Boolean(row.pinned),
+    starred: Boolean(row.starred),
     priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
     contactId: (row.contact_id as string | null) ?? null,
     contactName: null, // realtime raw row has no joined contact — preserved from API state via upsert
@@ -118,9 +120,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
   // ignore identical updates to prevent refetch loops.
   const handleFilterChange = useCallback((next: ConversationFilterChange) => {
     setFilters((prev) => {
-      if (prev.status === next.status && prev.assigned === next.assigned && prev.channel === next.channel) {
-        return prev
-      }
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev
       return next
     })
   }, [])
@@ -480,6 +480,22 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     }
   }
 
+  async function handleStarToggle(id: string, starredNext: boolean) {
+    const current = findVisibleConversation(id)
+    if (current) {
+      upsertConversation({ ...current, starred: starredNext })
+    }
+    const res = await starConversation(id, starredNext)
+    if ('error' in res) {
+      toast.error('Could not update starred')
+      if (current) {
+        upsertConversation({ ...current, starred: !starredNext })
+      }
+    } else if (filters.starred) {
+      refreshConversations()
+    }
+  }
+
   async function handlePriorityCycle(id: string, next: ConversationPriority) {
     const current = findVisibleConversation(id)
     const previousPriority = current?.priority ?? 'normal'
@@ -567,6 +583,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               removeConversation(id)
             }}
             onPin={handlePinToggle}
+            onStar={handleStarToggle}
           />
         </div>
         <button
@@ -593,6 +610,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
             onBotStatusToggle={handleBotToggle}
             isBotToggling={botTogglingId === selectedId}
             onPinToggle={handlePinToggle}
+            onStarToggle={handleStarToggle}
             onPriorityCycle={handlePriorityCycle}
             onAssign={handleAssign}
             members={members}
@@ -685,6 +703,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
                 removeConversation(id)
               }}
               onPin={handlePinToggle}
+              onStar={handleStarToggle}
             />
           </div>
         )}
@@ -703,6 +722,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
               onBotStatusToggle={handleBotToggle}
               isBotToggling={botTogglingId === selectedId}
               onPinToggle={handlePinToggle}
+              onStarToggle={handleStarToggle}
               onPriorityCycle={handlePriorityCycle}
               onAssign={handleAssign}
               members={members}

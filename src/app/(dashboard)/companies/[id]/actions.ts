@@ -16,7 +16,7 @@ type ActivityRow = Database['public']['Tables']['opportunity_activities']['Row']
 
 export interface OpportunityWithStage extends OpportunityRow {
   stage: { id: string; name: string; color: string; is_won: boolean; is_lost: boolean } | null
-  contact: { id: string; name: string | null } | null
+  contact: { id: string; first_name: string | null; last_name: string | null; name: string | null } | null
 }
 
 export async function getAccountDetail(id: string): Promise<
@@ -34,9 +34,10 @@ export async function getAccountDetail(id: string): Promise<
     supabase.from('accounts').select('*').eq('id', id).maybeSingle(),
     supabase
       .from('contacts')
-      .select('id, name, phone, email, company, created_at, org_id, notes, tags, custom_fields, source, external_id, account_id, created_by, updated_at')
+      .select('id, first_name, last_name, name, phone, email, company, created_at, org_id, notes, tags, custom_fields, source, external_id, account_id, created_by, updated_at')
       .eq('account_id', id)
-      .order('name', { ascending: true }),
+      .order('first_name', { ascending: true, nullsFirst: false })
+      .order('last_name', { ascending: true, nullsFirst: false }),
   ])
 
   if (accountResult.error) return errResult(accountResult.error.message, accountResult.error)
@@ -67,7 +68,7 @@ export async function getAccountOpportunities(
   let query = supabase
     .from('opportunities')
     .select(
-      '*, stage:pipeline_stages(id, name, color, is_won, is_lost), contact:contacts(id, name)',
+      '*, stage:pipeline_stages(id, name, color, is_won, is_lost), contact:contacts(id, first_name, last_name, name)',
     )
     .order('updated_at', { ascending: false })
 

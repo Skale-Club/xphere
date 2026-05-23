@@ -41,19 +41,11 @@ import {
   type ContactDetail,
 } from '@/app/(dashboard)/contacts/actions'
 import { cn } from '@/lib/utils'
+import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 
 interface ContactDetailSheetProps {
   contactId: string | null
   onOpenChange: (open: boolean) => void
-}
-
-function initialsOf(name: string | null, phone: string | null, email: string | null): string {
-  const base = name || email || phone || '?'
-  const parts = base.replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(/\s+/)
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return base.slice(0, 2).toUpperCase()
 }
 
 function relativeTime(iso: string | null): string {
@@ -95,7 +87,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
 
   async function handleDelete() {
     if (!contact) return
-    if (!confirm(`Delete ${contact.name || 'this contact'}? This cannot be undone.`)) return
+    if (!confirm(`Delete ${displayContactName(contact, 'this contact')}? This cannot be undone.`)) return
     const res = await deleteContact(contact.id)
     if (res && 'error' in res && res.error) {
       toast.error(res.error)
@@ -130,6 +122,8 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <ContactForm
                 defaultValues={{
+                  first_name: contact.first_name ?? '',
+                  last_name: contact.last_name ?? '',
                   name: contact.name ?? '',
                   phone: contact.phone ?? '',
                   email: contact.email ?? '',
@@ -159,12 +153,12 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
               <div className="flex items-start gap-3">
                 <Avatar className="h-14 w-14">
                   <AvatarFallback className="text-[15px] font-semibold bg-accent-muted text-accent">
-                    {initialsOf(contact.name, contact.phone, contact.email)}
+                    {initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-[18px] truncate">
-                    {contact.name || 'Unnamed contact'}
+                    {displayContactName(contact)}
                   </DialogTitle>
                   {contact.company && (
                     <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">

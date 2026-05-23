@@ -1465,6 +1465,8 @@ export interface Database {
         Row: {
           id: string
           org_id: string
+          first_name: string | null
+          last_name: string | null
           name: string | null
           phone: string | null
           email: string | null
@@ -1482,6 +1484,8 @@ export interface Database {
         Insert: {
           id?: string
           org_id: string
+          first_name?: string | null
+          last_name?: string | null
           name?: string | null
           phone?: string | null
           email?: string | null
@@ -1497,6 +1501,8 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          first_name?: string | null
+          last_name?: string | null
           name?: string | null
           phone?: string | null
           email?: string | null

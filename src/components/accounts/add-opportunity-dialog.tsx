@@ -29,12 +29,15 @@ import {
   setOpportunityAccount,
 } from '@/app/(dashboard)/pipeline/actions'
 import type { Database } from '@/types/database'
+import { displayContactName } from '@/lib/contacts/names'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 type PipelineRow = Database['public']['Tables']['pipelines']['Row']
 
 interface AccountContact {
   id: string
+  first_name?: string | null
+  last_name?: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -241,7 +244,7 @@ export function AddOpportunityDialog({
                       {accountContacts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           <span className="flex flex-col">
-                            <span>{c.name ?? 'Unnamed'}</span>
+                            <span>{displayContactName(c, 'Unnamed')}</span>
                             {(c.phone ?? c.email) && (
                               <span className="text-[11px] text-text-tertiary">
                                 {c.phone ?? c.email}

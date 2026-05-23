@@ -37,12 +37,15 @@ import {
 import { createContact } from '@/app/(dashboard)/contacts/actions'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { isValidEmail } from '@/lib/contacts/zod-schemas'
+import { displayContactName } from '@/lib/contacts/names'
 import type { Database } from '@/types/database'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 
 interface ContactSuggestion {
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -297,7 +300,7 @@ export function NewOpportunityDialog({
               <div className={`flex items-center justify-between gap-2 rounded-[8px] border ${contactError ? 'border-destructive' : 'border-border-subtle'} bg-bg-secondary px-3 ${fieldHeight}`}>
                 <div className="min-w-0">
                   <span className="text-[13px] font-medium text-text-primary truncate">
-                    {contact.name ?? 'Unnamed'}
+                    {displayContactName(contact, 'Unnamed')}
                   </span>
                   {(contact.phone ?? contact.email) && (
                     <span className="ml-2 text-[11.5px] text-text-tertiary truncate">
@@ -348,7 +351,7 @@ export function NewOpportunityDialog({
                       >
                         <div className="min-w-0">
                           <div className="text-[12.5px] font-medium text-text-primary truncate">
-                            {s.name ?? 'Unnamed'}
+                            {displayContactName(s, 'Unnamed')}
                           </div>
                           <div className="text-[11px] text-text-tertiary truncate">
                             {s.phone ?? s.email ?? ''}

@@ -79,6 +79,7 @@ const CHANNEL_TO_DB: Record<Channel, string> = {
   messenger: 'messenger',
   sms: 'sms',
   voice: 'voice',
+  email: 'email',
   web: 'widget',
   unknown: '',
 }
@@ -134,6 +135,7 @@ interface ConversationListProps {
   onConversationDeleted: (id: string) => void
   /** Optimistic pin/unpin handled by parent; updates apply on realtime echo. */
   onPin?: (id: string, pinned: boolean) => void
+  onStar?: (id: string, starred: boolean) => void
   /** SEED-035: org labels for advanced filter panel */
   orgLabels?: Array<{ id: string; name: string; color: string }>
   /** SEED-035: org members for advanced filter panel */
@@ -328,11 +330,16 @@ export function ConversationList({
                 {totalCount} total
               </span>
             )}
-            <FilterPanel
-              value={advancedFilters}
-              onChange={setAdvancedFilters}
-              members={members}
-              labels={orgLabels}
+<FilterPanel
+                value={advancedFilters}
+                onChange={setAdvancedFilters}
+                viewFilter={statusFilter}
+                onViewFilterChange={setStatusFilter}
+                selectedChannels={selectedChannels}
+                onSelectedChannelsChange={setSelectedChannels}
+                members={members}
+                labels={orgLabels}
+                allowMine={false}
             />
           </div>
         </div>
@@ -349,73 +356,6 @@ export function ConversationList({
           <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden md:inline-block rounded-[5px] border border-border-subtle bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-mono text-text-tertiary">
             ⌘K
           </kbd>
-        </div>
-
-        {/* Status filter row */}
-        <div className="mt-3 flex gap-1.5">
-          {statusPills.map((pill) => {
-            const active = statusFilter === pill.id
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => setStatusFilter(pill.id as StatusId)}
-                className={cn(
-                  'inline-flex items-center shrink-0 rounded-[6px] px-2.5 py-1 text-[11.5px] font-medium tracking-tight transition-all duration-150',
-                  active
-                    ? 'bg-accent-muted text-accent ring-1 ring-accent/20'
-                    : 'bg-bg-tertiary/50 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
-                )}
-              >
-                {pill.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Channel filter row | icon-only, fits all channels on one row */}
-        <div className="mt-2 flex items-center gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary mr-1.5">
-            Channel
-          </span>
-          {channelPills.map((pill) => {
-            const active = pill.channel ? selectedChannels.has(pill.channel) : false
-            return (
-              <TooltipProvider key={pill.id} delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!pill.channel) return
-                        setSelectedChannels((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(pill.channel!)) next.delete(pill.channel!)
-                          else next.add(pill.channel!)
-                          return next
-                        })
-                      }}
-                      aria-label={`Filter by ${pill.label}`}
-                      aria-pressed={active}
-                      className={cn(
-                        'inline-flex items-center justify-center h-8 w-8 shrink-0 rounded-[6px] transition-all duration-150',
-                        active
-                          ? 'bg-accent-muted ring-1 ring-accent/30'
-                          : 'bg-bg-tertiary/50 hover:bg-bg-tertiary',
-                      )}
-                    >
-                      {pill.channel && (
-                        <ChannelBadge channel={pill.channel} showLabel={false} size="md" className="ring-0 bg-transparent" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={4}>
-                    {pill.label}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )
-          })}
         </div>
       </div>
 
@@ -721,7 +661,9 @@ function ConversationCardBase({
                   messenger: 'Messenger',
                   sms: 'SMS',
                   voice: 'Voice',
+                  email: 'Email',
                   web: 'Web',
+                  unknown: 'Unknown',
                 }[channel] ?? channel}
               </TooltipContent>
             </Tooltip>

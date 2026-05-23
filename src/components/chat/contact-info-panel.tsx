@@ -48,6 +48,12 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import {
   getContact,
@@ -55,17 +61,22 @@ import {
   addContactNote,
   type ContactDetail,
 } from '@/app/(dashboard)/contacts/actions'
+import { createTask, updateTask } from '@/app/(dashboard)/tasks/actions'
+import { getStages } from '@/app/(dashboard)/pipeline/actions'
+import { TaskForm } from '@/components/tasks/task-form'
+import { OpportunityDetailSheet } from '@/components/pipeline/opportunity-detail-sheet'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
-import type { CustomFieldType } from '@/types/database'
+import type { CustomFieldType, Database } from '@/types/database'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { cn } from '@/lib/utils'
+import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { toast } from 'sonner'
 
-interface ContactInfoPanelProps {
+export interface ContactInfoPanelProps {
   contactId: string | null
   conversationId?: string | null
   fallbackName?: string | null
@@ -73,15 +84,6 @@ interface ContactInfoPanelProps {
   fallbackEmail?: string | null
   onClose?: () => void
   onCollapse?: () => void
-}
-
-function initialsOf(name: string | null, phone: string | null, email: string | null): string {
-  const base = name || email || phone || '?'
-  const parts = base.replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(/\s+/)
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return base.slice(0, 2).toUpperCase()
 }
 
 function relativeTime(iso: string | null): string {
@@ -186,6 +188,12 @@ export function ContactInfoPanel({
   const [contact, setContact] = React.useState<ContactDetail | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [refreshKey, setRefreshKey] = React.useState(0)
+  const [editingTask, setEditingTask] = React.useState<ContactDetail['tasks'][number] | null>(null)
+  const [creatingTask, setCreatingTask] = React.useState(false)
+  const [taskSaving, setTaskSaving] = React.useState(false)
+  const [selectedOpportunityId, setSelectedOpportunityId] = React.useState<string | null>(null)
+  const [selectedOpportunityCurrency, setSelectedOpportunityCurrency] = React.useState('USD')
+  const [opportunityStages, setOpportunityStages] = React.useState<Database['public']['Tables']['pipeline_stages']['Row'][]>([])
 
   React.useEffect(() => {
     if (!contactId) {
@@ -206,6 +214,34 @@ export function ContactInfoPanel({
 
   const refresh = React.useCallback(() => setRefreshKey((k) => k + 1), [])
 
+  async function openOpportunity(opportunity: ContactDetail['opportunities'][number]) {
+    setSelectedOpportunityCurrency(opportunity.currency)
+    setOpportunityStages([])
+    setSelectedOpportunityId(opportunity.id)
+    setOpportunityStages(await getStages(opportunity.pipeline_id))
+  }
+
+  async function saveTask(
+    values: Parameters<React.ComponentProps<typeof TaskForm>['onSubmit']>[0],
+  ) {
+    if (!contactId) return
+    setTaskSaving(true)
+    const result = editingTask
+      ? await updateTask(editingTask.id, values)
+      : await createTask(values)
+    setTaskSaving(false)
+
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+
+    toast.success(editingTask ? 'Task updated' : 'Task created')
+    setEditingTask(null)
+    setCreatingTask(false)
+    refresh()
+  }
+
   const saveField = React.useCallback(
     (field: string) => async (value: string) => {
       if (!contactId) throw new Error('No contact')
@@ -215,6 +251,14 @@ export function ContactInfoPanel({
       // without a full refetch.
       setContact((prev) => {
         if (!prev) return prev
+        if (field === 'first_name') {
+          const next = { ...prev, first_name: value || null }
+          return { ...next, name: displayContactName(next, '') || null }
+        }
+        if (field === 'last_name') {
+          const next = { ...prev, last_name: value || null }
+          return { ...next, name: displayContactName(next, '') || null }
+        }
         if (field === 'name') return { ...prev, name: value || null }
         if (field === 'phone') return { ...prev, phone: value || null }
         if (field === 'email') return { ...prev, email: value || null }
@@ -269,9 +313,10 @@ export function ContactInfoPanel({
   const customFields = (contact.custom_fields as Record<string, unknown> | null) ?? {}
 
   return (
-    // SEED-040: pt-safe / pb-safe respect the iPhone notch + home indicator
-    // when the panel takes over the full mobile viewport. On desktop the
-    // safe-area insets resolve to 0 so the panel behaves identically.
+    <>
+    {/* SEED-040: pt-safe / pb-safe respect the iPhone notch + home indicator
+        when the panel takes over the full mobile viewport. On desktop the
+        safe-area insets resolve to 0 so the panel behaves identically. */}
     <div className="flex h-full flex-col border-l border-border-subtle bg-bg-secondary/40 pt-safe pb-safe">
       {/* Header */}
       <div className="border-b border-border-subtle px-5 py-5 relative">
@@ -303,17 +348,26 @@ export function ContactInfoPanel({
         <div className="flex items-start gap-3">
           <Avatar className="h-14 w-14">
             <AvatarFallback className="bg-accent-muted text-accent text-[15px] font-semibold">
-              {initialsOf(contact.name, contact.phone, contact.email)}
+              {initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <InlineEditField
-              value={contact.name}
-              placeholder="Unnamed contact"
-              onSave={saveField('name')}
-              ariaLabel="Edit name"
-              className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
-            />
+            <div className="grid grid-cols-2 gap-1">
+              <InlineEditField
+                value={contact.first_name}
+                placeholder="First name"
+                onSave={saveField('first_name')}
+                ariaLabel="Edit first name"
+                className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
+              />
+              <InlineEditField
+                value={contact.last_name}
+                placeholder="Last name"
+                onSave={saveField('last_name')}
+                ariaLabel="Edit last name"
+                className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
+              />
+            </div>
             {contact.account ? (
               <Link
                 href={`/companies/${contact.account.id}`}
@@ -412,11 +466,16 @@ export function ContactInfoPanel({
 
         {/* SEED-039: quick actions */}
         <div className="mt-4 grid grid-cols-4 gap-1.5">
-          <Button asChild size="sm" variant="secondary" className="h-8 px-2 text-[11.5px]">
-            <Link href={`/tasks?contactId=${contact.id}&compose=1`} title="Create task">
-              <ListTodo className="h-3 w-3" />
-              Task
-            </Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 px-2 text-[11.5px]"
+            onClick={() => setCreatingTask(true)}
+            title="Create task"
+          >
+            <ListTodo className="h-3 w-3" />
+            Task
           </Button>
           <Button asChild size="sm" variant="secondary" className="h-8 px-2 text-[11.5px]">
             <Link href={`/scheduling?contactId=${contact.id}`} title="Schedule a meeting">
@@ -434,7 +493,7 @@ export function ContactInfoPanel({
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1 bg-[#141416]">
         <div className="px-5 py-5 space-y-4">
           {/* ── Info ── */}
           <Section
@@ -557,12 +616,13 @@ export function ContactInfoPanel({
             title={`Tasks ${contact.tasks.length > 0 ? `(${contact.tasks.length})` : ''}`}
             defaultOpen={contact.tasks.length > 0}
             actions={
-              <Link
-                href={`/tasks?contactId=${contact.id}&compose=1`}
+              <button
+                type="button"
+                onClick={() => setCreatingTask(true)}
                 className="text-[10px] text-text-tertiary hover:text-text-secondary"
               >
                 <Plus className="h-3 w-3 inline" /> New
-              </Link>
+              </button>
             }
           >
             {contact.tasks.length === 0 ? (
@@ -573,10 +633,11 @@ export function ContactInfoPanel({
                   const due = dueChipStyle(t.due_date)
                   const done = t.status === 'done'
                   return (
-                    <Link
+                    <button
                       key={t.id}
-                      href={`/tasks?id=${t.id}`}
-                      className="group flex items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 hover:border-border-strong transition-colors"
+                      type="button"
+                      onClick={() => setEditingTask(t)}
+                      className="group flex w-full items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 text-left hover:border-border-strong transition-colors"
                     >
                       {done ? (
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
@@ -606,7 +667,7 @@ export function ContactInfoPanel({
                       >
                         {due.label}
                       </span>
-                    </Link>
+                    </button>
                   )
                 })}
               </div>
@@ -706,10 +767,11 @@ export function ContactInfoPanel({
             ) : (
               <div className="flex flex-col gap-1.5">
                 {contact.opportunities.slice(0, 5).map((o) => (
-                  <Link
+                  <button
                     key={o.id}
-                    href={`/pipeline/${o.id}`}
-                    className="group flex items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 hover:border-border-strong transition-colors"
+                    type="button"
+                    onClick={() => openOpportunity(o)}
+                    className="group flex w-full items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 text-left hover:border-border-strong transition-colors"
                   >
                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] bg-accent-muted text-accent">
                       <TrendingUp className="h-3 w-3" />
@@ -734,7 +796,7 @@ export function ContactInfoPanel({
                     <div className="text-[11.5px] font-semibold tabular-nums text-text-primary shrink-0">
                       {formatCurrency(Number(o.value), o.currency)}
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
@@ -816,6 +878,76 @@ export function ContactInfoPanel({
         </div>
       </ScrollArea>
     </div>
+    <ContactTaskDialog
+      open={creatingTask || Boolean(editingTask)}
+      task={editingTask}
+      contactId={contact.id}
+      contacts={[contact]}
+      saving={taskSaving}
+      onOpenChange={(open) => {
+        if (!open) {
+          setEditingTask(null)
+          setCreatingTask(false)
+        }
+      }}
+      onSubmit={saveTask}
+    />
+    <OpportunityDetailSheet
+      opportunityId={selectedOpportunityId}
+      stages={opportunityStages}
+      defaultCurrency={selectedOpportunityCurrency}
+      onOpenChange={(open) => {
+        if (!open) setSelectedOpportunityId(null)
+      }}
+    />
+    </>
+  )
+}
+
+function ContactTaskDialog({
+  open,
+  task,
+  contactId,
+  contacts,
+  saving,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean
+  task: ContactDetail['tasks'][number] | null
+  contactId: string
+  contacts: Array<{ id: string; first_name: string | null; last_name: string | null; name: string | null; phone: string | null; email: string | null }>
+  saving: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: React.ComponentProps<typeof TaskForm>['onSubmit']
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{task ? 'Edit Task' : 'New Task'}</DialogTitle>
+        </DialogHeader>
+        <TaskForm
+          defaultValues={
+            task
+              ? {
+                  title: task.title,
+                  description: task.description ?? '',
+                  due_date: task.due_date ?? '',
+                  priority: task.priority,
+                  status: task.status,
+                  contact_id: contactId,
+                }
+              : undefined
+          }
+          prefill={{ entity_type: 'contact', entity_id: contactId }}
+          contacts={contacts}
+          onSubmit={onSubmit}
+          loading={saving}
+          submitLabel={task ? 'Update Task' : 'Create Task'}
+        />
+      </DialogContent>
+    </Dialog>
   )
 }
 

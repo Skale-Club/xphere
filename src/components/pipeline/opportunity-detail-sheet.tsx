@@ -62,6 +62,7 @@ import {
   type TagRow,
 } from '@/app/(dashboard)/settings/tags/actions'
 import { formatCurrency, initialsOf } from '@/lib/pipeline/format'
+import { displayContactName } from '@/lib/contacts/names'
 import type { Database } from '@/types/database'
 import { cn } from '@/lib/utils'
 
@@ -71,6 +72,8 @@ type SideSection = 'details' | 'scheduling' | 'tasks' | 'notes' | 'channels'
 
 interface ContactSuggestion {
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -140,6 +143,8 @@ export function OpportunityDetailSheet({
     setExpectedClose(o.expected_close_date ?? '')
     setContact(o.contact ? {
       id: o.contact.id,
+      first_name: o.contact.first_name ?? null,
+      last_name: o.contact.last_name ?? null,
       name: o.contact.name,
       phone: o.contact.phone,
       email: o.contact.email,
@@ -428,7 +433,7 @@ export function OpportunityDetailSheet({
                             <div className="flex items-center justify-between gap-2 rounded-[8px] border border-border-subtle px-3 py-2">
                               <div className="min-w-0">
                                 <div className="text-[13px] font-medium text-text-primary truncate">
-                                  {contact.name ?? 'Unnamed'}
+                                  {displayContactName(contact, 'Unnamed')}
                                 </div>
                                 <div className="text-[11.5px] text-text-tertiary truncate">
                                   {contact.phone ?? contact.email ?? ''}
@@ -464,7 +469,7 @@ export function OpportunityDetailSheet({
                                       className="flex w-full items-center justify-between gap-2 px-3 py-2 hover:bg-bg-secondary text-left"
                                     >
                                       <div className="min-w-0">
-                                        <div className="text-[12.5px] font-medium text-text-primary truncate">{s.name ?? 'Unnamed'}</div>
+                                        <div className="text-[12.5px] font-medium text-text-primary truncate">{displayContactName(s, 'Unnamed')}</div>
                                         <div className="text-[11px] text-text-tertiary truncate">{s.phone ?? s.email ?? ''}</div>
                                       </div>
                                     </button>

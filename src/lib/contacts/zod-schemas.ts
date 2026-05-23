@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { composeContactName, splitContactName } from '@/lib/contacts/names'
 
 export const CONTACT_SOURCES = [
   'manual',
@@ -46,6 +47,8 @@ export function isValidEmail(input: string | null | undefined): boolean {
  */
 export const contactSchema = z
   .object({
+    first_name: z.string().trim().max(100).optional(),
+    last_name: z.string().trim().max(100).optional(),
     name: z.string().trim().max(200).optional(),
     phone: z.string().trim().max(40).optional(),
     email: z
@@ -65,8 +68,8 @@ export const contactSchema = z
     custom_fields: z.record(z.string(), z.unknown()).optional().default({}),
   })
   .refine(
-    (v) => Boolean(v.name || v.phone || v.email),
-    { message: 'Provide at least a name, phone, or email', path: ['name'] },
+    (v) => Boolean(v.first_name || v.last_name || v.name || v.phone || v.email),
+    { message: 'Provide at least a name, phone, or email', path: ['first_name'] },
   )
 
 export type ContactFormInput = z.input<typeof contactSchema>
@@ -80,6 +83,8 @@ export type ContactFormOutput = z.output<typeof contactSchema>
  * Use after {@link contactSchema} has accepted the payload.
  */
 export interface NormalisedContact {
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -93,8 +98,14 @@ export interface NormalisedContact {
 export function normaliseContactInput(input: ContactFormOutput): NormalisedContact {
   const blank = (v: string | undefined): string | null =>
     v && v.trim().length > 0 ? v.trim() : null
+  const legacyName = blank(input.name)
+  const split = splitContactName(legacyName)
+  const firstName = blank(input.first_name) ?? split.firstName
+  const lastName = blank(input.last_name) ?? split.lastName
   return {
-    name: blank(input.name),
+    first_name: firstName,
+    last_name: lastName,
+    name: composeContactName(firstName, lastName) ?? legacyName,
     phone: normalisePhone(input.phone ?? null),
     email: normaliseEmail(input.email ?? null),
     company: blank(input.company),

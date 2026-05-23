@@ -47,6 +47,7 @@
   --ch-messenger: #0084FF;
   --ch-sms:       #6366F1;
   --ch-voice:     #A855F7;
+  --ch-email:     #38BDF8;
   --ch-web:       #14B8A6;
 
   /* ---- Elevation ---- */
@@ -203,6 +204,7 @@
   --color-ch-messenger: var(--ch-messenger);
   --color-ch-sms:       var(--ch-sms);
   --color-ch-voice:     var(--ch-voice);
+  --color-ch-email:     var(--ch-email);
   --color-ch-web:       var(--ch-web);
 
   /* ---- shadcn shims for existing components ---- */

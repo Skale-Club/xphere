@@ -9,6 +9,7 @@
 //   status    | 'open' | 'closed' (optional filter)
 //   assigned  | 'me' (filter to conversations assigned to the current user)
 //   channel   | 'whatsapp' | 'instagram' | 'messenger' | 'sms' | 'voice' | 'widget' | 'web'
+//   starred   | '1' (only starred conversations)
 //
 // Response shape:
 //   {
@@ -41,7 +42,7 @@ const CHANNEL_ALIAS: Record<string, string> = {
 }
 
 const SELECT_COLS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, contacts:contact_id ( name )'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, contacts:contact_id ( first_name, last_name, name )'
 
 const VALID_STATUSES = new Set<ConversationStatus>([
   'open',
@@ -75,6 +76,9 @@ export async function GET(request: Request): Promise<Response> {
   const status = url.searchParams.get('status')
   const assigned = url.searchParams.get('assigned')
   const channelParam = url.searchParams.get('channel')
+  const starred = url.searchParams.get('starred') === '1'
+  const priority = url.searchParams.get('priority')
+  const botStatus = url.searchParams.get('botStatus')
   // Supports comma-separated values for multi-channel filtering (additive).
   const channels = channelParam
     ? channelParam.split(',').map((c) => CHANNEL_ALIAS[c] ?? c).filter(Boolean)
@@ -94,11 +98,14 @@ export async function GET(request: Request): Promise<Response> {
   if (assigned === 'me') pinnedQuery = pinnedQuery.eq('assigned_user_id', user.id)
   if (channels.length === 1) pinnedQuery = pinnedQuery.eq('channel', channels[0])
   else if (channels.length > 1) pinnedQuery = pinnedQuery.in('channel', channels)
+  if (starred) pinnedQuery = pinnedQuery.eq('starred', true)
+  if (priority && VALID_PRIORITIES.has(priority)) pinnedQuery = pinnedQuery.eq('priority', priority)
+  if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pinnedQuery = pinnedQuery.eq('bot_status', botStatus)
 
   const { data: pinnedData, error: pinnedErr } = await pinnedQuery
   if (pinnedErr) {
     console.error('[GET /api/chat/conversations] pinned', pinnedErr)
-    return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
+    return Response.json({ error: 'Failed to load conversations', detail: pinnedErr.message }, { status: 500 })
   }
   const pinnedRows = (pinnedData ?? []) as Record<string, unknown>[]
 
@@ -118,6 +125,9 @@ export async function GET(request: Request): Promise<Response> {
   if (assigned === 'me') pageQuery = pageQuery.eq('assigned_user_id', user.id)
   if (channels.length === 1) pageQuery = pageQuery.eq('channel', channels[0])
   else if (channels.length > 1) pageQuery = pageQuery.in('channel', channels)
+  if (starred) pageQuery = pageQuery.eq('starred', true)
+  if (priority && VALID_PRIORITIES.has(priority)) pageQuery = pageQuery.eq('priority', priority)
+  if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pageQuery = pageQuery.eq('bot_status', botStatus)
 
   const { data: pageData, error: pageErr, count } = await pageQuery
   if (pageErr) {
@@ -155,7 +165,11 @@ export async function GET(request: Request): Promise<Response> {
     const meta = (row.channel_metadata as Record<string, string>) ?? {}
     const pageId = meta?.page_id
     const id = row.id as string
-    const contact = row.contacts as { name?: string | null } | null
+    const contact = row.contacts as { first_name?: string | null; last_name?: string | null; name?: string | null } | null
+    const contactName =
+      [contact?.first_name?.trim(), contact?.last_name?.trim()].filter(Boolean).join(' ') ||
+      contact?.name?.trim() ||
+      null
     return {
       id,
       status: row.status as ConversationStatus,
@@ -171,9 +185,10 @@ export async function GET(request: Request): Promise<Response> {
       botStatus: (row.bot_status as string) ?? 'active',
       channelAccountName: pageId ? (pageNameMap[pageId] ?? pageId) : null,
       pinned: Boolean(row.pinned),
+      starred: Boolean(row.starred),
       priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
       contactId: (row.contact_id as string | null) ?? null,
-      contactName: contact?.name?.trim() || null,
+      contactName,
       assignedUserId: (row.assigned_user_id as string | null) ?? null,
     }
   }

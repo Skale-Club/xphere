@@ -10,9 +10,12 @@ import {
   linkContactToConversation,
   searchContactsForLink,
 } from '@/app/(dashboard)/chat/actions'
+import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 
 interface ContactHit {
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -124,11 +127,11 @@ export function InlineContactPicker({ conversationId, onLinked }: InlineContactP
                   className="flex items-center gap-2 rounded-[6px] border border-border-subtle bg-bg-primary px-2.5 py-1.5 text-left transition-colors hover:border-accent/40 hover:bg-bg-tertiary/40 disabled:opacity-50"
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-muted text-[11px] font-semibold text-accent">
-                    {(c.name || c.email || c.phone || '?').charAt(0).toUpperCase()}
+                    {initialsFromContactName(c, c.email ?? c.phone ?? '?')}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[12px] font-medium text-text-primary">
-                      {c.name || 'Unnamed contact'}
+                      {displayContactName(c)}
                     </div>
                     <div className="truncate text-[10.5px] text-text-tertiary">
                       {[c.phone, c.email, c.company].filter(Boolean).join(' · ') ||

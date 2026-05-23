@@ -38,6 +38,7 @@ import {
 } from '@/lib/contacts/csv'
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { validateCustomFields } from '@/lib/custom-fields'
+import { composeContactName, splitContactName } from '@/lib/contacts/names'
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
@@ -86,6 +87,8 @@ export async function getContacts(
     const escaped = f.q.replace(/[%_]/g, (m) => `\\${m}`)
     query = query.or(
       [
+        `first_name.ilike.%${escaped}%`,
+        `last_name.ilike.%${escaped}%`,
         `name.ilike.%${escaped}%`,
         `phone.ilike.%${escaped}%`,
         `email.ilike.%${escaped}%`,
@@ -126,7 +129,10 @@ export async function getContacts(
   }
 
   if (f.sort === 'name') {
-    query = query.order('name', { ascending: true, nullsFirst: false })
+    query = query
+      .order('first_name', { ascending: true, nullsFirst: false })
+      .order('last_name', { ascending: true, nullsFirst: false })
+      .order('name', { ascending: true, nullsFirst: false })
   } else {
     query = query.order('created_at', { ascending: false })
   }
@@ -178,6 +184,7 @@ export interface ContactDetail extends ContactRow {
   }>
   opportunities: Array<{
     id: string
+    pipeline_id: string
     title: string
     value: number
     currency: string
@@ -186,13 +193,7 @@ export interface ContactDetail extends ContactRow {
     stage: { id: string; name: string; color: string } | null
   }>
   /** SEED-039: tasks linked to this contact (limit 5, soonest due first). */
-  tasks: Array<{
-    id: string
-    title: string
-    due_date: string | null
-    priority: string
-    status: string
-  }>
+  tasks: Array<Database['public']['Tables']['tasks']['Row']>
   /** SEED-039: bookings linked to this contact (limit 5). */
   bookings: Array<{
     id: string
@@ -258,14 +259,14 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
       .limit(20),
     supabase
       .from('opportunities')
-      .select('id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
+      .select('id, pipeline_id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
       .eq('contact_id', id)
       .order('updated_at', { ascending: false })
       .limit(20),
     // SEED-039: tasks for this contact
     supabase
       .from('tasks')
-      .select('id, title, due_date, priority, status')
+      .select('*')
       .eq('entity_type', 'contact')
       .eq('entity_id', id)
       .neq('status', 'cancelled')
@@ -406,6 +407,8 @@ export async function createContact(
     .from('contacts')
     .insert({
       org_id: orgId,
+      first_name: data.first_name,
+      last_name: data.last_name,
       name: data.name,
       phone: data.phone,
       email: data.email,
@@ -466,6 +469,8 @@ export async function updateContact(
     .from('contacts')
     .update({
       name: data.name,
+      first_name: data.first_name,
+      last_name: data.last_name,
       phone: data.phone,
       email: data.email,
       company: data.company,
@@ -575,11 +580,13 @@ export async function importContactsCsv(
   }
 
   if (
+    fieldToIdx.first_name === undefined &&
+    fieldToIdx.last_name === undefined &&
     fieldToIdx.name === undefined &&
     fieldToIdx.phone === undefined &&
     fieldToIdx.email === undefined
   ) {
-    return { error: 'Map at least one of name, phone, or email.' }
+    return { error: 'Map at least one of first name, last name, full name, phone, or email.' }
   }
 
   const supabase = await createClient()
@@ -623,7 +630,11 @@ export async function importContactsCsv(
       return v || null
     }
 
-    const name = getField('name')
+    const fullName = getField('name')
+    const splitName = splitContactName(fullName)
+    const firstName = getField('first_name') ?? splitName.firstName
+    const lastName = getField('last_name') ?? splitName.lastName
+    const name = composeContactName(firstName, lastName) ?? fullName
     const phone = normalisePhone(getField('phone'))
     const email = normaliseEmail(getField('email'))
     const company = getField('company')
@@ -662,6 +673,8 @@ export async function importContactsCsv(
 
     toInsert.push({
       org_id: orgId,
+      first_name: firstName,
+      last_name: lastName,
       name,
       phone,
       email,
@@ -696,7 +709,7 @@ export async function importContactsCsv(
 
 // ─── Inline field update (SEED-039) ─────────────────────────────────────────
 
-const INLINE_BUILTIN_FIELDS = ['name', 'phone', 'email', 'company'] as const
+const INLINE_BUILTIN_FIELDS = ['first_name', 'last_name', 'name', 'phone', 'email', 'company'] as const
 type InlineBuiltinField = (typeof INLINE_BUILTIN_FIELDS)[number]
 
 export interface UpdateContactFieldResult {
@@ -729,6 +742,11 @@ export async function updateContactField(
     if (f === 'email') normalised = normaliseEmail(normalised) ?? null
     if (!normalised) normalised = null
     const updates: Record<string, string | null> = { [f]: normalised }
+    if (f === 'name') {
+      const split = splitContactName(normalised)
+      updates.first_name = split.firstName
+      updates.last_name = split.lastName
+    }
     const { error } = await supabase.from('contacts').update(updates).eq('id', contactId)
     if (error) return { ok: false, error: error.message }
     revalidatePath('/contacts')
@@ -879,7 +897,7 @@ export async function exportContactsCsv(): Promise<{ error?: string; csv?: strin
   const defs = defsResult.ok ? defsResult.data : []
 
   // Standard headers
-  const stdHeaders = ['name', 'phone', 'email', 'company', 'notes', 'source', 'created_at']
+  const stdHeaders = ['first_name', 'last_name', 'name', 'phone', 'email', 'company', 'notes', 'source', 'created_at']
   // Custom field headers | currency expands to two columns
   const cfHeaders: string[] = []
   for (const def of defs) {
@@ -895,6 +913,8 @@ export async function exportContactsCsv(): Promise<{ error?: string; csv?: strin
   for (const c of contacts) {
     const cf = (c.custom_fields ?? {}) as Record<string, unknown>
     const row: string[] = [
+      c.first_name ?? '',
+      c.last_name ?? '',
       c.name ?? '',
       c.phone ?? '',
       c.email ?? '',

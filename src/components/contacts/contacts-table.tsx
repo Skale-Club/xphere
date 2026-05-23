@@ -25,6 +25,7 @@ import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
+import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
@@ -44,15 +45,6 @@ interface ContactsTableProps {
   visibleDefs?: CustomFieldDefinitionRow[]
   filterableDefs?: CustomFieldDefinitionRow[]
   activeCfFilters?: Record<string, string>
-}
-
-function initialsOf(name: string | null, phone: string | null, email: string | null): string {
-  const base = name || email || phone || '?'
-  const parts = base.replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(/\s+/)
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return base.slice(0, 2).toUpperCase()
 }
 
 function relativeTime(iso: string): string {
@@ -323,18 +315,18 @@ export function ContactsTable({
                   <Checkbox
                     checked={selected.has(c.id)}
                     onCheckedChange={() => toggleRow(c.id)}
-                    aria-label={`Select ${c.name ?? 'contact'}`}
+                    aria-label={`Select ${displayContactName(c, 'contact')}`}
                   />
                 </div>
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback className="text-[11px] font-semibold bg-accent-muted text-accent">
-                      {initialsOf(c.name, c.phone, c.email)}
+                      {initialsFromContactName(c, c.email ?? c.phone ?? '?')}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-medium text-text-primary">
-                      {c.name || <span className="italic text-text-tertiary">Unnamed</span>}
+                      {displayContactName(c, '') || <span className="italic text-text-tertiary">Unnamed</span>}
                     </div>
                     {c.company && (
                       <div className="truncate text-[11.5px] text-text-tertiary">{c.company}</div>

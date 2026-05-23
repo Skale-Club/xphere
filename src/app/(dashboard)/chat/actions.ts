@@ -62,6 +62,27 @@ export async function pinConversation(
 }
 
 /**
+ * SEED-035 | Star/unstar a conversation. Starred is a lightweight favorite
+ * marker and is independent of pinned.
+ */
+export async function starConversation(
+  conversationId: string,
+  starred: boolean,
+): Promise<{ starred: boolean } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('conversations')
+    .update({ starred, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  if (error) return { error: 'Failed to star conversation' }
+  return { starred }
+}
+
+/**
  * v2.2 | Set conversation priority. Triggers a colored left border on the
  * conversation card. 'normal' is the default and shows no decoration.
  */
@@ -180,6 +201,8 @@ export async function linkContactToConversation(
  */
 export async function searchContactsForLink(query: string): Promise<Array<{
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -192,14 +215,14 @@ export async function searchContactsForLink(query: string): Promise<Array<{
   const q = query.trim()
   let builder = supabase
     .from('contacts')
-    .select('id, name, phone, email, company')
+    .select('id, first_name, last_name, name, phone, email, company')
     .order('updated_at', { ascending: false })
     .limit(10)
 
   if (q) {
     const safe = q.replace(/[%_]/g, ' ')
     builder = builder.or(
-      `name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%,company.ilike.%${safe}%`,
+      `first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%,company.ilike.%${safe}%`,
     )
   }
 

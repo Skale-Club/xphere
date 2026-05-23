@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, initialsOf, relativeTime } from '@/lib/pipeline/format'
+import { displayContactName } from '@/lib/contacts/names'
 import { getOpportunityTagIds, listTags } from '@/app/(dashboard)/settings/tags/actions'
 import { TasksPanel } from '@/components/tasks/tasks-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
@@ -75,12 +76,12 @@ export default async function OpportunityDetailPage({ params }: Props) {
             >
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="text-[12px] font-semibold bg-accent-muted text-accent">
-                  {initialsOf(opp.contact.name)}
+                  {initialsOf(displayContactName(opp.contact, ''))}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium text-text-primary truncate">
-                  {opp.contact.name ?? 'Unnamed'}
+                  {displayContactName(opp.contact, 'Unnamed')}
                 </div>
                 <div className="text-[11.5px] text-text-tertiary truncate">
                   {opp.contact.phone ?? opp.contact.email ?? ''}

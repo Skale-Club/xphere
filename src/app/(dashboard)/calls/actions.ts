@@ -23,6 +23,8 @@ export interface UnifiedCallFilters {
 
 export interface UnifiedCallContact {
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -77,7 +79,7 @@ export async function getUnifiedCalls(
   if (contactIds.length > 0) {
     const { data: contacts } = await supabase
       .from('contacts')
-      .select('id, name, phone, email')
+      .select('id, first_name, last_name, name, phone, email')
       .in('id', contactIds)
     contactMap = new Map((contacts ?? []).map((c) => [c.id, c]))
   }
@@ -105,7 +107,7 @@ export async function getUnifiedCall(id: string): Promise<UnifiedCallWithContact
   if (data.contact_id) {
     const { data: c } = await supabase
       .from('contacts')
-      .select('id, name, phone, email')
+      .select('id, first_name, last_name, name, phone, email')
       .eq('id', data.contact_id)
       .maybeSingle()
     contact = c ?? null
@@ -117,6 +119,8 @@ export async function getUnifiedCall(id: string): Promise<UnifiedCallWithContact
 
 export interface DialPadContactHit {
   id: string
+  first_name: string | null
+  last_name: string | null
   name: string | null
   phone: string | null
   company: string | null
@@ -130,9 +134,11 @@ export async function searchContactsForDialPad(q: string): Promise<DialPadContac
   const escaped = q.trim().replace(/[%_]/g, (m) => `\\${m}`)
   const { data } = await supabase
     .from('contacts')
-    .select('id, name, phone, company')
+    .select('id, first_name, last_name, name, phone, company')
     .or(
       [
+        `first_name.ilike.%${escaped}%`,
+        `last_name.ilike.%${escaped}%`,
         `name.ilike.%${escaped}%`,
         `phone.ilike.%${escaped}%`,
         `company.ilike.%${escaped}%`,

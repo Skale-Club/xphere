@@ -2,9 +2,12 @@ import Link from 'next/link'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { initialsOf, relativeTime } from '@/lib/pipeline/format'
+import { displayContactName } from '@/lib/contacts/names'
 
 interface ContactItem {
   id: string
+  first_name?: string | null
+  last_name?: string | null
   name: string | null
   phone: string | null
   email: string | null
@@ -55,12 +58,12 @@ export function AccountContactsTab({ contacts, accountId }: Props) {
             >
               <Avatar className="h-8 w-8 shrink-0">
                 <AvatarFallback className="text-[11px] font-semibold bg-accent-muted text-accent">
-                  {initialsOf(contact.name)}
+                  {initialsOf(displayContactName(contact, ''))}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-text-primary truncate">
-                  {contact.name ?? 'Unnamed'}
+                  {displayContactName(contact, 'Unnamed')}
                 </p>
                 <p className="text-[12px] text-text-tertiary truncate">
                   {[contact.phone, contact.email].filter(Boolean).join(' · ') || 'No contact info'}

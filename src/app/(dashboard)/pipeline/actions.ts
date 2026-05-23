@@ -276,6 +276,8 @@ export async function reorderStages(
 export interface OpportunityWithContact extends OpportunityRow {
   contact: {
     id: string
+    first_name: string | null
+    last_name: string | null
     name: string | null
     phone: string | null
     email: string | null
@@ -298,7 +300,7 @@ export async function getOpportunities(
     .from('opportunities')
     .select(
       `*,
-       contact:contacts(id, name, phone, email, company),
+       contact:contacts(id, first_name, last_name, name, phone, email, company),
        stage:pipeline_stages(id, name, color, is_won, is_lost)`,
     )
     .order('position', { ascending: true })
@@ -329,7 +331,7 @@ export async function getOpportunity(
     .from('opportunities')
     .select(
       `*,
-       contact:contacts(id, name, phone, email, company),
+       contact:contacts(id, first_name, last_name, name, phone, email, company),
        stage:pipeline_stages(id, name, color, is_won, is_lost)`,
     )
     .eq('id', id)
@@ -827,16 +829,18 @@ export async function getPipelineMetrics(pipelineId?: string): Promise<PipelineM
 // ─── Contact lookup for opportunity-create autocomplete ──────────────────────
 
 export async function searchContactsForOpportunity(q: string): Promise<
-  Array<{ id: string; name: string | null; phone: string | null; email: string | null }>
+  Array<{ id: string; first_name: string | null; last_name: string | null; name: string | null; phone: string | null; email: string | null }>
 > {
   const user = await getUser()
   if (!user) return []
   const supabase = await createClient()
-  let query = supabase.from('contacts').select('id, name, phone, email').limit(10)
+  let query = supabase.from('contacts').select('id, first_name, last_name, name, phone, email').limit(10)
   if (q && q.trim()) {
     const escaped = q.trim().replace(/[%_]/g, (m) => `\\${m}`)
     query = query.or(
       [
+        `first_name.ilike.%${escaped}%`,
+        `last_name.ilike.%${escaped}%`,
         `name.ilike.%${escaped}%`,
         `phone.ilike.%${escaped}%`,
         `email.ilike.%${escaped}%`,

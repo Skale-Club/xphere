@@ -125,8 +125,22 @@ export function usePaginatedConversations(
         s: filters.status ?? null,
         a: filters.assigned ?? null,
         c: filters.channel ?? null,
+        st: filters.starred ?? null,
+        l: filters.labelIds ?? [],
+        p: filters.priority ?? null,
+        b: filters.botStatus ?? null,
+        u: filters.unread ?? null,
       }),
-    [filters.status, filters.assigned, filters.channel],
+    [
+      filters.status,
+      filters.assigned,
+      filters.channel,
+      filters.starred,
+      filters.labelIds,
+      filters.priority,
+      filters.botStatus,
+      filters.unread,
+    ],
   )
 
   // Latest in-flight request, used to ignore stale responses.

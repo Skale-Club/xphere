@@ -1,6 +1,7 @@
 // Contact tools | query, get, create, update, delete, tag.
 
 import type { CopilotToolRegistry, ToolContext, ToolResult } from './types'
+import { composeContactName, splitContactName } from '@/lib/contacts/names'
 
 const MAX_ROWS = 50
 
@@ -11,13 +12,13 @@ async function queryContacts(input: Record<string, unknown>, ctx: ToolContext): 
 
   let query = ctx.supabase
     .from('contacts')
-    .select('id, name, email, phone, company, tags, source, created_at')
+    .select('id, first_name, last_name, name, email, phone, company, tags, source, created_at')
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (search && search.trim()) {
     const term = `%${search.trim()}%`
-    query = query.or(`name.ilike.${term},email.ilike.${term},phone.ilike.${term}`)
+    query = query.or(`first_name.ilike.${term},last_name.ilike.${term},name.ilike.${term},email.ilike.${term},phone.ilike.${term}`)
   }
   if (tag) query = query.contains('tags', [tag])
 
@@ -41,23 +42,29 @@ async function getContact(input: Record<string, unknown>, ctx: ToolContext): Pro
 
 async function createContact(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
   const name = input.name as string | undefined
+  const split = splitContactName(name)
+  const firstName = (input.first_name as string | undefined) ?? split.firstName
+  const lastName = (input.last_name as string | undefined) ?? split.lastName
+  const displayName = composeContactName(firstName, lastName) ?? name
   const email = input.email as string | undefined
   const phone = input.phone as string | undefined
-  if (!name && !email && !phone) {
+  if (!displayName && !email && !phone) {
     return { success: false, error: 'name, email, or phone required' }
   }
   const { data, error } = await ctx.supabase
     .from('contacts')
     .insert({
       org_id: ctx.orgId,
-      name: name ?? null,
+      first_name: firstName ?? null,
+      last_name: lastName ?? null,
+      name: displayName ?? null,
       email: email ?? null,
       phone: phone ?? null,
       company: (input.company as string | undefined) ?? null,
       source: 'manual',
       created_by: ctx.userId,
     })
-    .select('id, name, email, phone')
+    .select('id, first_name, last_name, name, email, phone')
     .single()
   if (error) return { success: false, error: error.message }
   return { success: true, data }
@@ -67,8 +74,13 @@ async function updateContact(input: Record<string, unknown>, ctx: ToolContext): 
   const id = input.id as string
   if (!id) return { success: false, error: 'id required' }
   const patch: Record<string, unknown> = {}
-  for (const k of ['name', 'email', 'phone', 'company']) {
+  for (const k of ['first_name', 'last_name', 'name', 'email', 'phone', 'company']) {
     if (input[k] !== undefined) patch[k] = input[k]
+  }
+  if (input.name !== undefined && input.first_name === undefined && input.last_name === undefined) {
+    const split = splitContactName(input.name as string | undefined)
+    patch.first_name = split.firstName
+    patch.last_name = split.lastName
   }
   if (Object.keys(patch).length === 0) return { success: false, error: 'no fields to update' }
 
@@ -76,7 +88,7 @@ async function updateContact(input: Record<string, unknown>, ctx: ToolContext): 
     .from('contacts')
     .update(patch)
     .eq('id', id)
-    .select('id, name, email, phone')
+    .select('id, first_name, last_name, name, email, phone')
     .maybeSingle()
   if (error) return { success: false, error: error.message }
   if (!data) return { success: false, error: `contact ${id} not found` }
@@ -164,10 +176,12 @@ export const contactTools: CopilotToolRegistry = {
     mode: 'write',
     definition: {
       name: 'create_contact',
-      description: 'Create a new contact. Provide at least one of name, email, phone.',
+      description: 'Create a new contact. Prefer first_name and last_name; name is still accepted. Provide at least one of name, email, phone.',
       input_schema: {
         type: 'object',
         properties: {
+          first_name: { type: 'string' },
+          last_name: { type: 'string' },
           name: { type: 'string' },
           email: { type: 'string' },
           phone: { type: 'string' },
@@ -186,6 +200,8 @@ export const contactTools: CopilotToolRegistry = {
         type: 'object',
         properties: {
           id: { type: 'string' },
+          first_name: { type: 'string' },
+          last_name: { type: 'string' },
           name: { type: 'string' },
           email: { type: 'string' },
           phone: { type: 'string' },

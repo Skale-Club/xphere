@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +24,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { CrmEntityType, TaskPriority, TaskStatus } from '@/types/database'
 import type { TaskRow, ContactOption } from '@/app/(dashboard)/tasks/actions'
+import { displayContactName } from '@/lib/contacts/names'
 
 function toDatetimeLocal(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -51,6 +53,7 @@ interface TaskFormProps {
   prefill?: { entity_type?: CrmEntityType; entity_id?: string }
   contacts?: ContactOption[]
   onSubmit: (values: Omit<FormValues, 'contact_id'> & { entity_type?: CrmEntityType; entity_id?: string }) => Promise<void>
+  onContactChange?: (contactId: string | null) => void
   loading?: boolean
   submitLabel?: string
 }
@@ -74,6 +77,7 @@ export function TaskForm({
   prefill,
   contacts = [],
   onSubmit,
+  onContactChange,
   loading,
   submitLabel = 'Save Task',
 }: TaskFormProps) {
@@ -89,6 +93,13 @@ export function TaskForm({
       ...defaultValues,
     },
   })
+
+  const selectedContactId =
+    form.watch('contact_id') ?? (prefill?.entity_type === 'contact' ? prefill.entity_id : undefined)
+
+  useEffect(() => {
+    onContactChange?.(selectedContactId ?? null)
+  }, [onContactChange, selectedContactId])
 
   async function handleSubmit(values: FormValues) {
     const { contact_id, due_date, ...rest } = values
@@ -245,7 +256,7 @@ export function TaskForm({
                     <SelectItem value="__none__">No contact</SelectItem>
                     {contacts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.name ?? c.email ?? c.phone ?? 'Unknown'}
+                        {displayContactName(c, c.email ?? c.phone ?? 'Unknown')}
                       </SelectItem>
                     ))}
                   </SelectContent>

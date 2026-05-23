@@ -61,6 +61,17 @@ function normaliseEmail(v: string | null | undefined): string | null {
   return s.includes('@') ? s : null
 }
 
+function splitContactName(name: string | null | undefined): { firstName: string | null; lastName: string | null } {
+  const trimmed = String(name ?? '').trim()
+  if (!trimmed) return { firstName: null, lastName: null }
+  const [first, ...rest] = trimmed.split(/\s+/)
+  return { firstName: first || null, lastName: rest.length ? rest.join(' ') : null }
+}
+
+function composeContactName(firstName: string | null, lastName: string | null): string | null {
+  return [firstName?.trim(), lastName?.trim()].filter(Boolean).join(' ') || null
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -201,6 +212,8 @@ async function processImport(
     const phoneIdx = fieldToColIdx['phone'] ?? -1
     const emailIdx = fieldToColIdx['email'] ?? -1
     const nameIdx = fieldToColIdx['name'] ?? -1
+    const firstNameIdx = fieldToColIdx['first_name'] ?? -1
+    const lastNameIdx = fieldToColIdx['last_name'] ?? -1
     const notesIdx = fieldToColIdx['notes'] ?? -1
     const companyIdx = fieldToColIdx['company'] ?? -1
     const tagsIdx = fieldToColIdx['tags'] ?? -1
@@ -268,7 +281,11 @@ async function processImport(
           (email ? existingByEmail.get(email) : undefined)
 
         const company = companyIdx >= 0 ? (row[companyIdx] ?? '').trim() : null
-        const name = nameIdx >= 0 ? (row[nameIdx] ?? '').trim() || null : null
+        const fullName = nameIdx >= 0 ? (row[nameIdx] ?? '').trim() || null : null
+        const splitName = splitContactName(fullName)
+        const firstName = firstNameIdx >= 0 ? (row[firstNameIdx] ?? '').trim() || null : splitName.firstName
+        const lastName = lastNameIdx >= 0 ? (row[lastNameIdx] ?? '').trim() || null : splitName.lastName
+        const name = composeContactName(firstName, lastName) ?? fullName
         const notes = notesIdx >= 0 ? (row[notesIdx] ?? '').trim() || null : null
         const rawTags = tagsIdx >= 0 ? (row[tagsIdx] ?? '') : ''
         const rowTags = rawTags ? rawTags.split(',').map((t: string) => t.trim()).filter(Boolean) : []
@@ -288,6 +305,8 @@ async function processImport(
             // Non-empty fields from the row win; empty fields leave existing value
             // deno-lint-ignore no-explicit-any
             const patch: Record<string, any> = {}
+            if (firstName) patch.first_name = firstName
+            if (lastName) patch.last_name = lastName
             if (name) patch.name = name
             if (phone && !existingByPhone.has(phone)) patch.phone = phone
             if (email && !existingByEmail.has(email)) patch.email = email
@@ -315,6 +334,7 @@ async function processImport(
             // create_duplicate — fall through to insert
             const contactId = await insertContact(supabase, orgId, {
               name, phone, email, notes, company, allTags, defaultSource, defaultAssignedTo, cfPatch,
+              firstName, lastName,
             })
             if (contactId) {
               insertedRows++
@@ -331,6 +351,7 @@ async function processImport(
         } else {
           const contactId = await insertContact(supabase, orgId, {
             name, phone, email, notes, company, allTags, defaultSource, defaultAssignedTo, cfPatch,
+            firstName, lastName,
           })
           if (contactId) {
             insertedRows++
@@ -387,6 +408,8 @@ async function insertContact(
   orgId: string,
   fields: {
     name: string | null
+    firstName: string | null
+    lastName: string | null
     phone: string | null
     email: string | null
     notes: string | null
@@ -401,6 +424,8 @@ async function insertContact(
   // deno-lint-ignore no-explicit-any
   const row: Record<string, any> = {
     org_id: orgId,
+    first_name: fields.firstName || null,
+    last_name: fields.lastName || null,
     name: name || null,
     phone: phone || null,
     email: email || null,
