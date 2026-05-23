@@ -57,7 +57,7 @@ function mapSupabaseError(message: string): string {
   return message
 }
 
-const inputClass = 'h-10 bg-white/4 border-white/10 text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500/50'
+const inputClass = 'h-10 text-base md:text-sm bg-white/4 border-white/10 text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500/50'
 const inputWithIconClass = `${inputClass} pr-10`
 
 function PasswordInput({
