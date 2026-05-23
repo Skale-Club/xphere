@@ -1,5 +1,5 @@
 import { TablePageSkeleton } from '@/components/skeletons/page-skeleton'
 
-export default function AssistantsLoading() {
+export default function PipelineListLoading() {
   return <TablePageSkeleton rows={6} />
 }
