@@ -16,10 +16,9 @@ const PRIORITY_COLORS: Record<string, string> = {
 interface Props {
   task: TaskWithLabels
   onClick: () => void
-  dragHandle?: React.ReactNode
 }
 
-export function TaskCard({ task, onClick, dragHandle }: Props) {
+export function TaskCard({ task, onClick }: Props) {
   return (
     <div
       onClick={onClick}
@@ -29,12 +28,6 @@ export function TaskCard({ task, onClick, dragHandle }: Props) {
         task.completed && 'opacity-60'
       )}
     >
-      {dragHandle && (
-        <div className="absolute right-2 top-2 opacity-30 sm:opacity-0 sm:group-hover:opacity-50 transition-opacity">
-          {dragHandle}
-        </div>
-      )}
-
       <div className="flex items-stretch gap-2.5">
         <div className={cn('w-1 self-stretch rounded-full shrink-0', PRIORITY_COLORS[task.priority])} />
         <div className="min-w-0 flex-1">

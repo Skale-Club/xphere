@@ -20,7 +20,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, GripVertical } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -56,17 +56,11 @@ function SortableTaskCard({ task, onOpen }: { task: TaskWithLabels; onOpen: () =
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? 'opacity-30' : undefined}
+      className={cn('touch-none', isDragging && 'opacity-30')}
+      {...listeners}
+      {...attributes}
     >
-      <TaskCard
-        task={task}
-        onClick={onOpen}
-        dragHandle={
-          <button {...listeners} {...attributes} className="cursor-grab touch-none p-0.5">
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-        }
-      />
+      <TaskCard task={task} onClick={onOpen} />
     </div>
   )
 }
@@ -138,7 +132,7 @@ export function ProjectBoard({ projectId, tasks, onOpenTask, onRefresh }: Props)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   )
 
