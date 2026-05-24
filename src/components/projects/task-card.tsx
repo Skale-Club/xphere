@@ -35,10 +35,10 @@ export function TaskCard({ task, onClick, dragHandle }: Props) {
         </div>
       )}
 
-      <div className="flex items-start gap-2">
-        <div className={cn('mt-1 h-2 w-2 rounded-full shrink-0', PRIORITY_COLORS[task.priority])} />
+      <div className="flex items-stretch gap-2.5">
+        <div className={cn('w-1 self-stretch rounded-full shrink-0', PRIORITY_COLORS[task.priority])} />
         <div className="min-w-0 flex-1">
-          <p className={cn('text-sm leading-snug', task.completed && 'line-through text-muted-foreground')}>
+          <p className={cn('text-sm font-medium leading-snug', task.completed && 'line-through text-muted-foreground')}>
             {task.name}
           </p>
 
@@ -56,9 +56,9 @@ export function TaskCard({ task, onClick, dragHandle }: Props) {
             </div>
           )}
 
-          <div className="mt-2 flex items-center gap-3 text-muted-foreground">
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
             {task.subtask_count > 0 && (
-              <span className="flex items-center gap-0.5 text-[11px]">
+              <span className="flex items-center gap-0.5">
                 <ListChecks className="h-3 w-3" />
                 {task.completed_subtask_count}/{task.subtask_count}
               </span>
@@ -73,7 +73,7 @@ export function TaskCard({ task, onClick, dragHandle }: Props) {
             )}
             {task.end_date && (
               <span className={cn(
-                'text-[11px]',
+                'ml-auto',
                 new Date(task.end_date) < new Date() && !task.completed && 'text-red-500'
               )}>
                 {new Date(task.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
