@@ -67,7 +67,7 @@ export function NewProjectDialog({ children }: Props) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle className="mt-0 leading-tight">New Project</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1.5">
@@ -80,14 +80,14 @@ export function NewProjectDialog({ children }: Props) {
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Short description (optional)"
+              placeholder="What is this project about? (optional)"
               rows={2}
               {...register('description')}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Color</Label>
+            <Label>Project Color</Label>
             <div className="flex flex-wrap gap-2">
               {COLORS.map((c) => (
                 <button
@@ -110,7 +110,7 @@ export function NewProjectDialog({ children }: Props) {
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Project
+              Create
             </Button>
           </div>
         </form>
