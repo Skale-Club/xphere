@@ -45,7 +45,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8 pt-5 pb-1">
+      <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8 pt-4 pb-0">
         <Link
           href="/projects"
           className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"

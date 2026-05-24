@@ -50,13 +50,18 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-3 pb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-2 pb-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="h-3 w-3 rounded-full shrink-0"
+            className="h-3.5 w-3.5 rounded-full shrink-0"
             style={{ backgroundColor: project.color ?? '#6366f1' }}
           />
-          <h1 className="text-lg font-semibold">{project.name}</h1>
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-xl font-semibold leading-tight truncate">{project.name}</h1>
+            {project.description && (
+              <p className="text-sm text-muted-foreground truncate max-w-md">{project.description}</p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
