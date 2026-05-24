@@ -6,7 +6,6 @@ import { getProjects } from './actions'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 
 async function ProjectsList() {
   const projects = await getProjects()
@@ -16,8 +15,8 @@ async function ProjectsList() {
       <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
         <FolderKanban className="h-12 w-12 text-muted-foreground/40" />
         <div>
-          <p className="text-lg font-medium">No projects yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Create your first project to get started</p>
+          <p className="text-lg font-medium">You don&apos;t have any projects yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your first project to start organizing tasks</p>
         </div>
         <NewProjectDialog>
           <Button size="sm">
@@ -59,7 +58,10 @@ export default function ProjectsPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
-        <h1 className="text-xl font-semibold">Projects</h1>
+        <div>
+          <h1 className="text-xl font-semibold">Projects</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your team&apos;s projects and tasks</p>
+        </div>
         <NewProjectDialog>
           <Button size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
@@ -69,7 +71,15 @@ export default function ProjectsPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <Suspense fallback={<TableSkeleton />}>
+        <Suspense fallback={
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-5 h-24 animate-pulse" />
+              </Card>
+            ))}
+          </div>
+        }>
           <ProjectsList />
         </Suspense>
       </div>
