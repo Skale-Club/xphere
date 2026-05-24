@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { X, Trash2, Search, Filter, MoreHorizontal, Upload, History, Download } from 'lucide-react'
+import { X, Trash2, Search, Filter, MoreHorizontal, Upload, History, Download, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import Link from 'next/link'
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ContactDetailSheet } from './contact-detail-sheet'
+import { NewContactDialog } from './new-contact-dialog'
 import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
 import { deleteContacts, exportContactsCsv } from '@/app/(dashboard)/contacts/actions'
 import { SortableColumnHeader } from '@/components/data-table/sortable-column-header'
@@ -55,7 +56,7 @@ interface ContactsTableProps {
   visibleDefs?: CustomFieldDefinitionRow[]
   filterableDefs?: CustomFieldDefinitionRow[]
   activeCfFilters?: Record<string, string>
-  addButton: React.ReactNode
+  /* addButton removed — rendered inline to avoid hydration fragility */
 }
 
 function relativeTime(iso: string): string {
@@ -83,7 +84,6 @@ export function ContactsTable({
   visibleDefs = [],
   filterableDefs = [],
   activeCfFilters = {},
-  addButton,
 }: ContactsTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -169,10 +169,17 @@ export function ContactsTable({
   const showFilters = Boolean(currentTag || currentSource)
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col">
       {/* Toolbar — single line on all breakpoints */}
-      <div className="animate-fade-in flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2">
-        {addButton}
+      <div className="animate-fade-in flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+        <NewContactDialog
+          trigger={
+            <Button size="sm" className="h-8">
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Contact</span>
+            </Button>
+          }
+        />
 
         {/* Search */}
         <div className="relative flex-1 min-w-0 max-w-[200px] sm:max-w-xs">
@@ -277,7 +284,8 @@ export function ContactsTable({
         </DropdownMenu>
       </div>
 
-      {filterableDefs.length > 0 && (
+      <div className="px-4 sm:px-6 lg:px-8 pb-2 space-y-4">
+        {filterableDefs.length > 0 && (
         <CustomFieldsFilterBar
           filterableDefs={filterableDefs}
           activeFilters={activeCfFilters}
@@ -464,6 +472,8 @@ export function ContactsTable({
           </div>
         </div>
       )}
+
+      </div>
 
       <ContactDetailSheet contactId={openId} onOpenChange={(o) => !o && setOpenId(null)} />
     </div>

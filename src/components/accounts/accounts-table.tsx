@@ -106,7 +106,7 @@ export function AccountsTable({
   const gridTemplate = `40px 2.5fr 1.5fr 80px 80px 100px 1.2fr${visibleDefs.map(() => ' 1fr').join('')} 90px`
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 sm:px-6 lg:px-8 pb-2">
       {filterableDefs.length > 0 && (
         <CustomFieldsFilterBar
           filterableDefs={filterableDefs}

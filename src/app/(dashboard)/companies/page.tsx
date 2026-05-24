@@ -1,12 +1,8 @@
 import { Suspense } from 'react'
-import { Plus } from 'lucide-react'
-
 import { getAccounts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
-import { NewCompanyDialog } from '@/components/accounts/new-company-dialog'
-import { Button } from '@/components/ui/button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 
@@ -45,7 +41,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   }
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="flex h-full flex-col">
       <AccountsFilters
         currentQuery={q}
         currentIndustry={industry}
@@ -53,16 +49,6 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
         currentTag={tag}
         currentAssignedTo={assignedTo}
         currentSource={source}
-        addButton={
-          <NewCompanyDialog
-            trigger={
-              <Button size="sm" className="h-8">
-                <Plus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Company</span>
-              </Button>
-            }
-          />
-        }
       />
 
       <Suspense fallback={<TableSkeleton rows={8} columns={8} />}>

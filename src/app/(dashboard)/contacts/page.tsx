@@ -1,10 +1,9 @@
 import { Suspense } from 'react'
-import { Users, Plus } from 'lucide-react'
+import { Users } from 'lucide-react'
 
 import { getContacts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { ContactsTable } from '@/components/contacts/contacts-table'
-import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { EmptyContacts } from '@/components/empty-states/empty-contacts'
 import { Button } from '@/components/ui/button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
@@ -36,7 +35,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   }
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="flex h-full flex-col">
       <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
         <ContactsBody
           q={q}
@@ -91,17 +90,6 @@ async function ContactsBody({
     )
   }
 
-  const addButton = (
-    <NewContactDialog
-      trigger={
-        <Button size="sm" className="h-8">
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Contact</span>
-        </Button>
-      }
-    />
-  )
-
   return (
     <ContactsTable
       rows={result.rows}
@@ -116,7 +104,6 @@ async function ContactsBody({
       visibleDefs={visibleDefs}
       filterableDefs={filterableDefs}
       activeCfFilters={cfFilters}
-      addButton={addButton}
     />
   )
 }

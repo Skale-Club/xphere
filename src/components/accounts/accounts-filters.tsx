@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Search, X, Filter, MoreHorizontal, Download, Loader2 } from 'lucide-react'
+import { Search, X, Filter, MoreHorizontal, Download, Loader2, Plus } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 import { exportAccountsCsv } from '@/app/(dashboard)/companies/actions'
+import { NewCompanyDialog } from './new-company-dialog'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -33,7 +34,6 @@ interface AccountsFiltersProps {
   currentTag?: string
   currentAssignedTo?: string
   currentSource?: string
-  addButton: React.ReactNode
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -75,7 +75,6 @@ export function AccountsFilters({
   currentTag,
   currentAssignedTo,
   currentSource,
-  addButton,
 }: AccountsFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -180,10 +179,17 @@ export function AccountsFilters({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
       {/* Toolbar row */}
       <div className="animate-fade-in flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2">
-        {addButton}
+        <NewCompanyDialog
+          trigger={
+            <Button size="sm" className="h-8">
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Company</span>
+            </Button>
+          }
+        />
 
         {/* Search input */}
         <div className="relative flex-1 min-w-0 max-w-[200px] sm:max-w-xs">
