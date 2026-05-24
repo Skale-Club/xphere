@@ -27,6 +27,13 @@ import {
 import { createTask } from '@/app/(dashboard)/projects/actions'
 import type { ProjectTaskStep, TaskPriority } from '@/types/database'
 
+const STEP_LABELS: Record<ProjectTaskStep, string> = {
+  backlog: 'Backlog',
+  todo: 'To Do',
+  doing: 'Doing',
+  done: 'Done',
+}
+
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
@@ -42,8 +49,10 @@ interface Props {
   onCreated?: () => void
 }
 
-export function NewTaskDialog({ projectId, defaultStep = 'backlog', parentTaskId, children, onCreated }: Props) {
+export function NewTaskDialog({ projectId, defaultStep, parentTaskId, children, onCreated }: Props) {
   const [open, setOpen] = React.useState(false)
+  const effectiveStep: ProjectTaskStep = defaultStep ?? 'backlog'
+  const showStepHint = !parentTaskId && !!defaultStep
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -57,7 +66,7 @@ export function NewTaskDialog({ projectId, defaultStep = 'backlog', parentTaskId
       await createTask({
         project_id: projectId,
         name: values.name,
-        step: defaultStep,
+        step: effectiveStep,
         priority: values.priority as TaskPriority,
         parent_task_id: parentTaskId,
       })
@@ -75,7 +84,12 @@ export function NewTaskDialog({ projectId, defaultStep = 'backlog', parentTaskId
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{parentTaskId ? 'New Subtask' : 'New Task'}</DialogTitle>
+          <DialogTitle>{parentTaskId ? 'Create Subtask' : 'Create Task'}</DialogTitle>
+          {showStepHint && (
+            <p className="text-xs text-muted-foreground -mt-1">
+              Will be added to <span className="font-medium">{STEP_LABELS[effectiveStep]}</span>
+            </p>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1.5">
