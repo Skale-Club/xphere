@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { MarkdownEditor } from '@/components/projects/markdown-editor'
+import { ExecutionRunsPanel } from '@/components/projects/execution-runs-panel'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -317,6 +318,9 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
                 </Button>
               </div>
             </div>
+
+            {/* Execution Runs */}
+            <ExecutionRunsPanel taskId={task.id} projectId={projectId} />
 
             {/* AI View toggle */}
             <div className="border border-border-subtle rounded-lg overflow-hidden">

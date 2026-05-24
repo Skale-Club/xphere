@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
-import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
+import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, ProjectExecutionRunRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
 
 export type TaskWithLabels = ProjectTaskRow & {
   labels: ProjectLabelRow[]
@@ -339,4 +339,71 @@ export async function upsertDefaultSavedView(
       sorting: {},
     })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Execution Runs
+// ---------------------------------------------------------------------------
+
+export async function getExecutionRuns(taskId: string): Promise<ProjectExecutionRunRow[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await db(supabase)
+    .from('project_execution_runs')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: false })
+  return (data as ProjectExecutionRunRow[]) ?? []
+}
+
+export async function startRun(taskId: string, projectId: string): Promise<ProjectExecutionRunRow | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+  const { data, error } = await db(supabase)
+    .from('project_execution_runs')
+    .insert({
+      task_id: taskId,
+      org_id: orgId,
+      executor_name: user.email ?? user.id,
+      executor_type: 'human',
+      environment: 'manual',
+      status: 'running',
+      start_time: new Date().toISOString(),
+    })
+    .select()
+    .single()
+  if (error) throw error
+  revalidatePath(`/projects/${projectId}`)
+  return data as ProjectExecutionRunRow
+}
+
+export async function stopRun(runId: string, taskId: string, projectId: string): Promise<void> {
+  const user = await getUser()
+  if (!user) return
+  const supabase = await createClient()
+
+  const { data: run } = await db(supabase)
+    .from('project_execution_runs')
+    .select('start_time')
+    .eq('id', runId)
+    .single()
+
+  const endTime = new Date()
+  const startTime = run?.start_time ? new Date(run.start_time) : endTime
+  const durationMinutes = (endTime.getTime() - startTime.getTime()) / 60000
+
+  await db(supabase)
+    .from('project_execution_runs')
+    .update({
+      end_time: endTime.toISOString(),
+      duration_minutes: Math.round(durationMinutes * 100) / 100,
+      status: 'delivered',
+    })
+    .eq('id', runId)
+
+  revalidatePath(`/projects/${projectId}`)
 }
