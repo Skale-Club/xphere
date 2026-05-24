@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { KanbanSquare, List, CalendarDays, Plus, MoreHorizontal, Settings } from 'lucide-react'
+import Link from 'next/link'
+import { KanbanSquare, List, CalendarDays, Plus, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ProjectBoard } from './project-board'
@@ -59,6 +60,11 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/settings/mcp">
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-muted-foreground" title="MCP Settings">
+              <Plug className="h-4 w-4" />
+            </Button>
+          </Link>
           <NewTaskDialog projectId={project.id} onCreated={refresh}>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1.5" />

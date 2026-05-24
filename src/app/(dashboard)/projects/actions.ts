@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { encrypt, decrypt } from '@/lib/crypto'
 import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, ProjectExecutionRunRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
 
 export type TaskWithLabels = ProjectTaskRow & {
@@ -406,4 +407,81 @@ export async function stopRun(runId: string, taskId: string, projectId: string):
     .eq('id', runId)
 
   revalidatePath(`/projects/${projectId}`)
+}
+
+// ---------------------------------------------------------------------------
+// MCP Token
+// ---------------------------------------------------------------------------
+
+function generateToken(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = 'xph_'
+  for (let i = 0; i < 32; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return result
+}
+
+export interface McpTokenInfo {
+  prefix: string
+  masked: string
+}
+
+export async function getMcpToken(): Promise<McpTokenInfo | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data } = await db(supabase)
+    .from('project_mcp_tokens')
+    .select('token_prefix')
+    .maybeSingle()
+  if (!data) return null
+  const prefix = data.token_prefix as string
+  return { prefix, masked: `${prefix.slice(0, 12)}••••••••••••` }
+}
+
+export async function getDecryptedMcpToken(): Promise<string | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data } = await db(supabase)
+    .from('project_mcp_tokens')
+    .select('token_hash')
+    .maybeSingle()
+  if (!data?.token_hash) return null
+  try {
+    return await decrypt(data.token_hash as string)
+  } catch {
+    return null
+  }
+}
+
+export async function rotateOrCreateMcpToken(): Promise<McpTokenInfo | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+
+  const token = generateToken()
+  const encrypted = await encrypt(token)
+  const prefix = token.slice(0, 12)
+
+  const { data: existing } = await db(supabase)
+    .from('project_mcp_tokens')
+    .select('id')
+    .maybeSingle()
+
+  if (existing) {
+    await db(supabase)
+      .from('project_mcp_tokens')
+      .update({ token_hash: encrypted, token_prefix: prefix, rotated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+  } else {
+    await db(supabase)
+      .from('project_mcp_tokens')
+      .insert({ org_id: orgId, token_hash: encrypted, token_prefix: prefix, active: true })
+  }
+
+  return { prefix, masked: `${prefix}••••••••••••` }
 }
