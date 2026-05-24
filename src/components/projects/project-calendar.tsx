@@ -71,15 +71,15 @@ export function ProjectCalendar({ tasks, onOpenTask }: Props) {
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="text-center text-xs text-muted-foreground py-1">{d}</div>
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+          <div key={i} className="text-center text-xs text-muted-foreground py-1">{d}</div>
         ))}
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-7 gap-px bg-border-subtle rounded-lg overflow-hidden">
         {leadingBlanks.map((i) => (
-          <div key={`blank-${i}`} className="bg-background min-h-[80px] p-1.5" />
+          <div key={`blank-${i}`} className="bg-background min-h-[56px] sm:min-h-[80px] p-1" />
         ))}
         {days.map((day) => {
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
@@ -87,36 +87,44 @@ export function ProjectCalendar({ tasks, onOpenTask }: Props) {
           return (
             <div
               key={day}
-              className="bg-background min-h-[80px] p-1.5 space-y-0.5"
+              className="bg-background min-h-[56px] sm:min-h-[80px] p-1 space-y-0.5"
             >
               <div className={cn(
-                'text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full',
+                'text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full mx-auto',
                 isToday && 'bg-foreground text-background'
               )}>
                 {day}
               </div>
-              {dayTasks.slice(0, 3).map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => onOpenTask(t.id)}
-                  className={cn(
-                    'w-full text-left text-[10px] px-1 py-0.5 rounded truncate transition-opacity hover:opacity-80',
-                    t.completed ? 'opacity-50 line-through' : ''
-                  )}
-                  style={{
-                    backgroundColor: (t.end_date && new Date(t.end_date) < today && !t.completed)
-                      ? '#ef444422'
-                      : '#6366f122',
-                    color: (t.end_date && new Date(t.end_date) < today && !t.completed)
-                      ? '#ef4444'
-                      : '#6366f1',
-                  }}
-                >
-                  {t.name}
-                </button>
-              ))}
-              {dayTasks.length > 3 && (
-                <p className="text-[10px] text-muted-foreground pl-1">+{dayTasks.length - 3} more</p>
+              {/* On mobile show dots, on sm+ show labels */}
+              <div className="hidden sm:block space-y-0.5">
+                {dayTasks.slice(0, 2).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => onOpenTask(t.id)}
+                    className={cn(
+                      'w-full text-left text-[10px] px-1 py-0.5 rounded truncate transition-opacity hover:opacity-80 active:opacity-60',
+                      t.completed ? 'opacity-50 line-through' : ''
+                    )}
+                    style={{
+                      backgroundColor: (t.end_date && new Date(t.end_date) < today && !t.completed) ? '#ef444422' : '#6366f122',
+                      color: (t.end_date && new Date(t.end_date) < today && !t.completed) ? '#ef4444' : '#6366f1',
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+                {dayTasks.length > 2 && (
+                  <p className="text-[10px] text-muted-foreground pl-1">+{dayTasks.length - 2}</p>
+                )}
+              </div>
+              {/* Mobile: dots only */}
+              {dayTasks.length > 0 && (
+                <div className="sm:hidden flex justify-center gap-0.5 mt-0.5">
+                  {dayTasks.slice(0, 3).map((t) => (
+                    <button key={t.id} onClick={() => onOpenTask(t.id)} className="h-1.5 w-1.5 rounded-full bg-indigo-400 active:scale-125 transition-transform" />
+                  ))}
+                  {dayTasks.length > 3 && <span className="text-[8px] text-muted-foreground">+</span>}
+                </div>
               )}
             </div>
           )

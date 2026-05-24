@@ -30,7 +30,7 @@ export function TaskCard({ task, onClick, dragHandle }: Props) {
       )}
     >
       {dragHandle && (
-        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-50 transition-opacity">
+        <div className="absolute right-2 top-2 opacity-30 sm:opacity-0 sm:group-hover:opacity-50 transition-opacity">
           {dragHandle}
         </div>
       )}

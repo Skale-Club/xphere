@@ -186,14 +186,14 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
             </div>
 
             {/* Step + Priority row */}
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Step</Label>
                 <Select
                   value={task.step}
                   onValueChange={(v) => save({ step: v as ProjectTaskStep })}
                 >
-                  <SelectTrigger className="h-7 text-xs w-32">
+                  <SelectTrigger className="h-9 sm:h-7 text-sm sm:text-xs w-full sm:w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -242,12 +242,12 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
             </div>
 
             {/* Dates */}
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Start Date</Label>
                 <Input
                   type="date"
-                  className="h-7 text-xs w-36"
+                  className="h-9 text-sm w-full"
                   value={task.start_date ?? ''}
                   onChange={(e) => save({ start_date: e.target.value || null })}
                 />
@@ -256,7 +256,7 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
                 <Label className="text-xs text-muted-foreground">End Date</Label>
                 <Input
                   type="date"
-                  className="h-7 text-xs w-36"
+                  className="h-9 text-sm w-full"
                   value={task.end_date ?? ''}
                   onChange={(e) => save({ end_date: e.target.value || null })}
                 />

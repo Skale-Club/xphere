@@ -7,6 +7,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   pointerWithin,
@@ -80,7 +81,7 @@ function BoardColumn({ step, tasks, projectId, isOver, onOpen, onRefresh }: Colu
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full max-h-full w-[280px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors',
+        'flex h-full max-h-full w-[80vw] sm:w-[280px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors snap-center sm:snap-align-none',
         isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle'
       )}
     >
@@ -134,7 +135,8 @@ export function ProjectBoard({ projectId, tasks, onOpenTask, onRefresh }: Props)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   )
 
   const tasksByStep = React.useMemo(() => {
@@ -198,7 +200,7 @@ export function ProjectBoard({ projectId, tasks, onOpenTask, onRefresh }: Props)
         setOverCol(step)
       }}
     >
-      <div className="flex h-full gap-3 overflow-x-auto pb-4">
+      <div className="flex h-full gap-3 overflow-x-auto pb-4 snap-x snap-mandatory sm:snap-none">
         <SortableContext items={STEPS.map((s) => `col-${s.id}`)} strategy={verticalListSortingStrategy}>
           {STEPS.map((step) => (
             <BoardColumn

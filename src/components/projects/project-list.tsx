@@ -75,13 +75,13 @@ export function ProjectList({ projectId, tasks, onOpenTask, onRefresh }: Props) 
         <div
           key={task.id}
           className={cn(
-            'group flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/5 transition-colors cursor-pointer border border-transparent hover:border-border-subtle',
+            'group flex items-start gap-3 px-2 sm:px-3 py-3 rounded-lg hover:bg-accent/5 active:bg-accent/10 transition-colors cursor-pointer border border-transparent hover:border-border-subtle',
             task.completed && 'opacity-60'
           )}
         >
           <button
             onClick={(e) => { e.stopPropagation(); toggleComplete(task) }}
-            className="mt-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="flex items-center justify-center min-w-[36px] min-h-[36px] -m-1 rounded-md text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             {task.completed
               ? <CheckCircle2 className="h-4 w-4 text-green-500" />
