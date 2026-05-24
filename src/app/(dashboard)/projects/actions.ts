@@ -485,3 +485,56 @@ export async function rotateOrCreateMcpToken(): Promise<McpTokenInfo | null> {
 
   return { prefix, masked: `${prefix}••••••••••••` }
 }
+
+// ---------------------------------------------------------------------------
+// Dependencies
+// ---------------------------------------------------------------------------
+
+export interface TaskDependency {
+  task_id: string
+  depends_on_id: string
+  dependency_rule: string
+  depends_on_name: string
+  depends_on_step: string
+  depends_on_completed: boolean
+  depends_on_validation_status: string
+  is_blocking: boolean
+}
+
+export async function getTaskDependencies(taskId: string): Promise<TaskDependency[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data: deps } = await db(supabase)
+    .from('project_task_dependencies')
+    .select('task_id, depends_on_id, dependency_rule')
+    .eq('task_id', taskId)
+  if (!deps?.length) return []
+  const depIds = (deps as { task_id: string; depends_on_id: string; dependency_rule: string }[]).map((d) => d.depends_on_id)
+  const { data: tasks } = await db(supabase)
+    .from('project_tasks')
+    .select('id, name, step, completed, validation_status')
+    .in('id', depIds)
+  const taskMap = new Map<string, { name: string; step: string; completed: boolean; validation_status: string }>()
+  for (const t of (tasks as { id: string; name: string; step: string; completed: boolean; validation_status: string }[]) ?? []) {
+    taskMap.set(t.id, t)
+  }
+  return (deps as { task_id: string; depends_on_id: string; dependency_rule: string }[]).map((d) => {
+    const parent = taskMap.get(d.depends_on_id)
+    const rule = d.dependency_rule
+    const isBlocking =
+      rule === 'after_done' ? !(parent?.completed) :
+      rule === 'after_delivered' ? !(parent?.step === 'done') :
+      !(parent?.validation_status === 'approved')
+    return {
+      task_id: d.task_id,
+      depends_on_id: d.depends_on_id,
+      dependency_rule: rule,
+      depends_on_name: parent?.name ?? 'Unknown task',
+      depends_on_step: parent?.step ?? '',
+      depends_on_completed: parent?.completed ?? false,
+      depends_on_validation_status: parent?.validation_status ?? '',
+      is_blocking: isBlocking,
+    }
+  })
+}

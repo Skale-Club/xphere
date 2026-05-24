@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Loader2, Bot, CheckCircle2, Clock, Tag, Calendar, User, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
+import { Loader2, CheckCircle2, Tag, Calendar, User, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import {
@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { MarkdownEditor } from '@/components/projects/markdown-editor'
 import { ExecutionRunsPanel } from '@/components/projects/execution-runs-panel'
+import { AiViewPanel } from '@/components/projects/ai-view-panel'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -79,7 +80,7 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
   const [task, setTask] = React.useState<TaskWithLabels | null>(null)
   const [subtasks, setSubtasks] = React.useState<ProjectTaskRow[]>([])
   const [loading, setLoading] = React.useState(false)
-  const [aiViewOpen, setAiViewOpen] = React.useState(false)
+
   const [newSubtaskName, setNewSubtaskName] = React.useState('')
   const [addingSubtask, setAddingSubtask] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -322,56 +323,8 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
             {/* Execution Runs */}
             <ExecutionRunsPanel taskId={task.id} projectId={projectId} />
 
-            {/* AI View toggle */}
-            <div className="border border-border-subtle rounded-lg overflow-hidden">
-              <button
-                onClick={() => setAiViewOpen((v) => !v)}
-                className="flex items-center justify-between w-full px-3 py-2.5 text-sm hover:bg-accent/5 transition-colors"
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <Bot className="h-4 w-4 text-purple-500" />
-                  AI View
-                </span>
-                {aiViewOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-              </button>
-
-              {aiViewOpen && (
-                <div className="px-3 pb-3 space-y-3 border-t border-border-subtle pt-3 bg-accent/5">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">AI Context</Label>
-                    <Textarea
-                      defaultValue={task.ai_context ?? ''}
-                      onBlur={(e) => e.target.value !== (task.ai_context ?? '') && save({ ai_context: e.target.value })}
-                      placeholder="Context for AI agents..."
-                      rows={3}
-                      className="text-xs resize-none bg-background"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Validation Criteria</Label>
-                    <Textarea
-                      defaultValue={task.validation_criteria ?? ''}
-                      onBlur={(e) => e.target.value !== (task.validation_criteria ?? '') && save({ validation_criteria: e.target.value })}
-                      placeholder="How to validate this task is done..."
-                      rows={2}
-                      className="text-xs resize-none bg-background"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                    <div>
-                      <p className="font-medium text-foreground/70 mb-0.5">Execution Status</p>
-                      <p className="capitalize">{task.execution_status.replace('_', ' ')}</p>
-                    </div>
-                    {task.last_agent_update && (
-                      <div>
-                        <p className="font-medium text-foreground/70 mb-0.5">Last Agent Update</p>
-                        <p>{new Date(task.last_agent_update).toLocaleString()}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* AI View */}
+            <AiViewPanel task={task} projectId={projectId} onSave={save} />
 
             {/* Delete */}
             <div className="pt-2 border-t border-border-subtle">
