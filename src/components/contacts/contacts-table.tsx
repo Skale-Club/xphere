@@ -5,7 +5,6 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   X,
   Trash2,
-  Filter,
   MoreHorizontal,
   Upload,
   History,
@@ -19,19 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import {
+  FilterPill,
+  FilterPopover,
+  FilterPopoverHeader,
+  FilterSection,
+} from "@/components/data-table/filter-popover";
 import { ContactDetailSheet } from "./contact-detail-sheet";
 import { NewContactDialog } from "./new-contact-dialog";
 import { CustomFieldsFilterBar } from "@/components/custom-fields/custom-fields-filter-bar";
@@ -147,6 +145,17 @@ export function ContactsTable({
     router.replace(`${pathname}?${params.toString()}`);
   }
 
+  function clearUnifiedFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("source");
+    params.delete("tag");
+    for (const key of Array.from(params.keys())) {
+      if (key.startsWith("cff_")) params.delete(key);
+    }
+    params.delete("page");
+    router.replace(`${pathname}?${params.toString()}`);
+  }
+
   function toggleRow(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -184,7 +193,16 @@ export function ContactsTable({
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const showFilters = Boolean(currentTag || currentSource);
+  const activeCustomFilterCount = Object.entries(activeCfFilters).filter(
+    ([key, value]) =>
+      Boolean(value) && filterableDefs.some((def) => def.key === key),
+  ).length;
+  const filterActiveCount =
+    [currentTag, currentSource].filter(Boolean).length +
+    activeCustomFilterCount;
+  const showFilters = Boolean(
+    currentTag || currentSource || activeCustomFilterCount > 0,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -203,63 +221,21 @@ export function ContactsTable({
           value={query}
           onValueChange={setQuery}
           onClear={() => setQuery("")}
+          placeholder="Search name, phone, email, company..."
         />
 
         <div className="hidden sm:block flex-1" />
 
-        {/* Desktop: source filter */}
-        <div className="hidden sm:flex items-center gap-2">
-          <Select
-            value={currentSource ?? "all"}
-            onValueChange={(v) => setParam("source", v === "all" ? null : v)}
-          >
-            <SelectTrigger className="h-8 w-[140px] text-[12.5px]">
-              <Filter className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
-              <SelectValue placeholder="All sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sources</SelectItem>
-              {CONTACT_SOURCES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {sourceLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Mobile: source filter icon */}
-        <div className="sm:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                className={cn(
-                  "h-8 px-2.5 text-[12.5px]",
-                  currentSource &&
-                    "border-accent/40 bg-accent-muted/20 text-accent",
-                )}
-                aria-label="Filter by source"
-              >
-                <Filter className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onSelect={() => setParam("source", null)}>
-                All sources
-              </DropdownMenuItem>
-              {CONTACT_SOURCES.map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onSelect={() => setParam("source", s)}
-                >
-                  {sourceLabel(s)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <ContactsFilterPopover
+          activeCount={filterActiveCount}
+          allTags={allTags}
+          currentTag={currentTag}
+          currentSource={currentSource}
+          filterableDefs={filterableDefs}
+          activeCfFilters={activeCfFilters}
+          setParam={setParam}
+          onClear={clearUnifiedFilters}
+        />
 
         {/* More actions dropdown — all breakpoints */}
         <DropdownMenu>
@@ -312,45 +288,6 @@ export function ContactsTable({
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 pb-2 space-y-4">
-        {filterableDefs.length > 0 && (
-          <CustomFieldsFilterBar
-            filterableDefs={filterableDefs}
-            activeFilters={activeCfFilters}
-            onChange={(key, value) => setParam(`cff_${key}`, value)}
-          />
-        )}
-
-        {/* Tag chips */}
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-text-tertiary mr-1">
-              Tags
-            </span>
-            {allTags.map((t) => (
-              <TagChip
-                key={t.id}
-                label={t.name}
-                color={t.color}
-                active={
-                  currentTag === t.id ||
-                  currentTag === t.name ||
-                  currentTag === t.slug
-                }
-                onClick={() =>
-                  setParam(
-                    "tag",
-                    currentTag === t.id ||
-                      currentTag === t.name ||
-                      currentTag === t.slug
-                      ? null
-                      : t.id,
-                  )
-                }
-              />
-            ))}
-          </div>
-        )}
-
         {/* Bulk actions bar */}
         {selected.size > 0 && (
           <div className="flex items-center justify-between rounded-[10px] border border-accent/30 bg-accent-muted/40 px-3 py-2">
@@ -655,6 +592,99 @@ export function ContactsTable({
   );
 }
 
+function ContactsFilterPopover({
+  activeCount,
+  allTags,
+  currentTag,
+  currentSource,
+  filterableDefs,
+  activeCfFilters,
+  setParam,
+  onClear,
+}: {
+  activeCount: number;
+  allTags: TagRow[];
+  currentTag?: string;
+  currentSource?: string;
+  filterableDefs: CustomFieldDefinitionRow[];
+  activeCfFilters: Record<string, string>;
+  setParam: (key: string, value: string | null) => void;
+  onClear: () => void;
+}) {
+  return (
+    <FilterPopover activeCount={activeCount} className="w-[360px]">
+      <FilterPopoverHeader
+        title="Contact filters"
+        showClear={activeCount > 0}
+        onClear={onClear}
+      />
+      <div className="space-y-4 p-4">
+        <FilterSection title="Source">
+          <FilterPill
+            active={!currentSource}
+            onClick={() => setParam("source", null)}
+          >
+            All sources
+          </FilterPill>
+          {CONTACT_SOURCES.map((source) => (
+            <FilterPill
+              key={source}
+              active={currentSource === source}
+              onClick={() => setParam("source", source)}
+            >
+              {sourceLabel(source)}
+            </FilterPill>
+          ))}
+        </FilterSection>
+
+        <FilterSection title="Tags">
+          <TagChip
+            label="All tags"
+            active={!currentTag}
+            onClick={() => setParam("tag", null)}
+          />
+          {allTags.length > 0 ? (
+            allTags.map((tag) => (
+              <TagChip
+                key={tag.id}
+                label={tag.name}
+                color={tag.color}
+                active={
+                  currentTag === tag.id ||
+                  currentTag === tag.name ||
+                  currentTag === tag.slug
+                }
+                onClick={() =>
+                  setParam(
+                    "tag",
+                    currentTag === tag.id ||
+                      currentTag === tag.name ||
+                      currentTag === tag.slug
+                      ? null
+                      : tag.id,
+                  )
+                }
+              />
+            ))
+          ) : (
+            <span className="text-xs text-text-tertiary">No tags yet</span>
+          )}
+        </FilterSection>
+
+        {filterableDefs.length > 0 && (
+          <div className="rounded-[8px] border border-border-subtle bg-bg-secondary/60 p-3">
+            <CustomFieldsFilterBar
+              filterableDefs={filterableDefs}
+              activeFilters={activeCfFilters}
+              onChange={(key, value) => setParam(`cff_${key}`, value)}
+            />
+          </div>
+        )}
+      </div>
+    </FilterPopover>
+  );
+}
+
 function TagChip({
   label,
   color,
@@ -693,7 +723,7 @@ function TagChip({
         />
       )}
       {label}
-      {active && <X className="h-3 w-3" />}
+      {active && label !== "All tags" && <X className="h-3 w-3" />}
     </button>
   );
 }

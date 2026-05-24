@@ -1,80 +1,113 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
-  Send, Pencil, ShieldCheck, RotateCcw, History, X,
-  Mic, ImagePlus, Loader2,
-  Sparkles, Square, Users, Activity, ListTodo, GitMerge,
-} from 'lucide-react'
-import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { useCopilotStore } from '@/stores/copilot-store'
-import { MessageBubble } from './message-bubble'
-import { createConversation, getConversation } from '@/app/(dashboard)/copilot/_actions/conversations'
-import { sendCopilotMessage } from '@/app/(dashboard)/copilot/_actions/turn'
+  Send,
+  Pencil,
+  ShieldCheck,
+  RotateCcw,
+  History,
+  X,
+  Mic,
+  ImagePlus,
+  Loader2,
+  Sparkles,
+  Square,
+  Users,
+  Activity,
+  ListTodo,
+  GitMerge,
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useCopilotStore } from "@/stores/copilot-store";
+import { MessageBubble } from "./message-bubble";
+import {
+  createConversation,
+  getConversation,
+} from "@/app/(dashboard)/copilot/_actions/conversations";
+import { sendCopilotMessage } from "@/app/(dashboard)/copilot/_actions/turn";
+
+const VOICE_BAR_COUNT = 11;
 
 // ─── Image helpers ────────────────────────────────────────────────────────────
 
 function compressImage(file: File, maxPx = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
+    const img = new Image();
+    const url = URL.createObjectURL(file);
     img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', 0.82))
-    }
-    img.onerror = reject
-    img.src = url
-  })
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 // ─── Panel (desktop sidebar + mobile fullscreen) ──────────────────────────────
 
 export function CopilotPanel() {
   const {
-    open, setOpen,
-    conversationId, setConversationId,
-    messages, resetMessages, appendMessage, updateMessage,
-    writeMode, setWriteMode,
-    sending, setSending,
-    sessionCostUsd, addCost,
+    open,
+    setOpen,
+    conversationId,
+    setConversationId,
+    messages,
+    resetMessages,
+    appendMessage,
+    updateMessage,
+    writeMode,
+    setWriteMode,
+    sending,
+    setSending,
+    sessionCostUsd,
+    addCost,
     newSession,
-  } = useCopilotStore()
+  } = useCopilotStore();
 
-  const [input, setInput] = useState('')
-  const [images, setImages] = useState<string[]>([])         // compressed base64
-  const [listening, setListening] = useState(false)
-  const [, startSend] = useTransition()
-  const scrollerRef = useRef<HTMLDivElement>(null)
-  const mobileScrollerRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const mobileFileInputRef = useRef<HTMLInputElement>(null)
+  const [input, setInput] = useState("");
+  const [images, setImages] = useState<string[]>([]); // compressed base64
+  const [listening, setListening] = useState(false);
+  const [voiceLevels, setVoiceLevels] = useState<number[]>(() =>
+    Array.from({ length: VOICE_BAR_COUNT }, () => 0),
+  );
+  const [, startSend] = useTransition();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mobileFileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<any>(null);
+  const voiceStreamRef = useRef<MediaStream | null>(null);
+  const voiceAudioContextRef = useRef<AudioContext | null>(null);
+  const voiceAnimationRef = useRef<number | null>(null);
+  const voiceMeterRunRef = useRef(0);
 
   useEffect(() => {
     if (scrollerRef.current) {
-      scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight
+      scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
     }
     if (mobileScrollerRef.current) {
-      mobileScrollerRef.current.scrollTop = mobileScrollerRef.current.scrollHeight
+      mobileScrollerRef.current.scrollTop =
+        mobileScrollerRef.current.scrollHeight;
     }
-  }, [messages])
+  }, [messages]);
 
   useEffect(() => {
-    if (!conversationId) return
-    let cancelled = false
+    if (!conversationId) return;
+    let cancelled = false;
     void (async () => {
-      const res = await getConversation(conversationId)
+      const res = await getConversation(conversationId);
       if (!cancelled && res.ok) {
         resetMessages(
           res.data.messages.map((m) => ({
@@ -82,116 +115,243 @@ export function CopilotPanel() {
             role: m.role,
             parts: m.parts,
           })),
-        )
+        );
       }
-    })()
-    return () => { cancelled = true }
-  }, [conversationId, resetMessages])
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, resetMessages]);
 
   // ── Audio / speech-to-text ─────────────────────────────────────────────────
 
+  function resetVoiceMeter() {
+    if (voiceAnimationRef.current !== null) {
+      cancelAnimationFrame(voiceAnimationRef.current);
+      voiceAnimationRef.current = null;
+    }
+    voiceStreamRef.current?.getTracks().forEach((track) => track.stop());
+    voiceStreamRef.current = null;
+    void voiceAudioContextRef.current?.close();
+    voiceAudioContextRef.current = null;
+    setVoiceLevels(Array.from({ length: VOICE_BAR_COUNT }, () => 0));
+  }
+
+  function stopVoiceCapture() {
+    voiceMeterRunRef.current += 1;
+    resetVoiceMeter();
+    setListening(false);
+  }
+
+  async function startVoiceMeter() {
+    resetVoiceMeter();
+    const runId = voiceMeterRunRef.current + 1;
+    voiceMeterRunRef.current = runId;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (voiceMeterRunRef.current !== runId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const AudioContextCtor =
+        window.AudioContext ??
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).webkitAudioContext;
+      const audioContext = new AudioContextCtor();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.72;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      voiceStreamRef.current = stream;
+      voiceAudioContextRef.current = audioContext;
+
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        if (voiceMeterRunRef.current !== runId) return;
+        analyser.getByteFrequencyData(frequencyData);
+
+        const usableBins = Math.min(frequencyData.length, 72);
+        const nextLevels = Array.from(
+          { length: VOICE_BAR_COUNT },
+          (_, index) => {
+            const start = Math.floor((index / VOICE_BAR_COUNT) * usableBins);
+            const end = Math.max(
+              start + 1,
+              Math.floor(((index + 1) / VOICE_BAR_COUNT) * usableBins),
+            );
+            let total = 0;
+            for (let i = start; i < end; i += 1) {
+              total += frequencyData[i] ?? 0;
+            }
+            const average = total / (end - start);
+            return Math.min(1, Math.pow(average / 170, 0.85));
+          },
+        );
+
+        setVoiceLevels(nextLevels);
+        voiceAnimationRef.current = requestAnimationFrame(tick);
+      };
+
+      tick();
+    } catch {
+      if (voiceMeterRunRef.current === runId) {
+        setVoiceLevels(Array.from({ length: VOICE_BAR_COUNT }, () => 0));
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      voiceMeterRunRef.current += 1;
+      resetVoiceMeter();
+    };
+  }, []);
+
   function toggleMic() {
     if (listening) {
-      recognitionRef.current?.stop()
-      return
+      recognitionRef.current?.stop();
+      stopVoiceCapture();
+      return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any
-    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition
+    const w = window as any;
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!SR) {
-      alert('Voice input is not supported in this browser.')
-      return
+      alert("Voice input is not supported in this browser.");
+      return;
     }
-    const rec = new SR()
-    rec.lang = 'pt-BR'
-    rec.interimResults = false
+    const rec = new SR();
+    rec.lang = "pt-BR";
+    rec.interimResults = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
       const transcript = Array.from(e.results as unknown[])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((r: any) => r[0].transcript as string)
-        .join(' ')
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        .join(" ");
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    rec.onend = stopVoiceCapture;
+    rec.onerror = stopVoiceCapture;
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+      setListening(true);
+      void startVoiceMeter();
+    } catch {
+      stopVoiceCapture();
     }
-    rec.onend = () => setListening(false)
-    rec.onerror = () => setListening(false)
-    rec.start()
-    recognitionRef.current = rec
-    setListening(true)
   }
 
   // ── Image picker ───────────────────────────────────────────────────────────
 
   async function handleImageFiles(files: FileList | null) {
-    if (!files) return
+    if (!files) return;
     const compressed = await Promise.all(
-      Array.from(files).slice(0, 4).map((f) => compressImage(f))
-    )
-    setImages((prev) => [...prev, ...compressed].slice(0, 4))
+      Array.from(files)
+        .slice(0, 4)
+        .map((f) => compressImage(f)),
+    );
+    setImages((prev) => [...prev, ...compressed].slice(0, 4));
   }
 
   function removeImage(idx: number) {
-    setImages((prev) => prev.filter((_, i) => i !== idx))
+    setImages((prev) => prev.filter((_, i) => i !== idx));
   }
 
   // ── Send ───────────────────────────────────────────────────────────────────
 
   async function handleSend() {
-    const text = input.trim()
-    if ((!text && images.length === 0) || sending) return
-    setSending(true)
+    const text = input.trim();
+    if ((!text && images.length === 0) || sending) return;
+    setSending(true);
 
-    let activeConvId = conversationId
+    let activeConvId = conversationId;
     if (!activeConvId) {
-      const created = await createConversation()
+      const created = await createConversation();
       if (!created.ok) {
-        setSending(false)
-        appendMessage({ id: tempId(), role: 'assistant', parts: [{ type: 'text', text: `Error: ${created.error}` }] })
-        return
+        setSending(false);
+        appendMessage({
+          id: tempId(),
+          role: "assistant",
+          parts: [{ type: "text", text: `Error: ${created.error}` }],
+        });
+        return;
       }
-      activeConvId = created.data.id
-      setConversationId(activeConvId)
+      activeConvId = created.data.id;
+      setConversationId(activeConvId);
     }
 
-    const sentImages = [...images]
+    const sentImages = [...images];
     appendMessage({
       id: tempId(),
-      role: 'user',
+      role: "user",
       parts: [
-        { type: 'text', text: text || '(image)' },
-        ...sentImages.map((url) => ({ type: 'image' as const, url })),
+        { type: "text", text: text || "(image)" },
+        ...sentImages.map((url) => ({ type: "image" as const, url })),
       ],
-    })
-    setInput('')
-    setImages([])
+    });
+    setInput("");
+    setImages([]);
 
-    const assistantMsgId = tempId()
-    appendMessage({ id: assistantMsgId, role: 'assistant', parts: [], pending: true })
+    const assistantMsgId = tempId();
+    appendMessage({
+      id: assistantMsgId,
+      role: "assistant",
+      parts: [],
+      pending: true,
+    });
 
     startSend(async () => {
       try {
         const res = await sendCopilotMessage({
           conversationId: activeConvId!,
-          message: text || '(describe the image)',
+          message: text || "(describe the image)",
           images: sentImages.length > 0 ? sentImages : undefined,
           writeMode,
-        })
+        });
         if (res.ok) {
-          updateMessage(assistantMsgId, { id: res.data.assistantMessageId, parts: res.data.assistantParts, pending: false, runId: res.data.runId, costUsd: res.data.costUsd })
-          addCost(res.data.costUsd)
+          updateMessage(assistantMsgId, {
+            id: res.data.assistantMessageId,
+            parts: res.data.assistantParts,
+            pending: false,
+            runId: res.data.runId,
+            costUsd: res.data.costUsd,
+          });
+          addCost(res.data.costUsd);
         } else {
-          updateMessage(assistantMsgId, { parts: [{ type: 'text', text: `Error: ${res.error}` }], pending: false })
+          updateMessage(assistantMsgId, {
+            parts: [{ type: "text", text: `Error: ${res.error}` }],
+            pending: false,
+          });
         }
       } catch (err) {
-        updateMessage(assistantMsgId, { parts: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}` }], pending: false })
+        updateMessage(assistantMsgId, {
+          parts: [
+            {
+              type: "text",
+              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+          pending: false,
+        });
       } finally {
-        setSending(false)
+        setSending(false);
       }
-    })
+    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSend();
+    }
   }
 
   // ── Desktop render (compact sidebar) ───────────────────────────────────────
@@ -203,18 +363,36 @@ export function CopilotPanel() {
         <span className="text-sm font-semibold text-text-primary">Copilot</span>
         <div className="ml-auto flex items-center gap-1">
           {sessionCostUsd > 0 && (
-            <span className="text-[11px] text-text-tertiary">~${sessionCostUsd.toFixed(4)}</span>
+            <span className="text-[11px] text-text-tertiary">
+              ~${sessionCostUsd.toFixed(4)}
+            </span>
           )}
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             onClick={() => setWriteMode(!writeMode)}
-            className={cn('h-7 gap-1 px-2 text-xs', writeMode ? 'text-amber-500' : 'text-text-secondary')}
-            title={writeMode ? 'Write mode ON' : 'Read-only mode'}
+            className={cn(
+              "h-7 gap-1 px-2 text-xs",
+              writeMode ? "text-amber-500" : "text-text-secondary",
+            )}
+            title={writeMode ? "Write mode ON" : "Read-only mode"}
           >
-            {writeMode ? <Pencil className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
-            <span className="hidden sm:inline">{writeMode ? 'Write' : 'Read-only'}</span>
+            {writeMode ? (
+              <Pencil className="h-3 w-3" />
+            ) : (
+              <ShieldCheck className="h-3 w-3" />
+            )}
+            <span className="hidden sm:inline">
+              {writeMode ? "Write" : "Read-only"}
+            </span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={newSession} className="h-7 px-2" title="New conversation">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={newSession}
+            className="h-7 px-2"
+            title="New conversation"
+          >
             <RotateCcw className="h-3 w-3" />
           </Button>
           <Link
@@ -225,16 +403,26 @@ export function CopilotPanel() {
           >
             <History className="h-3 w-3" />
           </Link>
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} className="h-7 px-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOpen(false)}
+            className="h-7 px-2"
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
       {/* Messages */}
-      <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+      <div
+        ref={scrollerRef}
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
+      >
         {messages.length === 0 && <GreetingPanel onPick={setInput} />}
-        {messages.map((m) => <MessageBubble key={m.id} message={m} />)}
+        {messages.map((m) => (
+          <MessageBubble key={m.id} message={m} />
+        ))}
       </div>
 
       {/* Input area */}
@@ -245,7 +433,11 @@ export function CopilotPanel() {
             {images.map((src, i) => (
               <div key={i} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-14 w-14 rounded-lg object-cover border border-border" />
+                <img
+                  src={src}
+                  alt=""
+                  className="h-14 w-14 rounded-lg object-cover border border-border"
+                />
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
@@ -259,54 +451,73 @@ export function CopilotPanel() {
         )}
 
         {/* Text row */}
-        <div className="flex gap-2 items-end">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={listening ? 'Listening…' : 'Ask Copilot…'}
-            rows={2}
-            className="flex-1 resize-none text-sm"
-            disabled={sending}
-          />
-          <div className="flex flex-col gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach image"
-              disabled={sending || images.length >= 4}
-            >
-              <ImagePlus className="h-4 w-4 text-text-secondary" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={listening ? 'secondary' : 'ghost'}
-              className={cn('h-8 w-8 p-0', listening && 'text-red-500')}
-              onClick={toggleMic}
-              title={listening ? 'Stop recording' : 'Voice input'}
+        <div className="flex items-stretch gap-2">
+          <div className="relative flex-1">
+            <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-text-secondary hover:text-text-primary"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach image"
+                disabled={sending || images.length >= 4}
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={listening ? "secondary" : "ghost"}
+                className={cn(
+                  "h-7 w-7 p-0 text-text-secondary hover:text-text-primary",
+                  listening && "text-red-500",
+                )}
+                onClick={toggleMic}
+                title={listening ? "Stop recording" : "Voice input"}
+                disabled={sending}
+              >
+                {listening ? (
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={listening ? "Listening…" : "Ask Copilot…"}
+              rows={2}
+              className="min-h-[88px] flex-1 resize-none pb-10 pl-3 text-sm"
               disabled={sending}
-            >
-              {listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4 text-text-secondary" />}
-            </Button>
+            />
+          </div>
+          <div className="flex items-stretch">
             <Button
               size="sm"
               onClick={handleSend}
               disabled={sending || (!input.trim() && images.length === 0)}
-              className="h-8 w-8 p-0"
+              className="h-full min-h-[88px] w-10 p-0"
               title="Send"
             >
-              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              {sending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         </div>
 
         {/* Desktop recording overlay (covers composer while recording) */}
         {listening && (
-          <VoiceRecordingOverlay onStop={toggleMic} compact />
+          <VoiceRecordingOverlay
+            onStop={toggleMic}
+            compact
+            levels={voiceLevels}
+          />
         )}
 
         <p className="mt-1.5 text-[10px] text-text-tertiary">
@@ -321,10 +532,13 @@ export function CopilotPanel() {
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => { void handleImageFiles(e.target.files); e.target.value = '' }}
+        onChange={(e) => {
+          void handleImageFiles(e.target.files);
+          e.target.value = "";
+        }}
       />
     </div>
-  )
+  );
 
   // ── Mobile render (rebranded fullscreen experience) ────────────────────────
 
@@ -332,32 +546,48 @@ export function CopilotPanel() {
     <div className="relative flex h-full flex-col bg-bg-primary">
       {/* Branded header */}
       <header className="flex items-center gap-3 border-b border-border bg-bg-primary px-4 pt-safe-3 pb-3 shrink-0">
-        <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-lg shadow-indigo-500/30">
+        <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent shadow-lg shadow-accent/30">
           <Sparkles className="h-4 w-4 text-white" strokeWidth={2.5} />
         </div>
         <div className="flex min-w-0 flex-col leading-tight">
-          <span className="text-[15px] font-semibold text-text-primary">Copilot</span>
-          <span className={cn(
-            'text-[11px] leading-tight',
-            writeMode ? 'text-amber-500' : 'text-text-tertiary',
-          )}>
-            {writeMode ? 'Write mode' : 'Read-only'}
+          <span className="text-[15px] font-semibold text-text-primary">
+            Copilot
+          </span>
+          <span
+            className={cn(
+              "text-[11px] leading-tight",
+              writeMode ? "text-amber-500" : "text-text-tertiary",
+            )}
+          >
+            {writeMode ? "Write mode" : "Read-only"}
             {sessionCostUsd > 0 && (
-              <span className="text-text-tertiary"> · ~${sessionCostUsd.toFixed(4)}</span>
+              <span className="text-text-tertiary">
+                {" "}
+                · ~${sessionCostUsd.toFixed(4)}
+              </span>
             )}
           </span>
         </div>
         <div className="ml-auto flex items-center gap-0.5">
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             onClick={() => setWriteMode(!writeMode)}
-            className={cn('h-9 w-9 p-0', writeMode ? 'text-amber-500' : 'text-text-secondary')}
-            title={writeMode ? 'Write mode ON' : 'Read-only mode'}
+            className={cn(
+              "h-9 w-9 p-0",
+              writeMode ? "text-amber-500" : "text-text-secondary",
+            )}
+            title={writeMode ? "Write mode ON" : "Read-only mode"}
           >
-            {writeMode ? <Pencil className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+            {writeMode ? (
+              <Pencil className="h-4 w-4" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
           </Button>
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             onClick={newSession}
             className="h-9 w-9 p-0 text-text-secondary"
             title="New conversation"
@@ -373,7 +603,8 @@ export function CopilotPanel() {
             <History className="h-4 w-4" />
           </Link>
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             onClick={() => setOpen(false)}
             className="h-9 w-9 p-0 text-text-secondary"
             title="Close"
@@ -389,7 +620,9 @@ export function CopilotPanel() {
         className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0"
       >
         {messages.length === 0 && <MobileGreetingPanel onPick={setInput} />}
-        {messages.map((m) => <MessageBubble key={m.id} message={m} />)}
+        {messages.map((m) => (
+          <MessageBubble key={m.id} message={m} />
+        ))}
       </div>
 
       {/* Composer */}
@@ -400,7 +633,11 @@ export function CopilotPanel() {
             {images.map((src, i) => (
               <div key={i} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                <img
+                  src={src}
+                  alt=""
+                  className="h-16 w-16 rounded-lg object-cover border border-border"
+                />
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
@@ -429,7 +666,7 @@ export function CopilotPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={listening ? 'Listening…' : 'Ask Copilot…'}
+            placeholder={listening ? "Listening…" : "Ask Copilot…"}
             rows={1}
             // text-base = 16px keeps iOS Safari from auto-zooming when the field
             // gets focus. Without this, the page would zoom in and break the
@@ -447,35 +684,39 @@ export function CopilotPanel() {
               className="h-10 w-10 p-0 shrink-0"
               title="Send"
             >
-              {sending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Send className="h-4 w-4" />}
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           ) : (
             <Button
               type="button"
               size="sm"
-              variant={listening ? 'primary' : 'ghost'}
+              variant={listening ? "primary" : "ghost"}
               className={cn(
-                'h-10 w-10 p-0 shrink-0',
+                "h-10 w-10 p-0 shrink-0",
                 listening
-                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
-                  : 'text-text-secondary',
+                  ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
+                  : "text-text-secondary",
               )}
               onClick={toggleMic}
-              title={listening ? 'Stop recording' : 'Voice input'}
+              title={listening ? "Stop recording" : "Voice input"}
               disabled={sending}
             >
-              {listening
-                ? <Square className="h-3.5 w-3.5 fill-current" />
-                : <Mic className="h-5 w-5" />}
+              {listening ? (
+                <Square className="h-3.5 w-3.5 fill-current" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
             </Button>
           )}
         </div>
 
         {/* Recording overlay */}
         {listening && (
-          <VoiceRecordingOverlay onStop={toggleMic} />
+          <VoiceRecordingOverlay onStop={toggleMic} levels={voiceLevels} />
         )}
       </div>
 
@@ -486,19 +727,22 @@ export function CopilotPanel() {
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => { void handleImageFiles(e.target.files); e.target.value = '' }}
+        onChange={(e) => {
+          void handleImageFiles(e.target.files);
+          e.target.value = "";
+        }}
       />
     </div>
-  )
+  );
 
   return (
     <>
       {/* Desktop: right sidebar that pushes the layout */}
       <aside
         className={cn(
-          'hidden md:flex flex-col border-l border-border bg-bg-primary',
-          'transition-[width] duration-200 ease-in-out overflow-hidden shrink-0',
-          open ? 'w-[380px]' : 'w-0',
+          "hidden md:flex flex-col border-l border-border bg-bg-primary",
+          "transition-[width] duration-200 ease-in-out overflow-hidden shrink-0",
+          open ? "w-[380px]" : "w-0",
         )}
       >
         <div className="w-[380px] h-full">{desktopPanelContent}</div>
@@ -511,24 +755,24 @@ export function CopilotPanel() {
         </div>
       )}
     </>
-  )
+  );
 }
 
 // ─── Greeting panels ──────────────────────────────────────────────────────────
 
 function GreetingPanel({ onPick }: { onPick: (text: string) => void }) {
   const suggestions = [
-    'List my 10 most recent contacts',
-    'Summarize pipeline health',
-    'Show all open tasks due this week',
-    'Find duplicate contacts by email',
-  ]
+    "List my 10 most recent contacts",
+    "Summarize pipeline health",
+    "Show all open tasks due this week",
+    "Find duplicate contacts by email",
+  ];
   return (
     <div className="rounded-lg border border-border bg-bg-secondary p-4 text-sm">
-      <p className="font-medium text-text-primary">Chat with your CRM.</p>
+      <p className="font-medium text-text-primary">Chat with Xphere.</p>
       <p className="mt-1 text-xs text-text-secondary">
-        Query, summarize, and (in write mode) mutate contacts, deals, tasks, and notes.
-        Attach images or use your mic to ask anything.
+        Query, summarize, and (in write mode) mutate contacts, deals, tasks, and
+        notes. Attach images or use your mic to ask anything.
       </p>
       <div className="mt-3 grid grid-cols-1 gap-1.5">
         {suggestions.map((s) => (
@@ -543,27 +787,29 @@ function GreetingPanel({ onPick }: { onPick: (text: string) => void }) {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
   const suggestions: Array<{
-    icon: typeof Users
-    label: string
+    icon: typeof Users;
+    label: string;
   }> = [
-    { icon: Users,    label: 'List my 10 most recent contacts' },
-    { icon: Activity, label: 'Summarize pipeline health' },
-    { icon: ListTodo, label: 'Show all open tasks due this week' },
-    { icon: GitMerge, label: 'Find duplicate contacts by email' },
-  ]
+    { icon: Users, label: "List my 10 most recent contacts" },
+    { icon: Activity, label: "Summarize pipeline health" },
+    { icon: ListTodo, label: "Show all open tasks due this week" },
+    { icon: GitMerge, label: "Find duplicate contacts by email" },
+  ];
   return (
     <div className="flex flex-col gap-5 py-4 animate-fade-in">
       <div className="flex flex-col items-center text-center gap-3">
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-xl shadow-indigo-500/30">
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-accent shadow-xl shadow-accent/30">
           <Sparkles className="h-8 w-8 text-white" strokeWidth={2.25} />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-text-primary">Chat with your CRM</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Chat with Xphere
+          </h2>
           <p className="text-[13px] text-text-secondary max-w-[280px] mx-auto leading-relaxed">
             Query, summarize, and mutate contacts, deals, tasks, and notes.
             Attach images or hold the mic to ask anything.
@@ -586,7 +832,7 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Voice recording overlay ──────────────────────────────────────────────────
@@ -594,17 +840,19 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
 function VoiceRecordingOverlay({
   onStop,
   compact = false,
+  levels,
 }: {
-  onStop: () => void
-  compact?: boolean
+  onStop: () => void;
+  compact?: boolean;
+  levels: number[];
 }) {
-  const bars = compact ? 7 : 11
+  const bars = compact ? levels.slice(2, 9) : levels;
   return (
     <div
       className={cn(
-        'absolute inset-0 z-10 flex flex-col items-center justify-center gap-3',
-        'bg-bg-primary/95 backdrop-blur-md animate-fade-in',
-        compact ? 'rounded-md' : 'pt-3 pb-safe-3',
+        "absolute inset-0 z-10 flex flex-col items-center justify-center gap-3",
+        "bg-bg-primary/95 backdrop-blur-md animate-fade-in",
+        compact ? "rounded-md" : "pt-3 pb-safe-3",
       )}
       role="status"
       aria-live="polite"
@@ -614,28 +862,32 @@ function VoiceRecordingOverlay({
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
         </span>
-        <span className={cn(
-          'font-medium text-text-primary',
-          compact ? 'text-xs' : 'text-sm',
-        )}>
+        <span
+          className={cn(
+            "font-medium text-text-primary",
+            compact ? "text-xs" : "text-sm",
+          )}
+        >
           Listening…
         </span>
       </div>
 
-      <div className={cn(
-        'flex items-center justify-center gap-1',
-        compact ? 'h-7' : 'h-10',
-      )}>
-        {Array.from({ length: bars }).map((_, i) => (
+      <div
+        className={cn(
+          "flex items-center justify-center gap-1",
+          compact ? "h-7" : "h-10",
+        )}
+      >
+        {bars.map((level, i) => (
           <span
             key={i}
             className={cn(
-              'voice-bar rounded-full bg-red-500',
-              compact ? 'w-1' : 'w-1.5',
+              "voice-bar rounded-full bg-red-500",
+              compact ? "w-1" : "w-1.5",
             )}
             style={{
-              height: compact ? '20px' : '32px',
-              animationDelay: `${i * 80}ms`,
+              height: `${Math.round((compact ? 6 : 8) + level * (compact ? 22 : 34))}px`,
+              opacity: 0.45 + level * 0.55,
             }}
           />
         ))}
@@ -645,18 +897,20 @@ function VoiceRecordingOverlay({
         type="button"
         onClick={onStop}
         className={cn(
-          'flex items-center gap-2 rounded-full bg-red-500 font-semibold text-white shadow-lg shadow-red-500/30',
-          'active:scale-95 transition',
-          compact ? 'px-3 py-1 text-xs' : 'px-5 py-2 text-sm',
+          "flex items-center gap-2 rounded-full bg-red-500 font-semibold text-white shadow-lg shadow-red-500/30",
+          "active:scale-95 transition",
+          compact ? "px-3 py-1 text-xs" : "px-5 py-2 text-sm",
         )}
       >
-        <Square className={cn('fill-white', compact ? 'h-3 w-3' : 'h-3.5 w-3.5')} />
+        <Square
+          className={cn("fill-white", compact ? "h-3 w-3" : "h-3.5 w-3.5")}
+        />
         Stop
       </button>
     </div>
-  )
+  );
 }
 
 function tempId() {
-  return `tmp_${Math.random().toString(36).slice(2)}`
+  return `tmp_${Math.random().toString(36).slice(2)}`;
 }

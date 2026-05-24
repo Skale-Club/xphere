@@ -2,24 +2,16 @@
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import {
-  X,
-  Filter,
-  MoreHorizontal,
-  Download,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import { X, MoreHorizontal, Download, Loader2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  FilterPill,
+  FilterPopover,
+  FilterPopoverHeader,
+  FilterSection,
+} from "@/components/data-table/filter-popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from "@/lib/accounts";
@@ -142,6 +134,20 @@ export function AccountsFilters({
       value: currentSource,
     },
   ].filter((f) => Boolean(f.value));
+  const filterActiveCount = [
+    currentIndustry,
+    currentSize,
+    currentSource,
+  ].filter(Boolean).length;
+
+  function clearUnifiedFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("industry");
+    params.delete("size");
+    params.delete("source");
+    params.delete("page");
+    router.replace(`${pathname}?${params.toString()}`);
+  }
 
   function clearAll() {
     const params = new URLSearchParams(searchParams.toString());
@@ -181,104 +187,17 @@ export function AccountsFilters({
 
         <div className="hidden sm:block flex-1" />
 
-        {/* Desktop: full filter controls */}
-        <div className="hidden sm:flex items-center gap-2">
-          <Select
-            value={currentIndustry ?? "all"}
-            onValueChange={(v) => setParam("industry", v === "all" ? null : v)}
-          >
-            <SelectTrigger className="h-8 w-[130px] text-[12.5px]">
-              <SelectValue placeholder="Industry" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All industries</SelectItem>
-              {INDUSTRY_OPTIONS.map((ind) => (
-                <SelectItem key={ind} value={ind}>
-                  {ind}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={currentSize ?? "all"}
-            onValueChange={(v) => setParam("size", v === "all" ? null : v)}
-          >
-            <SelectTrigger className="h-8 w-[110px] text-[12.5px]">
-              <SelectValue placeholder="Size" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sizes</SelectItem>
-              {ACCOUNT_SIZES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={currentSource ?? "all"}
-            onValueChange={(v) => setParam("source", v === "all" ? null : v)}
-          >
-            <SelectTrigger className="h-8 w-[120px] text-[12.5px]">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sources</SelectItem>
-              {ACCOUNT_SOURCES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {sourceLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <AccountsFilterPopover
+            activeCount={filterActiveCount}
+            currentIndustry={currentIndustry}
+            currentSize={currentSize}
+            currentSource={currentSource}
+            setParam={setParam}
+            onClear={clearUnifiedFilters}
+          />
 
           {/* More actions dropdown — all breakpoints */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="h-8 px-2.5">
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <ExportMenuItem />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Mobile: source filter icon */}
-        <div className="sm:hidden flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                className={cn(
-                  "h-8 px-2.5 text-[12.5px]",
-                  currentSource &&
-                    "border-accent/40 bg-accent-muted/20 text-accent",
-                )}
-                aria-label="Filter by source"
-              >
-                <Filter className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onSelect={() => setParam("source", null)}>
-                All sources
-              </DropdownMenuItem>
-              {ACCOUNT_SOURCES.map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onSelect={() => setParam("source", s)}
-                >
-                  {sourceLabel(s)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm" className="h-8 px-2.5">
@@ -385,5 +304,86 @@ function FilterChip({
         <X className="h-3 w-3" />
       </button>
     </span>
+  );
+}
+
+function AccountsFilterPopover({
+  activeCount,
+  currentIndustry,
+  currentSize,
+  currentSource,
+  setParam,
+  onClear,
+}: {
+  activeCount: number;
+  currentIndustry?: string;
+  currentSize?: string;
+  currentSource?: string;
+  setParam: (key: string, value: string | null) => void;
+  onClear: () => void;
+}) {
+  return (
+    <FilterPopover activeCount={activeCount}>
+      <FilterPopoverHeader
+        title="Company filters"
+        showClear={activeCount > 0}
+        onClear={onClear}
+      />
+      <div className="space-y-4 p-4">
+        <FilterSection title="Industry">
+          <FilterPill
+            active={!currentIndustry}
+            onClick={() => setParam("industry", null)}
+          >
+            All industries
+          </FilterPill>
+          {INDUSTRY_OPTIONS.map((industry) => (
+            <FilterPill
+              key={industry}
+              active={currentIndustry === industry}
+              onClick={() => setParam("industry", industry)}
+            >
+              {industry}
+            </FilterPill>
+          ))}
+        </FilterSection>
+
+        <FilterSection title="Size">
+          <FilterPill
+            active={!currentSize}
+            onClick={() => setParam("size", null)}
+          >
+            All sizes
+          </FilterPill>
+          {ACCOUNT_SIZES.map((size) => (
+            <FilterPill
+              key={size}
+              active={currentSize === size}
+              onClick={() => setParam("size", size)}
+            >
+              {size}
+            </FilterPill>
+          ))}
+        </FilterSection>
+
+        <FilterSection title="Source">
+          <FilterPill
+            active={!currentSource}
+            onClick={() => setParam("source", null)}
+          >
+            All sources
+          </FilterPill>
+          {ACCOUNT_SOURCES.map((source) => (
+            <FilterPill
+              key={source}
+              active={currentSource === source}
+              onClick={() => setParam("source", source)}
+            >
+              {sourceLabel(source)}
+            </FilterPill>
+          ))}
+        </FilterSection>
+      </div>
+    </FilterPopover>
   );
 }
