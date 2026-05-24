@@ -3,6 +3,7 @@ import { UsersRound } from 'lucide-react'
 
 import { listMembers, listInvites, inviteMember, revokeInvite, removeMember, updateMemberRole } from './actions'
 import { MembersClient } from './members-client'
+import { MembersPageSkeleton } from '@/components/skeletons/members-page-skeleton'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 const PER_PAGE = 10
@@ -30,7 +31,7 @@ export default async function MembersPage({ searchParams }: Props) {
         title="Members"
         description="Manage team members and invitations for this organization."
       />
-      <Suspense fallback={null}>
+      <Suspense fallback={<MembersPageSkeleton />}>
         <MembersClient
           members={members}
           invites={invites}
