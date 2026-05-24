@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 Phase: 110 of 110 (Cleanup)
 Status: Complete ✅
-Last activity: 2026-05-22 — All phases done
+Last activity: 2026-05-24 - Completed quick task 260524-pwe: Auth modal redesign — 2-step popup with reset password tab + remove dedicated /login /signup routes
 
 Completed:
 - Phase 105: Engine Unification ✅
@@ -63,6 +63,12 @@ See PROJECT.md Key Decisions table.
 ### Blockers/Concerns
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260524-pwe | Auth modal redesign — 2-step popup with reset password tab + remove dedicated /login /signup routes | 2026-05-24 | d0d2ac9 | [260524-pwe-auth-modal-redesign-2-step-popup-with-re](./quick/260524-pwe-auth-modal-redesign-2-step-popup-with-re/) |
 
 ## Session Continuity
 
