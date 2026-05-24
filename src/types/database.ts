@@ -51,10 +51,90 @@ export type CustomFieldType =
 
 export type CustomFieldEntity = 'contact' | 'opportunity' | 'account'
 
-// v2.5 � tasks & notes (v2.5 Tasks & Notes CRM System)
+// v2.5 — tasks & notes (v2.5 Tasks & Notes CRM System)
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type CrmEntityType = 'contact' | 'account' | 'opportunity'
+
+// Projects Module (migration 1040)
+export type ProjectTaskStep = 'backlog' | 'todo' | 'doing' | 'done'
+export type ProjectDependencyRule = 'after_done' | 'after_delivered' | 'after_approved'
+export type ProjectValidationStatus = 'not_required' | 'needs_review' | 'approved' | 'changes_requested' | 'rejected'
+export type ProjectExecutionStatus = 'not_started' | 'in_progress' | 'delivered' | 'failed' | 'cancelled'
+export type ProjectRunStatus = 'running' | 'paused' | 'delivered' | 'failed' | 'cancelled'
+export type ProjectExecutorType = 'human' | 'ai' | 'system' | 'automation'
+export type ProjectRunEnvironment = 'manual' | 'gsd' | 'claude_code' | 'codex' | 'ide' | 'other'
+export type ProjectViewType = 'board' | 'list' | 'calendar' | 'timeline'
+export type ProjectViewScope = 'personal' | 'project'
+export type ProjectMcpArea = 'general_xphere' | 'projects'
+export type ProjectActorType = 'human' | 'ai_agent' | 'system'
+export type ProjectAuditStatus = 'success' | 'failed' | 'blocked'
+
+export interface ProjectRow {
+  id: string
+  org_id: string
+  name: string
+  description: string | null
+  color: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectTaskRow {
+  id: string
+  org_id: string
+  project_id: string
+  parent_task_id: string | null
+  name: string
+  description: string | null
+  step: ProjectTaskStep
+  responsible_id: string | null
+  priority: TaskPriority
+  start_date: string | null
+  end_date: string | null
+  deliverable: string | null
+  completed: boolean
+  completed_at: string | null
+  ai_context: string | null
+  expected_deliverable: string | null
+  validation_criteria: string | null
+  ai_view_enabled: boolean
+  needs_validation: boolean
+  execution_status: ProjectExecutionStatus
+  validation_status: ProjectValidationStatus
+  last_agent_update: string | null
+  last_human_review: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectLabelRow {
+  id: string
+  org_id: string
+  project_id: string
+  name: string
+  color: string
+  created_at: string
+}
+
+export interface ProjectExecutionRunRow {
+  id: string
+  org_id: string
+  task_id: string
+  executor_name: string | null
+  executor_type: ProjectExecutorType
+  environment: ProjectRunEnvironment
+  start_time: string | null
+  end_time: string | null
+  duration_minutes: number | null
+  status: ProjectRunStatus
+  needs_validation: boolean
+  result: string | null
+  notes: string | null
+  created_at: string
+}
 
 // v2.4 � contact_imports (Import Pipeline) � SEED-018
 export type ContactImportStatus =

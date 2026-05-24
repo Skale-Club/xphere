@@ -13,6 +13,7 @@ import {
   Building2,
   CalendarDays,
   CheckSquare,
+  FolderKanban,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -31,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
   { icon: CheckSquare,    label: 'Tasks',        href: '/tasks',        group: 'sales' },
+  { icon: FolderKanban,   label: 'Projects',     href: '/projects',     group: 'build' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
   { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build' },
