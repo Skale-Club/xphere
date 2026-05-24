@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { MarkdownEditor } from '@/components/projects/markdown-editor'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -263,13 +264,12 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
             {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Description</Label>
-              <Textarea
+              <MarkdownEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => description !== task.description && save({ description })}
+                onChange={setDescription}
+                onBlur={(md) => md !== task.description && save({ description: md })}
                 placeholder="Add a description..."
-                rows={4}
-                className="text-sm resize-none"
+                minRows={4}
               />
             </div>
 
