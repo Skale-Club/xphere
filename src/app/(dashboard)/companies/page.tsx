@@ -3,7 +3,7 @@ import { getAccounts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
-import { TableSkeleton } from '@/components/skeletons/table-skeleton'
+import { CompaniesPageSkeleton } from '@/components/skeletons/companies-page-skeleton'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 
 interface AccountsPageProps {
@@ -51,7 +51,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
         currentSource={source}
       />
 
-      <Suspense fallback={<TableSkeleton rows={8} columns={8} />}>
+      <Suspense fallback={<CompaniesPageSkeleton rows={8} />}>
         <AccountsBody
           q={q}
           industry={industry}

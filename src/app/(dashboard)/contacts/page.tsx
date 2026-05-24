@@ -6,7 +6,7 @@ import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions
 import { ContactsTable } from '@/components/contacts/contacts-table'
 import { EmptyContacts } from '@/components/empty-states/empty-contacts'
 import { Button } from '@/components/ui/button'
-import { TableSkeleton } from '@/components/skeletons/table-skeleton'
+import { ContactsPageSkeleton } from '@/components/skeletons/contacts-page-skeleton'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
 
 interface ContactsPageProps {
@@ -36,7 +36,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
 
   return (
     <div className="flex h-full flex-col">
-      <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
+      <Suspense fallback={<ContactsPageSkeleton rows={8} />}>
         <ContactsBody
           q={q}
           tag={tag}
