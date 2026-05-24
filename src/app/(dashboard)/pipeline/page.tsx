@@ -12,14 +12,22 @@ import { KanbanBoard } from '@/components/pipeline/kanban-board'
 import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dialog'
 import { PipelineSwitcher } from '@/components/pipeline/pipeline-switcher'
 import { Button } from '@/components/ui/button'
-import { TableSkeleton } from '@/components/skeletons/table-skeleton'
+import { PipelinePageSkeleton } from '@/components/skeletons/pipeline-page-skeleton'
 import { createClient } from '@/lib/supabase/server'
 
 interface PipelinePageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default async function PipelinePage({ searchParams }: PipelinePageProps) {
+export default function PipelinePage({ searchParams }: PipelinePageProps) {
+  return (
+    <Suspense fallback={<PipelinePageSkeleton />}>
+      <PipelinePageContent searchParams={searchParams} />
+    </Suspense>
+  )
+}
+
+async function PipelinePageContent({ searchParams }: PipelinePageProps) {
   const sp = await searchParams
   const requestedPipeline = typeof sp.pipeline === 'string' ? sp.pipeline : undefined
   const assignedTo = typeof sp.assignee === 'string' ? sp.assignee : undefined
@@ -78,13 +86,11 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
           </Button>
         </div>
       ) : (
-        <Suspense fallback={<TableSkeleton rows={6} columns={5} />}>
-          <KanbanBody
-            pipelineId={activePipeline.id}
-            cardFields={(activePipeline.card_fields as string[]) ?? ['contact_name', 'value', 'days_in_stage']}
-            assignedTo={assignedTo}
-          />
-        </Suspense>
+        <KanbanBody
+          pipelineId={activePipeline.id}
+          cardFields={(activePipeline.card_fields as string[]) ?? ['contact_name', 'value', 'days_in_stage']}
+          assignedTo={assignedTo}
+        />
       )}
     </div>
   )
@@ -113,7 +119,7 @@ async function KanbanBody({
 
   if (stages.length === 0) {
     return (
-      <div className="rounded-[12px] border border-border bg-bg-secondary p-10 text-center">
+      <div className="mx-4 sm:mx-6 lg:mx-8 rounded-[12px] border border-border bg-bg-secondary p-10 text-center">
         <h2 className="text-[15px] font-semibold text-text-primary">No stages yet</h2>
         <p className="mt-1 text-[13px] text-text-secondary">
           Add stages to start dragging opportunities through your funnel.
