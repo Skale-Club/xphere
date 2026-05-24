@@ -27,16 +27,14 @@ describe('GET /auth/callback', () => {
     vi.clearAllMocks()
   })
 
-  it('redirects to /login?error=missing_code when code param is absent', async () => {
+  it('redirects to / when code param is absent', async () => {
     const req = new Request('http://localhost:4267/auth/callback')
     await GET(req)
     const { NextResponse } = await import('next/server')
-    expect(NextResponse.redirect).toHaveBeenCalledWith(
-      expect.stringContaining('error=missing_code')
-    )
+    expect(NextResponse.redirect).toHaveBeenCalledWith('http://localhost:4267/')
   })
 
-  it('redirects to /login?error=auth_failed when exchangeCodeForSession fails', async () => {
+  it('redirects to / when exchangeCodeForSession fails', async () => {
     mockSupabase.auth.exchangeCodeForSession.mockResolvedValue({
       data: { user: null },
       error: { message: 'invalid grant' },
@@ -44,12 +42,10 @@ describe('GET /auth/callback', () => {
     const req = new Request('http://localhost:4267/auth/callback?code=bad-code')
     await GET(req)
     const { NextResponse } = await import('next/server')
-    expect(NextResponse.redirect).toHaveBeenCalledWith(
-      expect.stringContaining('error=auth_failed')
-    )
+    expect(NextResponse.redirect).toHaveBeenCalledWith('http://localhost:4267/')
   })
 
-  it('redirects to /login?error=not_invited when email has no pending invite', async () => {
+  it('redirects to / when email has no pending invite', async () => {
     mockSupabase.auth.exchangeCodeForSession.mockResolvedValue({
       data: { user: { id: 'user-123', email: 'stranger@example.com' } },
       error: null,
@@ -67,9 +63,7 @@ describe('GET /auth/callback', () => {
     await GET(req)
 
     const { NextResponse } = await import('next/server')
-    expect(NextResponse.redirect).toHaveBeenCalledWith(
-      expect.stringContaining('error=not_invited')
-    )
+    expect(NextResponse.redirect).toHaveBeenCalledWith('http://localhost:4267/')
   })
 
   it('creates org_members row and marks invite accepted when email has pending invite', async () => {
@@ -101,7 +95,13 @@ describe('GET /auth/callback', () => {
         }
       }
       if (table === 'org_members') {
-        return { upsert: upsertMock }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: upsertMock,
+        }
       }
       if (table === 'organizations') {
         return {
@@ -116,10 +116,10 @@ describe('GET /auth/callback', () => {
     const req = new Request('http://localhost:4267/auth/callback?code=valid-code')
     await GET(req)
 
-    // Should NOT redirect to not_invited
+    // Should NOT redirect to bare / (success path redirects to /dashboard)
     const { NextResponse } = await import('next/server')
     const redirectCall = (NextResponse.redirect as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as string
-    expect(redirectCall).not.toContain('error=not_invited')
+    expect(redirectCall).toContain('/dashboard')
 
     // Should upsert org_members
     expect(upsertMock).toHaveBeenCalledWith(

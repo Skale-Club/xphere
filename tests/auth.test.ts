@@ -7,7 +7,7 @@ describe('AUTH-01: Sign-in with email and password', () => {
 })
 
 describe('AUTH-03: Sign-out from any page', () => {
-  it.todo('clears the session and redirects to /login')
+  it.todo('clears the session and redirects to /')
 })
 
 describe('AUTH-05: User account linked to organization and role', () => {

@@ -45,31 +45,31 @@ describe('RLS isolation (action-layer checks)', () => {
 })
 
 describe('Email/password regression (static check)', () => {
-  it('login page still contains signInWithPassword call', async () => {
+  it('signin server action still contains signInWithPassword call', async () => {
     const fs = await import('fs')
-    const loginPage = fs.readFileSync(
-      new URL('../../src/app/(auth)/login/page.tsx', import.meta.url),
+    const authAction = fs.readFileSync(
+      new URL('../../src/actions/auth.ts', import.meta.url),
       'utf-8'
     )
-    expect(loginPage).toContain('signInWithPassword')
+    expect(authAction).toContain('signInWithPassword')
   })
 
-  it('login page still contains zodResolver', async () => {
+  it('login dialog still uses zodResolver for form validation', async () => {
     const fs = await import('fs')
-    const loginPage = fs.readFileSync(
-      new URL('../../src/app/(auth)/login/page.tsx', import.meta.url),
+    const dialog = fs.readFileSync(
+      new URL('../../src/components/auth/login-dialog.tsx', import.meta.url),
       'utf-8'
     )
-    expect(loginPage).toContain('zodResolver')
+    expect(dialog).toContain('zodResolver')
   })
 
-  it('login page contains Sign in with Google button', async () => {
+  it('login dialog contains Sign in with Google button', async () => {
     const fs = await import('fs')
-    const loginPage = fs.readFileSync(
-      new URL('../../src/app/(auth)/login/page.tsx', import.meta.url),
+    const dialog = fs.readFileSync(
+      new URL('../../src/components/auth/login-dialog.tsx', import.meta.url),
       'utf-8'
     )
-    expect(loginPage).toContain('signInWithOAuth')
-    expect(loginPage).toContain("provider: 'google'")
+    expect(dialog).toContain('signInWithOAuth')
+    expect(dialog).toContain("provider: 'google'")
   })
 })

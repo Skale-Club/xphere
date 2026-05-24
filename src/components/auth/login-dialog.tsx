@@ -257,44 +257,31 @@ function Step1Form({
 /*  Step 2 — Password (+ confirm for signup)                                  */
 /* -------------------------------------------------------------------------- */
 
-function Step2Form({
-  mode,
+interface Step2CommonProps {
+  email: string
+  captchaToken: string | null
+  onBack: () => void
+  onCaptchaInvalid: () => void
+  onError: (msg: string | null) => void
+}
+
+function Step2SignInForm({
   email,
   captchaToken,
   onBack,
   onForgot,
   onCaptchaInvalid,
-  onEmailSent,
   onError,
-}: {
-  mode: AuthMode
-  email: string
-  captchaToken: string | null
-  onBack: () => void
-  onForgot: () => void
-  onCaptchaInvalid: () => void
-  onEmailSent: (email: string) => void
-  onError: (msg: string | null) => void
-}) {
+}: Step2CommonProps & { onForgot: () => void }) {
   const router = useRouter()
-  const isSignup = mode === 'signup'
-
-  const signInForm = useForm<SignInPasswordValues>({
+  const form = useForm<SignInPasswordValues>({
     resolver: zodResolver(passwordSchema),
     mode: 'onSubmit',
     defaultValues: { password: '' },
   })
-
-  const signUpForm = useForm<SignUpPasswordValues>({
-    resolver: zodResolver(signUpPasswordSchema),
-    mode: 'onSubmit',
-    defaultValues: { password: '', confirmPassword: '' },
-  })
-
-  const form = isSignup ? signUpForm : signInForm
   const isSubmitting = form.formState.isSubmitting
 
-  async function handleSignIn(values: SignInPasswordValues) {
+  async function handleSubmit(values: SignInPasswordValues) {
     onError(null)
     try {
       const result = await signInWithEmail({
@@ -318,7 +305,98 @@ function Step2Form({
     }
   }
 
-  async function handleSignUp(values: SignUpPasswordValues) {
+  return (
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(handleSubmit)}
+        noValidate
+        className="space-y-4"
+      >
+        <div className="space-y-1">
+          <p className="text-[0.8125rem] text-[#A1A1AA]">Signed in as</p>
+          <p className="text-[0.875rem] text-[#FAFAFA] truncate">{email}</p>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Password</FormLabel>
+              <FormControl>
+                <PasswordInput
+                  disabled={isSubmitting}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  field={field}
+                />
+              </FormControl>
+              <FormMessage className="text-red-400 text-xs" />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onForgot}
+            className="text-[0.8125rem] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onBack}
+            disabled={isSubmitting}
+            className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in&hellip;
+              </>
+            ) : (
+              <>
+                <span>Sign in</span>
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+function Step2SignUpForm({
+  email,
+  captchaToken,
+  onBack,
+  onCaptchaInvalid,
+  onEmailSent,
+  onError,
+}: Step2CommonProps & { onEmailSent: (email: string) => void }) {
+  const router = useRouter()
+  const form = useForm<SignUpPasswordValues>({
+    resolver: zodResolver(signUpPasswordSchema),
+    mode: 'onSubmit',
+    defaultValues: { password: '', confirmPassword: '' },
+  })
+  const isSubmitting = form.formState.isSubmitting
+
+  async function handleSubmit(values: SignUpPasswordValues) {
     onError(null)
     try {
       const origin =
@@ -354,21 +432,17 @@ function Step2Form({
   return (
     <Form {...form}>
       <form
-        onSubmit={
-          isSignup
-            ? signUpForm.handleSubmit(handleSignUp)
-            : signInForm.handleSubmit(handleSignIn)
-        }
+        onSubmit={form.handleSubmit(handleSubmit)}
         noValidate
         className="space-y-4"
       >
         <div className="space-y-1">
-          <p className="text-[0.8125rem] text-[#A1A1AA]">Signed in as</p>
+          <p className="text-[0.8125rem] text-[#A1A1AA]">Signed up as</p>
           <p className="text-[0.875rem] text-[#FAFAFA] truncate">{email}</p>
         </div>
 
         <FormField
-          control={form.control as never}
+          control={form.control}
           name="password"
           render={({ field }) => (
             <FormItem>
@@ -376,8 +450,8 @@ function Step2Form({
               <FormControl>
                 <PasswordInput
                   disabled={isSubmitting}
-                  autoComplete={isSignup ? 'new-password' : 'current-password'}
-                  placeholder={isSignup ? 'Create a password' : 'Enter your password'}
+                  autoComplete="new-password"
+                  placeholder="Create a password"
                   field={field}
                 />
               </FormControl>
@@ -386,38 +460,24 @@ function Step2Form({
           )}
         />
 
-        {isSignup ? (
-          <FormField
-            control={signUpForm.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Confirm password</FormLabel>
-                <FormControl>
-                  <PasswordInput
-                    disabled={isSubmitting}
-                    autoComplete="new-password"
-                    placeholder="Confirm your password"
-                    field={field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-400 text-xs" />
-              </FormItem>
-            )}
-          />
-        ) : null}
-
-        {!isSignup && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onForgot}
-              className="text-[0.8125rem] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
-            >
-              Forgot password?
-            </button>
-          </div>
-        )}
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Confirm password</FormLabel>
+              <FormControl>
+                <PasswordInput
+                  disabled={isSubmitting}
+                  autoComplete="new-password"
+                  placeholder="Confirm your password"
+                  field={field}
+                />
+              </FormControl>
+              <FormMessage className="text-red-400 text-xs" />
+            </FormItem>
+          )}
+        />
 
         <div className="flex items-center gap-2">
           <Button
@@ -438,23 +498,61 @@ function Step2Form({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isSignup ? 'Creating account…' : 'Signing in…'}
-              </>
-            ) : isSignup ? (
-              <>
-                <span>Sign up</span>
-                <UserPlus className="ml-2 h-4 w-4" />
+                Creating account&hellip;
               </>
             ) : (
               <>
-                <span>Sign in</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <span>Sign up</span>
+                <UserPlus className="ml-2 h-4 w-4" />
               </>
             )}
           </Button>
         </div>
       </form>
     </Form>
+  )
+}
+
+function Step2Form({
+  mode,
+  email,
+  captchaToken,
+  onBack,
+  onForgot,
+  onCaptchaInvalid,
+  onEmailSent,
+  onError,
+}: {
+  mode: AuthMode
+  email: string
+  captchaToken: string | null
+  onBack: () => void
+  onForgot: () => void
+  onCaptchaInvalid: () => void
+  onEmailSent: (email: string) => void
+  onError: (msg: string | null) => void
+}) {
+  if (mode === 'signup') {
+    return (
+      <Step2SignUpForm
+        email={email}
+        captchaToken={captchaToken}
+        onBack={onBack}
+        onCaptchaInvalid={onCaptchaInvalid}
+        onEmailSent={onEmailSent}
+        onError={onError}
+      />
+    )
+  }
+  return (
+    <Step2SignInForm
+      email={email}
+      captchaToken={captchaToken}
+      onBack={onBack}
+      onForgot={onForgot}
+      onCaptchaInvalid={onCaptchaInvalid}
+      onError={onError}
+    />
   )
 }
 

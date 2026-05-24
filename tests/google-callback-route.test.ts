@@ -10,7 +10,7 @@ describe('GCONTACTS-01: GET /api/google/callback — happy path', () => {
 })
 
 describe('GCONTACTS-01: GET /api/google/callback — error paths', () => {
-  it.todo('redirects to /login when user is not authenticated')
+  it.todo('redirects to / when user is not authenticated')
   it.todo('redirects with error=missing_code when code param absent')
   it.todo('redirects with error=csrf when state cookie does not match')
   it.todo('redirects with error=no_org when get_current_org_id() returns null')
@@ -21,5 +21,5 @@ describe('GCONTACTS-01: GET /api/google/callback — error paths', () => {
 describe('GET /api/google/oauth — OAuth initiation route', () => {
   it.todo('sets httpOnly CSRF state cookie with 10-minute TTL')
   it.todo('redirects to Google OAuth consent URL')
-  it.todo('returns 302 redirect to /login when user is unauthenticated')
+  it.todo('returns 302 redirect to / when user is unauthenticated')
 })
