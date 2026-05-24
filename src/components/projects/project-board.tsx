@@ -100,6 +100,9 @@ function BoardColumn({ step, tasks, projectId, isOver, onOpen, onRefresh }: Colu
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {tasks.length === 0 && (
+          <p className="text-[11px] text-muted-foreground text-center py-6">Drop tasks here</p>
+        )}
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <SortableTaskCard
@@ -113,7 +116,7 @@ function BoardColumn({ step, tasks, projectId, isOver, onOpen, onRefresh }: Colu
 
       <div className="p-2 border-t border-border-subtle">
         <NewTaskDialog projectId={projectId} defaultStep={step.id} onCreated={onRefresh}>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground text-xs h-7">
+          <Button variant="ghost" size="sm" className="w-full justify-center text-muted-foreground text-xs h-8 border border-dashed border-border-subtle hover:border-accent/50 hover:text-foreground">
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Add task
           </Button>
