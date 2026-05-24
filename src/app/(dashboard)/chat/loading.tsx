@@ -1,5 +1,5 @@
-import { CardListSkeleton } from '@/components/skeletons/page-skeleton'
+import { ChatPageSkeleton } from '@/components/skeletons/chat-page-skeleton'
 
 export default function ChatLoading() {
-  return <CardListSkeleton cards={6} />
+  return <ChatPageSkeleton />
 }
