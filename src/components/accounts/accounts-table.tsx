@@ -124,8 +124,72 @@ export function AccountsTable({
         />
       )}
 
-      {/* Table */}
-      <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
+      {/* Mobile list */}
+      <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden sm:hidden">
+        {rows.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[13px] text-text-secondary">
+            No companies to show yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-border-subtle">
+            {rows.map((row) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-[28px_32px_minmax(0,1fr)_auto] items-center gap-2.5 px-4 py-3 transition-colors duration-150 hover:bg-bg-tertiary/40"
+              >
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selected.has(row.id)}
+                    onCheckedChange={() => toggleRow(row.id)}
+                    aria-label={`Select ${row.name ?? 'company'}`}
+                  />
+                </div>
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-muted text-accent">
+                  <Building2 className="h-3.5 w-3.5" />
+                </div>
+
+                <div className="min-w-0">
+                  <Link
+                    href={`/accounts/${row.id}`}
+                    className="block truncate text-[13px] font-medium text-text-primary underline-offset-4 hover:text-accent hover:underline"
+                  >
+                    {row.name ?? <span className="italic text-text-tertiary">Unnamed</span>}
+                  </Link>
+                  <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
+                    {row.domain || row.industry || 'No company details'}
+                  </div>
+                  <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+                    <span className="inline-flex rounded-full bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+                      {row.contact_count ?? 0} contacts
+                    </span>
+                    {(row.tags ?? []).slice(0, 2).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex max-w-[120px] truncate rounded-full bg-accent-muted px-1.5 py-0.5 text-[10px] font-medium text-accent"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(row.tags ?? []).length > 2 && (
+                      <span className="text-[10px] text-text-tertiary">
+                        +{(row.tags ?? []).length - 2}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="self-start pt-1 text-right text-[11.5px] text-text-tertiary whitespace-nowrap">
+                  {relativeTime(row.created_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden rounded-[12px] border border-border bg-bg-secondary overflow-hidden sm:block">
         {/* Header */}
         <div
           className="grid items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary"

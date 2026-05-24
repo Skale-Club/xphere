@@ -128,7 +128,7 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24 sm:pb-0">
       {/* Mode selector | 3 BIG cards */}
       <section className="space-y-3">
         <h2 className="text-[13px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
@@ -307,7 +307,7 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
       </section>
 
       {/* Save bar */}
-      <div className="sticky bottom-4 flex items-center justify-between rounded-[12px] border border-border bg-bg-secondary/80 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-24 flex items-center justify-between gap-3 rounded-[12px] border border-border bg-bg-secondary/80 px-4 py-3 backdrop-blur sm:bottom-4">
         <div className="flex items-center gap-2 text-[12.5px] text-text-tertiary">
           <Info className="h-3.5 w-3.5" />
           {lastSavedAt

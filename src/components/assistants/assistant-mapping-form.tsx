@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -22,13 +22,26 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { createAssistantMapping, updateAssistantMapping } from '@/app/(dashboard)/assistants/actions'
 import type { Database } from '@/types/database'
 
 type AssistantMapping = Database['public']['Tables']['assistant_mappings']['Row']
 
+interface VapiAssistant {
+  id: string
+  name?: string
+}
+
 const assistantMappingSchema = z.object({
-  vapi_assistant_id: z.string().min(1, 'Vapi assistant ID is required.'),
+  vapi_assistant_id: z.string().min(1, 'Vapi assistant is required.'),
   name: z
     .string()
     .trim()
@@ -54,6 +67,9 @@ export function AssistantMappingForm({
   onSuccess,
 }: AssistantMappingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [assistants, setAssistants] = useState<VapiAssistant[]>([])
+  const [assistantsLoading, setAssistantsLoading] = useState(false)
+  const [assistantsError, setAssistantsError] = useState<string | null>(null)
 
   const form = useForm<AssistantMappingFormValues>({
     resolver: zodResolver(assistantMappingSchema),
@@ -62,6 +78,52 @@ export function AssistantMappingForm({
       name: mapping?.name ?? '',
     },
   })
+
+  // Reset form when mapping changes (edit mode) or dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        vapi_assistant_id: mapping?.vapi_assistant_id ?? '',
+        name: mapping?.name ?? '',
+      })
+    }
+  }, [open, mapping, form])
+
+  // Fetch Vapi assistants when dialog opens
+  useEffect(() => {
+    if (!open) return
+
+    let cancelled = false
+    async function fetchAssistants() {
+      setAssistantsLoading(true)
+      setAssistantsError(null)
+      try {
+        const res = await fetch('/api/vapi/assistants')
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || `Failed to load assistants (${res.status})`)
+        }
+        const data = await res.json()
+        // Vapi returns { assistants: [...] } or an array depending on API version
+        const list: VapiAssistant[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data.assistants)
+            ? data.assistants
+            : []
+        if (!cancelled) setAssistants(list)
+      } catch (err) {
+        if (!cancelled) {
+          setAssistantsError(err instanceof Error ? err.message : 'Failed to load assistants')
+        }
+      } finally {
+        if (!cancelled) setAssistantsLoading(false)
+      }
+    }
+    fetchAssistants()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   async function onSubmit(values: AssistantMappingFormValues) {
     setIsSubmitting(true)
@@ -82,7 +144,7 @@ export function AssistantMappingForm({
 
       if (result?.error) {
         if (result.error === 'This assistant ID is already mapped to an organization.') {
-          toast.error('This assistant ID is already mapped to an organization.')
+          toast.error('This assistant is already mapped to an organization.')
         } else if (result.error === 'Assistant name is required.') {
           toast.error('Assistant name is required.')
         } else {
@@ -91,7 +153,7 @@ export function AssistantMappingForm({
         return
       }
 
-      toast.success(mode === 'create' ? 'Assistant mapping added.' : 'Mapping updated.')
+      toast.success(mode === 'create' ? 'Vapi assistant linked.' : 'Mapping updated.')
       form.reset()
       onOpenChange(false)
       onSuccess()
@@ -100,8 +162,8 @@ export function AssistantMappingForm({
     }
   }
 
-  const title = mode === 'create' ? 'Add Assistant Mapping' : 'Edit Mapping'
-  const submitLabel = mode === 'create' ? 'Add Assistant' : 'Save Changes'
+  const title = mode === 'create' ? 'Link Vapi Assistant' : 'Edit Mapping'
+  const submitLabel = mode === 'create' ? 'Link Assistant' : 'Save Changes'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,7 +183,7 @@ export function AssistantMappingForm({
                     <Input placeholder="e.g. Lead Capture Assistant" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Use the same human-friendly assistant name your team recognizes in Vapi. Avoid raw IDs, timestamps, or generated labels.
+                    Use the same human-friendly name your team recognizes in Vapi.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -132,12 +194,38 @@ export function AssistantMappingForm({
               name="vapi_assistant_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vapi Assistant ID</FormLabel>
+                  <FormLabel>Vapi Assistant</FormLabel>
                   <FormControl>
-                    <Input placeholder="paste assistant ID from Vapi dashboard" {...field} />
+                    {assistantsLoading ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : assistantsError ? (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {assistantsError}
+                      </div>
+                    ) : assistants.length === 0 ? (
+                      <div className="rounded-md border border-muted px-3 py-2 text-sm text-muted-foreground">
+                        No assistants found in your Vapi account.
+                      </div>
+                    ) : (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a Vapi assistant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assistants.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name || a.id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </FormControl>
                   <FormDescription>
-                    This ID is used for routing. The assistant name above is what people should read in the platform.
+                    This links the assistant for call routing. The name above is what people see in the platform.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -150,9 +238,12 @@ export function AssistantMappingForm({
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
-                Keep Mapping
+                Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting || assistantsLoading || assistants.length === 0}
+              >
                 {isSubmitting ? 'Saving...' : submitLabel}
               </Button>
             </div>

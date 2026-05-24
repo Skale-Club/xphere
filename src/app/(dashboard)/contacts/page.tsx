@@ -1,36 +1,36 @@
-import { Suspense } from 'react'
-import { Users } from 'lucide-react'
+import { Suspense } from "react";
 
-import { getContacts } from './actions'
-import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
-import { ContactsTable } from '@/components/contacts/contacts-table'
-import { EmptyContacts } from '@/components/empty-states/empty-contacts'
-import { Button } from '@/components/ui/button'
-import { ContactsPageSkeleton } from '@/components/skeletons/contacts-page-skeleton'
-import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
+import { getContacts } from "./actions";
+import { getDefinitions } from "@/app/(dashboard)/settings/custom-fields/actions";
+import { ContactsTable } from "@/components/contacts/contacts-table";
+import { ContactsPageSkeleton } from "@/components/skeletons/contacts-page-skeleton";
+import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
 
 interface ContactsPageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function ContactsPage({ searchParams }: ContactsPageProps) {
-  const sp = await searchParams
+export default async function ContactsPage({
+  searchParams,
+}: ContactsPageProps) {
+  const sp = await searchParams;
 
-  const q = typeof sp.q === 'string' ? sp.q : undefined
-  const tag = typeof sp.tag === 'string' ? sp.tag : undefined
-  const sourceRaw = typeof sp.source === 'string' ? sp.source : undefined
-  const source = sourceRaw && (CONTACT_SOURCES as readonly string[]).includes(sourceRaw)
-    ? (sourceRaw as (typeof CONTACT_SOURCES)[number])
-    : undefined
-  const sort = typeof sp.sort === 'string' ? sp.sort : undefined
-  const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
-  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const tag = typeof sp.tag === "string" ? sp.tag : undefined;
+  const sourceRaw = typeof sp.source === "string" ? sp.source : undefined;
+  const source =
+    sourceRaw && (CONTACT_SOURCES as readonly string[]).includes(sourceRaw)
+      ? (sourceRaw as (typeof CONTACT_SOURCES)[number])
+      : undefined;
+  const sort = typeof sp.sort === "string" ? sp.sort : undefined;
+  const pageRaw = typeof sp.page === "string" ? parseInt(sp.page, 10) : 1;
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
 
   // Extract custom field filters from cff_* URL params
-  const cfFilters: Record<string, string> = {}
+  const cfFilters: Record<string, string> = {};
   for (const [key, val] of Object.entries(sp)) {
-    if (key.startsWith('cff_') && typeof val === 'string' && val) {
-      cfFilters[key.slice(4)] = val
+    if (key.startsWith("cff_") && typeof val === "string" && val) {
+      cfFilters[key.slice(4)] = val;
     }
   }
 
@@ -47,7 +47,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
         />
       </Suspense>
     </div>
-  )
+  );
 }
 
 async function ContactsBody({
@@ -58,37 +58,20 @@ async function ContactsBody({
   page,
   cfFilters,
 }: {
-  q?: string
-  tag?: string
-  source?: (typeof CONTACT_SOURCES)[number]
-  sort?: string
-  page: number
-  cfFilters: Record<string, string>
+  q?: string;
+  tag?: string;
+  source?: (typeof CONTACT_SOURCES)[number];
+  sort?: string;
+  page: number;
+  cfFilters: Record<string, string>;
 }) {
   const [result, defsResult] = await Promise.all([
     getContacts({ q, tag, source, sort, page, pageSize: 25 }, cfFilters),
-    getDefinitions({ entity: 'contact', includeArchived: false }),
-  ])
-  const defs = defsResult.ok ? defsResult.data : []
-  const visibleDefs = defs.filter((d) => d.visible_in_list)
-  const filterableDefs = defs.filter((d) => d.filterable)
-
-  // Show EmptyContacts ONLY for the true unfiltered empty state | otherwise we
-  // still want the toolbar and search visible so the user can clear filters.
-  const noFilters = !q && !tag && !source && page === 1
-  if (result.total === 0 && noFilters) {
-    return (
-      <div className="rounded-[12px] border border-border bg-bg-secondary p-2">
-        <EmptyContacts />
-        <div className="mt-3 flex items-center justify-center gap-2 pb-4">
-          <div className="text-[11.5px] text-text-tertiary inline-flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Contacts created from inbound messages will appear here automatically.
-          </div>
-        </div>
-      </div>
-    )
-  }
+    getDefinitions({ entity: "contact", includeArchived: false }),
+  ]);
+  const defs = defsResult.ok ? defsResult.data : [];
+  const visibleDefs = defs.filter((d) => d.visible_in_list);
+  const filterableDefs = defs.filter((d) => d.filterable);
 
   return (
     <ContactsTable
@@ -99,11 +82,11 @@ async function ContactsBody({
       allTags={result.allTags}
       currentTag={tag}
       currentSource={source}
-      currentSort={sort ?? 'recent'}
+      currentSort={sort ?? "recent"}
       currentQuery={q}
       visibleDefs={visibleDefs}
       filterableDefs={filterableDefs}
       activeCfFilters={cfFilters}
     />
-  )
+  );
 }

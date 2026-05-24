@@ -2932,6 +2932,26 @@ export interface Database {
         }
         Relationships: []
       }
+      landing_config: {
+        Row: {
+          id: string
+          cta_image_url: string | null
+          scroll_images: string[]
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          cta_image_url?: string | null
+          scroll_images?: string[]
+          updated_at?: string
+        }
+        Update: {
+          cta_image_url?: string | null
+          scroll_images?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           key: string

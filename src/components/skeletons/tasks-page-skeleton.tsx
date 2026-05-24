@@ -1,4 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 
 function TaskItemSkeleton() {
   return (
@@ -43,7 +45,10 @@ export function TasksPageSkeleton() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Filter bar skeleton */}
       <div className="flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
-        <Skeleton className="h-8 w-[70px] rounded-[8px]" />
+        <Button size="sm" className="h-8 gap-1.5 shrink-0" disabled>
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Task</span>
+        </Button>
         <Skeleton className="h-8 w-full max-w-[200px] sm:max-w-xs rounded-[8px]" />
         <div className="hidden sm:block flex-1" />
         <div className="hidden sm:flex items-center gap-2">
@@ -53,7 +58,6 @@ export function TasksPageSkeleton() {
           <Skeleton className="h-8 w-[110px] rounded-[8px]" />
         </div>
         <div className="sm:hidden flex items-center gap-1.5">
-          <Skeleton className="h-8 w-8 rounded-[8px]" />
           <Skeleton className="h-8 w-8 rounded-[8px]" />
           <Skeleton className="h-8 w-8 rounded-[8px]" />
           <Skeleton className="h-8 w-8 rounded-[8px]" />

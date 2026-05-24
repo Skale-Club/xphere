@@ -22,7 +22,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createFolder } from '@/app/(dashboard)/workflows/_actions/folders'
 
-export function NewFolderButton() {
+interface NewFolderButtonProps {
+  className?: string
+  iconOnly?: boolean
+}
+
+export function NewFolderButton({ className, iconOnly = false }: NewFolderButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -62,8 +67,14 @@ export function NewFolderButton() {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <FolderPlus className="h-3.5 w-3.5" /> Folder
+        <Button
+          variant="outline"
+          size="sm"
+          className={className}
+          aria-label={iconOnly ? 'Folder' : undefined}
+        >
+          <FolderPlus className="h-3.5 w-3.5" />
+          {!iconOnly && 'Folder'}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">

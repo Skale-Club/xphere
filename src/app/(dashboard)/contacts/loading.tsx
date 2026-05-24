@@ -1,5 +1,5 @@
-import { TablePageSkeleton } from '@/components/skeletons/page-skeleton'
+import { ContactsPageSkeleton } from '@/components/skeletons/contacts-page-skeleton'
 
 export default function ContactsLoading() {
-  return <TablePageSkeleton rows={6} />
+  return <ContactsPageSkeleton rows={6} />
 }

@@ -74,7 +74,7 @@ export function TaskGroup({ groupKey, tasks, contactsMap, onToggle, onEdit, onDe
         <span className="text-xs text-muted-foreground">· {tasks.length}</span>
       </div>
       <div className={cn('mb-2 ml-4 border-t', meta.ring)} />
-      <div className="space-y-0.5">
+      <div className="divide-y divide-white/[0.06]">
         {sortedTasks.map((task) => {
           const contact =
             task.entity_type === 'contact' && task.entity_id

@@ -44,8 +44,22 @@ const features = [
   },
 ]
 
-export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
+const FALLBACK_CTA_IMAGE_URL =
+  'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
+
+export function LandingPage({
+  faviconUrl,
+  ctaImageUrl,
+  scrollImages: _scrollImages,
+}: {
+  faviconUrl?: string | null
+  ctaImageUrl?: string | null
+  scrollImages?: string[]
+}) {
   const logoSrc = faviconUrl ?? '/favicon.ico'
+  const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
+  // scrollImages is currently surfaced to the component for the upcoming scroll-animation section.
+  void _scrollImages
   return (
     <div className="dark min-h-screen bg-[#08090A] text-[#FAFAFA] overflow-x-hidden">
       {/* Grid background */}
@@ -213,14 +227,27 @@ export function LandingPage({ faviconUrl }: { faviconUrl?: string | null }) {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="px-6 pb-28">
+        {/* CTA — section stays compact; image overflows upward (via absolute) so its native top fade is preserved without inflating the layout */}
+        <section className="relative px-6 pb-28">
+          {/* Cyberpunk background — anchored to footer line, full natural height, extends above the section behind the features grid (-z-10) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={ctaBg}
+            alt=""
+            aria-hidden
+            className="pointer-events-none select-none absolute inset-x-0 bottom-0 w-full h-auto min-h-[560px] sm:min-h-[520px] md:min-h-[480px] lg:min-h-0 object-cover object-bottom -z-10"
+          />
+          {/* Subtle dark wash near the bottom to keep the card readable over the neon city */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[340px] -z-10 bg-gradient-to-t from-[#08090A]/45 via-[#08090A]/15 to-transparent"
+          />
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="mx-auto max-w-2xl text-center rounded-2xl border border-white/8 bg-gradient-to-b from-indigo-500/6 to-transparent p-12"
+            className="relative mx-auto max-w-2xl text-center rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A0A0B]/70 to-[#0A0A0B]/40 backdrop-blur-md p-12 shadow-2xl shadow-black/40"
           >
             <h2 className="text-[1.75rem] font-semibold tracking-[-0.025em] mb-3">
               Ready to scale your business?

@@ -1,4 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 
 const TABLE_GRID = '40px 2fr 1.5fr 1.2fr 1fr 100px'
 
@@ -7,7 +9,10 @@ export function ContactsPageSkeleton({ rows = 6 }: { rows?: number }) {
     <div className="flex h-full flex-col">
       {/* Toolbar skeleton */}
       <div className="flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
-        <Skeleton className="h-8 w-[90px] rounded-[8px]" />
+        <Button size="sm" className="h-8 shrink-0" disabled>
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Contact</span>
+        </Button>
         <Skeleton className="h-8 w-full max-w-[200px] sm:max-w-xs rounded-[8px]" />
         <div className="hidden sm:block flex-1" />
         <div className="hidden sm:flex items-center gap-2">

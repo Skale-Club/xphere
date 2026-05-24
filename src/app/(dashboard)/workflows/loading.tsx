@@ -1,5 +1,5 @@
-import { ListPageSkeleton } from '@/components/skeletons/page-skeleton'
+import { WorkflowsPageSkeleton } from '@/components/skeletons/workflows-page-skeleton'
 
 export default function ToolsLoading() {
-  return <ListPageSkeleton rows={8} />
+  return <WorkflowsPageSkeleton rows={3} />
 }

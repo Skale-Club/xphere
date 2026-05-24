@@ -236,11 +236,6 @@ export function TasksView({ tasks, contacts }: TasksViewProps) {
         setSelectedDate(date)
         if (date) setCalendarFilter('all')
       }}
-      calendarFilter={calendarFilter}
-      onCalendarFilterChange={(filter) => {
-        setSelectedDate(null)
-        setCalendarFilter(filter)
-      }}
       taskDates={taskDates}
     />
   )
@@ -319,46 +314,17 @@ export function TasksView({ tasks, contacts }: TasksViewProps) {
 function CalendarPanel({
   selectedDate,
   onSelectDate,
-  calendarFilter,
-  onCalendarFilterChange,
   taskDates,
 }: {
   selectedDate: Date | null
   onSelectDate: (date: Date | null) => void
-  calendarFilter: CalendarFilterKey
-  onCalendarFilterChange: (filter: CalendarFilterKey) => void
   taskDates: Set<string>
 }) {
   return (
-    <div className="space-y-3">
-      <MiniCalendar
-        selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
-        taskDates={taskDates}
-      />
-      <div className="rounded-xl border border-white/10 bg-[#111113] p-3">
-        <div className="mb-2 text-xs font-semibold text-muted-foreground">Calendar filters</div>
-        <div className="flex flex-wrap gap-2">
-          {CALENDAR_FILTERS.map((filter) => {
-            const active = !selectedDate && calendarFilter === filter.value
-            return (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => onCalendarFilterChange(filter.value)}
-                className={cn(
-                  'h-7 rounded-full border px-2.5 text-xs font-medium transition-colors',
-                  active
-                    ? 'border-indigo-400/50 bg-indigo-500/15 text-indigo-200'
-                    : 'border-white/15 bg-white/4 text-muted-foreground hover:border-white/25 hover:bg-white/8 hover:text-foreground',
-                )}
-              >
-                {filter.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </div>
+    <MiniCalendar
+      selectedDate={selectedDate}
+      onSelectDate={onSelectDate}
+      taskDates={taskDates}
+    />
   )
 }

@@ -1,4 +1,7 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function StageColumnSkeleton() {
   return (
@@ -31,7 +34,7 @@ function StageColumnSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function PipelinePageSkeleton() {
@@ -40,7 +43,10 @@ export function PipelinePageSkeleton() {
       {/* Toolbar skeleton */}
       <div className="flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-[70px] rounded-[8px]" />
+          <Button size="sm" className="h-8 shrink-0" disabled>
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Deal</span>
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <Skeleton className="h-8 w-[100px] rounded-[8px]" />
@@ -57,5 +63,5 @@ export function PipelinePageSkeleton() {
         <StageColumnSkeleton />
       </div>
     </div>
-  )
+  );
 }

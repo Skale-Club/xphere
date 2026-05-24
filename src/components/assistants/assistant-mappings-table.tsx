@@ -1,32 +1,19 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  type ColumnDef,
-} from '@tanstack/react-table'
-import { Bot, ExternalLink, MoreHorizontal, Plus } from 'lucide-react'
-import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Bot, ExternalLink, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,238 +23,326 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
-import { AssistantMappingForm } from './assistant-mapping-form'
+} from "@/components/ui/alert-dialog";
+import { AssistantMappingForm } from "./assistant-mapping-form";
 import {
   toggleAssistantMappingStatus,
   deleteAssistantMapping,
-} from '@/app/(dashboard)/assistants/actions'
-import type { Database } from '@/types/database'
+} from "@/app/(dashboard)/assistants/actions";
+import type { Database } from "@/types/database";
+import { cn } from "@/lib/utils";
 
-type AssistantMapping = Database['public']['Tables']['assistant_mappings']['Row']
+type AssistantMapping =
+  Database["public"]["Tables"]["assistant_mappings"]["Row"];
 
-const mappingStatusConfig = {
-  active: { label: 'Active', className: 'bg-emerald-500/15 text-emerald-400' },
-  inactive: { label: 'Inactive', className: 'bg-zinc-500/15 text-zinc-400' },
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.round(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function getVapiAssistantUrl(assistantId: string) {
-  return `https://dashboard.vapi.ai/assistants/${assistantId}`
+  return `https://dashboard.vapi.ai/assistants/${assistantId}`;
 }
 
 interface AssistantMappingsTableProps {
-  mappings: AssistantMapping[]
+  mappings: AssistantMapping[];
 }
 
-export function AssistantMappingsTable({ mappings: initialMappings }: AssistantMappingsTableProps) {
-  const router = useRouter()
-  const [optimisticMappings, setOptimisticMappings] = useState(initialMappings)
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [editMapping, setEditMapping] = useState<AssistantMapping | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<AssistantMapping | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+export function AssistantMappingsTable({
+  mappings: initialMappings,
+}: AssistantMappingsTableProps) {
+  const router = useRouter();
+  const [optimisticMappings, setOptimisticMappings] = useState(initialMappings);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editMapping, setEditMapping] = useState<AssistantMapping | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AssistantMapping | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState(false);
 
   async function handleToggle(id: string, newValue: boolean) {
-    setOptimisticMappings(prev =>
-      prev.map(m => (m.id === id ? { ...m, is_active: newValue } : m))
-    )
-    const result = await toggleAssistantMappingStatus(id, newValue)
+    setOptimisticMappings((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, is_active: newValue } : m)),
+    );
+    const result = await toggleAssistantMappingStatus(id, newValue);
     if (result?.error) {
-      setOptimisticMappings(prev =>
-        prev.map(m => (m.id === id ? { ...m, is_active: !newValue } : m))
-      )
-      toast.error('Failed to update mapping. Try again.')
+      setOptimisticMappings((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, is_active: !newValue } : m)),
+      );
+      toast.error("Failed to update mapping. Try again.");
     } else {
-      toast.success('Mapping updated.')
+      toast.success("Mapping updated.");
     }
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return
-    setIsLoading(true)
-    const id = deleteTarget.id
-    setOptimisticMappings(prev => prev.filter(m => m.id !== id))
-    setDeleteTarget(null)
-    const result = await deleteAssistantMapping(id)
+    if (!deleteTarget) return;
+    setIsLoading(true);
+    const id = deleteTarget.id;
+    setOptimisticMappings((prev) => prev.filter((m) => m.id !== id));
+    setDeleteTarget(null);
+    const result = await deleteAssistantMapping(id);
     if (result?.error) {
-      setOptimisticMappings(initialMappings)
-      toast.error('Failed to remove mapping. Try again.')
+      setOptimisticMappings(initialMappings);
+      toast.error("Failed to remove mapping. Try again.");
     } else {
-      toast.success('Assistant mapping removed.')
+      toast.success("Assistant mapping removed.");
     }
-    setIsLoading(false)
-  }
-
-  const columns: ColumnDef<AssistantMapping>[] = [
-    {
-      accessorKey: 'name',
-      header: 'Assistant Name',
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.name ?? 'Unnamed assistant'}</span>
-      ),
-    },
-    {
-      accessorKey: 'vapi_assistant_id',
-      header: 'Vapi Assistant ID',
-      cell: ({ row }) => {
-        const value = row.original.vapi_assistant_id
-        const truncated = value.slice(0, 20) + (value.length > 20 ? '...' : '')
-        return (
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs" title={value}>
-              {truncated}
-            </span>
-            <a
-              href={getVapiAssistantUrl(value)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              aria-label={`Open assistant ${row.original.name ?? value} in Vapi`}
-            >
-              Open
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'is_active',
-      header: 'Status',
-      cell: ({ row }) => {
-        const isActive =
-          optimisticMappings.find(m => m.id === row.original.id)?.is_active ?? row.original.is_active
-        const statusKey = isActive ? 'active' : 'inactive'
-        const config = mappingStatusConfig[statusKey]
-        return (
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={isActive}
-              onCheckedChange={(checked) => handleToggle(row.original.id, checked)}
-              className="data-[state=checked]:bg-primary"
-            />
-            <Badge variant="outline" className={config.className}>
-              {config.label}
-            </Badge>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'created_at',
-      header: 'Added',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.created_at)}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: () => null,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Row actions">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href={getVapiAssistantUrl(row.original.vapi_assistant_id)} target="_blank" rel="noreferrer">
-                Open in Vapi
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setEditMapping(row.original)}>
-              Edit Mapping
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteTarget(row.original)}
-            >
-              Remove Mapping
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ]
-
-  const table = useReactTable({
-    data: optimisticMappings,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  })
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    )
+    setIsLoading(false);
   }
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <div />
-        <Button onClick={() => setAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Assistant
+    <div className="flex flex-col">
+      {/* Toolbar */}
+      <div className="-mt-6 flex items-center gap-2 pb-4">
+        <Button
+          size="sm"
+          className="h-8"
+          onClick={() => setAddDialogOpen(true)}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          Link Vapi Assistant
         </Button>
       </div>
 
-      {optimisticMappings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Bot className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-base font-semibold mb-1">No assistants linked</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add a Vapi assistant with a friendly name so webhook routing stays clear.
-          </p>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Assistant
-          </Button>
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map(headerGroup => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map(row => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <div className="pb-8">
+        {optimisticMappings.length === 0 ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[8px] border border-dashed border-border bg-bg-secondary/30 px-4 py-16 text-center">
+            <Bot className="h-10 w-10 text-muted-foreground mb-4" />
+            <h3 className="text-base font-semibold mb-1">
+              No Vapi assistants linked
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+              Link a Vapi assistant with a friendly name so call routing stays
+              clear.
+            </p>
+            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Link Vapi Assistant
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
+            {/* Header */}
+            <div
+              className="hidden items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary md:grid"
+              style={{ gridTemplateColumns: "2fr 2fr 140px 100px 48px" }}
+            >
+              <div>Assistant Name</div>
+              <div>Vapi Assistant ID</div>
+              <div>Status</div>
+              <div className="text-right">Added</div>
+              <div />
+            </div>
+
+            {/* Rows */}
+            <div className="divide-y divide-border-subtle">
+              {optimisticMappings.map((m) => {
+                const isActive = m.is_active;
+                return (
+                  <div key={m.id}>
+                    <div className="md:hidden px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-medium text-text-primary">
+                            {m.name || "Unnamed assistant"}
+                          </div>
+                          <div className="mt-1 flex min-w-0 items-center gap-2">
+                            <span className="truncate font-mono text-[11.5px] text-text-secondary">
+                              {m.vapi_assistant_id}
+                            </span>
+                            <a
+                              href={getVapiAssistantUrl(m.vapi_assistant_id)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-text-tertiary hover:text-text-primary underline-offset-2 hover:underline"
+                              aria-label="Open in Vapi"
+                            >
+                              Open
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              aria-label="Row actions"
+                            >
+                              <MoreHorizontal className="h-4 w-4 text-text-tertiary" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={getVapiAssistantUrl(m.vapi_assistant_id)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 mr-2" />{" "}
+                                Open in Vapi
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setEditMapping(m)}>
+                              Edit Mapping
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget(m)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove
+                              Mapping
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isActive}
+                            onCheckedChange={(checked) =>
+                              handleToggle(m.id, checked)
+                            }
+                            className="data-[state=checked]:bg-primary"
+                          />
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10.5px] font-medium",
+                              isActive
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+                            )}
+                          >
+                            {isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="text-[11.5px] text-text-tertiary">
+                          {relativeTime(m.created_at)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className={cn(
+                        "hidden items-center gap-3 px-4 py-3 md:grid",
+                        "transition-all duration-200 ease-out hover:bg-bg-tertiary/40",
+                      )}
+                      style={{
+                        gridTemplateColumns: "2fr 2fr 140px 100px 48px",
+                      }}
+                    >
+                      {/* Name */}
+                      <div className="min-w-0">
+                        <div className="truncate text-[13px] font-medium text-text-primary">
+                          {m.name || "Unnamed assistant"}
+                        </div>
+                      </div>
+
+                      {/* Vapi ID */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-[12px] text-text-secondary truncate">
+                          {m.vapi_assistant_id}
+                        </span>
+                        <a
+                          href={getVapiAssistantUrl(m.vapi_assistant_id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-text-tertiary hover:text-text-primary underline-offset-2 hover:underline"
+                          aria-label="Open in Vapi"
+                        >
+                          Open
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+
+                      {/* Status */}
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={(checked) =>
+                            handleToggle(m.id, checked)
+                          }
+                          className="data-[state=checked]:bg-primary"
+                        />
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10.5px] font-medium",
+                            isActive
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+                          )}
+                        >
+                          {isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+
+                      {/* Added */}
+                      <div className="text-right text-[11.5px] text-text-tertiary">
+                        {relativeTime(m.created_at)}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Row actions"
+                            >
+                              <MoreHorizontal className="h-4 w-4 text-text-tertiary" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={getVapiAssistantUrl(m.vapi_assistant_id)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 mr-2" />{" "}
+                                Open in Vapi
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setEditMapping(m)}>
+                              Edit Mapping
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget(m)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Remove
+                              Mapping
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       <AssistantMappingForm
         mode="create"
@@ -282,18 +357,27 @@ export function AssistantMappingsTable({ mappings: initialMappings }: AssistantM
           mapping={editMapping}
           open={!!editMapping}
           onOpenChange={(open) => {
-            if (!open) setEditMapping(null)
+            if (!open) setEditMapping(null);
           }}
-          onSuccess={() => { setEditMapping(null); router.refresh() }}
+          onSuccess={() => {
+            setEditMapping(null);
+            router.refresh();
+          }}
         />
       )}
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Assistant Mapping</AlertDialogTitle>
             <AlertDialogDescription>
-              This assistant ID will no longer route webhooks to this organization. You can re-add it at any time.
+              This assistant ID will no longer route webhooks to this
+              organization. You can re-add it at any time.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -307,6 +391,6 @@ export function AssistantMappingsTable({ mappings: initialMappings }: AssistantM
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
-  )
+    </div>
+  );
 }

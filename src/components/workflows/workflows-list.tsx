@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 // SEED-025 Phase E: unified workflows list.
 // SEED-038: groups workflows by folder. Unfoldered workflows render in an
@@ -12,10 +12,16 @@
 //     folder area, or any row inside it) to move it there.
 //   - Drag a folder header to reorder folders amongst themselves.
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
-import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
+import Link from "next/link";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   Folder as FolderIcon,
@@ -26,7 +32,7 @@ import {
   FolderInput,
   Pencil,
   GripVertical,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   CalendarBlank,
   ClockCountdown,
@@ -35,9 +41,9 @@ import {
   Lightning,
   WebhooksLogo,
   type Icon,
-} from '@phosphor-icons/react'
-import { formatDistanceToNow, parseISO } from 'date-fns'
-import { toast } from 'sonner'
+} from "@phosphor-icons/react";
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
@@ -52,19 +58,19 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
-} from '@dnd-kit/core'
+} from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
   arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-import { cn } from '@/lib/utils'
-import { Card, CardContent } from '@/components/ui/card'
-import { NewWorkflowButton } from '@/components/flows/new-workflow-button'
-import { Button } from '@/components/ui/button'
+import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { NewWorkflowButton } from "@/components/flows/new-workflow-button";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +78,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,9 +88,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,265 +101,267 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   DropdownMenuPortal,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 
-import { WorkflowToggle } from './workflow-toggle'
+import { WorkflowToggle } from "./workflow-toggle";
 import {
   archiveWorkflow,
   moveWorkflowToFolder,
   reorderWorkflowsInFolder,
   softDeleteWorkflow,
-} from '@/app/(dashboard)/workflows/_actions/workflows'
+} from "@/app/(dashboard)/workflows/_actions/workflows";
 import {
   deleteFolder,
   renameFolder,
   reorderFolders,
-} from '@/app/(dashboard)/workflows/_actions/folders'
+} from "@/app/(dashboard)/workflows/_actions/folders";
 
-const UNFILED_ID = '__unfiled__'
+const UNFILED_ID = "__unfiled__";
 
 interface WorkflowSummary {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  is_active: boolean
-  kind: 'tool' | 'flow'
-  trigger_type: 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url'
-  trigger_config: Record<string, unknown>
-  health_blocked: boolean
-  health_blocked_reason: string | null
-  updated_at: string
-  folder_id?: string | null
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_active: boolean;
+  kind: "tool" | "flow";
+  trigger_type: "tool_call" | "event" | "schedule" | "manual" | "webhook_url";
+  trigger_config: Record<string, unknown>;
+  health_blocked: boolean;
+  health_blocked_reason: string | null;
+  updated_at: string;
+  folder_id?: string | null;
 }
 
 interface WorkflowFolder {
-  id: string
-  org_id: string
-  name: string
-  color: string | null
-  icon: string | null
-  parent_id: string | null
-  position: number
-  created_by: string | null
-  created_at: string
-  updated_at: string
+  id: string;
+  org_id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  parent_id: string | null;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Props {
-  workflows: WorkflowSummary[]
-  folders?: WorkflowFolder[]
+  workflows: WorkflowSummary[];
+  folders?: WorkflowFolder[];
 }
 
 type DragData =
-  | { type: 'workflow'; folderId: string | null }
-  | { type: 'folder'; folderId: string | null }
+  | { type: "workflow"; folderId: string | null }
+  | { type: "folder"; folderId: string | null };
 
 const TRIGGER_META: Record<
-  WorkflowSummary['trigger_type'],
+  WorkflowSummary["trigger_type"],
   { label: string; Icon: Icon; color: string }
 > = {
-  tool_call:   { label: 'Tool call', Icon: CursorClick,    color: '#6366f1' },
-  event:       { label: 'Event',     Icon: CalendarBlank,  color: '#f59e0b' },
-  schedule:    { label: 'Schedule',  Icon: ClockCountdown, color: '#06b6d4' },
-  manual:      { label: 'Manual',    Icon: Lightning,      color: '#64748b' },
-  webhook_url: { label: 'Webhook',   Icon: WebhooksLogo,   color: '#f97316' },
-}
+  tool_call: { label: "Tool call", Icon: CursorClick, color: "#6366f1" },
+  event: { label: "Event", Icon: CalendarBlank, color: "#f59e0b" },
+  schedule: { label: "Schedule", Icon: ClockCountdown, color: "#06b6d4" },
+  manual: { label: "Manual", Icon: Lightning, color: "#64748b" },
+  webhook_url: { label: "Webhook", Icon: WebhooksLogo, color: "#f97316" },
+};
 
 function triggerLabel(workflow: WorkflowSummary): string {
-  const meta = TRIGGER_META[workflow.trigger_type]
-  if (workflow.trigger_type === 'event') {
-    const eventName = workflow.trigger_config?.event as string | undefined
-    return eventName ? eventName.replace('meeting.', 'Meeting · ') : meta.label
+  const meta = TRIGGER_META[workflow.trigger_type];
+  if (workflow.trigger_type === "event") {
+    const eventName = workflow.trigger_config?.event as string | undefined;
+    return eventName ? eventName.replace("meeting.", "Meeting · ") : meta.label;
   }
-  if (workflow.trigger_type === 'tool_call') {
-    const toolName = workflow.trigger_config?.tool_name as string | undefined
-    return toolName ? `Tool · ${toolName}` : meta.label
+  if (workflow.trigger_type === "tool_call") {
+    const toolName = workflow.trigger_config?.tool_name as string | undefined;
+    return toolName ? `Tool · ${toolName}` : meta.label;
   }
-  if (workflow.trigger_type === 'schedule') {
-    const cron = workflow.trigger_config?.cron as string | undefined
-    return cron ? `Cron · ${cron}` : meta.label
+  if (workflow.trigger_type === "schedule") {
+    const cron = workflow.trigger_config?.cron as string | undefined;
+    return cron ? `Cron · ${cron}` : meta.label;
   }
-  return meta.label
+  return meta.label;
 }
 
 export function WorkflowsList({ workflows, folders = [] }: Props) {
-  const router = useRouter()
+  const router = useRouter();
 
   // Optimistic local state — drag-and-drop should feel instant.
-  const [localWorkflows, setLocalWorkflows] = useState(workflows)
-  const [localFolders, setLocalFolders] = useState(folders)
-  useEffect(() => setLocalWorkflows(workflows), [workflows])
-  useEffect(() => setLocalFolders(folders), [folders])
+  const [localWorkflows, setLocalWorkflows] = useState(workflows);
+  const [localFolders, setLocalFolders] = useState(folders);
+  useEffect(() => setLocalWorkflows(workflows), [workflows]);
+  useEffect(() => setLocalFolders(folders), [folders]);
 
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [activeType, setActiveType] = useState<'workflow' | 'folder' | null>(null)
-  const [overGroupId, setOverGroupId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeType, setActiveType] = useState<"workflow" | "folder" | null>(
+    null,
+  );
+  const [overGroupId, setOverGroupId] = useState<string | null>(null);
 
   // Wider distance so clicks register as clicks, not drags.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  )
+  );
 
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
-    const pointerCollisions = pointerWithin(args)
+    const pointerCollisions = pointerWithin(args);
     if (pointerCollisions.length > 0) {
-      const firstId = getFirstCollision(pointerCollisions, 'id')
+      const firstId = getFirstCollision(pointerCollisions, "id");
       if (firstId != null) {
-        return pointerCollisions.filter((c) => c.id === firstId)
+        return pointerCollisions.filter((c) => c.id === firstId);
       }
-      return pointerCollisions
+      return pointerCollisions;
     }
-    return rectIntersection(args)
-  }, [])
+    return rectIntersection(args);
+  }, []);
 
   const groups = useMemo(() => {
-    const byFolder = new Map<string | null, WorkflowSummary[]>()
-    byFolder.set(null, [])
-    for (const f of localFolders) byFolder.set(f.id, [])
+    const byFolder = new Map<string | null, WorkflowSummary[]>();
+    byFolder.set(null, []);
+    for (const f of localFolders) byFolder.set(f.id, []);
     for (const w of localWorkflows) {
-      const key = w.folder_id ?? null
-      if (!byFolder.has(key)) byFolder.set(key, [])
-      byFolder.get(key)!.push(w)
+      const key = w.folder_id ?? null;
+      if (!byFolder.has(key)) byFolder.set(key, []);
+      byFolder.get(key)!.push(w);
     }
-    return byFolder
-  }, [localWorkflows, localFolders])
+    return byFolder;
+  }, [localWorkflows, localFolders]);
 
-  const unfiled = groups.get(null) ?? []
+  const unfiled = groups.get(null) ?? [];
 
   const activeWorkflow =
-    activeType === 'workflow' && activeId
-      ? localWorkflows.find((w) => w.id === activeId) ?? null
-      : null
+    activeType === "workflow" && activeId
+      ? (localWorkflows.find((w) => w.id === activeId) ?? null)
+      : null;
   const activeFolder =
-    activeType === 'folder' && activeId
-      ? localFolders.find((f) => f.id === activeId) ?? null
-      : null
+    activeType === "folder" && activeId
+      ? (localFolders.find((f) => f.id === activeId) ?? null)
+      : null;
 
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as DragData | undefined
-    setActiveId(String(event.active.id))
-    setActiveType(data?.type ?? null)
+    const data = event.active.data.current as DragData | undefined;
+    setActiveId(String(event.active.id));
+    setActiveType(data?.type ?? null);
   }
 
   function handleDragOver(event: DragOverEvent) {
-    const { over } = event
-    if (!over) return setOverGroupId(null)
+    const { over } = event;
+    if (!over) return setOverGroupId(null);
     const overData = over.data.current as
       | { type?: string; folderId?: string | null }
-      | undefined
-    if (overData?.type === 'folder' || overData?.type === 'workflow') {
-      const fid = overData.folderId ?? null
-      setOverGroupId(fid === null ? UNFILED_ID : String(fid))
+      | undefined;
+    if (overData?.type === "folder" || overData?.type === "workflow") {
+      const fid = overData.folderId ?? null;
+      setOverGroupId(fid === null ? UNFILED_ID : String(fid));
     } else {
-      setOverGroupId(null)
+      setOverGroupId(null);
     }
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    const activeData = active.data.current as DragData | undefined
+    const { active, over } = event;
+    const activeData = active.data.current as DragData | undefined;
     const overData = over?.data.current as
       | { type?: string; folderId?: string | null }
-      | undefined
-    setActiveId(null)
-    setActiveType(null)
-    setOverGroupId(null)
-    if (!over || !activeData) return
+      | undefined;
+    setActiveId(null);
+    setActiveType(null);
+    setOverGroupId(null);
+    if (!over || !activeData) return;
 
     // ─── Folder reorder ────────────────────────────────────────────────────
-    if (activeData.type === 'folder') {
-      if (overData?.type !== 'folder') return
-      if (over.id === active.id) return
-      const oldIndex = localFolders.findIndex((f) => f.id === active.id)
-      const newIndex = localFolders.findIndex((f) => f.id === over.id)
-      if (oldIndex < 0 || newIndex < 0) return
-      const newOrder = arrayMove(localFolders, oldIndex, newIndex)
-      setLocalFolders(newOrder)
-      const res = await reorderFolders(newOrder.map((f) => f.id))
+    if (activeData.type === "folder") {
+      if (overData?.type !== "folder") return;
+      if (over.id === active.id) return;
+      const oldIndex = localFolders.findIndex((f) => f.id === active.id);
+      const newIndex = localFolders.findIndex((f) => f.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const newOrder = arrayMove(localFolders, oldIndex, newIndex);
+      setLocalFolders(newOrder);
+      const res = await reorderFolders(newOrder.map((f) => f.id));
       if (!res.ok) {
-        toast.error(res.error)
-        setLocalFolders(folders)
-        return
+        toast.error(res.error);
+        setLocalFolders(folders);
+        return;
       }
-      router.refresh()
-      return
+      router.refresh();
+      return;
     }
 
     // ─── Workflow drag (reorder or move to a folder) ───────────────────────
-    if (activeData.type === 'workflow') {
-      const workflow = localWorkflows.find((w) => w.id === active.id)
-      if (!workflow) return
+    if (activeData.type === "workflow") {
+      const workflow = localWorkflows.find((w) => w.id === active.id);
+      if (!workflow) return;
 
       // Resolve target folder from whatever we landed on.
-      let targetFolderId: string | null
-      if (overData?.type === 'workflow' || overData?.type === 'folder') {
-        targetFolderId = overData.folderId ?? null
+      let targetFolderId: string | null;
+      if (overData?.type === "workflow" || overData?.type === "folder") {
+        targetFolderId = overData.folderId ?? null;
       } else {
-        return
+        return;
       }
 
-      const sourceFolderId = workflow.folder_id ?? null
+      const sourceFolderId = workflow.folder_id ?? null;
 
       // Build the new ordered ID list for the target folder.
       const targetList = (groups.get(targetFolderId) ?? []).filter(
         (w) => w.id !== workflow.id,
-      )
-      let insertIndex = targetList.length
-      if (overData?.type === 'workflow' && over.id !== active.id) {
-        const idx = targetList.findIndex((w) => w.id === over.id)
-        if (idx >= 0) insertIndex = idx
+      );
+      let insertIndex = targetList.length;
+      if (overData?.type === "workflow" && over.id !== active.id) {
+        const idx = targetList.findIndex((w) => w.id === over.id);
+        if (idx >= 0) insertIndex = idx;
       }
       const newTargetIds = [
         ...targetList.slice(0, insertIndex).map((w) => w.id),
         workflow.id,
         ...targetList.slice(insertIndex).map((w) => w.id),
-      ]
+      ];
 
       // Skip no-op within same folder.
       if (sourceFolderId === targetFolderId) {
-        const currentIds = (groups.get(sourceFolderId) ?? []).map((w) => w.id)
+        const currentIds = (groups.get(sourceFolderId) ?? []).map((w) => w.id);
         const sameOrder =
           currentIds.length === newTargetIds.length &&
-          currentIds.every((id, i) => id === newTargetIds[i])
-        if (sameOrder) return
+          currentIds.every((id, i) => id === newTargetIds[i]);
+        if (sameOrder) return;
       }
 
       // Optimistic local update.
       setLocalWorkflows((prev) => {
         const updated = prev.map((w) =>
           w.id === workflow.id ? { ...w, folder_id: targetFolderId } : w,
-        )
+        );
         // Reorder target group within prev to match newTargetIds.
-        const idToWorkflow = new Map(updated.map((w) => [w.id, w]))
+        const idToWorkflow = new Map(updated.map((w) => [w.id, w]));
         const inTarget = newTargetIds
           .map((id) => idToWorkflow.get(id))
-          .filter(Boolean) as WorkflowSummary[]
+          .filter(Boolean) as WorkflowSummary[];
         const others = updated.filter(
           (w) => (w.folder_id ?? null) !== targetFolderId,
-        )
-        return [...others, ...inTarget]
-      })
+        );
+        return [...others, ...inTarget];
+      });
 
       // Persist: re-parent first (if needed), then write positions.
       if (sourceFolderId !== targetFolderId) {
-        const moveRes = await moveWorkflowToFolder(workflow.id, targetFolderId)
+        const moveRes = await moveWorkflowToFolder(workflow.id, targetFolderId);
         if (!moveRes.ok) {
-          toast.error(moveRes.error)
-          setLocalWorkflows(workflows)
-          return
+          toast.error(moveRes.error);
+          setLocalWorkflows(workflows);
+          return;
         }
       }
       const reorderRes = await reorderWorkflowsInFolder(
         targetFolderId,
         newTargetIds,
-      )
+      );
       if (!reorderRes.ok) {
-        toast.error(reorderRes.error)
-        setLocalWorkflows(workflows)
-        return
+        toast.error(reorderRes.error);
+        setLocalWorkflows(workflows);
+        return;
       }
-      router.refresh()
+      router.refresh();
     }
   }
 
@@ -361,17 +369,23 @@ export function WorkflowsList({ workflows, folders = [] }: Props) {
     return (
       <Card>
         <CardContent className="p-12 text-center">
-          <FlowArrow className="mx-auto h-8 w-8 text-text-tertiary mb-3" weight="fill" />
-          <p className="text-sm font-medium text-text-primary mb-1">No workflows yet</p>
+          <FlowArrow
+            className="mx-auto h-8 w-8 text-text-tertiary mb-3"
+            weight="fill"
+          />
+          <p className="text-sm font-medium text-text-primary mb-1">
+            No workflows yet
+          </p>
           <p className="text-sm text-text-secondary mb-4">
-            Build your first workflow visually, or ask Copilot to create one from a single sentence.
+            Build your first workflow visually, or ask Copilot to create one
+            from a single sentence.
           </p>
           <div className="inline-block">
             <NewWorkflowButton />
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -408,12 +422,12 @@ export function WorkflowsList({ workflows, folders = [] }: Props) {
         </SortableContext>
       </div>
 
-      {typeof document !== 'undefined' &&
+      {typeof document !== "undefined" &&
         createPortal(
           <DragOverlay
             dropAnimation={{
               duration: 220,
-              easing: 'cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+              easing: "cubic-bezier(0.18, 0.89, 0.32, 1.28)",
             }}
           >
             {activeWorkflow ? (
@@ -425,7 +439,7 @@ export function WorkflowsList({ workflows, folders = [] }: Props) {
           document.body,
         )}
     </DndContext>
-  )
+  );
 }
 
 // ─── Unfiled (non-reorderable) group ───────────────────────────────────────
@@ -435,22 +449,22 @@ function UnfiledGroup({
   folders,
   isOver,
 }: {
-  workflows: WorkflowSummary[]
-  folders: WorkflowFolder[]
-  isOver: boolean
+  workflows: WorkflowSummary[];
+  folders: WorkflowFolder[];
+  isOver: boolean;
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(true);
   const { setNodeRef } = useDroppable({
     id: UNFILED_ID,
-    data: { type: 'folder', folderId: null },
-  })
+    data: { type: "folder", folderId: null },
+  });
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-lg border bg-bg-secondary/30 overflow-hidden transition-colors',
-        isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle',
+        "rounded-lg border bg-bg-secondary/30 overflow-hidden transition-colors",
+        isOver ? "border-accent/60 bg-accent-muted/10" : "border-border-subtle",
       )}
     >
       <div className="flex items-center justify-between px-3 py-2 bg-bg-secondary/60 border-b border-border-subtle">
@@ -461,7 +475,7 @@ function UnfiledGroup({
         >
           <ChevronRight
             className={`h-3.5 w-3.5 text-text-tertiary transition-transform ${
-              open ? 'rotate-90' : ''
+              open ? "rotate-90" : ""
             }`}
           />
           <span className="text-xs font-medium uppercase tracking-wide text-text-secondary truncate">
@@ -483,7 +497,7 @@ function UnfiledGroup({
         />
       )}
     </div>
-  )
+  );
 }
 
 // ─── Folder group (sortable + droppable) ───────────────────────────────────
@@ -494,14 +508,14 @@ function FolderGroup({
   folders,
   isOver,
 }: {
-  folder: WorkflowFolder
-  workflows: WorkflowSummary[]
-  folders: WorkflowFolder[]
-  isOver: boolean
+  folder: WorkflowFolder;
+  workflows: WorkflowSummary[];
+  folders: WorkflowFolder[];
+  isOver: boolean;
 }) {
-  const [open, setOpen] = useState(true)
-  const [renameOpen, setRenameOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [open, setOpen] = useState(true);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const {
     setNodeRef,
@@ -512,22 +526,22 @@ function FolderGroup({
     isDragging,
   } = useSortable({
     id: folder.id,
-    data: { type: 'folder', folderId: folder.id },
-  })
+    data: { type: "folder", folderId: folder.id },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'rounded-lg border bg-bg-secondary/30 overflow-hidden transition-colors',
-        isDragging && 'opacity-40',
-        isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle',
+        "rounded-lg border bg-bg-secondary/30 overflow-hidden transition-colors",
+        isDragging && "opacity-40",
+        isOver ? "border-accent/60 bg-accent-muted/10" : "border-border-subtle",
       )}
     >
       <div className="flex items-center justify-between px-3 py-2 bg-bg-secondary/60 border-b border-border-subtle">
@@ -548,7 +562,7 @@ function FolderGroup({
           >
             <ChevronRight
               className={`h-3.5 w-3.5 text-text-tertiary transition-transform ${
-                open ? 'rotate-90' : ''
+                open ? "rotate-90" : ""
               }`}
             />
             {open ? (
@@ -593,7 +607,7 @@ function FolderGroup({
         workflowCount={workflows.length}
       />
     </div>
-  )
+  );
 }
 
 // ─── Group body (table of sortable rows, or empty state) ───────────────────
@@ -605,42 +619,42 @@ function GroupBody({
   emptyLabel,
   isOver,
 }: {
-  workflows: WorkflowSummary[]
-  folders: WorkflowFolder[]
-  folderId: string | null
-  emptyLabel: string
-  isOver: boolean
+  workflows: WorkflowSummary[];
+  folders: WorkflowFolder[];
+  folderId: string | null;
+  emptyLabel: string;
+  isOver: boolean;
 }) {
   if (workflows.length === 0) {
     return (
       <div
         className={cn(
-          'px-4 py-6 text-center text-xs transition-colors',
-          isOver ? 'text-accent' : 'text-text-tertiary',
+          "px-4 py-6 text-center text-xs transition-colors",
+          isOver ? "text-accent" : "text-text-tertiary",
         )}
       >
         {emptyLabel}
       </div>
-    )
+    );
   }
   return (
     <SortableContext
       items={workflows.map((w) => w.id)}
       strategy={verticalListSortingStrategy}
     >
-      <table className="w-full text-sm">
-        <thead className="bg-bg-secondary/40">
-          <tr className="text-xs text-text-tertiary uppercase tracking-wide">
-            <th className="w-8 px-1 py-2" />
-            <th className="w-10 px-2 py-2" />
-            <th className="text-left font-medium px-4 py-2">Name</th>
-            <th className="text-left font-medium px-4 py-2">Trigger</th>
-            <th className="text-left font-medium px-4 py-2">Status</th>
-            <th className="text-right font-medium px-4 py-2">Updated</th>
-            <th className="w-10 px-2 py-2" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border-subtle">
+      <div className="w-full text-sm">
+        <div className="hidden items-center gap-2 bg-bg-secondary/40 px-1 py-2 text-xs text-text-tertiary uppercase tracking-wide lg:grid lg:grid-cols-[32px_40px_minmax(0,1.5fr)_minmax(0,1fr)_96px_120px_36px]">
+          <div />
+          <div />
+          <div className="font-medium lg:px-4">Name</div>
+          <div className="hidden font-medium lg:block lg:px-4">Trigger</div>
+          <div className="font-medium lg:px-4">Status</div>
+          <div className="hidden text-right font-medium lg:block lg:px-4">
+            Updated
+          </div>
+          <div />
+        </div>
+        <div className="divide-y divide-border-subtle">
           {workflows.map((w) => (
             <WorkflowRow
               key={w.id}
@@ -649,25 +663,25 @@ function GroupBody({
               folderId={folderId}
             />
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
     </SortableContext>
-  )
+  );
 }
 
 // ─── Row ────────────────────────────────────────────────────────────────────
 
 interface RowProps {
-  workflow: WorkflowSummary
-  folders: WorkflowFolder[]
-  folderId: string | null
+  workflow: WorkflowSummary;
+  folders: WorkflowFolder[];
+  folderId: string | null;
 }
 
 function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const { Icon, color } = TRIGGER_META[w.trigger_type]
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { Icon, color } = TRIGGER_META[w.trigger_type];
 
   const {
     setNodeRef,
@@ -678,76 +692,76 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
     isDragging,
   } = useSortable({
     id: w.id,
-    data: { type: 'workflow', folderId },
-  })
+    data: { type: "workflow", folderId },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
   function handleMove(targetFolderId: string | null) {
     startTransition(async () => {
-      const res = await moveWorkflowToFolder(w.id, targetFolderId)
+      const res = await moveWorkflowToFolder(w.id, targetFolderId);
       if (!res.ok) {
-        toast.error(`Could not move workflow: ${res.error}`)
-        return
+        toast.error(`Could not move workflow: ${res.error}`);
+        return;
       }
       toast.success(
         targetFolderId
           ? `Moved "${w.name}" to folder.`
           : `Moved "${w.name}" out of its folder.`,
-      )
-      router.refresh()
-    })
+      );
+      router.refresh();
+    });
   }
 
   function handleArchive() {
     if (w.is_active) {
-      toast.error('Deactivate the workflow before archiving it.')
-      return
+      toast.error("Deactivate the workflow before archiving it.");
+      return;
     }
     startTransition(async () => {
-      const res = await archiveWorkflow(w.id)
+      const res = await archiveWorkflow(w.id);
       if (!res.ok) {
-        toast.error(res.error ?? 'Could not archive workflow.')
-        return
+        toast.error(res.error ?? "Could not archive workflow.");
+        return;
       }
-      toast.success(`Archived "${w.name}".`)
-      router.refresh()
-    })
+      toast.success(`Archived "${w.name}".`);
+      router.refresh();
+    });
   }
 
   function handleSoftDelete() {
     if (w.is_active) {
-      toast.error('Deactivate the workflow before moving it to trash.')
-      setConfirmDelete(false)
-      return
+      toast.error("Deactivate the workflow before moving it to trash.");
+      setConfirmDelete(false);
+      return;
     }
     startTransition(async () => {
-      const res = await softDeleteWorkflow(w.id)
+      const res = await softDeleteWorkflow(w.id);
       if (!res.ok) {
-        toast.error(res.error ?? 'Could not move workflow to trash.')
-        return
+        toast.error(res.error ?? "Could not move workflow to trash.");
+        return;
       }
-      toast.success(`Moved "${w.name}" to trash.`)
-      setConfirmDelete(false)
-      router.refresh()
-    })
+      toast.success(`Moved "${w.name}" to trash.`);
+      setConfirmDelete(false);
+      router.refresh();
+    });
   }
 
-  const currentFolderId = w.folder_id ?? null
+  const currentFolderId = w.folder_id ?? null;
 
   return (
-    <tr
+    <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'hover:bg-bg-secondary/40 transition-colors',
-        isDragging && 'opacity-40',
+        "flex items-center gap-2 px-3 py-3 transition-colors hover:bg-bg-secondary/40 lg:grid lg:grid-cols-[32px_40px_minmax(0,1.5fr)_minmax(0,1fr)_96px_120px_36px] lg:px-1",
+        isDragging && "opacity-40",
       )}
     >
-      <td className="w-8 px-1 py-3">
+      <div className="shrink-0">
         <button
           type="button"
           {...attributes}
@@ -757,18 +771,22 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-      </td>
-      <td className="pl-0 pr-0 py-3 w-10">
+      </div>
+      <div className="shrink-0">
         <div
           className="flex h-8 w-8 items-center justify-center rounded-[7px] shrink-0"
           style={{ backgroundColor: color }}
         >
           <Icon className="h-4 w-4 text-white" weight="fill" />
         </div>
-      </td>
-      <td className="px-4 py-3">
+      </div>
+      <div className="min-w-0 flex-1 lg:px-4">
         <Link
-          href={w.kind === 'flow' ? `/workflows/flows/${w.id}` : `/workflows/${w.id}`}
+          href={
+            w.kind === "flow"
+              ? `/workflows/flows/${w.id}`
+              : `/workflows/${w.id}`
+          }
           className="block group"
         >
           <p className="text-sm font-medium text-text-primary group-hover:underline truncate">
@@ -780,25 +798,29 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
             </p>
           )}
         </Link>
-      </td>
-      <td className="px-4 py-3">
-        <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+        <span className="mt-1 inline-flex min-w-0 items-center gap-1.5 text-xs text-text-secondary lg:hidden">
           <Icon className="h-3.5 w-3.5" weight="fill" style={{ color }} />
-          {triggerLabel(w)}
+          <span className="truncate">{triggerLabel(w)}</span>
         </span>
-      </td>
-      <td className="px-4 py-3">
+      </div>
+      <div className="hidden min-w-0 lg:block lg:px-4">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-secondary">
+          <Icon className="h-3.5 w-3.5" weight="fill" style={{ color }} />
+          <span className="truncate">{triggerLabel(w)}</span>
+        </span>
+      </div>
+      <div className="shrink-0 lg:px-4">
         <WorkflowToggle
           workflowId={w.id}
           initialActive={w.is_active}
           blocked={w.health_blocked}
           blockedReason={w.health_blocked_reason}
         />
-      </td>
-      <td className="px-4 py-3 text-right text-[11px] text-text-tertiary tabular-nums">
+      </div>
+      <div className="hidden px-4 py-3 text-right text-[11px] text-text-tertiary tabular-nums lg:block">
         {formatDistanceToNow(parseISO(w.updated_at), { addSuffix: true })}
-      </td>
-      <td className="pr-2 pl-0 py-3 w-10 text-right">
+      </div>
+      <div className="shrink-0 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -852,8 +874,8 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
-                e.preventDefault()
-                setConfirmDelete(true)
+                e.preventDefault();
+                setConfirmDelete(true);
               }}
               className="text-rose-500 focus:text-rose-500"
             >
@@ -868,8 +890,8 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Move workflow to trash?</AlertDialogTitle>
               <AlertDialogDescription>
-                &ldquo;{w.name}&rdquo; will be moved to the Trash. You can restore it from there
-                until it&rsquo;s permanently deleted.
+                &ldquo;{w.name}&rdquo; will be moved to the Trash. You can
+                restore it from there until it&rsquo;s permanently deleted.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -877,8 +899,8 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
               <AlertDialogAction
                 disabled={isPending}
                 onClick={(e) => {
-                  e.preventDefault()
-                  handleSoftDelete()
+                  e.preventDefault();
+                  handleSoftDelete();
                 }}
                 className="bg-rose-500 text-white hover:bg-rose-600"
               >
@@ -887,15 +909,15 @@ function WorkflowRow({ workflow: w, folders, folderId }: RowProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </td>
-    </tr>
-  )
+      </div>
+    </div>
+  );
 }
 
 // ─── Drag overlays ─────────────────────────────────────────────────────────
 
 function WorkflowDragPreview({ workflow }: { workflow: WorkflowSummary }) {
-  const { Icon, color } = TRIGGER_META[workflow.trigger_type]
+  const { Icon, color } = TRIGGER_META[workflow.trigger_type];
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-primary shadow-lg px-4 py-2.5">
       <GripVertical className="h-3.5 w-3.5 text-text-tertiary" />
@@ -909,7 +931,7 @@ function WorkflowDragPreview({ workflow }: { workflow: WorkflowSummary }) {
         {workflow.name}
       </span>
     </div>
-  )
+  );
 }
 
 function FolderDragPreview({ folder }: { folder: WorkflowFolder }) {
@@ -921,14 +943,14 @@ function FolderDragPreview({ folder }: { folder: WorkflowFolder }) {
         {folder.name}
       </span>
     </div>
-  )
+  );
 }
 
 // ─── Folder menu (header) ───────────────────────────────────────────────────
 
 interface FolderMenuProps {
-  onRename: () => void
-  onDelete: () => void
+  onRename: () => void;
+  onDelete: () => void;
 }
 
 function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
@@ -952,8 +974,8 @@ function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={(e) => {
-            e.preventDefault()
-            onDelete()
+            e.preventDefault();
+            onDelete();
           }}
           className="text-rose-500 focus:text-rose-500"
         >
@@ -962,7 +984,7 @@ function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }
 
 // ─── Rename folder dialog ───────────────────────────────────────────────────
@@ -972,50 +994,52 @@ function RenameFolderDialog({
   onOpenChange,
   folder,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  folder: WorkflowFolder
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  folder: WorkflowFolder;
 }) {
-  const router = useRouter()
-  const [name, setName] = useState(folder.name)
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const [name, setName] = useState(folder.name);
+  const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const trimmed = name.trim()
+    e.preventDefault();
+    const trimmed = name.trim();
     if (!trimmed) {
-      toast.error('Folder name is required.')
-      return
+      toast.error("Folder name is required.");
+      return;
     }
     if (trimmed === folder.name) {
-      onOpenChange(false)
-      return
+      onOpenChange(false);
+      return;
     }
     startTransition(async () => {
-      const res = await renameFolder(folder.id, { name: trimmed })
+      const res = await renameFolder(folder.id, { name: trimmed });
       if (!res.ok) {
-        toast.error(res.error)
-        return
+        toast.error(res.error);
+        return;
       }
-      toast.success('Folder renamed.')
-      onOpenChange(false)
-      router.refresh()
-    })
+      toast.success("Folder renamed.");
+      onOpenChange(false);
+      router.refresh();
+    });
   }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) setName(folder.name)
-        onOpenChange(o)
+        if (!o) setName(folder.name);
+        onOpenChange(o);
       }}
     >
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>Rename folder</DialogTitle>
-            <DialogDescription>Choose a new name for this folder.</DialogDescription>
+            <DialogDescription>
+              Choose a new name for this folder.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="folder-rename">Name</Label>
@@ -1039,13 +1063,13 @@ function RenameFolderDialog({
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={isPending}>
-              {isPending ? 'Saving…' : 'Save'}
+              {isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Delete folder dialog ───────────────────────────────────────────────────
@@ -1056,44 +1080,46 @@ function DeleteFolderDialog({
   folder,
   workflowCount,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  folder: WorkflowFolder
-  workflowCount: number
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  folder: WorkflowFolder;
+  workflowCount: number;
 }) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
     startTransition(async () => {
-      const res = await deleteFolder(folder.id, { cascadeChildren: true })
+      const res = await deleteFolder(folder.id, { cascadeChildren: true });
       if (!res.ok) {
-        toast.error(`Could not delete folder: ${res.error}`)
-        return
+        toast.error(`Could not delete folder: ${res.error}`);
+        return;
       }
       toast.success(
         workflowCount > 0
           ? `Deleted "${folder.name}". ${workflowCount} workflow${
-              workflowCount !== 1 ? 's' : ''
+              workflowCount !== 1 ? "s" : ""
             } moved to trash.`
           : `Deleted "${folder.name}".`,
-      )
-      onOpenChange(false)
-      router.refresh()
-    })
+      );
+      onOpenChange(false);
+      router.refresh();
+    });
   }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete folder &ldquo;{folder.name}&rdquo;?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Delete folder &ldquo;{folder.name}&rdquo;?
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {workflowCount > 0
               ? `This folder contains ${workflowCount} workflow${
-                  workflowCount !== 1 ? 's' : ''
+                  workflowCount !== 1 ? "s" : ""
                 }. They will be moved to the Trash. You can restore them from there.`
-              : 'The folder will be removed. No workflows are inside, so nothing else is affected.'}
+              : "The folder will be removed. No workflows are inside, so nothing else is affected."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -1101,8 +1127,8 @@ function DeleteFolderDialog({
           <AlertDialogAction
             disabled={isPending}
             onClick={(e) => {
-              e.preventDefault()
-              handleDelete()
+              e.preventDefault();
+              handleDelete();
             }}
             className="bg-rose-500 text-white hover:bg-rose-600"
           >
@@ -1111,5 +1137,5 @@ function DeleteFolderDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
+  );
 }

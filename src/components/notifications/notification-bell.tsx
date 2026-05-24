@@ -30,6 +30,7 @@ export function getBadgeLabel(unreadCount: number): string | null {
 export function NotificationBell({ userId }: NotificationBellProps) {
   const [notifications, setNotifications] = React.useState<NotificationRow[]>([])
   const [open, setOpen] = React.useState(false)
+  const instanceId = React.useId().replace(/:/g, '')
 
   const unreadCount = notifications.filter((n) => !n.read_at).length
   const badgeLabel = getBadgeLabel(unreadCount)
@@ -41,13 +42,11 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   }, [userId])
 
   // Realtime subscription: prepend new notifications on INSERT
-  const subscribedRef = React.useRef(false)
   React.useEffect(() => {
-    if (!userId || subscribedRef.current) return
-    subscribedRef.current = true
+    if (!userId) return
 
     const supabase = createClient()
-    const channel = supabase.channel(`notifications:${userId}`)
+    const channel = supabase.channel(`notifications:${userId}:${instanceId}`)
 
     channel.on(
       'postgres_changes',
@@ -66,10 +65,9 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     channel.subscribe()
 
     return () => {
-      subscribedRef.current = false
-      channel.unsubscribe()
+      void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [instanceId, userId])
 
   const handleMarkOne = async (id: string) => {
     await markNotificationRead(id)

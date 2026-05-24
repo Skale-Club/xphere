@@ -265,7 +265,88 @@ export function AgentsTable({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary shadow-elevation-sm">
+      <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary shadow-elevation-sm sm:hidden">
+        {visibleAgents.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No agents yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-border-subtle">
+            {visibleAgents.map((agent) => (
+              <div
+                key={agent.id}
+                className={cn(
+                  'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3',
+                  !agent.is_active && 'opacity-60',
+                )}
+              >
+                <div className="min-w-0">
+                  <Link
+                    href={`/agents/${agent.id}`}
+                    className="block truncate text-sm font-medium text-text-primary underline-offset-4 hover:underline"
+                  >
+                    {agent.name}
+                  </Link>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="truncate font-mono text-[11px] text-muted-foreground">
+                      {agent.slug}
+                    </span>
+                    <Badge variant="outline" className="font-mono text-[10px]">
+                      {agent.model}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {agent.tool_count} tools
+                    </Badge>
+                  </div>
+                </div>
+
+                <Switch
+                  checked={agent.is_active}
+                  disabled={isPending}
+                  onCheckedChange={(next) => handleToggleActive(agent, next)}
+                  aria-label={`Toggle active for ${agent.name}`}
+                />
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Row actions"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href={`/agents/${agent.id}`}>
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                        Edit
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/agents/${agent.id}/playground`}>
+                        <FlaskConical className="mr-2 h-3.5 w-3.5" />
+                        Test
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteTarget(agent)}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-[12px] border border-border bg-bg-secondary shadow-elevation-sm sm:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

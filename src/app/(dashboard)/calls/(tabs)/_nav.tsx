@@ -16,7 +16,7 @@ function isTimelineActive(pathname: string): boolean {
 const TABS = [
   { href: '/calls', label: 'Timeline', isActive: isTimelineActive },
   { href: '/calls/campaigns', label: 'Campaigns', isActive: (p: string) => p === '/calls/campaigns' || p.startsWith('/calls/campaigns/') },
-  { href: '/calls/assistants', label: 'Assistants', isActive: (p: string) => p === '/calls/assistants' || p.startsWith('/calls/assistants/') },
+  { href: '/calls/assistants', label: 'Vapi Assistants', isActive: (p: string) => p === '/calls/assistants' || p.startsWith('/calls/assistants/') },
   { href: '/calls/settings', label: 'Settings', isActive: (p: string) => p === '/calls/settings' || p.startsWith('/calls/settings/') },
 ]
 
@@ -25,7 +25,7 @@ export function CallsNav() {
 
   return (
     <nav className="border-b border-border">
-      <div className="flex items-center gap-1 -mb-px">
+      <div className="-mb-px flex items-center gap-6">
         {TABS.map((tab) => {
           const active = tab.isActive(pathname)
           return (
@@ -33,7 +33,7 @@ export function CallsNav() {
               key={tab.href}
               href={tab.href}
               className={cn(
-                'inline-flex items-center px-3 py-2 text-[13px] font-medium border-b-2 transition-colors',
+                'inline-flex items-center py-2 text-[13px] font-medium border-b-2 transition-colors',
                 active
                   ? 'border-accent text-text-primary'
                   : 'border-transparent text-text-tertiary hover:text-text-primary hover:border-border-strong',

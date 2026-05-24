@@ -14,14 +14,25 @@ import {
 } from '@/components/ui/dialog'
 import { NewFlowForm } from './new-flow-form'
 
-export function NewWorkflowButton() {
+interface NewWorkflowButtonProps {
+  label?: string
+  className?: string
+  iconOnly?: boolean
+}
+
+export function NewWorkflowButton({
+  label = 'New workflow',
+  className,
+  iconOnly = false,
+}: NewWorkflowButtonProps) {
   const [open, setOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-3.5 w-3.5" /> New workflow
+        <Button size="sm" className={className} aria-label={iconOnly ? label : undefined}>
+          <Plus className="h-3.5 w-3.5" />
+          {!iconOnly && label}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
