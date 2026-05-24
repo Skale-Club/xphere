@@ -10,7 +10,7 @@ import { ProjectList } from './project-list'
 import { ProjectCalendar } from './project-calendar'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { NewTaskDialog } from './new-task-dialog'
-import { getProjectTasks } from '@/app/(dashboard)/projects/actions'
+import { getProjectTasks, upsertDefaultSavedView } from '@/app/(dashboard)/projects/actions'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectRow, ProjectLabelRow } from '@/types/database'
 
@@ -38,6 +38,7 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
   function switchTab(tab: ViewTab) {
     setActiveTab(tab)
     router.replace(`/projects/${project.id}?view=${tab}`, { scroll: false })
+    upsertDefaultSavedView(project.id, tab)
   }
 
   async function refresh() {

@@ -119,6 +119,21 @@ export interface ProjectLabelRow {
   created_at: string
 }
 
+export interface ProjectSavedViewRow {
+  id: string
+  org_id: string
+  project_id: string
+  owner_id: string | null
+  name: string
+  view_type: ProjectViewType
+  scope: ProjectViewScope
+  filters: Record<string, unknown>
+  sorting: Record<string, unknown>
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface ProjectExecutionRunRow {
   id: string
   org_id: string

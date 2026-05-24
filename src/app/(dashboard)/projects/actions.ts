@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
-import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus } from '@/types/database'
+import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
 
 export type TaskWithLabels = ProjectTaskRow & {
   labels: ProjectLabelRow[]
@@ -282,4 +282,61 @@ export async function setTaskValidationStatus(
   if (status === 'approved') patch.needs_validation = false
   await db(supabase).from('project_tasks').update(patch).eq('id', id)
   revalidatePath(`/projects/${projectId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Saved Views
+// ---------------------------------------------------------------------------
+
+export async function getDefaultSavedView(projectId: string): Promise<ProjectSavedViewRow | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data } = await db(supabase)
+    .from('project_saved_views')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('owner_id', user.id)
+    .eq('is_default', true)
+    .eq('scope', 'personal')
+    .maybeSingle()
+  return data ?? null
+}
+
+export async function upsertDefaultSavedView(
+  projectId: string,
+  viewType: ProjectViewType,
+): Promise<void> {
+  const user = await getUser()
+  if (!user) return
+  const supabase = await createClient()
+
+  const { data: existing } = await db(supabase)
+    .from('project_saved_views')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('owner_id', user.id)
+    .eq('is_default', true)
+    .eq('scope', 'personal')
+    .maybeSingle()
+
+  if (existing) {
+    await db(supabase)
+      .from('project_saved_views')
+      .update({ view_type: viewType, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+  } else {
+    const { data: orgData } = await supabase.rpc('get_current_org_id')
+    await db(supabase).from('project_saved_views').insert({
+      project_id: projectId,
+      owner_id: user.id,
+      org_id: orgData,
+      name: 'Default',
+      view_type: viewType,
+      scope: 'personal',
+      is_default: true,
+      filters: {},
+      sorting: {},
+    })
+  }
 }
