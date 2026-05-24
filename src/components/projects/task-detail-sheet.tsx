@@ -1,16 +1,18 @@
 'use client'
 
+// Renders task detail as a centered Dialog (was Sheet before R11).
+
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle2, Tag, Calendar, User, Plus, Trash2 } from 'lucide-react'
+import { Loader2, CheckCircle2, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -161,19 +163,20 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
   }
 
   return (
-    <Sheet open={!!taskId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto" side="right">
-        {loading && (
-          <div className="flex items-center justify-center h-40">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        )}
+    <Dialog open={!!taskId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 sm:p-0">
+        <div className="p-5 sm:p-6 space-y-5 pb-8">
+          {loading && (
+            <div className="flex items-center justify-center h-40">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
 
-        {!loading && task && (
-          <div className="space-y-5 pb-8">
-            <SheetHeader>
-              <SheetTitle className="sr-only">Task detail</SheetTitle>
-            </SheetHeader>
+          {!loading && task && (
+            <>
+            <DialogHeader>
+              <DialogTitle className="sr-only">{name || 'Task detail'}</DialogTitle>
+            </DialogHeader>
 
             {/* Name */}
             <div>
@@ -333,9 +336,10 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
                 Delete Task
               </Button>
             </div>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
