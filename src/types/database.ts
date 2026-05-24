@@ -119,6 +119,16 @@ export interface ProjectLabelRow {
   created_at: string
 }
 
+export interface ProjectTaskCommentRow {
+  id: string
+  org_id: string
+  task_id: string
+  author: string
+  author_type: ProjectActorType
+  content: string
+  created_at: string
+}
+
 export interface ProjectSavedViewRow {
   id: string
   org_id: string
