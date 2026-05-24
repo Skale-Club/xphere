@@ -81,14 +81,14 @@ function BoardColumn({ step, tasks, projectId, isOver, onOpen, onRefresh }: Colu
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full max-h-full w-[80vw] sm:w-[280px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors snap-center sm:snap-align-none',
+        'flex h-full max-h-full w-[80vw] sm:w-[300px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors snap-center sm:snap-align-none',
         isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle'
       )}
     >
       <div className="flex items-center justify-between px-3 py-3 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{step.label}</span>
-          <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
+          <span className="text-xs text-muted-foreground bg-muted/60 rounded-full px-1.5 min-w-[20px] text-center tabular-nums">
             {tasks.length}
           </span>
         </div>
