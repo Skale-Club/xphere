@@ -11,7 +11,7 @@ const STATE_COOKIE = 'google_cal_oauth_state'
 
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
-  if (!user) return NextResponse.redirect(new URL('/login', request.url))
+  if (!user) return NextResponse.redirect(new URL('/', request.url))
 
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

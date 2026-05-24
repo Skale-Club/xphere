@@ -12,7 +12,7 @@ type ToolConfigRow = Database['public']['Tables']['tool_configs']['Row']
 
 export default async function ManychatRulesPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const supabase = await createClient()
 

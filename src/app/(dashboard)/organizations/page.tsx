@@ -7,7 +7,7 @@ import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 export default async function OrganizationsPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
   const supabase = await createClient()
 
   const { data: organizations, error } = await supabase

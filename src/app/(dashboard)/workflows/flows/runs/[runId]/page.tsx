@@ -22,7 +22,7 @@ export default async function RunDetailPage({
   params: Promise<{ runId: string }>
 }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { runId } = await params
   const result = await getWorkflowRun(runId)

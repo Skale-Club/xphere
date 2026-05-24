@@ -9,7 +9,7 @@ import { CalendarView } from '@/components/scheduling/calendar-view'
 
 export default async function SchedulingCalendarPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const [bookingsResult, eventTypesResult] = await Promise.all([
     getBookings(),

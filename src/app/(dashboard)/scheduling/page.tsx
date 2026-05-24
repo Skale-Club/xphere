@@ -15,7 +15,7 @@ interface Props {
 
 export default async function SchedulingPage({ searchParams }: Props) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const sp = await searchParams
   const [profileResult, eventTypesResult] = await Promise.all([

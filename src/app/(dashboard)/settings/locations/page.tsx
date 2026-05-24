@@ -8,7 +8,7 @@ import { LocationsList } from './_components/locations-list'
 
 export default async function LocationsPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const result = await listTenantLocations()
   const locations = result.ok ? result.data : []

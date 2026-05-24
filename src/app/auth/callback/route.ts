@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   if (!code) {
     console.warn('[auth/callback:missing-code]')
-    return NextResponse.redirect(`${origin}/login?error=missing_code`)
+    return NextResponse.redirect(`${origin}/`)
   }
 
   const supabase = await createClient()
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   if (sessionError || !sessionData.user) {
     console.error('[auth/callback:exchange-failed]', sessionError?.message)
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+    return NextResponse.redirect(`${origin}/`)
   }
 
   const user = sessionData.user
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   if (!normalizedEmail) {
     console.warn('[auth/callback:no-email] user_id=', user.id)
-    return NextResponse.redirect(`${origin}/login?error=no_email`)
+    return NextResponse.redirect(`${origin}/`)
   }
 
   // 1) Existing-member fast path: if this auth user already belongs to an org,
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
 
     if (inviteError) {
       console.error('[auth/callback:invite-lookup-failed]', inviteError.message)
-      return NextResponse.redirect(`${origin}/login?error=invite_lookup_failed`)
+      return NextResponse.redirect(`${origin}/`)
     }
 
     if (!invite) {
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       // No existing membership AND no pending invite | block access.
       // The auth.users row was created by Supabase OAuth (unavoidable) but
       // without an org_members row the user has no access to any org data.
-      return NextResponse.redirect(`${origin}/login?error=not_invited`)
+      return NextResponse.redirect(`${origin}/`)
     }
 
     console.log('[auth/callback:invite-found] invite_id=', invite.id, 'org_id=', invite.org_id)
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
 
     if (memberError) {
       console.error('[auth/callback:member-upsert-failed]', memberError.message)
-      return NextResponse.redirect(`${origin}/login?error=membership_failed`)
+      return NextResponse.redirect(`${origin}/`)
     }
 
     // Mark invite as accepted

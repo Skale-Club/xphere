@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function TwilioIntegrationPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const integration = await getTwilioIntegration()
 

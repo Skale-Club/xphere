@@ -20,7 +20,7 @@ export default async function ManychatEventsPage({
   searchParams: Promise<SearchParams>
 }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const params = await searchParams
   const offset = parseInt(params.offset ?? '0', 10) || 0

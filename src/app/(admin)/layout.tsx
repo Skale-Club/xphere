@@ -6,7 +6,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
   if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) redirect('/dashboard')
 
   return (

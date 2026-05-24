@@ -4,7 +4,7 @@ import { getUser } from '@/lib/supabase/server'
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   // The dedicated settings sub-nav is intentionally absent: the main sidebar
   // (Integrations, Members, etc.) covers the same destinations, and the user

@@ -8,7 +8,7 @@ import { DesktopOnly } from '@/components/layout/desktop-only'
 
 export default async function NewFlowPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   return (
     <DesktopOnly message="Creating a visual flow requires the desktop canvas editor.">

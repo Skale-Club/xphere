@@ -64,7 +64,7 @@ const jsonLd = {
       name: 'Xphere',
       potentialAction: {
         '@type': 'SearchAction',
-        target: `${SITE_URL}/login`,
+        target: `${SITE_URL}/`,
       },
     },
     {

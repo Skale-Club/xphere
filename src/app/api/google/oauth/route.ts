@@ -14,7 +14,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   const state = crypto.randomUUID()

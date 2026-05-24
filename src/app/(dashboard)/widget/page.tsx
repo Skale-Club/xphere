@@ -24,7 +24,7 @@ export default async function WidgetPage() {
   const user = await getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/')
   }
 
   const supabase = await createClient()

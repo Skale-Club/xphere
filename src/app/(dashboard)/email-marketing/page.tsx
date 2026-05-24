@@ -8,7 +8,7 @@ import { TemplateCard } from '@/components/email-marketing/template-card'
 
 export default async function EmailMarketingPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const result = await getEmailTemplates()
   const templates = result.ok ? result.data : []

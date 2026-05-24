@@ -9,7 +9,7 @@ import type { Database } from '@/types/database'
 
 async function getAuthedOrgId(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; orgId: string }> {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
   const supabase = await createClient()
 
   const { data: membership } = await supabase
@@ -166,7 +166,7 @@ export async function deleteDocument(sourceId: string): Promise<void> {
  */
 export async function getKnowledgeSources() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
   const supabase = await createClient()
 
   const { data, error } = await supabase

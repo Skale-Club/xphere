@@ -50,7 +50,7 @@ export async function connectGoogleContacts(): Promise<never> {
   const user = await getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/')
   }
 
   const supabase = await createClient()

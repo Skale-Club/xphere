@@ -10,7 +10,7 @@ import { PageContainer, PageHeader } from '@/components/layout/page-header'
 
 export default async function KnowledgePage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const [sources, hasOpenAi] = await Promise.all([
     getKnowledgeSources(),

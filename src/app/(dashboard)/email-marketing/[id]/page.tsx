@@ -20,7 +20,7 @@ export default async function EmailTemplatePage({
   params: Promise<{ id: string }>
 }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { id } = await params
   const result = await getEmailTemplate(id)

@@ -69,7 +69,7 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
   }
 
   return (

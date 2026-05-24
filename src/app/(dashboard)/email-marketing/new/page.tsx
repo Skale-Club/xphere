@@ -7,7 +7,7 @@ import { AiGenerateForm } from '@/components/email-marketing/ai-generate-form'
 
 export default async function NewEmailTemplatePage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">

@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 export default async function BookingsPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const result = await getBookings()
   const bookings = result.ok ? result.data : []

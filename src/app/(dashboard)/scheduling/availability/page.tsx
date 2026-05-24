@@ -8,7 +8,7 @@ import { AvailabilityEditor } from '@/components/scheduling/availability-editor'
 
 export default async function AvailabilityPage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const result = await getUserAvailability()
   const availability = result.ok ? result.data : []

@@ -7,7 +7,7 @@ import { CallsNav } from './_nav'
 
 export default async function CallsLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   return (
     <PageContainer className="pt-6">

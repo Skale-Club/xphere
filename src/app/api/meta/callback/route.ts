@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
 
   if (!user) {
-    return buildRedirect(request, '/login')
+    return buildRedirect(request, '/')
   }
 
   const url = new URL(request.url)

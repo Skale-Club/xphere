@@ -10,7 +10,7 @@ import { TelegramSettings } from './telegram-settings'
 export default async function TelegramIntegrationPage() {
   const user = await getUser()
   if (!user) {
-    redirect('/login')
+    redirect('/')
   }
 
   const [bot, agents] = await Promise.all([getTelegramBot(), listAgentsForSelect()])

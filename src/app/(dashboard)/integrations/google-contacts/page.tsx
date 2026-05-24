@@ -12,7 +12,7 @@ interface Props {
 
 export default async function GoogleContactsPage({ searchParams }: Props) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const [integration, params] = await Promise.all([
     getGoogleContactsIntegration(),

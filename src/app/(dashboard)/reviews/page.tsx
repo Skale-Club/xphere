@@ -19,7 +19,7 @@ interface PageProps {
 
 export default async function ReviewsPage({ searchParams }: PageProps) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')

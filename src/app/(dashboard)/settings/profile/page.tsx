@@ -7,7 +7,7 @@ import { ProfileForm } from '@/components/settings/profile-form'
 
 export default async function ProfilePage() {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   return (
     <PageContainer>

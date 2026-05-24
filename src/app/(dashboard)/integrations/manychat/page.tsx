@@ -11,7 +11,7 @@ export default async function ManychatIntegrationsPage() {
   const user = await getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/')
   }
 
   const channel = await getManychatChannel()

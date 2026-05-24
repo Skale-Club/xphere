@@ -11,7 +11,7 @@ export default async function FlowEditorPage({
   params: Promise<{ id: string }>
 }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   const { id } = await params
   const [result, activeIntegrations] = await Promise.all([

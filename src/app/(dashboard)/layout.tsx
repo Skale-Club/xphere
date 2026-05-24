@@ -20,7 +20,7 @@ import { getFaviconUrl } from '@/lib/seo'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/')
 
   // Read active org from cookie | no DB call on normal navigation
   const jar = await cookies()

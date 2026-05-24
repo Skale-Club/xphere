@@ -9,7 +9,7 @@ import { getEvolutionInstance } from './actions'
 export default async function EvolutionIntegrationPage() {
   const user = await getUser()
   if (!user) {
-    redirect('/login')
+    redirect('/')
   }
 
   const instance = await getEvolutionInstance()
