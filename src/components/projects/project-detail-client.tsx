@@ -80,25 +80,27 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 sm:px-6 lg:px-8 border-b border-border-subtle pb-0">
-        {TABS.map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => switchTab(tab.id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-sm border-b-2 transition-colors -mb-px',
-                activeTab === tab.id
-                  ? 'border-foreground text-foreground font-medium'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          )
-        })}
+      <div className="sticky top-0 z-10 bg-background overflow-x-auto scrollbar-none border-b border-border-subtle">
+        <div className="flex items-center gap-1 px-4 sm:px-6 lg:px-8 pb-0">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => switchTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-sm border-b-2 transition-all duration-150 -mb-px whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'border-foreground text-foreground font-medium'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* View content */}
