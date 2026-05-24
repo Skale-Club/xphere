@@ -1,10 +1,12 @@
 'use client'
 
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight, Zap, Users, Globe, Phone, MessageSquare, BarChart3, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { LoginDialog } from '@/components/auth/login-dialog'
+import { LoginDialog, type AuthMode, type AuthView } from '@/components/auth/login-dialog'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -47,6 +49,42 @@ const features = [
 const FALLBACK_CTA_IMAGE_URL =
   'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
 
+/**
+ * Reads the `?auth=` query param and syncs the dialog state.
+ * Wrapped in its own component so we can put it inside a Suspense boundary
+ * (required for useSearchParams in Next 16).
+ */
+function AuthQueryParamSync({
+  setDialogOpen,
+  setInitialMode,
+  setInitialView,
+}: {
+  setDialogOpen: (open: boolean) => void
+  setInitialMode: (mode: AuthMode) => void
+  setInitialView: (view: AuthView) => void
+}) {
+  const searchParams = useSearchParams()
+  const authParam = searchParams.get('auth')
+
+  useEffect(() => {
+    if (authParam === 'login') {
+      setInitialMode('signin')
+      setInitialView('step1')
+      setDialogOpen(true)
+    } else if (authParam === 'signup') {
+      setInitialMode('signup')
+      setInitialView('step1')
+      setDialogOpen(true)
+    } else if (authParam === 'reset') {
+      setInitialMode('signin')
+      setInitialView('reset')
+      setDialogOpen(true)
+    }
+  }, [authParam, setDialogOpen, setInitialMode, setInitialView])
+
+  return null
+}
+
 export function LandingPage({
   faviconUrl,
   ctaImageUrl,
@@ -60,8 +98,29 @@ export function LandingPage({
   const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
   // scrollImages is currently surfaced to the component for the upcoming scroll-animation section.
   void _scrollImages
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [initialMode, setInitialMode] = useState<AuthMode>('signin')
+  const [initialView, setInitialView] = useState<AuthView>('step1')
+
   return (
     <div className="dark min-h-screen bg-[#08090A] text-[#FAFAFA] overflow-x-hidden">
+      {/* Controlled auth dialog (no trigger, no children) */}
+      <LoginDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialMode={initialMode}
+        initialView={initialView}
+      />
+
+      <Suspense fallback={null}>
+        <AuthQueryParamSync
+          setDialogOpen={setDialogOpen}
+          setInitialMode={setInitialMode}
+          setInitialView={setInitialView}
+        />
+      </Suspense>
+
       {/* Grid background */}
       <div
         aria-hidden
@@ -90,15 +149,15 @@ export function LandingPage({
             <img src={logoSrc} alt="" width={22} height={22} />
             Xphere
           </Link>
-          <LoginDialog>
+          <Link href="/?auth=login">
             <Button
               size="sm"
               className="h-8 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              Sign in
+              Start
               <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Button>
-          </LoginDialog>
+          </Link>
         </header>
 
         {/* Hero */}
@@ -139,12 +198,12 @@ export function LandingPage({
             transition={{ duration: 0.5, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             className="mt-8 flex flex-col sm:flex-row items-center gap-3"
           >
-            <LoginDialog>
+            <Link href="/?auth=login">
               <Button className="h-11 px-6 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
-                Get started free
+                Start
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </LoginDialog>
+            </Link>
             <a href="#features">
               <Button
                 variant="ghost"
@@ -214,13 +273,13 @@ export function LandingPage({
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-60px' }}
                   transition={{ duration: 0.45, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                  className="group rounded-xl border border-white/6 bg-white/2 p-5 hover:bg-white/4 hover:border-white/10 transition-all duration-200"
+                  className="group rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-5 hover:bg-white/[0.07] hover:border-white/15 transition-all duration-200"
                 >
                   <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                     <Icon className="h-4 w-4 text-indigo-400" />
                   </div>
-                  <p className="font-medium text-[0.9375rem] text-[#FAFAFA] mb-1.5">{title}</p>
-                  <p className="text-[0.8125rem] text-[#71717A] leading-relaxed">{description}</p>
+                  <p className="font-medium text-[0.9375rem] text-white mb-1.5">{title}</p>
+                  <p className="text-[0.8125rem] text-white/80 leading-relaxed">{description}</p>
                 </motion.div>
               ))}
             </div>
@@ -255,12 +314,12 @@ export function LandingPage({
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
               Start automating client workflows today | no setup fees, no lock-in.
             </p>
-            <LoginDialog>
+            <Link href="/?auth=login">
               <Button className="h-11 px-8 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
-                Get started free
+                Start
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </LoginDialog>
+            </Link>
           </motion.div>
         </section>
 
