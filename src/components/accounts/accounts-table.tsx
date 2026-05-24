@@ -17,6 +17,7 @@ import type { AccountRow } from '@/lib/accounts'
 import { AccountsBulkActions } from './accounts-bulk-actions'
 import { Badge } from '@/components/ui/badge'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
+import { SortableColumnHeader } from '@/components/data-table/sortable-column-header'
 
 // Extended row type that includes counts populated by detail queries.
 // The list action (getAccounts) returns AccountRow[]; count fields default to 0
@@ -135,8 +136,8 @@ export function AccountsTable({
             onCheckedChange={toggleAll}
             aria-label="Select all"
           />
-          <div>Company</div>
-          <div>Domain</div>
+          <SortableColumnHeader column="name" label="Company" />
+          <SortableColumnHeader column="domain" label="Domain" />
           <div className="tabular-nums">Contacts</div>
           <div className="tabular-nums">Deals</div>
           <div className="tabular-nums">Pipeline</div>
@@ -144,7 +145,9 @@ export function AccountsTable({
           {visibleDefs.map((def) => (
             <div key={def.id}>{def.label}</div>
           ))}
-          <div className="text-right">Added</div>
+          <div className="text-right">
+            <SortableColumnHeader column="created_at" label="Added" />
+          </div>
         </div>
 
         {/* Body */}

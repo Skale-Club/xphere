@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
-import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
+import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 import { ConversationSummary } from '@/types/chat'
@@ -60,6 +60,7 @@ import {
 import { cn } from '@/lib/utils'
 import { FilterPanel, type AdvancedFilters, EMPTY_FILTERS, countActiveFilters } from './filter-panel'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import { ContactDetailSheet } from '@/components/contacts/contact-detail-sheet'
 
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -508,6 +509,7 @@ function ConversationCardBase({
   onDelete,
 }: ConversationCardProps) {
   const [showDelete, setShowDelete] = useState(false)
+  const [contactSheetId, setContactSheetId] = useState<string | null>(null)
   const name = displayNameOf(conversation)
   const initial = initialOf(name)
   const channel = (CHANNEL_MAP[conversation.channel] ?? 'unknown') as Channel
@@ -588,16 +590,45 @@ function ConversationCardBase({
           <span className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-text-primary">
             {name}
           </span>
+          {conversation.starred && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Star className="h-3 w-3 shrink-0 text-amber-400" fill="currentColor" aria-label="Starred" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Starred</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {conversation.contactId && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setContactSheetId(conversation.contactId ?? null)
+                    }}
+                    className="inline-flex shrink-0 cursor-pointer"
+                    aria-label="Contact linked"
+                  >
+                    <User className="h-3 w-3 shrink-0 text-accent" fill="currentColor" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Contact linked — click to edit</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {isBotPaused && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center text-warning cursor-default"
+                    className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-warning cursor-default"
                     aria-label="Bot paused"
                   >
-                    {/* Custom robot SVG (white) */}
-                    <svg viewBox="0 0 100 100" className="h-3 w-3" fill="white" aria-hidden>
+                    <svg viewBox="0 0 100 100" className="h-2.5 w-2.5" fill="white" aria-hidden>
                       <g><path d="M70.18,43.98H29.82c-3.3,0-6,2.71-6,6v23.94c0,3.3,2.7,6,6,6h40.36c3.301,0,6-2.7,6-6V49.98C76.18,46.69,73.48,43.98,70.18,43.98z M36.44,66.99c-2.78,0-5.04-2.25-5.04-5.04c0-2.78,2.26-5.03,5.04-5.03c2.78,0,5.04,2.25,5.04,5.03C41.48,64.74,39.22,66.99,36.44,66.99z M63.56,66.99c-2.779,0-5.029-2.25-5.029-5.04c0-2.78,2.25-5.03,5.029-5.03c2.78,0,5.04,2.25,5.04,5.03C68.6,64.74,66.34,66.99,63.56,66.99z"/></g>
                       <path d="M55.49,22.733c0,2.06-1.13,3.85-2.811,4.79v13.63H47.32v-13.63c-1.681-0.94-2.811-2.73-2.811-4.79c0-3.03,2.46-5.49,5.49-5.49S55.49,19.703,55.49,22.733z"/>
                       <g><path d="M20.82,51.145v21.62h-5.54c-3.3,0-6-2.699-6-6v-9.62c0-3.299,2.7-6,6-6H20.82z"/></g>
@@ -634,8 +665,8 @@ function ConversationCardBase({
             {isArchived && (
               <StatusPill tone="idle" className="!py-0 !text-[10px]">Archived</StatusPill>
             )}
-            {conversation.assignedUserId && (
-              <StatusPill tone="info" className="!py-0 !text-[10px]">Assigned</StatusPill>
+            {conversation.contactId && (
+              <StatusPill tone="info" className="!py-0 !text-[10px]">Contact linked</StatusPill>
             )}
           </div>
         )}
@@ -670,6 +701,13 @@ function ConversationCardBase({
           </TooltipProvider>
         )}
       </div>
+
+      <ContactDetailSheet
+        contactId={contactSheetId}
+        onOpenChange={(open) => {
+          if (!open) setContactSheetId(null)
+        }}
+      />
 
       {/* Hover-only quick actions (right side) */}
 
@@ -714,6 +752,7 @@ const MemoConversationCard = memo(ConversationCardBase, (prev, next) => {
     a.priority === b.priority &&
     a.status === b.status &&
     a.botStatus === b.botStatus &&
+    a.starred === b.starred &&
     a.assignedUserId === b.assignedUserId &&
     a.visitorName === b.visitorName
   )

@@ -76,13 +76,13 @@ function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOve
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full max-h-full w-[300px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors',
+        'flex h-full max-h-full w-[300px] shrink-0 flex-col rounded-[12px] border bg-bg-secondary/40 transition-colors overflow-hidden',
         isOver ? 'border-accent/60 bg-accent-muted/10' : 'border-border-subtle',
       )}
     >
       {/* Stage colour stripe */}
       <div
-        className="h-[3px] rounded-t-[12px]"
+        className="h-[3px] w-full shrink-0"
         style={{ backgroundColor: stage.color }}
       />
       <div className="flex items-center justify-between px-3 pt-3 pb-2">

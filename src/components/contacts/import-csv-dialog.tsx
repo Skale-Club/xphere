@@ -29,7 +29,9 @@ import { cn } from '@/lib/utils'
 type Stage = 'pick' | 'mapping' | 'importing' | 'done'
 
 const FIELD_LABEL: Record<ContactField, string> = {
-  name: 'Name',
+  first_name: 'First name',
+  last_name: 'Last name',
+  name: 'Full name',
   phone: 'Phone',
   email: 'Email',
   company: 'Company',

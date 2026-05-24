@@ -62,7 +62,7 @@ export const accountListFiltersSchema = z.object({
   tag: z.string().trim().max(40).optional(),
   assignedTo: uuid.optional(),
   source: z.enum(ACCOUNT_SOURCES).optional(),
-  sort: z.enum(['name', 'recent']).default('name'),
+  sort: z.string().default('name'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),
 })

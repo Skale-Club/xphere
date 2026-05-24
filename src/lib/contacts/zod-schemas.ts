@@ -120,7 +120,7 @@ export const contactListFiltersSchema = z.object({
   q: z.string().trim().max(200).optional(),
   tag: z.string().trim().max(40).optional(),
   source: z.enum(CONTACT_SOURCES).optional(),
-  sort: z.enum(['recent', 'name']).default('recent'),
+  sort: z.string().default('recent'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),
 })

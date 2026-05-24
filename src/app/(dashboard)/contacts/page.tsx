@@ -1,13 +1,12 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { Users, History } from 'lucide-react'
+import { Users, Plus } from 'lucide-react'
 
 import { getContacts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { ContactsTable } from '@/components/contacts/contacts-table'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
-import { ImportWizardDialog } from '@/components/contacts/import-wizard-dialog'
 import { EmptyContacts } from '@/components/empty-states/empty-contacts'
+import { Button } from '@/components/ui/button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
 
@@ -24,8 +23,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   const source = sourceRaw && (CONTACT_SOURCES as readonly string[]).includes(sourceRaw)
     ? (sourceRaw as (typeof CONTACT_SOURCES)[number])
     : undefined
-  const sortRaw = typeof sp.sort === 'string' ? sp.sort : undefined
-  const sort = sortRaw === 'name' ? 'name' : 'recent'
+  const sort = typeof sp.sort === 'string' ? sp.sort : undefined
   const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
@@ -39,17 +37,6 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="animate-fade-in flex items-center justify-end gap-2">
-        <Link
-          href="/contacts/imports"
-          className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
-        >
-          <History className="h-3.5 w-3.5" /> History
-        </Link>
-        <ImportWizardDialog />
-        <NewContactDialog />
-      </div>
-
       <Suspense fallback={<TableSkeleton rows={8} columns={5} />}>
         <ContactsBody
           q={q}
@@ -75,7 +62,7 @@ async function ContactsBody({
   q?: string
   tag?: string
   source?: (typeof CONTACT_SOURCES)[number]
-  sort: 'recent' | 'name'
+  sort?: string
   page: number
   cfFilters: Record<string, string>
 }) {
@@ -104,6 +91,17 @@ async function ContactsBody({
     )
   }
 
+  const addButton = (
+    <NewContactDialog
+      trigger={
+        <Button size="sm" className="h-8">
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Contact</span>
+        </Button>
+      }
+    />
+  )
+
   return (
     <ContactsTable
       rows={result.rows}
@@ -113,11 +111,12 @@ async function ContactsBody({
       allTags={result.allTags}
       currentTag={tag}
       currentSource={source}
-      currentSort={sort}
+      currentSort={sort ?? 'recent'}
       currentQuery={q}
       visibleDefs={visibleDefs}
       filterableDefs={filterableDefs}
       activeCfFilters={cfFilters}
+      addButton={addButton}
     />
   )
 }

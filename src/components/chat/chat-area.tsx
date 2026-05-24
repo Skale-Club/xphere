@@ -10,7 +10,7 @@
  * This file is presentation glue + the empty branch.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 
 import {
@@ -29,15 +29,29 @@ import {
 } from '@/components/chat/chat-area/message-composer'
 import { EmptyState } from '@/components/empty-states/empty-state'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import { getContact } from '@/app/(dashboard)/contacts/actions'
 
 const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: 'WhatsApp',
+  ghl_whatsapp: 'WhatsApp',
   instagram: 'Instagram',
   messenger: 'Messenger',
   sms: 'SMS',
+  ghl_sms: 'SMS',
   voice: 'Voice',
+  email: 'Email',
   widget: 'Web',
   web: 'Web',
+}
+
+const PRIORITY_CYCLE: Record<ConversationPriority, ConversationPriority> = {
+  normal: 'high',
+  high: 'urgent',
+  urgent: 'normal',
+}
+
+function channelLabel(channel: string): string {
+  return CHANNEL_LABEL[channel] ?? channel
 }
 
 interface ChatAreaProps {
@@ -54,6 +68,8 @@ interface ChatAreaProps {
       media?: Array<{ url: string; mime_type: string; filename?: string; size?: number }>
       /** SEED-039: explicit channel override. */
       channel?: string
+      /** SEED-039: send through another open conversation for the same contact. */
+      conversationId?: string
     },
   ) => Promise<void>
   onTyping?: () => void
@@ -110,6 +126,7 @@ export function ChatArea({
   const [channelFilter, setChannelFilter] = useState<string[] | null>(null)
   // SEED-039: operator-selected outbound channel for the composer.
   const [activeChannel, setActiveChannel] = useState<string | null>(null)
+  const [contactChannels, setContactChannels] = useState<ComposerChannel[]>([])
 
   // SEED-039: derive distinct channels present in the thread (for filter UI).
   // Must be declared before any early return to satisfy Rules of Hooks.
@@ -124,6 +141,46 @@ export function ChatArea({
     }
     return Array.from(set)
   }, [messages])
+
+  useEffect(() => {
+    setActiveChannel(null)
+  }, [conversation?.id])
+
+  useEffect(() => {
+    let cancelled = false
+    setContactChannels([])
+    if (!conversation?.contactId) return
+
+    getContact(conversation.contactId).then((contact) => {
+      if (cancelled || !contact) return
+      const openChannels = contact.conversations
+        .filter((c) => c.status === 'open' || c.status === 'pending' || c.status === 'waiting')
+        .map((c) => ({
+          channel: c.channel,
+          label: channelLabel(c.channel),
+          conversationId: c.id,
+        }))
+      setContactChannels(openChannels)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [conversation?.contactId])
+
+  const composerChannelOptions = useMemo(() => {
+    if (!conversation) return []
+    const byChannel = new Map<string, ComposerChannel>()
+    const add = (channel: string, label = channelLabel(channel), conversationId?: string) => {
+      if (!byChannel.has(channel)) byChannel.set(channel, { channel, label, conversationId })
+    }
+
+    add(conversation.channel, channelLabel(conversation.channel), conversation.id)
+    for (const ch of composerChannels ?? []) add(ch.channel, ch.label, ch.conversationId)
+    for (const ch of contactChannels) add(ch.channel, ch.label, ch.conversationId)
+
+    return Array.from(byChannel.values())
+  }, [composerChannels, contactChannels, conversation])
 
   if (!conversation) {
     return (
@@ -191,7 +248,7 @@ export function ChatArea({
       <MessageComposer
         onSendMessage={onSendMessage}
         onTyping={onTyping}
-        channelLabel={CHANNEL_LABEL[conversation.channel] ?? null}
+        channelLabel={channelLabel(activeChannel ?? conversation.channel)}
         disabled={isBotActive}
         disabledHint={
           isBotActive
@@ -203,9 +260,14 @@ export function ChatArea({
             ? () => onBotStatusToggle(conversation.id, conversation.botStatus)
             : undefined
         }
-        availableChannels={composerChannels}
+        availableChannels={composerChannelOptions}
         activeChannel={activeChannel ?? conversation.channel}
         onActiveChannelChange={setActiveChannel}
+        priority={conversation.priority ?? 'normal'}
+        onPriorityCycle={() => onPriorityCycle(
+          conversation.id,
+          PRIORITY_CYCLE[conversation.priority ?? 'normal'],
+        )}
       />
     </div>
   )

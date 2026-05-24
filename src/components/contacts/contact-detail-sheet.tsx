@@ -127,7 +127,8 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   name: contact.name ?? '',
                   phone: contact.phone ?? '',
                   email: contact.email ?? '',
-                  company: contact.company ?? '',
+                  company: contact.account?.name ?? contact.company ?? '',
+                  account_id: contact.account_id ?? null,
                   notes: contact.notes ?? '',
                   tags: contact.tagIds ?? [],
                   custom_fields: (contact.custom_fields as Record<string, unknown>) ?? {},
@@ -160,9 +161,9 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   <DialogTitle className="text-[18px] truncate">
                     {displayContactName(contact)}
                   </DialogTitle>
-                  {contact.company && (
+                  {(contact.account?.name ?? contact.company) && (
                     <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">
-                      {contact.company}
+                      {contact.account?.name ?? contact.company}
                     </p>
                   )}
                   {contact.tagEntities.length > 0 && (
@@ -222,7 +223,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                     value={contact.email}
                     onClick={contact.email ? () => { window.location.href = `mailto:${contact.email}` } : undefined}
                   />
-                  <InfoRow icon={Building2} label="Company" value={contact.company} />
+                  <InfoRow icon={Building2} label="Company" value={contact.account?.name ?? contact.company} />
                   <InfoRow
                     icon={Calendar}
                     label="Created"

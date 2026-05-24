@@ -17,26 +17,20 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
-  MoreHorizontal,
-  Pause,
-  Play,
+  Menu,
   Trash2,
   Pin,
   Star,
   Flag,
   PanelRight,
   PanelRightClose,
-  UserPlus,
   Phone,
-  CheckCheck,
   Eye,
   EyeOff,
 } from 'lucide-react'
 import Link from 'next/link'
 
 import { ConversationSummary, ConversationPriority, ConversationStatus, ConversationLabel } from '@/types/chat'
-import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
-import { StatusPill } from '@/components/design-system/status-pill'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -65,17 +59,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
-
-const CHANNEL_MAP: Record<string, Channel> = {
-  whatsapp: 'whatsapp',
-  instagram: 'instagram',
-  messenger: 'messenger',
-  sms: 'sms',
-  voice: 'voice',
-  email: 'email',
-  widget: 'web',
-  web: 'web',
-}
 
 const PRIORITY_CYCLE: Record<ConversationPriority, ConversationPriority> = {
   normal: 'high',
@@ -122,15 +105,15 @@ export function ChatHeader({
   onBack,
   onStatusChange,
   onDelete,
-  onBotStatusToggle,
-  isBotToggling,
+  onBotStatusToggle: _onBotStatusToggle,
+  isBotToggling: _isBotToggling,
   onPinToggle,
   onPriorityCycle,
-  onAssign,
+  onAssign: _onAssign,
   onStarToggle,
   orgLabels: _orgLabels,
   onLabelsChange: _onLabelsChange,
-  members,
+  members: _members,
   infoPanelOpen,
   onToggleInfoPanel,
   callPhone,
@@ -141,12 +124,8 @@ export function ChatHeader({
   onToggleDebug,
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
-  const [waitingOpen, setWaitingOpen] = useState(false)
-  const [waitUntilInput, setWaitUntilInput] = useState<string>('')
   const name = conversation.contactName || conversation.visitorName || conversation.visitorPhone || conversation.visitorEmail || 'Anonymous'
   const initial = name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
-  const channel = (CHANNEL_MAP[conversation.channel] ?? 'unknown') as Channel
-  const isBotActive = conversation.botStatus === 'active'
   const isOpen = conversation.status === 'open'
   const priority = conversation.priority ?? 'normal'
   const isStarred = Boolean(conversation.starred)
@@ -189,12 +168,6 @@ export function ChatHeader({
             <span className="truncate text-[14px] font-semibold tracking-tight text-text-primary">
               {name}
             </span>
-            {channel !== 'unknown' && <ChannelBadge channel={channel} size="sm" />}
-            {priority !== 'normal' && (
-              <StatusPill tone={priority === 'urgent' ? 'danger' : 'warning'} className="!py-0 !text-[10px]">
-                {priority === 'urgent' ? 'Urgent' : 'High'}
-              </StatusPill>
-            )}
           </div>
           {subtitle && (
             <span className="truncate text-[11.5px] text-text-tertiary">
@@ -204,97 +177,90 @@ export function ChatHeader({
         </div>
       </div>
 
-      {/* Right cluster | actions */}
+      {/* Right cluster | panel toggle + secondary actions */}
       <div className="flex shrink-0 items-center gap-1">
         <TooltipProvider delayDuration={200}>
-          {callPhone && (
+          <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="More"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>More</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs text-text-tertiary">More</DropdownMenuLabel>
+              {callPhone && (
+                <DropdownMenuItem asChild>
                   <Link href={`/voice?to=${encodeURIComponent(callPhone)}`}>
                     <Phone className="h-4 w-4" />
+                    Call this contact
                   </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Call this contact</TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Bot pause/resume button moved to the right contact panel
-              banner (BotStatusBanner) so the header stays focused on
-              conversation-level actions. */}
-
-          {/* Assign dropdown removed | assignment can be done from the contact
-              panel or list-level controls. */}
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn('h-8 w-8', conversation.pinned && 'text-accent')}
-                onClick={() => onPinToggle(conversation.id, !conversation.pinned)}
-                aria-label={conversation.pinned ? 'Unpin' : 'Pin'}
-              >
-                <Pin className="h-4 w-4" fill={conversation.pinned ? 'currentColor' : 'none'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{conversation.pinned ? 'Unpin' : 'Pin to top'}</TooltipContent>
-          </Tooltip>
-
-          {onStarToggle && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onPinToggle(conversation.id, !conversation.pinned)}>
+                <Pin
+                  className={cn('h-4 w-4', conversation.pinned && 'text-accent')}
+                  fill={conversation.pinned ? 'currentColor' : 'none'}
+                />
+                {conversation.pinned ? 'Unpin' : 'Pin to top'}
+              </DropdownMenuItem>
+              {onStarToggle && (
+                <DropdownMenuItem onClick={() => onStarToggle(conversation.id, !isStarred)}>
+                  <Star
+                    className={cn('h-4 w-4', isStarred && 'text-amber-400')}
+                    fill={isStarred ? 'currentColor' : 'none'}
+                  />
+                  {isStarred ? 'Unstar' : 'Star'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onPriorityCycle(conversation.id, PRIORITY_CYCLE[priority])}>
+                <Flag
                   className={cn(
-                    'h-8 w-8 transition-colors',
-                    isStarred ? 'text-amber-400 hover:text-amber-300' : 'text-text-tertiary',
+                    'h-4 w-4',
+                    priority === 'high' && 'text-amber-400',
+                    priority === 'urgent' && 'text-rose-400',
                   )}
-                  onClick={() => onStarToggle(conversation.id, !isStarred)}
-                  aria-label={isStarred ? 'Unstar conversation' : 'Star conversation'}
-                >
-                  <Star className="h-4 w-4" fill={isStarred ? 'currentColor' : 'none'} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isStarred ? 'Unstar' : 'Star'}</TooltipContent>
-            </Tooltip>
-          )}
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  'h-8 w-8 transition-colors',
-                  priority === 'normal'  && 'text-text-tertiary',
-                  priority === 'high'    && 'text-amber-400 hover:text-amber-300',
-                  priority === 'urgent'  && 'text-rose-400 hover:text-rose-300',
-                )}
-                onClick={() => onPriorityCycle(conversation.id, PRIORITY_CYCLE[priority])}
-                aria-label="Cycle priority"
+                  fill={priority !== 'normal' ? 'currentColor' : 'none'}
+                />
+                Priority: {priority === 'normal' ? 'Normal' : priority === 'high' ? 'High' : 'Urgent'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onStatusChange(isOpen ? 'closed' : 'open')}>
+                {isOpen ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
+                {isOpen ? 'Archive' : 'Reopen'}
+              </DropdownMenuItem>
+              {onToggleDebug && (
+                <DropdownMenuItem onClick={onToggleDebug}>
+                  {showDebug ? <Eye className="h-4 w-4 text-accent" /> : <EyeOff className="h-4 w-4" />}
+                  {showDebug ? 'Hide internal messages' : 'Show internal messages'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-rose-400 focus:bg-rose-500/10 focus:text-rose-300"
+                onClick={() => setShowDelete(true)}
               >
-                <Flag className="h-4 w-4" fill={priority !== 'normal' ? 'currentColor' : 'none'} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Priority: {priority === 'normal' ? 'Normal' : priority === 'high' ? 'High' : 'Urgent'}
-            </TooltipContent>
-          </Tooltip>
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 hidden md:inline-flex"
+                className="h-8 w-8"
                 onClick={onToggleInfoPanel}
                 aria-label={infoPanelOpen ? 'Hide contact info' : 'Show contact info'}
               >
@@ -302,59 +268,6 @@ export function ChatHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent>{infoPanelOpen ? 'Hide contact info' : 'Show contact info'}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onStatusChange(isOpen ? 'closed' : 'open')}
-                aria-label={isOpen ? 'Archive conversation' : 'Reopen conversation'}
-              >
-                {isOpen ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{isOpen ? 'Archive' : 'Reopen'}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        {onToggleDebug && (
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn('h-8 w-8', showDebug ? 'text-accent' : 'text-text-tertiary')}
-                  onClick={onToggleDebug}
-                  aria-label="Toggle internal messages"
-                >
-                  {showDebug ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{showDebug ? 'Hide internal messages' : 'Show internal messages'}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                onClick={() => setShowDelete(true)}
-                aria-label="Delete conversation"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

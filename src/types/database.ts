@@ -2279,6 +2279,47 @@ export interface Database {
           }
         ]
       }
+      opportunity_contacts: {
+        Row: {
+          id: string
+          org_id: string
+          opportunity_id: string
+          contact_id: string
+          is_primary: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          opportunity_id: string
+          contact_id: string
+          is_primary?: boolean
+          created_at?: string
+        }
+        Update: {
+          org_id?: string
+          opportunity_id?: string
+          contact_id?: string
+          is_primary?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'opportunity_contacts_opportunity_id_fkey'
+            columns: ['opportunity_id']
+            isOneToOne: false
+            referencedRelation: 'opportunities'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'opportunity_contacts_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       opportunity_activities: {
         Row: {
           id: string

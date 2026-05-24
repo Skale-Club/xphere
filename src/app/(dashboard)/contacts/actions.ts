@@ -128,7 +128,20 @@ export async function getContacts(
     query = query.filter('custom_fields', 'cs', JSON.stringify({ [key]: val }))
   }
 
-  if (f.sort === 'name') {
+  // Sort: supports legacy 'recent' | 'name' and new 'column:direction' format
+  const sortValue = f.sort ?? 'recent'
+  if (sortValue.includes(':')) {
+    const [col, dir] = sortValue.split(':')
+    const ascending = dir === 'asc'
+    if (col === 'name') {
+      query = query
+        .order('first_name', { ascending, nullsFirst: false })
+        .order('last_name', { ascending, nullsFirst: false })
+        .order('name', { ascending, nullsFirst: false })
+    } else {
+      query = query.order(col, { ascending, nullsFirst: false })
+    }
+  } else if (sortValue === 'name') {
     query = query
       .order('first_name', { ascending: true, nullsFirst: false })
       .order('last_name', { ascending: true, nullsFirst: false })
@@ -234,7 +247,7 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     { data: contactTagRows },
     { data: convs },
     { data: calls },
-    { data: opps },
+    { data: oppLinks },
     { data: tasks },
     { data: bookings },
     { data: notes },
@@ -258,11 +271,9 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
       .order('started_at', { ascending: false, nullsFirst: false })
       .limit(20),
     supabase
-      .from('opportunities')
-      .select('id, pipeline_id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
-      .eq('contact_id', id)
-      .order('updated_at', { ascending: false })
-      .limit(20),
+      .from('opportunity_contacts')
+      .select('opportunity_id')
+      .eq('contact_id', id),
     // SEED-039: tasks for this contact
     supabase
       .from('tasks')
@@ -291,6 +302,28 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     getDefinitions({ entity: 'contact', includeArchived: false }),
   ])
   if (!contact) return null
+
+  // Fetch opportunities via junction table + backward-compatible contact_id
+  const linkedOppIds = (oppLinks ?? []).map((r) => r.opportunity_id)
+  const { data: oppsFromLink } = linkedOppIds.length > 0
+    ? await supabase
+        .from('opportunities')
+        .select('id, pipeline_id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
+        .in('id', linkedOppIds)
+        .order('updated_at', { ascending: false })
+        .limit(20)
+    : { data: [] }
+  const { data: oppsFromFk } = await supabase
+    .from('opportunities')
+    .select('id, pipeline_id, title, value, currency, status, updated_at, stage:pipeline_stages(id, name, color)')
+    .eq('contact_id', id)
+    .order('updated_at', { ascending: false })
+    .limit(20)
+
+  const oppsMap = new Map<string, unknown>()
+  for (const o of (oppsFromLink ?? [])) oppsMap.set(o.id, o)
+  for (const o of (oppsFromFk ?? [])) oppsMap.set(o.id, o)
+  const opps = Array.from(oppsMap.values())
 
   const tagEntities: ContactTagEntity[] = (contactTagRows ?? [])
     .map((r) => (r.tags as ContactTagEntity | null))
@@ -715,6 +748,83 @@ type InlineBuiltinField = (typeof INLINE_BUILTIN_FIELDS)[number]
 export interface UpdateContactFieldResult {
   ok: boolean
   error?: string
+}
+
+export interface SetContactCompanyResult {
+  ok: boolean
+  error?: string
+  account_id?: string | null
+  company?: string | null
+  account?: ContactDetail['account']
+}
+
+/**
+ * Sets or clears the real Company relationship for a contact.
+ *
+ * `contacts.company` is a legacy fallback string. Keep it synchronized with
+ * the linked account name, and clear it when explicitly unlinking so the UI
+ * does not keep showing a stale "company" that is not present in Companies.
+ */
+export async function setContactCompany(
+  contactId: string,
+  accountId: string | null,
+): Promise<SetContactCompanyResult> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!contactId) return { ok: false, error: 'Missing contact id' }
+
+  const supabase = await createClient()
+
+  if (!accountId) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .update({ account_id: null, company: null })
+      .eq('id', contactId)
+      .select('id')
+      .maybeSingle()
+
+    if (error) return { ok: false, error: error.message }
+    if (!data) return { ok: false, error: 'Contact not found' }
+
+    revalidatePath('/contacts')
+    revalidatePath('/companies')
+    return { ok: true, account_id: null, company: null, account: null }
+  }
+
+  const { data: account, error: accountErr } = await supabase
+    .from('accounts')
+    .select('id, name, website, address')
+    .eq('id', accountId)
+    .maybeSingle()
+
+  if (accountErr) return { ok: false, error: accountErr.message }
+  if (!account) return { ok: false, error: 'Company not found' }
+
+  const { data, error } = await supabase
+    .from('contacts')
+    .update({ account_id: account.id, company: account.name })
+    .eq('id', contactId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) return { ok: false, error: error.message }
+  if (!data) return { ok: false, error: 'Contact not found' }
+
+  revalidatePath('/contacts')
+  revalidatePath('/companies')
+  revalidatePath(`/companies/${account.id}`)
+
+  return {
+    ok: true,
+    account_id: account.id,
+    company: account.name,
+    account: {
+      id: account.id,
+      name: account.name,
+      website: account.website ?? null,
+      address: account.address ?? null,
+    },
+  }
 }
 
 /**

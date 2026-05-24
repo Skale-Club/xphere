@@ -278,7 +278,7 @@ export function TasksView({ tasks, contacts }: TasksViewProps) {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Grouped list */}
-        <div className="flex-1 overflow-y-auto py-4 px-2 sm:px-4 space-y-6">
+        <div className="flex-1 overflow-y-auto py-4 px-4 sm:px-6 lg:px-8 space-y-6">
           {groups.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
               No tasks match the current filters.

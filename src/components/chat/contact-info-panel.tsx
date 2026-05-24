@@ -54,20 +54,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import {
   getContact,
   updateContactField,
+  setContactCompany,
   addContactNote,
   type ContactDetail,
 } from '@/app/(dashboard)/contacts/actions'
 import { createTask, updateTask } from '@/app/(dashboard)/tasks/actions'
-import { getStages } from '@/app/(dashboard)/pipeline/actions'
+import { getStages, getDefaultPipeline } from '@/app/(dashboard)/pipeline/actions'
+import { getEventTypes } from '@/app/(dashboard)/scheduling/_actions/event-types'
 import { TaskForm } from '@/components/tasks/task-form'
 import { OpportunityDetailSheet } from '@/components/pipeline/opportunity-detail-sheet'
+import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dialog'
+import { DealActionDialog } from '@/components/pipeline/deal-action-dialog'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
+import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
 import { formatCurrency } from '@/lib/pipeline/format'
@@ -194,6 +205,9 @@ export function ContactInfoPanel({
   const [selectedOpportunityId, setSelectedOpportunityId] = React.useState<string | null>(null)
   const [selectedOpportunityCurrency, setSelectedOpportunityCurrency] = React.useState('USD')
   const [opportunityStages, setOpportunityStages] = React.useState<Database['public']['Tables']['pipeline_stages']['Row'][]>([])
+  const [defaultPipeline, setDefaultPipeline] = React.useState<{ id: string } | null>(null)
+  const [hasCalendars, setHasCalendars] = React.useState(false)
+  const [dealDialogOpen, setDealDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     if (!contactId) {
@@ -211,6 +225,15 @@ export function ContactInfoPanel({
       cancelled = true
     }
   }, [contactId, refreshKey])
+
+  React.useEffect(() => {
+    getDefaultPipeline().then((p) => {
+      if (p) setDefaultPipeline(p)
+    })
+    getEventTypes().then((res) => {
+      if (res.ok && res.data.length > 0) setHasCalendars(true)
+    })
+  }, [])
 
   const refresh = React.useCallback(() => setRefreshKey((k) => k + 1), [])
 
@@ -321,18 +344,6 @@ export function ContactInfoPanel({
       {/* Header */}
       <div className="border-b border-border-subtle px-5 py-5 relative">
         <div className="absolute right-3 top-3 flex items-center gap-1">
-          {onCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hidden md:inline-flex"
-              onClick={onCollapse}
-              title="Collapse contact panel"
-              aria-label="Collapse contact panel"
-            >
-              <PanelRightClose className="h-4 w-4" />
-            </Button>
-          )}
           {onClose && (
             <Button
               variant="ghost"
@@ -352,7 +363,7 @@ export function ContactInfoPanel({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="flex flex-col gap-0.5">
               <InlineEditField
                 value={contact.first_name}
                 placeholder="First name"
@@ -396,100 +407,62 @@ export function ContactInfoPanel({
           </div>
         </div>
 
-        {/* SEED-039: quick channel action buttons (Call / WhatsApp / SMS).
-            Call always available when phone exists. WhatsApp/SMS deep-link to
-            their open conversation when one exists, otherwise rendered disabled
-            to communicate that the channel isn't reachable yet. Additional
-            channels (Messenger/Instagram/Web/Voice) only appear when there is
-            an existing conversation to switch into. */}
-        {(contact.phone || reach.length > 0) && (
-          <div className="mt-4 flex flex-wrap items-center gap-1.5">
-            {contact.phone && (
-              <ChannelActionButton
-                icon={Phone}
-                label="Call"
-                onClick={() => prefillDialPad(contact.phone!)}
-                title={`Call ${contact.phone}`}
-              />
-            )}
-            {contact.phone && (() => {
-              const wa = reach.find((r) => r.channel === 'whatsapp')
-              return (
-                <ChannelActionButton
-                  icon={MessageCircle}
-                  label="WhatsApp"
-                  href={wa?.conversationId ? `/chat?conversation=${wa.conversationId}` : undefined}
-                  disabled={!wa?.conversationId}
-                  accent="emerald"
-                  title={
-                    wa?.conversationId
-                      ? 'Open WhatsApp thread'
-                      : 'No WhatsApp conversation yet'
-                  }
-                />
-              )
-            })()}
-            {contact.phone && (() => {
-              const sms = reach.find((r) => r.channel === 'sms')
-              return (
-                <ChannelActionButton
-                  icon={MessageSquare}
-                  label="SMS"
-                  href={sms?.conversationId ? `/chat?conversation=${sms.conversationId}` : undefined}
-                  disabled={!sms?.conversationId}
-                  title={sms?.conversationId ? 'Open SMS thread' : 'No SMS conversation yet'}
-                />
-              )
-            })()}
-            {/* Extra channels: only show when there is a thread to jump to */}
-            {reach
-              .filter((r) => !['whatsapp', 'sms'].includes(r.channel) && r.conversationId)
-              .map((r) => (
-                <ChannelActionButton
-                  key={`${r.channel}-${r.conversationId}`}
-                  label={r.label}
-                  href={`/chat?conversation=${r.conversationId}`}
-                  badgeChannel={r.channel}
-                  title={`Open ${r.label} thread`}
-                />
-              ))}
-            {contact.email && (
-              <ChannelActionButton
-                icon={Mail}
-                label="Email"
-                href={`mailto:${contact.email}`}
-                title={`Email ${contact.email}`}
-              />
-            )}
-          </div>
-        )}
-
         {/* SEED-039: quick actions */}
-        <div className="mt-4 grid grid-cols-4 gap-1.5">
+        <div className="mt-4 flex items-center gap-2">
+          <div className="h-px flex-1 bg-border-subtle" />
+          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Create</span>
+          <div className="h-px flex-1 bg-border-subtle" />
+        </div>
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="h-8 px-2 text-[11.5px]"
+            className="h-14 flex-col gap-1 px-1 text-[10.5px]"
             onClick={() => setCreatingTask(true)}
             title="Create task"
           >
-            <ListTodo className="h-3 w-3" />
-            Task
+            <ListTodo className="h-4 w-4" />
+            Add task
           </Button>
-          <Button asChild size="sm" variant="secondary" className="h-8 px-2 text-[11.5px]">
-            <Link href={`/scheduling?contactId=${contact.id}`} title="Schedule a meeting">
-              <CalendarPlus className="h-3 w-3" />
-              Schedule
-            </Link>
+          {hasCalendars ? (
+            <Button asChild size="sm" variant="secondary" className="h-14 flex-col gap-1 px-1 text-[10.5px]">
+              <Link href={`/scheduling?contactId=${contact.id}`} title="Schedule a meeting">
+                <CalendarPlus className="h-4 w-4" />
+                Schedule
+              </Link>
+            </Button>
+          ) : (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-14 flex-col gap-1 px-1 text-[10.5px] opacity-50 cursor-not-allowed"
+                    disabled
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Schedule
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Create a calendar first</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-14 flex-col gap-1 px-1 text-[10.5px] w-full"
+            onClick={() => setDealDialogOpen(true)}
+            title="Create or link deal"
+          >
+            <Briefcase className="h-4 w-4" />
+            New deal
           </Button>
           <NoteQuickAction contactId={contact.id} onSaved={refresh} />
-          <Button asChild size="sm" variant="secondary" className="h-8 px-2 text-[11.5px]">
-            <Link href={`/pipeline/new?contact_id=${contact.id}`} title="Create deal">
-              <Briefcase className="h-3 w-3" />
-              Deal
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -527,23 +500,12 @@ export function ContactInfoPanel({
               />
             </InlineRow>
             <InlineRow icon={Building2} label="Company">
-              {contact.account ? (
-                <Link
-                  href={`/companies/${contact.account.id}`}
-                  className="inline-flex w-full items-center gap-1 truncate rounded-[6px] px-1.5 py-0.5 text-[12.5px] text-text-primary hover:bg-bg-tertiary hover:text-accent transition-colors"
-                  title={`Open account ${contact.account.name}`}
-                >
-                  <span className="truncate">{contact.account.name}</span>
-                  <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
-                </Link>
-              ) : (
-                <InlineEditField
-                  value={contact.company}
-                  placeholder="Add company"
-                  onSave={saveField('company')}
-                  ariaLabel="Edit company"
-                />
-              )}
+              <ContactCompanyControl
+                contact={contact}
+                onSaved={(next) => {
+                  setContact((prev) => (prev ? { ...prev, ...next } : prev))
+                }}
+              />
             </InlineRow>
             {contact.account?.address && (
               <InfoRow icon={MapPin} label="Address" value={contact.account.address} />
@@ -878,6 +840,13 @@ export function ContactInfoPanel({
         </div>
       </ScrollArea>
     </div>
+    <DealActionDialog
+      open={dealDialogOpen}
+      onOpenChange={setDealDialogOpen}
+      pipelineId={defaultPipeline?.id ?? ''}
+      contactId={contact.id}
+      onLinked={refresh}
+    />
     <ContactTaskDialog
       open={creatingTask || Boolean(editingTask)}
       task={editingTask}
@@ -1049,6 +1018,57 @@ function Section({
   )
 }
 
+function ContactCompanyControl({
+  contact,
+  onSaved,
+}: {
+  contact: ContactDetail
+  onSaved: (patch: Pick<ContactDetail, 'account_id' | 'company' | 'account'>) => void
+}) {
+  const [saving, setSaving] = React.useState(false)
+  const companyName = contact.account?.name ?? contact.company ?? undefined
+
+  async function handleChange(accountId: string | null) {
+    setSaving(true)
+    const result = await setContactCompany(contact.id, accountId)
+    setSaving(false)
+
+    if (!result.ok) {
+      toast.error(result.error ?? 'Failed to update company')
+      return
+    }
+
+    onSaved({
+      account_id: result.account_id ?? null,
+      company: result.company ?? null,
+      account: result.account ?? null,
+    })
+    toast.success(accountId ? 'Company linked' : 'Company unlinked')
+  }
+
+  return (
+    <div className={cn('space-y-1.5', saving && 'opacity-70')}>
+      <AccountCombobox
+        value={contact.account_id ?? null}
+        defaultAccountName={companyName}
+        onChange={(accountId) => {
+          void handleChange(accountId)
+        }}
+      />
+      {contact.account && (
+        <Link
+          href={`/companies/${contact.account.id}`}
+          className="inline-flex items-center gap-1 px-1 text-[11.5px] text-text-tertiary transition-colors hover:text-accent"
+          title={`Open company ${contact.account.name}`}
+        >
+          <ExternalLink className="h-3 w-3" />
+          Open company
+        </Link>
+      )}
+    </div>
+  )
+}
+
 function InlineRow({
   icon: Icon,
   label,
@@ -1146,12 +1166,12 @@ function NoteQuickAction({
         type="button"
         size="sm"
         variant="secondary"
-        className="h-8 px-2 text-[11.5px]"
+        className="h-14 flex-col gap-1 px-1 text-[10.5px]"
         onClick={() => setOpen((v) => !v)}
         title="Add note"
       >
-        <StickyNote className="h-3 w-3" />
-        Note
+        <StickyNote className="h-4 w-4" />
+        Add note
       </Button>
       {open && (
         <div className="col-span-4 mt-2 flex flex-col gap-1.5">

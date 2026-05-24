@@ -100,7 +100,13 @@ export async function getAccounts(
     query = query.filter('custom_fields', 'cs', JSON.stringify({ [key]: val }))
   }
 
-  if (f.sort === 'recent') {
+  // Sort: supports legacy 'recent' | 'name' and new 'column:direction' format
+  const sortValue = f.sort ?? 'name'
+  if (sortValue.includes(':')) {
+    const [col, dir] = sortValue.split(':')
+    const ascending = dir === 'asc'
+    query = query.order(col, { ascending, nullsFirst: false })
+  } else if (sortValue === 'recent') {
     query = query.order('created_at', { ascending: false })
   } else {
     query = query.order('name', { ascending: true, nullsFirst: false })

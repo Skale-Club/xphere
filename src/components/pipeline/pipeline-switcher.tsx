@@ -36,7 +36,7 @@ export function PipelineSwitcher({ pipelines, activeId }: PipelineSwitcherProps)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" className="gap-1">
+        <Button variant="secondary" size="sm" className="gap-1 h-8">
           {active?.name ?? 'Pipeline'}
           <ChevronDown className="h-3.5 w-3.5" />
         </Button>

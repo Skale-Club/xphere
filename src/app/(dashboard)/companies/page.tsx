@@ -1,10 +1,12 @@
 import { Suspense } from 'react'
+import { Plus } from 'lucide-react'
 
 import { getAccounts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
-import { AccountsExportButton } from '@/components/accounts/accounts-export-button'
+import { NewCompanyDialog } from '@/components/accounts/new-company-dialog'
+import { Button } from '@/components/ui/button'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 
@@ -30,6 +32,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
     : undefined
 
   const assignedTo = typeof sp.assigned_to === 'string' ? sp.assigned_to : undefined
+  const sort = typeof sp.sort === 'string' ? sp.sort : undefined
 
   const pageRaw = typeof sp.page === 'string' ? parseInt(sp.page, 10) : 1
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
@@ -43,10 +46,6 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="animate-fade-in flex justify-end">
-        <AccountsExportButton />
-      </div>
-
       <AccountsFilters
         currentQuery={q}
         currentIndustry={industry}
@@ -54,6 +53,16 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
         currentTag={tag}
         currentAssignedTo={assignedTo}
         currentSource={source}
+        addButton={
+          <NewCompanyDialog
+            trigger={
+              <Button size="sm" className="h-8">
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Company</span>
+              </Button>
+            }
+          />
+        }
       />
 
       <Suspense fallback={<TableSkeleton rows={8} columns={8} />}>
@@ -64,6 +73,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
           tag={tag}
           assignedTo={assignedTo}
           source={source}
+          sort={sort}
           page={page}
           cfFilters={cfFilters}
         />
@@ -79,6 +89,7 @@ async function AccountsBody({
   tag,
   assignedTo,
   source,
+  sort,
   page,
   cfFilters,
 }: {
@@ -88,11 +99,12 @@ async function AccountsBody({
   tag?: string
   assignedTo?: string
   source?: (typeof ACCOUNT_SOURCES)[number]
+  sort?: string
   page: number
   cfFilters: Record<string, string>
 }) {
   const [result, defsResult] = await Promise.all([
-    getAccounts({ q, industry, size, tag, assignedTo, source, page, pageSize: 25 }, cfFilters),
+    getAccounts({ q, industry, size, tag, assignedTo, source, sort, page, pageSize: 25 }, cfFilters),
     getDefinitions({ entity: 'account', includeArchived: false }),
   ])
   const defs = defsResult.ok ? defsResult.data : []

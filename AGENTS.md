@@ -1,10 +1,10 @@
 # AGENTS.md
 
-This file is for AI coding agents and automation working inside the Operator repository. Read this before making changes.
+This file is for AI coding agents and automation working inside the Xphere repository. Read this before making changes.
 
 ## Mission
 
-Operator is a multi-tenant operations platform spanning voice AI (Vapi), chat (embeddable widget + multi-channel agents on WhatsApp/Instagram/Messenger), inbound webhook integrations (ManyChat, GHL, Meta), CRM, scheduling, and outbound campaigns.
+Xphere is a multi-tenant operations platform spanning voice AI (Vapi), chat (embeddable widget + multi-channel agents on WhatsApp/Instagram/Messenger), inbound webhook integrations (ManyChat, GHL, Meta), CRM, scheduling, unified workflows, knowledge, and outbound campaigns.
 
 The most important invariant in the system is the **Action Engine path** — the shared executor at `src/lib/action-engine/execute-action.ts` that every runtime calls into:
 
@@ -15,9 +15,9 @@ The most important invariant in the system is the **Action Engine path** — the
 
 If you are unsure how to prioritize a change, protect that path first.
 
-Operator should be treated as a shared integration and orchestration platform for many tenant-specific workflows. Example automations for one client should not be assumed to be universal product behavior unless the planning docs explicitly say so.
+Xphere should be treated as a shared integration and orchestration platform for many tenant-specific workflows. Example automations for one client should not be assumed to be universal product behavior unless the planning docs explicitly say so.
 
-The canonical production host is `https://xphere.skale.club`. When documenting or wiring first-party webhooks, callbacks, or Vapi server URLs, use that origin unless the repository docs explicitly state a new production host.
+The canonical production host is `https://xphere.app`. When documenting or wiring first-party webhooks, callbacks, or Vapi server URLs, use that origin unless the repository docs explicitly state a new production host.
 
 ## Read First
 
@@ -33,12 +33,12 @@ Before making non-trivial changes, ground yourself in these files:
 
 ## Repo Facts
 
-- Framework: Next.js 15 App Router
+- Framework: Next.js 16 App Router
 - Language: TypeScript strict mode
 - UI: Tailwind CSS 4 plus shadcn/ui
 - Data layer: Supabase Postgres with RLS and pgvector
 - Tests: Vitest
-- Current planning status: `v1.0` milestone complete as of `2026-04-03`
+- Current planning status: `v3.0` Workflow Runtime Hardening shipped as of `2026-05-22`
 
 ## Non-Negotiable Rules
 
@@ -56,9 +56,9 @@ For Vapi-facing routes:
 - do not block on non-essential work
 - preserve the "always return HTTP 200" behavior unless product requirements explicitly change
 - prefer deferred side effects with the established async pattern
-- construct public webhook targets against `https://xphere.skale.club`
+- construct public webhook targets against `https://xphere.app`
 
-Start with [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/operator/src/app/api/vapi/tools/route.ts) when reasoning about this area.
+Start with [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/api/vapi/tools/route.ts) when reasoning about this area.
 
 ### 3. Multi-tenancy is enforced with RLS first
 
@@ -69,7 +69,7 @@ Start with [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/operator/sr
 
 ### 4. Use the cached auth helpers
 
-For server components and server actions, use helpers from [`src/lib/supabase/server.ts`](/c:/Users/Vanildo/Dev/operator/src/lib/supabase/server.ts):
+For server components and server actions, use helpers from [`src/lib/supabase/server.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/supabase/server.ts):
 
 - `createClient()`
 - `getUser()`
@@ -83,13 +83,13 @@ Do not scatter direct `supabase.auth.getUser()` calls if the cached helper alrea
 - do not change encryption storage format casually
 - do not move secret storage back to plain env vars for tenant-managed providers
 
-See [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/operator/src/lib/crypto.ts).
+See [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/crypto.ts).
 
 ### 6. Never rewrite migration history
 
-- existing files in [`supabase/migrations`](/c:/Users/Vanildo/Dev/operator/supabase/migrations) are append-only
+- existing files in [`supabase/migrations`](/c:/Users/Vanildo/Dev/xphere/supabase/migrations) are append-only
 - add a new numbered migration for schema changes
-- if schema changes affect TypeScript types, update [`src/types/database.ts`](/c:/Users/Vanildo/Dev/operator/src/types/database.ts)
+- if schema changes affect TypeScript types, update [`src/types/database.ts`](/c:/Users/Vanildo/Dev/xphere/src/types/database.ts)
 
 ## Working Style Expectations
 
@@ -106,10 +106,10 @@ The `.planning` directory is part of the project source of truth, not background
 
 Use it to answer:
 
-- what the product is trying to do: [`PROJECT.md`](/c:/Users/Vanildo/Dev/operator/.planning/PROJECT.md)
-- what has already shipped: [`MILESTONES.md`](/c:/Users/Vanildo/Dev/operator/.planning/MILESTONES.md)
-- what the current state and next priorities are: [`STATE.md`](/c:/Users/Vanildo/Dev/operator/.planning/STATE.md)
-- how a feature was originally implemented: phase archives in [`.planning/milestones/v1.0-phases`](/c:/Users/Vanildo/Dev/operator/.planning/milestones/v1.0-phases)
+- what the product is trying to do: [`PROJECT.md`](/c:/Users/Vanildo/Dev/xphere/.planning/PROJECT.md)
+- what has already shipped: [`MILESTONES.md`](/c:/Users/Vanildo/Dev/xphere/.planning/MILESTONES.md)
+- what the current state and next priorities are: [`STATE.md`](/c:/Users/Vanildo/Dev/xphere/.planning/STATE.md)
+- how a feature was originally implemented: phase archives in [`.planning/milestones`](/c:/Users/Vanildo/Dev/xphere/.planning/milestones)
 
 When a code change materially alters product behavior, architecture, or milestone status, update the relevant planning docs as part of the same task when appropriate.
 
@@ -156,19 +156,17 @@ This platform has a **single unified workflow system**. There is no separate "Au
 
 ## Areas To Be Extra Careful With
 
-- [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/operator/src/app/api/vapi/tools/route.ts): latency-sensitive live-call path
-- [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/operator/src/lib/crypto.ts): encryption format compatibility
-- [`src/lib/supabase/server.ts`](/c:/Users/Vanildo/Dev/operator/src/lib/supabase/server.ts): cached auth and client creation
-- [`src/app/(dashboard)/outbound/actions.ts`](/c:/Users/Vanildo/Dev/operator/src/app/(dashboard)/outbound/actions.ts): service-role and campaign control paths
-- [`supabase/migrations`](/c:/Users/Vanildo/Dev/operator/supabase/migrations): schema history
+- [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/api/vapi/tools/route.ts): latency-sensitive live-call path
+- [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/crypto.ts): encryption format compatibility
+- [`src/lib/supabase/server.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/supabase/server.ts): cached auth and client creation
+- [`src/app/(dashboard)/outbound/actions.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/(dashboard)/outbound/actions.ts): service-role and campaign control paths
+- [`supabase/migrations`](/c:/Users/Vanildo/Dev/xphere/supabase/migrations): schema history
 
 ## Known Product Gaps
 
 These are already acknowledged in planning and should not be mistaken for accidental omissions:
 
 - webhook HMAC or secret validation is still pending
-- `send_sms` executor is not implemented
-- `custom_webhook` executor is not implemented
 - campaign calls are not fully wired into observability yet
 
 You can fix these if asked, but do not "quietly complete" them as incidental cleanup.

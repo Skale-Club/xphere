@@ -83,34 +83,37 @@ export function TasksFilterBar({
   onAddTask,
 }: TasksFilterBarProps) {
   return (
-    <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 border-b border-border shrink-0">
+    <div className="flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
       {/* Left: Add Task */}
-      <Button
-        size="sm"
-        onClick={onAddTask}
-        className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white h-8 shrink-0"
-      >
+      <Button size="sm" onClick={onAddTask} className="h-8 gap-1.5 shrink-0">
         <Plus className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Add Task</span>
-        <span className="sm:hidden">Add</span>
+        <span className="hidden sm:inline">Task</span>
       </Button>
 
-      {/* Right: filters */}
-      <div className="ml-auto flex items-center gap-2">
+      {/* Search */}
+      <div className="relative flex-1 min-w-0 max-w-[200px] sm:max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary pointer-events-none" />
+        <Input
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search…"
+          className="h-8 pl-8 text-[12.5px]"
+        />
+      </div>
+
+      <div className="hidden sm:block flex-1" />
+
+      {/* Desktop: inline filters */}
+      <div className="hidden sm:flex items-center gap-2">
         <TaskSortPopover value={sortBy} onChange={onSortChange} />
         <TaskFilterPopover value={quickFilters} onChange={onQuickFiltersChange} />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onSaveView}
-          className="h-8 gap-1.5 px-2.5 text-xs border-white/10 bg-white/4 hover:bg-white/8"
-        >
+        <Button variant="secondary" size="sm" onClick={onSaveView} className="h-8 gap-1.5 text-[12.5px]">
           <Save className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Save view</span>
+          <span>Save view</span>
         </Button>
 
         <Select value={statusFilter} onValueChange={onStatusChange}>
-          <SelectTrigger className="h-8 w-auto min-w-[110px] text-xs border-white/10 bg-white/4">
+          <SelectTrigger className="h-8 w-auto min-w-[110px] text-[12.5px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -120,29 +123,36 @@ export function TasksFilterBar({
             ))}
           </SelectContent>
         </Select>
+      </div>
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search Tasks..."
-            className="h-8 pl-8 text-xs w-36 sm:w-48 border-white/10 bg-white/4"
-          />
-        </div>
+      {/* Mobile: compact filters + calendar */}
+      <div className="sm:hidden flex items-center gap-1.5">
+        <TaskSortPopover value={sortBy} onChange={onSortChange} iconOnly />
+        <TaskFilterPopover value={quickFilters} onChange={onQuickFiltersChange} iconOnly />
 
-        {/* Calendar toggle — mobile only */}
+        <Select value={statusFilter} onValueChange={onStatusChange}>
+          <SelectTrigger className="h-8 w-9 px-0 justify-center text-[12.5px]">
+            <Filter className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            {(Object.keys(STATUS_LABELS) as TaskStatus[]).map((s) => (
+              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={onCalendarToggle}
           className={cn(
-            'lg:hidden h-8 w-8 shrink-0',
-            calendarOpen ? 'text-indigo-400 bg-indigo-500/10' : 'text-muted-foreground',
+            'h-8 w-8 px-0 shrink-0',
+            calendarOpen ? 'text-accent bg-accent-muted/20' : 'text-text-tertiary',
           )}
           aria-label="Toggle calendar"
         >
-          <CalendarDays className="h-4 w-4" />
+          <CalendarDays className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
@@ -152,9 +162,11 @@ export function TasksFilterBar({
 function TaskSortPopover({
   value,
   onChange,
+  iconOnly,
 }: {
   value: TaskSortKey
   onChange: (v: TaskSortKey) => void
+  iconOnly?: boolean
 }) {
   return (
     <Popover>
@@ -163,15 +175,16 @@ function TaskSortPopover({
           variant="secondary"
           size="sm"
           className={cn(
-            'h-8 gap-1.5 px-2.5 text-xs border-white/10 bg-white/4 hover:bg-white/8',
-            value !== 'due_date' && 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200',
+            'h-8 text-[12.5px]',
+            iconOnly ? 'px-2.5' : 'gap-1.5 px-2.5',
+            value !== 'due_date' && 'border-accent/40 bg-accent-muted/20 text-accent',
           )}
         >
           <ArrowUpDown className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Sort</span>
+          {!iconOnly && <span>Sort</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-56 border-white/10 bg-[#1c1d1f] p-1.5">
+      <PopoverContent align="end" className="w-56 p-1.5">
         {SORT_OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -180,14 +193,14 @@ function TaskSortPopover({
             className={cn(
               'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors',
               value === option.value
-                ? 'bg-white/12 text-foreground ring-1 ring-white/70'
-                : 'text-foreground hover:bg-white/8',
+                ? 'bg-accent-muted text-accent-foreground ring-1 ring-accent/50'
+                : 'text-text-primary hover:bg-bg-secondary',
             )}
           >
             <span className="text-muted-foreground">{option.icon}</span>
             <span>{option.label}</span>
             {value === option.value && (
-              <CalendarCheck className="ml-auto h-3.5 w-3.5 text-indigo-300" />
+              <CalendarCheck className="ml-auto h-3.5 w-3.5 text-accent" />
             )}
           </button>
         ))}
@@ -207,9 +220,11 @@ function countActiveQuickFilters(value: TaskQuickFilters) {
 function TaskFilterPopover({
   value,
   onChange,
+  iconOnly,
 }: {
   value: TaskQuickFilters
   onChange: (v: TaskQuickFilters) => void
+  iconOnly?: boolean
 }) {
   const activeCount = countActiveQuickFilters(value)
   const setFilter = <K extends keyof TaskQuickFilters>(key: K, next: TaskQuickFilters[K]) => {
@@ -223,27 +238,28 @@ function TaskFilterPopover({
           variant="secondary"
           size="sm"
           className={cn(
-            'h-8 gap-1.5 px-2.5 text-xs border-white/10 bg-white/4 hover:bg-white/8',
-            activeCount > 0 && 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200',
+            'h-8 text-[12.5px]',
+            iconOnly ? 'px-2.5' : 'gap-1.5 px-2.5',
+            activeCount > 0 && 'border-accent/40 bg-accent-muted/20 text-accent',
           )}
         >
           <Filter className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Filter</span>
+          {!iconOnly && <span>Filter</span>}
           {activeCount > 0 && (
-            <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[10px] font-semibold text-white">
+            <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
               {activeCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[360px] border-white/10 bg-[#1c1d1f] p-0">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+      <PopoverContent align="end" className="w-[360px] p-0">
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+          <h2 className="text-sm font-semibold text-text-primary">Filters</h2>
           {activeCount > 0 && (
             <button
               type="button"
               onClick={() => onChange(EMPTY_TASK_QUICK_FILTERS)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex items-center gap-1 text-xs text-text-tertiary transition-colors hover:text-text-primary"
             >
               <X className="h-3 w-3" />
               Clear
@@ -321,8 +337,8 @@ function FilterPill({
       className={cn(
         'inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
         active
-          ? 'border-indigo-400/50 bg-indigo-500/15 text-indigo-200'
-          : 'border-white/15 bg-white/4 text-foreground hover:border-white/25 hover:bg-white/8',
+          ? 'border-accent/50 bg-accent-muted/30 text-accent'
+          : 'border-border-subtle bg-bg-secondary text-text-secondary hover:border-border-strong hover:bg-bg-tertiary',
       )}
     >
       {children}

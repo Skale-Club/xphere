@@ -37,7 +37,7 @@ import {
 import { createContact } from '@/app/(dashboard)/contacts/actions'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { isValidEmail } from '@/lib/contacts/zod-schemas'
-import { displayContactName } from '@/lib/contacts/names'
+import { displayContactName, splitContactName } from '@/lib/contacts/names'
 import type { Database } from '@/types/database'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
@@ -157,8 +157,11 @@ export function NewOpportunityDialog({
       return
     }
     // Select the newly created contact
+    const splitName = splitContactName(quickName)
     const newContact: ContactSuggestion = {
       id: res.id!,
+      first_name: splitName.firstName,
+      last_name: splitName.lastName,
       name: quickName.trim() || null,
       phone: quickPhone.trim() || null,
       email: quickEmail.trim() || null,
@@ -222,7 +225,7 @@ export function NewOpportunityDialog({
       <DialogTrigger asChild>
         {children ?? (
           <Button size="sm">
-            <Plus className="h-3.5 w-3.5" /> New opportunity
+            <Plus className="h-3.5 w-3.5" /> Deal
           </Button>
         )}
       </DialogTrigger>

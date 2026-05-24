@@ -154,21 +154,17 @@ export function FilterPanel({
   const activeCount = countAllActiveFilters(local, viewFilter, selectedChannels)
 
   const toggle = (key: keyof AdvancedFilters, v: string) => {
-    setLocal((prev) => {
-      const arr = prev[key] as string[]
-      const next = arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
-      const updated = { ...prev, [key]: next }
-      onChange(updated)
-      return updated
-    })
+    const arr = local[key] as string[]
+    const next = arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
+    const updated = { ...local, [key]: next }
+    setLocal(updated)
+    onChange(updated)
   }
 
   const toggleBool = (key: 'starred' | 'pinned') => {
-    setLocal((prev) => {
-      const updated = { ...prev, [key]: !prev[key] }
-      onChange(updated)
-      return updated
-    })
+    const updated = { ...local, [key]: !local[key] }
+    setLocal(updated)
+    onChange(updated)
   }
 
   const toggleChannel = (channel: Channel) => {

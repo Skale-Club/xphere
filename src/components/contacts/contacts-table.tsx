@@ -2,10 +2,10 @@
 
 import * as React from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Search, Filter, X, ChevronDown, Trash2 } from 'lucide-react'
+import { X, Trash2, Search, Filter, MoreHorizontal, Upload, History, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Input } from '@/components/ui/input'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,15 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { ContactDetailSheet } from './contact-detail-sheet'
 import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
 import { deleteContacts, exportContactsCsv } from '@/app/(dashboard)/contacts/actions'
+import { SortableColumnHeader } from '@/components/data-table/sortable-column-header'
+import { ImportWizardDialog } from './import-wizard-dialog'
 import type { Database } from '@/types/database'
 import type { TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
-import type { CustomFieldType } from '@/types/database'
 import { CONTACT_SOURCES } from '@/lib/contacts/zod-schemas'
+import type { CustomFieldType } from '@/types/database'
+
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -45,6 +55,7 @@ interface ContactsTableProps {
   visibleDefs?: CustomFieldDefinitionRow[]
   filterableDefs?: CustomFieldDefinitionRow[]
   activeCfFilters?: Record<string, string>
+  addButton: React.ReactNode
 }
 
 function relativeTime(iso: string): string {
@@ -72,6 +83,7 @@ export function ContactsTable({
   visibleDefs = [],
   filterableDefs = [],
   activeCfFilters = {},
+  addButton,
 }: ContactsTableProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -158,35 +170,41 @@ export function ContactsTable({
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <div className="relative flex-1 max-w-xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+      {/* Toolbar — single line on all breakpoints */}
+      <div className="animate-fade-in flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2">
+        {addButton}
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-0 max-w-[200px] sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, phone, email or company…"
-            className="pl-9 h-10 text-[13.5px]"
+            placeholder="Search…"
+            className="pl-8 h-8 text-[12.5px]"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
               aria-label="Clear search"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:block flex-1" />
+
+        {/* Desktop: source filter */}
+        <div className="hidden sm:flex items-center gap-2">
           <Select
             value={currentSource ?? 'all'}
             onValueChange={(v) => setParam('source', v === 'all' ? null : v)}
           >
-            <SelectTrigger className="h-10 w-[140px] text-[12.5px]">
-              <Filter className="h-3.5 w-3.5 text-text-tertiary" />
-              <SelectValue placeholder="Source" />
+            <SelectTrigger className="h-8 w-[140px] text-[12.5px]">
+              <Filter className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+              <SelectValue placeholder="All sources" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All sources</SelectItem>
@@ -197,34 +215,66 @@ export function ContactsTable({
               ))}
             </SelectContent>
           </Select>
-          <Select value={currentSort} onValueChange={(v) => setParam('sort', v === 'recent' ? null : v)}>
-            <SelectTrigger className="h-10 w-[130px] text-[12.5px]">
-              <ChevronDown className="h-3.5 w-3.5 text-text-tertiary" />
-              <SelectValue />
+        </div>
+
+        {/* Mobile: source filter icon */}
+        <div className="sm:hidden">
+          <Select
+            value={currentSource ?? 'all'}
+            onValueChange={(v) => setParam('source', v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="h-8 w-9 px-0 justify-center text-[12.5px]">
+              <Filter className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recent">Most recent</SelectItem>
-              <SelectItem value="name">By name</SelectItem>
+              <SelectItem value="all">All sources</SelectItem>
+              {CONTACT_SOURCES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {sourceLabel(s)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              const res = await exportContactsCsv()
-              if (res.error) { toast.error(res.error); return }
-              if (!res.csv) return
-              const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url; a.download = 'contacts.csv'; a.click()
-              URL.revokeObjectURL(url)
-            }}
-            className="text-[12.5px]"
-          >
-            Export CSV
-          </Button>
         </div>
+
+        {/* More actions dropdown — all breakpoints */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm" className="h-8 px-2.5">
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onClick={async () => {
+                const res = await exportContactsCsv()
+                if (res.error) { toast.error(res.error); return }
+                if (!res.csv) return
+                const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url; a.download = 'contacts.csv'; a.click()
+                URL.revokeObjectURL(url)
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-2" /> Export CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+              <ImportWizardDialog
+                trigger={
+                  <span className="inline-flex items-center">
+                    <Upload className="h-3.5 w-3.5 mr-2" /> Import CSV
+                  </span>
+                }
+              />
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/contacts/imports" className="inline-flex items-center">
+                <History className="h-3.5 w-3.5 mr-2" /> History
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {filterableDefs.length > 0 && (
@@ -274,14 +324,16 @@ export function ContactsTable({
             onCheckedChange={toggleAll}
             aria-label="Select all"
           />
-          <div>Contact</div>
-          <div>Phone</div>
-          <div>Email</div>
+          <SortableColumnHeader column="name" label="Contact" />
+          <SortableColumnHeader column="phone" label="Phone" />
+          <SortableColumnHeader column="email" label="Email" />
           <div>Tags</div>
           {visibleDefs.map((def) => (
             <div key={def.id}>{def.label}</div>
           ))}
-          <div className="text-right">Added</div>
+          <div className="text-right">
+            <SortableColumnHeader column="created_at" label="Added" />
+          </div>
         </div>
 
         {rows.length === 0 ? (

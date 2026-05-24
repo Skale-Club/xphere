@@ -95,6 +95,7 @@ const MediaItemSchema = z.object({
 const SendMessageSchema = z.object({
   content: z.string().default(''),
   role: z.literal('assistant'),
+  channel: z.string().optional(),
   // operator_prefix: true → prepend "Name:\n" to outbound GHL messages
   operator_prefix: z.boolean().optional().default(false),
   /** Optional media attachments (uploaded via /api/chat/upload beforehand). */
@@ -131,6 +132,7 @@ export async function POST(
   }
 
   const { content, role, operator_prefix, media } = parsed.data
+  const messageChannel = parsed.data.channel ?? conv.channel ?? null
 
   // Require either content or media
   if (!content && (!media || media.length === 0)) {
@@ -161,8 +163,7 @@ export async function POST(
 
   // SEED-039: stamp channel on each message so multi-channel threads can be
   // filtered + rendered with per-message origin pills. We default to the
-  // conversation's primary channel; a follow-up will let operators pick a
-  // different channel via the composer ChannelSelector.
+  // selected outbound channel, falling back to the conversation's primary channel.
   const { data: msg, error } = await supabase
     .from('conversation_messages')
     .insert({
@@ -171,7 +172,7 @@ export async function POST(
       role,
       content,
       message_type: messageType,
-      channel: conv.channel ?? null,
+      channel: messageChannel,
       ...(Object.keys(msgMetadata).length > 0 ? { metadata: msgMetadata } : {}),
     })
     .select('id, conversation_id, role, content, created_at, metadata, channel')
@@ -286,6 +287,7 @@ export async function POST(
     content: msg.content,
     createdAt: msg.created_at,
     metadata: msg.metadata as Record<string, unknown> | null,
+    channel: msg.channel ?? null,
   }
 
   return Response.json({ message }, { status: 201 })

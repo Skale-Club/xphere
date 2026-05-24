@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, Plus, Loader2 } from 'lucide-react'
+import { Building2, Plus, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { getAccounts, createAccount } from '@/app/(dashboard)/companies/actions'
@@ -11,15 +11,17 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface AccountComboboxProps {
-  value: string | null        // selected account_id (uuid) or null
+  value: string | null
   onChange: (accountId: string | null, accountName: string | null) => void
-  defaultAccountName?: string // shown before async lookup resolves; optional
+  defaultAccountName?: string
+  allowUnlink?: boolean
 }
 
 export function AccountCombobox({
   value,
   onChange,
   defaultAccountName,
+  allowUnlink = true,
 }: AccountComboboxProps) {
   const [inputValue, setInputValue] = React.useState<string>(defaultAccountName ?? '')
   const [results, setResults] = React.useState<AccountWithCounts[]>([])
@@ -32,14 +34,12 @@ export function AccountCombobox({
   const wrapperRef = React.useRef<HTMLDivElement>(null)
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Sync inputValue when value prop is cleared externally
   React.useEffect(() => {
     if (value === null && !defaultAccountName) {
       setInputValue('')
     }
   }, [value, defaultAccountName])
 
-  // Click-outside to close
   React.useEffect(() => {
     function handleMouseDown(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -51,12 +51,6 @@ export function AccountCombobox({
     return () => document.removeEventListener('mousedown', handleMouseDown)
   }, [])
 
-  // Debounced search | with email-domain auto-suggest (ACC-12, D-09)
-  // When the user types something containing '@', extract the domain part and
-  // search by domain (via q= fallback | AccountListFilters has no separate
-  // domain key in v2.4, but getAccounts already searches domain via
-  // `domain.ilike.%${escaped}%` in the q filter). Domain-matched results are
-  // surfaced first, then merged with the name/q results, deduplicated by id.
   React.useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
@@ -69,7 +63,6 @@ export function AccountCombobox({
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
-        // Extract domain from email input (e.g. "alice@acme.com" → "acme.com")
         const domainFromEmail = inputValue.includes('@')
           ? (inputValue.split('@')[1]?.trim().toLowerCase() ?? '')
           : ''
@@ -84,13 +77,12 @@ export function AccountCombobox({
         const qRows = qResult.ok ? (qResult.data.rows as AccountWithCounts[]) : []
         const domainRows = domainResult.ok ? (domainResult.data.rows as AccountWithCounts[]) : []
 
-        // Merge: domain matches first, then q matches, deduplicated by id
         const seen = new Set<string>()
         const merged: AccountWithCounts[] = []
-        for (const r of [...domainRows, ...qRows]) {
-          if (!seen.has(r.id)) {
-            seen.add(r.id)
-            merged.push(r)
+        for (const row of [...domainRows, ...qRows]) {
+          if (!seen.has(row.id)) {
+            seen.add(row.id)
+            merged.push(row)
           }
         }
         setResults(merged.slice(0, 15))
@@ -106,12 +98,12 @@ export function AccountCombobox({
     }
   }, [inputValue])
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value
-    setInputValue(val)
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value
+    setInputValue(nextValue)
     setIsOpen(true)
     setShowCreate(false)
-    if (!val) {
+    if (!nextValue) {
       onChange(null, null)
     }
   }
@@ -123,14 +115,22 @@ export function AccountCombobox({
     setShowCreate(false)
   }
 
+  function handleClear() {
+    onChange(null, null)
+    setInputValue('')
+    setResults([])
+    setIsOpen(false)
+    setShowCreate(false)
+  }
+
   async function handleCreate() {
     if (!createName.trim()) return
     setIsCreating(true)
     try {
-      const res = await createAccount({ name: createName.trim() })
-      if (res.ok) {
-        onChange(res.data.id, res.data.name)
-        setInputValue(res.data.name)
+      const result = await createAccount({ name: createName.trim() })
+      if (result.ok) {
+        onChange(result.data.id, result.data.name)
+        setInputValue(result.data.name)
         setIsOpen(false)
         setShowCreate(false)
         setCreateName('')
@@ -149,17 +149,32 @@ export function AccountCombobox({
 
   return (
     <div ref={wrapperRef} className="relative">
-      <Input
-        value={inputValue}
-        onChange={handleInputChange}
-        onFocus={() => { if (inputValue) setIsOpen(true) }}
-        placeholder="Search or create company…"
-        className="h-10 text-[13.5px]"
-        autoComplete="off"
-      />
+      <div className="relative">
+        <Input
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => {
+            if (inputValue) setIsOpen(true)
+          }}
+          placeholder="Search or create company..."
+          className={cn('h-10 text-[13.5px]', allowUnlink && inputValue && 'pr-9')}
+          autoComplete="off"
+        />
+        {allowUnlink && inputValue && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            aria-label="Unlink company"
+            title="Unlink company"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
 
       {showDropdown && !showCreate && (
-        <div className="absolute z-50 w-full mt-1 rounded-[10px] border border-border bg-bg-secondary shadow-lg max-h-[200px] overflow-y-auto">
+        <div className="absolute z-50 mt-1 max-h-[200px] w-full overflow-y-auto rounded-[10px] border border-border bg-bg-secondary shadow-lg">
           {isLoading && (
             <div className="flex items-center justify-center py-3">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-text-tertiary" />
@@ -171,12 +186,14 @@ export function AccountCombobox({
               key={account.id}
               type="button"
               onClick={() => handleSelect(account.id, account.name)}
-              className="w-full text-left px-3 py-2 text-[13px] hover:bg-bg-tertiary flex items-center gap-2"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-bg-tertiary"
             >
-              <Building2 className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
-              <span className="font-medium text-text-primary truncate">{account.name}</span>
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+              <span className="truncate font-medium text-text-primary">{account.name}</span>
               {account.domain && (
-                <span className="ml-auto text-[11.5px] text-text-tertiary shrink-0">{account.domain}</span>
+                <span className="ml-auto shrink-0 text-[11.5px] text-text-tertiary">
+                  {account.domain}
+                </span>
               )}
             </button>
           ))}
@@ -194,33 +211,33 @@ export function AccountCombobox({
               setShowCreate(true)
             }}
             className={cn(
-              'w-full text-left px-3 py-2 text-[12.5px] text-accent hover:bg-accent/10 flex items-center gap-2',
+              'flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] text-accent hover:bg-accent/10',
               results.length > 0 && 'border-t border-border',
             )}
           >
             <Plus className="h-3.5 w-3.5" />
-            Create new company &quot;{inputValue || '…'}&quot;
+            Create new company &quot;{inputValue || '...'}&quot;
           </button>
         </div>
       )}
 
       {showDropdown && showCreate && (
-        <div className="absolute z-50 w-full mt-1 rounded-[10px] border border-border bg-bg-secondary shadow-lg p-3 space-y-2">
+        <div className="absolute z-50 mt-1 w-full space-y-2 rounded-[10px] border border-border bg-bg-secondary p-3 shadow-lg">
           <p className="text-[12px] font-medium text-text-primary">New company</p>
           <Input
             value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
+            onChange={(event) => setCreateName(event.target.value)}
             placeholder="Company name"
             autoFocus
             className="h-9 text-[13px]"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
                 handleCreate()
               }
             }}
           />
-          <div className="flex items-center gap-2 justify-end">
+          <div className="flex items-center justify-end gap-2">
             <Button
               type="button"
               size="sm"
@@ -235,7 +252,7 @@ export function AccountCombobox({
               disabled={!createName.trim() || isCreating}
               onClick={handleCreate}
             >
-              {isCreating ? 'Creating…' : 'Create'}
+              {isCreating ? 'Creating...' : 'Create'}
             </Button>
           </div>
         </div>

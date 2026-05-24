@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { LayoutList, KanbanSquare, Settings } from 'lucide-react'
+import { LayoutList, KanbanSquare, Settings, Plus } from 'lucide-react'
 
 import {
   getPipelines,
@@ -33,28 +33,38 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
 
   return (
     <div className="flex h-full flex-col">
-      <div className="animate-fade-in flex flex-wrap items-center justify-end gap-2 px-4 sm:px-6 lg:px-8 pt-8 pb-6">
-        <PipelineSwitcher pipelines={pipelines} activeId={activePipeline?.id ?? null} />
-        <div className="flex items-center rounded-[8px] border border-border-subtle bg-bg-secondary p-0.5">
-          <Button asChild variant="ghost" size="sm" className="rounded-[6px] h-7 px-2.5 bg-bg-tertiary">
-            <Link href="/pipeline" aria-label="Kanban view">
-              <KanbanSquare className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm" className="rounded-[6px] h-7 px-2.5">
-            <Link href="/pipeline/list" aria-label="List view">
-              <LayoutList className="h-3.5 w-3.5" />
+      <div className="animate-fade-in flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+        <div className="flex items-center gap-2">
+          {activePipeline && (
+            <NewOpportunityDialog pipelineId={activePipeline.id}>
+              <Button size="sm">
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Deal</span>
+              </Button>
+            </NewOpportunityDialog>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <PipelineSwitcher pipelines={pipelines} activeId={activePipeline?.id ?? null} />
+          <div className="flex items-center h-8 rounded-[8px] border border-border-subtle bg-bg-secondary overflow-hidden">
+            <Button asChild variant="ghost" size="sm" className="rounded-none h-8 px-2.5 bg-bg-tertiary">
+              <Link href="/pipeline" aria-label="Kanban view">
+                <KanbanSquare className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="rounded-none h-8 px-2.5">
+              <Link href="/pipeline/list" aria-label="List view">
+                <LayoutList className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+          <Button asChild variant="secondary" size="sm" className="h-8">
+            <Link href="/pipeline/settings">
+              <Settings className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Settings</span>
             </Link>
           </Button>
         </div>
-        <Button asChild variant="secondary" size="sm">
-          <Link href="/pipeline/settings">
-            <Settings className="h-3.5 w-3.5" /> Settings
-          </Link>
-        </Button>
-        {activePipeline && (
-          <NewOpportunityDialog pipelineId={activePipeline.id} />
-        )}
       </div>
 
       {!activePipeline ? (

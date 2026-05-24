@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,7 +39,9 @@ import { cn } from '@/lib/utils'
 const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
 
 const CONTACT_FIELD_LABELS: Record<ContactField, string> = {
-  name: 'Name',
+  first_name: 'First name',
+  last_name: 'Last name',
+  name: 'Full name',
   phone: 'Phone',
   email: 'Email',
   company: 'Company',
@@ -79,7 +82,11 @@ interface DryRunResult {
   sampleErrors: string[]
 }
 
-export function ImportWizardDialog() {
+interface ImportWizardDialogProps {
+  trigger?: React.ReactNode
+}
+
+export function ImportWizardDialog({ trigger }: ImportWizardDialogProps = {}) {
   const [open, setOpen] = React.useState(false)
   const [stage, setStage] = React.useState<Stage>('pick')
   const [uploadProgress, setUploadProgress] = React.useState(0)
@@ -241,9 +248,13 @@ export function ImportWizardDialog() {
         if (!o) reset()
       }}
     >
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-        <Upload className="h-3.5 w-3.5" /> Import CSV
-      </Button>
+      {trigger ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          <Upload className="h-3.5 w-3.5" /> Import CSV
+        </Button>
+      )}
       <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import contacts from CSV</DialogTitle>

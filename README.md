@@ -1,12 +1,12 @@
-# Operator
+# Xphere
 
-Operator is a multi-tenant operations platform for agencies. It unifies voice AI (Vapi), an embeddable chat widget, multi-channel agents (WhatsApp, Instagram, Messenger), inbound webhook integrations (ManyChat, GoHighLevel), CRM, scheduling, knowledge base, and outbound campaigns under one admin panel — with Supabase RLS enforcing tenant isolation at the data layer.
+Xphere is a multi-tenant operations platform for agencies. It unifies voice AI (Vapi), an embeddable chat widget, multi-channel agents (WhatsApp, Instagram, Messenger), inbound webhook integrations (ManyChat, GoHighLevel, Meta), CRM, scheduling, knowledge base, unified workflows, and outbound campaigns under one admin panel — with Supabase RLS enforcing tenant isolation at the data layer.
 
 The platform is intentionally designed as a configurable integration and orchestration layer, not as a single hardcoded workflow. Each client organization can have its own assistant mappings, provider credentials, tool behaviors, inbound routing rules, and follow-up actions while sharing the same product foundation.
 
 The shared substrate is the **Action Engine**: a single executor that any runtime (voice call, chat stream, agent invocation, inbound webhook) can call with a tool name + params. The engine resolves the tenant, loads the configured action, executes against the right provider, and logs the result. This means a new channel only needs to wire into the engine — the universe of available actions is shared.
 
-The canonical production origin for the app and all first-party webhooks is `https://xphere.skale.club`.
+The canonical production origin for the app and all first-party webhooks is `https://xphere.app`.
 
 ## What It Does
 
@@ -23,7 +23,7 @@ The canonical production origin for the app and all first-party webhooks is `htt
 
 ## Product Framing
 
-Operator should be understood as the shared platform underneath many per-client automations.
+Xphere should be understood as the shared platform underneath many per-client workflows and automations.
 
 - The product owns tenant resolution, credential storage, tool execution, observability, and outbound infrastructure.
 - A concrete workflow such as "find appointments in 1 hour, call to confirm, then notify the owner by SMS" is a client-specific orchestration built on top of those primitives.
@@ -31,7 +31,7 @@ Operator should be understood as the shared platform underneath many per-client 
 
 ## Stack
 
-- Next.js 15 App Router
+- Next.js 16 App Router
 - React 19
 - TypeScript 5 in strict mode
 - Supabase for Postgres, Auth, RLS, and pgvector
@@ -44,8 +44,8 @@ Operator should be understood as the shared platform underneath many per-client 
 ### Runtime split
 
 - Node.js: dashboard pages, server actions, and `src/app/api/vapi/*` webhook routes
-- Deno: Supabase Edge Function in [`supabase/functions/process-embeddings/index.ts`](/c:/Users/Vanildo/Dev/operator/supabase/functions/process-embeddings/index.ts)
-- GitHub Actions: low-frequency maintenance cron like [`.github/workflows/supabase-keepalive.yml`](/c:/Users/Vanildo/Dev/operator/.github/workflows/supabase-keepalive.yml)
+- Deno: Supabase Edge Function in [`supabase/functions/process-embeddings/index.ts`](/c:/Users/Vanildo/Dev/xphere/supabase/functions/process-embeddings/index.ts)
+- GitHub Actions: low-frequency maintenance cron like [`.github/workflows/supabase-keepalive.yml`](/c:/Users/Vanildo/Dev/xphere/.github/workflows/supabase-keepalive.yml)
 
 ### Core flow — Action Engine
 
@@ -71,14 +71,14 @@ This shared substrate is why adding a new channel doesn't require duplicating to
 
 ### Canonical public URLs
 
-Use `https://xphere.skale.club` as the definitive public base URL for the product.
+Use `https://xphere.app` as the definitive public base URL for the product.
 
-- App origin: `https://xphere.skale.club`
-- Vapi tool-call webhook: `https://xphere.skale.club/api/vapi/tools`
-- Vapi end-of-call webhook: `https://xphere.skale.club/api/vapi/calls`
-- Vapi campaign webhook: `https://xphere.skale.club/api/vapi/campaigns`
+- App origin: `https://xphere.app`
+- Vapi tool-call webhook: `https://xphere.app/api/vapi/tools`
+- Vapi end-of-call webhook: `https://xphere.app/api/vapi/calls`
+- Vapi campaign webhook: `https://xphere.app/api/vapi/campaigns`
 
-When configuring Vapi server URLs, external callbacks, or customer-specific integrations that call into Operator, prefer these canonical URLs over temporary Vercel preview URLs or other legacy webhook hosts.
+When configuring Vapi server URLs, external callbacks, or customer-specific integrations that call into Xphere, prefer these canonical URLs over temporary Vercel preview URLs or other legacy webhook hosts.
 
 ### Tenant model
 
@@ -94,7 +94,7 @@ When configuring Vapi server URLs, external callbacks, or customer-specific inte
 - `Tasks / Notes`: per-entity follow-up tracking
 - `Scheduling`: Calendly-style booking pages with Google Calendar sync
 - `Agents`: multi-agent platform with per-agent tools, delegation, and channel routing
-- `Automations`: per-org action configuration — the LLM-callable tool catalog used by every runtime
+- `Workflows`: unified per-org action and flow system — the LLM-callable tool catalog and DAG runtime used by agents, events, schedules, and manual runs
 - `Knowledge`: document upload, chunking, embeddings, tenant-scoped semantic retrieval
 - `Integrations`: encrypted credentials and provider configuration (GHL, Twilio, Meta, Google, Evolution Go, etc.)
 - `Reviews`: Google Reviews via SerpAPI with embeddable widgets
@@ -145,7 +145,7 @@ Notes:
 npx supabase db push
 ```
 
-Migrations live in [`supabase/migrations`](/c:/Users/Vanildo/Dev/operator/supabase/migrations).
+Migrations live in [`supabase/migrations`](/c:/Users/Vanildo/Dev/xphere/supabase/migrations).
 
 ### 4. Run the app
 
@@ -163,7 +163,7 @@ The root route redirects to `/calls`.
 
 This repo is aligned to avoid depending on Vercel Edge Runtime or Vercel Cron for core product flows.
 
-Production traffic should terminate at `https://xphere.skale.club`. Treat that host as the stable public address for app access, Vapi webhooks, and any first-party webhook construction.
+Production traffic should terminate at `https://xphere.app`. Treat that host as the stable public address for app access, Vapi webhooks, and any first-party webhook construction.
 
 ## Useful Commands
 
@@ -179,7 +179,7 @@ npx supabase db push
 
 ## Testing
 
-Tests live in [`tests`](/c:/Users/Vanildo/Dev/operator/tests) and run under Vitest in a Node environment. The current suite covers multi-tenancy, auth, calls, campaigns, integrations, knowledge base behavior, and action-engine flows.
+Tests live in [`tests`](/c:/Users/Vanildo/Dev/xphere/tests) and run under Vitest in a Node environment. The current suite covers multi-tenancy, auth, calls, campaigns, integrations, workflows, knowledge base behavior, and action-engine flows.
 
 Run all tests with:
 
@@ -215,15 +215,14 @@ tests/                 Vitest test suite
 .planning/             roadmap, state, milestone archive, and phase artifacts
 ```
 
-The `skills/` folder is the repo-local library for reusable integration skills. Add new provider-specific skills there as Operator gains more integrations.
+The `skills/` folder is the repo-local library for reusable integration skills. Add new provider-specific skills there as Xphere gains more integrations.
 
 ## Planning Folder
 
-This repo keeps delivery context in [`.planning`](/c:/Users/Vanildo/Dev/operator/.planning):
+This repo keeps delivery context in [`.planning`](/c:/Users/Vanildo/Dev/xphere/.planning):
 
-- [`PROJECT.md`](/c:/Users/Vanildo/Dev/operator/.planning/PROJECT.md): product definition, validated requirements, active gaps, key decisions
-- [`STATE.md`](/c:/Users/Vanildo/Dev/operator/.planning/STATE.md): current milestone state and immediate next priorities
-- [`MILESTONES.md`](/c:/Users/Vanildo/Dev/operator/.planning/MILESTONES.md): milestone history
-- [`milestones/`](/c:/Users/Vanildo/Dev/operator/.planning/milestones): archived roadmap, requirements, audits, and phase outputs
-- [`RETROSPECTIVE.md`](/c:/Users/Vanildo/Dev/operator/.planning/RETROSPECTIVE.md): lessons learned across milestones
-```,Description:
+- [`PROJECT.md`](/c:/Users/Vanildo/Dev/xphere/.planning/PROJECT.md): product definition, validated requirements, active gaps, key decisions
+- [`STATE.md`](/c:/Users/Vanildo/Dev/xphere/.planning/STATE.md): current milestone state and immediate next priorities
+- [`MILESTONES.md`](/c:/Users/Vanildo/Dev/xphere/.planning/MILESTONES.md): milestone history
+- [`milestones/`](/c:/Users/Vanildo/Dev/xphere/.planning/milestones): archived roadmap, requirements, audits, and phase outputs
+- [`RETROSPECTIVE.md`](/c:/Users/Vanildo/Dev/xphere/.planning/RETROSPECTIVE.md): lessons learned across milestones

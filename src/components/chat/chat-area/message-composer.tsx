@@ -16,6 +16,14 @@ import { Send, Paperclip, Smile, Mic } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
+import { StatusPill } from '@/components/design-system/status-pill'
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -24,15 +32,20 @@ import {
 import { cn } from '@/lib/utils'
 import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { haptic } from '@/lib/haptics'
+import type { ConversationPriority } from '@/types/chat'
 
 /** SEED-039: channel the message will be sent on. */
 export type ComposerChannel = {
   channel: string
   label: string
+  conversationId?: string
 }
 
 interface MessageComposerProps {
-  onSendMessage: (content: string) => Promise<void>
+  onSendMessage: (
+    content: string,
+    opts?: { channel?: string; conversationId?: string },
+  ) => Promise<void>
   /** Optional | fired (debounced ~500ms) while the user is typing. */
   onTyping?: () => void
   /** Channel hint shown in the footer ("Sending via WhatsApp"). */
@@ -48,9 +61,28 @@ interface MessageComposerProps {
   activeChannel?: string
   /** SEED-039: callback when the operator switches channel. */
   onActiveChannelChange?: React.Dispatch<React.SetStateAction<string | null>>
+  priority?: ConversationPriority
+  onPriorityCycle?: () => void
 }
 
 const MAX_ROWS = 8
+const CHANNEL_MAP: Record<string, Channel> = {
+  whatsapp: 'whatsapp',
+  ghl_whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  sms: 'sms',
+  ghl_sms: 'sms',
+  voice: 'voice',
+  email: 'email',
+  widget: 'web',
+  web: 'web',
+}
+
+function badgeChannel(channel?: string | null): Channel {
+  if (!channel) return 'unknown'
+  return CHANNEL_MAP[channel] ?? 'unknown'
+}
 
 export function MessageComposer({
   onSendMessage,
@@ -59,9 +91,11 @@ export function MessageComposer({
   disabled,
   disabledHint,
   onResumeManual,
-  availableChannels: _availableChannels,
-  activeChannel: _activeChannel,
-  onActiveChannelChange: _onActiveChannelChange,
+  availableChannels = [],
+  activeChannel,
+  onActiveChannelChange,
+  priority = 'normal',
+  onPriorityCycle,
 }: MessageComposerProps) {
   const [value, setValue] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -83,12 +117,16 @@ export function MessageComposer({
   async function handleSend() {
     const content = value.trim()
     if (!content || isSending || disabled) return
+    const activeOption = availableChannels.find((ch) => ch.channel === activeChannel)
     setValue('')
     setIsSending(true)
     // SEED-040: tiny haptic confirmation on send (no-op on desktop / iOS).
     haptic(10)
     try {
-      await onSendMessage(content)
+      await onSendMessage(content, {
+        channel: activeOption?.channel ?? activeChannel,
+        conversationId: activeOption?.conversationId,
+      })
     } finally {
       setIsSending(false)
       ref.current?.focus()
@@ -114,6 +152,13 @@ export function MessageComposer({
 
   const isDisabled = isSending || disabled
   const canSend = value.trim().length > 0 && !isDisabled
+  const activeOption =
+    availableChannels.find((ch) => ch.channel === activeChannel) ??
+    availableChannels[0] ??
+    null
+  const showChannelSelect = availableChannels.length > 1
+  const priorityTone = priority === 'urgent' ? 'danger' : priority === 'high' ? 'warning' : 'idle'
+  const priorityLabel = priority === 'urgent' ? 'Urgent' : priority === 'high' ? 'High' : 'Normal'
 
   return (
     <div
@@ -126,6 +171,52 @@ export function MessageComposer({
       {/* Bot warning moved to the right contact panel (subtle BotStatusBanner).
           The composer stays disabled with a "Sending disabled…" placeholder so
           the user still has a clear affordance here. */}
+
+      <div className="mb-2 flex items-center justify-between gap-3 px-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Channel</span>
+          {showChannelSelect && activeOption ? (
+            <Select value={activeOption.channel} onValueChange={(next) => onActiveChannelChange?.(next)}>
+              <SelectTrigger className="h-7 w-auto min-w-[112px] gap-2 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0">
+                <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" />
+              </SelectTrigger>
+              <SelectContent align="start" className="min-w-[150px]">
+                {availableChannels.map((ch) => (
+                  <SelectItem key={`${ch.channel}-${ch.conversationId ?? 'current'}`} value={ch.channel}>
+                    <span className="inline-flex items-center gap-2">
+                      <ChannelBadge channel={badgeChannel(ch.channel)} showLabel={false} size="sm" />
+                      {ch.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : activeOption ? (
+            <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" />
+          ) : channelLabel ? (
+            <span className="text-[11.5px] text-text-secondary">{channelLabel}</span>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Status</span>
+          {onPriorityCycle ? (
+            <button
+              type="button"
+              onClick={onPriorityCycle}
+              className="rounded-[7px] outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <StatusPill tone={priorityTone} className="!py-0 !text-[10.5px]">
+                {priorityLabel}
+              </StatusPill>
+            </button>
+          ) : (
+            <StatusPill tone={priorityTone} className="!py-0 !text-[10.5px]">
+              {priorityLabel}
+            </StatusPill>
+          )}
+        </div>
+      </div>
 
       <div
         className={cn(
@@ -207,7 +298,6 @@ export function MessageComposer({
           </kbd>{' '}
           for new line
         </span>
-        {channelLabel && <span>Sending via {channelLabel}</span>}
       </div>
     </div>
   )

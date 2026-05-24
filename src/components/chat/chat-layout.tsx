@@ -390,27 +390,34 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     [getInboxMaxWidth],
   )
 
-  async function handleSendMessage(content: string) {
+  async function handleSendMessage(
+    content: string,
+    opts?: { channel?: string; conversationId?: string },
+  ) {
     if (!selectedId) return
+    const targetId = opts?.conversationId ?? selectedId
+    const isCurrentThread = targetId === selectedId
     const tempId = `temp-${crypto.randomUUID()}`
     const tempMsg: ConversationMessage = {
       id: tempId,
-      conversationId: selectedId,
+      conversationId: targetId,
       role: 'assistant',
       content,
       createdAt: new Date().toISOString(),
+      channel: opts?.channel ?? null,
     }
-    setMessages((prev) => [...prev, tempMsg])
+    if (isCurrentThread) setMessages((prev) => [...prev, tempMsg])
     try {
-      const res = await fetch(`/api/chat/conversations/${selectedId}/messages`, {
+      const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant' }),
+        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel }),
       })
       if (!res.ok) throw new Error('Failed to send')
-      await fetchMessages(selectedId)
+      if (!isCurrentThread) setSelectedId(targetId)
+      await fetchMessages(targetId)
     } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== tempId))
+      if (isCurrentThread) setMessages((prev) => prev.filter((m) => m.id !== tempId))
       toast.error('Failed to send message')
     }
   }

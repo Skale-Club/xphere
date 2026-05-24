@@ -41,29 +41,33 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   }, [userId])
 
   // Realtime subscription: prepend new notifications on INSERT
+  const subscribedRef = React.useRef(false)
   React.useEffect(() => {
-    if (!userId) return
+    if (!userId || subscribedRef.current) return
+    subscribedRef.current = true
 
     const supabase = createClient()
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const newRow = payload.new as NotificationRow
-          setNotifications((prev) => [newRow, ...prev])
-        },
-      )
-      .subscribe()
+    const channel = supabase.channel(`notifications:${userId}`)
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        const newRow = payload.new as NotificationRow
+        setNotifications((prev) => [newRow, ...prev])
+      },
+    )
+
+    channel.subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      subscribedRef.current = false
+      channel.unsubscribe()
     }
   }, [userId])
 

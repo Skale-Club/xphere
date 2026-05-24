@@ -102,7 +102,7 @@ export function ContactForm({
           onChange={(id, name) => {
             setValue('account_id', id, { shouldDirty: true })
             // Keep legacy company text field in sync (part of submit payload)
-            if (name !== null) setValue('company', name, { shouldDirty: true })
+            setValue('company', name ?? '', { shouldDirty: true })
           }}
           defaultAccountName={defaultValues?.company ?? undefined}
         />

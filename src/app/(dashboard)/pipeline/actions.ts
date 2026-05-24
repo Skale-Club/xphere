@@ -506,6 +506,65 @@ export async function setOpportunityAccount(
   revalidatePath(`/pipeline/${opportunityId}`)
 }
 
+// ─── N:N Contact Linking ───────────────────────────────────────────────────
+
+export async function linkContactToOpportunity(
+  opportunityId: string,
+  contactId: string,
+  isPrimary = false,
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  const { error } = await supabase
+    .from('opportunity_contacts')
+    .upsert(
+      {
+        org_id: orgId,
+        opportunity_id: opportunityId,
+        contact_id: contactId,
+        is_primary: isPrimary,
+      },
+      { onConflict: 'opportunity_id,contact_id' },
+    )
+  if (error) return { error: error.message }
+
+  // Denormalize: if this is the first link, set opportunities.contact_id
+  const { data: opp } = await supabase
+    .from('opportunities')
+    .select('contact_id')
+    .eq('id', opportunityId)
+    .maybeSingle()
+  if (opp && !opp.contact_id) {
+    await supabase.from('opportunities').update({ contact_id: contactId }).eq('id', opportunityId)
+  }
+
+  revalidatePath('/pipeline')
+  revalidatePath(`/pipeline/${opportunityId}`)
+}
+
+export async function unlinkContactFromOpportunity(
+  opportunityId: string,
+  contactId: string,
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('opportunity_contacts')
+    .delete()
+    .eq('opportunity_id', opportunityId)
+    .eq('contact_id', contactId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/pipeline')
+  revalidatePath(`/pipeline/${opportunityId}`)
+}
+
 export async function deleteOpportunity(
   id: string,
 ): Promise<{ error?: string } | void> {
