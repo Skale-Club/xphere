@@ -1,6 +1,8 @@
 ---
 id: SEED-014
-status: active
+status: shipped
+shipped_in: v2.7
+shipped: 2026-05-19
 planted: 2026-05-18
 planted_during: post-Xphere-rename
 trigger_when: now (autonomous execution)
