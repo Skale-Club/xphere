@@ -6,13 +6,12 @@
 //
 // Credential blob format (encrypted_api_key JSON): { account_sid, auth_token }
 //
-// Number resolution (v2.3):
-//   1. If `params.fromNumberId` is provided, the corresponding active row in
-//      `twilio_phone_numbers` is used (must have `capability_sms=true`).
+// Number resolution:
+//   1. If `params.phone_number_id` (or legacy `fromNumberId`) is provided, the
+//      corresponding active row in `twilio_phone_numbers` is used (must have
+//      `capability_sms=true`).
 //   2. Otherwise, the org's default number (is_default=true, is_active=true,
 //      capability_sms=true) is used.
-//   3. Legacy fallback: `integrations.config.from_number` (removed in the
-//      next milestone | the migration 058 backfill covers existing rows).
 //
 // Result strings never contain newlines | Vapi's response parser breaks on \n.
 
@@ -36,7 +35,7 @@ export async function resolveTwilioCredentials(
 ): Promise<TwilioCredentials> {
   const { data: row, error } = await ctx.supabase
     .from('integrations')
-    .select('encrypted_api_key, config')
+    .select('encrypted_api_key')
     .eq('organization_id', ctx.organizationId)
     .eq('provider', 'twilio')
     .eq('is_active', true)
@@ -51,7 +50,8 @@ export async function resolveTwilioCredentials(
     auth_token: string
   }
 
-  // Resolve the From number: specific id > org default > legacy config.from_number
+  // Resolve the From number: specific id > org default. There is no legacy
+  // fallback — phone numbers must live in `twilio_phone_numbers`.
   let fromNumber: string | null = null
 
   if (options.fromNumberId) {
@@ -88,20 +88,9 @@ export async function resolveTwilioCredentials(
   }
 
   if (!fromNumber) {
-    // Legacy fallback | kept for one release while orgs migrate.
-    const config = row.config as { from_number?: string } | null
-    if (config?.from_number) {
-      fromNumber = config.from_number
-      console.warn(
-        '[twilio/send-sms] DEPRECATED legacy from_number used for org',
-        ctx.organizationId,
-        '— add the number to twilio_phone_numbers via Settings > Phone Numbers',
-      )
-    }
-  }
-
-  if (!fromNumber) {
-    throw new Error('Twilio integration has no default phone number. Configure one in /integrations/twilio.')
+    throw new Error(
+      'No default Twilio phone number configured. Add one in Settings > Phone Numbers.',
+    )
   }
 
   return {

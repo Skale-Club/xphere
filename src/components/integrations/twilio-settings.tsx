@@ -288,7 +288,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
 
 function getDefaultE164(view: TwilioIntegrationView): string | null {
   const def = view.numbers.find((n) => n.is_default && n.is_active)
-  return def?.e164 ?? view.fromNumber ?? null
+  return def?.e164 ?? null
 }
 
 // ── building blocks ─────────────────────────────────────────────────────────

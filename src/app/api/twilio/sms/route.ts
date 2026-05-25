@@ -138,9 +138,8 @@ export async function POST(request: Request): Promise<Response> {
       return ackTwiml()
     }
 
-    // 2. Resolve the org by destination number. Primary path is twilio_phone_numbers
-    //    (returns phone_number_id used downstream); legacy fallback is the
-    //    integrations.config.from_number column for orgs not yet migrated.
+    // 2. Resolve the org by destination number via twilio_phone_numbers.
+    //    Returns phone_number_id used downstream by process-sms.
     const resolved = await resolveTwilioOrgByToNumber(to)
     if (!resolved) {
       console.warn('[twilio/sms] No active Twilio integration found for To:', to)

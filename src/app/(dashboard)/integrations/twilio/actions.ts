@@ -1,11 +1,14 @@
 'use server'
 /**
- * Twilio integration server actions (v2.1 | per-org credentials).
+ * Twilio integration server actions (per-org credentials).
  *
  * All Twilio Voice SDK + SIP + SMS credentials are stored PER ORG inside the
  * `integrations` table:
  *   - encrypted_api_key (JSON blob): account_sid, auth_token, api_key_sid, api_key_secret
- *   - config (JSONB):                from_number, twiml_app_sid, sip_domain
+ *   - config (JSONB):                twiml_app_sid, sip_domain
+ *
+ * Phone numbers themselves live in `twilio_phone_numbers` and are managed via
+ * `numbers-actions.ts` / Settings > Phone Numbers.
  *
  * The encryption format is the standard AES-256-GCM from `@/lib/crypto`.
  * NEVER return decrypted credentials from the server actions in this file |
@@ -34,11 +37,9 @@ export interface TwilioIntegrationView {
   /** Masked snippets so the user can confirm which credential is on file. */
   accountSidHint: string | null
   apiKeySidHint: string | null
-  /** Legacy single-number field | kept for one release. Use `numbers` instead. */
-  fromNumber: string | null
   twimlAppSid: string | null
   sipDomain: string | null
-  /** Phone numbers managed via numbers-actions.ts (v2.3). */
+  /** Phone numbers managed via numbers-actions.ts. */
   numbers: TwilioPhoneNumberRow[]
   /** Public URL the user must paste into the TwiML App "A call comes in" field. */
   voiceWebhookUrl: string
@@ -65,7 +66,6 @@ interface DecryptedBlob {
 }
 
 interface TwilioConfig {
-  from_number?: string
   twiml_app_sid?: string
   sip_domain?: string
 }
@@ -81,7 +81,6 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
     hasApiKeySecret: false,
     accountSidHint: null,
     apiKeySidHint: null,
-    fromNumber: null,
     twimlAppSid: null,
     sipDomain: null,
     numbers: [],
@@ -127,7 +126,6 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
   const hasAuthToken = Boolean(blob.auth_token)
   const hasApiKeySid = Boolean(blob.api_key_sid)
   const hasApiKeySecret = Boolean(blob.api_key_secret)
-  const fromNumber = config.from_number ?? null
   const twimlAppSid = config.twiml_app_sid ?? null
   const sipDomain = config.sip_domain ?? null
   const numbers: TwilioPhoneNumberRow[] = numbersData ?? []
@@ -144,7 +142,6 @@ export async function getTwilioIntegration(): Promise<TwilioIntegrationView> {
     hasApiKeySecret,
     accountSidHint: maskSnippet(blob.account_sid),
     apiKeySidHint: maskSnippet(blob.api_key_sid),
-    fromNumber,
     twimlAppSid,
     sipDomain,
     numbers,
@@ -163,12 +160,6 @@ export interface SaveTwilioInput {
   authToken?: string
   apiKeySid?: string
   apiKeySecret?: string
-  /**
-   * @deprecated v2.3 | phone numbers are managed via numbers-actions.ts.
-   * This field is accepted for backwards compatibility but is no longer
-   * written to `integrations.config.from_number`. Will be removed next milestone.
-   */
-  fromNumber?: string
   twimlAppSid?: string
   sipDomain?: string
 }
@@ -223,11 +214,9 @@ export async function saveTwilioIntegration(
   }
 
   const currentConfig = (existing?.config ?? {}) as TwilioConfig
-  // Note: `from_number` is no longer written here | numbers are managed via
-  // numbers-actions.ts (v2.3). The legacy field on `currentConfig.from_number`
-  // is preserved as-is so resolveTwilioCredentials can fall back to it.
+  // Phone numbers are managed via numbers-actions.ts → twilio_phone_numbers.
+  // Nothing on this config row controls the From number anymore.
   const newConfig: TwilioConfig = {
-    from_number: currentConfig.from_number,
     twiml_app_sid: nonBlank(input.twimlAppSid) ?? currentConfig.twiml_app_sid,
     sip_domain: nonBlank(input.sipDomain) ?? currentConfig.sip_domain,
   }
@@ -342,7 +331,7 @@ export async function testSendSms(
 
   const { data: row } = await supabase
     .from('integrations')
-    .select('encrypted_api_key, config')
+    .select('encrypted_api_key')
     .eq('organization_id', orgId)
     .eq('provider', PROVIDER)
     .eq('is_active', true)
@@ -361,7 +350,7 @@ export async function testSendSms(
     return { success: false, error: 'Account SID or Auth Token missing.' }
   }
 
-  // Resolve the From number: specific id > org default > legacy config.from_number
+  // Resolve the From number: specific id > org default.
   let fromNumber: string | null = null
   if (input.fromNumberId) {
     const { data: numberRow } = await supabase
@@ -390,11 +379,10 @@ export async function testSendSms(
     }
   }
   if (!fromNumber) {
-    const config = (row.config ?? {}) as TwilioConfig
-    fromNumber = config.from_number ?? null
-  }
-  if (!fromNumber) {
-    return { success: false, error: 'No phone number configured. Add one in /integrations/twilio.' }
+    return {
+      success: false,
+      error: 'No phone number configured. Add one in Settings > Phone Numbers.',
+    }
   }
 
   const to = input.to.trim()
