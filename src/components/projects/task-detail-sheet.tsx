@@ -166,6 +166,9 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
   return (
     <Dialog open={!!taskId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 sm:p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{name || (task ? 'Task detail' : 'Loading task')}</DialogTitle>
+        </DialogHeader>
         <div className="p-5 sm:p-6 space-y-5 pb-8">
           {loading && (
             <div className="flex items-center justify-center h-40">
@@ -175,10 +178,6 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
 
           {!loading && task && (
             <>
-            <DialogHeader>
-              <DialogTitle className="sr-only">{name || 'Task detail'}</DialogTitle>
-            </DialogHeader>
-
             {/* Name */}
             <div>
               <Input
