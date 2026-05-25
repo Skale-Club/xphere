@@ -686,16 +686,25 @@ function ConversationCardBase({
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left">
-                {{
-                  whatsapp: 'WhatsApp',
-                  instagram: 'Instagram',
-                  messenger: 'Messenger',
-                  sms: 'SMS',
-                  voice: 'Voice',
-                  email: 'Email',
-                  web: 'Web',
-                  unknown: 'Unknown',
-                }[channel] ?? channel}
+                <div className="flex flex-col gap-0.5">
+                  <span>
+                    {{
+                      whatsapp: 'WhatsApp',
+                      instagram: 'Instagram',
+                      messenger: 'Messenger',
+                      sms: 'SMS',
+                      voice: 'Voice',
+                      email: 'Email',
+                      web: 'Web',
+                      unknown: 'Unknown',
+                    }[channel] ?? channel}
+                  </span>
+                  {conversation.phoneNumberLabel && (
+                    <span className="text-[10.5px] text-text-tertiary">
+                      via {conversation.phoneNumberLabel}
+                    </span>
+                  )}
+                </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

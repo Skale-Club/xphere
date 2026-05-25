@@ -196,6 +196,44 @@ export const TRIGGERS: TriggerSpec[] = [
     variables: ['opportunity.*', 'contact.*', 'stage.*', 'pipeline.*', 'trigger.fired_at'],
   },
 
+  // ─── Inbound phone-number events (phone-numbers project Phase 3).
+  // Emitted by src/lib/twilio/events.ts after process-sms upserts a
+  // conversation or the voice route logs an incoming call.
+  // Optional trigger_config.phone_number_id restricts the workflow to a
+  // specific number; if omitted the trigger fires for every number in the org.
+  {
+    type: 'event:inbound_sms_to_number',
+    description:
+      'An inbound SMS arrived on a configured Twilio number. Variables expose the ' +
+      'phone, the resolved contact (if any), and trigger metadata.',
+    variables: ['phone.*', 'contact.*', 'trigger.fired_at'],
+    config_schema: {
+      type: 'object',
+      properties: {
+        phone_number_id: {
+          type: 'string',
+          description: 'Optional twilio_phone_numbers.id. If set, only fires for that number.',
+        },
+      },
+    },
+  },
+  {
+    type: 'event:inbound_call_to_number',
+    description:
+      'An inbound call arrived on a configured Twilio number. Variables expose the ' +
+      'phone, the resolved contact (if any), and trigger metadata.',
+    variables: ['phone.*', 'contact.*', 'trigger.fired_at'],
+    config_schema: {
+      type: 'object',
+      properties: {
+        phone_number_id: {
+          type: 'string',
+          description: 'Optional twilio_phone_numbers.id. If set, only fires for that number.',
+        },
+      },
+    },
+  },
+
   // ─── Traffic events (Traffic module). Tenant-scoped only — emitted by the
   // ingest pipeline when a visitor or session event matches a conversion or
   // behavioral condition. NOT available in Superadmin Traffic scope.
@@ -262,11 +300,18 @@ export const NODES: NodeSpec[] = [
       properties: {
         to: { type: 'string', description: 'Recipient phone (E.164 or {{variable}})' },
         body: { type: 'string', description: 'Message body, supports {{variables}}' },
+        phone_number_id: {
+          type: 'string',
+          description:
+            'Optional twilio_phone_numbers.id to send from. Overrides the org default. ' +
+            'Use {{phone.id}} inside inbound-to-number workflows to reply from the same number.',
+        },
       },
       required: ['to', 'body'],
     },
     examples: [
       { to: '{{contact.phone}}', body: 'Your appointment is in 5 min: {{meeting.link}}' },
+      { to: '{{contact.phone}}', body: 'Thanks for texting.', phone_number_id: '{{phone.id}}' },
     ],
   },
   {
@@ -552,6 +597,9 @@ export const VARIABLE_NAMESPACES = {
   stage: 'Pipeline stage fields (with stage.from / stage.to on stage_changed).',
   pipeline: 'Pipeline metadata (id, name) for pipeline events.',
   changes: 'Diff of changed fields ({ from, to } per field) on opportunity.updated/assigned/value_changed.',
+  phone:
+    'Phone number metadata for inbound SMS/call events. Exposes phone.id, phone.e164, ' +
+    'phone.friendly_name, phone.inbox_label, phone.business_purpose.',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

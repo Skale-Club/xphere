@@ -42,7 +42,7 @@ const CHANNEL_ALIAS: Record<string, string> = {
 }
 
 const SELECT_COLS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, contacts:contact_id ( first_name, last_name, name )'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, phone_number_id, contacts:contact_id ( first_name, last_name, name ), phone_number:phone_number_id ( id, e164, friendly_name, inbox_label )'
 
 const VALID_STATUSES = new Set<ConversationStatus>([
   'open',
@@ -79,6 +79,7 @@ export async function GET(request: Request): Promise<Response> {
   const starred = url.searchParams.get('starred') === '1'
   const priority = url.searchParams.get('priority')
   const botStatus = url.searchParams.get('botStatus')
+  const phoneNumberId = url.searchParams.get('phone_number_id')
   // Supports comma-separated values for multi-channel filtering (additive).
   const channels = channelParam
     ? channelParam.split(',').map((c) => CHANNEL_ALIAS[c] ?? c).filter(Boolean)
@@ -101,6 +102,7 @@ export async function GET(request: Request): Promise<Response> {
   if (starred) pinnedQuery = pinnedQuery.eq('starred', true)
   if (priority && VALID_PRIORITIES.has(priority)) pinnedQuery = pinnedQuery.eq('priority', priority)
   if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pinnedQuery = pinnedQuery.eq('bot_status', botStatus)
+  if (phoneNumberId) pinnedQuery = pinnedQuery.eq('phone_number_id', phoneNumberId)
 
   const { data: pinnedData, error: pinnedErr } = await pinnedQuery
   if (pinnedErr) {
@@ -128,6 +130,7 @@ export async function GET(request: Request): Promise<Response> {
   if (starred) pageQuery = pageQuery.eq('starred', true)
   if (priority && VALID_PRIORITIES.has(priority)) pageQuery = pageQuery.eq('priority', priority)
   if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pageQuery = pageQuery.eq('bot_status', botStatus)
+  if (phoneNumberId) pageQuery = pageQuery.eq('phone_number_id', phoneNumberId)
 
   const { data: pageData, error: pageErr, count } = await pageQuery
   if (pageErr) {
@@ -170,6 +173,12 @@ export async function GET(request: Request): Promise<Response> {
       [contact?.first_name?.trim(), contact?.last_name?.trim()].filter(Boolean).join(' ') ||
       contact?.name?.trim() ||
       null
+    const phoneNumber = row.phone_number as
+      | { id: string; e164: string | null; friendly_name: string | null; inbox_label: string | null }
+      | null
+    const phoneNumberLabel = phoneNumber
+      ? (phoneNumber.inbox_label?.trim() || phoneNumber.friendly_name?.trim() || phoneNumber.e164 || null)
+      : null
     return {
       id,
       status: row.status as ConversationStatus,
@@ -190,6 +199,8 @@ export async function GET(request: Request): Promise<Response> {
       contactId: (row.contact_id as string | null) ?? null,
       contactName,
       assignedUserId: (row.assigned_user_id as string | null) ?? null,
+      phoneNumberId: (row.phone_number_id as string | null) ?? null,
+      phoneNumberLabel,
     }
   }
 
