@@ -17,6 +17,7 @@ import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendSms } from './send-sms'
 import { formatOutbound as formatSms } from '@/lib/agent-runtime/adapters/sms'
 import { downloadAndStoreTwilioMedia } from './media'
+import { emitInboundPhoneEvent } from './events'
 import type { MediaAttachment } from '@/types/chat'
 
 export type TwilioSmsPayload = {
@@ -40,7 +41,8 @@ export type TwilioSmsPayload = {
 
 export async function processTwilioSms(
   payload: TwilioSmsPayload,
-  orgId: string
+  orgId: string,
+  phoneNumberId: string | null = null,
 ): Promise<void> {
   const supabase = createServiceRoleClient()
 
@@ -75,6 +77,8 @@ export async function processTwilioSms(
         last_message_at: now,
         last_inbound_at: now,
         updated_at: now,
+        // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
+        ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
       })
       .eq('id', conversationId)
   } else {
@@ -93,6 +97,7 @@ export async function processTwilioSms(
         last_message: messageText,
         last_message_at: now,
         last_inbound_at: now,
+        phone_number_id: phoneNumberId,
       })
       .select('id')
       .single()
@@ -139,6 +144,17 @@ export async function processTwilioSms(
     console.error('[twilio/sms] Failed to insert message:', msgInsertError?.message)
     return
   }
+
+  // Fire inbound_sms_to_number workflow event. Emitter never throws; it runs
+  // matched workflows fire-and-forget so the rest of the inbound pipeline
+  // (media download, agent invocation, auto-reply) is unaffected.
+  await emitInboundPhoneEvent(orgId, 'inbound_sms_to_number', {
+    phoneNumberId,
+    fromNumber,
+    toNumber,
+    conversationId,
+    externalId: messageSid,
+  })
 
   // --- 2b. Download and store MMS media attachments --------------------
   if (hasMedia && payload.AccountSid && payload._authToken) {

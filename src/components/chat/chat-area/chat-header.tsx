@@ -130,11 +130,17 @@ export function ChatHeader({
   const priority = conversation.priority ?? 'normal'
   const isStarred = Boolean(conversation.starred)
 
-  // Subtitle: phone OR email if available
-  const subtitle =
+  // Subtitle: phone OR email if available, with the receiving phone number
+  // appended when an inbound number is linked (phone-numbers Phase 4).
+  const baseSubtitle =
     conversation.visitorPhone ??
     conversation.visitorEmail ??
     (conversation.channelAccountName ? `· ${conversation.channelAccountName}` : '')
+  const subtitle = conversation.phoneNumberLabel
+    ? baseSubtitle
+      ? `${baseSubtitle} · via ${conversation.phoneNumberLabel}`
+      : `via ${conversation.phoneNumberLabel}`
+    : baseSubtitle
 
   return (
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg-primary/95 px-4 py-3 pt-safe-3 backdrop-blur">

@@ -27,12 +27,12 @@ export interface TwilioVoiceCredentials {
  * Bypasses RLS | only call this from trusted server-only code (webhooks, signed
  * server actions). Mirrors the credential shape from send-sms.ts.
  *
- * Number resolution (v2.3):
+ * Number resolution:
  *   - If `options.phoneNumberId` is passed, that specific row from
  *     `twilio_phone_numbers` is used for `fromNumber`.
  *   - Otherwise, the org's default `twilio_phone_numbers` row is used.
- *   - If neither yields a number, falls back to legacy `config.from_number`
- *     (this fallback will be removed in the next milestone).
+ *   - If neither yields a number, `fromNumber` is empty and the caller decides
+ *     whether to treat that as an error (e.g. outbound calls cannot proceed).
  */
 export async function resolveTwilioCredentialsForOrg(
   orgId: string,
@@ -63,13 +63,12 @@ export async function resolveTwilioCredentialsForOrg(
   }
 
   const config = (row.config ?? {}) as {
-    from_number?: string
     twiml_app_sid?: string
   }
 
   if (!blob.account_sid || !blob.auth_token) return null
 
-  // Resolve the From number: specific id > org default > legacy config.from_number
+  // Resolve the From number: specific id > org default.
   let fromNumber: string = ''
   if (options?.phoneNumberId) {
     const { data: numberRow } = await supabase
@@ -89,7 +88,6 @@ export async function resolveTwilioCredentialsForOrg(
       .maybeSingle()
     if (defaultRow) fromNumber = defaultRow.e164
   }
-  if (!fromNumber) fromNumber = config.from_number ?? ''
 
   return {
     accountSid: blob.account_sid,
@@ -105,78 +103,38 @@ export async function resolveTwilioCredentialsForOrg(
  * Look up the active Twilio integration matching the destination phone number.
  * Used by the inbound voice webhook to resolve which org owns the called number.
  *
- * v2.3 resolution order:
- *   1. `twilio_phone_numbers` table | finds org via the active row whose
- *      `e164` matches the destination number.
- *   2. Legacy fallback | `integrations.config->>'from_number'` for orgs that
- *      haven't been migrated to the new table (removed in next milestone).
+ * Resolution is exclusively via `twilio_phone_numbers` — the org's source of
+ * truth for every active Twilio phone resource.
  */
 export async function resolveTwilioOrgByToNumber(
   toNumber: string,
-): Promise<{ orgId: string; creds: TwilioVoiceCredentials } | null> {
+): Promise<
+  | {
+      orgId: string
+      phoneNumberId: string
+      creds: TwilioVoiceCredentials
+    }
+  | null
+> {
   const supabase = createServiceRoleClient()
 
-  // Primary path: look up the number in twilio_phone_numbers, then resolve the
-  // integration credentials for that org.
   const { data: numberRow } = await supabase
     .from('twilio_phone_numbers')
-    .select('organization_id, e164')
+    .select('id, organization_id, e164')
     .eq('e164', toNumber)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle()
 
-  if (numberRow) {
-    const creds = await resolveTwilioCredentialsForOrg(numberRow.organization_id)
-    if (creds && creds.accountSid && creds.authToken) {
-      return {
-        orgId: numberRow.organization_id,
-        creds: { ...creds, fromNumber: numberRow.e164 },
-      }
-    }
-  }
+  if (!numberRow) return null
 
-  // Legacy fallback: match against config.from_number on the integrations row.
-  const { data: row } = await supabase
-    .from('integrations')
-    .select('organization_id, encrypted_api_key, config')
-    .eq('provider', 'twilio')
-    .eq('is_active', true)
-    .eq('config->>from_number', toNumber)
-    .limit(1)
-    .maybeSingle()
-
-  if (!row) return null
-
-  let blob: {
-    account_sid?: string
-    auth_token?: string
-    api_key_sid?: string
-    api_key_secret?: string
-  }
-  try {
-    blob = JSON.parse(await decrypt(row.encrypted_api_key))
-  } catch {
-    return null
-  }
-
-  if (!blob.account_sid || !blob.auth_token) return null
-
-  const config = (row.config ?? {}) as {
-    from_number?: string
-    twiml_app_sid?: string
-  }
+  const creds = await resolveTwilioCredentialsForOrg(numberRow.organization_id)
+  if (!creds || !creds.accountSid || !creds.authToken) return null
 
   return {
-    orgId: row.organization_id,
-    creds: {
-      accountSid: blob.account_sid,
-      authToken: blob.auth_token,
-      fromNumber: config.from_number ?? toNumber,
-      apiKeySid: blob.api_key_sid,
-      apiKeySecret: blob.api_key_secret,
-      twimlAppSid: config.twiml_app_sid,
-    },
+    orgId: numberRow.organization_id,
+    phoneNumberId: numberRow.id,
+    creds: { ...creds, fromNumber: numberRow.e164 },
   }
 }
 

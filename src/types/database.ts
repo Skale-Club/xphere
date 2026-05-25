@@ -493,6 +493,13 @@ export interface Database {
           is_default: boolean
           is_active: boolean
           notes: string | null
+          vapi_assistant_id: string | null
+          responsible_user_id: string | null
+          business_purpose: string | null
+          inbox_label: string | null
+          chat_routing: Json
+          workflow_settings: Json
+          archived_at: string | null
           created_at: string
           updated_at: string
         }
@@ -510,6 +517,13 @@ export interface Database {
           is_default?: boolean
           is_active?: boolean
           notes?: string | null
+          vapi_assistant_id?: string | null
+          responsible_user_id?: string | null
+          business_purpose?: string | null
+          inbox_label?: string | null
+          chat_routing?: Json
+          workflow_settings?: Json
+          archived_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -525,6 +539,13 @@ export interface Database {
           is_default?: boolean
           is_active?: boolean
           notes?: string | null
+          vapi_assistant_id?: string | null
+          responsible_user_id?: string | null
+          business_purpose?: string | null
+          inbox_label?: string | null
+          chat_routing?: Json
+          workflow_settings?: Json
+          archived_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1476,6 +1497,7 @@ export interface Database {
           priority: string
           starred: boolean
           wait_until: string | null
+          phone_number_id: string | null
         }
         Insert: {
           id?: string
@@ -1505,6 +1527,7 @@ export interface Database {
           priority?: string
           starred?: boolean
           wait_until?: string | null
+          phone_number_id?: string | null
         }
         Update: {
           status?: string
@@ -1528,6 +1551,7 @@ export interface Database {
           priority?: string
           starred?: boolean
           wait_until?: string | null
+          phone_number_id?: string | null
         }
         Relationships: [
           {
@@ -1535,6 +1559,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversations_phone_number_id_fkey'
+            columns: ['phone_number_id']
+            isOneToOne: false
+            referencedRelation: 'twilio_phone_numbers'
             referencedColumns: ['id']
           }
         ]
@@ -2134,6 +2165,7 @@ export interface Database {
           notes: string | null
           created_by: string | null
           created_at: string
+          phone_number_id: string | null
         }
         Insert: {
           id?: string
@@ -2154,6 +2186,7 @@ export interface Database {
           notes?: string | null
           created_by?: string | null
           created_at?: string
+          phone_number_id?: string | null
         }
         Update: {
           contact_id?: string | null
@@ -2168,6 +2201,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           notes?: string | null
+          phone_number_id?: string | null
         }
         Relationships: [
           {
@@ -2182,6 +2216,13 @@ export interface Database {
             columns: ['contact_id']
             isOneToOne: false
             referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'call_logs_phone_number_id_fkey'
+            columns: ['phone_number_id']
+            isOneToOne: false
+            referencedRelation: 'twilio_phone_numbers'
             referencedColumns: ['id']
           }
         ]

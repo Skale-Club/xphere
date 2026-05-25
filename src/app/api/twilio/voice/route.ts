@@ -34,6 +34,7 @@ import {
   resolveWebhookUrl,
   publicBaseUrl,
 } from '@/lib/twilio/webhook-signature'
+import { emitInboundPhoneEvent } from '@/lib/twilio/events'
 
 export const runtime = 'nodejs'
 
@@ -75,6 +76,7 @@ export async function POST(request: Request): Promise<Response> {
     const baseUrl = publicBaseUrl(request)
 
     let orgId: string | null = null
+    let phoneNumberId: string | null = null
     let authToken = ''
 
     if (isOutbound) {
@@ -102,6 +104,7 @@ export async function POST(request: Request): Promise<Response> {
       const resolved = await resolveTwilioOrgByToNumber(to)
       if (resolved) {
         orgId = resolved.orgId
+        phoneNumberId = resolved.phoneNumberId
         authToken = resolved.creds.authToken
       }
     }
@@ -140,6 +143,7 @@ export async function POST(request: Request): Promise<Response> {
           from: callerId ?? from,
           to,
           status: 'ringing',
+          phoneNumberId,
         })
       })
 
@@ -166,6 +170,7 @@ export async function POST(request: Request): Promise<Response> {
         from,
         to,
         status: 'ringing',
+        phoneNumberId,
       })
     })
 
@@ -219,6 +224,7 @@ async function logIncomingCall(input: {
   from: string
   to: string
   status: string
+  phoneNumberId: string | null
 }): Promise<void> {
   if (!input.callSid) return
   const supabase = createServiceRoleClient()
@@ -246,26 +252,48 @@ async function logIncomingCall(input: {
     }
   }
 
+  let callLogId: string | null = existing?.id ?? null
+  const isFirstInsert = !existing
+
   if (existing) {
     await supabase
       .from('call_logs')
       .update({
         contact_id: contactId,
         status: input.status,
+        ...(input.phoneNumberId ? { phone_number_id: input.phoneNumberId } : {}),
       })
       .eq('id', existing.id)
-    return
+  } else {
+    const { data: inserted } = await supabase
+      .from('call_logs')
+      .insert({
+        org_id: input.orgId,
+        contact_id: contactId,
+        call_sid: input.callSid,
+        direction: input.direction,
+        routing_mode: input.routingMode,
+        from_number: input.from,
+        to_number: input.to,
+        status: input.status,
+        started_at: new Date().toISOString(),
+        phone_number_id: input.phoneNumberId,
+      })
+      .select('id')
+      .single()
+    callLogId = inserted?.id ?? null
   }
 
-  await supabase.from('call_logs').insert({
-    org_id: input.orgId,
-    contact_id: contactId,
-    call_sid: input.callSid,
-    direction: input.direction,
-    routing_mode: input.routingMode,
-    from_number: input.from,
-    to_number: input.to,
-    status: input.status,
-    started_at: new Date().toISOString(),
-  })
+  // Fire inbound_call_to_number workflow event only on the first insert for
+  // this call_sid (avoid re-firing on Twilio webhook retries that hit the
+  // existing-row path).
+  if (isFirstInsert && input.direction === 'inbound' && callLogId) {
+    await emitInboundPhoneEvent(input.orgId, 'inbound_call_to_number', {
+      phoneNumberId: input.phoneNumberId,
+      fromNumber: input.from,
+      toNumber: input.to,
+      callLogId,
+      externalId: input.callSid,
+    })
+  }
 }

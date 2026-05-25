@@ -1,0 +1,305 @@
+'use client'
+
+/**
+ * Settings > Phone Numbers > [id] editor (phone-numbers project Phase 5).
+ *
+ * Covers the per-number operational fields added in migration 1046:
+ *   - inbox_label (preferred display name in the inbox)
+ *   - business_purpose
+ *   - vapi_assistant_id (per-number override for assistant_mappings)
+ *   - responsible_user_id
+ *   - notes
+ *
+ * Capabilities, routing mode, and credentials still live on the Twilio
+ * integration page (/integrations/twilio) — this surface is intentionally
+ * focused on operational configuration, not provider credentials.
+ */
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Loader2, Star, Power, PowerOff } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  updateTwilioNumber,
+  setDefaultTwilioNumber,
+  softDeleteTwilioNumber,
+  type OrgMemberOption,
+  type TwilioPhoneNumberRow,
+} from '@/app/(dashboard)/integrations/twilio/numbers-actions'
+
+interface Props {
+  number: TwilioPhoneNumberRow
+  members: OrgMemberOption[]
+}
+
+const UNASSIGNED = '__unassigned__'
+
+export function PhoneNumberEditor({ number, members }: Props) {
+  const router = useRouter()
+  const [saving, setSaving] = React.useState(false)
+  const [actionLoading, setActionLoading] = React.useState<'default' | 'archive' | null>(null)
+
+  const [friendlyName, setFriendlyName] = React.useState(number.friendly_name ?? '')
+  const [inboxLabel, setInboxLabel] = React.useState(number.inbox_label ?? '')
+  const [businessPurpose, setBusinessPurpose] = React.useState(number.business_purpose ?? '')
+  const [vapiAssistantId, setVapiAssistantId] = React.useState(number.vapi_assistant_id ?? '')
+  const [responsibleUserId, setResponsibleUserId] = React.useState<string>(
+    number.responsible_user_id ?? UNASSIGNED,
+  )
+  const [notes, setNotes] = React.useState(number.notes ?? '')
+
+  const handleSave = React.useCallback(async () => {
+    setSaving(true)
+    try {
+      const result = await updateTwilioNumber(number.id, {
+        friendly_name: friendlyName.trim() || number.friendly_name,
+        inbox_label: inboxLabel.trim() || '',
+        business_purpose: businessPurpose.trim() || '',
+        vapi_assistant_id: vapiAssistantId.trim() || '',
+        responsible_user_id: responsibleUserId === UNASSIGNED ? null : responsibleUserId,
+        notes: notes.trim() || '',
+      })
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Phone number updated.')
+      router.refresh()
+    } finally {
+      setSaving(false)
+    }
+  }, [
+    number.id,
+    number.friendly_name,
+    friendlyName,
+    inboxLabel,
+    businessPurpose,
+    vapiAssistantId,
+    responsibleUserId,
+    notes,
+    router,
+  ])
+
+  const handleSetDefault = React.useCallback(async () => {
+    setActionLoading('default')
+    try {
+      const result = await setDefaultTwilioNumber(number.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Set as default.')
+      router.refresh()
+    } finally {
+      setActionLoading(null)
+    }
+  }, [number.id, router])
+
+  const handleArchive = React.useCallback(async () => {
+    if (!confirm('Archive this number? It will stop receiving inbound traffic.')) return
+    setActionLoading('archive')
+    try {
+      const result = await softDeleteTwilioNumber(number.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Phone number archived.')
+      router.push('/settings/phone-numbers')
+    } finally {
+      setActionLoading(null)
+    }
+  }, [number.id, router])
+
+  return (
+    <div className="space-y-8">
+      {/* Status / quick actions row */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border-subtle bg-bg-secondary/50 px-4 py-3 text-sm">
+        <span className="font-mono text-text-primary">{number.e164}</span>
+        {number.is_default && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-1.5 py-0.5 text-[10.5px] font-medium text-success">
+            <Star className="h-2.5 w-2.5" /> Default
+          </span>
+        )}
+        <span className="text-text-tertiary">·</span>
+        <span className="text-text-tertiary">
+          {[
+            number.capability_voice && 'Voice',
+            number.capability_sms && 'SMS',
+            number.capability_mms && 'MMS',
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'No capabilities enabled'}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {!number.is_default && number.is_active && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSetDefault}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading === 'default' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Star className="mr-1 h-3.5 w-3.5" /> Set as default
+                </>
+              )}
+            </Button>
+          )}
+          {number.is_active ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleArchive}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading === 'archive' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <PowerOff className="mr-1 h-3.5 w-3.5" /> Archive
+                </>
+              )}
+            </Button>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-text-tertiary">
+              <Power className="h-3 w-3" /> Inactive
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Operational identity */}
+      <section className="space-y-4">
+        <header>
+          <h3 className="text-sm font-semibold text-text-primary">Identity</h3>
+          <p className="text-[11px] text-text-tertiary">
+            How this number appears in the inbox, conversation headers, and reports.
+          </p>
+        </header>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="friendly_name">Friendly name</Label>
+            <Input
+              id="friendly_name"
+              value={friendlyName}
+              onChange={(e) => setFriendlyName(e.target.value)}
+              placeholder="Sales line"
+              maxLength={64}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="inbox_label">Inbox label</Label>
+            <Input
+              id="inbox_label"
+              value={inboxLabel}
+              onChange={(e) => setInboxLabel(e.target.value)}
+              placeholder="Falls back to friendly name when empty"
+              maxLength={64}
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1.5">
+            <Label htmlFor="business_purpose">Business purpose</Label>
+            <Input
+              id="business_purpose"
+              value={businessPurpose}
+              onChange={(e) => setBusinessPurpose(e.target.value)}
+              placeholder="e.g. Sales — Brazil, Customer support tier 1"
+              maxLength={120}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Routing & ownership */}
+      <section className="space-y-4">
+        <header>
+          <h3 className="text-sm font-semibold text-text-primary">Routing & ownership</h3>
+          <p className="text-[11px] text-text-tertiary">
+            Per-number overrides for the org defaults configured in /integrations/twilio.
+          </p>
+        </header>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="vapi_assistant_id">Vapi assistant ID</Label>
+            <Input
+              id="vapi_assistant_id"
+              value={vapiAssistantId}
+              onChange={(e) => setVapiAssistantId(e.target.value)}
+              placeholder="asst_... — leave blank to use the org-level mapping"
+              maxLength={128}
+            />
+            <p className="text-[11px] text-text-tertiary">
+              When set, inbound voice tooling treats this assistant as the source of truth
+              for this number. Vapi-side routing must be configured separately in the
+              Vapi dashboard.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="responsible_user_id">Responsible owner</Label>
+            <Select value={responsibleUserId} onValueChange={setResponsibleUserId}>
+              <SelectTrigger id="responsible_user_id">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    {m.display_name}
+                    {m.email && m.email !== m.display_name && (
+                      <span className="ml-1 text-text-tertiary">({m.email})</span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-text-tertiary">
+              Shown in the inbox to identify the human accountable for this line.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Notes */}
+      <section className="space-y-4">
+        <header>
+          <h3 className="text-sm font-semibold text-text-primary">Notes</h3>
+          <p className="text-[11px] text-text-tertiary">
+            Internal context for teammates. Not surfaced to contacts.
+          </p>
+        </header>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={500}
+          rows={4}
+          placeholder="Setup history, vendor links, escalation contacts…"
+        />
+      </section>
+
+      <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-4">
+        <Button variant="ghost" onClick={() => router.refresh()} disabled={saving}>
+          Reset
+        </Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save changes
+        </Button>
+      </div>
+    </div>
+  )
+}

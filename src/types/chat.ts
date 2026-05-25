@@ -62,6 +62,10 @@ export interface ConversationSummary {
   labels?: ConversationLabel[]
   /** SEED-035 | snooze deadline when status='waiting'. */
   waitUntil?: string | null
+  /** phone-numbers Phase 4 | UUID of the org's twilio_phone_numbers row that received the inbound. */
+  phoneNumberId?: string | null
+  /** phone-numbers Phase 4 | inbox_label > friendly_name > e164 for the receiving number. */
+  phoneNumberLabel?: string | null
 }
 
 export interface ConversationMessage {
