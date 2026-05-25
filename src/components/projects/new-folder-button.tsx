@@ -9,6 +9,7 @@ import { FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -24,10 +25,9 @@ import { createFolder } from '@/app/(dashboard)/projects/_actions/folders'
 
 interface NewFolderButtonProps {
   className?: string
-  iconOnly?: boolean
 }
 
-export function NewFolderButton({ className, iconOnly = false }: NewFolderButtonProps) {
+export function NewFolderButton({ className }: NewFolderButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -70,11 +70,11 @@ export function NewFolderButton({ className, iconOnly = false }: NewFolderButton
         <Button
           variant="outline"
           size="sm"
-          className={className}
-          aria-label={iconOnly ? 'Folder' : undefined}
+          className={cn('h-8 w-8 px-0 sm:w-auto sm:px-3', className)}
+          aria-label="Folder"
         >
-          <FolderPlus className="h-3.5 w-3.5" />
-          {!iconOnly && 'Folder'}
+          <FolderPlus className="h-3.5 w-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Folder</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">

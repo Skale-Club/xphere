@@ -52,23 +52,14 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   return (
     <PageContainer className="px-0 py-0 space-y-0">
       <div className="animate-fade-in flex items-center justify-between pl-1 sm:pl-3 lg:pl-5 pr-1 sm:pr-3 lg:pr-5 pt-6 pb-6">
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="flex items-center gap-2">
           <NewProjectDialog>
-            <Button size="sm" className="h-8">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Project
+            <Button size="sm" className="h-8 w-8 px-0 sm:w-auto sm:px-3" aria-label="Project">
+              <Plus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Project</span>
             </Button>
           </NewProjectDialog>
-          <NewFolderButton className="h-8" />
-        </div>
-
-        <div className="flex items-center gap-2 sm:hidden">
-          <NewProjectDialog>
-            <Button size="sm" className="h-8 w-8 px-0" aria-label="Project">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </NewProjectDialog>
-          <NewFolderButton iconOnly className="h-8 w-8 px-0" />
+          <NewFolderButton />
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
