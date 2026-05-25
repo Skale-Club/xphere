@@ -1,7 +1,7 @@
 'use server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { Database, Json } from '@/types/database'
+import type { Database } from '@/types/database'
 
 export type ToolConfigWithIntegration = {
   id: string
@@ -99,14 +99,6 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
   const subfolderIds = (subfolders ?? []).map((s: { id: string }) => s.id)
   const folderIds = [id, ...subfolderIds]
 
-  // Delete all tool_configs in this folder and its subfolders
-  const { error: toolsError } = await supabase
-    .from('tool_configs')
-    .delete()
-    .in('folder_id', folderIds)
-
-  if (toolsError) return { error: toolsError.message }
-
   // Delete the folder | DB ON DELETE CASCADE removes subfolders automatically
   const { error: folderError } = await supabase
     .from('tool_folders')
@@ -117,92 +109,11 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
   revalidatePath('/workflows')
 }
 
-export async function createToolConfig(data: {
-  toolName: string
-  actionType: string
-  integrationId: string
-  fallbackMessage: string
-  config?: Record<string, unknown>
-  folder_id?: string | null
-  labels?: string[]
-}): Promise<{ error?: string } | void> {
-  const user = await getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-
-  const { data: member, error: memberError } = await supabase
-    .from('org_members')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (memberError || !member) return { error: 'No organization found for this user.' }
-
-  const { error } = await supabase.from('tool_configs').insert({
-    organization_id: member.organization_id,
-    tool_name: data.toolName,
-    action_type: data.actionType as Database['public']['Enums']['action_type'],
-    integration_id: (data.integrationId && data.integrationId.length > 0) ? data.integrationId : null,
-    fallback_message: data.fallbackMessage,
-    config: (data.config ?? {}) as Json,
-    folder_id: data.folder_id ?? null,
-    labels: data.labels ?? [],
-  })
-
-  if (error) {
-    if (error.code === '23505') {
-      return { error: 'A tool with this name already exists for your organization.' }
-    }
-    return { error: error.message }
-  }
-
-  revalidatePath('/workflows')
-}
-
-export async function updateToolConfig(
-  id: string,
-  data: {
-    toolName: string
-    actionType: string
-    integrationId: string
-    fallbackMessage: string
-    config?: Record<string, unknown>
-    folder_id?: string | null
-    labels?: string[]
-  }
-): Promise<{ error?: string } | void> {
-  const user = await getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('tool_configs')
-    .update({
-      tool_name: data.toolName,
-      action_type: data.actionType as Database['public']['Enums']['action_type'],
-      integration_id: (data.integrationId && data.integrationId.length > 0) ? data.integrationId : null,
-      fallback_message: data.fallbackMessage,
-      config: (data.config ?? {}) as Json,
-      folder_id: data.folder_id ?? null,
-      labels: data.labels ?? [],
-    })
-    .eq('id', id)
-
-  if (error) {
-    if (error.code === '23505') {
-      return { error: 'A tool with this name already exists for your organization.' }
-    }
-    return { error: error.message }
-  }
-
-  revalidatePath('/workflows')
-}
-
 export async function getToolConfigs(): Promise<ToolConfigWithIntegration[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
-    .from('tool_configs')
+    .from('_legacy_tool_configs')
     .select('*, integrations(id, name, provider)')
     .order('created_at', { ascending: false })
 
@@ -219,7 +130,7 @@ export async function renameToolConfig(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
   const { error } = await supabase
-    .from('tool_configs')
+    .from('_legacy_tool_configs')
     .update({ tool_name: name })
     .eq('id', id)
   if (error) {
@@ -234,11 +145,8 @@ export async function deleteToolConfig(id: string): Promise<{ error?: string } |
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
-
-  const { error } = await supabase.from('tool_configs').delete().eq('id', id)
-
+  const { error } = await supabase.from('_legacy_tool_configs').delete().eq('id', id)
   if (error) return { error: error.message }
-
   revalidatePath('/workflows')
 }
 
@@ -264,7 +172,7 @@ export async function moveToolToFolder(
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
   const { error } = await supabase
-    .from('tool_configs')
+    .from('_legacy_tool_configs')
     .update({ folder_id: folderId })
     .eq('id', toolId)
   if (error) return { error: error.message }

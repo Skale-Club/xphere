@@ -232,7 +232,7 @@ export async function getAgentById(
 export interface ToolPickerData {
   folders: Database['public']['Tables']['tool_folders']['Row'][]
   tools: Array<
-    Database['public']['Tables']['tool_configs']['Row'] & {
+    Database['public']['Tables']['_legacy_tool_configs']['Row'] & {
       integration: {
         id: string | null
         name: string | null
@@ -254,7 +254,7 @@ export async function getToolPickerData(): Promise<ToolPickerData> {
   const [foldersRes, toolsRes] = await Promise.all([
     supabase.from('tool_folders').select('*').order('name', { ascending: true }),
     supabase
-      .from('tool_configs')
+      .from('_legacy_tool_configs')
       .select('*, integration:integrations(id, name, is_active)')
       .eq('is_active', true)
       .order('tool_name', { ascending: true }),

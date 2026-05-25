@@ -74,7 +74,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
-import { ToolConfigForm } from './tool-config-form'
 import { DesktopOnly } from '@/components/layout/desktop-only'
 
 const ACTION_TYPE_LABELS: Record<string, string> = {
@@ -1024,15 +1023,9 @@ export function ToolsTable({
               Configure a tool that the agent can call during conversations.
             </SheetDescription>
           </VisuallyHidden>
-          <DesktopOnly message="Tool configuration uses complex forms with conditional fields. Please open Xphere on a desktop to edit.">
-            <ToolConfigForm
-              mode={editingTool ? 'edit' : 'create'}
-              toolConfig={editingTool ?? undefined}
-              integrations={integrations}
-              existingFolders={existingFolders}
-              onSuccess={handleSheetSuccess}
-            />
-          </DesktopOnly>
+          <div className="p-6 text-sm text-muted-foreground">
+            Legacy tool configurations are read-only. To create or edit tools, use Workflows.
+          </div>
         </SheetContent>
       </Sheet>
 

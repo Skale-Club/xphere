@@ -276,7 +276,7 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
 
         try {
           const { data: toolConfig, error: toolError } = await supabase
-            .from('tool_configs')
+            .from('_legacy_tool_configs')
             .select('*, integrations!inner(*)')
             .eq('id', automationId)
             .single()
