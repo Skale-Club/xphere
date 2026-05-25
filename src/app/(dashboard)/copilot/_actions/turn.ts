@@ -2,6 +2,13 @@
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { runCopilotTurn, type MessagePart } from '@/lib/copilot/run-turn'
+import { rateLimit } from '@/lib/rate-limit'
+
+// S11 from the Security Review: AI endpoints must be rate-limited to prevent
+// cost-DoS by a compromised or misbehaving client. Copilot is interactive but
+// each turn invokes a frontier model — cap at 20 turns / minute / user.
+const COPILOT_RATE_LIMIT = 20
+const COPILOT_WINDOW_SECONDS = 60
 
 type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -31,6 +38,9 @@ export async function sendCopilotMessage(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
   if (!input.message.trim()) return { ok: false, error: 'empty_message' }
+
+  const rl = await rateLimit(`copilot:${user.id}`, COPILOT_RATE_LIMIT, COPILOT_WINDOW_SECONDS)
+  if (!rl.allowed) return { ok: false, error: 'rate_limited' }
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
