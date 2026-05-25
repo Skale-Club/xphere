@@ -10,8 +10,16 @@ import {
 } from '@/lib/whatsapp/adapters/zapi'
 import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
 import { resolveProviderByZApiInstance } from '@/lib/whatsapp/resolve-provider'
+import { verifySharedSecret } from '@/lib/webhooks/verify-shared-secret'
 
 export const runtime = 'nodejs'
+
+function forbidden(): Response {
+  return new Response(JSON.stringify({ error: 'Forbidden' }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -42,11 +50,17 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ ok: true })
     }
 
-    // Optional auth: Z-API sends Client-Token header on every webhook
+    // Required auth: Z-API sends Client-Token header on every webhook.
+    // Prefer the dedicated webhook_secret column; fall back to the provider's
+    // API token in config for orgs that have not split the two yet. Either way,
+    // a secret MUST be configured server-side and MUST match what Z-API sent,
+    // otherwise reject. Timing-safe compare.
     const sentToken = request.headers.get('x-z-api-token')
-    if (sentToken && provider.config.token && sentToken !== provider.config.token) {
-      console.warn('[zapi/webhook] token mismatch for instanceId:', instanceId)
-      return Response.json({ ok: true })
+    const expectedToken = provider.webhookSecret ?? provider.config.token ?? ''
+    const verdict = verifySharedSecret(sentToken, expectedToken)
+    if (verdict !== 'ok') {
+      console.warn('[zapi/webhook]', verdict, 'for instanceId:', instanceId)
+      return forbidden()
     }
 
     after(async () => {

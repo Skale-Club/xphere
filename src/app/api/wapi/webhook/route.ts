@@ -9,8 +9,16 @@ import {
 } from '@/lib/whatsapp/adapters/wapi'
 import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
 import { resolveProviderByWApiKey } from '@/lib/whatsapp/resolve-provider'
+import { verifySharedSecret } from '@/lib/webhooks/verify-shared-secret'
 
 export const runtime = 'nodejs'
+
+function forbidden(): Response {
+  return new Response(JSON.stringify({ error: 'Forbidden' }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -39,6 +47,18 @@ export async function POST(request: Request): Promise<Response> {
     if (!provider) {
       console.warn('[wapi/webhook] no provider for instance_key:', instanceKey)
       return Response.json({ ok: true })
+    }
+
+    // Required auth: W-API supports a shared-secret header. Prefer the
+    // dedicated webhook_secret column; fall back to provider.config.token.
+    // Fail-closed if neither side has a configured secret or values differ.
+    const sentToken =
+      request.headers.get('x-wapi-token') ?? request.headers.get('x-w-api-token')
+    const expectedToken = provider.webhookSecret ?? provider.config.token ?? ''
+    const verdict = verifySharedSecret(sentToken, expectedToken)
+    if (verdict !== 'ok') {
+      console.warn('[wapi/webhook]', verdict, 'for instance_key:', instanceKey)
+      return forbidden()
     }
 
     after(async () => {
