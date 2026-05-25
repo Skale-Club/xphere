@@ -21,7 +21,7 @@ async function ProjectsList() {
         <NewProjectDialog>
           <Button size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
-            New Project
+            Project
           </Button>
         </NewProjectDialog>
       </div>
@@ -57,15 +57,11 @@ async function ProjectsList() {
 export default function ProjectsPage() {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
-        <div>
-          <h1 className="text-xl font-semibold">Projects</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your team&apos;s projects and tasks</p>
-        </div>
+      <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         <NewProjectDialog>
           <Button size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
-            New Project
+            Project
           </Button>
         </NewProjectDialog>
       </div>
