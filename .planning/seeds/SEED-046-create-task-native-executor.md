@@ -1,8 +1,9 @@
 ---
 id: SEED-046
-status: dormant
+status: complete
 planted: 2026-05-21
 planted_during: v2.8 post-ship — canvas visual refinement (SEED-043)
+shipped: 2026-05-25
 trigger_when: next milestone that includes flow execution hardening, or when a user reports that "Create task" node silently fails at runtime
 scope: Medium
 depends_on: []

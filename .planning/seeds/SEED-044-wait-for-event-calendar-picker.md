@@ -1,8 +1,9 @@
 ---
 id: SEED-044
-status: dormant
+status: complete
 planted: 2026-05-21
 planted_during: v2.8 (post-ship) — canvas visual refinement milestone (SEED-043)
+shipped: 2026-05-25
 trigger_when: next milestone touching the flow canvas node config UX, OR any milestone that wires calendar/event triggers end-to-end
 scope: Medium
 depends_on: [SEED-027 (Calendar as First-Class Workflow Surface — all phases shipped)]
