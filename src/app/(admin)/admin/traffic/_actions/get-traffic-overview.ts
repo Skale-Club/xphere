@@ -31,7 +31,7 @@ export type TrafficPlatformMetrics = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function db(supabase: any) { return supabase as any }
+function db(supabase: any) { return supabase }
 
 export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
   const supabase = createServiceRoleClient()
@@ -39,17 +39,12 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
 
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  const [setupsRes, pageviewsRes, sessionsRes, visitorsRes, orgMetricsRes, recentSessionsRes] = await Promise.all([
+  const [setupsRes, pageviewsRes, sessionsRes, visitorsRes, recentSessionsRes] = await Promise.all([
     s.from('traffic_setups').select('id, verification_state'),
     s.from('traffic_pageviews').select('id', { count: 'exact', head: true }).gte('created_at', since30d),
     s.from('traffic_sessions').select('id', { count: 'exact', head: true }).gte('started_at', since30d),
     s.from('traffic_visitors').select('id', { count: 'exact', head: true }).gte('created_at', since30d),
-    // Top orgs by pageview count in last 30 days
-    s.from('traffic_pageviews')
-      .select('org_id, traffic_sessions!inner(org_id)')
-      .gte('created_at', since30d)
-      .limit(500),
-    // Recent sessions with org info
+    // Recent sessions with org info — top-orgs are aggregated from this window below
     s.from('traffic_sessions')
       .select(`
         id,
@@ -86,7 +81,7 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
   }> = recentSessionsRes.data ?? []
 
   // Get org names from the org_ids in recent sessions
-  const orgIds = [...new Set([...sessionData.map((s) => s.org_id)])]
+  const orgIds = Array.from(new Set(sessionData.map((s) => s.org_id)))
   let orgNames: Record<string, string> = {}
   if (orgIds.length > 0) {
     const orgsRes = await s.from('organizations').select('id, name').in('id', orgIds)

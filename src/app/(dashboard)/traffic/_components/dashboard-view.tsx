@@ -16,8 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getDashboardData } from '../actions'
 import type {
-  TrafficMetrics, TimeSeriesPoint, SourceRow, CampaignRow,
-  PageRow, GeoRow, DeviceRow, RecentSession,
+  TrafficMetrics, GeoRow, DeviceRow, RecentSession,
 } from '@/lib/traffic/types'
 import { trendPct } from '@/lib/traffic/queries'
 
@@ -318,15 +317,19 @@ function TableCard<T>({
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 10).map((row, i) => (
-                <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-bg-tertiary/30 transition-colors">
-                  {columns.map((c) => (
-                    <td key={c.key} className={`px-5 py-2.5 ${c.primary ? 'text-text-primary font-medium truncate max-w-[200px]' : 'text-right text-text-secondary tabular-nums'}`}>
-                      {String(row[c.key] ?? '—')}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {rows.slice(0, 10).map((row, i) => {
+                const primaryCol = columns.find((c) => c.primary)
+                const rowKey = primaryCol ? `${String(row[primaryCol.key] ?? '')}-${i}` : `row-${i}`
+                return (
+                  <tr key={rowKey} className="border-b border-border/50 last:border-0 hover:bg-bg-tertiary/30 transition-colors">
+                    {columns.map((c) => (
+                      <td key={c.key} className={`px-5 py-2.5 ${c.primary ? 'text-text-primary font-medium truncate max-w-[200px]' : 'text-right text-text-secondary tabular-nums'}`}>
+                        {String(row[c.key] ?? '—')}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

@@ -328,7 +328,7 @@ export function getPrevRange(range: DateRange): DateRange {
   const ms = range.to.getTime() - range.from.getTime()
   return {
     from: new Date(range.from.getTime() - ms),
-    to: new Date(range.from.getTime()),
+    to: new Date(range.from),
   }
 }
 

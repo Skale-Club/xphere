@@ -110,8 +110,8 @@ function TrafficSkeleton() {
   return (
     <div className="space-y-8 animate-pulse">
       <div className="grid grid-cols-5 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-20 rounded-lg bg-bg-tertiary" />
+        {['m1', 'm2', 'm3', 'm4', 'm5'].map((k) => (
+          <div key={k} className="h-20 rounded-lg bg-bg-tertiary" />
         ))}
       </div>
       <div className="grid grid-cols-3 gap-6">

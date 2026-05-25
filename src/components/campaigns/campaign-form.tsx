@@ -252,6 +252,15 @@ export function CampaignForm() {
                   placeholder="optional"
                 />
               </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="utmTerm">UTM Term</Label>
+                <Input
+                  id="utmTerm"
+                  value={utmTerm}
+                  onChange={(e) => setUtmTerm(e.target.value)}
+                  placeholder="optional"
+                />
+              </div>
             </div>
 
             {trackedLink && (

@@ -1,6 +1,5 @@
 export const runtime = 'nodejs'
 
-import { redirect } from 'next/navigation'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { verifyTrackingInstallation } from '@/lib/traffic/verify'
 
@@ -43,5 +42,4 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ ok: true, result: 'failed' })
   }
-  void redirect
 }

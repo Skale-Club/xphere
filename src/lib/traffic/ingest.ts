@@ -6,7 +6,7 @@ function db() { return createServiceRoleClient() as any }
 
 export async function processIngest(
   payload: IngestPayload,
-  ip: string | null,
+  _ip: string | null,
   geoCountryCode: string | null,
   geoCountryName: string | null,
   geoCity: string | null,
@@ -23,7 +23,6 @@ export async function processIngest(
   if (!setup) return
 
   const orgId: string = setup.organization_id
-  void ip // stored in future geo enrichment if needed
 
   // Upsert visitor
   const { data: visitor } = await supabase
