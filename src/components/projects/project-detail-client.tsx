@@ -64,6 +64,12 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
               <p className="text-sm text-muted-foreground truncate max-w-md">{project.description}</p>
             )}
           </div>
+          <NewTaskDialog projectId={project.id} onCreated={refresh}>
+            <Button size="sm" className="shrink-0 ml-2">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Task
+            </Button>
+          </NewTaskDialog>
         </div>
 
         <div className="flex items-center gap-2">
@@ -72,12 +78,6 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
               <Plug className="h-4 w-4" />
             </Button>
           </Link>
-          <NewTaskDialog projectId={project.id} onCreated={refresh}>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Task
-            </Button>
-          </NewTaskDialog>
         </div>
       </div>
 
