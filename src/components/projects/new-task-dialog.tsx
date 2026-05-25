@@ -44,12 +44,13 @@ type FormValues = z.infer<typeof schema>
 interface Props {
   projectId: string
   defaultStep?: ProjectTaskStep
+  defaultEndDate?: string
   parentTaskId?: string
   children: React.ReactNode
   onCreated?: () => void
 }
 
-export function NewTaskDialog({ projectId, defaultStep, parentTaskId, children, onCreated }: Props) {
+export function NewTaskDialog({ projectId, defaultStep, defaultEndDate, parentTaskId, children, onCreated }: Props) {
   const [open, setOpen] = React.useState(false)
   const effectiveStep: ProjectTaskStep = defaultStep ?? 'backlog'
   const showStepHint = !parentTaskId && !!defaultStep
@@ -69,6 +70,7 @@ export function NewTaskDialog({ projectId, defaultStep, parentTaskId, children, 
         step: effectiveStep,
         priority: values.priority as TaskPriority,
         parent_task_id: parentTaskId,
+        end_date: defaultEndDate,
       })
       toast.success(parentTaskId ? 'Subtask created' : 'Task created')
       setOpen(false)

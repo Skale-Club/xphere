@@ -181,7 +181,7 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
           return (
             <div key={g.id} className={cn('flex flex-col', gIdx > 0 && 'mt-3')}>
               {!collapsed && (
-                <div className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-text-tertiary/80">
+                <div className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[#A5A6D6]">
                   {g.label}
                 </div>
               )}

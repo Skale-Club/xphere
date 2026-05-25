@@ -65,8 +65,8 @@ export default async function WorkflowsPage({ searchParams }: PageProps) {
   const trashCount = (trashCountRes as { count: number | null }).count ?? 0;
 
   return (
-    <PageContainer className="px-0 py-0 space-y-0">
-      <div className="animate-fade-in flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+    <PageContainer className="py-0 space-y-0">
+      <div className="animate-fade-in flex items-center justify-between pt-6 pb-6">
         <div className="hidden items-center gap-2 sm:flex">
           <NewWorkflowButton label="Workflow" className="h-8" />
           <NewFolderButton className="h-8" />
@@ -163,7 +163,7 @@ export default async function WorkflowsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 pb-2">
+      <div className="pb-2">
         <WorkflowsList workflows={workflows} folders={folders} />
       </div>
     </PageContainer>

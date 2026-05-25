@@ -75,13 +75,28 @@ export async function POST(request: Request) {
   // ── WRITE ACTIONS ─────────────────────────────────────────────────────────
 
   if (action === 'update_task') {
-    const { task_id, step, completed, validation_status, execution_status, ai_context } = params as {
+    const {
+      task_id,
+      step,
+      completed,
+      validation_status,
+      execution_status,
+      ai_context,
+      start_date,
+      end_date,
+      start_time,
+      end_time,
+    } = params as {
       task_id: string
       step?: string
       completed?: boolean
       validation_status?: string
       execution_status?: string
       ai_context?: string
+      start_date?: string | null
+      end_date?: string | null
+      start_time?: string | null
+      end_time?: string | null
     }
     if (!task_id) return err('task_id required')
 
@@ -91,6 +106,10 @@ export async function POST(request: Request) {
     if (validation_status !== undefined) patch.validation_status = validation_status
     if (execution_status !== undefined) patch.execution_status = execution_status
     if (ai_context !== undefined) patch.ai_context = ai_context
+    if (start_date !== undefined) patch.start_date = start_date
+    if (end_date !== undefined) patch.end_date = end_date
+    if (start_time !== undefined) patch.start_time = start_time
+    if (end_time !== undefined) patch.end_time = end_time
 
     const { error } = await db(supabase).from('project_tasks').update(patch).eq('id', task_id).eq('org_id', orgId)
     if (error) {

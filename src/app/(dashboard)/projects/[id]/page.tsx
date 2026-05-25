@@ -1,7 +1,5 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 
 import { getProject, getProjectTasks, getProjectLabels, getDefaultSavedView } from '../actions'
 import { ProjectDetailClient } from '@/components/projects/project-detail-client'
@@ -44,19 +42,8 @@ export default async function ProjectPage({ params, searchParams }: Props) {
   const urlView = sp.view
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-        <Link
-          href="/projects"
-          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Projects
-        </Link>
-      </div>
-      <Suspense fallback={<TableSkeleton />}>
-        <ProjectDetail projectId={id} urlView={urlView} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<TableSkeleton />}>
+      <ProjectDetail projectId={id} urlView={urlView} />
+    </Suspense>
   )
 }

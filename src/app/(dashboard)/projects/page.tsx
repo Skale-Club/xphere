@@ -13,7 +13,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageContainer } from '@/components/layout/page-header'
 import { getProjects } from './actions'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
@@ -50,8 +49,8 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
   const trashCount = (trashCountRes as { count: number | null }).count ?? 0
 
   return (
-    <PageContainer className="px-0 py-0 space-y-0">
-      <div className="animate-fade-in flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+    <PageContainer className="py-0 space-y-0">
+      <div className="animate-fade-in flex items-center justify-between pt-6 pb-6">
         <div className="flex items-center gap-2">
           <NewProjectDialog>
             <Button size="sm" className="h-8 w-8 px-0 sm:w-auto sm:px-3" aria-label="Project">
@@ -89,21 +88,17 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
 
         <div className="lg:hidden">
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon-sm"
-                    className="h-8 w-8"
-                    aria-label="More"
-                  >
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">More</TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon-sm"
+                className="h-8 w-8"
+                aria-label="More"
+                title="More"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem asChild>
                 <Link href={includeArchived ? '/projects' : '/projects?archived=1'}>
@@ -127,7 +122,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 pb-2">
+      <div className="pb-2">
         <ProjectsListFolders projects={projects} folders={folders} />
       </div>
     </PageContainer>

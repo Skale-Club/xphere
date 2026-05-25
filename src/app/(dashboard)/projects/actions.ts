@@ -218,6 +218,8 @@ export async function createTask(input: {
   responsible_id?: string
   start_date?: string
   end_date?: string
+  start_time?: string
+  end_time?: string
   ai_context?: string
   expected_deliverable?: string
   validation_criteria?: string

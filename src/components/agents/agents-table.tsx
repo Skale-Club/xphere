@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition, type ReactNode } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+
 import {
   Table,
   TableBody,
@@ -58,24 +58,16 @@ import {
 interface AgentsTableProps {
   agents: AgentListItem[]
   channelDefaults: Record<AgentChannel, string | null>
-  children?: ReactNode
 }
 
 export function AgentsTable({
   agents,
   channelDefaults,
-  children,
 }: AgentsTableProps) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([])
-  const [showInactive, setShowInactive] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<AgentListItem | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const visibleAgents = useMemo(
-    () => (showInactive ? agents : agents.filter((a) => a.is_active)),
-    [agents, showInactive]
-  )
 
   function handleToggleActive(agent: AgentListItem, nextActive: boolean) {
     startTransition(async () => {
@@ -232,7 +224,7 @@ export function AgentsTable({
   ]
 
   const table = useReactTable({
-    data: visibleAgents,
+    data: agents,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -248,31 +240,14 @@ export function AgentsTable({
 
   return (
     <>
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-        <div>{children}</div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="show-inactive"
-              checked={showInactive}
-              onCheckedChange={setShowInactive}
-            />
-            <Label htmlFor="show-inactive" className="text-xs text-muted-foreground">
-              Show inactive
-            </Label>
-          </div>
-        </div>
-      </div>
-
       <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary shadow-elevation-sm sm:hidden">
-        {visibleAgents.length === 0 ? (
+        {agents.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No agents yet.
           </div>
         ) : (
           <div className="divide-y divide-border-subtle">
-            {visibleAgents.map((agent) => (
+            {agents.map((agent) => (
               <div
                 key={agent.id}
                 className={cn(

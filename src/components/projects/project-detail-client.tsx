@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { KanbanSquare, List, CalendarDays, GanttChartSquare, Plus, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -13,6 +13,7 @@ import { ProjectTimeline } from './project-timeline'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { NewTaskDialog } from './new-task-dialog'
 import { getProjectTasks, upsertDefaultSavedView } from '@/app/(dashboard)/projects/actions'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectRow, ProjectLabelRow } from '@/types/database'
 
@@ -34,9 +35,29 @@ interface Props {
 
 export function ProjectDetailClient({ project, initialTasks, labels, defaultView }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  const { setSegmentLabel, setSuffix } = useBreadcrumbOverride()
   const [activeTab, setActiveTab] = React.useState<ViewTab>(defaultView)
   const [tasks, setTasks] = React.useState<TaskWithLabels[]>(initialTasks)
   const [openTaskId, setOpenTaskId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const segments = pathname.split('/').filter(Boolean)
+    const projectSegment = segments[1]
+    if (projectSegment) {
+      setSegmentLabel(projectSegment, project.name)
+    }
+  }, [pathname, project.name, setSegmentLabel])
+
+  React.useEffect(() => {
+    setSuffix(
+      <span
+        className="h-2.5 w-2.5 rounded-full inline-block ml-1.5"
+        style={{ backgroundColor: project.color ?? '#6366f1' }}
+      />
+    )
+    return () => setSuffix(null)
+  }, [project.color, project.name, setSuffix])
 
   function switchTab(tab: ViewTab) {
     setActiveTab(tab)
@@ -50,26 +71,37 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-2 pb-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="h-3.5 w-3.5 rounded-full shrink-0"
-            style={{ backgroundColor: project.color ?? '#6366f1' }}
-          />
-          <div className="flex flex-col min-w-0">
-            <h1 className="text-xl font-semibold leading-tight truncate">{project.name}</h1>
-            {project.description && (
-              <p className="text-sm text-muted-foreground truncate max-w-md">{project.description}</p>
-            )}
-          </div>
+      <div className="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-3">
+        <div className="flex items-center gap-4 min-w-0">
           <NewTaskDialog projectId={project.id} onCreated={refresh}>
-            <Button size="sm" className="shrink-0 ml-2">
+            <Button size="sm" className="shrink-0">
               <Plus className="h-4 w-4 mr-1.5" />
               Task
             </Button>
           </NewTaskDialog>
+
+          <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 border border-border/40">
+            {TABS.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => switchTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all whitespace-nowrap',
+                    activeTab === tab.id
+                      ? 'bg-background text-foreground shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -81,66 +113,45 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="sticky top-0 z-10 bg-background overflow-x-auto scrollbar-none border-b border-border-subtle">
-        <div className="flex items-center gap-1 px-4 sm:px-6 lg:px-8 pb-0">
-          {TABS.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => switchTab(tab.id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-sm border-b-2 transition-all duration-150 -mb-px whitespace-nowrap',
-                  activeTab === tab.id
-                    ? 'border-foreground text-foreground font-medium'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* Board + Calendar — direct flex children so flex-1 inside them works */}
+      {activeTab === 'board' && (
+        <ProjectBoard
+          projectId={project.id}
+          tasks={tasks}
+          onOpenTask={setOpenTaskId}
+          onRefresh={refresh}
+        />
+      )}
+      {activeTab === 'calendar' && (
+        <ProjectCalendar
+          projectId={project.id}
+          tasks={tasks}
+          onOpenTask={setOpenTaskId}
+          onRefresh={refresh}
+        />
+      )}
 
-      {/* View content */}
-      <div className={cn(
-        'flex-1 min-h-0 px-4 sm:px-6 lg:px-8 py-4',
-        activeTab === 'board' ? 'overflow-hidden' : 'overflow-auto'
-      )}>
-        {activeTab === 'board' && (
-          <ProjectBoard
-            projectId={project.id}
-            tasks={tasks}
-            onOpenTask={setOpenTaskId}
-            onRefresh={refresh}
-          />
-        )}
-        {activeTab === 'list' && (
+      {/* Timeline — direct flex child for full-height Gantt */}
+      {activeTab === 'timeline' && (
+        <ProjectTimeline
+          projectId={project.id}
+          tasks={tasks}
+          onOpenTask={setOpenTaskId}
+          onRefresh={refresh}
+        />
+      )}
+
+      {/* List — wrapped with scroll + padding */}
+      {activeTab === 'list' && (
+        <div className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-4">
           <ProjectList
             projectId={project.id}
             tasks={tasks}
             onOpenTask={setOpenTaskId}
             onRefresh={refresh}
           />
-        )}
-        {activeTab === 'calendar' && (
-          <ProjectCalendar
-            tasks={tasks}
-            onOpenTask={setOpenTaskId}
-          />
-        )}
-        {activeTab === 'timeline' && (
-          <ProjectTimeline
-            projectId={project.id}
-            tasks={tasks}
-            onOpenTask={setOpenTaskId}
-            onRefresh={refresh}
-          />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Task detail sheet */}
       <TaskDetailSheet

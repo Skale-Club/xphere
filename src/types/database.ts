@@ -111,6 +111,8 @@ export interface ProjectTaskRow {
   priority: TaskPriority
   start_date: string | null
   end_date: string | null
+  start_time: string | null
+  end_time: string | null
   deliverable: string | null
   completed: boolean
   completed_at: string | null
@@ -4537,4 +4539,3 @@ export interface Database {
     }
   }
 }
-

@@ -197,7 +197,7 @@ export function ProjectBoard({ projectId, tasks, onOpenTask, onRefresh }: Props)
         setOverCol(step)
       }}
     >
-      <div className="flex h-full gap-3 overflow-x-auto pb-4 snap-x snap-mandatory sm:snap-none">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 sm:px-6 lg:px-8 pb-2 snap-x snap-mandatory sm:snap-none">
         <SortableContext items={STEPS.map((s) => `col-${s.id}`)} strategy={verticalListSortingStrategy}>
           {STEPS.map((step) => (
             <BoardColumn
