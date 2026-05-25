@@ -1497,6 +1497,7 @@ export interface Database {
           priority: string
           starred: boolean
           wait_until: string | null
+          phone_number_id: string | null
         }
         Insert: {
           id?: string
@@ -1526,6 +1527,7 @@ export interface Database {
           priority?: string
           starred?: boolean
           wait_until?: string | null
+          phone_number_id?: string | null
         }
         Update: {
           status?: string
@@ -1549,6 +1551,7 @@ export interface Database {
           priority?: string
           starred?: boolean
           wait_until?: string | null
+          phone_number_id?: string | null
         }
         Relationships: [
           {
@@ -1556,6 +1559,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversations_phone_number_id_fkey'
+            columns: ['phone_number_id']
+            isOneToOne: false
+            referencedRelation: 'twilio_phone_numbers'
             referencedColumns: ['id']
           }
         ]
@@ -2155,6 +2165,7 @@ export interface Database {
           notes: string | null
           created_by: string | null
           created_at: string
+          phone_number_id: string | null
         }
         Insert: {
           id?: string
@@ -2175,6 +2186,7 @@ export interface Database {
           notes?: string | null
           created_by?: string | null
           created_at?: string
+          phone_number_id?: string | null
         }
         Update: {
           contact_id?: string | null
@@ -2189,6 +2201,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           notes?: string | null
+          phone_number_id?: string | null
         }
         Relationships: [
           {
@@ -2203,6 +2216,13 @@ export interface Database {
             columns: ['contact_id']
             isOneToOne: false
             referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'call_logs_phone_number_id_fkey'
+            columns: ['phone_number_id']
+            isOneToOne: false
+            referencedRelation: 'twilio_phone_numbers'
             referencedColumns: ['id']
           }
         ]

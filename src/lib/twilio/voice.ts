@@ -113,14 +113,21 @@ export async function resolveTwilioCredentialsForOrg(
  */
 export async function resolveTwilioOrgByToNumber(
   toNumber: string,
-): Promise<{ orgId: string; creds: TwilioVoiceCredentials } | null> {
+): Promise<
+  | {
+      orgId: string
+      phoneNumberId: string | null
+      creds: TwilioVoiceCredentials
+    }
+  | null
+> {
   const supabase = createServiceRoleClient()
 
   // Primary path: look up the number in twilio_phone_numbers, then resolve the
   // integration credentials for that org.
   const { data: numberRow } = await supabase
     .from('twilio_phone_numbers')
-    .select('organization_id, e164')
+    .select('id, organization_id, e164')
     .eq('e164', toNumber)
     .eq('is_active', true)
     .limit(1)
@@ -131,6 +138,7 @@ export async function resolveTwilioOrgByToNumber(
     if (creds && creds.accountSid && creds.authToken) {
       return {
         orgId: numberRow.organization_id,
+        phoneNumberId: numberRow.id,
         creds: { ...creds, fromNumber: numberRow.e164 },
       }
     }
@@ -169,6 +177,7 @@ export async function resolveTwilioOrgByToNumber(
 
   return {
     orgId: row.organization_id,
+    phoneNumberId: null,
     creds: {
       accountSid: blob.account_sid,
       authToken: blob.auth_token,

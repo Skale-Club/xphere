@@ -40,7 +40,8 @@ export type TwilioSmsPayload = {
 
 export async function processTwilioSms(
   payload: TwilioSmsPayload,
-  orgId: string
+  orgId: string,
+  phoneNumberId: string | null = null,
 ): Promise<void> {
   const supabase = createServiceRoleClient()
 
@@ -75,6 +76,8 @@ export async function processTwilioSms(
         last_message_at: now,
         last_inbound_at: now,
         updated_at: now,
+        // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
+        ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
       })
       .eq('id', conversationId)
   } else {
@@ -93,6 +96,7 @@ export async function processTwilioSms(
         last_message: messageText,
         last_message_at: now,
         last_inbound_at: now,
+        phone_number_id: phoneNumberId,
       })
       .select('id')
       .single()

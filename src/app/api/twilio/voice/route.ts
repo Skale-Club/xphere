@@ -75,6 +75,7 @@ export async function POST(request: Request): Promise<Response> {
     const baseUrl = publicBaseUrl(request)
 
     let orgId: string | null = null
+    let phoneNumberId: string | null = null
     let authToken = ''
 
     if (isOutbound) {
@@ -102,6 +103,7 @@ export async function POST(request: Request): Promise<Response> {
       const resolved = await resolveTwilioOrgByToNumber(to)
       if (resolved) {
         orgId = resolved.orgId
+        phoneNumberId = resolved.phoneNumberId
         authToken = resolved.creds.authToken
       }
     }
@@ -140,6 +142,7 @@ export async function POST(request: Request): Promise<Response> {
           from: callerId ?? from,
           to,
           status: 'ringing',
+          phoneNumberId,
         })
       })
 
@@ -166,6 +169,7 @@ export async function POST(request: Request): Promise<Response> {
         from,
         to,
         status: 'ringing',
+        phoneNumberId,
       })
     })
 
@@ -219,6 +223,7 @@ async function logIncomingCall(input: {
   from: string
   to: string
   status: string
+  phoneNumberId: string | null
 }): Promise<void> {
   if (!input.callSid) return
   const supabase = createServiceRoleClient()
@@ -252,6 +257,7 @@ async function logIncomingCall(input: {
       .update({
         contact_id: contactId,
         status: input.status,
+        ...(input.phoneNumberId ? { phone_number_id: input.phoneNumberId } : {}),
       })
       .eq('id', existing.id)
     return
@@ -267,5 +273,6 @@ async function logIncomingCall(input: {
     to_number: input.to,
     status: input.status,
     started_at: new Date().toISOString(),
+    phone_number_id: input.phoneNumberId,
   })
 }

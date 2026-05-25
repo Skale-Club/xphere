@@ -18,8 +18,7 @@
 
 import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { decrypt } from '@/lib/crypto'
+import { resolveTwilioOrgByToNumber } from '@/lib/twilio/voice'
 import { processTwilioSms, type TwilioSmsPayload } from '@/lib/twilio/process-sms'
 
 export const runtime = 'nodejs'
@@ -139,46 +138,25 @@ export async function POST(request: Request): Promise<Response> {
       return ackTwiml()
     }
 
-    // 2. Resolve the org by matching the destination number against the Twilio integration's
-    //    config.from_number. There may be multiple rows (different test/prod numbers per org);
-    //    we filter by active rows only.
-    const supabase = createServiceRoleClient()
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('organization_id, encrypted_api_key')
-      .eq('provider', 'twilio')
-      .eq('is_active', true)
-      .eq('config->>from_number', to)
-      .limit(1)
-      .maybeSingle()
-
-    if (!integration) {
+    // 2. Resolve the org by destination number. Primary path is twilio_phone_numbers
+    //    (returns phone_number_id used downstream); legacy fallback is the
+    //    integrations.config.from_number column for orgs not yet migrated.
+    const resolved = await resolveTwilioOrgByToNumber(to)
+    if (!resolved) {
       console.warn('[twilio/sms] No active Twilio integration found for To:', to)
       return ackTwiml()
     }
+    const orgId = resolved.orgId
+    const phoneNumberId = resolved.phoneNumberId
+    const authToken = resolved.creds.authToken
 
     // 3. Validate the signature against the org's auth_token
-    let authToken = ''
-    try {
-      const blob = JSON.parse(await decrypt(integration.encrypted_api_key)) as {
-        account_sid?: string
-        auth_token?: string
-      }
-      authToken = blob.auth_token ?? ''
-    } catch (err) {
-      console.error('[twilio/sms] Failed to decrypt Twilio credentials:', err)
-      return ackTwiml()
-    }
-
     const requestUrl = resolveRequestUrl(request)
     const receivedSignature = request.headers.get('x-twilio-signature')
 
     const isValid = verifyTwilioSignature(authToken, requestUrl, params, receivedSignature)
     if (!isValid) {
-      console.warn(
-        '[twilio/sms] Invalid X-Twilio-Signature for org:',
-        integration.organization_id
-      )
+      console.warn('[twilio/sms] Invalid X-Twilio-Signature for org:', orgId)
       return new Response('Forbidden', { status: 403 })
     }
 
@@ -214,11 +192,10 @@ export async function POST(request: Request): Promise<Response> {
       // Pass credentials for media download (never stored | only used in after())
       _authToken: authToken,
     }
-    const orgId = integration.organization_id
 
     after(async () => {
       try {
-        await processTwilioSms(payload, orgId)
+        await processTwilioSms(payload, orgId, phoneNumberId)
       } catch (err) {
         console.error('[twilio/sms] processTwilioSms error:', err)
       }
