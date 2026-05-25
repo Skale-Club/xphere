@@ -14,6 +14,7 @@ import {
   CalendarDays,
   CheckSquare,
   FolderKanban,
+  BarChart3,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview' },
   { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
+  { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'engage' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
