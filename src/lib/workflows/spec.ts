@@ -233,6 +233,48 @@ export const TRIGGERS: TriggerSpec[] = [
       },
     },
   },
+
+  // ─── Traffic events (Traffic module). Tenant-scoped only — emitted by the
+  // ingest pipeline when a visitor or session event matches a conversion or
+  // behavioral condition. NOT available in Superadmin Traffic scope.
+  {
+    type: 'event:traffic.pageview',
+    description: 'A visitor viewed a page on the tenant website. Includes URL, path, session, and UTM data.',
+    variables: ['traffic.session.*', 'traffic.visitor.*', 'traffic.pageview.*', 'trigger.fired_at'],
+    config_schema: {
+      type: 'object',
+      properties: {
+        path_contains: { type: 'string', description: 'Optional: only fire if path contains this substring.' },
+      },
+    },
+  },
+  {
+    type: 'event:traffic.conversion',
+    description: 'A visitor triggered a conversion event (form_submit, call_started, booking_completed, etc.).',
+    variables: ['traffic.session.*', 'traffic.visitor.*', 'traffic.event.*', 'trigger.fired_at'],
+    config_schema: {
+      type: 'object',
+      properties: {
+        event_type: {
+          type: 'string',
+          enum: ['form_submit', 'phone_click', 'sms_click', 'call_started', 'chat_started', 'booking_started', 'booking_completed', 'contact_created', 'opportunity_created', 'deal_won', 'custom_conversion'],
+          description: 'Optional: filter to a specific conversion event type.',
+        },
+      },
+    },
+  },
+  {
+    type: 'event:traffic.session_started',
+    description: 'A new website session started. Includes UTM attribution and device info.',
+    variables: ['traffic.session.*', 'traffic.visitor.*', 'trigger.fired_at'],
+    config_schema: {
+      type: 'object',
+      properties: {
+        utm_source: { type: 'string', description: 'Optional: only fire if utm_source matches.' },
+        utm_campaign: { type: 'string', description: 'Optional: only fire if utm_campaign matches.' },
+      },
+    },
+  },
 ]
 
 // ─── Node types ───────────────────────────────────────────────────────────────

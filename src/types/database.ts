@@ -2537,6 +2537,12 @@ export interface Database {
           status: CampaignStatus
           scheduled_start_at: string | null
           calls_per_minute: number
+          landing_page_url: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign_tag: string | null
+          utm_content: string | null
+          utm_term: string | null
           created_at: string
           updated_at: string
         }
@@ -2550,6 +2556,12 @@ export interface Database {
           status?: CampaignStatus
           scheduled_start_at?: string | null
           calls_per_minute?: number
+          landing_page_url?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign_tag?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -2559,6 +2571,12 @@ export interface Database {
           status?: CampaignStatus
           scheduled_start_at?: string | null
           calls_per_minute?: number
+          landing_page_url?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign_tag?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4527,6 +4545,254 @@ export interface Database {
             referencedColumns: ['id']
           }
         ]
+      }
+      // ─── Traffic Module (migration 1046) ──────────────────────────────────
+      traffic_setups: {
+        Row: {
+          id: string
+          organization_id: string
+          script_token: string
+          primary_website_url: string | null
+          verification_state: 'not_started' | 'pending' | 'verified' | 'failed' | 'no_events_yet'
+          verified_at: string | null
+          gtm_container_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          script_token?: string
+          primary_website_url?: string | null
+          verification_state?: 'not_started' | 'pending' | 'verified' | 'failed' | 'no_events_yet'
+          verified_at?: string | null
+          gtm_container_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          primary_website_url?: string | null
+          verification_state?: 'not_started' | 'pending' | 'verified' | 'failed' | 'no_events_yet'
+          verified_at?: string | null
+          gtm_container_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      traffic_visitors: {
+        Row: {
+          id: string
+          organization_id: string
+          visitor_key: string
+          first_seen_at: string
+          last_seen_at: string
+          session_count: number
+          page_view_count: number
+          is_identified: boolean
+          contact_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          visitor_key: string
+          first_seen_at?: string
+          last_seen_at?: string
+          session_count?: number
+          page_view_count?: number
+          is_identified?: boolean
+          contact_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          last_seen_at?: string
+          session_count?: number
+          page_view_count?: number
+          is_identified?: boolean
+          contact_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      traffic_sessions: {
+        Row: {
+          id: string
+          organization_id: string
+          visitor_id: string
+          session_key: string
+          started_at: string
+          ended_at: string | null
+          page_view_count: number
+          duration_seconds: number | null
+          landing_page: string | null
+          exit_page: string | null
+          referrer: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_term: string | null
+          utm_content: string | null
+          country_code: string | null
+          country_name: string | null
+          city: string | null
+          device_type: 'desktop' | 'mobile' | 'tablet' | 'unknown' | null
+          browser: string | null
+          os: string | null
+          is_converted: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          visitor_id: string
+          session_key: string
+          started_at?: string
+          ended_at?: string | null
+          page_view_count?: number
+          duration_seconds?: number | null
+          landing_page?: string | null
+          exit_page?: string | null
+          referrer?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_term?: string | null
+          utm_content?: string | null
+          country_code?: string | null
+          country_name?: string | null
+          city?: string | null
+          device_type?: 'desktop' | 'mobile' | 'tablet' | 'unknown' | null
+          browser?: string | null
+          os?: string | null
+          is_converted?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          ended_at?: string | null
+          page_view_count?: number
+          duration_seconds?: number | null
+          exit_page?: string | null
+          is_converted?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      traffic_pageviews: {
+        Row: {
+          id: string
+          organization_id: string
+          session_id: string
+          visitor_id: string
+          url: string
+          path: string
+          title: string | null
+          referrer: string | null
+          duration_seconds: number | null
+          occurred_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          session_id: string
+          visitor_id: string
+          url: string
+          path: string
+          title?: string | null
+          referrer?: string | null
+          duration_seconds?: number | null
+          occurred_at?: string
+          created_at?: string
+        }
+        Update: {
+          duration_seconds?: number | null
+        }
+        Relationships: []
+      }
+      traffic_events: {
+        Row: {
+          id: string
+          organization_id: string
+          session_id: string | null
+          visitor_id: string | null
+          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion'
+          event_name: string | null
+          url: string | null
+          metadata: Json
+          contact_id: string | null
+          opportunity_id: string | null
+          occurred_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          session_id?: string | null
+          visitor_id?: string | null
+          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion'
+          event_name?: string | null
+          url?: string | null
+          metadata?: Json
+          contact_id?: string | null
+          opportunity_id?: string | null
+          occurred_at?: string
+          created_at?: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      traffic_attributions: {
+        Row: {
+          id: string
+          organization_id: string
+          visitor_id: string
+          touch_type: 'first' | 'last'
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_term: string | null
+          utm_content: string | null
+          landing_page: string | null
+          referrer: string | null
+          session_id: string | null
+          occurred_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          visitor_id: string
+          touch_type: 'first' | 'last'
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_term?: string | null
+          utm_content?: string | null
+          landing_page?: string | null
+          referrer?: string | null
+          session_id?: string | null
+          occurred_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_term?: string | null
+          utm_content?: string | null
+          landing_page?: string | null
+          referrer?: string | null
+          session_id?: string | null
+          occurred_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: Record<string, never>
