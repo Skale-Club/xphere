@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { NewTaskDialog } from './new-task-dialog'
+import { TaskAssigneeAvatar } from './task-assignee-avatar'
 import { updateTask } from '@/app/(dashboard)/projects/actions'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectTaskStep } from '@/types/database'
@@ -138,6 +139,15 @@ export function ProjectList({ projectId, tasks, onOpenTask, onRefresh }: Props) 
                     </p>
                   )}
                 </div>
+
+                {task.assignee && (
+                  <TaskAssigneeAvatar
+                    size="xs"
+                    name={task.assignee.full_name}
+                    email={task.assignee.email}
+                    className="shrink-0 mt-0.5"
+                  />
+                )}
 
                 {task.subtask_count > 0 && (
                   <span className="text-[11px] text-muted-foreground mt-0.5 shrink-0">

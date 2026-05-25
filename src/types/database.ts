@@ -90,6 +90,7 @@ export interface ProjectTaskRow {
   description: string | null
   step: ProjectTaskStep
   responsible_id: string | null
+  assignee_id: string | null
   priority: TaskPriority
   start_date: string | null
   end_date: string | null

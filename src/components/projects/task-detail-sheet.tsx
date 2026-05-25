@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { MarkdownEditor } from '@/components/projects/markdown-editor'
 import { ExecutionRunsPanel } from '@/components/projects/execution-runs-panel'
 import { AiViewPanel } from '@/components/projects/ai-view-panel'
+import { AssigneePicker } from '@/components/projects/assignee-picker'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -241,6 +242,16 @@ export function TaskDetailSheet({ taskId, projectId, labels, onClose, onRefresh 
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Assignee</Label>
+                <AssigneePicker
+                  taskId={task.id}
+                  projectId={projectId}
+                  current={task.assignee}
+                  onChange={() => { onRefresh(); getTask(task.id).then((t) => t && setTask(t)) }}
+                />
               </div>
             </div>
 

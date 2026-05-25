@@ -5,10 +5,17 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
 import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, ProjectExecutionRunRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
 
+export type AssigneeProfile = {
+  user_id: string
+  full_name: string | null
+  email: string | null
+}
+
 export type TaskWithLabels = ProjectTaskRow & {
   labels: ProjectLabelRow[]
   subtask_count: number
   completed_subtask_count: number
+  assignee: AssigneeProfile | null
 }
 
 // Type-cast helper: Supabase doesn't have projects tables in the generated Database type,
@@ -122,11 +129,22 @@ export async function getProjectTasks(projectId: string): Promise<TaskWithLabels
     if (sub.completed) counts.completed++
   }
 
+  // Attach assignee profiles by fetching org members once and mapping by user_id.
+  const assigneeIds = new Set(taskList.map((t) => t.assignee_id).filter(Boolean) as string[])
+  const assigneeMap = new Map<string, AssigneeProfile>()
+  if (assigneeIds.size > 0) {
+    const members = await listProjectAssignees()
+    for (const m of members) {
+      if (assigneeIds.has(m.user_id)) assigneeMap.set(m.user_id, m)
+    }
+  }
+
   return taskList.map((t) => ({
     ...t,
     labels: labelMap.get(t.id) ?? [],
     subtask_count: subtaskCountMap.get(t.id)?.total ?? 0,
     completed_subtask_count: subtaskCountMap.get(t.id)?.completed ?? 0,
+    assignee: t.assignee_id ? assigneeMap.get(t.assignee_id) ?? null : null,
   }))
 }
 
@@ -171,11 +189,18 @@ export async function getTask(id: string): Promise<TaskWithLabels | null> {
 
   const t = task as ProjectTaskRow
 
+  let assignee: AssigneeProfile | null = null
+  if (t.assignee_id) {
+    const members = await listProjectAssignees()
+    assignee = members.find((m) => m.user_id === t.assignee_id) ?? null
+  }
+
   return {
     ...t,
     labels,
     subtask_count: (subtasksAll as { id: string; completed: boolean }[])?.length ?? 0,
     completed_subtask_count: (subtasksAll as { id: string; completed: boolean }[])?.filter((s) => s.completed).length ?? 0,
+    assignee,
   }
 }
 
@@ -283,6 +308,37 @@ export async function setTaskValidationStatus(
   if (status === 'approved') patch.needs_validation = false
   await db(supabase).from('project_tasks').update(patch).eq('id', id)
   revalidatePath(`/projects/${projectId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Assignees
+// ---------------------------------------------------------------------------
+
+export async function updateTaskAssignee(
+  taskId: string,
+  projectId: string,
+  assigneeId: string | null,
+): Promise<void> {
+  const user = await getUser()
+  if (!user) return
+  const supabase = await createClient()
+  await db(supabase).from('project_tasks').update({ assignee_id: assigneeId }).eq('id', taskId)
+  revalidatePath(`/projects/${projectId}`)
+}
+
+export async function listProjectAssignees(): Promise<AssigneeProfile[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return []
+  const { data } = await supabase.rpc('get_org_member_profiles', {
+    p_org_id: orgId,
+    p_page: 1,
+    p_per_page: 100,
+  })
+  return ((data ?? []) as { user_id: string; full_name: string | null; email: string | null }[])
+    .map((m) => ({ user_id: m.user_id, full_name: m.full_name, email: m.email }))
 }
 
 // ---------------------------------------------------------------------------

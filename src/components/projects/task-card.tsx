@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { CheckCircle2, Circle, MessageSquare, Paperclip, ListChecks, Bot } from 'lucide-react'
+import { ListChecks, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { TaskAssigneeAvatar } from './task-assignee-avatar'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -71,6 +72,14 @@ export function TaskCard({ task, onClick }: Props) {
               )}>
                 {new Date(task.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
+            )}
+            {task.assignee && (
+              <TaskAssigneeAvatar
+                size="xs"
+                name={task.assignee.full_name}
+                email={task.assignee.email}
+                className={cn(!task.end_date && 'ml-auto')}
+              />
             )}
           </div>
         </div>

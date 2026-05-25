@@ -4,6 +4,7 @@ import * as React from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { TaskAssigneeAvatar } from './task-assignee-avatar'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 
 interface Props {
@@ -110,7 +111,17 @@ export function ProjectCalendar({ tasks, onOpenTask }: Props) {
                       color: (t.end_date && new Date(t.end_date) < today && !t.completed) ? '#ef4444' : '#6366f1',
                     }}
                   >
-                    {t.name}
+                    <span className="flex items-center gap-1">
+                      {t.assignee && (
+                        <TaskAssigneeAvatar
+                          size="xs"
+                          name={t.assignee.full_name}
+                          email={t.assignee.email}
+                          className="h-3 w-3 text-[8px] shrink-0"
+                        />
+                      )}
+                      <span className="truncate">{t.name}</span>
+                    </span>
                   </button>
                 ))}
                 {dayTasks.length > 2 && (
