@@ -1,0 +1,37 @@
+# Canonical example — multi-step drip with wait nodes between messages.
+# Pattern: trigger → immediate SMS → wait → follow-up SMS.
+# The wait node does not block the platform — it records a scheduled resume timestamp.
+
+name: multi-step-onboarding
+description: |
+  Two-touch welcome sequence for new contacts: immediate welcome SMS, then a follow-up
+  the next day asking if they have questions.
+trigger:
+  type: event
+  event: contact.created
+
+nodes:
+  - id: welcome_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, welcome! We're excited to have you. Reply any time with questions."
+
+  - id: wait_1d
+    kind: wait
+    mode: sleep
+    duration: 24h
+
+  - id: followup_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, just checking in! Do you have any questions we can help with?"
+
+edges:
+  - from: trigger
+    to: welcome_sms
+  - from: welcome_sms
+    to: wait_1d
+  - from: wait_1d
+    to: followup_sms

@@ -1,0 +1,23 @@
+# Canonical example — send a welcome SMS immediately when a new contact is created.
+# Trigger: contact.created fires whenever a new contact record is added to the CRM.
+# Scope:   contact.* is populated by the event payload.
+# Output:  An SMS via Twilio welcoming the new lead.
+
+name: lead-capture-welcome-sms
+description: |
+  Sends a welcome SMS to every new contact the moment they are captured,
+  introducing the business and setting expectations for follow-up.
+trigger:
+  type: event
+  event: contact.created
+
+nodes:
+  - id: welcome
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, welcome! We received your info and will be in touch shortly."
+
+edges:
+  - from: trigger
+    to: welcome

@@ -4026,6 +4026,43 @@ export interface Database {
         }
         Relationships: []
       }
+      workflow_authoring_runs: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string | null
+          conversation_id: string | null
+          outcome: 'created' | 'edited' | 'validation_failed' | 'error'
+          workflow_id: string | null
+          validation_error_count: number
+          error_types: string[]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id?: string | null
+          conversation_id?: string | null
+          outcome: 'created' | 'edited' | 'validation_failed' | 'error'
+          workflow_id?: string | null
+          validation_error_count?: number
+          error_types?: string[]
+          created_at?: string
+        }
+        Update: {
+          outcome?: 'created' | 'edited' | 'validation_failed' | 'error'
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_authoring_runs_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       workflow_run_steps: {
         Row: {
           id: string

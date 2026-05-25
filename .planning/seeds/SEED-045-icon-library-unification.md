@@ -1,8 +1,9 @@
 ---
 id: SEED-045
-status: dormant
+status: complete
 planted: 2026-05-21
 planted_during: v2.8 post-ship — canvas visual refinement (SEED-043)
+shipped: 2026-05-25
 trigger_when: any milestone touching the flow canvas UX, or a dedicated design-system / polish milestone
 scope: Medium
 ---

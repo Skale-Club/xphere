@@ -78,6 +78,16 @@ async function createWorkflow(
   const spec = await getWorkflowSpec(ctx.orgId, ctx.supabase)
   const validation = validateWorkflow(definition, spec)
   if (!validation.ok) {
+    // Fire-and-forget telemetry
+    void ctx.supabase.from('workflow_authoring_runs').insert({
+      org_id: ctx.orgId,
+      user_id: ctx.userId,
+      conversation_id: ctx.conversationId ?? null,
+      outcome: 'validation_failed',
+      workflow_id: null,
+      validation_error_count: validation.errors.length,
+      error_types: validation.errors.map((e) => e.code),
+    })
     return {
       success: false,
       error: 'Validation failed',
@@ -136,6 +146,17 @@ async function createWorkflow(
     .update({ current_version_id: version.id as string })
     .eq('id', workflow.id as string)
 
+  // Fire-and-forget telemetry
+  void ctx.supabase.from('workflow_authoring_runs').insert({
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    conversation_id: ctx.conversationId ?? null,
+    outcome: 'created',
+    workflow_id: workflow.id as string,
+    validation_error_count: 0,
+    error_types: [],
+  })
+
   return {
     success: true,
     data: {
@@ -170,6 +191,16 @@ async function updateWorkflow(
   const spec = await getWorkflowSpec(ctx.orgId, ctx.supabase)
   const validation = validateWorkflow(definition, spec)
   if (!validation.ok) {
+    // Fire-and-forget telemetry
+    void ctx.supabase.from('workflow_authoring_runs').insert({
+      org_id: ctx.orgId,
+      user_id: ctx.userId,
+      conversation_id: ctx.conversationId ?? null,
+      outcome: 'validation_failed',
+      workflow_id: id,
+      validation_error_count: validation.errors.length,
+      error_types: validation.errors.map((e) => e.code),
+    })
     return {
       success: false,
       error: 'Validation failed',
@@ -219,6 +250,17 @@ async function updateWorkflow(
     .maybeSingle()
 
   if (uErr) return { success: false, error: uErr.message }
+
+  // Fire-and-forget telemetry
+  void ctx.supabase.from('workflow_authoring_runs').insert({
+    org_id: ctx.orgId,
+    user_id: ctx.userId,
+    conversation_id: ctx.conversationId ?? null,
+    outcome: 'edited',
+    workflow_id: id,
+    validation_error_count: 0,
+    error_types: [],
+  })
 
   return {
     success: true,

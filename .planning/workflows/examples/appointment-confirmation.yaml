@@ -1,0 +1,22 @@
+# Canonical example — confirmation SMS when a meeting is booked.
+# Uses meeting.* scope variables from the event:meeting.confirmed trigger (SEED-028).
+# The {{meeting.link}} variable resolves to a Meet URL, maps link, or tel: depending on location kind.
+
+name: appointment-confirmation
+description: |
+  Sends a personalised confirmation SMS to the attendee as soon as a booking is confirmed,
+  including the meeting link and start time.
+trigger:
+  type: event
+  event: meeting.confirmed
+
+nodes:
+  - id: confirm_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, your appointment on {{meeting.starts_at}} is confirmed! Join here: {{meeting.link}}"
+
+edges:
+  - from: trigger
+    to: confirm_sms

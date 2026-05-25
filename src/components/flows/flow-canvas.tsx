@@ -62,6 +62,8 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  const [snapToGrid, setSnapToGrid] = useState(false)
+  const [showMiniMap, setShowMiniMap] = useState(true)
   const { screenToFlowPosition, fitView, zoomTo } = useReactFlow()
 
   const nodes = useFlowStore((s) => s.nodes)
@@ -252,6 +254,8 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultViewport={{ x: 0, y: 0, zoom: CANVAS_BASE_ZOOM }}
+            snapToGrid={snapToGrid}
+            snapGrid={[16, 16]}
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={{
               type: 'deletable',
@@ -270,8 +274,14 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
             }}
           >
             <Background gap={16} size={0.85} color="rgba(148, 163, 184, 0.34)" />
-            <CanvasMiniMap />
-            <CanvasToolbar onAutoLayout={handleAutoLayout} />
+            {showMiniMap && <CanvasMiniMap />}
+            <CanvasToolbar
+              onAutoLayout={handleAutoLayout}
+              snapToGrid={snapToGrid}
+              onToggleSnap={() => setSnapToGrid((v) => !v)}
+              showMiniMap={showMiniMap}
+              onToggleMiniMap={() => setShowMiniMap((v) => !v)}
+            />
           </ReactFlow>
           {showEmptyState && <EmptyCanvasState onPickTrigger={handlePickTrigger} />}
         </div>

@@ -1,13 +1,16 @@
 ---
 id: SEED-043
-status: active
+status: complete
 planted: 2026-05-21
 planted_during: post-SEED-042 (integrations redesign just shipped, all complete seeds wired in audit)
+shipped: 2026-05-25
 trigger_when: now (autonomous execution requested by user)
 scope: Large
 priority: high
 depends_on: [SEED-019, SEED-025]
-phases_pending: [identity, edges, toolbar, empty_state, palette_polish]
+phases_shipped: [identity, edges, toolbar, empty_state, palette_polish]
+phases_pending: []
+last_commit: 240ea3f
 ---
 
 # SEED-043: Flow Canvas Visual Refinement — Caminho A

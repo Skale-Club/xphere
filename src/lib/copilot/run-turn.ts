@@ -81,6 +81,7 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
     supabase: input.supabase,
     orgId: input.orgId,
     userId: input.userId,
+    conversationId: input.conversationId,
   }
 
   const parts: MessagePart[] = []

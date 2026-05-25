@@ -1,0 +1,30 @@
+# Canonical example — dual-action flow triggered when an opportunity is marked won.
+# Pattern: two sequential action nodes (no edges between them needed — they chain linearly).
+# Useful for post-win workflows: notify the customer AND log internally.
+
+name: pipeline-won-celebration
+description: |
+  When a deal is marked won in the pipeline, send a congratulations SMS to the contact
+  and add an internal note to the opportunity for the team.
+trigger:
+  type: event
+  event: opportunity.won
+
+nodes:
+  - id: congrats_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{opportunity.contact.phone}}"
+    body: "Great news {{opportunity.contact.first_name}}! We're thrilled to be working with you. Our team will reach out shortly with next steps."
+
+  - id: internal_note
+    kind: pipeline_add_note
+    integration: gohighlevel
+    opportunity_id: "{{opportunity.id}}"
+    note: "Deal won — congratulations SMS sent to {{opportunity.contact.phone}} automatically."
+
+edges:
+  - from: trigger
+    to: congrats_sms
+  - from: congrats_sms
+    to: internal_note

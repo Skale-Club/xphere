@@ -1,0 +1,24 @@
+# Canonical example — a scheduled workflow that runs on a cron expression.
+# Trigger: schedule fires at the configured cron time each day.
+# Pattern: cron expression is in standard 5-field UTC format.
+# Output:  Sends a daily digest SMS to the org's primary admin contact.
+
+name: schedule-daily-report
+description: |
+  Runs every weekday morning at 8 AM UTC and sends a daily summary SMS to
+  the configured admin phone number.
+trigger:
+  type: schedule
+  config:
+    cron: "0 8 * * 1-5"
+
+nodes:
+  - id: send_digest
+    kind: send_sms
+    integration: twilio
+    to: "{{org.admin_phone}}"
+    body: "Good morning! Your daily Xphere digest is ready. Log in at https://xphere.app to review today's activity."
+
+edges:
+  - from: trigger
+    to: send_digest
