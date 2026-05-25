@@ -7,10 +7,17 @@ import { z } from 'zod'
 import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime'
+import { rateLimit } from '@/lib/rate-limit'
 import type { AgentChannel } from '@/lib/agent-runtime/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
+
+// Per-user playground throughput. Each request triggers an agent run, which
+// costs model tokens. Cap at 30 requests / minute / user — generous for
+// interactive testing, prevents runaway cost spend by a misbehaving client.
+const PLAYGROUND_RATE_LIMIT = 30
+const PLAYGROUND_WINDOW_SECONDS = 60
 
 const PlaygroundRequestSchema = z.object({
   message: z.string().min(1, 'message is required'),
@@ -40,6 +47,24 @@ export async function POST(
 
   // 2. Await params (Next.js 15 requirement)
   const { agentId } = await params
+
+  // 2.5 Rate limit | per-user cap on playground turns.
+  //     S11 from the Security Review: AI endpoints must be rate-limited to
+  //     prevent cost-DoS by a compromised or misbehaving client.
+  const rl = await rateLimit(`playground:${user.id}`, PLAYGROUND_RATE_LIMIT, PLAYGROUND_WINDOW_SECONDS)
+  if (!rl.allowed) {
+    return Response.json(
+      { error: 'Rate limit exceeded', resetAt: rl.resetAt },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': rl.resetAt
+            ? Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000)).toString()
+            : '60',
+        },
+      },
+    )
+  }
 
   // 3. Parse body
   let rawBody: unknown
