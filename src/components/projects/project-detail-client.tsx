@@ -3,24 +3,26 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { KanbanSquare, List, CalendarDays, Plus, Plug } from 'lucide-react'
+import { KanbanSquare, List, CalendarDays, GanttChartSquare, Plus, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ProjectBoard } from './project-board'
 import { ProjectList } from './project-list'
 import { ProjectCalendar } from './project-calendar'
+import { ProjectTimeline } from './project-timeline'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { NewTaskDialog } from './new-task-dialog'
 import { getProjectTasks, upsertDefaultSavedView } from '@/app/(dashboard)/projects/actions'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectRow, ProjectLabelRow } from '@/types/database'
 
-type ViewTab = 'board' | 'list' | 'calendar'
+type ViewTab = 'board' | 'list' | 'calendar' | 'timeline'
 
 const TABS: { id: ViewTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'board', label: 'Board', icon: KanbanSquare },
   { id: 'list', label: 'List', icon: List },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'timeline', label: 'Timeline', icon: GanttChartSquare },
 ]
 
 interface Props {
@@ -128,6 +130,14 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
           <ProjectCalendar
             tasks={tasks}
             onOpenTask={setOpenTaskId}
+          />
+        )}
+        {activeTab === 'timeline' && (
+          <ProjectTimeline
+            projectId={project.id}
+            tasks={tasks}
+            onOpenTask={setOpenTaskId}
+            onRefresh={refresh}
           />
         )}
       </div>

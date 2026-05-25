@@ -8,7 +8,7 @@ import { ProjectDetailClient } from '@/components/projects/project-detail-client
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import type { ProjectViewType } from '@/types/database'
 
-const VALID_VIEWS: ProjectViewType[] = ['board', 'list', 'calendar']
+const VALID_VIEWS: ProjectViewType[] = ['board', 'list', 'calendar', 'timeline']
 
 interface Props {
   params: Promise<{ id: string }>
@@ -26,7 +26,7 @@ async function ProjectDetail({ projectId, urlView }: { projectId: string; urlVie
   if (!project) notFound()
 
   const resolved = urlView ?? savedView?.view_type ?? 'board'
-  const defaultView = (VALID_VIEWS.includes(resolved as ProjectViewType) ? resolved : 'board') as 'board' | 'list' | 'calendar'
+  const defaultView = (VALID_VIEWS.includes(resolved as ProjectViewType) ? resolved : 'board') as 'board' | 'list' | 'calendar' | 'timeline'
 
   return (
     <ProjectDetailClient
