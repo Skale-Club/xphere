@@ -46,6 +46,13 @@ const BaseShape = z.object({
     .or(z.literal('')),
   is_default: z.boolean().default(false),
   notes: z.string().max(500, 'Notes max 500 chars.').optional().or(z.literal('')),
+  // phone-numbers Phase 1 fields
+  vapi_assistant_id: z.string().trim().max(128).optional().or(z.literal('')),
+  responsible_user_id: z.string().uuid().nullable().optional(),
+  business_purpose: z.string().max(120).optional().or(z.literal('')),
+  inbox_label: z.string().max(64).optional().or(z.literal('')),
+  chat_routing: z.record(z.unknown()).optional(),
+  workflow_settings: z.record(z.unknown()).optional(),
 })
 
 function refineCapabilitiesAndForward(data: z.infer<typeof BaseShape>, ctx: z.RefinementCtx) {
@@ -109,6 +116,48 @@ function revalidateAll() {
   revalidatePath('/integrations')
   revalidatePath('/integrations/twilio')
   revalidatePath('/settings/calls')
+  revalidatePath('/settings/phone-numbers')
+}
+
+export interface OrgMemberOption {
+  user_id: string
+  display_name: string
+  email: string | null
+}
+
+/**
+ * List org members for the "responsible user" selector. Returns minimum-needed
+ * fields. RLS scopes the org_members select to the active org.
+ */
+export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+
+  const { data: members } = await supabase
+    .from('org_members')
+    .select('user_id')
+
+  const ids = (members ?? []).map((m) => m.user_id as string).filter(Boolean)
+  if (ids.length === 0) return []
+
+  // Best-effort: use the member_profiles helper RPC if present (added in 1037).
+  // Fall back to a direct profile lookup if the RPC is unavailable.
+  try {
+    const { data, error } = await supabase.rpc('get_org_member_profiles')
+    if (!error && Array.isArray(data)) {
+      return (data as Array<{ user_id: string; full_name?: string | null; email?: string | null }>)
+        .filter((row) => row.user_id && ids.includes(row.user_id))
+        .map((row) => ({
+          user_id: row.user_id,
+          display_name: (row.full_name?.trim() || row.email || row.user_id) as string,
+          email: row.email ?? null,
+        }))
+    }
+  } catch {
+    // RPC not available in this environment | swallow and return ids only.
+  }
+  return ids.map((id) => ({ user_id: id, display_name: id, email: null }))
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
@@ -169,6 +218,12 @@ export async function createTwilioNumber(
       forward_to_number: nullableString(body.forward_to_number),
       is_default: body.is_default,
       notes: nullableString(body.notes),
+      vapi_assistant_id: nullableString(body.vapi_assistant_id),
+      responsible_user_id: body.responsible_user_id ?? null,
+      business_purpose: nullableString(body.business_purpose),
+      inbox_label: nullableString(body.inbox_label),
+      chat_routing: (body.chat_routing ?? {}) as Database['public']['Tables']['twilio_phone_numbers']['Insert']['chat_routing'],
+      workflow_settings: (body.workflow_settings ?? {}) as Database['public']['Tables']['twilio_phone_numbers']['Insert']['workflow_settings'],
     })
     .select()
     .single()
@@ -219,6 +274,12 @@ export async function updateTwilioNumber(
   if (body.forward_to_number !== undefined) patch.forward_to_number = nullableString(body.forward_to_number)
   if (body.is_default !== undefined) patch.is_default = body.is_default
   if (body.notes !== undefined) patch.notes = nullableString(body.notes)
+  if (body.vapi_assistant_id !== undefined) patch.vapi_assistant_id = nullableString(body.vapi_assistant_id)
+  if (body.responsible_user_id !== undefined) patch.responsible_user_id = body.responsible_user_id ?? null
+  if (body.business_purpose !== undefined) patch.business_purpose = nullableString(body.business_purpose)
+  if (body.inbox_label !== undefined) patch.inbox_label = nullableString(body.inbox_label)
+  if (body.chat_routing !== undefined) patch.chat_routing = body.chat_routing ?? {}
+  if (body.workflow_settings !== undefined) patch.workflow_settings = body.workflow_settings ?? {}
 
   const { data, error } = await supabase
     .from('twilio_phone_numbers')
