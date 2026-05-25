@@ -289,14 +289,14 @@ export function DashboardView({ setup }: Props) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TableCard<T extends Record<string, unknown>>({
+function TableCard<T>({
   title,
   rows,
   columns,
 }: {
   title: string
   rows: T[]
-  columns: { key: string; label: string; primary?: boolean }[]
+  columns: { key: Extract<keyof T, string>; label: string; primary?: boolean }[]
 }) {
   return (
     <Card>
