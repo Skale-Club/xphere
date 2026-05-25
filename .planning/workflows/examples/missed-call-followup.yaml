@@ -1,0 +1,29 @@
+# Canonical example — missed-call follow-up with a short delay.
+# Trigger: call.missed fires when an inbound call ends without being answered.
+# Scope:   call.*, contact.* are populated by the call event.
+# Pattern: wait node introduces a human-feeling delay before the SMS goes out.
+
+name: missed-call-followup
+description: |
+  Waits 5 minutes after a missed call, then sends an SMS to the caller
+  apologising and offering to call them back.
+trigger:
+  type: event
+  event: call.missed
+
+nodes:
+  - id: pause
+    kind: wait
+    duration: "5m"
+
+  - id: followup
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, sorry we missed your call! We'll get back to you soon. Reply STOP to opt out."
+
+edges:
+  - from: trigger
+    to: pause
+  - from: pause
+    to: followup

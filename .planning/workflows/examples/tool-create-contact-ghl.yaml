@@ -1,0 +1,32 @@
+# Canonical example — agent-callable tool to create a contact in GoHighLevel.
+# Trigger: tool_call fires when an AI agent (voice or chat) invokes this by name.
+# Pattern: kind=tool with a single action node; the tool_name becomes the callable identifier.
+
+name: create-contact-ghl
+description: |
+  Creates a new contact in GoHighLevel when called by an agent.
+  Accepts first_name, last_name, phone, and email as inputs.
+trigger:
+  type: tool_call
+  tool_name: create_contact_ghl
+  input_schema:
+    type: object
+    properties:
+      first_name: { type: string }
+      last_name:  { type: string }
+      phone:      { type: string }
+      email:      { type: string }
+    required: [first_name, phone]
+
+nodes:
+  - id: create
+    kind: create_contact
+    integration: gohighlevel
+    first_name: "{{input.first_name}}"
+    last_name:  "{{input.last_name}}"
+    phone:      "{{input.phone}}"
+    email:      "{{input.email}}"
+
+edges:
+  - from: trigger
+    to: create

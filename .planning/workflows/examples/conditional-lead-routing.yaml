@@ -1,0 +1,38 @@
+# Canonical example — conditional branching based on a lead score field.
+# Pattern: condition node splits the flow into true/false branches.
+# Anti-pattern: do NOT use JS syntax in expressions (e.g. &&, ||) — use simple comparisons.
+
+name: conditional-lead-routing
+description: |
+  When a new contact is created, check the lead_score field.
+  High-value leads (score >= 70) get an urgent personalised SMS; others get a standard follow-up.
+trigger:
+  type: event
+  event: contact.created
+
+nodes:
+  - id: score_check
+    kind: condition
+    expression: "contact.lead_score >= 70"
+
+  - id: high_value_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, you're a priority lead — someone from our team will call you within the hour."
+
+  - id: standard_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, thanks for your interest! We'll be in touch within 24 hours."
+
+edges:
+  - from: trigger
+    to: score_check
+  - from: score_check
+    to: high_value_sms
+    handle: "true"
+  - from: score_check
+    to: standard_sms
+    handle: "false"

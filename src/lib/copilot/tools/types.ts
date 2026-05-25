@@ -10,6 +10,7 @@ export interface ToolContext {
   supabase: SupabaseClient<Database>
   orgId: string
   userId: string
+  conversationId?: string
 }
 
 export interface ToolResult {

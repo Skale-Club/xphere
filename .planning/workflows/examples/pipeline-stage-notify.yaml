@@ -1,0 +1,23 @@
+# Canonical example — notify a contact when their opportunity moves to a new stage.
+# Trigger: opportunity.stage_changed fires on any pipeline stage transition.
+# Scope:   opportunity.*, contact.* are populated by the pipeline event.
+# Output:  An SMS telling the contact what stage their deal has moved to.
+
+name: pipeline-stage-notify
+description: |
+  Sends an SMS to the associated contact whenever an opportunity changes stage,
+  keeping them informed of their deal progress.
+trigger:
+  type: event
+  event: opportunity.stage_changed
+
+nodes:
+  - id: notify_contact
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, great news — your application has moved to the '{{opportunity.stage_name}}' stage. We'll reach out soon!"
+
+edges:
+  - from: trigger
+    to: notify_contact

@@ -1,0 +1,33 @@
+# Canonical example — a tool-kind workflow that checks availability on demand.
+# Trigger: tool_call — callable by name from voice handlers, agents, or webhooks.
+# Pattern: 1 node + tool_call trigger = kind:'tool' (auto-detected by the platform).
+# Output:  Returns available slots for the given date from the calendar integration.
+
+name: get_availability
+description: |
+  Returns available booking slots for a given date. Designed to be invoked
+  by Vapi voice agents or conversational AI asking "when can we meet?".
+trigger:
+  type: tool_call
+  config:
+    tool_name: get_availability
+    input_schema:
+      date:
+        type: string
+        description: ISO 8601 date string (e.g. 2026-06-01) to check availability for.
+        required: true
+      timezone:
+        type: string
+        description: IANA timezone identifier (e.g. America/New_York). Defaults to org timezone.
+        required: false
+
+nodes:
+  - id: action
+    kind: get_availability
+    integration: cal
+    date: "{{input.date}}"
+    timezone: "{{input.timezone}}"
+
+edges:
+  - from: trigger
+    to: action
