@@ -29,6 +29,12 @@ export type AgentInvocationMode = 'production' | 'playground'
 
 // v2.1 | contacts (CRM) source enum
 export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
+export type ContactIdentityStatus =
+  | 'channel_only'
+  | 'identified'
+  | 'verified'
+  | 'merge_conflict'
+  | 'archived_duplicate'
 
 // v2.4 � accounts (CRM Companies) source enum (SEED-016)
 export type AccountSource = 'manual' | 'auto_from_contact_company' | 'csv_import' | 'ghl_sync'
@@ -1625,7 +1631,10 @@ export interface Database {
           last_name: string | null
           name: string | null
           phone: string | null
+          phone_e164: string | null
           email: string | null
+          email_normalized: string | null
+          identity_status: ContactIdentityStatus
           company: string | null
           notes: string | null
           tags: string[]
@@ -1645,6 +1654,7 @@ export interface Database {
           name?: string | null
           phone?: string | null
           email?: string | null
+          identity_status?: ContactIdentityStatus
           company?: string | null
           notes?: string | null
           tags?: string[]
@@ -1662,6 +1672,7 @@ export interface Database {
           name?: string | null
           phone?: string | null
           email?: string | null
+          identity_status?: ContactIdentityStatus
           company?: string | null
           notes?: string | null
           tags?: string[]
@@ -1684,6 +1695,42 @@ export interface Database {
             columns: ['account_id']
             isOneToOne: false
             referencedRelation: 'accounts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      contact_duplicate_audit: {
+        Row: {
+          cluster_id: string
+          org_id: string
+          match_type: 'phone' | 'email'
+          normalized_value: string
+          contact_ids: string[]
+          cluster_size: number
+          detected_at: string
+        }
+        Insert: {
+          cluster_id?: string
+          org_id: string
+          match_type: 'phone' | 'email'
+          normalized_value: string
+          contact_ids: string[]
+          cluster_size: number
+          detected_at?: string
+        }
+        Update: {
+          match_type?: 'phone' | 'email'
+          normalized_value?: string
+          contact_ids?: string[]
+          cluster_size?: number
+          detected_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contact_duplicate_audit_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
             referencedColumns: ['id']
           }
         ]
