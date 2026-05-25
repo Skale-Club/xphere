@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { LandingPage } from '@/components/landing/landing-page'
 import { getFaviconUrl } from '@/lib/seo'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { getUser } from '@/lib/supabase/server'
 
 const DEFAULT_CTA_IMAGE_URL =
   'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
@@ -81,7 +82,11 @@ const jsonLd = {
 }
 
 export default async function RootPage() {
-  const [faviconUrl, landing] = await Promise.all([getFaviconUrl(), getLandingPublicConfig()])
+  const [faviconUrl, landing, user] = await Promise.all([
+    getFaviconUrl(),
+    getLandingPublicConfig(),
+    getUser(),
+  ])
   return (
     <>
       <script
@@ -92,6 +97,7 @@ export default async function RootPage() {
         faviconUrl={faviconUrl}
         ctaImageUrl={landing.ctaImageUrl}
         scrollImages={landing.scrollImages}
+        isAuthenticated={Boolean(user)}
       />
     </>
   )

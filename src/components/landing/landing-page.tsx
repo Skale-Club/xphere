@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight, Zap, Users, Globe, Phone, MessageSquare, BarChart3, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -55,18 +55,26 @@ const FALLBACK_CTA_IMAGE_URL =
  * (required for useSearchParams in Next 16).
  */
 function AuthQueryParamSync({
+  isAuthenticated,
   setDialogOpen,
   setInitialMode,
   setInitialView,
 }: {
+  isAuthenticated: boolean
   setDialogOpen: (open: boolean) => void
   setInitialMode: (mode: AuthMode) => void
   setInitialView: (view: AuthView) => void
 }) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const authParam = searchParams.get('auth')
 
   useEffect(() => {
+    if (isAuthenticated && authParam) {
+      router.replace('/dashboard')
+      return
+    }
+
     if (authParam === 'login') {
       setInitialMode('signin')
       setInitialView('step1')
@@ -80,7 +88,7 @@ function AuthQueryParamSync({
       setInitialView('reset')
       setDialogOpen(true)
     }
-  }, [authParam, setDialogOpen, setInitialMode, setInitialView])
+  }, [authParam, isAuthenticated, router, setDialogOpen, setInitialMode, setInitialView])
 
   return null
 }
@@ -89,13 +97,16 @@ export function LandingPage({
   faviconUrl,
   ctaImageUrl,
   scrollImages: _scrollImages,
+  isAuthenticated = false,
 }: {
   faviconUrl?: string | null
   ctaImageUrl?: string | null
   scrollImages?: string[]
+  isAuthenticated?: boolean
 }) {
   const logoSrc = faviconUrl ?? '/favicon.ico'
   const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
+  const startHref = isAuthenticated ? '/dashboard' : '/?auth=login'
   // scrollImages is currently surfaced to the component for the upcoming scroll-animation section.
   void _scrollImages
 
@@ -115,6 +126,7 @@ export function LandingPage({
 
       <Suspense fallback={null}>
         <AuthQueryParamSync
+          isAuthenticated={isAuthenticated}
           setDialogOpen={setDialogOpen}
           setInitialMode={setInitialMode}
           setInitialView={setInitialView}
@@ -149,7 +161,7 @@ export function LandingPage({
             <img src={logoSrc} alt="" width={22} height={22} />
             Xphere
           </Link>
-          <Link href="/?auth=login">
+          <Link href={startHref}>
             <Button
               size="sm"
               className="h-8 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -198,7 +210,7 @@ export function LandingPage({
             transition={{ duration: 0.5, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             className="mt-8 flex flex-col sm:flex-row items-center gap-3"
           >
-            <Link href="/?auth=login">
+            <Link href={startHref}>
               <Button className="h-11 px-6 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
                 Start
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -314,7 +326,7 @@ export function LandingPage({
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
               Start automating client workflows today | no setup fees, no lock-in.
             </p>
-            <Link href="/?auth=login">
+            <Link href={startHref}>
               <Button className="h-11 px-8 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
                 Start
                 <ArrowRight className="ml-2 h-4 w-4" />

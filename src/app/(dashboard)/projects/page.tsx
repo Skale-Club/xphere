@@ -51,7 +51,7 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
 
   return (
     <PageContainer className="px-0 py-0 space-y-0">
-      <div className="animate-fade-in flex items-center justify-between pl-1 sm:pl-3 lg:pl-5 pr-1 sm:pr-3 lg:pr-5 pt-6 pb-6">
+      <div className="animate-fade-in flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         <div className="flex items-center gap-2">
           <NewProjectDialog>
             <Button size="sm" className="h-8 w-8 px-0 sm:w-auto sm:px-3" aria-label="Project">
