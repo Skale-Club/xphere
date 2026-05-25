@@ -1,15 +1,17 @@
 ---
 id: SEED-026
-status: active
+status: complete
 planted: 2026-05-20
 planted_during: post-SEED-024; planted alongside SEED-025 unified workflows
+shipped: 2026-05-25
+shipped_as: v3.0 Workflow Runtime Hardening
 trigger_when: SEED-025 Phase B (unified engine) ships; OR explicit request to make Copilot able to build workflows; OR users start asking the AI to create automations and it can't
 scope: Large
 priority: high
 depends_on: [SEED-025 (unified data model + spec), SEED-020 (Copilot tool framework)]
-phases_shipped: [A, B, C, D]
-phases_pending: [E]
-last_commit: a177783
+phases_shipped: [A, B, C, D, E]
+phases_pending: []
+last_commit: cbf0996
 ---
 
 # SEED-026: AI Workflow Authoring — Copilot + Claude Code Build Workflows Perfectly
