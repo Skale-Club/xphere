@@ -17,6 +17,7 @@ import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendSms } from './send-sms'
 import { formatOutbound as formatSms } from '@/lib/agent-runtime/adapters/sms'
 import { downloadAndStoreTwilioMedia } from './media'
+import { emitInboundPhoneEvent } from './events'
 import type { MediaAttachment } from '@/types/chat'
 
 export type TwilioSmsPayload = {
@@ -143,6 +144,17 @@ export async function processTwilioSms(
     console.error('[twilio/sms] Failed to insert message:', msgInsertError?.message)
     return
   }
+
+  // Fire inbound_sms_to_number workflow event. Emitter never throws; it runs
+  // matched workflows fire-and-forget so the rest of the inbound pipeline
+  // (media download, agent invocation, auto-reply) is unaffected.
+  await emitInboundPhoneEvent(orgId, 'inbound_sms_to_number', {
+    phoneNumberId,
+    fromNumber,
+    toNumber,
+    conversationId,
+    externalId: messageSid,
+  })
 
   // --- 2b. Download and store MMS media attachments --------------------
   if (hasMedia && payload.AccountSid && payload._authToken) {

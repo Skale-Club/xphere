@@ -110,11 +110,15 @@ export async function sendSms(
   params: Record<string, unknown>,
   ctx: ActionContext
 ): Promise<string> {
-  const fromNumberId =
-    typeof params.fromNumberId === 'string' && params.fromNumberId.length > 0
-      ? params.fromNumberId
-      : undefined
-  const creds = await resolveTwilioCredentials(ctx, { fromNumberId })
+  // Workflow spec exposes `phone_number_id` (snake_case to match other params).
+  // Older internal call sites used `fromNumberId` — keep both for backward compat.
+  const phoneNumberIdParam =
+    typeof params.phone_number_id === 'string' && params.phone_number_id.length > 0
+      ? params.phone_number_id
+      : typeof params.fromNumberId === 'string' && params.fromNumberId.length > 0
+        ? params.fromNumberId
+        : undefined
+  const creds = await resolveTwilioCredentials(ctx, { fromNumberId: phoneNumberIdParam })
 
   const to = String(params.to ?? '')
   const body = String(params.body ?? params.message ?? '')

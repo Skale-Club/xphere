@@ -34,6 +34,7 @@ import {
   resolveWebhookUrl,
   publicBaseUrl,
 } from '@/lib/twilio/webhook-signature'
+import { emitInboundPhoneEvent } from '@/lib/twilio/events'
 
 export const runtime = 'nodejs'
 
@@ -251,6 +252,9 @@ async function logIncomingCall(input: {
     }
   }
 
+  let callLogId: string | null = existing?.id ?? null
+  const isFirstInsert = !existing
+
   if (existing) {
     await supabase
       .from('call_logs')
@@ -260,19 +264,36 @@ async function logIncomingCall(input: {
         ...(input.phoneNumberId ? { phone_number_id: input.phoneNumberId } : {}),
       })
       .eq('id', existing.id)
-    return
+  } else {
+    const { data: inserted } = await supabase
+      .from('call_logs')
+      .insert({
+        org_id: input.orgId,
+        contact_id: contactId,
+        call_sid: input.callSid,
+        direction: input.direction,
+        routing_mode: input.routingMode,
+        from_number: input.from,
+        to_number: input.to,
+        status: input.status,
+        started_at: new Date().toISOString(),
+        phone_number_id: input.phoneNumberId,
+      })
+      .select('id')
+      .single()
+    callLogId = inserted?.id ?? null
   }
 
-  await supabase.from('call_logs').insert({
-    org_id: input.orgId,
-    contact_id: contactId,
-    call_sid: input.callSid,
-    direction: input.direction,
-    routing_mode: input.routingMode,
-    from_number: input.from,
-    to_number: input.to,
-    status: input.status,
-    started_at: new Date().toISOString(),
-    phone_number_id: input.phoneNumberId,
-  })
+  // Fire inbound_call_to_number workflow event only on the first insert for
+  // this call_sid (avoid re-firing on Twilio webhook retries that hit the
+  // existing-row path).
+  if (isFirstInsert && input.direction === 'inbound' && callLogId) {
+    await emitInboundPhoneEvent(input.orgId, 'inbound_call_to_number', {
+      phoneNumberId: input.phoneNumberId,
+      fromNumber: input.from,
+      toNumber: input.to,
+      callLogId,
+      externalId: input.callSid,
+    })
+  }
 }
