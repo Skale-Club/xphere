@@ -145,6 +145,7 @@ export async function resolveTwilioOrgByToNumber(
   }
 
   // Legacy fallback: match against config.from_number on the integrations row.
+  // Phase 6: log every hit so we can find unmigrated orgs before the next milestone removes this path.
   const { data: row } = await supabase
     .from('integrations')
     .select('organization_id, encrypted_api_key, config')
@@ -155,6 +156,14 @@ export async function resolveTwilioOrgByToNumber(
     .maybeSingle()
 
   if (!row) return null
+
+  console.warn(
+    '[twilio/voice] DEPRECATED legacy from_number resolution used for',
+    toNumber,
+    'org',
+    row.organization_id,
+    '— migrate this org to twilio_phone_numbers via /integrations/twilio',
+  )
 
   let blob: {
     account_sid?: string

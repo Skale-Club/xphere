@@ -92,6 +92,11 @@ export async function resolveTwilioCredentials(
     const config = row.config as { from_number?: string } | null
     if (config?.from_number) {
       fromNumber = config.from_number
+      console.warn(
+        '[twilio/send-sms] DEPRECATED legacy from_number used for org',
+        ctx.organizationId,
+        '— add the number to twilio_phone_numbers via Settings > Phone Numbers',
+      )
     }
   }
 
