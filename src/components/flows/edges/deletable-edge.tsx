@@ -27,11 +27,23 @@ import { useFlowStore } from '@/stores/flow-store'
 import { cn } from '@/lib/utils'
 
 const RED = '#ef4444'
-const HOVER_INDIGO = 'rgba(99, 102, 241, 0.9)'
 const DEFAULT_STROKE = 'rgba(148, 163, 184, 0.5)'
+
+// Per-node-type accent colours — used to tint the edge that originates from
+// each node type (at low opacity so the canvas doesn't get too loud).
+const NODE_TYPE_STROKE: Record<string, string> = {
+  trigger:   'rgba(245, 158, 11,  0.55)',
+  action:    'rgba(99,  102, 241, 0.55)',
+  condition: 'rgba(139, 92,  246, 0.55)',
+  wait:      'rgba(6,   182, 212, 0.55)',
+  agent:     'rgba(236, 72,  153, 0.55)',
+  end:       'rgba(100, 116, 139, 0.55)',
+}
+const HOVER_MULTIPLIER = 'rgba(99, 102, 241, 0.9)'
 
 export function DeletableEdge({
   id,
+  source,
   sourceX,
   sourceY,
   targetX,
@@ -44,6 +56,8 @@ export function DeletableEdge({
 }: EdgeProps) {
   const [hovered, setHovered] = useState(false)
   const removeEdge = useFlowStore((s) => s.removeEdge)
+  // Edge colour follows the source node type (SEED-043 Phase 2 criterion 3).
+  const sourceType = useFlowStore((s) => s.nodes.find((n) => n.id === source)?.type ?? null)
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -59,13 +73,9 @@ export function DeletableEdge({
   const reconnectX = sourceX + (targetX - sourceX) * 0.85
   const reconnectY = sourceY + (targetY - sourceY) * 0.85
 
-  // Stroke priority: selected (red) > hovered (indigo) > custom > default
-  const stroke = selected
-    ? RED
-    : hovered
-      ? HOVER_INDIGO
-      : (style?.stroke ?? DEFAULT_STROKE)
-
+  // Stroke priority: selected (red) > hovered (full indigo) > source-type tint > custom > default
+  const baseStroke = NODE_TYPE_STROKE[sourceType ?? ''] ?? style?.stroke ?? DEFAULT_STROKE
+  const stroke = selected ? RED : hovered ? HOVER_MULTIPLIER : baseStroke
   const strokeWidth = selected ? 2 : hovered ? 2 : (style?.strokeWidth ?? 1.5)
 
   return (
