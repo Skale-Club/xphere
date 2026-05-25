@@ -5,10 +5,8 @@ import { Megaphone } from 'lucide-react'
 import { getCampaignDetail } from '@/app/(dashboard)/outbound/actions'
 import { ContactStatusBoard } from '@/components/campaigns/contact-status-board'
 import { CsvImportForm } from '@/components/campaigns/csv-import-form'
-import { CampaignTrackedLink } from '@/components/campaigns/campaign-tracked-link'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { StatusPill } from '@/components/design-system/status-pill'
-import { buildUTMLink, campaignToUTMParams } from '@/lib/traffic/utm'
 import type { CampaignStatus } from '@/types/database'
 
 interface PageProps {
@@ -59,13 +57,6 @@ export default async function CampaignDetailPage({ params }: PageProps) {
           </span>
         }
       />
-
-      {campaign.landing_page_url && (
-        <CampaignTrackedLink
-          link={buildUTMLink(campaign.landing_page_url, campaignToUTMParams(campaign))}
-          landingPage={campaign.landing_page_url}
-        />
-      )}
 
       <ContactStatusBoard
         campaignId={campaign.id}

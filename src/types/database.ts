@@ -2496,12 +2496,6 @@ export interface Database {
           status: CampaignStatus
           scheduled_start_at: string | null
           calls_per_minute: number
-          landing_page_url: string | null
-          utm_source: string | null
-          utm_medium: string | null
-          utm_campaign_tag: string | null
-          utm_content: string | null
-          utm_term: string | null
           created_at: string
           updated_at: string
         }
@@ -2515,12 +2509,6 @@ export interface Database {
           status?: CampaignStatus
           scheduled_start_at?: string | null
           calls_per_minute?: number
-          landing_page_url?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
-          utm_campaign_tag?: string | null
-          utm_content?: string | null
-          utm_term?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -2530,12 +2518,6 @@ export interface Database {
           status?: CampaignStatus
           scheduled_start_at?: string | null
           calls_per_minute?: number
-          landing_page_url?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
-          utm_campaign_tag?: string | null
-          utm_content?: string | null
-          utm_term?: string | null
           updated_at?: string
         }
         Relationships: [
