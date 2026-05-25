@@ -497,14 +497,14 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       const { data: agentToolRows } = await serviceClient
         .from('agent_tools')
         .select(`
-          tool_configs!inner (
+          _legacy_tool_configs!inner (
             tool_name,
             action_type,
             config
           )
         `)
         .eq('agent_id', resolvedAgentId)
-        .eq('tool_configs.is_active', true)
+        .eq('_legacy_tool_configs.is_active', true)
 
       // Build ai@^6 ToolSet dynamically using dynamicTool()
       // dynamicTool accepts execute: ToolExecuteFunction<unknown, unknown> | no overload conflicts
@@ -514,7 +514,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       let toolCallIndex = 0
 
       for (const row of agentToolRows ?? []) {
-        const tc = row.tool_configs as {
+        const tc = (row as Record<string, unknown>)._legacy_tool_configs as {
           tool_name: string
           action_type: string
           config: Json
@@ -1006,9 +1006,9 @@ function runAgentStreaming(
           // Pre-fetch agent tools
           const { data: agentToolRows } = await serviceClient
             .from('agent_tools')
-            .select(`tool_configs!inner (tool_name, action_type, config)`)
+            .select(`_legacy_tool_configs!inner (tool_name, action_type, config)`)
             .eq('agent_id', resolvedAgentId)
-            .eq('tool_configs.is_active', true)
+            .eq('_legacy_tool_configs.is_active', true)
 
           // DELEG-08: Check delegation_visibility for this org before building partner tools
           const { data: orgVisRow } = await serviceClient
@@ -1025,7 +1025,7 @@ function runAgentStreaming(
           let toolCallIndex = 0
 
           for (const row of agentToolRows ?? []) {
-            const tc = row.tool_configs as { tool_name: string; action_type: string; config: Json } | null
+            const tc = (row as Record<string, unknown>)._legacy_tool_configs as { tool_name: string; action_type: string; config: Json } | null
             if (!tc) continue
             const toolName = tc.tool_name
             const actionType = tc.action_type

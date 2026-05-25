@@ -68,7 +68,7 @@ import type { Database } from '@/types/database'
 
 type ManychatRuleRow = Database['public']['Tables']['manychat_rules']['Row']
 type ToolConfigRow = Pick<
-  Database['public']['Tables']['tool_configs']['Row'],
+  Database['public']['Tables']['_legacy_tool_configs']['Row'],
   'id' | 'tool_name' | 'action_type' | 'is_active'
 >
 type ManychatFlow = { name: string; ns: string }

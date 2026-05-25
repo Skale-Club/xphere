@@ -17,7 +17,7 @@ export type ToolConfigWithIntegration = {
   integration_id: string
   tool_name: string
   action_type: Database['public']['Enums']['action_type']
-  config: Database['public']['Tables']['tool_configs']['Row']['config']
+  config: Database['public']['Tables']['_legacy_tool_configs']['Row']['config']
   fallback_message: string
   is_active: boolean
   integrations: {

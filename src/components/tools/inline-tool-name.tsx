@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { renameToolConfig } from '@/app/(dashboard)/automations/actions'
+import { renameToolConfig } from '@/app/(dashboard)/workflows/actions'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 
 interface Props {

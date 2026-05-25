@@ -65,7 +65,7 @@ export default async function MetaIntegrationsPage() {
       .order('page_name', { ascending: true })
       .order('channel_type', { ascending: true }),
     supabase
-      .from('tool_configs')
+      .from('_legacy_tool_configs')
       .select('id, tool_name, action_type')
       .eq('is_active', true)
       .order('tool_name', { ascending: true }),

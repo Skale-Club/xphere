@@ -20,7 +20,7 @@ import { InlineToolName } from '@/components/tools/inline-tool-name'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { LogStatus } from '@/app/(dashboard)/workflows/logs/actions'
 
-type ToolConfigRow = Database['public']['Tables']['tool_configs']['Row']
+type ToolConfigRow = Database['public']['Tables']['_legacy_tool_configs']['Row']
 
 type ToolConfigDetail = ToolConfigRow & {
   integrations: {
@@ -93,7 +93,7 @@ export default async function ToolDetailPage({
   const supabase = await createClient()
 
   const { data: toolConfig, error: toolError } = await supabase
-    .from('tool_configs')
+    .from('_legacy_tool_configs')
     .select('*, integrations(id, name, provider)')
     .eq('id', toolConfigId)
     .single()

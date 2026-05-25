@@ -8,7 +8,7 @@ import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getManychatRules } from '../rule-actions'
 import type { Database } from '@/types/database'
 
-type ToolConfigRow = Database['public']['Tables']['tool_configs']['Row']
+type ToolConfigRow = Database['public']['Tables']['_legacy_tool_configs']['Row']
 
 export default async function ManychatRulesPage() {
   const user = await getUser()
@@ -18,7 +18,7 @@ export default async function ManychatRulesPage() {
 
   const [rules, toolConfigsResult, channelResult] = await Promise.all([
     getManychatRules(),
-    supabase.from('tool_configs').select('id, tool_name, action_type, is_active').order('tool_name'),
+    supabase.from('_legacy_tool_configs').select('id, tool_name, action_type, is_active').order('tool_name'),
     supabase.from('manychat_channels').select('id').maybeSingle(),
   ])
 

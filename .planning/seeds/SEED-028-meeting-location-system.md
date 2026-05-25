@@ -1,6 +1,7 @@
 ---
 id: SEED-028
-status: active
+status: complete
+shipped: 2026-05-22
 planted: 2026-05-20
 planted_during: post-SEED-024; planted alongside SEED-025/026/027 to unify calendar + workflow surfaces
 trigger_when: explicit user request OR before SEED-027 Phase E (which needs {{meeting.link}} variable resolved) OR before any tenant onboards with physical service locations

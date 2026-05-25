@@ -164,7 +164,7 @@ export async function processGhlEvent(
 
   try {
     const { data: toolConfig, error: toolError } = await supabase
-      .from('tool_configs')
+      .from('_legacy_tool_configs')
       .select('*, integrations!inner(*)')
       .eq('id', ghlChannel.automation_id)
       .single()

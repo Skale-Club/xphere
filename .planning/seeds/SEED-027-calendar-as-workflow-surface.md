@@ -1,6 +1,7 @@
 ---
 id: SEED-027
-status: active
+status: complete
+shipped: 2026-05-22
 planted: 2026-05-20
 planted_during: post-SEED-024; planted alongside SEED-025/026/028 to unify automation surfaces
 trigger_when: SEED-025 Phase B (unified engine) ships AND SEED-028 (meeting locations) ships, OR explicit request to drive automations from calendar events

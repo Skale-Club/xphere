@@ -34,7 +34,7 @@ export async function resolveAgentTool(
     .select(`
       allowed_channels,
       tool_config_id,
-      tool_configs!inner (
+      _legacy_tool_configs!inner (
         id,
         tool_name,
         action_type,
@@ -48,13 +48,13 @@ export async function resolveAgentTool(
       )
     `)
     .eq('agent_id', agentId)
-    .eq('tool_configs.tool_name', toolName)
-    .eq('tool_configs.is_active', true)
+    .eq('_legacy_tool_configs.tool_name', toolName)
+    .eq('_legacy_tool_configs.is_active', true)
     .not('tool_config_id', 'is', null)
     .maybeSingle()
 
   if (legacyRow) {
-    const tc = legacyRow.tool_configs as {
+    const tc = legacyRow._legacy_tool_configs as {
       id: string
       tool_name: string
       action_type: string

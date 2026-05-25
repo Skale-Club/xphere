@@ -558,7 +558,7 @@ export interface Database {
           }
         ]
       }
-      tool_configs: {
+      _legacy_tool_configs: {
         Row: {
           id: string
           organization_id: string
@@ -709,7 +709,7 @@ export interface Database {
             foreignKeyName: 'action_logs_tool_config_id_fkey'
             columns: ['tool_config_id']
             isOneToOne: false
-            referencedRelation: 'tool_configs'
+            referencedRelation: '_legacy_tool_configs'
             referencedColumns: ['id']
           }
         ]
@@ -840,7 +840,7 @@ export interface Database {
             foreignKeyName: 'agent_tools_tool_config_id_fkey'
             columns: ['tool_config_id']
             isOneToOne: false
-            referencedRelation: 'tool_configs'
+            referencedRelation: '_legacy_tool_configs'
             referencedColumns: ['id']
           },
           {
@@ -3421,7 +3421,7 @@ export interface Database {
             foreignKeyName: 'meta_channels_automation_id_fkey'
             columns: ['automation_id']
             isOneToOne: false
-            referencedRelation: 'tool_configs'
+            referencedRelation: '_legacy_tool_configs'
             referencedColumns: ['id']
           }
         ]
@@ -3527,7 +3527,7 @@ export interface Database {
             foreignKeyName: 'manychat_rules_tool_config_id_fkey'
             columns: ['tool_config_id']
             isOneToOne: false
-            referencedRelation: 'tool_configs'
+            referencedRelation: '_legacy_tool_configs'
             referencedColumns: ['id']
           }
         ]
