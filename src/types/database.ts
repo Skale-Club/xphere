@@ -493,6 +493,13 @@ export interface Database {
           is_default: boolean
           is_active: boolean
           notes: string | null
+          vapi_assistant_id: string | null
+          responsible_user_id: string | null
+          business_purpose: string | null
+          inbox_label: string | null
+          chat_routing: Json
+          workflow_settings: Json
+          archived_at: string | null
           created_at: string
           updated_at: string
         }
@@ -510,6 +517,13 @@ export interface Database {
           is_default?: boolean
           is_active?: boolean
           notes?: string | null
+          vapi_assistant_id?: string | null
+          responsible_user_id?: string | null
+          business_purpose?: string | null
+          inbox_label?: string | null
+          chat_routing?: Json
+          workflow_settings?: Json
+          archived_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -525,6 +539,13 @@ export interface Database {
           is_default?: boolean
           is_active?: boolean
           notes?: string | null
+          vapi_assistant_id?: string | null
+          responsible_user_id?: string | null
+          business_purpose?: string | null
+          inbox_label?: string | null
+          chat_routing?: Json
+          workflow_settings?: Json
+          archived_at?: string | null
           updated_at?: string
         }
         Relationships: [
