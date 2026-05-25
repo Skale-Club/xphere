@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 Phase: 110 of 110 (Cleanup)
 Status: Complete ✅
-Last activity: 2026-05-24 - Completed quick task 260524-r62: Projects Module UI Refinements (13 R-items, R01-R15 except R08/R14)
+Last activity: 2026-05-24 - Completed R08 (folder structure + DnD modeled on Workflows) + R01/R02/R03 re-fix on branch feat/projects-ui-refinements
 
 Completed:
 - Phase 105: Engine Unification ✅
