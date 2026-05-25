@@ -16,6 +16,12 @@ export interface CreateCampaignInput {
   vapi_phone_number_id: string
   scheduled_start_at?: string | null
   calls_per_minute?: number
+  landing_page_url?: string | null
+  utm_source?: string | null
+  utm_medium?: string | null
+  utm_campaign_tag?: string | null
+  utm_content?: string | null
+  utm_term?: string | null
 }
 
 export async function createCampaign(
@@ -39,6 +45,12 @@ export async function createCampaign(
       scheduled_start_at: input.scheduled_start_at ?? null,
       calls_per_minute: input.calls_per_minute ?? 5,
       status: 'draft',
+      landing_page_url: input.landing_page_url ?? null,
+      utm_source: input.utm_source ?? null,
+      utm_medium: input.utm_medium ?? null,
+      utm_campaign_tag: input.utm_campaign_tag ?? null,
+      utm_content: input.utm_content ?? null,
+      utm_term: input.utm_term ?? null,
     })
     .select('id')
     .single()
