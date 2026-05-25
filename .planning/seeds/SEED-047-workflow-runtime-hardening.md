@@ -1,6 +1,10 @@
 ---
 id: SEED-047
-status: dormant
+status: complete
+shipped: 2026-05-25
+shipped_as: v3.0 Workflow Runtime Hardening
+phases_shipped: [A, B, C, D, E]
+phases_pending: []
 planted: 2026-05-21
 planted_during: post-v2.9 UX Polish — comprehensive workflow audit
 trigger_when: next milestone that touches the workflow engine, event dispatch, or action executor layer; or when a user reports "workflow ran but nothing happened"
