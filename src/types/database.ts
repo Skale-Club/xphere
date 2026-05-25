@@ -76,6 +76,23 @@ export interface ProjectRow {
   name: string
   description: string | null
   color: string | null
+  folder_id: string | null
+  position: number
+  archived_at: string | null
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectFolderRow {
+  id: string
+  org_id: string
+  name: string
+  color: string | null
+  icon: string | null
+  parent_id: string | null
+  position: number
   created_by: string | null
   created_at: string
   updated_at: string

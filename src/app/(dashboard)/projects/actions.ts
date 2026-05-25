@@ -28,13 +28,17 @@ function db(supabase: Awaited<ReturnType<typeof createClient>>) {
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
-export async function getProjects(): Promise<ProjectRow[]> {
+export async function getProjects(
+  opts: { includeArchived?: boolean; includeDeleted?: boolean } = {},
+): Promise<ProjectRow[]> {
   const user = await getUser()
   if (!user) return []
   const supabase = await createClient()
-  const { data } = await db(supabase)
-    .from('projects')
-    .select('*')
+  let q = db(supabase).from('projects').select('*')
+  if (!opts.includeDeleted) q = q.is('deleted_at', null)
+  if (!opts.includeArchived) q = q.is('archived_at', null)
+  const { data } = await q
+    .order('position', { ascending: true })
     .order('created_at', { ascending: false })
   return (data as ProjectRow[]) ?? []
 }
@@ -593,4 +597,197 @@ export async function getTaskDependencies(taskId: string): Promise<TaskDependenc
       is_blocking: isBlocking,
     }
   })
+}
+
+// ─── Project folders + lifecycle (R08) ─────────────────────────────────────────
+//
+// Ported from src/app/(dashboard)/workflows/_actions/workflows.ts.
+// Projects have no `is_active` column, so archive/trash do not require a guard.
+
+type ActionResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string }
+
+// ─── Move project into a folder (or to "Unfiled") ─────────────────────────────
+
+export async function moveProjectToFolder(
+  projectId: string,
+  folderId: string | null,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+
+  // Append at the end of the destination by default.
+  const { data: tail } = await db(supabase)
+    .from('projects')
+    .select('position')
+    .eq('folder_id', folderId as unknown as string)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const nextPosition = (tail?.[0]?.position ?? -1) + 1
+
+  const { error } = await db(supabase)
+    .from('projects')
+    .update({ folder_id: folderId, position: nextPosition })
+    .eq('id', projectId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects')
+  return { ok: true, data: undefined }
+}
+
+// ─── Reorder within a folder ──────────────────────────────────────────────────
+
+export async function reorderProjectsInFolder(
+  _folderId: string | null,
+  orderedIds: string[],
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+  if (orderedIds.length === 0) return { ok: true, data: undefined }
+
+  const supabase = await createClient()
+  const updates = orderedIds.map((id, index) =>
+    db(supabase).from('projects').update({ position: index }).eq('id', id),
+  )
+  const results = await Promise.all(updates)
+  const failed = results.find((r: { error: unknown }) => r.error)
+  if (failed) return { ok: false, error: 'Failed to save project order.' }
+
+  revalidatePath('/projects')
+  return { ok: true, data: undefined }
+}
+
+// ─── Archive / unarchive ──────────────────────────────────────────────────────
+
+export async function archiveProject(
+  projectId: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await db(supabase)
+    .from('projects')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', projectId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects')
+  return { ok: true, data: undefined }
+}
+
+export async function unarchiveProject(
+  projectId: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await db(supabase)
+    .from('projects')
+    .update({ archived_at: null })
+    .eq('id', projectId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects')
+  return { ok: true, data: undefined }
+}
+
+// ─── Trash (soft delete) / restore / hard delete ─────────────────────────────
+
+export async function softDeleteProject(
+  projectId: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await db(supabase)
+    .from('projects')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', projectId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects')
+  revalidatePath('/projects/trash')
+  return { ok: true, data: undefined }
+}
+
+export async function restoreProjectFromTrash(
+  projectId: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await db(supabase)
+    .from('projects')
+    .update({ deleted_at: null })
+    .eq('id', projectId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects')
+  revalidatePath('/projects/trash')
+  return { ok: true, data: undefined }
+}
+
+export async function hardDeleteProject(
+  projectId: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+
+  // Defence in depth: only allow hard delete on rows already in trash.
+  const { data: row, error: readErr } = await db(supabase)
+    .from('projects')
+    .select('deleted_at')
+    .eq('id', projectId)
+    .single()
+
+  if (readErr || !row) return { ok: false, error: 'not_found' }
+  if (!row.deleted_at) return { ok: false, error: 'must_be_in_trash' }
+
+  const { error } = await db(supabase)
+    .from('projects')
+    .delete()
+    .eq('id', projectId)
+    .not('deleted_at', 'is', null)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects/trash')
+  return { ok: true, data: undefined }
+}
+
+export async function emptyProjectsTrash(): Promise<ActionResult<{ count: number }>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  const { data: rows } = await db(supabase)
+    .from('projects')
+    .select('id')
+    .eq('org_id', orgId as string)
+    .not('deleted_at', 'is', null)
+
+  const ids = ((rows ?? []) as { id: string }[]).map((r) => r.id)
+  if (ids.length === 0) return { ok: true, data: { count: 0 } }
+
+  const { error } = await db(supabase)
+    .from('projects')
+    .delete()
+    .in('id', ids)
+    .not('deleted_at', 'is', null)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/projects/trash')
+  return { ok: true, data: { count: ids.length } }
 }
