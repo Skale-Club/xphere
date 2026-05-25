@@ -5,6 +5,7 @@ import { Megaphone } from 'lucide-react'
 import { getCampaignDetail } from '@/app/(dashboard)/outbound/actions'
 import { ContactStatusBoard } from '@/components/campaigns/contact-status-board'
 import { CsvImportForm } from '@/components/campaigns/csv-import-form'
+import { CampaignTrackedLink } from '@/components/campaigns/campaign-tracked-link'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { StatusPill } from '@/components/design-system/status-pill'
 import type { CampaignStatus } from '@/types/database'
@@ -63,6 +64,8 @@ export default async function CampaignDetailPage({ params }: PageProps) {
         initialContacts={contacts}
         campaignStatus={status}
       />
+
+      <CampaignTrackedLink campaign={campaign} />
 
       {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
         <div className="rounded-[12px] border border-border bg-bg-secondary p-6 shadow-elevation-sm">
