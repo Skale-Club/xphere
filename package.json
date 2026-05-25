@@ -75,7 +75,7 @@
     "gpt-tokenizer": "^3.4.0",
     "langchain": "^1.3.0",
     "lucide-react": "^1.7.0",
-    "next": "^16.2.2",
+    "next": "^16.2.6",
     "next-themes": "^0.4.6",
     "openai": "^6.33.0",
     "papaparse": "^5.5.3",
