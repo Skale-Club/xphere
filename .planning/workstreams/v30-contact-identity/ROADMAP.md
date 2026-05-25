@@ -23,11 +23,11 @@
 5. `normalize_phone()` SQL function exists and is deterministic (E.164 stripping + leading +)
 6. All existing rows backfilled — generated columns evaluated on next read
 7. `npm run build` exits 0; type regen handled (`src/types/database.ts`)
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 105-01-PLAN.md — Author migration 1056_contact_identity_audit.sql (normalize_phone, generated columns, identity_status, audit table, refresh function)
-- [ ] 105-02-PLAN.md — Apply migration on Supabase branch and validate via SQL probes
-- [ ] 105-03-PLAN.md — Promote migration to main and regenerate src/types/database.ts
-- [ ] 105-04-PLAN.md — Run refresh_contact_duplicate_audit() on prod and snapshot audit baseline
+- [x] 105-02-PLAN.md — Apply migration on Supabase branch and validate via SQL probes
+- [x] 105-03-PLAN.md — Promote migration to main and regenerate src/types/database.ts
+- [x] 105-04-PLAN.md — Run refresh_contact_duplicate_audit() on prod and snapshot audit baseline
 
 8. RLS policies unchanged
 
