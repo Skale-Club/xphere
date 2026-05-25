@@ -1,84 +1,144 @@
-import { Suspense } from 'react'
-import Link from 'next/link'
-import { FolderKanban, Plus } from 'lucide-react'
+// R08: folder-aware /projects page modeled on /workflows.
+// Toolbar: + Project (LEFT) + Folder (LEFT) | Show archived + Trash (RIGHT).
+// R01 left placement of the + Project button is preserved.
 
+import Link from 'next/link'
+import { Plus, Archive, Trash2, MoreHorizontal } from 'lucide-react'
+
+import { createClient } from '@/lib/supabase/server'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { PageContainer } from '@/components/layout/page-header'
 import { getProjects } from './actions'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { NewFolderButton } from '@/components/projects/new-folder-button'
+import { ProjectsListFolders } from '@/components/projects/projects-list-folders'
+import type { ProjectFolderRow } from '@/types/database'
 
-async function ProjectsList() {
-  const projects = await getProjects()
-
-  if (projects.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-        <FolderKanban className="h-12 w-12 text-muted-foreground/40" />
-        <div>
-          <p className="text-lg font-medium">You don&apos;t have any projects yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Create your first project to start organizing tasks</p>
-        </div>
-        <NewProjectDialog>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Project
-          </Button>
-        </NewProjectDialog>
-      </div>
-    )
-  }
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => (
-        <Link key={project.id} href={`/projects/${project.id}`}>
-          <Card className="hover:border-accent/50 transition-colors cursor-pointer h-full">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                <div
-                  className="mt-0.5 h-3 w-3 rounded-full shrink-0"
-                  style={{ backgroundColor: project.color ?? '#6366f1' }}
-                />
-                <div className="min-w-0">
-                  <p className="font-medium leading-tight truncate">{project.name}</p>
-                  {project.description && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      ))}
-    </div>
-  )
+interface PageProps {
+  searchParams: Promise<{ archived?: string }>
 }
 
-export default function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: PageProps) {
+  const { archived } = await searchParams
+  const includeArchived = archived === '1'
+
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  const [projects, foldersRes, trashCountRes] = await Promise.all([
+    getProjects({ includeArchived }),
+    db
+      .from('project_folders')
+      .select('*')
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true }),
+    db
+      .from('projects')
+      .select('id', { count: 'exact', head: true })
+      .not('deleted_at', 'is', null),
+  ])
+
+  const folders = ((foldersRes as { data: ProjectFolderRow[] | null }).data ?? []) as ProjectFolderRow[]
+  const trashCount = (trashCountRes as { count: number | null }).count ?? 0
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
-        <NewProjectDialog>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Project
+    <PageContainer className="px-0 py-0 space-y-0">
+      <div className="animate-fade-in flex items-center justify-between px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+        <div className="hidden items-center gap-2 sm:flex">
+          <NewProjectDialog>
+            <Button size="sm" className="h-8">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Project
+            </Button>
+          </NewProjectDialog>
+          <NewFolderButton className="h-8" />
+        </div>
+
+        <div className="flex items-center gap-2 sm:hidden">
+          <NewProjectDialog>
+            <Button size="sm" className="h-8 w-8 px-0" aria-label="Project">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </NewProjectDialog>
+          <NewFolderButton iconOnly className="h-8 w-8 px-0" />
+        </div>
+
+        <div className="hidden items-center gap-2 lg:flex">
+          <Button
+            asChild
+            variant={includeArchived ? 'default' : 'ghost'}
+            size="sm"
+            className="h-8"
+          >
+            <Link href={includeArchived ? '/projects' : '/projects?archived=1'}>
+              <Archive className="h-3.5 w-3.5" />
+              {includeArchived ? 'Hide archived' : 'Show archived'}
+            </Link>
           </Button>
-        </NewProjectDialog>
+          <Button asChild variant="ghost" size="sm" className="relative h-8">
+            <Link href="/projects/trash">
+              <Trash2 className="h-3.5 w-3.5" />
+              Trash
+              {trashCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500/15 text-rose-500 text-[10px] font-semibold">
+                  {trashCount}
+                </span>
+              )}
+            </Link>
+          </Button>
+        </div>
+
+        <div className="lg:hidden">
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon-sm"
+                    className="h-8 w-8"
+                    aria-label="More"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">More</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href={includeArchived ? '/projects' : '/projects?archived=1'}>
+                  <Archive className="h-3.5 w-3.5" />
+                  {includeArchived ? 'Hide archived' : 'Show archived'}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/projects/trash">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Trash
+                  {trashCount > 0 && (
+                    <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500/15 text-rose-500 text-[10px] font-semibold">
+                      {trashCount}
+                    </span>
+                  )}
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <Suspense fallback={
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-5 h-24 animate-pulse" />
-              </Card>
-            ))}
-          </div>
-        }>
-          <ProjectsList />
-        </Suspense>
+      <div className="px-4 sm:px-6 lg:px-8 pb-2">
+        <ProjectsListFolders projects={projects} folders={folders} />
       </div>
-    </div>
+    </PageContainer>
   )
 }
