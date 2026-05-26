@@ -47,7 +47,11 @@ Does NOT deliver (deferred):
   3. Proceed with the webhook's actual work (create conversation, message, call) attached to that existing contact id.
   4. Do NOT update the existing contact's fields with webhook data.
   5. Log the collision as a structured metric (event name: `contact.unique_collision`, fields: source, org_id, contact_id, matched_via).
-- **D-03a:** This applies to all three handlers: Meta (`src/lib/meta/process-event.ts`), Vapi (`src/app/api/vapi/*/route.ts`), ManyChat (`src/app/api/manychat/*/route.ts`).
+- **D-03a (corrected per RESEARCH.md):** Meta/Vapi/ManyChat handlers do NOT actually create contact rows in this repo — they create conversations or attach to existing contacts. The handlers that DO create contacts (verified via grep) are:
+  - WhatsApp Cloud: `src/lib/whatsapp/process-message.ts:68-80`
+  - Evolution API: `src/lib/evolution/process-event.ts:230-241`
+  - Telegram: `src/lib/telegram/process-update.ts:213-219`
+  These three are the unique-violation handler targets, not Meta/Vapi/ManyChat. (Original CONTEXT named the wrong sites; corrected after research scan.)
 
 ### Form UX on Duplicate
 - **D-04:** When manual contact creation form submits a phone or email that already exists in the same org, `createContact` returns `{ existed: true, contact_id, matched_via: 'phone' | 'email' }`. The form component displays a `sonner` toast: `"Contato já existe — abrir <name>"` with a clickable link to `/contacts/[id]`. Does NOT auto-redirect. Does NOT update the existing contact.
