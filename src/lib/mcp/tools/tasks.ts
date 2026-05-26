@@ -129,27 +129,4 @@ export const tasksTools: McpToolDef[] = [
       return { updated: true }
     },
   },
-  {
-    name: 'bookings_list',
-    title: 'List bookings',
-    description: 'List recent calendar bookings.',
-    area: 'general_xphere',
-    inputSchema: z.object({
-      status: z.enum(['confirmed', 'cancelled', 'no_show']).optional(),
-      contact_id: z.string().uuid().optional(),
-      limit: z.number().int().positive().max(100).optional(),
-    }).strict(),
-    handler: async ({ status, contact_id, limit = 30 }, { auth }) => {
-      let q = db()
-        .from('bookings')
-        .select('id, event_type_id, booker_name, booker_email, booker_phone, start_at, end_at, status, linked_contact_id, notes, created_at')
-        .eq('org_id', auth.orgId)
-        .order('start_at', { ascending: false })
-        .limit(limit)
-      if (status) q = q.eq('status', status)
-      if (contact_id) q = q.eq('linked_contact_id', contact_id)
-      const { data } = await q
-      return { bookings: data ?? [] }
-    },
-  },
 ]
