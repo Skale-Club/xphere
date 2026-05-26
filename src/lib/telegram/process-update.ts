@@ -8,6 +8,8 @@ import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { findByPhone } from '@/lib/contacts/server'
+import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { getFile, getFileDownloadUrl, sendTelegramMessage } from './client'
 import { sendTelegramReply } from './send-message'
 import { storeTelegramMedia } from './storage'
@@ -188,15 +190,22 @@ export async function processTelegramUpdate(
     } else {
       // Find or create a contact keyed by the Telegram chat_id (stored in
       // visitor_phone). Telegram doesn't expose phone numbers so we keep
-      // the chat_id as the stable identifier.
+      // the chat_id as the stable identifier — it flows through the same
+      // `phone_e164` generated column as real phones (Phase 107 CID-07).
+      // Phase 108 will add a dedicated channel_identities table for proper
+      // Telegram numeric-id matching.
       let contactId: string | null = null
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('phone', chatId)
-        .limit(1)
-        .maybeSingle()
+      const phoneNorm = normalisePhone(chatId)
+      const { data: contact } = phoneNorm
+        ? await supabase
+            .from('contacts')
+            .select('id')
+            .eq('org_id', orgId)
+            .eq('phone_e164', phoneNorm)
+            .neq('identity_status', 'archived_duplicate')
+            .limit(1)
+            .maybeSingle()
+        : { data: null }
 
       if (contact?.id) {
         contactId = contact.id
@@ -210,13 +219,27 @@ export async function processTelegramUpdate(
           // shared types files owned by other parallel agents.
           source: 'telegram',
         }
-        const { data: created } = await supabase
+        const { data: created, error: insErr } = await supabase
           .from('contacts')
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert(contactInsert as any)
           .select('id')
           .single()
-        contactId = created?.id ?? null
+        if (insErr?.code === '23505') {
+          // D-03: race lost — look up the winner via findByPhone.
+          const winner = await findByPhone(supabase, orgId, chatId)
+          contactId = winner?.id ?? null
+          if (winner) {
+            console.log(
+              `[telegram/process] contact.unique_collision source=telegram org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
+            )
+          }
+        } else if (insErr) {
+          console.error('[telegram/process] insert contact error:', insErr.message)
+          contactId = null
+        } else {
+          contactId = created?.id ?? null
+        }
       }
 
       const channelMetadata: Record<string, unknown> = {
