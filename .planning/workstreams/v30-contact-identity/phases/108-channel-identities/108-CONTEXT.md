@@ -13,7 +13,7 @@ Delivers:
 - `contacts.source` deprecation comment in migration (`COMMENT ON COLUMN contacts.source IS 'DEPRECATED Phase 108 — use contact_channel_identities. Removal in Phase 110.'`)
 - `findByChannelIdentity(supabase, orgId, provider, externalId)` helper in `src/lib/contacts/server.ts`
 - 3 webhook handlers updated for lookup-first pattern: `src/lib/whatsapp/process-message.ts`, `src/lib/evolution/process-event.ts`, `src/lib/telegram/process-update.ts`
-- `linkConversationsToContacts` in `src/lib/meta/process-event.ts:945` writes channel identity when linking a conversation
+- `linkConversationsToContacts` in `src/app/(dashboard)/contacts/actions.ts:1020-1065` writes channel identity when linking a conversation
 - `src/types/database.ts` regen for `contact_channel_identities` table + `ChannelProvider` type
 
 Does NOT deliver (deferred):
@@ -55,8 +55,8 @@ Does NOT deliver (deferred):
 - **D-03b:** "Channel identity attached to existing phone-based contact" is the key value of this phase. Concrete scenario: Lead messages on Instagram (creates contact with instagram channel identity), then later texts on WhatsApp from a known phone — instead of creating a duplicate, the whatsapp channel identity attaches to the existing Instagram-rooted contact.
 
 ### Meta `linkConversationsToContacts` Integration
-- **D-04:** `src/lib/meta/process-event.ts:945-986` already does post-hoc phone matching. Phase 108 adds: when the linking succeeds, also INSERT a channel identity row for the conversation's source platform (`instagram` or `messenger` based on `conversation.source`).
-- **D-04a:** This is the only place where Meta touches channel identities in Phase 108. Meta inbound webhooks (`/api/meta/`) do NOT create contacts in this phase.
+- **D-04 (corrected per RESEARCH.md):** `linkConversationsToContacts` is a SERVER ACTION at `src/app/(dashboard)/contacts/actions.ts:1020-1065`, NOT in `src/lib/meta/process-event.ts` as the original CONTEXT mis-stated (that file is only 365 lines). Phase 108 adds: when linking succeeds, INSERT a channel identity row using a `CHANNEL_TO_PROVIDER` map from `conversations.channel` (not `.source`): widget→webchat, instagram→instagram, whatsapp→whatsapp, etc.
+- **D-04a:** This is the only place where the conversation-link path touches channel identities in Phase 108. Inbound `/api/meta/` webhook endpoints do NOT create contacts in this phase.
 
 ### contacts.source Deprecation
 - **D-05:** Keep `contacts.source` column for now. Three changes:
