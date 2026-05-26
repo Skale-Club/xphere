@@ -38,6 +38,7 @@ import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { checkDnd, dndBlockedMessage } from '@/lib/dnd'
+import { log } from '@/lib/logger'
 
 type ActionType = Database['public']['Enums']['action_type']
 type IntegrationProvider = Database['public']['Enums']['integration_provider']
@@ -77,6 +78,55 @@ async function insertDndTimelineEvent(
 }
 
 export async function executeAction(
+  actionType: ActionType,
+  params: Record<string, unknown>,
+  credentials: GhlCredentials,
+  ctx?: ActionContext
+): Promise<string> {
+  const startMs = Date.now()
+
+  // Log action execution start
+  void log({
+    event_type: 'action.executed',
+    source: 'action-engine',
+    severity: 'info',
+    status: 'ok',
+    org_id: ctx?.organizationId,
+    actor_type: 'system',
+    payload: { action_type: actionType, params_keys: Object.keys(params) },
+  })
+
+  try {
+    const result = await _executeActionInner(actionType, params, credentials, ctx)
+    void log({
+      event_type: 'action.completed',
+      source: 'action-engine',
+      severity: 'info',
+      status: 'ok',
+      org_id: ctx?.organizationId,
+      actor_type: 'system',
+      duration_ms: Date.now() - startMs,
+      payload: { action_type: actionType, result_length: result.length },
+    })
+    return result
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    void log({
+      event_type: 'action.failed',
+      source: 'action-engine',
+      severity: 'error',
+      status: 'failed',
+      org_id: ctx?.organizationId,
+      actor_type: 'system',
+      duration_ms: Date.now() - startMs,
+      error_message: message,
+      payload: { action_type: actionType },
+    })
+    throw err
+  }
+}
+
+async function _executeActionInner(
   actionType: ActionType,
   params: Record<string, unknown>,
   credentials: GhlCredentials,

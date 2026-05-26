@@ -16,6 +16,7 @@ import {
   FolderKanban,
   BarChart3,
   Mail,
+  ScrollText,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -44,6 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
   { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage' },
+  { icon: ScrollText,      label: 'Logs',         href: '/logs',         group: 'manage' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [
