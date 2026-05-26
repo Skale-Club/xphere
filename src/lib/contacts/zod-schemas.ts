@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
+import { isBlockedEmail } from '@/lib/contacts/blocked-emails'
 
 export const CONTACT_SOURCES = [
   'manual',
@@ -59,6 +60,13 @@ export const contactSchema = z
       .refine(
         (v) => !v || isValidEmail(v),
         'Enter a valid email address',
+      )
+      // D-04a (Phase 110-02): block placeholder emails AFTER shape validation
+      // per Pitfall 8 (isValidEmail must run first so invalid shapes fail with
+      // the clearer message).
+      .refine(
+        (v) => !v || !isBlockedEmail(v),
+        'This email looks like a placeholder. Leave blank instead.',
       ),
     company: z.string().trim().max(500).optional(),
     account_id: z.string().uuid().nullable().optional(),
@@ -127,6 +135,9 @@ export const contactListFiltersSchema = z.object({
   q: z.string().trim().max(200).optional(),
   tag: z.string().trim().max(40).optional(),
   source: z.enum(CONTACT_SOURCES).optional(),
+  identity_status: z
+    .enum(['channel_only', 'identified', 'verified', 'merge_conflict'])
+    .optional(),
   sort: z.string().default('recent'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(25),

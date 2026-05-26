@@ -247,6 +247,10 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
             await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
           }
         } else {
+          // D-04a (Phase 110-02): Evolution payloads carry no email field —
+          // pure phone+channel provider. No isBlockedEmail wiring needed here.
+          // If a future Evolution payload variant exposes email, gate with
+          // isBlockedEmail from '@/lib/contacts/blocked-emails' before write.
           const { data: created, error: insErr } = await supabase
             .from('contacts')
             .insert({

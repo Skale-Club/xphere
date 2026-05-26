@@ -222,6 +222,10 @@ export async function processTelegramUpdate(
             await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
           }
         } else {
+          // D-04a (Phase 110-02): Telegram updates carry no email field —
+          // pure phone/channel provider (chatId acts as both). No
+          // isBlockedEmail wiring needed here. If Telegram ever exposes user
+          // email via a future API, gate with isBlockedEmail before write.
           const contactInsert: Record<string, unknown> = {
             org_id: orgId,
             name: visitorName,

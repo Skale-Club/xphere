@@ -92,6 +92,10 @@ export async function processWhatsAppMessage(
           }
         } else {
           // D-03 step 4: insert new contact + identity row.
+          // D-04a (Phase 110-02): WhatsApp payloads do not carry an email
+          // field — pure phone+channel provider. No isBlockedEmail wiring
+          // needed here. If WhatsApp Business profiles ever surface email
+          // metadata, gate with isBlockedEmail before writing to contacts.email.
           const { data: created, error: insErr } = await supabase
             .from('contacts')
             .insert({
