@@ -695,6 +695,8 @@ export interface ImportSummary {
   inserted: number
   skipped: number
   errors: number
+  conflictRows: number         // D-06: rows skipped due to phone/email conflict with existing live contact
+  blockedEmailCount: number    // D-04a: rows whose email matched BLOCKED_EMAIL_PATTERNS (still imported via phone if present)
   errorSamples: string[]
 }
 
@@ -738,19 +740,29 @@ export async function importContactsCsv(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
-  // Fetch existing phones/emails in one shot for dedup. For very large imports
-  // this scales linearly with org contact count; acceptable for v1.
+  // Fetch existing phone_e164/email_normalized in one shot for dedup. For very
+  // large imports this scales linearly with org contact count; acceptable for v1.
+  //
+  // RESEARCH bug fix (D-06): previously we read raw `phone`/`email` columns,
+  // then compared them against normalized input — guaranteed false negatives
+  // when stored value formatting differed from CSV row formatting. Phase 105
+  // generated `phone_e164` and `email_normalized`, so dedup now compares
+  // normalized-vs-normalized.
+  //
+  // `.neq('identity_status', 'archived_duplicate')` mirrors the predicate of
+  // the partial UNIQUE index from Phase 107 (1059_contacts_unique_constraints.sql).
   const { data: existing } = await supabase
     .from('contacts')
-    .select('phone, email')
+    .select('phone_e164, email_normalized, identity_status')
+    .neq('identity_status', 'archived_duplicate')
   const existingPhones = new Set(
     (existing ?? [])
-      .map((r) => r.phone)
+      .map((r) => r.phone_e164)
       .filter((p): p is string => Boolean(p)),
   )
   const existingEmails = new Set(
     (existing ?? [])
-      .map((r) => r.email)
+      .map((r) => r.email_normalized)
       .filter((e): e is string => Boolean(e)),
   )
 
@@ -760,6 +772,8 @@ export async function importContactsCsv(
     inserted: 0,
     skipped: 0,
     errors: 0,
+    conflictRows: 0,
+    blockedEmailCount: 0,
     errorSamples: [],
   }
 
@@ -781,7 +795,15 @@ export async function importContactsCsv(
     const lastName = getField('last_name') ?? splitName.lastName
     const name = composeContactName(firstName, lastName) ?? fullName
     const phone = normalisePhone(getField('phone'))
-    const email = normaliseEmail(getField('email'))
+    const rawEmail = normaliseEmail(getField('email'))
+    // D-04a: drop blocked/placeholder emails (e.g. noemail@example.com) but
+    // still allow the row through if a valid phone is present (phone carries
+    // the contact). Counted for the dry-run summary.
+    const finalEmail = rawEmail && !isBlockedEmail(rawEmail) ? rawEmail : null
+    if (rawEmail && !finalEmail) {
+      summary.blockedEmailCount++
+    }
+    const email = finalEmail
     const company = getField('company')
     const notes = getField('notes')
     const tagsRaw = getField('tags')
@@ -802,6 +824,7 @@ export async function importContactsCsv(
     }
     if (phone && (existingPhones.has(phone) || seenInBatchPhones.has(phone))) {
       summary.skipped++
+      summary.conflictRows++
       continue
     }
     if (
@@ -810,6 +833,7 @@ export async function importContactsCsv(
       (existingEmails.has(email) || seenInBatchEmails.has(email))
     ) {
       summary.skipped++
+      summary.conflictRows++
       continue
     }
 
