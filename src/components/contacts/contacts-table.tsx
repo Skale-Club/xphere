@@ -68,6 +68,14 @@ interface ContactsTableProps {
   visibleDefs?: CustomFieldDefinitionRow[];
   filterableDefs?: CustomFieldDefinitionRow[];
   activeCfFilters?: Record<string, string>;
+  /** Phase 110 CID-15: conflict counter for the filter chip. 0 → disabled. */
+  conflictCount?: number;
+  /** Phase 110 CID-15: current identity_status filter (URL-driven). */
+  currentIdentityStatus?:
+    | "channel_only"
+    | "identified"
+    | "verified"
+    | "merge_conflict";
   /* addButton removed — rendered inline to avoid hydration fragility */
 }
 
@@ -96,6 +104,8 @@ export function ContactsTable({
   visibleDefs = [],
   filterableDefs = [],
   activeCfFilters = {},
+  conflictCount = 0,
+  currentIdentityStatus,
 }: ContactsTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -233,6 +243,25 @@ export function ContactsTable({
           activeCfFilters={activeCfFilters}
           setParam={setParam}
           onClear={clearUnifiedFilters}
+        />
+
+        {/*
+          Phase 110 CID-15 / D-08: Conflicts filter chip.
+          - count=0  → disabled (opacity-50, no pointer events) per Open Question 1
+          - count>0  → toggles ?identity_status=merge_conflict URL param
+          Single canonical param (Pitfall 5 — no ?conflicts=1 flag).
+        */}
+        <ConflictsChip
+          count={conflictCount}
+          active={currentIdentityStatus === "merge_conflict"}
+          onToggle={() =>
+            setParam(
+              "identity_status",
+              currentIdentityStatus === "merge_conflict"
+                ? null
+                : "merge_conflict",
+            )
+          }
         />
 
         {/* More actions dropdown — all breakpoints */}
@@ -676,6 +705,59 @@ function ContactsFilterPopover({
         )}
       </div>
     </FilterPopover>
+  );
+}
+
+/**
+ * Phase 110 CID-15: Conflicts filter chip rendered in the /contacts toolbar.
+ *
+ * Behaviour matrix:
+ *   count = 0         → disabled visual (opacity-50, cursor-not-allowed,
+ *                       pointer-events-none). Label "Conflicts: 0". No click.
+ *   count > 0, !active → clickable, neutral styling. Click → adds filter.
+ *   count > 0, active  → highlighted (accent), shows X. Click → clears filter.
+ *
+ * Renders as a button so keyboard focus + screen readers work the same as
+ * the existing TagChip in the filter popover (visually similar primitive).
+ */
+function ConflictsChip({
+  count,
+  active,
+  onToggle,
+}: {
+  count: number;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  const disabled = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onToggle}
+      disabled={disabled}
+      aria-pressed={active}
+      aria-label={
+        disabled
+          ? "No conflicts to review"
+          : active
+            ? "Showing conflicts only — click to clear filter"
+            : `Show ${count} contact${count === 1 ? "" : "s"} with conflicts`
+      }
+      className={cn(
+        "inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium transition-colors duration-150 whitespace-nowrap",
+        disabled &&
+          "opacity-50 cursor-not-allowed pointer-events-none border-border-subtle bg-bg-secondary text-text-tertiary",
+        !disabled &&
+          active &&
+          "border-amber-500 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25",
+        !disabled &&
+          !active &&
+          "border-border-subtle bg-bg-secondary text-text-secondary hover:border-border-strong hover:text-text-primary",
+      )}
+    >
+      <span>Conflicts: {count}</span>
+      {!disabled && active && <X className="h-3 w-3" />}
+    </button>
   );
 }
 
