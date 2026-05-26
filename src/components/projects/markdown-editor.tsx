@@ -92,25 +92,43 @@ export function MarkdownEditor({ value, onChange, onBlur, placeholder = 'Add a d
 
   return (
     <div
-      className={cn('rounded-md border border-input bg-background text-sm focus-within:ring-1 focus-within:ring-ring', className)}
+      className={cn(
+        'group/editor rounded-md border border-input bg-background text-sm transition-shadow',
+        'focus-within:ring-1 focus-within:ring-ring',
+        className,
+      )}
       style={{ '--editor-min-height': `${minRows * 1.5}rem` } as React.CSSProperties}
     >
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-input px-1.5 py-1">
-        {tools.map(({ icon: Icon, label, action, active }) => (
-          <button
-            key={label}
-            type="button"
-            title={label}
-            onMouseDown={(e) => { e.preventDefault(); action() }}
-            className={cn(
-              'rounded p-1 transition-colors hover:bg-accent',
-              active() ? 'bg-accent text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </button>
-        ))}
+      {/* Toolbar | revealed only when the editor has focus (avoids visual noise
+          on empty/idle state). Uses grid-row collapse instead of opacity so it
+          doesn't reserve vertical space when hidden. */}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-150 ease-out',
+          'grid-rows-[0fr] group-focus-within/editor:grid-rows-[1fr]',
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-wrap items-center gap-0.5 border-b border-input px-1.5 py-1">
+            {tools.map(({ icon: Icon, label, action, active }) => (
+              <button
+                key={label}
+                type="button"
+                title={label}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  action()
+                }}
+                className={cn(
+                  'rounded p-1 transition-colors hover:bg-accent',
+                  active() ? 'bg-accent text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Editor content */}

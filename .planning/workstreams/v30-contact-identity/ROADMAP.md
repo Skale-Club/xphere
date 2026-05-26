@@ -112,6 +112,11 @@
 6. Zod schema `contactSchema.refine` updated to allow phone/email-less contacts when channel context provided
 7. Existing tests pass; new tests cover invariant edge cases
 
+**Plans:** 1/3 plans executed
+- [x] 109-01-PLAN.md — Author migration 1061 + apply via apply-1061.mjs + 6 SQL probes (CID-12, CID-13)
+- [ ] 109-02-PLAN.md — Insert D-04a comment block above contactSchema.refine; npm run build green
+- [ ] 109-03-PLAN.md — Author tests/contact-identity-trigger.test.ts (6 vitest tests, raw pg client) + 109-VALIDATION-REPORT.md with GO recommendation
+
 ---
 
 ## Phase 110: APP-WIRING
