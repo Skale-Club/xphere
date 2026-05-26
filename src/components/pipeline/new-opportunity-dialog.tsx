@@ -156,10 +156,15 @@ export function NewOpportunityDialog({
       toast.error(res.error)
       return
     }
-    // Select the newly created contact
+    // Phase 107 / D-04 note: quick-create silently auto-selects the contact id,
+    // even when matched_via === 'multi_conflict'. The conflict status surfaces
+    // via the contact card badge (Phase 110). RESEARCH.md Open Question 3.
+    const { id, existed: _existed, matched_via: _matched_via } = res
+    void _existed
+    void _matched_via
     const splitName = splitContactName(quickName)
     const newContact: ContactSuggestion = {
-      id: res.id!,
+      id: id!,
       first_name: splitName.firstName,
       last_name: splitName.lastName,
       name: quickName.trim() || null,
@@ -174,7 +179,7 @@ export function NewOpportunityDialog({
     setQuickPhone('')
     setQuickEmail('')
     setQuickEmailError(null)
-    toast.success('Contact created')
+    // No toast: per Phase 107 CONTEXT, quick-create stays silent regardless of matched_via.
   }
 
   async function handleSubmit(e: React.FormEvent) {
