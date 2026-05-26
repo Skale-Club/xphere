@@ -36,6 +36,17 @@ export type ContactIdentityStatus =
   | 'merge_conflict'
   | 'archived_duplicate'
 
+// v3.0 Phase 108 — channel identity providers (CID-09 D-01 wide enum)
+export type ChannelProvider =
+  | 'whatsapp'
+  | 'evolution'
+  | 'telegram'
+  | 'instagram'
+  | 'messenger'
+  | 'facebook'
+  | 'webchat'
+  | 'vapi'
+
 // v2.4 � accounts (CRM Companies) source enum (SEED-016)
 export type AccountSource = 'manual' | 'auto_from_contact_company' | 'csv_import' | 'ghl_sync'
 
@@ -1703,6 +1714,44 @@ export interface Database {
           {
             foreignKeyName: 'contacts_merged_into_contact_id_fkey'
             columns: ['merged_into_contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      contact_channel_identities: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string
+          provider: ChannelProvider
+          external_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id: string
+          provider: ChannelProvider
+          external_id: string
+          created_at?: string
+        }
+        Update: {
+          provider?: ChannelProvider
+          external_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contact_channel_identities_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contact_channel_identities_contact_id_fkey'
+            columns: ['contact_id']
             isOneToOne: false
             referencedRelation: 'contacts'
             referencedColumns: ['id']
