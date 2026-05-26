@@ -28,10 +28,11 @@ import {
   Globe,
   Loader2,
   Mic2,
-  Phone,
   Save,
   ShieldCheck,
 } from 'lucide-react'
+
+import { TwilioLogo } from '@/components/brand/twilio-logo'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -141,7 +142,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
 
       {/* ── 1. SMS & basics ─────────────────────────────────────────────── */}
       <SectionCard
-        icon={Phone}
+        icon={TwilioLogo}
         title="SMS &amp; account basics"
         description="Required for inbound SMS, outbound SMS via the send_sms action, and signature validation on every Twilio webhook."
         statusReady={view.smsConfigured}

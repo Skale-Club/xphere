@@ -6,9 +6,8 @@ interface TwilioLogoProps extends React.SVGAttributes<SVGSVGElement> {
   /** Tailwind size class (default applies via parent). */
   className?: string
   /**
-   * When true, renders the red brand color (#F22F46) instead of inheriting
-   * currentColor. Useful in the credentials step to make the mark instantly
-   * recognizable.
+   * When true, renders the official red brand color (#F22F46). When false the
+   * mark inherits currentColor (useful on dark hero areas, monochrome lists).
    */
   brandColor?: boolean
   /** Optional title for assistive tech. */
@@ -16,8 +15,11 @@ interface TwilioLogoProps extends React.SVGAttributes<SVGSVGElement> {
 }
 
 /**
- * Twilio brand mark — official circle + four-dot pattern (simple-icons,
- * matches the marketing site favicon).
+ * Twilio brand mark — red ring with four filled dots inside, the same path
+ * shipped in /public/logos/twilio.svg. Matches the marketing-site favicon.
+ *
+ * The compound path uses SVG's default even-odd fill rule: outer circle +
+ * inner-circle subpath produce the ring, then the 4 dot subpaths sit on top.
  */
 export function TwilioLogo({
   className,
@@ -28,7 +30,7 @@ export function TwilioLogo({
   return (
     <svg
       role="img"
-      viewBox="0 0 24 24"
+      viewBox="0 0 256 256"
       xmlns="http://www.w3.org/2000/svg"
       aria-label={title}
       className={cn(brandColor ? 'text-[#F22F46]' : undefined, className)}
@@ -36,7 +38,7 @@ export function TwilioLogo({
       {...props}
     >
       <title>{title}</title>
-      <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 21.6A9.6 9.6 0 1121.6 12 9.6 9.6 0 0112 21.6zm5.952-11.808a2.4 2.4 0 11-2.4-2.4 2.4 2.4 0 012.4 2.4zm0 4.32a2.4 2.4 0 11-2.4-2.4 2.4 2.4 0 012.4 2.4zm-4.32 0a2.4 2.4 0 11-2.4-2.4 2.4 2.4 0 012.4 2.4zm0-4.32a2.4 2.4 0 11-2.4-2.4 2.4 2.4 0 012.4 2.4z" />
+      <path d="M128,0 C198.656,0 256,57.344 256,128 C256,198.656 198.656,256 128,256 C57.344,256 0,198.656 0,128 C0,57.344 57.344,0 128,0 Z M128,33.792 C75.776,33.792 33.792,75.776 33.792,128 C33.792,180.224 75.776,222.208 128,222.208 C180.224,222.208 222.208,180.224 222.208,128 C222.208,75.776 180.224,33.792 128,33.792 Z M159.744,133.12 C174.448029,133.12 186.368,145.039971 186.368,159.744 C186.368,174.448029 174.448029,186.368 159.744,186.368 C145.039971,186.368 133.12,174.448029 133.12,159.744 C133.12,145.039971 145.039971,133.12 159.744,133.12 Z M96.256,133.12 C110.960029,133.12 122.88,145.039971 122.88,159.744 C122.88,174.448029 110.960029,186.368 96.256,186.368 C81.5519708,186.368 69.632,174.448029 69.632,159.744 C69.632,145.039971 81.5519708,133.12 96.256,133.12 Z M159.744,69.632 C174.448029,69.632 186.368,81.5519708 186.368,96.256 C186.368,110.960029 174.448029,122.88 159.744,122.88 C145.039971,122.88 133.12,110.960029 133.12,96.256 C133.12,81.5519708 145.039971,69.632 159.744,69.632 Z M96.256,69.632 C110.960029,69.632 122.88,81.5519708 122.88,96.256 C122.88,110.960029 110.960029,122.88 96.256,122.88 C81.5519708,122.88 69.632,110.960029 69.632,96.256 C69.632,81.5519708 81.5519708,69.632 96.256,69.632 Z" />
     </svg>
   )
 }

@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
-import { Phone } from 'lucide-react'
 
 import { getUser } from '@/lib/supabase/server'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { TwilioLogo } from '@/components/brand/twilio-logo'
 import { TwilioSettings } from '@/components/integrations/twilio-settings'
 import { getTwilioIntegration } from './actions'
 
@@ -18,7 +18,7 @@ export default async function TwilioIntegrationPage() {
     <PageContainer>
       <PageHeader
         eyebrow="Twilio"
-        eyebrowIcon={Phone}
+        eyebrowIcon={TwilioLogo}
         title="Twilio"
         description="Per-org Twilio credentials for SMS, browser-based voice calls, and SIP routing. Each section can be configured independently."
         back={{ href: '/integrations', label: 'All integrations' }}
