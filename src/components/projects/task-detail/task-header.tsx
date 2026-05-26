@@ -3,16 +3,15 @@
 // TaskHeader | top section of the task detail sheet.
 //
 // Contains:
-//   - breadcrumb (project name · task id slice)
+//   - breadcrumb (project name · ancestor task chain · current task id slice)
+//     | crumbs are clickable when an onClick is provided so users can navigate
+//     | back up the focus stack
 //   - inline-editable title (h1, controlled, saves on blur or Enter)
 //   - dropdown menu with destructive actions (Delete via AlertDialog)
 //   - saving indicator
-//
-// Replaces the original "tiny <Input> at top + AI View button floating right"
-// layout that broke visual hierarchy.
 
 import * as React from 'react'
-import { Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { ChevronRight, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,11 +31,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+export interface BreadcrumbCrumb {
+  label: string
+  onClick?: () => void
+}
+
 interface Props {
   taskId: string
   projectName: string | null
   name: string
   saving: boolean
+  /**
+   * Optional ancestor chain of focused tasks (not including the current one).
+   * Each crumb is clickable when onClick is provided | renders inert otherwise.
+   * The current task is rendered at the end of the chain as a static crumb.
+   */
+  crumbs?: BreadcrumbCrumb[]
   onRename: (next: string) => void
   onDelete: () => Promise<void>
 }
@@ -46,6 +56,7 @@ export function TaskHeader({
   projectName,
   name,
   saving,
+  crumbs,
   onRename,
   onDelete,
 }: Props) {
@@ -78,11 +89,36 @@ export function TaskHeader({
   return (
     <header className="px-5 sm:px-6 pt-5 pb-4 border-b border-border-subtle">
       <div className="flex items-center justify-between gap-3 text-[11px] text-text-tertiary">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {projectName && <span className="truncate">{projectName}</span>}
-          {projectName && <span aria-hidden>·</span>}
-          <span className="font-mono shrink-0">#{taskId.slice(0, 8)}</span>
-        </div>
+        <nav aria-label="Task breadcrumb" className="flex items-center gap-1 min-w-0 flex-wrap">
+          {projectName && (
+            <>
+              <span className="truncate max-w-[140px]">{projectName}</span>
+              <ChevronRight className="h-3 w-3 shrink-0 text-text-tertiary/70" aria-hidden />
+            </>
+          )}
+          {crumbs?.map((c, i) => (
+            <React.Fragment key={`${c.label}-${i}`}>
+              {c.onClick ? (
+                <button
+                  type="button"
+                  onClick={c.onClick}
+                  className={cn(
+                    'truncate max-w-[140px] hover:text-text-primary transition-colors',
+                    'focus-visible:outline-none focus-visible:underline rounded',
+                  )}
+                >
+                  {c.label}
+                </button>
+              ) : (
+                <span className="truncate max-w-[140px]">{c.label}</span>
+              )}
+              <ChevronRight className="h-3 w-3 shrink-0 text-text-tertiary/70" aria-hidden />
+            </React.Fragment>
+          ))}
+          <span className="font-mono shrink-0 text-text-tertiary/80">
+            #{taskId.slice(0, 8)}
+          </span>
+        </nav>
         <div className="flex items-center gap-1.5">
           {saving && (
             <span className="flex items-center gap-1 text-text-tertiary">
