@@ -64,12 +64,12 @@
 5. `createContact` in `src/app/(dashboard)/contacts/actions.ts` switched from SELECT-then-INSERT to INSERT...ON CONFLICT DO UPDATE
 6. Webhook handlers (Meta, Vapi, ManyChat) verified to handle unique-violation gracefully (return existing contact)
 7. `npm run build` exits 0; full test suite passes
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 - [x] 107-01-PLAN.md — Author migration 1058 (partial UNIQUE indexes + audit guard) and apply to prod via apply-1058.mjs
 - [x] 107-02-PLAN.md — Add findByPhone/findByEmail helpers + refactor createContact for race-safe ON CONFLICT recovery (returns matched_via)
 - [x] 107-03-PLAN.md — Harden three webhook contact-creation paths (whatsapp/evolution/telegram) with 23505 recovery
 - [x] 107-04-PLAN.md — Update three form callers (new-contact-dialog, new-contact-page-form, new-opportunity-dialog) for new return shape + D-04/D-04a toasts
-- [ ] 107-05-PLAN.md — Author race test (tests/contacts-unique-constraint.test.ts) + final phase validation report
+- [x] 107-05-PLAN.md — Author race test (tests/contacts-unique-constraint.test.ts) + final phase validation report
 
 ---
 
@@ -88,6 +88,13 @@
 6. `contacts.source` deprecated comment added; old column retained for now
 7. Type regen handled
 
+**Plans:** 5/5 plans complete
+- [x] 108-01-PLAN.md — Author migration 1060 (table+UNIQUE+CHECK+RLS+backfill+source deprecation) and apply to prod via apply-1060.mjs with 5 SQL probes
+- [x] 108-02-PLAN.md — Manual patch src/types/database.ts: ChannelProvider type + contact_channel_identities Tables entry; npm run build green
+- [x] 108-03-PLAN.md — Add findByChannelIdentity + attachChannelIdentity helpers to src/lib/contacts/server.ts (mirror Phase 107 helper conventions)
+- [x] 108-04-PLAN.md — Retrofit 3 webhooks (whatsapp/evolution/telegram) lookup-first + identity attach + linkConversationsToContacts at contacts/actions.ts:1020 (D-04 corrected target)
+- [x] 108-05-PLAN.md — Race test (UNIQUE/CASCADE/merged_into chain/idempotency) + 108-VALIDATION-REPORT.md with all 7 ROADMAP criteria mapped (D-02 correction on #5)
+
 ---
 
 ## Phase 109: IDENTITY-TRIGGER
@@ -104,6 +111,11 @@
 5. Promotion logic: when `phone` or `email` populated on a channel_only contact, `identity_status` auto-bumps to `'identified'` via trigger
 6. Zod schema `contactSchema.refine` updated to allow phone/email-less contacts when channel context provided
 7. Existing tests pass; new tests cover invariant edge cases
+
+**Plans:** 3/3 plans complete
+- [x] 109-01-PLAN.md — Author migration 1061 + apply via apply-1061.mjs + 6 SQL probes (CID-12, CID-13)
+- [x] 109-02-PLAN.md — Insert D-04a comment block above contactSchema.refine; npm run build green
+- [x] 109-03-PLAN.md — Author tests/contact-identity-trigger.test.ts (6 vitest tests, raw pg client) + 109-VALIDATION-REPORT.md with GO recommendation
 
 ---
 
@@ -122,3 +134,12 @@
 6. Placeholder email rejection (`noemail@*`, `test@test.com`, `none@*`) — configurable via `org_settings.blocked_email_patterns`
 7. `contacts.source` column removed (data lives in `contact_channel_identities` since Phase 108)
 8. `npm run build` exits 0; full e2e regression
+
+**Plans:** 1/7 plans executed
+- [x] 110-01-PLAN.md — Migration 1062 contact_verifications + apply script with 4 SQL probes + manual types patch
+- [ ] 110-02-PLAN.md — blocked-emails.ts + unit tests + wire into Zod, createContact, 3 webhooks
+- [ ] 110-03-PLAN.md — markContactVerified server action + MarkVerifiedButton in contact-info-panel
+- [ ] 110-04-PLAN.md — IdentityStatusBadge 5-state component + render in contact-info-panel + is_verified in getContact
+- [ ] 110-05-PLAN.md — Conflict filter chip + counter on /contacts list (identity_status URL param + getConflictCount)
+- [ ] 110-06-PLAN.md — CSV import pre-flight refactor: normalized columns + isBlockedEmail + wizard UI surfacing
+- [ ] 110-07-PLAN.md — Final validation: targeted tests + build + 110-VALIDATION-REPORT.md with GO/NO-GO

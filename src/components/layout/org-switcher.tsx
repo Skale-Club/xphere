@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, ChevronsUpDown, Plus, Loader2 } from 'lucide-react'
+import { Building2, Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { switchOrganization, createOrganization, getUserOrgs } from '@/app/(dashboard)/organizations/actions'
 import { Button } from '@/components/ui/button'
@@ -199,6 +199,13 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, collapsed = false }:
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
             Add organization
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => { setDropdownOpen(false); router.push('/organizations') }}
+            className="cursor-pointer gap-2 text-text-tertiary"
+          >
+            <Settings2 className="h-3.5 w-3.5 shrink-0" />
+            Manage organizations
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

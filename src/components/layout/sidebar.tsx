@@ -5,11 +5,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import {
-  Building2,
   ChevronUp,
   LogOut,
   Settings,
-  ShieldCheck,
   PanelLeftClose,
   PanelLeftOpen,
   UserCog,
@@ -49,7 +47,6 @@ function truncate(text: string, n: number) {
 
 interface SidebarProps {
   user: User
-  isPlatformAdmin: boolean
   activeOrgId: string | null
   activeOrgName: string | null
   /** Resolved brand name (org override or APP_NAME). */
@@ -58,7 +55,7 @@ interface SidebarProps {
   logoUrl?: string | null
 }
 
-export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, brandName, logoUrl }: SidebarProps) {
+export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebarState()
@@ -251,35 +248,11 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/settings/workspace">
-                <Building2 className="h-4 w-4 mr-2" />
-                Workspace
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/settings">
                 <Settings className="h-4 w-4 mr-2" />
-                All settings
+                Settings
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/organizations">
-                <Settings className="h-4 w-4 mr-2" />
-                Manage Organizations
-              </Link>
-            </DropdownMenuItem>
-            {isPlatformAdmin && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings/platform">
-                    <ShieldCheck className="h-4 w-4 mr-2" />
-                    Platform Settings
-                  </Link>
-                </DropdownMenuItem>
-              </>
-            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" />

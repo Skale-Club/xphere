@@ -67,6 +67,13 @@ export const contactSchema = z
     source: z.enum(CONTACT_SOURCES).default('manual'),
     custom_fields: z.record(z.string(), z.unknown()).optional().default({}),
   })
+  // Intentionally stricter than the DB invariant. Forms always provide a
+  // display name; this refine ensures form callers don't submit empty rows.
+  // The DB-level constraint trigger `enforce_contact_identity_at_commit`
+  // (Phase 109, migration 1061) enforces a looser invariant: phone OR email
+  // OR at least one channel identity. Webhooks bypass this Zod schema and
+  // rely on the DB invariant. Do NOT relax this refine to match the DB —
+  // doing so would let users submit name-less form data.
   .refine(
     (v) => Boolean(v.first_name || v.last_name || v.name || v.phone || v.email),
     { message: 'Provide at least a name, phone, or email', path: ['first_name'] },

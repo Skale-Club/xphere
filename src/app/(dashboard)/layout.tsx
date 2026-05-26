@@ -118,26 +118,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <div className="flex min-h-dvh bg-bg-primary">
                 <Sidebar
                   user={user}
-                  isPlatformAdmin={isPlatformAdmin}
                   activeOrgId={activeOrgId}
                   activeOrgName={activeOrgName}
                   brandName={branding.appName}
                   logoUrl={effectiveLogoUrl}
                 />
-                <div className="flex min-w-0 flex-1 flex-col h-dvh overflow-hidden">
-                  <TopBar
-                    activeOrgId={activeOrgId}
-                    activeOrgName={activeOrgName}
-                    isPlatformAdmin={isPlatformAdmin}
-                    userId={user.id}
-                    hasPhoneNumber={hasPhoneNumber}
-                  />
-                  <div className="flex flex-1 min-h-0">
-                    <main className="flex-1 min-h-0 overflow-auto">
+                <div className="flex min-w-0 flex-1 h-dvh overflow-hidden">
+                  <main className="flex flex-1 min-h-0 flex-col overflow-auto">
+                    <TopBar
+                      activeOrgId={activeOrgId}
+                      activeOrgName={activeOrgName}
+                      isPlatformAdmin={isPlatformAdmin}
+                      userId={user.id}
+                      hasPhoneNumber={hasPhoneNumber}
+                    />
+                    <div className="flex-1 min-h-0">
                       <PageTransition>{children}</PageTransition>
-                    </main>
-                    <CopilotPanel />
-                  </div>
+                    </div>
+                  </main>
+                  <CopilotPanel />
                 </div>
               </div>
               <OnboardingTour />

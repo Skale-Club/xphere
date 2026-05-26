@@ -157,6 +157,7 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
       <TaskDetailSheet
         taskId={openTaskId}
         projectId={project.id}
+        projectName={project.name}
         labels={labels}
         onClose={() => setOpenTaskId(null)}
         onRefresh={refresh}

@@ -84,4 +84,16 @@ export interface ConversationMessage {
    * NULL on legacy rows | UI falls back to the conversation's primary channel.
    */
   channel?: string | null
+  /** Resend email system: subject line for email-channel messages. */
+  email_subject?: string | null
+  /** Resend email system: sender address (from header). */
+  email_from?: string | null
+  /** Resend email system: primary recipient(s). */
+  email_to?: string | null
+  /** Resend email system: CC recipients. */
+  email_cc?: string | null
+  /** Resend email system: Resend message-id for delivery status tracking. */
+  email_message_id?: string | null
+  /** Resend email system: delivery status (delivered | bounced | complained | failed). */
+  email_delivery_status?: string | null
 }

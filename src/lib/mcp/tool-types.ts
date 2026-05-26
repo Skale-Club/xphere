@@ -6,6 +6,7 @@
 // domain logic.
 
 import type { ZodTypeAny, z } from 'zod'
+import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { McpAuthContext } from './auth'
 
 export interface McpToolContext {
@@ -31,6 +32,13 @@ export interface McpToolDef<S extends ZodTypeAny = ZodTypeAny, T = unknown> {
   description: string
   inputSchema: S
   area: 'general_xphere' | 'projects' | 'oauth'
+  /**
+   * Optional override for the auto-inferred ToolAnnotations. Useful when a
+   * tool's behaviour doesn't match the naming convention (e.g. a `_set` tool
+   * that is actually destructive). Defaults are derived from the tool name
+   * in `server.ts`.
+   */
+  annotations?: ToolAnnotations
   handler: (input: z.output<S>, ctx: McpToolContext) => Promise<McpToolResult<T>>
 }
 
