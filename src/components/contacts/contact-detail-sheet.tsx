@@ -42,6 +42,8 @@ import {
 } from '@/app/(dashboard)/contacts/actions'
 import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
+import { DndBadge } from '@/components/contacts/dnd-badge'
+import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 
 interface ContactDetailSheetProps {
   contactId: string | null
@@ -158,8 +160,9 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <DialogTitle className="text-[18px] truncate">
-                    {displayContactName(contact)}
+                  <DialogTitle className="flex items-center gap-2 text-[18px] truncate">
+                    <span className="truncate">{displayContactName(contact)}</span>
+                    <DndBadge dndEnabled={Boolean(contact.dnd_enabled)} dndChannels={contact.dnd_channels ?? []} iconOnly={false} />
                   </DialogTitle>
                   {(contact.account?.name ?? contact.company) && (
                     <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">
@@ -242,6 +245,14 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   <CustomFieldsDisplay
                     entity="contact"
                     customFields={contact.custom_fields as Record<string, unknown>}
+                  />
+                  <ContactDndSection
+                    contactId={contact.id}
+                    initialDnd={{
+                      dnd_enabled: Boolean(contact.dnd_enabled),
+                      dnd_channels: contact.dnd_channels ?? [],
+                      dnd_note: contact.dnd_note ?? null,
+                    }}
                   />
                 </TabsContent>
 

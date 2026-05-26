@@ -462,10 +462,18 @@ export async function createContact(
     findByEmail(supabase, orgId, data.email),
   ])
 
-  let identityStatus: 'identified' | 'merge_conflict' = 'identified'
+  // Phase 5: channel_only status for social-source contacts with no phone/email.
+  const SOCIAL_SOURCES = ['instagram', 'messenger', 'facebook', 'whatsapp'] as const
+  const isSocialSource = (SOCIAL_SOURCES as readonly string[]).includes(data.source)
+  const hasIdentity = Boolean(data.phone || data.email)
+
+  let identityStatus: 'identified' | 'merge_conflict' | 'channel_only' = 'identified'
   let matchedVia: MatchedVia = null
 
-  if (phoneHit && emailHit && phoneHit.id === emailHit.id) {
+  if (!hasIdentity && isSocialSource) {
+    // No phone or email from a social channel — contact is channel_only.
+    identityStatus = 'channel_only'
+  } else if (phoneHit && emailHit && phoneHit.id === emailHit.id) {
     // D-01a: same contact on both fields | return without modification.
     return { id: phoneHit.id, existed: true, matched_via: 'both_same' }
   } else if (phoneHit && emailHit && phoneHit.id !== emailHit.id) {
@@ -559,7 +567,7 @@ export async function createContact(
 export async function updateContact(
   id: string,
   input: ContactFormInput,
-): Promise<{ error?: string } | void> {
+): Promise<{ error?: string; merge_conflict?: boolean } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const parsed = contactSchema.safeParse(input)
@@ -568,14 +576,53 @@ export async function updateContact(
   }
   const data = normaliseContactInput(parsed.data)
   const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
 
   // Validate and persist custom fields (CF-07, Phase 71)
   const cfPayloadUpdate = parsed.data.custom_fields ?? {}
   if (Object.keys(cfPayloadUpdate).length > 0) {
-    const { data: orgId } = await supabase.rpc('get_current_org_id')
-    if (orgId) {
-      const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadUpdate)
-      if (!cfResult.ok) return { error: 'custom_fields_invalid' }
+    const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadUpdate)
+    if (!cfResult.ok) return { error: 'custom_fields_invalid' }
+  }
+
+  // Phase 3: duplicate detection before update.
+  // Check whether the new phone/email collides with a different live contact.
+  const [phoneHit, emailHit] = await Promise.all([
+    findByPhone(supabase, orgId, data.phone),
+    findByEmail(supabase, orgId, data.email),
+  ])
+  const phoneConflict = phoneHit && phoneHit.id !== id ? phoneHit : null
+  const emailConflict = emailHit && emailHit.id !== id ? emailHit : null
+
+  if (phoneConflict && emailConflict && phoneConflict.id === emailConflict.id) {
+    // Same other contact owns both — clear duplicate error.
+    return {
+      error: 'This phone and email already belong to another contact. Use the merge tool to combine them.',
+      merge_conflict: true,
+    }
+  } else if (phoneConflict && emailConflict && phoneConflict.id !== emailConflict.id) {
+    // Multi-conflict: phone → contact A, email → contact B.
+    // Flag this contact for admin review.
+    await supabase
+      .from('contacts')
+      .update({ identity_status: 'merge_conflict' })
+      .eq('id', id)
+    revalidatePath('/contacts')
+    revalidatePath(`/contacts/${id}`)
+    return {
+      error: 'Phone matches one contact and email matches another — a merge conflict was flagged for admin review.',
+      merge_conflict: true,
+    }
+  } else if (phoneConflict) {
+    return {
+      error: 'This phone number already belongs to another contact.',
+      merge_conflict: false,
+    }
+  } else if (emailConflict) {
+    return {
+      error: 'This email address already belongs to another contact.',
+      merge_conflict: false,
     }
   }
 
@@ -604,7 +651,16 @@ export async function updateContact(
       ...(Object.keys(cfPayloadUpdate).length > 0 && { custom_fields: cfPayloadUpdate }),
     })
     .eq('id', id)
-  if (error) return { error: error.message }
+  if (error) {
+    // 23505: unique constraint violation — surface a clear error instead of crashing.
+    if (error.code === '23505') {
+      return {
+        error: 'This phone or email already belongs to another contact.',
+        merge_conflict: false,
+      }
+    }
+    return { error: error.message }
+  }
 
   await setContactTags(id, data.tags)
 
@@ -1153,4 +1209,138 @@ export async function exportContactsCsv(): Promise<{ error?: string; csv?: strin
   }
 
   return { csv: lines.join('\n') }
+}
+
+// ─── Phase 6: Merge Conflict Detection + Resolution ─────────────────────────
+
+/**
+ * Returns the pair of contacts involved in a merge conflict for the given
+ * contact. Used by the merge panel banner in the contact detail.
+ *
+ * A merge conflict arises when `identity_status = 'merge_conflict'`. The
+ * conflicting peer is inferred from duplicate lookup by phone or email.
+ * Returns null if no conflict is pending.
+ */
+export interface MergeConflictPair {
+  /** The contact flagged with merge_conflict */
+  conflict: {
+    id: string
+    name: string | null
+    phone: string | null
+    email: string | null
+    source: string
+    created_at: string
+  }
+  /** The other contact in the collision (phone or email peer) */
+  peer: {
+    id: string
+    name: string | null
+    phone: string | null
+    email: string | null
+    source: string
+    created_at: string
+  }
+}
+
+export async function getPendingMergeConflict(
+  contactId: string,
+): Promise<MergeConflictPair | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+
+  // Only flag contacts that are still in merge_conflict status.
+  const { data: subject } = await supabase
+    .from('contacts')
+    .select('id, name, phone, phone_e164, email, email_normalized, source, created_at, identity_status')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (!subject || subject.identity_status !== 'merge_conflict') return null
+
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+
+  type PeerContact = { id: string; name: string | null; phone: string | null; email: string | null; source: string; created_at: string }
+  let peer: PeerContact | null = null
+
+  if (subject.phone_e164) {
+    const { data: p } = await supabase
+      .from('contacts')
+      .select('id, name, phone, email, source, created_at')
+      .eq('org_id', orgId)
+      .eq('phone_e164', subject.phone_e164)
+      .neq('id', contactId)
+      .neq('identity_status', 'archived_duplicate')
+      .maybeSingle()
+    if (p) peer = p as PeerContact
+  }
+  if (!peer && subject.email_normalized) {
+    const { data: p } = await supabase
+      .from('contacts')
+      .select('id, name, phone, email, source, created_at')
+      .eq('org_id', orgId)
+      .eq('email_normalized', subject.email_normalized)
+      .neq('id', contactId)
+      .neq('identity_status', 'archived_duplicate')
+      .maybeSingle()
+    if (p) peer = p as PeerContact
+  }
+
+  if (!peer) return null
+
+  return {
+    conflict: {
+      id: subject.id,
+      name: subject.name,
+      phone: subject.phone,
+      email: subject.email,
+      source: subject.source,
+      created_at: subject.created_at,
+    },
+    peer: {
+      id: peer.id,
+      name: peer.name,
+      phone: peer.phone,
+      email: peer.email,
+      source: peer.source,
+      created_at: peer.created_at,
+    },
+  }
+}
+
+/**
+ * Performs a contact merge from the contact detail UI (Phase 6).
+ *
+ * Calls the `merge_contacts` SQL SECURITY DEFINER function through the
+ * user-scoped Supabase client so `auth.uid()` resolves inside the function.
+ * Clears `identity_status = 'merge_conflict'` on the surviving contact after
+ * the merge.
+ */
+export async function mergeContactAction(
+  survivorId: string,
+  archivedId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated.' }
+  if (!survivorId || !archivedId) return { ok: false, error: 'Both contact IDs are required.' }
+  if (survivorId === archivedId) return { ok: false, error: 'Cannot merge a contact with itself.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('merge_contacts', {
+    survivor_id: survivorId,
+    archived_id: archivedId,
+  })
+  if (error) return { ok: false, error: `Merge failed: ${error.message}` }
+
+  // Clear merge_conflict status on the survivor after a successful merge.
+  await supabase
+    .from('contacts')
+    .update({ identity_status: 'identified' })
+    .eq('id', survivorId)
+    .eq('identity_status', 'merge_conflict')
+
+  revalidatePath('/contacts')
+  revalidatePath(`/contacts/${survivorId}`)
+  revalidatePath(`/contacts/${archivedId}`)
+  return { ok: true }
 }
