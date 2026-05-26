@@ -92,6 +92,7 @@ export async function processWhatsAppMessage(
         channel_metadata: channelMetadata,
         visitor_phone: fromPhone,
         visitor_name: fromName,
+        // TODO Phase 110: wrap with resolveLiveContactId
         contact_id: contactId,
         last_message_at: now,
         last_inbound_at: now,

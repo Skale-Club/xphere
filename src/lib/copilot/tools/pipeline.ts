@@ -49,6 +49,7 @@ async function createOpportunity(input: Record<string, unknown>, ctx: ToolContex
       title,
       pipeline_id: pipelineId,
       stage_id: stageId,
+      // TODO Phase 110: wrap with resolveLiveContactId
       contact_id: (input.contact_id as string | undefined) ?? null,
       value: Number(input.value ?? 0),
       currency: (input.currency as string | undefined) ?? 'USD',

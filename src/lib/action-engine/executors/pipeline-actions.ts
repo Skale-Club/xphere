@@ -361,6 +361,7 @@ export async function executePipelineCreateOpportunity(
     pipeline_id: pipelineId,
     stage_id: stageId,
     title,
+    // TODO Phase 110: wrap with resolveLiveContactId
     contact_id: contactId,
     value: params.value !== undefined ? Number(params.value) : 0,
     assigned_to: params.assigned_to ? String(params.assigned_to) : null,

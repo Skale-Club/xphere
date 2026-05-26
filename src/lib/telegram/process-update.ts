@@ -232,6 +232,7 @@ export async function processTelegramUpdate(
         channel_metadata: channelMetadata,
         visitor_phone: chatId,
         visitor_name: visitorName,
+        // TODO Phase 110: wrap with resolveLiveContactId
         contact_id: contactId,
         last_message_at: now,
         last_inbound_at: now,

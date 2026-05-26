@@ -252,6 +252,7 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
           },
           visitor_phone: fromPhone,
           visitor_name: m.pushName ?? null,
+          // TODO Phase 110: wrap with resolveLiveContactId
           contact_id: contactId,
           evolution_instance_id: instance.id,
           last_message: lastMessageDisplay,

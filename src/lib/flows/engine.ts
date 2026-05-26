@@ -385,6 +385,7 @@ async function executeBookingCreate(
       end_at: endAt,
       notes,
       status: 'confirmed',
+      // TODO Phase 110: wrap with resolveLiveContactId
       linked_contact_id: linkedContactId,
     })
     .select('id, status, start_at, end_at')
