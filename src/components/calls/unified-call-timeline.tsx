@@ -362,9 +362,13 @@ function EmptyTimeline() {
           No calls yet
         </h3>
         <p className="mt-1 max-w-sm text-[12.5px] text-text-secondary">
-          Connect a Twilio number or Vapi assistant to start receiving calls.
+          New calls will appear here as soon as your number receives traffic.
+          Wire up a Vapi assistant in the Assistants tab to handle AI calls.
         </p>
       </div>
+      <Button asChild variant="outline" size="sm">
+        <Link href="/settings/phone-numbers">Manage numbers</Link>
+      </Button>
     </div>
   );
 }

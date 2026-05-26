@@ -15,7 +15,15 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { decrypt } from '@/lib/crypto'
 import type { Database } from '@/types/database'
+import {
+  describeTwilioListError,
+  parseTwilioIncomingNumbers,
+  type LocalNumberRef,
+  type TwilioIncomingListResponse,
+  type TwilioRemoteNumber,
+} from '@/lib/phone-numbers/import'
 
 export type TwilioPhoneNumberRow =
   Database['public']['Tables']['twilio_phone_numbers']['Row']
@@ -161,6 +169,92 @@ export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
+
+interface TwilioCredBlob {
+  account_sid?: string
+  auth_token?: string
+}
+
+/**
+ * Fetch the org's IncomingPhoneNumbers directly from Twilio, marked with
+ * `alreadyImported=true` when the same SID/E.164 is already stored locally.
+ * Used by the Add Phone Number wizard so operators pick from real owned
+ * numbers instead of typing E.164 strings.
+ */
+export async function listIncomingTwilioNumbers(): Promise<{
+  data?: TwilioRemoteNumber[]
+  error?: string
+}> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No active organization.' }
+
+  const { data: integrationRow } = await supabase
+    .from('integrations')
+    .select('encrypted_api_key')
+    .eq('organization_id', orgId)
+    .eq('provider', 'twilio')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+  if (!integrationRow) {
+    return { error: 'Twilio is not connected for this org. Connect it first.' }
+  }
+
+  let blob: TwilioCredBlob
+  try {
+    blob = JSON.parse(await decrypt(integrationRow.encrypted_api_key)) as TwilioCredBlob
+  } catch {
+    return { error: 'Failed to decrypt Twilio credentials.' }
+  }
+  if (!blob.account_sid || !blob.auth_token) {
+    return { error: 'Account SID or Auth Token missing. Reconnect Twilio.' }
+  }
+
+  // Pull the existing local rows so we can flag duplicates without a second
+  // round-trip from the client.
+  const { data: localRows } = await supabase
+    .from('twilio_phone_numbers')
+    .select('phone_sid, e164')
+    .eq('is_active', true)
+  const localRefs: LocalNumberRef[] = (localRows ?? []).map((row) => ({
+    sid: (row.phone_sid as string | null) ?? null,
+    e164: row.e164 as string,
+  }))
+
+  const basicAuth = btoa(`${blob.account_sid}:${blob.auth_token}`)
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers.json?PageSize=50`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Network error contacting Twilio.' }
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    return { error: describeTwilioListError(res.status, body) }
+  }
+
+  let payload: TwilioIncomingListResponse
+  try {
+    payload = (await res.json()) as TwilioIncomingListResponse
+  } catch {
+    return { error: 'Twilio returned an unexpected response.' }
+  }
+
+  return { data: parseTwilioIncomingNumbers(payload, localRefs) }
+}
 
 export async function listTwilioNumbers(): Promise<TwilioPhoneNumberRow[]> {
   const user = await getUser()
