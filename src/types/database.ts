@@ -3052,46 +3052,6 @@ export interface Database {
           }
         ]
       }
-      campaign_recipients: {
-        Row: {
-          id: string
-          campaign_id: string
-          contact_id: string | null
-          status: 'pending' | 'sent' | 'delivered' | 'failed' | 'skipped' | 'unsubscribed'
-          sent_at: string | null
-          result: Json
-          error_message: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          campaign_id: string
-          contact_id?: string | null
-          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'skipped' | 'unsubscribed'
-          sent_at?: string | null
-          result?: Json
-          error_message?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          status?: 'pending' | 'sent' | 'delivered' | 'failed' | 'skipped' | 'unsubscribed'
-          sent_at?: string | null
-          result?: Json
-          error_message?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'campaign_recipients_campaign_id_fkey'
-            columns: ['campaign_id']
-            isOneToOne: false
-            referencedRelation: 'campaigns'
-            referencedColumns: ['id']
-          }
-        ]
-      }
       bookings: {
         Row: {
           id: string
