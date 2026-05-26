@@ -18,7 +18,7 @@ export const contactsTools: McpToolDef[] = [
       limit: z.number().int().positive().max(50).optional(),
     }).strict(),
     handler: async ({ query, limit = 20 }, { auth }) => {
-      const escaped = query.replace(/[%_]/g, (m) => `\\${m}`)
+      const escaped = query.replace(/[%_]/g, (m: string) => `\\${m}`)
       const term = `%${escaped}%`
       const { data } = await db()
         .from('contacts')
