@@ -39,9 +39,22 @@ import {
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { validateCustomFields } from '@/lib/custom-fields'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
-import { resolveLiveContactId } from '@/lib/contacts/server'
+import { resolveLiveContactId, findByPhone, findByEmail } from '@/lib/contacts/server'
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
+
+/**
+ * Source of the dedup match when {@link createContact} returns `existed: true`.
+ *
+ * - `'phone'` | only the normalized phone matched an existing contact
+ * - `'email'` | only the normalized email matched
+ * - `'both_same'` | phone and email both matched the SAME existing contact (D-01a)
+ * - `'multi_conflict'` | phone matched contact X, email matched contact Y; a
+ *   fresh row was inserted with `identity_status='merge_conflict'` for the
+ *   admin UI to resolve (D-01). May also surface on the 23505 fallback path.
+ * - `null` | no dedup match, plain insert (only on `existed: false`)
+ */
+export type MatchedVia = 'phone' | 'email' | 'both_same' | 'multi_conflict' | null
 
 export interface ContactListResult {
   rows: ContactRow[]
@@ -383,13 +396,31 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
 }
 
 /**
- * Creates a contact, dedup-by-phone when a phone is provided. If a contact in
- * the same org already has the same normalised phone, we return its id without
- * inserting | the form treats that as a friendly "linked existing" outcome.
+ * Creates a contact with race-safe dedup against the partial UNIQUE indexes
+ * landed in migration 1059 (Phase 107, CID-07/CID-08).
+ *
+ * Behavior (per 107-CONTEXT.md D-01..D-01c, D-04):
+ *  1. Pre-check both normalized identity columns (`phone_e164`,
+ *     `email_normalized`) via the canonical helpers in `lib/contacts/server`.
+ *     Filters out `archived_duplicate` so merged rows do not block survivors.
+ *  2. Both pre-checks hit the SAME contact → return it as `both_same` (D-01a).
+ *  3. Only phone or only email hits → return that contact (D-01a).
+ *  4. Phone hits A and email hits B (different ids) → fall through to INSERT
+ *     with `identity_status='merge_conflict'` and `matched_via='multi_conflict'`
+ *     so Phase 106's /admin/contacts/conflicts UI can surface it (D-01).
+ *  5. Neither hits → plain insert with `identity_status='identified'`.
+ *  6. On INSERT 23505 (unique_violation) → recover by re-querying via the
+ *     normalized columns (D-01b race recovery + D-01c multi-conflict fallback).
  */
 export async function createContact(
   input: ContactFormInput,
-): Promise<{ id?: string; existed?: boolean; error?: string }> {
+): Promise<{
+  id?: string
+  existed?: boolean
+  matched_via?: MatchedVia
+  error?: string
+  details?: unknown
+}> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const parsed = contactSchema.safeParse(input)
@@ -406,25 +437,33 @@ export async function createContact(
   if (Object.keys(cfPayloadCreate).length > 0) {
     const cfResult = await validateCustomFields(orgId, 'contact', cfPayloadCreate)
     if (!cfResult.ok) {
-      return { error: 'custom_fields_invalid', details: cfResult.errors } as { error: string; details?: unknown }
+      return { error: 'custom_fields_invalid', details: cfResult.errors }
     }
   }
 
-  // Dedup by phone (preferred) then email
-  if (data.phone) {
-    const { data: existing } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('phone', data.phone)
-      .maybeSingle()
-    if (existing) return { id: existing.id, existed: true }
-  } else if (data.email) {
-    const { data: existing } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('email', data.email)
-      .maybeSingle()
-    if (existing) return { id: existing.id, existed: true }
+  // D-01: pre-check both normalized identity columns BEFORE insert.
+  // Use the canonical helpers so the lookup filter stays in sync with the
+  // partial UNIQUE index predicate (Pitfall 1 in 107-RESEARCH.md).
+  const [phoneHit, emailHit] = await Promise.all([
+    findByPhone(supabase, orgId, data.phone),
+    findByEmail(supabase, orgId, data.email),
+  ])
+
+  let identityStatus: 'identified' | 'merge_conflict' = 'identified'
+  let matchedVia: MatchedVia = null
+
+  if (phoneHit && emailHit && phoneHit.id === emailHit.id) {
+    // D-01a: same contact on both fields | return without modification.
+    return { id: phoneHit.id, existed: true, matched_via: 'both_same' }
+  } else if (phoneHit && emailHit && phoneHit.id !== emailHit.id) {
+    // D-01: multi-conflict | insert fresh row flagged for admin review.
+    identityStatus = 'merge_conflict'
+    matchedVia = 'multi_conflict'
+    // Fall through to INSERT below.
+  } else if (phoneHit) {
+    return { id: phoneHit.id, existed: true, matched_via: 'phone' }
+  } else if (emailHit) {
+    return { id: emailHit.id, existed: true, matched_via: 'email' }
   }
 
   // Resolve tag IDs → names for the legacy text[] column (kept in sync until 062)
@@ -437,6 +476,9 @@ export async function createContact(
     tagNames = (tagRows ?? []).map((t) => t.name)
   }
 
+  // D-01b/D-01c: partial UNIQUE indexes contacts_org_phone_uniq + contacts_org_email_uniq
+  // close the race window between pre-check and insert. PostgreSQL surfaces
+  // unique_violation as SQLSTATE 23505; PostgREST exposes it on error.code.
   const { data: inserted, error } = await supabase
     .from('contacts')
     .insert({
@@ -451,19 +493,54 @@ export async function createContact(
       notes: data.notes,
       tags: tagNames,
       source: data.source,
+      identity_status: identityStatus,
       created_by: user.id,
       ...(Object.keys(cfPayloadCreate).length > 0 && { custom_fields: cfPayloadCreate }),
     })
     .select('id')
     .single()
-  if (error || !inserted) return { error: error?.message ?? 'Insert failed' }
+
+  if (error) {
+    if (error.code === '23505') {
+      // D-01c fast path: prefer the contact we already resolved in the
+      // pre-check (phone wins per D-01c). Avoids a second round-trip.
+      if (phoneHit || emailHit) {
+        const fallback = phoneHit ?? emailHit!
+        const via: 'phone' | 'email' = phoneHit ? 'phone' : 'email'
+        console.log(
+          `[contacts/create] contact.unique_collision source=form org_id=${orgId} contact_id=${fallback.id} matched_via=${via}`,
+        )
+        return { id: fallback.id, existed: true, matched_via: via }
+      }
+      // D-01b race recovery: pre-check missed (genuine race window). Re-query
+      // the normalized columns to discover the winner.
+      const [racePhone, raceEmail] = await Promise.all([
+        findByPhone(supabase, orgId, data.phone),
+        findByEmail(supabase, orgId, data.email),
+      ])
+      const winner = racePhone ?? raceEmail
+      if (winner) {
+        const via: 'phone' | 'email' = racePhone ? 'phone' : 'email'
+        console.log(
+          `[contacts/create] contact.unique_collision source=form org_id=${orgId} contact_id=${winner.id} matched_via=${via}`,
+        )
+        return { id: winner.id, existed: true, matched_via: via }
+      }
+    }
+    return { error: error.message }
+  }
+  if (!inserted) return { error: 'Insert failed' }
 
   if (data.tags.length > 0) {
     await setContactTags(inserted.id, data.tags)
   }
 
   revalidatePath('/contacts')
-  return { id: inserted.id }
+  return {
+    id: inserted.id,
+    existed: false,
+    matched_via: matchedVia,
+  }
 }
 
 export async function updateContact(
