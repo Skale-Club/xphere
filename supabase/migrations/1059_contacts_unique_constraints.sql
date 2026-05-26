@@ -1,5 +1,7 @@
 -- =============================================================================
--- Migration 1058: Contacts Unique Constraints (CID-07, CID-08)
+-- Migration 1059: Contacts Unique Constraints (CID-07, CID-08)
+-- (Originally drafted as 1058; renumbered to 1059 because 1058_mcp_oauth.sql
+--  landed in main first. DDL is fully idempotent via IF NOT EXISTS.)
 --
 -- Phase 107 of v3.0 Contact Identity workstream. Adds two partial UNIQUE
 -- indexes that enforce org-scoped phone and email uniqueness against live
@@ -27,7 +29,7 @@ BEGIN
   SELECT count(*) INTO cluster_count FROM public.contact_duplicate_audit;
   IF cluster_count > 0 THEN
     RAISE EXCEPTION
-      'Migration 1058 aborted: % duplicate cluster(s) remain in contact_duplicate_audit. Resolve via /admin/contacts/conflicts before running.', cluster_count;
+      'Migration 1059 aborted: % duplicate cluster(s) remain in contact_duplicate_audit. Resolve via /admin/contacts/conflicts before running.', cluster_count;
   END IF;
 END $$;
 

@@ -114,6 +114,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.2.2",
     "jsdom": "^29.0.1",
+    "pg": "^8.21.0",
     "postcss": "^8",
     "tailwindcss": "^4",
     "typescript": "^5",
