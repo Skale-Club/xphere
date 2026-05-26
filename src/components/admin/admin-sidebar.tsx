@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShieldCheck, Building2, Settings, Search, LayoutDashboard, Activity, Image as ImageIcon, BarChart3 } from 'lucide-react'
+import { ShieldCheck, Building2, Settings, Search, LayoutDashboard, Activity, Image as ImageIcon, BarChart3, GitMerge } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/admin',          label: 'Overview',       icon: LayoutDashboard, exact: true },
   { href: '/admin/orgs',     label: 'Organizations',  icon: Building2 },
+  { href: '/admin/contacts/conflicts', label: 'Conflicts', icon: GitMerge },
   { href: '/admin/activity', label: 'Activity',       icon: Activity },
   { href: '/admin/settings', label: 'Settings',       icon: Settings },
   { href: '/admin/seo',      label: 'SEO & Branding', icon: Search },
