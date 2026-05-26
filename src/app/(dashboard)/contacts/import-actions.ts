@@ -4,6 +4,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { parseCsvLimit, countCsvDataRows, suggestColumnMappingEnhanced } from '@/lib/contacts/csv'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { isBlockedEmail } from '@/lib/contacts/blocked-emails'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { ContactImportDedupStrategy } from '@/types/database'
 
@@ -173,6 +174,8 @@ export async function dryRunImport(importId: string): Promise<
     wouldUpdate: number
     wouldSkip: number
     wouldError: number
+    wouldConflict: number       // D-06: rows that would be skipped due to existing phone/email match
+    wouldBlockedEmail: number   // D-04a: rows whose email matched the placeholder blocklist
     sampleErrors: string[]
   }> | Err
 > {
@@ -214,36 +217,55 @@ export async function dryRunImport(importId: string): Promise<
   const usePhone = dedupKeys.includes('phone') && phoneIdx >= 0
   const useEmail = dedupKeys.includes('email') && emailIdx >= 0
 
-  // Collect all phone/email values for batch DB lookup
+  // Collect all phone/email values for batch DB lookup. Emails go through the
+  // blocklist filter first so they don't pollute the IN() clause.
   const phones = new Set<string>()
   const emails = new Set<string>()
   for (const r of dryRunRows) {
     if (usePhone) { const p = normalisePhone(r[phoneIdx]); if (p) phones.add(p) }
-    if (useEmail) { const e = normaliseEmail(r[emailIdx]); if (e) emails.add(e) }
+    if (useEmail) {
+      const e = normaliseEmail(r[emailIdx])
+      if (e && !isBlockedEmail(e)) emails.add(e)
+    }
   }
 
-  // Batch query existing contacts
+  // Batch query existing contacts using normalized columns (D-06 bug fix).
+  // Filter out archived_duplicate to match the partial UNIQUE index predicate
+  // from Phase 107 (1059_contacts_unique_constraints.sql).
   const existingPhones = new Set<string>()
   const existingEmails = new Set<string>()
   if (phones.size > 0) {
-    const { data } = await supabase.from('contacts').select('phone').in('phone', [...phones])
-    for (const c of data ?? []) { if (c.phone) existingPhones.add(c.phone) }
+    const { data } = await supabase
+      .from('contacts')
+      .select('phone_e164')
+      .in('phone_e164', [...phones])
+      .neq('identity_status', 'archived_duplicate')
+    for (const c of data ?? []) { if (c.phone_e164) existingPhones.add(c.phone_e164) }
   }
   if (emails.size > 0) {
-    const { data } = await supabase.from('contacts').select('email').in('email', [...emails])
-    for (const c of data ?? []) { if (c.email) existingEmails.add(c.email) }
+    const { data } = await supabase
+      .from('contacts')
+      .select('email_normalized')
+      .in('email_normalized', [...emails])
+      .neq('identity_status', 'archived_duplicate')
+    for (const c of data ?? []) { if (c.email_normalized) existingEmails.add(c.email_normalized) }
   }
 
   let wouldInsert = 0
   let wouldUpdate = 0
   let wouldSkip = 0
   let wouldError = 0
+  let wouldConflict = 0
+  let wouldBlockedEmail = 0
   const sampleErrors: string[] = []
 
   for (let i = 0; i < dryRunRows.length; i++) {
     const r = dryRunRows[i]
     const phone = usePhone ? normalisePhone(r[phoneIdx]) : null
-    const email = useEmail ? normaliseEmail(r[emailIdx]) : null
+    const rawEmail = useEmail ? normaliseEmail(r[emailIdx]) : null
+    // D-04a: blocked email is treated as null; row still imports if phone is valid.
+    const email = rawEmail && !isBlockedEmail(rawEmail) ? rawEmail : null
+    if (rawEmail && !email) wouldBlockedEmail++
 
     if (!phone && !email) {
       wouldError++
@@ -258,6 +280,7 @@ export async function dryRunImport(importId: string): Promise<
       (email && existingEmails.has(email))
 
     if (exists) {
+      wouldConflict++
       if (dedupStrategy === 'skip_existing') wouldSkip++
       else if (dedupStrategy === 'update_existing') wouldUpdate++
       else wouldInsert++ // create_duplicate
@@ -266,7 +289,7 @@ export async function dryRunImport(importId: string): Promise<
     }
   }
 
-  return { ok: true, wouldInsert, wouldUpdate, wouldSkip, wouldError, sampleErrors }
+  return { ok: true, wouldInsert, wouldUpdate, wouldSkip, wouldError, wouldConflict, wouldBlockedEmail, sampleErrors }
 }
 
 // ── enqueueImport ─────────────────────────────────────────────────────────────

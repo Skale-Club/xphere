@@ -79,6 +79,8 @@ interface DryRunResult {
   wouldUpdate: number
   wouldSkip: number
   wouldError: number
+  wouldConflict: number       // D-06: rows that match existing contacts (normalized)
+  wouldBlockedEmail: number   // D-04a: rows whose email matched the placeholder blocklist
   sampleErrors: string[]
 }
 
@@ -564,6 +566,37 @@ export function ImportWizardDialog({ trigger }: ImportWizardDialogProps = {}) {
               <DryRunStat label="Skip" value={dryRunResult.wouldSkip} tone="muted" />
               <DryRunStat label="Error" value={dryRunResult.wouldError} tone={dryRunResult.wouldError > 0 ? 'warning' : 'muted'} />
             </div>
+
+            {/* D-06 + D-04a: surface new pre-flight counters so the user sees
+                conflicts and blocked emails before committing the batch. */}
+            <div className="grid grid-cols-2 gap-3">
+              <DryRunStat
+                label="Conflicts"
+                value={dryRunResult.wouldConflict}
+                tone={dryRunResult.wouldConflict > 0 ? 'warning' : 'muted'}
+              />
+              <DryRunStat
+                label="Placeholder emails"
+                value={dryRunResult.wouldBlockedEmail}
+                tone={dryRunResult.wouldBlockedEmail > 0 ? 'info' : 'muted'}
+              />
+            </div>
+            {(dryRunResult.wouldConflict > 0 || dryRunResult.wouldBlockedEmail > 0) && (
+              <p className="text-[11.5px] text-text-tertiary -mt-2">
+                {dryRunResult.wouldConflict > 0 && (
+                  <>
+                    <strong className="text-text-secondary">{dryRunResult.wouldConflict.toLocaleString()}</strong>{' '}
+                    rows match existing contacts (phone or email).{' '}
+                  </>
+                )}
+                {dryRunResult.wouldBlockedEmail > 0 && (
+                  <>
+                    <strong className="text-text-secondary">{dryRunResult.wouldBlockedEmail.toLocaleString()}</strong>{' '}
+                    rows have placeholder emails — they import via phone with email cleared.
+                  </>
+                )}
+              </p>
+            )}
 
             {dryRunResult.sampleErrors.length > 0 && (
               <div className="rounded-[8px] border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
