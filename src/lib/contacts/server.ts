@@ -160,3 +160,43 @@ export async function findByChannelIdentity(
     merged_into_contact_id: contact.merged_into_contact_id,
   }
 }
+
+/**
+ * Insert a channel identity row attaching the contact. Idempotent on the
+ * UNIQUE (org_id, provider, external_id) constraint — duplicate INSERT is
+ * a no-op (recovers existing row by SELECT). Returns the resolved
+ * (contact_id) for the (provider, external_id) pair regardless of insert vs.
+ * conflict path.
+ *
+ * Callers: lookup-first webhook handlers (whatsapp/evolution/telegram) and
+ * the linkConversationsToContacts server action.
+ */
+export async function attachChannelIdentity(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  contactId: string,
+  provider: ChannelProvider,
+  externalId: string,
+): Promise<{ contact_id: string } | null> {
+  if (!externalId || !contactId) return null
+  const { error } = await supabase
+    .from('contact_channel_identities')
+    .insert({ org_id: orgId, contact_id: contactId, provider, external_id: externalId })
+  if (error && error.code !== '23505') {
+    console.error(
+      `[contacts/attachChannelIdentity] insert failed provider=${provider} external_id=${externalId}: ${error.message}`,
+    )
+    return null
+  }
+  // On 23505 or success, the canonical row exists. Return the contact_id
+  // pointed to by that row (may differ from `contactId` if another race
+  // attached to a different contact — caller decides what to do).
+  const { data } = await supabase
+    .from('contact_channel_identities')
+    .select('contact_id')
+    .eq('org_id', orgId)
+    .eq('provider', provider)
+    .eq('external_id', externalId)
+    .maybeSingle()
+  return data ? { contact_id: data.contact_id } : null
+}
