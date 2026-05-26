@@ -126,7 +126,15 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.phone_e164 IS NOT NULL OR NEW.email_normalized IS NOT NULL THEN
+  -- NOTE: phone_e164 and email_normalized are GENERATED STORED columns. In a
+  -- BEFORE trigger, NEW.<generated_col> is NULL because Postgres computes
+  -- generated columns AFTER BEFORE triggers run. We therefore check the raw
+  -- source columns (NEW.phone, NEW.email) for the promotion signal. Any
+  -- non-empty raw input represents user intent to identify this contact;
+  -- subsequent normalize_phone()/lower(trim()) materialization is irrelevant
+  -- to the promotion decision.
+  IF (NEW.phone IS NOT NULL AND length(btrim(NEW.phone)) > 0)
+     OR (NEW.email IS NOT NULL AND length(btrim(NEW.email)) > 0) THEN
     NEW.identity_status := 'identified';
   END IF;
   RETURN NEW;
