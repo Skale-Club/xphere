@@ -5,9 +5,10 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
-import { findByPhone } from '@/lib/contacts/server'
+import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { sendWhatsAppMessage } from './send'
+import type { ChannelProvider } from '@/types/database'
 import type {
   NormalizedWhatsAppMessage,
   ResolvedProvider,
@@ -55,50 +56,71 @@ export async function processWhatsAppMessage(
     if (existing) {
       conversationId = existing.id
     } else {
-      // Find or create contact by phone (Phase 107 CID-07 race-safe pattern).
-      // Lookup on normalized `phone_e164` column to match the partial UNIQUE
-      // index predicate; archived_duplicate rows are excluded so merged dupes
-      // do not block survivors. On INSERT 23505 we recover via findByPhone.
+      // Phase 108 D-03 lookup-first: channel identity → phone → insert.
+      // Identity hit short-circuits phone lookup; phone-match attaches identity
+      // (D-03b cross-channel attach); new-insert/23505-recovery also attach.
       let contactId: string | null = null
-      const phoneNorm = normalisePhone(fromPhone)
-      const { data: contact } = phoneNorm
-        ? await supabase
-            .from('contacts')
-            .select('id')
-            .eq('org_id', orgId)
-            .eq('phone_e164', phoneNorm)
-            .neq('identity_status', 'archived_duplicate')
-            .limit(1)
-            .maybeSingle()
-        : { data: null }
+      const channelProvider: ChannelProvider =
+        msg.provider === 'evolution' ? 'evolution' : 'whatsapp'
+      const externalId = msg.fromJid
 
-      if (contact?.id) {
-        contactId = contact.id
+      // D-03 step 2: channel identity lookup FIRST.
+      const channelHit = externalId
+        ? await findByChannelIdentity(supabase, orgId, channelProvider, externalId)
+        : null
+      if (channelHit) {
+        contactId = channelHit.contact_id
       } else {
-        const { data: created, error: insErr } = await supabase
-          .from('contacts')
-          .insert({
-            org_id: orgId,
-            name: fromName,
-            phone: fromPhone,
-            source: 'whatsapp',
-          })
-          .select('id')
-          .single()
-        if (insErr?.code === '23505') {
-          // D-03: race lost — look up the winner via the canonical helper.
-          const winner = await findByPhone(supabase, orgId, fromPhone)
-          contactId = winner?.id ?? null
-          if (winner) {
-            console.log(
-              `[whatsapp/process] contact.unique_collision source=whatsapp org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
-            )
+        // D-03 step 3: phone lookup (existing Phase 107 logic).
+        const phoneNorm = normalisePhone(fromPhone)
+        const { data: contact } = phoneNorm
+          ? await supabase
+              .from('contacts')
+              .select('id')
+              .eq('org_id', orgId)
+              .eq('phone_e164', phoneNorm)
+              .neq('identity_status', 'archived_duplicate')
+              .limit(1)
+              .maybeSingle()
+          : { data: null }
+
+        if (contact?.id) {
+          contactId = contact.id
+          // D-03b: attach channel identity to existing phone-rooted contact.
+          if (externalId) {
+            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
           }
-        } else if (insErr) {
-          console.error('[whatsapp/process] insert contact error:', insErr.message)
-          contactId = null
         } else {
-          contactId = created?.id ?? null
+          // D-03 step 4: insert new contact + identity row.
+          const { data: created, error: insErr } = await supabase
+            .from('contacts')
+            .insert({
+              org_id: orgId,
+              name: fromName,
+              phone: fromPhone,
+              source: 'whatsapp',
+            })
+            .select('id')
+            .single()
+          if (insErr?.code === '23505') {
+            // D-03: race lost — look up the winner via the canonical helper.
+            const winner = await findByPhone(supabase, orgId, fromPhone)
+            contactId = winner?.id ?? null
+            if (winner) {
+              console.log(
+                `[whatsapp/process] contact.unique_collision source=whatsapp org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
+              )
+            }
+          } else if (insErr) {
+            console.error('[whatsapp/process] insert contact error:', insErr.message)
+            contactId = null
+          } else {
+            contactId = created?.id ?? null
+          }
+          // Attach identity on new-insert OR 23505-recovery (both branches yield contactId).
+          if (contactId && externalId) {
+            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
+          }
         }
       }
 
