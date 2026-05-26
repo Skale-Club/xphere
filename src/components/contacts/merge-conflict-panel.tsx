@@ -84,7 +84,7 @@ function ContactCard({
         <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">{contact.email}</p>
       )}
       <p className="mt-2 text-[11px] text-text-tertiary capitalize">
-        Source: {contact.source} · Added {formatDate(contact.created_at)}
+        Added {formatDate(contact.created_at)}
       </p>
     </div>
   )
