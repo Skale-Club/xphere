@@ -17,7 +17,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
-import type { Database, ContactSource } from '@/types/database'
+import type { Database, ContactSource, ChannelProvider } from '@/types/database'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
@@ -39,7 +39,20 @@ import {
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { validateCustomFields } from '@/lib/custom-fields'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
-import { resolveLiveContactId, findByPhone, findByEmail } from '@/lib/contacts/server'
+import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity } from '@/lib/contacts/server'
+
+/**
+ * Phase 108 D-04: maps conversations.channel enum values to the corresponding
+ * channel identity provider. Only `widget` is remapped (→ `webchat`); the rest
+ * pass through identically.
+ */
+const CHANNEL_TO_PROVIDER: Record<string, ChannelProvider> = {
+  whatsapp: 'whatsapp',
+  telegram: 'telegram',
+  messenger: 'messenger',
+  instagram: 'instagram',
+  widget: 'webchat',
+}
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
@@ -1027,7 +1040,7 @@ export async function linkConversationsToContacts(): Promise<{
 
   const { data: convs, error: cErr } = await supabase
     .from('conversations')
-    .select('id, visitor_phone')
+    .select('id, visitor_phone, channel, channel_metadata, org_id')
     .is('contact_id', null)
     .not('visitor_phone', 'is', null)
   if (cErr) return { error: cErr.message }
@@ -1057,7 +1070,21 @@ export async function linkConversationsToContacts(): Promise<{
       .from('conversations')
       .update({ contact_id: liveContactId })
       .eq('id', conv.id)
-    if (!error) linked++
+    if (!error) {
+      linked++
+      // Phase 108 D-04: write channel identity on successful link.
+      const provider = CHANNEL_TO_PROVIDER[conv.channel]
+      let externalId: string | null = null
+      if (provider === 'whatsapp' || provider === 'telegram' || provider === 'webchat') {
+        externalId = conv.visitor_phone
+      } else if (provider === 'instagram' || provider === 'messenger') {
+        const meta = conv.channel_metadata as Record<string, unknown> | null
+        externalId = typeof meta?.sender_id === 'string' ? meta.sender_id : null
+      }
+      if (provider && externalId && conv.org_id) {
+        await attachChannelIdentity(supabase, conv.org_id, liveContactId, provider, externalId)
+      }
+    }
   }
 
   revalidatePath('/contacts')
