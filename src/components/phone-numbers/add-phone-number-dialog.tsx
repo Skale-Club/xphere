@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
+import { TwilioLogo } from '@/components/brand/twilio-logo'
 import { saveTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/actions'
 import {
   createTwilioNumber,
@@ -259,7 +260,11 @@ export function AddPhoneNumberDialog({ open, onOpenChange, twilioConnected }: Pr
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
+            {step === 'credentials' ? (
+              <TwilioLogo className="h-4 w-4" brandColor />
+            ) : (
+              <Phone className="h-4 w-4" />
+            )}
             {dialogTitle[step]}
           </DialogTitle>
           <DialogDescription>{dialogDescription[step]}</DialogDescription>
