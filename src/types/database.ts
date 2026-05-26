@@ -4362,6 +4362,58 @@ export interface Database {
           }
         ]
       }
+      // Migration 1068 — AI Logs and Observability System
+      event_logs: {
+        Row: {
+          id: string
+          org_id: string | null
+          event_type: string
+          source: string
+          severity: 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+          status: 'ok' | 'failed' | 'retried' | 'skipped'
+          correlation_id: string | null
+          actor_type: string | null
+          actor_id: string | null
+          payload: Json
+          error_message: string | null
+          error_stack: string | null
+          duration_ms: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id?: string | null
+          event_type: string
+          source: string
+          severity?: 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+          status?: 'ok' | 'failed' | 'retried' | 'skipped'
+          correlation_id?: string | null
+          actor_type?: string | null
+          actor_id?: string | null
+          payload?: Json
+          error_message?: string | null
+          error_stack?: string | null
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string | null
+          event_type?: string
+          source?: string
+          severity?: 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+          status?: 'ok' | 'failed' | 'retried' | 'skipped'
+          correlation_id?: string | null
+          actor_type?: string | null
+          actor_id?: string | null
+          payload?: Json
+          error_message?: string | null
+          error_stack?: string | null
+          duration_ms?: number | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
