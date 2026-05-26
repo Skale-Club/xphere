@@ -9,6 +9,30 @@ function db() { return createServiceRoleClient() as any }
 
 export const opportunitiesTools: McpToolDef[] = [
   {
+    name: 'opportunities_count',
+    title: 'Count opportunities',
+    description:
+      'Returns the total number of opportunities in the current org, optionally filtered by pipeline, stage or status. Use this to answer "how many deals/opportunities do I have".',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      pipeline_id: z.string().uuid().optional(),
+      stage_id: z.string().uuid().optional(),
+      status: z.enum(['open', 'won', 'lost']).optional(),
+    }).strict(),
+    handler: async ({ pipeline_id, stage_id, status }, { auth }) => {
+      let q = db()
+        .from('opportunities')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', auth.orgId)
+      if (pipeline_id) q = q.eq('pipeline_id', pipeline_id)
+      if (stage_id) q = q.eq('stage_id', stage_id)
+      if (status) q = q.eq('status', status)
+      const { count, error } = await q
+      if (error) return { error: 'count_failed', detail: error.message }
+      return { count: count ?? 0 }
+    },
+  },
+  {
     name: 'opportunities_list',
     title: 'List opportunities',
     description: 'List opportunities in the current org. Optionally filter by pipeline, stage or status.',

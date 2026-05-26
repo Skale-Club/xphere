@@ -9,6 +9,28 @@ function db() { return createServiceRoleClient() as any }
 
 export const conversationsTools: McpToolDef[] = [
   {
+    name: 'conversations_count',
+    title: 'Count conversations',
+    description:
+      'Returns the total number of conversations in the current org, optionally filtered by status or contact. Use this to answer "how many conversations do I have".',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      status: z.string().optional(),
+      contact_id: z.string().uuid().optional(),
+    }).strict(),
+    handler: async ({ status, contact_id }, { auth }) => {
+      let q = db()
+        .from('conversations')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', auth.orgId)
+      if (status) q = q.eq('status', status)
+      if (contact_id) q = q.eq('contact_id', contact_id)
+      const { count, error } = await q
+      if (error) return { error: 'count_failed', detail: error.message }
+      return { count: count ?? 0 }
+    },
+  },
+  {
     name: 'conversations_list',
     title: 'List conversations',
     description: 'List recent conversations. Optionally filter by status (e.g. open/closed).',

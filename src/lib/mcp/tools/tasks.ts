@@ -11,6 +11,32 @@ const EntityType = z.enum(['contact', 'opportunity', 'account'])
 
 export const tasksTools: McpToolDef[] = [
   {
+    name: 'tasks_count',
+    title: 'Count tasks',
+    description:
+      'Returns the total number of tasks in the current org, optionally filtered by entity, status or assignee. Use this to answer "how many tasks do I have".',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      entity_type: EntityType.optional(),
+      entity_id: z.string().uuid().optional(),
+      status: z.string().optional(),
+      assigned_to: z.string().uuid().optional(),
+    }).strict(),
+    handler: async ({ entity_type, entity_id, status, assigned_to }, { auth }) => {
+      let q = db()
+        .from('tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', auth.orgId)
+      if (entity_type) q = q.eq('entity_type', entity_type)
+      if (entity_id) q = q.eq('entity_id', entity_id)
+      if (status) q = q.eq('status', status)
+      if (assigned_to) q = q.eq('assigned_to', assigned_to)
+      const { count, error } = await q
+      if (error) return { error: 'count_failed', detail: error.message }
+      return { count: count ?? 0 }
+    },
+  },
+  {
     name: 'tasks_list',
     title: 'List tasks',
     description:
