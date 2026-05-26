@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { ContactForm } from './contact-form'
 import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
+import { MergeConflictPanel } from './merge-conflict-panel'
 import {
   getContact,
   updateContact,
@@ -166,15 +167,34 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                       {contact.account?.name ?? contact.company}
                     </p>
                   )}
-                  {contact.tagEntities.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {contact.tagEntities.map((t) => (
-                        <TagBadge key={t.id} name={t.name} color={t.color} />
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {/* Phase 5: channel_only badge */}
+                    {contact.identity_status === 'channel_only' && (
+                      <span className="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10.5px] font-medium text-sky-400">
+                        Channel Only
+                      </span>
+                    )}
+                    {contact.tagEntities.map((t) => (
+                      <TagBadge key={t.id} name={t.name} color={t.color} />
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              {/* Phase 6: merge conflict banner */}
+              {contact.identity_status === 'merge_conflict' && (
+                <div className="mt-3">
+                  <MergeConflictPanel
+                    contactId={contact.id}
+                    onMerged={(survivorId) => {
+                      onOpenChange(false)
+                      router.push(`/contacts?merged=${survivorId}`)
+                      router.refresh()
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="mt-4 flex items-center gap-1.5">
                 <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
                   <Pencil className="h-3.5 w-3.5" /> Edit
