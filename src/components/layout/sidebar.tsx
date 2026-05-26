@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import {
-  Building2,
   ChevronUp,
   LogOut,
   Settings,
@@ -251,22 +250,9 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/settings/workspace">
-                <Building2 className="h-4 w-4 mr-2" />
-                Workspace
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/settings">
                 <Settings className="h-4 w-4 mr-2" />
-                All settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/organizations">
-                <Settings className="h-4 w-4 mr-2" />
-                Manage Organizations
+                Settings
               </Link>
             </DropdownMenuItem>
             {isPlatformAdmin && (
@@ -275,7 +261,7 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/settings/platform">
                     <ShieldCheck className="h-4 w-4 mr-2" />
-                    Platform Settings
+                    Platform admin
                   </Link>
                 </DropdownMenuItem>
               </>
