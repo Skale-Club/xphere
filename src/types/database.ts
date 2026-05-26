@@ -2281,6 +2281,39 @@ export interface Database {
           }
         ]
       }
+      contact_verifications: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string
+          identifier_type: 'phone' | 'email'
+          identifier_value: string
+          method: 'manual' | 'sms_reply' | 'email_click' | 'oauth'
+          verified_at: string
+          verified_by: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id: string
+          identifier_type: 'phone' | 'email'
+          identifier_value: string
+          method?: 'manual' | 'sms_reply' | 'email_click' | 'oauth'
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          contact_id?: string
+          identifier_type?: 'phone' | 'email'
+          identifier_value?: string
+          method?: 'manual' | 'sms_reply' | 'email_click' | 'oauth'
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       opportunity_tags: {
         Row: {
           opportunity_id: string
