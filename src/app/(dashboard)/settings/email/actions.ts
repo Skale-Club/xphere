@@ -60,6 +60,9 @@ export async function saveTenantEmailIntegration(input: {
     .eq('org_id', orgId as string)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const svc = serviceSupabase as any
+
   if (existing) {
     const updatePayload: Record<string, unknown> = {
       default_from_name: input.defaultFromName || null,
@@ -73,14 +76,15 @@ export async function saveTenantEmailIntegration(input: {
       updatePayload.status = 'disconnected' // reset status when key changes
     }
 
-    const { error } = await serviceSupabase
+    const existingTyped = existing as { id: string }
+    const { error } = await svc
       .from('tenant_email_integrations')
       .update(updatePayload)
-      .eq('id', existing.id)
+      .eq('id', existingTyped.id)
 
     if (error) return { error: error.message }
   } else {
-    const { error } = await serviceSupabase.from('tenant_email_integrations').insert({
+    const { error } = await svc.from('tenant_email_integrations').insert({
       org_id: orgId as string,
       api_key_encrypted: apiKeyEncrypted ?? null,
       key_hint: keyHint ?? null,
@@ -110,11 +114,16 @@ export async function testTenantEmailConnection(): Promise<{ ok: boolean; error?
 
   const serviceSupabase = createServiceRoleClient()
 
-  const { data: integration } = await serviceSupabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const testSvc = serviceSupabase as any
+
+  const { data: integrationRaw } = await testSvc
     .from('tenant_email_integrations')
     .select('id, api_key_encrypted')
     .eq('org_id', orgId as string)
     .single()
+
+  const integration = integrationRaw as { id: string; api_key_encrypted: string | null } | null
 
   if (!integration?.api_key_encrypted) {
     return { ok: false, error: 'No API key saved. Save your settings first.' }
@@ -130,7 +139,7 @@ export async function testTenantEmailConnection(): Promise<{ ok: boolean; error?
   const result = await testResendApiKey(apiKey)
 
   // Update status and last_tested_at
-  await serviceSupabase
+  await testSvc
     .from('tenant_email_integrations')
     .update({
       status: result.ok ? 'connected' : 'error',

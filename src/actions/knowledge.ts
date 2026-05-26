@@ -7,17 +7,19 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import type { Database } from '@/types/database'
 
-async function getAuthedOrgId(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; orgId: string }> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getAuthedOrgId(): Promise<{ supabase: any; orgId: string }> {
   const user = await getUser()
   if (!user) redirect('/')
   const supabase = await createClient()
 
-  const { data: membership } = await supabase
+  const { data: membershipData } = await supabase
     .from('org_members')
     .select('organization_id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
+  const membership = membershipData as { organization_id: string } | null
   if (!membership) throw new Error('No organization found for user')
   return { supabase, orgId: membership.organization_id }
 }
@@ -25,7 +27,8 @@ async function getAuthedOrgId(): Promise<{ supabase: Awaited<ReturnType<typeof c
 /**
  * Count how many file-type sources exist for this org (source_type != 'url').
  */
-export async function getFileCount(orgId: string, supabase: Awaited<ReturnType<typeof createClient>>): Promise<number> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getFileCount(orgId: string, supabase: any): Promise<number> {
   const { count } = await supabase
     .from('knowledge_sources')
     .select('*', { count: 'exact', head: true })
@@ -38,7 +41,8 @@ export async function getFileCount(orgId: string, supabase: Awaited<ReturnType<t
 /**
  * Count how many URL-type sources exist for this org.
  */
-export async function getUrlCount(orgId: string, supabase: Awaited<ReturnType<typeof createClient>>): Promise<number> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getUrlCount(orgId: string, supabase: any): Promise<number> {
   const { count } = await supabase
     .from('knowledge_sources')
     .select('*', { count: 'exact', head: true })
@@ -139,6 +143,8 @@ export async function deleteDocument(sourceId: string): Promise<void> {
 
   if (!source) throw new Error('Knowledge source not found')
 
+  const sourceTyped = source as { source_url: string | null; source_type: string }
+
   // Delete row (CASCADE removes vector chunks from documents table)
   const { error: deleteError } = await supabase
     .from('knowledge_sources')
@@ -149,7 +155,7 @@ export async function deleteDocument(sourceId: string): Promise<void> {
   if (deleteError) throw new Error(deleteError.message)
 
   // Delete Storage file for non-URL sources
-  if (source.source_type !== 'url' && source.source_url) {
+  if (sourceTyped.source_type !== 'url' && sourceTyped.source_url) {
     const serviceClient = createServiceClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -157,7 +163,7 @@ export async function deleteDocument(sourceId: string): Promise<void> {
     )
     await serviceClient.storage
       .from('knowledge-docs')
-      .remove([source.source_url])
+      .remove([sourceTyped.source_url!])
   }
 }
 

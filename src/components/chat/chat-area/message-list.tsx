@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronDown, Info } from 'lucide-react'
+import { ChevronDown, Info, Mail } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -193,6 +193,12 @@ export function MessageList({
                           <div className="h-7 w-7 shrink-0" aria-hidden />
                         )}
                         <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle">
+                          {message.channel === 'email' && message.email_subject && (
+                            <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{message.email_subject}</span>
+                            </div>
+                          )}
                           {message.content}
                           {attachments.length > 0 && (
                             <div className="mt-1.5 space-y-1">
@@ -220,6 +226,12 @@ export function MessageList({
                     {/* bubble + avatar — centered */}
                     <div className="flex items-center justify-end gap-2">
                       <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
+                        {message.channel === 'email' && message.email_subject && (
+                          <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{message.email_subject}</span>
+                          </div>
+                        )}
                         {message.content}
                         {attachments.length > 0 && (
                           <div className="mt-1.5 space-y-1">

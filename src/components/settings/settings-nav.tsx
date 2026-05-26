@@ -7,6 +7,7 @@ import {
   Bell,
   CreditCard,
   KeyRound,
+  Mail,
   Palette,
   Phone,
   Plug2,
@@ -37,6 +38,7 @@ const items: NavItem[] = [
   { href: '/settings/billing', label: 'Billing', description: 'Plans & usage', icon: CreditCard, disabled: true },
   { href: '/settings/notifications', label: 'Notifications', description: 'Email & in-app', icon: Bell, disabled: true },
   { href: '/settings/api-keys', label: 'API Keys', description: 'Developer access', icon: KeyRound, disabled: true },
+  { href: '/settings/email', label: 'Email', description: 'Resend integration', icon: Mail },
   { href: '/settings/platform', label: 'Platform', description: 'Global admin', icon: ShieldCheck, adminOnly: true },
 ]
 

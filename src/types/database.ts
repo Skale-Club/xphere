@@ -3480,7 +3480,18 @@ export interface Database {
         Relationships: []
       }
       platform_email_settings: {
-        Row: PlatformEmailSettingsRow
+        Row: {
+          id: string
+          api_key_encrypted: string | null
+          default_from_name: string | null
+          default_from_email: string | null
+          default_reply_to: string | null
+          provider: string
+          is_active: boolean
+          last_tested_at: string | null
+          created_at: string
+          updated_at: string
+        }
         Insert: {
           id?: string
           api_key_encrypted?: string | null
@@ -3506,7 +3517,21 @@ export interface Database {
         Relationships: []
       }
       tenant_email_integrations: {
-        Row: TenantEmailIntegrationRow
+        Row: {
+          id: string
+          org_id: string
+          api_key_encrypted: string | null
+          key_hint: string | null
+          default_from_name: string | null
+          default_from_email: string | null
+          default_reply_to: string | null
+          provider: string
+          status: 'connected' | 'disconnected' | 'error'
+          last_tested_at: string | null
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
         Insert: {
           id?: string
           org_id: string
@@ -3516,7 +3541,7 @@ export interface Database {
           default_from_email?: string | null
           default_reply_to?: string | null
           provider?: string
-          status?: TenantEmailIntegrationStatus
+          status?: 'connected' | 'disconnected' | 'error'
           last_tested_at?: string | null
           last_error?: string | null
           created_at?: string
@@ -3529,7 +3554,7 @@ export interface Database {
           default_from_email?: string | null
           default_reply_to?: string | null
           provider?: string
-          status?: TenantEmailIntegrationStatus
+          status?: 'connected' | 'disconnected' | 'error'
           last_tested_at?: string | null
           last_error?: string | null
           updated_at?: string
@@ -3545,7 +3570,13 @@ export interface Database {
         ]
       }
       inbound_email_routes: {
-        Row: InboundEmailRouteRow
+        Row: {
+          id: string
+          org_id: string
+          route_address: string
+          is_active: boolean
+          created_at: string
+        }
         Insert: {
           id?: string
           org_id: string

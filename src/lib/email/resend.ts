@@ -24,11 +24,18 @@ export async function sendPlatformEmail(
 ): Promise<{ id?: string; error?: string }> {
   try {
     const supabase = createServiceRoleClient()
-    const { data: settings } = await supabase
+    const { data: settingsRaw } = await supabase
       .from('platform_email_settings')
       .select('api_key_encrypted, default_from_name, default_from_email, is_active')
       .eq('is_active', true)
       .single()
+
+    const settings = settingsRaw as {
+      api_key_encrypted: string | null
+      default_from_name: string | null
+      default_from_email: string | null
+      is_active: boolean
+    } | null
 
     if (!settings?.api_key_encrypted) {
       console.warn('[sendPlatformEmail] No active platform email settings found')
@@ -72,12 +79,20 @@ export async function sendTenantEmail(
 ): Promise<{ id?: string; error?: string }> {
   try {
     const supabase = createServiceRoleClient()
-    const { data: integration } = await supabase
+    const { data: integrationRaw } = await supabase
       .from('tenant_email_integrations')
       .select('api_key_encrypted, default_from_name, default_from_email, default_reply_to, status')
       .eq('org_id', orgId)
       .eq('status', 'connected')
       .single()
+
+    const integration = integrationRaw as {
+      api_key_encrypted: string | null
+      default_from_name: string | null
+      default_from_email: string | null
+      default_reply_to: string | null
+      status: string
+    } | null
 
     if (!integration?.api_key_encrypted) {
       console.warn(`[sendTenantEmail] No connected tenant email integration for org ${orgId}`)
