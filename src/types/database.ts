@@ -14,6 +14,47 @@ export type Json =
 
 export type UserRole = 'admin' | 'member'
 
+// Resend email system (migrations 1075–1078)
+export type EmailDeliveryStatus = 'delivered' | 'bounced' | 'complained' | 'failed'
+export type TenantEmailIntegrationStatus = 'connected' | 'disconnected' | 'error'
+
+export interface PlatformEmailSettingsRow {
+  id: string
+  api_key_encrypted: string | null
+  default_from_name: string | null
+  default_from_email: string | null
+  default_reply_to: string | null
+  provider: string
+  is_active: boolean
+  last_tested_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TenantEmailIntegrationRow {
+  id: string
+  org_id: string
+  api_key_encrypted: string | null
+  key_hint: string | null
+  default_from_name: string | null
+  default_from_email: string | null
+  default_reply_to: string | null
+  provider: string
+  status: TenantEmailIntegrationStatus
+  last_tested_at: string | null
+  last_error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface InboundEmailRouteRow {
+  id: string
+  org_id: string
+  route_address: string
+  is_active: boolean
+  created_at: string
+}
+
 export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'paused' | 'completed' | 'stopped'
@@ -438,7 +479,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend'
           name: string
           encrypted_api_key: string
           key_hint: string | null
@@ -456,7 +497,7 @@ export interface Database {
         Insert: {
           id?: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend'
           name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -581,7 +622,7 @@ export interface Database {
           organization_id: string
           integration_id: string | null
           tool_name: string
-          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note'
+          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -595,7 +636,7 @@ export interface Database {
           organization_id: string
           integration_id?: string | null
           tool_name: string
-          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note'
+          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
           config?: Json
           fallback_message: string
           is_active?: boolean
@@ -1598,6 +1639,12 @@ export interface Database {
           metadata: Record<string, unknown> | null
           message_type: string
           channel: string | null
+          email_subject: string | null
+          email_from: string | null
+          email_to: string | null
+          email_cc: string | null
+          email_message_id: string | null
+          email_delivery_status: string | null
         }
         Insert: {
           id?: string
@@ -1609,6 +1656,12 @@ export interface Database {
           metadata?: Record<string, unknown> | null
           message_type?: string
           channel?: string | null
+          email_subject?: string | null
+          email_from?: string | null
+          email_to?: string | null
+          email_cc?: string | null
+          email_message_id?: string | null
+          email_delivery_status?: string | null
         }
         Update: {
           role?: string
@@ -1616,6 +1669,12 @@ export interface Database {
           metadata?: Record<string, unknown> | null
           message_type?: string
           channel?: string | null
+          email_subject?: string | null
+          email_from?: string | null
+          email_to?: string | null
+          email_cc?: string | null
+          email_message_id?: string | null
+          email_delivery_status?: string | null
         }
         Relationships: [
           {
@@ -1657,6 +1716,13 @@ export interface Database {
           created_by: string | null
           created_at: string
           updated_at: string
+          /** Migration 1085: DND — true when any channel is blocked */
+          dnd_enabled: boolean
+          /** Migration 1085: DND — blocked channel keys, e.g. ['sms','email','all'] */
+          dnd_channels: string[]
+          dnd_note: string | null
+          dnd_set_at: string | null
+          dnd_set_by: string | null
         }
         Insert: {
           id?: string
@@ -1678,6 +1744,11 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          dnd_enabled?: boolean
+          dnd_channels?: string[]
+          dnd_note?: string | null
+          dnd_set_at?: string | null
+          dnd_set_by?: string | null
         }
         Update: {
           first_name?: string | null
@@ -1695,6 +1766,11 @@ export interface Database {
           external_id?: string | null
           account_id?: string | null
           updated_at?: string
+          dnd_enabled?: boolean
+          dnd_channels?: string[]
+          dnd_note?: string | null
+          dnd_set_at?: string | null
+          dnd_set_by?: string | null
         }
         Relationships: [
           {
@@ -3402,6 +3478,94 @@ export interface Database {
           updated_at?: string
         }
         Relationships: []
+      }
+      platform_email_settings: {
+        Row: PlatformEmailSettingsRow
+        Insert: {
+          id?: string
+          api_key_encrypted?: string | null
+          default_from_name?: string | null
+          default_from_email?: string | null
+          default_reply_to?: string | null
+          provider?: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          default_from_name?: string | null
+          default_from_email?: string | null
+          default_reply_to?: string | null
+          provider?: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tenant_email_integrations: {
+        Row: TenantEmailIntegrationRow
+        Insert: {
+          id?: string
+          org_id: string
+          api_key_encrypted?: string | null
+          key_hint?: string | null
+          default_from_name?: string | null
+          default_from_email?: string | null
+          default_reply_to?: string | null
+          provider?: string
+          status?: TenantEmailIntegrationStatus
+          last_tested_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          key_hint?: string | null
+          default_from_name?: string | null
+          default_from_email?: string | null
+          default_reply_to?: string | null
+          provider?: string
+          status?: TenantEmailIntegrationStatus
+          last_tested_at?: string | null
+          last_error?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tenant_email_integrations_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      inbound_email_routes: {
+        Row: InboundEmailRouteRow
+        Insert: {
+          id?: string
+          org_id: string
+          route_address: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          route_address?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'inbound_email_routes_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
       }
       google_business_profiles: {
         Row: {
@@ -5186,8 +5350,8 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note'
-      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram'
+      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
+      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend'
       // v2.0 (Phase 33) | agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
