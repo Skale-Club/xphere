@@ -88,6 +88,7 @@ import { displayContactName, initialsFromContactName } from '@/lib/contacts/name
 import { toast } from 'sonner'
 import { MergedBanner } from '@/components/contacts/merged-banner'
 import { IdentityStatusBadge } from '@/components/contacts/identity-status-badge'
+import { markContactVerified } from '@/app/(dashboard)/contacts/_actions/verify'
 import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
 
 export interface ContactInfoPanelProps {
@@ -488,13 +489,25 @@ export function ContactInfoPanel({
                 ))}
               </div>
             )}
-            {/* Phase 110 D-07a: identity status badge. Plan 03 will render
-                MarkVerifiedButton next to it inside this same flex container. */}
+            {/* Phase 110 D-07a + D-01a: identity status badge + Mark verified
+                action. MarkVerifiedButton is gated on identity_status='identified'
+                AND a present phone/email (Pitfall 2 — never rendered for
+                channel_only, merge_conflict, archived_duplicate, or verified). */}
             <div className="mt-2 flex items-center gap-2">
               <IdentityStatusBadge
                 status={contact.identity_status}
                 isVerified={contact.is_verified ?? false}
               />
+              {contact.identity_status === 'identified' &&
+                !contact.is_verified &&
+                (contact.phone || contact.email) && (
+                  <MarkVerifiedButton
+                    contactId={contact.id}
+                    identifierType={contact.phone ? 'phone' : 'email'}
+                    identifierValue={(contact.phone ?? contact.email)!}
+                    onMarked={refresh}
+                  />
+                )}
             </div>
           </div>
         </div>
@@ -1369,6 +1382,63 @@ function NoteQuickActionInline({
         Cancel
       </button>
     </div>
+  )
+}
+
+/**
+ * Phase 110 Plan 03 (D-01, D-01a, CID-14): one-click admin promotion of
+ * an 'identified' contact to 'verified'. Rendered only when
+ * identity_status === 'identified' (Pitfall 2 — never shown for
+ * channel_only / merge_conflict / archived_duplicate / verified).
+ *
+ * Caller picks identifierType: phone first (PROD priority), email fallback.
+ * Idempotent server-side via UNIQUE-23505 handling, so a fast double-click
+ * doesn't surface an error toast.
+ */
+function MarkVerifiedButton({
+  contactId,
+  identifierType,
+  identifierValue,
+  onMarked,
+}: {
+  contactId: string
+  identifierType: 'phone' | 'email'
+  identifierValue: string
+  onMarked: () => void
+}) {
+  const [saving, setSaving] = React.useState(false)
+  async function handleClick() {
+    if (saving) return
+    setSaving(true)
+    try {
+      const res = await markContactVerified({
+        contactId,
+        identifierType,
+        identifierValue,
+      })
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      toast.success('Contact verified')
+      onMarked()
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-6 gap-1 px-2 text-[11px]"
+      onClick={handleClick}
+      disabled={saving}
+      title="Mark this contact as verified"
+    >
+      <CheckCircle2 className="h-3 w-3" />
+      Mark verified
+    </Button>
   )
 }
 
