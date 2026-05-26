@@ -64,11 +64,11 @@
 5. `createContact` in `src/app/(dashboard)/contacts/actions.ts` switched from SELECT-then-INSERT to INSERT...ON CONFLICT DO UPDATE
 6. Webhook handlers (Meta, Vapi, ManyChat) verified to handle unique-violation gracefully (return existing contact)
 7. `npm run build` exits 0; full test suite passes
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 - [x] 107-01-PLAN.md — Author migration 1058 (partial UNIQUE indexes + audit guard) and apply to prod via apply-1058.mjs
 - [x] 107-02-PLAN.md — Add findByPhone/findByEmail helpers + refactor createContact for race-safe ON CONFLICT recovery (returns matched_via)
 - [x] 107-03-PLAN.md — Harden three webhook contact-creation paths (whatsapp/evolution/telegram) with 23505 recovery
-- [ ] 107-04-PLAN.md — Update three form callers (new-contact-dialog, new-contact-page-form, new-opportunity-dialog) for new return shape + D-04/D-04a toasts
+- [x] 107-04-PLAN.md — Update three form callers (new-contact-dialog, new-contact-page-form, new-opportunity-dialog) for new return shape + D-04/D-04a toasts
 - [ ] 107-05-PLAN.md — Author race test (tests/contacts-unique-constraint.test.ts) + final phase validation report
 
 ---
