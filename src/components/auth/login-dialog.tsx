@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
 import { Turnstile } from '@marsidev/react-turnstile'
 
@@ -273,7 +272,6 @@ function Step2SignInForm({
   onCaptchaInvalid,
   onError,
 }: Step2CommonProps & { onForgot: () => void }) {
-  const router = useRouter()
   const form = useForm<SignInPasswordValues>({
     resolver: zodResolver(passwordSchema),
     mode: 'onSubmit',
@@ -298,8 +296,6 @@ function Step2SignInForm({
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
-      router.refresh()
-      router.push('/dashboard')
     } catch {
       onError('Unable to connect. Check your internet connection and try again.')
     }
@@ -388,7 +384,6 @@ function Step2SignUpForm({
   onEmailSent,
   onError,
 }: Step2CommonProps & { onEmailSent: (email: string) => void }) {
-  const router = useRouter()
   const form = useForm<SignUpPasswordValues>({
     resolver: zodResolver(signUpPasswordSchema),
     mode: 'onSubmit',
@@ -418,10 +413,7 @@ function Step2SignUpForm({
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
-      if (result.hasSession) {
-        router.refresh()
-        router.push('/dashboard')
-      } else {
+      if (!result.hasSession) {
         onEmailSent(email)
       }
     } catch {
