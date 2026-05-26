@@ -171,6 +171,24 @@ export async function findByChannelIdentity(
  * Callers: lookup-first webhook handlers (whatsapp/evolution/telegram) and
  * the linkConversationsToContacts server action.
  */
+/**
+ * Count live contacts in the current org with identity_status='merge_conflict'.
+ *
+ * Used by /contacts list page to render the "Conflicts (N)" filter chip
+ * (Phase 110 D-08 / CID-15). RLS auto-scopes to the active org so no manual
+ * org_id filter is required. Returns 0 when no rows match (chip renders
+ * disabled with opacity-50 in that case, per Open Question 1).
+ */
+export async function getConflictCount(
+  supabase: SupabaseClient<Database>,
+): Promise<number> {
+  const { count } = await supabase
+    .from('contacts')
+    .select('id', { count: 'exact', head: true })
+    .eq('identity_status', 'merge_conflict')
+  return count ?? 0
+}
+
 export async function attachChannelIdentity(
   supabase: SupabaseClient<Database>,
   orgId: string,
@@ -199,4 +217,25 @@ export async function attachChannelIdentity(
     .eq('external_id', externalId)
     .maybeSingle()
   return data ? { contact_id: data.contact_id } : null
+}
+
+/**
+ * Phase 110 (CID-14): returns true if at least one row exists in
+ * `contact_verifications` for the given contact. Used by `getContact` to
+ * derive the `is_verified` boolean for the IdentityStatusBadge sub-state.
+ *
+ * Pitfall 7: single-contact scope only. DO NOT call this per-row from the
+ * /contacts list page — it's an O(N) fanout. List pages render plain
+ * `identity_status` without the verified sub-state.
+ */
+export async function hasVerifications(
+  supabase: SupabaseClient<Database>,
+  contactId: string,
+): Promise<boolean> {
+  const { count } = await supabase
+    .from('contact_verifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('contact_id', contactId)
+    .limit(1)
+  return (count ?? 0) > 0
 }

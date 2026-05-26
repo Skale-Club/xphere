@@ -30,6 +30,7 @@ import {
   type ContactFormInput,
   type ContactListFilters,
 } from '@/lib/contacts/zod-schemas'
+import { isBlockedEmail } from '@/lib/contacts/blocked-emails'
 import {
   parseCsv,
   suggestColumnMapping,
@@ -39,7 +40,7 @@ import {
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { validateCustomFields } from '@/lib/custom-fields'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
-import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity } from '@/lib/contacts/server'
+import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity, hasVerifications } from '@/lib/contacts/server'
 
 /**
  * Phase 108 D-04: maps conversations.channel enum values to the corresponding
@@ -144,6 +145,7 @@ export async function getContacts(
     }
   }
   if (f.source) query = query.eq('source', f.source)
+  if (f.identity_status) query = query.eq('identity_status', f.identity_status)
 
   // Custom field exact-match filters (CF-09)
   for (const [key, rawValue] of Object.entries(cfFilters)) {
@@ -263,6 +265,13 @@ export interface ContactDetail extends ContactRow {
     website: string | null
     address: string | null
   } | null
+  /**
+   * Phase 110 (CID-14): true when at least one row exists in
+   * `contact_verifications` for this contact. Used by IdentityStatusBadge
+   * to derive the 'identified' → 'verified' effective sub-state.
+   * Pitfall 7: single-contact only — not populated on list/CSV paths.
+   */
+  is_verified: boolean
 }
 
 export async function getContact(id: string): Promise<ContactDetail | null> {
@@ -329,6 +338,10 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     getDefinitions({ entity: 'contact', includeArchived: false }),
   ])
   if (!contact) return null
+
+  // Phase 110 (CID-14): derive is_verified for the IdentityStatusBadge.
+  // Runs as a small EXISTS query — single-contact scope only (Pitfall 7).
+  const is_verified = await hasVerifications(supabase, id)
 
   // Fetch opportunities via junction table + backward-compatible contact_id
   const linkedOppIds = (oppLinks ?? []).map((r) => r.opportunity_id)
@@ -405,6 +418,7 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     contact_notes: (notes ?? []) as ContactDetail['contact_notes'],
     customFieldDefs,
     account,
+    is_verified,
   }
 }
 
@@ -440,7 +454,14 @@ export async function createContact(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid contact data' }
   }
-  const data = normaliseContactInput(parsed.data)
+  let data = normaliseContactInput(parsed.data)
+  // D-04a (Phase 110-02): defense in depth. Zod already rejects placeholder
+  // emails at the form layer; this guards programmatic callers that bypass
+  // the schema. Silently null out so the contact still creates via phone
+  // (Phase 109 invariant: phone OR email OR channel identity).
+  if (data.email && isBlockedEmail(data.email)) {
+    data = { ...data, email: null }
+  }
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
