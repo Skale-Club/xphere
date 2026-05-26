@@ -1635,6 +1635,7 @@ export interface Database {
           email: string | null
           email_normalized: string | null
           identity_status: ContactIdentityStatus
+          merged_into_contact_id: string | null
           company: string | null
           notes: string | null
           tags: string[]
@@ -1655,6 +1656,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           identity_status?: ContactIdentityStatus
+          merged_into_contact_id?: string | null
           company?: string | null
           notes?: string | null
           tags?: string[]
@@ -1673,6 +1675,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           identity_status?: ContactIdentityStatus
+          merged_into_contact_id?: string | null
           company?: string | null
           notes?: string | null
           tags?: string[]
@@ -1695,6 +1698,13 @@ export interface Database {
             columns: ['account_id']
             isOneToOne: false
             referencedRelation: 'accounts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contacts_merged_into_contact_id_fkey'
+            columns: ['merged_into_contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
             referencedColumns: ['id']
           }
         ]
@@ -1731,6 +1741,113 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      contact_merge_exclusions: {
+        Row: {
+          org_id: string
+          contact_id_a: string
+          contact_id_b: string
+          excluded_by: string | null
+          excluded_at: string
+          reason: string | null
+        }
+        Insert: {
+          org_id: string
+          contact_id_a: string
+          contact_id_b: string
+          excluded_by?: string | null
+          excluded_at?: string
+          reason?: string | null
+        }
+        Update: {
+          excluded_by?: string | null
+          excluded_at?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contact_merge_exclusions_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contact_merge_exclusions_contact_id_a_fkey'
+            columns: ['contact_id_a']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contact_merge_exclusions_contact_id_b_fkey'
+            columns: ['contact_id_b']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contact_merge_exclusions_excluded_by_fkey'
+            columns: ['excluded_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      contact_merge_log: {
+        Row: {
+          id: string
+          org_id: string
+          survivor_id: string
+          archived_id: string
+          merged_by: string | null
+          merged_at: string
+          strategy: 'manual' | 'auto' | 'import-dedup'
+          cluster_id: string | null
+          affected_rows: Json | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          survivor_id: string
+          archived_id: string
+          merged_by?: string | null
+          merged_at?: string
+          strategy: 'manual' | 'auto' | 'import-dedup'
+          cluster_id?: string | null
+          affected_rows?: Json | null
+        }
+        Update: {
+          merged_by?: string | null
+          merged_at?: string
+          strategy?: 'manual' | 'auto' | 'import-dedup'
+          cluster_id?: string | null
+          affected_rows?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contact_merge_log_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contact_merge_log_cluster_id_fkey'
+            columns: ['cluster_id']
+            isOneToOne: false
+            referencedRelation: 'contact_duplicate_audit'
+            referencedColumns: ['cluster_id']
+          },
+          {
+            foreignKeyName: 'contact_merge_log_merged_by_fkey'
+            columns: ['merged_by']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           }
         ]
@@ -4881,9 +4998,23 @@ export interface Database {
     }
     Views: Record<string, never>
     Functions: {
+      _is_cluster_fully_excluded: {
+        Args: {
+          p_org_id: string
+          p_contact_ids: string[]
+        }
+        Returns: boolean
+      }
       get_current_org_id: {
         Args: Record<string, never>
         Returns: string | null
+      }
+      merge_contacts: {
+        Args: {
+          survivor_id: string
+          archived_id: string
+        }
+        Returns: undefined
       }
       get_org_member_profiles: {
         Args: {
