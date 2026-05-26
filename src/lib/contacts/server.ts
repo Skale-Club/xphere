@@ -1,5 +1,8 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 import { createClient } from '@/lib/supabase/server'
+import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 
 /**
  * Identity-aware contact id resolution.
@@ -32,4 +35,62 @@ export async function resolveLiveContactId(contactId: string): Promise<string> {
     return resolveLiveContactId(data.merged_into_contact_id)
   }
   return contactId
+}
+
+/**
+ * Look up a live contact by phone within an org (Phase 107 CID-07).
+ *
+ * Normalises the input via `normalisePhone` so callers can pass raw form
+ * values. Filters out `archived_duplicate` rows so the lookup matches the
+ * partial UNIQUE index predicate on `(org_id, phone_e164)` (see migration
+ * 1059_contacts_unique_constraints.sql).
+ *
+ * Pass an authenticated Supabase client; RLS still applies. The `orgId`
+ * argument is required because server actions already hold it and we avoid
+ * the round-trip; webhook handlers usually look it up first.
+ *
+ * Returns `null` if the phone normalises to null or no live contact matches.
+ */
+export async function findByPhone(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  phone: string | null | undefined,
+): Promise<{ id: string } | null> {
+  const normalized = normalisePhone(phone ?? null)
+  if (!normalized) return null
+  const { data } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('phone_e164', normalized)
+    .neq('identity_status', 'archived_duplicate')
+    .maybeSingle()
+  return data ?? null
+}
+
+/**
+ * Look up a live contact by email within an org (Phase 107 CID-08).
+ *
+ * Mirror of {@link findByPhone} for the `email_normalized` partial index.
+ * Normalises via `normaliseEmail` (lower + trim). Filters out
+ * `archived_duplicate` to match the partial UNIQUE index predicate on
+ * `(org_id, email_normalized)`.
+ *
+ * Returns `null` if the email normalises to null or no live contact matches.
+ */
+export async function findByEmail(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  email: string | null | undefined,
+): Promise<{ id: string } | null> {
+  const normalized = normaliseEmail(email ?? null)
+  if (!normalized) return null
+  const { data } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('email_normalized', normalized)
+    .neq('identity_status', 'archived_duplicate')
+    .maybeSingle()
+  return data ?? null
 }
