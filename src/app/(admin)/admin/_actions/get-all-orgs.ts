@@ -16,7 +16,8 @@ export type OrgRow = {
 }
 
 export async function getAllOrgs(): Promise<OrgRow[]> {
-  const admin = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createServiceRoleClient() as any
 
   const { data: orgs, error } = await admin
     .from('organizations')
@@ -26,7 +27,7 @@ export async function getAllOrgs(): Promise<OrgRow[]> {
   if (error) throw new Error(`Failed to load organizations: ${error.message}`)
 
   const withMetrics = await Promise.all(
-    orgs.map(async (org) => {
+    (orgs as { id: string; name: string; slug: string; created_at: string; is_active: boolean; settings: unknown }[]).map(async (org) => {
       const [members, contacts, calls, conversations] = await Promise.all([
         admin.from('org_members').select('*', { count: 'exact', head: true }).eq('organization_id', org.id),
         admin.from('contacts').select('*', { count: 'exact', head: true }).eq('org_id', org.id),
@@ -36,10 +37,10 @@ export async function getAllOrgs(): Promise<OrgRow[]> {
       return {
         ...org,
         settings: (org.settings as Record<string, unknown>) ?? {},
-        members_count: members.count ?? 0,
-        contacts_count: contacts.count ?? 0,
-        calls_count: calls.count ?? 0,
-        conversations_count: conversations.count ?? 0,
+        members_count: (members as { count: number | null }).count ?? 0,
+        contacts_count: (contacts as { count: number | null }).count ?? 0,
+        calls_count: (calls as { count: number | null }).count ?? 0,
+        conversations_count: (conversations as { count: number | null }).count ?? 0,
       }
     })
   )
