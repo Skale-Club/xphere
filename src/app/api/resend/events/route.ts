@@ -77,8 +77,10 @@ export async function POST(request: Request) {
     }
 
     const supabase = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any
 
-    const { error } = await supabase
+    const { error } = await db
       .from('conversation_messages')
       .update({ email_delivery_status: newStatus })
       .eq('email_message_id', emailId)

@@ -47,7 +47,7 @@ export async function GET(
 
   let query = supabase
     .from('conversation_messages')
-    .select('id, conversation_id, org_id, role, content, created_at, metadata, channel')
+    .select('id, conversation_id, org_id, role, content, created_at, metadata, channel, email_subject, email_from, email_to, email_cc, email_message_id, email_delivery_status')
     .eq('conversation_id', id)
     .order('created_at', { ascending: false })
     .limit(limit + 1)  // fetch one extra to determine hasMore
@@ -72,15 +72,32 @@ export async function GET(
   const hasMore = rows.length > limit
   const sliced = rows.slice(0, limit)
 
-  const messages: ConversationMessage[] = sliced.reverse().map((row) => ({
-    id: row.id,
-    conversationId: row.conversation_id,
-    role: row.role,
-    content: row.content,
-    createdAt: row.created_at,
-    metadata: row.metadata as Record<string, unknown> | null,
-    channel: (row as { channel?: string | null }).channel ?? null,
-  }))
+  const messages: ConversationMessage[] = sliced.reverse().map((row) => {
+    const r = row as typeof row & {
+      channel?: string | null
+      email_subject?: string | null
+      email_from?: string | null
+      email_to?: string | null
+      email_cc?: string | null
+      email_message_id?: string | null
+      email_delivery_status?: string | null
+    }
+    return {
+      id: r.id,
+      conversationId: r.conversation_id,
+      role: r.role,
+      content: r.content,
+      createdAt: r.created_at,
+      metadata: r.metadata as Record<string, unknown> | null,
+      channel: r.channel ?? null,
+      email_subject: r.email_subject ?? null,
+      email_from: r.email_from ?? null,
+      email_to: r.email_to ?? null,
+      email_cc: r.email_cc ?? null,
+      email_message_id: r.email_message_id ?? null,
+      email_delivery_status: r.email_delivery_status ?? null,
+    }
+  })
 
   return Response.json({ messages, hasMore })
 }

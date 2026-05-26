@@ -43,27 +43,28 @@ export async function setContactDnd(input: SetDndInput): Promise<DndActionResult
 
   const supabase = await createClient()
 
-  const update = enabled
-    ? {
-        dnd_enabled: true,
-        dnd_channels: channels as string[],
-        dnd_note: note?.trim() || null,
-        dnd_set_at: new Date().toISOString(),
-        dnd_set_by: user.id,
-      }
-    : {
-        dnd_enabled: false,
-        dnd_channels: [] as string[],
-        dnd_note: null as string | null,
-        dnd_set_at: null as string | null,
-        dnd_set_by: null as string | null,
-      }
-
-  const { error } = await supabase.from('contacts').update(update).eq('id', contactId)
-  if (error) return { ok: false, error: error.message }
+  if (enabled) {
+    const { error } = await supabase.from('contacts').update({
+      dnd_enabled: true,
+      dnd_channels: channels as string[],
+      dnd_note: note?.trim() || null,
+      dnd_set_at: new Date().toISOString(),
+      dnd_set_by: user.id,
+    }).eq('id', contactId)
+    if (error) return { ok: false, error: error.message }
+  } else {
+    const { error } = await supabase.from('contacts').update({
+      dnd_enabled: false,
+      dnd_channels: [],
+      dnd_note: null,
+      dnd_set_at: null,
+      dnd_set_by: null,
+    }).eq('id', contactId)
+    if (error) return { ok: false, error: error.message }
+  }
 
   revalidatePath('/contacts')
-  revalidatePath(`/chat`)
+  revalidatePath('/chat')
 
   return { ok: true }
 }

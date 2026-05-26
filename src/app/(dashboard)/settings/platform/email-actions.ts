@@ -28,12 +28,14 @@ export async function getPlatformEmailSettings(): Promise<{
     return { settings: null, error: 'Unauthorized' }
   }
 
-  const supabase = createServiceRoleClient()
-  const { data } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
+  const { data: dataRaw } = await supabase
     .from('platform_email_settings')
     .select('id, default_from_name, default_from_email, default_reply_to, provider, is_active, last_tested_at, created_at, updated_at, api_key_encrypted')
     .single()
 
+  const data = dataRaw as PlatformEmailSettingsRow | null
   if (!data) return { settings: null }
 
   // Don't expose the encrypted key — compute a hint from it
@@ -67,12 +69,15 @@ export async function savePlatformEmailSettings(input: {
     return { error: 'Unauthorized' }
   }
 
-  const supabase = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
 
-  const { data: existing } = await supabase
+  const { data: existingRaw } = await supabase
     .from('platform_email_settings')
     .select('id, api_key_encrypted')
     .single()
+
+  const existing = existingRaw as { id: string; api_key_encrypted: string | null } | null
 
   let apiKeyEncrypted: string | undefined
   if (input.apiKey?.trim()) {
@@ -120,11 +125,14 @@ export async function testPlatformEmailConnection(): Promise<{ ok: boolean; erro
     return { ok: false, error: 'Unauthorized' }
   }
 
-  const supabase = createServiceRoleClient()
-  const { data: settings } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
+  const { data: settingsRaw } = await supabase
     .from('platform_email_settings')
     .select('id, api_key_encrypted')
     .single()
+
+  const settings = settingsRaw as { id: string; api_key_encrypted: string | null } | null
 
   if (!settings?.api_key_encrypted) {
     return { ok: false, error: 'No API key configured. Save settings first.' }

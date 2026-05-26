@@ -77,6 +77,7 @@ export function ContactDndSection({
       dnd_note: initialDnd.dnd_note,
     })
     setNoteInput(initialDnd.dnd_note ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDnd?.dnd_enabled, initialDnd?.dnd_channels?.join(','), initialDnd?.dnd_note])
 
   function optimisticUpdate(next: DndState) {

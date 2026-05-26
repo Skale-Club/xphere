@@ -78,15 +78,19 @@ export async function POST(request: Request) {
     }
 
     const supabase = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any
 
     // 1. Find org from inbound_email_routes by `to` address
     const toNormalized = to.toLowerCase().trim()
-    const { data: route } = await supabase
+    const { data: routeRaw } = await db
       .from('inbound_email_routes')
       .select('org_id')
       .eq('route_address', toNormalized)
       .eq('is_active', true)
       .single()
+
+    const route = routeRaw as { org_id: string } | null
 
     if (!route) {
       // No route registered for this address — ignore silently
@@ -99,37 +103,39 @@ export async function POST(request: Request) {
     const fromEmail = from.replace(/^.*<(.+)>$/, '$1').toLowerCase().trim()
     let contactId: string | null = null
 
-    const { data: existingContact } = await supabase
+    const { data: existingContactRaw } = await db
       .from('contacts')
       .select('id')
       .eq('org_id', orgId)
       .eq('email_normalized', fromEmail)
       .single()
 
+    const existingContact = existingContactRaw as { id: string } | null
+
     if (existingContact) {
       contactId = existingContact.id
     } else {
       // Create a minimal contact from the from address
       const fromName = from.includes('<') ? from.replace(/<.*>/, '').trim() : fromEmail
-      const { data: newContact } = await supabase
+      const { data: newContactRaw } = await db
         .from('contacts')
         .insert({
           org_id: orgId,
           email: from,
           email_normalized: fromEmail,
           name: fromName || null,
-          source: 'manual' as const,
+          source: 'manual',
         })
         .select('id')
         .single()
 
-      contactId = newContact?.id ?? null
+      contactId = (newContactRaw as { id: string } | null)?.id ?? null
     }
 
     // 3. Find or create conversation thread (channel='email', contact_id)
     let conversationId: string
 
-    const { data: existingConversation } = await supabase
+    const { data: existingConversationRaw } = await db
       .from('conversations')
       .select('id')
       .eq('org_id', orgId)
@@ -140,11 +146,13 @@ export async function POST(request: Request) {
       .limit(1)
       .single()
 
+    const existingConversation = existingConversationRaw as { id: string } | null
+
     if (existingConversation) {
       conversationId = existingConversation.id
     } else {
       // Create a new email conversation
-      const { data: newConversation } = await supabase
+      const { data: newConversationRaw } = await db
         .from('conversations')
         .insert({
           org_id: orgId,
@@ -161,6 +169,8 @@ export async function POST(request: Request) {
         .select('id')
         .single()
 
+      const newConversation = newConversationRaw as { id: string } | null
+
       if (!newConversation) {
         console.error('[resend/inbound] Failed to create conversation for org', orgId)
         return Response.json({ ok: true })
@@ -170,7 +180,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Insert conversation message with email fields
-    await supabase.from('conversation_messages').insert({
+    await db.from('conversation_messages').insert({
       org_id: orgId,
       conversation_id: conversationId,
       role: 'user',
@@ -185,7 +195,7 @@ export async function POST(request: Request) {
     })
 
     // 5. Update conversation last_message
-    await supabase
+    await db
       .from('conversations')
       .update({
         last_message: subject,

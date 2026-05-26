@@ -58,6 +58,8 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   pipeline_create_opportunity: 'Pipeline: Create Opportunity',
   create_task: 'Create Task',
   create_note: 'Create Note',
+  send_tenant_email: 'Email: Send (Tenant)',
+  send_platform_email: 'Email: Send (Platform)',
 }
 
 function buildPageUrl(
