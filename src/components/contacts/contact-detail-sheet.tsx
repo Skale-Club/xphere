@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/button'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { ContactForm } from './contact-form'
 import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
-import { MergeConflictPanel } from './merge-conflict-panel'
 import {
   getContact,
   updateContact,
@@ -43,6 +42,8 @@ import {
 } from '@/app/(dashboard)/contacts/actions'
 import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
+import { DndBadge } from '@/components/contacts/dnd-badge'
+import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 
 interface ContactDetailSheetProps {
   contactId: string | null
@@ -159,42 +160,24 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <DialogTitle className="text-[18px] truncate">
-                    {displayContactName(contact)}
+                  <DialogTitle className="flex items-center gap-2 text-[18px] truncate">
+                    <span className="truncate">{displayContactName(contact)}</span>
+                    <DndBadge dndEnabled={Boolean(contact.dnd_enabled)} dndChannels={contact.dnd_channels ?? []} iconOnly={false} />
                   </DialogTitle>
                   {(contact.account?.name ?? contact.company) && (
                     <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">
                       {contact.account?.name ?? contact.company}
                     </p>
                   )}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {/* Phase 5: channel_only badge */}
-                    {contact.identity_status === 'channel_only' && (
-                      <span className="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10.5px] font-medium text-sky-400">
-                        Channel Only
-                      </span>
-                    )}
-                    {contact.tagEntities.map((t) => (
-                      <TagBadge key={t.id} name={t.name} color={t.color} />
-                    ))}
-                  </div>
+                  {contact.tagEntities.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {contact.tagEntities.map((t) => (
+                        <TagBadge key={t.id} name={t.name} color={t.color} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Phase 6: merge conflict banner */}
-              {contact.identity_status === 'merge_conflict' && (
-                <div className="mt-3">
-                  <MergeConflictPanel
-                    contactId={contact.id}
-                    onMerged={(survivorId) => {
-                      onOpenChange(false)
-                      router.push(`/contacts?merged=${survivorId}`)
-                      router.refresh()
-                    }}
-                  />
-                </div>
-              )}
-
               <div className="mt-4 flex items-center gap-1.5">
                 <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
                   <Pencil className="h-3.5 w-3.5" /> Edit
@@ -262,6 +245,14 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   <CustomFieldsDisplay
                     entity="contact"
                     customFields={contact.custom_fields as Record<string, unknown>}
+                  />
+                  <ContactDndSection
+                    contactId={contact.id}
+                    initialDnd={{
+                      dnd_enabled: Boolean(contact.dnd_enabled),
+                      dnd_channels: contact.dnd_channels ?? [],
+                      dnd_note: contact.dnd_note ?? null,
+                    }}
                   />
                 </TabsContent>
 

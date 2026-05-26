@@ -58,6 +58,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import { DndBadge } from '@/components/contacts/dnd-badge'
 
 interface ChatHeaderProps {
   conversation: ConversationSummary
@@ -91,6 +92,9 @@ interface ChatHeaderProps {
   /** Show/hide internal debug messages */
   showDebug?: boolean
   onToggleDebug?: () => void
+  /** Phase 1085 DND: show DndBadge in header when contact has DND active. */
+  dndEnabled?: boolean
+  dndChannels?: string[]
 }
 
 export function ChatHeader({
@@ -115,6 +119,8 @@ export function ChatHeader({
   onChannelFilterChange: _onChannelFilterChange,
   showDebug = false,
   onToggleDebug,
+  dndEnabled = false,
+  dndChannels = [],
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
   const name = conversation.contactName || conversation.visitorName || conversation.visitorPhone || conversation.visitorEmail || 'Anonymous'
@@ -166,6 +172,7 @@ export function ChatHeader({
             <span className="truncate text-[14px] font-semibold tracking-tight text-text-primary">
               {name}
             </span>
+            <DndBadge dndEnabled={dndEnabled} dndChannels={dndChannels} />
           </div>
           {subtitle && (
             <span className="truncate text-[11.5px] text-text-tertiary">
