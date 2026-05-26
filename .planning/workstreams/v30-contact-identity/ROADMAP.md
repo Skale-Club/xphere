@@ -88,8 +88,8 @@
 6. `contacts.source` deprecated comment added; old column retained for now
 7. Type regen handled
 
-**Plans:** 5 plans
-- [ ] 108-01-PLAN.md — Author migration 1060 (table+UNIQUE+CHECK+RLS+backfill+source deprecation) and apply to prod via apply-1060.mjs with 5 SQL probes
+**Plans:** 1/5 plans executed
+- [x] 108-01-PLAN.md — Author migration 1060 (table+UNIQUE+CHECK+RLS+backfill+source deprecation) and apply to prod via apply-1060.mjs with 5 SQL probes
 - [ ] 108-02-PLAN.md — Manual patch src/types/database.ts: ChannelProvider type + contact_channel_identities Tables entry; npm run build green
 - [ ] 108-03-PLAN.md — Add findByChannelIdentity + attachChannelIdentity helpers to src/lib/contacts/server.ts (mirror Phase 107 helper conventions)
 - [ ] 108-04-PLAN.md — Retrofit 3 webhooks (whatsapp/evolution/telegram) lookup-first + identity attach + linkConversationsToContacts at contacts/actions.ts:1020 (D-04 corrected target)
