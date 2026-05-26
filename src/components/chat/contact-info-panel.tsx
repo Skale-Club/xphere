@@ -86,6 +86,8 @@ import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { toast } from 'sonner'
+import { MergedBanner } from '@/components/contacts/merged-banner'
+import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
 
 export interface ContactInfoPanelProps {
   contactId: string | null
@@ -208,6 +210,27 @@ export function ContactInfoPanel({
   const [defaultPipeline, setDefaultPipeline] = React.useState<{ id: string } | null>(null)
   const [hasCalendars, setHasCalendars] = React.useState(false)
   const [dealDialogOpen, setDealDialogOpen] = React.useState(false)
+  const [survivorName, setSurvivorName] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (
+      contact?.identity_status === 'archived_duplicate' &&
+      contact?.merged_into_contact_id
+    ) {
+      let cancelled = false
+      getSurvivorDisplayName(contact.merged_into_contact_id)
+        .then((name) => {
+          if (!cancelled) setSurvivorName(name)
+        })
+        .catch(() => {
+          if (!cancelled) setSurvivorName(null)
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+    setSurvivorName(null)
+  }, [contact?.identity_status, contact?.merged_into_contact_id])
 
   React.useEffect(() => {
     if (!contactId) {
@@ -314,11 +337,71 @@ export function ContactInfoPanel({
 
   if (loading && !contact) {
     return (
-      <div className="flex h-full flex-col border-l border-border-subtle bg-bg-secondary/40 p-5 pt-safe pb-safe">
-        <div className="space-y-3 animate-pulse">
-          <div className="h-14 w-14 rounded-full bg-bg-tertiary" />
-          <div className="h-4 w-2/3 rounded bg-bg-tertiary" />
-          <div className="h-3 w-1/2 rounded bg-bg-tertiary" />
+      <div className="flex h-full flex-col border-l border-border-subtle bg-bg-secondary/40 pt-safe pb-safe animate-pulse">
+        {/* Header skeleton */}
+        <div className="border-b border-border-subtle px-5 py-5">
+          <div className="flex items-start gap-3">
+            <div className="h-14 w-14 rounded-full bg-bg-tertiary shrink-0" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-3/4 rounded bg-bg-tertiary" />
+              <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
+              <div className="h-3 w-1/3 rounded bg-bg-tertiary" />
+            </div>
+          </div>
+
+          {/* CREATE divider */}
+          <div className="mt-4 flex items-center gap-2">
+            <div className="h-px flex-1 bg-border-subtle" />
+            <div className="h-2 w-10 rounded bg-bg-tertiary" />
+            <div className="h-px flex-1 bg-border-subtle" />
+          </div>
+
+          {/* Quick-action buttons */}
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            <div className="h-14 rounded-md bg-bg-tertiary" />
+            <div className="h-14 rounded-md bg-bg-tertiary" />
+            <div className="h-14 rounded-md bg-bg-tertiary" />
+            <div className="h-14 rounded-md bg-bg-tertiary" />
+          </div>
+        </div>
+
+        {/* Scrollable sections skeleton */}
+        <div className="min-h-0 flex-1 overflow-hidden bg-[#141416]">
+          <div className="px-5 py-5 space-y-5">
+            {/* Info section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded-sm bg-bg-tertiary" />
+                  <div className="h-2.5 w-8 rounded bg-bg-tertiary" />
+                </div>
+                <div className="h-2.5 w-6 rounded bg-bg-tertiary" />
+              </div>
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div className="h-7 w-7 shrink-0 rounded-md bg-bg-tertiary" />
+                    <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                      <div className="h-2 w-10 rounded bg-bg-tertiary" />
+                      <div className="h-3.5 w-2/3 rounded bg-bg-tertiary" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tasks section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded-sm bg-bg-tertiary" />
+                  <div className="h-2.5 w-16 rounded bg-bg-tertiary" />
+                </div>
+                <div className="h-2.5 w-8 rounded bg-bg-tertiary" />
+              </div>
+              <div className="h-10 rounded-lg bg-bg-tertiary" />
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -468,18 +551,16 @@ export function ContactInfoPanel({
 
       <ScrollArea className="min-h-0 flex-1 bg-[#141416]">
         <div className="px-5 py-5 space-y-4">
+          {contact.identity_status === 'archived_duplicate' && contact.merged_into_contact_id && (
+            <MergedBanner
+              survivorId={contact.merged_into_contact_id}
+              survivorName={survivorName}
+            />
+          )}
           {/* ── Info ── */}
           <Section
             title="Info"
             defaultOpen
-            actions={
-              <Link
-                href={`/contacts?id=${contact.id}`}
-                className="text-[10px] text-text-tertiary hover:text-text-secondary"
-              >
-                <Pencil className="h-3 w-3 inline" /> Edit
-              </Link>
-            }
           >
             <InlineRow icon={Phone} label="Phone">
               <InlineEditField
@@ -1080,7 +1161,7 @@ function InlineRow({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
         <Icon className="h-3 w-3" />
       </div>
       <div className="min-w-0 flex-1">
@@ -1102,7 +1183,7 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-bg-tertiary ring-1 ring-border-subtle text-text-tertiary">
         <Icon className="h-3 w-3" />
       </div>
       <div className="min-w-0 flex-1">
