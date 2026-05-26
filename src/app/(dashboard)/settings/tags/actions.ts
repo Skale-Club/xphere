@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/
 
@@ -144,16 +145,17 @@ export async function setContactTags(
   const user = await getUser()
   if (!user) return { ok: false, error: 'Not authenticated' }
   const supabase = await createClient()
+  const liveContactId = await resolveLiveContactId(contactId)
 
   const { error: delErr } = await supabase
     .from('contact_tags')
     .delete()
-    .eq('contact_id', contactId)
+    .eq('contact_id', liveContactId)
   if (delErr) return { ok: false, error: delErr.message }
 
   if (tagIds.length > 0) {
     const { error: insErr } = await supabase.from('contact_tags').insert(
-      tagIds.map((tag_id) => ({ contact_id: contactId, tag_id, tagged_by: user.id })),
+      tagIds.map((tag_id) => ({ contact_id: liveContactId, tag_id, tagged_by: user.id })),
     )
     if (insErr) return { ok: false, error: insErr.message }
   }

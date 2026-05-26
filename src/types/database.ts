@@ -5016,6 +5016,10 @@ export interface Database {
         }
         Returns: undefined
       }
+      refresh_contact_duplicate_audit: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
       get_org_member_profiles: {
         Args: {
           p_org_id: string

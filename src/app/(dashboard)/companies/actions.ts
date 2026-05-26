@@ -54,6 +54,7 @@ import {
   type AccountCsvField,
 } from "@/lib/accounts/csv";
 import { validateCustomFields } from "@/lib/custom-fields";
+import { resolveLiveContactId } from "@/lib/contacts/server";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -593,12 +594,13 @@ export async function linkContactToAccount(
   const { contactId, accountId } = parsed.data;
 
   const supabase = await createClient();
+  const liveContactId = await resolveLiveContactId(contactId);
 
   // RLS scopes the UPDATE; cross-org link attempts no-op silently.
   const { data, error } = await supabase
     .from("contacts")
     .update({ account_id: accountId })
-    .eq("id", contactId)
+    .eq("id", liveContactId)
     .select("id, account_id")
     .single();
 

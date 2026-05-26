@@ -39,6 +39,7 @@ import {
 import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { validateCustomFields } from '@/lib/custom-fields'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
@@ -974,9 +975,10 @@ export async function linkConversationsToContacts(): Promise<{
     if (!normalised) continue
     const contactId = phoneToId.get(normalised)
     if (!contactId) continue
+    const liveContactId = await resolveLiveContactId(contactId)
     const { error } = await supabase
       .from('conversations')
-      .update({ contact_id: contactId })
+      .update({ contact_id: liveContactId })
       .eq('id', conv.id)
     if (!error) linked++
   }

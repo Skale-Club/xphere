@@ -35,6 +35,7 @@ import {
   publicBaseUrl,
 } from '@/lib/twilio/webhook-signature'
 import { emitInboundPhoneEvent } from '@/lib/twilio/events'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 
 export const runtime = 'nodejs'
 
@@ -252,6 +253,8 @@ async function logIncomingCall(input: {
     }
   }
 
+  const liveContactId = contactId ? await resolveLiveContactId(contactId) : null
+
   let callLogId: string | null = existing?.id ?? null
   const isFirstInsert = !existing
 
@@ -259,7 +262,7 @@ async function logIncomingCall(input: {
     await supabase
       .from('call_logs')
       .update({
-        contact_id: contactId,
+        contact_id: liveContactId,
         status: input.status,
         ...(input.phoneNumberId ? { phone_number_id: input.phoneNumberId } : {}),
       })
@@ -269,7 +272,7 @@ async function logIncomingCall(input: {
       .from('call_logs')
       .insert({
         org_id: input.orgId,
-        contact_id: contactId,
+        contact_id: liveContactId,
         call_sid: input.callSid,
         direction: input.direction,
         routing_mode: input.routingMode,

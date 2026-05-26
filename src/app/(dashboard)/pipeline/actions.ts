@@ -29,6 +29,7 @@ import {
 } from '@/lib/pipeline/zod-schemas'
 import { validateCustomFields } from '@/lib/custom-fields'
 import { emitOpportunityEvent } from '@/lib/pipeline/events'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
@@ -368,11 +369,13 @@ export async function createOpportunity(
     .maybeSingle()
   const nextPos = (maxRow?.position ?? -1) + 1
 
+  const liveContactId = data.contact_id ? await resolveLiveContactId(data.contact_id) : null
+
   const { data: inserted, error } = await supabase
     .from('opportunities')
     .insert({
       org_id: orgId,
-      contact_id: data.contact_id ?? null,
+      contact_id: liveContactId,
       pipeline_id: data.pipeline_id,
       stage_id: data.stage_id,
       title: data.title,
@@ -519,13 +522,15 @@ export async function linkContactToOpportunity(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
 
+  const liveContactId = await resolveLiveContactId(contactId)
+
   const { error } = await supabase
     .from('opportunity_contacts')
     .upsert(
       {
         org_id: orgId,
         opportunity_id: opportunityId,
-        contact_id: contactId,
+        contact_id: liveContactId,
         is_primary: isPrimary,
       },
       { onConflict: 'opportunity_id,contact_id' },
@@ -539,7 +544,7 @@ export async function linkContactToOpportunity(
     .eq('id', opportunityId)
     .maybeSingle()
   if (opp && !opp.contact_id) {
-    await supabase.from('opportunities').update({ contact_id: contactId }).eq('id', opportunityId)
+    await supabase.from('opportunities').update({ contact_id: liveContactId }).eq('id', opportunityId)
   }
 
   revalidatePath('/pipeline')

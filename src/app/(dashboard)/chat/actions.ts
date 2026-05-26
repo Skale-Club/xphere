@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 import type { ConversationPriority } from '@/types/chat'
 
 export async function toggleBotStatus(
@@ -180,10 +181,12 @@ export async function linkContactToConversation(
   if (!user) return { error: 'Not authenticated' }
   const supabase = await createClient()
 
+  const liveContactId = await resolveLiveContactId(contactId)
+
   // RLS will reject cross-org updates | both rows must belong to the current org.
   const { error } = await supabase
     .from('conversations')
-    .update({ contact_id: contactId })
+    .update({ contact_id: liveContactId })
     .eq('id', conversationId)
 
   if (error) {

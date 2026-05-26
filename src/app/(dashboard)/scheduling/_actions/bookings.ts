@@ -10,6 +10,7 @@ import { fromZonedTime } from 'date-fns-tz'
 import { generateSlots } from '@/lib/scheduling/slots'
 import { fetchBusyTimes } from '@/lib/scheduling/google-calendar'
 import { rateLimit } from '@/lib/rate-limit'
+import { resolveLiveContactId } from '@/lib/contacts/server'
 import {
   sendBookingConfirmation,
   sendBookingCancellation,
@@ -473,6 +474,8 @@ export async function createBooking(
       ? parsed.data.location_kind
       : (allowedKinds[0] ?? et.location_type ?? null)
 
+  const liveContactId = linkedContactId ? await resolveLiveContactId(linkedContactId) : null
+
   // Insert booking
   const { data: booking, error } = await supabase
     .from('bookings')
@@ -486,7 +489,7 @@ export async function createBooking(
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       notes: parsed.data.notes ?? null,
-      linked_contact_id: linkedContactId,
+      linked_contact_id: liveContactId,
       status: 'confirmed',
       location_kind: effectiveLocationKind,
     })
