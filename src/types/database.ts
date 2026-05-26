@@ -16,8 +16,11 @@ export type UserRole = 'admin' | 'member'
 
 export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed'
 
-export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'paused' | 'completed' | 'stopped'
+export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
+export type CampaignChannel = 'calls' | 'sms' | 'email' | 'whatsapp'
+export type CampaignType = 'one_time' | 'flow'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
+export type CampaignRecipientStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'skipped' | 'unsubscribed'
 
 export type ConversationChannel = 'widget' | 'messenger' | 'instagram'
 export type MetaChannelType = 'messenger' | 'instagram'
@@ -2365,12 +2368,21 @@ export interface Database {
           id: string
           organization_id: string
           name: string
-          vapi_assistant_id: string
-          vapi_phone_number_id: string
+          description: string | null
+          channel: CampaignChannel
+          campaign_type: CampaignType
+          vapi_assistant_id: string | null
+          vapi_phone_number_id: string | null
           vapi_campaign_id: string | null
           status: CampaignStatus
           scheduled_start_at: string | null
+          started_at: string | null
+          completed_at: string | null
           calls_per_minute: number
+          audience_filter: Json
+          template_config: Json
+          metrics: Json
+          created_by: string | null
           created_at: string
           updated_at: string
         }
@@ -2378,21 +2390,38 @@ export interface Database {
           id?: string
           organization_id: string
           name: string
-          vapi_assistant_id: string
-          vapi_phone_number_id: string
+          description?: string | null
+          channel?: CampaignChannel
+          campaign_type?: CampaignType
+          vapi_assistant_id?: string | null
+          vapi_phone_number_id?: string | null
           vapi_campaign_id?: string | null
           status?: CampaignStatus
           scheduled_start_at?: string | null
+          started_at?: string | null
+          completed_at?: string | null
           calls_per_minute?: number
+          audience_filter?: Json
+          template_config?: Json
+          metrics?: Json
+          created_by?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           name?: string
+          description?: string | null
+          channel?: CampaignChannel
+          campaign_type?: CampaignType
           vapi_campaign_id?: string | null
           status?: CampaignStatus
           scheduled_start_at?: string | null
+          started_at?: string | null
+          completed_at?: string | null
           calls_per_minute?: number
+          audience_filter?: Json
+          template_config?: Json
+          metrics?: Json
           updated_at?: string
         }
         Relationships: [
@@ -2401,6 +2430,53 @@ export interface Database {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      campaign_recipients: {
+        Row: {
+          id: string
+          campaign_id: string
+          contact_id: string | null
+          status: CampaignRecipientStatus
+          sent_at: string | null
+          result: Json
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          contact_id?: string | null
+          status?: CampaignRecipientStatus
+          sent_at?: string | null
+          result?: Json
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: CampaignRecipientStatus
+          sent_at?: string | null
+          result?: Json
+          error_message?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'campaign_recipients_campaign_id_fkey'
+            columns: ['campaign_id']
+            isOneToOne: false
+            referencedRelation: 'campaigns'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'campaign_recipients_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
             referencedColumns: ['id']
           }
         ]
