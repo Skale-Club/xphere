@@ -87,6 +87,7 @@ import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { toast } from 'sonner'
 import { MergedBanner } from '@/components/contacts/merged-banner'
+import { IdentityStatusBadge } from '@/components/contacts/identity-status-badge'
 import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
 
 export interface ContactInfoPanelProps {
@@ -487,6 +488,14 @@ export function ContactInfoPanel({
                 ))}
               </div>
             )}
+            {/* Phase 110 D-07a: identity status badge. Plan 03 will render
+                MarkVerifiedButton next to it inside this same flex container. */}
+            <div className="mt-2 flex items-center gap-2">
+              <IdentityStatusBadge
+                status={contact.identity_status}
+                isVerified={contact.is_verified ?? false}
+              />
+            </div>
           </div>
         </div>
 
