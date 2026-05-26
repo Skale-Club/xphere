@@ -5,6 +5,8 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { findByPhone } from '@/lib/contacts/server'
+import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { sendWhatsAppMessage } from './send'
 import type {
   NormalizedWhatsAppMessage,
@@ -53,20 +55,27 @@ export async function processWhatsAppMessage(
     if (existing) {
       conversationId = existing.id
     } else {
-      // Find or create contact by phone
+      // Find or create contact by phone (Phase 107 CID-07 race-safe pattern).
+      // Lookup on normalized `phone_e164` column to match the partial UNIQUE
+      // index predicate; archived_duplicate rows are excluded so merged dupes
+      // do not block survivors. On INSERT 23505 we recover via findByPhone.
       let contactId: string | null = null
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('phone', fromPhone)
-        .limit(1)
-        .maybeSingle()
+      const phoneNorm = normalisePhone(fromPhone)
+      const { data: contact } = phoneNorm
+        ? await supabase
+            .from('contacts')
+            .select('id')
+            .eq('org_id', orgId)
+            .eq('phone_e164', phoneNorm)
+            .neq('identity_status', 'archived_duplicate')
+            .limit(1)
+            .maybeSingle()
+        : { data: null }
 
       if (contact?.id) {
         contactId = contact.id
       } else {
-        const { data: created } = await supabase
+        const { data: created, error: insErr } = await supabase
           .from('contacts')
           .insert({
             org_id: orgId,
@@ -76,7 +85,21 @@ export async function processWhatsAppMessage(
           })
           .select('id')
           .single()
-        contactId = created?.id ?? null
+        if (insErr?.code === '23505') {
+          // D-03: race lost — look up the winner via the canonical helper.
+          const winner = await findByPhone(supabase, orgId, fromPhone)
+          contactId = winner?.id ?? null
+          if (winner) {
+            console.log(
+              `[whatsapp/process] contact.unique_collision source=whatsapp org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
+            )
+          }
+        } else if (insErr) {
+          console.error('[whatsapp/process] insert contact error:', insErr.message)
+          contactId = null
+        } else {
+          contactId = created?.id ?? null
+        }
       }
 
       const channelMetadata: Record<string, unknown> = {
