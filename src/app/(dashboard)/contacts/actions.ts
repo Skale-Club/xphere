@@ -1154,3 +1154,104 @@ export async function exportContactsCsv(): Promise<{ error?: string; csv?: strin
 
   return { csv: lines.join('\n') }
 }
+
+// ─── Contact merge conflict types & actions (migration 1057 / CID-04) ────────
+
+export interface MergeConflictPair {
+  conflict: {
+    id: string
+    name: string | null
+    email: string | null
+    phone: string | null
+    created_at: string
+    identity_status: string
+  }
+  peer: {
+    id: string
+    name: string | null
+    email: string | null
+    phone: string | null
+    created_at: string
+    identity_status: string
+  }
+}
+
+/**
+ * Returns the pending merge-conflict pair for a contact that has
+ * identity_status='merge_conflict'. Returns null if none found.
+ */
+export async function getPendingMergeConflict(
+  contactId: string
+): Promise<MergeConflictPair | null> {
+  const user = await getUser()
+  if (!user) return null
+
+  const supabase = await createClient()
+
+  // The conflict contact itself
+  const { data: conflict } = await supabase
+    .from('contacts')
+    .select('id, name, email, phone, created_at, identity_status, merged_into_contact_id')
+    .eq('id', contactId)
+    .eq('identity_status', 'merge_conflict')
+    .single()
+
+  if (!conflict) return null
+
+  // Find the peer: another contact with the same phone or email, in merge_conflict status
+  const conditions: string[] = []
+  if (conflict.email) conditions.push(`email_normalized.eq.${conflict.email.toLowerCase()}`)
+  if (conflict.phone) conditions.push(`phone_e164.eq.${conflict.phone}`)
+  if (conditions.length === 0) return null
+
+  const { data: peers } = await supabase
+    .from('contacts')
+    .select('id, name, email, phone, created_at, identity_status')
+    .neq('id', contactId)
+    .in('identity_status', ['merge_conflict', 'identified'])
+    .limit(1)
+
+  const peer = peers?.[0] ?? null
+  if (!peer) return null
+
+  return {
+    conflict: {
+      id: conflict.id,
+      name: conflict.name,
+      email: conflict.email,
+      phone: conflict.phone,
+      created_at: conflict.created_at,
+      identity_status: conflict.identity_status,
+    },
+    peer: {
+      id: peer.id,
+      name: peer.name,
+      email: peer.email,
+      phone: peer.phone,
+      created_at: peer.created_at,
+      identity_status: peer.identity_status,
+    },
+  }
+}
+
+/**
+ * Merges two contacts: survivorId keeps, loserId is archived.
+ * Calls the merge_contacts(survivor_id, archived_id) SQL function.
+ */
+export async function mergeContactAction(
+  survivorId: string,
+  loserId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Unauthorized' }
+
+  const supabase = await createClient()
+
+  const { error } = await supabase.rpc('merge_contacts', {
+    survivor_id: survivorId,
+    archived_id: loserId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
