@@ -20,6 +20,9 @@ interface TopBarProps {
   activeOrgName: string | null
   isPlatformAdmin: boolean
   userId: string | null
+  /** True when the org has at least one active twilio_phone_numbers row.
+   * Used to hide the dial-pad header button while there's nothing to dial from. */
+  hasPhoneNumber: boolean
 }
 
 function SearchButton({ onClick }: { onClick: () => void }) {
@@ -190,7 +193,7 @@ function MobileMenu({
   )
 }
 
-export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: TopBarProps) {
+export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId, hasPhoneNumber }: TopBarProps) {
   const { setOpen } = useCommandPalette()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -215,7 +218,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: 
         {/* Desktop actions */}
         <div className="hidden sm:flex items-center gap-1.5">
           <SearchButton onClick={openSearch} />
-          <DialPadHeaderButton />
+          {hasPhoneNumber && <DialPadHeaderButton />}
           <NotificationBell userId={userId} />
           <ThemeToggle />
           <div className="min-w-0">
@@ -241,9 +244,9 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId }: 
           )}
         </div>
 
-        {/* Mobile: dial pad always visible + hamburger */}
+        {/* Mobile: dial pad (only when a number is connected) + hamburger */}
         <div className="sm:hidden flex items-center gap-1.5">
-          <DialPadHeaderButton />
+          {hasPhoneNumber && <DialPadHeaderButton />}
           <button
             onClick={() => setMobileOpen(true)}
             className={cn(

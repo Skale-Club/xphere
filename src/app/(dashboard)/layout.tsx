@@ -80,16 +80,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Decide whether to mount the Twilio Voice SDK Device for this user.
   // Only users in routing_mode='browser' incur the SDK bundle/connection.
   let browserVoiceEnabled = false
+  // True when the org has at least one active twilio_phone_numbers row. The
+  // top bar uses this to hide the dial-pad button on orgs that haven't
+  // connected a number yet (matches the /calls onboarding gate behavior).
+  let hasPhoneNumber = false
   try {
     const supabase = await createClient()
-    const { data: settings } = await supabase
-      .from('call_settings')
-      .select('routing_mode, twilio_client_identity')
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const [{ data: settings }, { count: numberCount }] = await Promise.all([
+      supabase
+        .from('call_settings')
+        .select('routing_mode, twilio_client_identity')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('twilio_phone_numbers')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true),
+    ])
     browserVoiceEnabled = settings?.routing_mode === 'browser' && Boolean(settings.twilio_client_identity)
+    hasPhoneNumber = (numberCount ?? 0) > 0
   } catch {
     browserVoiceEnabled = false
+    hasPhoneNumber = false
   }
 
   return (
@@ -118,6 +130,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     activeOrgName={activeOrgName}
                     isPlatformAdmin={isPlatformAdmin}
                     userId={user.id}
+                    hasPhoneNumber={hasPhoneNumber}
                   />
                   <div className="flex flex-1 min-h-0">
                     <main className="flex-1 min-h-0 overflow-auto">
