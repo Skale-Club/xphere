@@ -228,7 +228,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  TRUNCATE public.contact_duplicate_audit;
+  -- DELETE (not TRUNCATE) because contact_merge_log.cluster_id has a FK reference
+  -- to contact_duplicate_audit(cluster_id) ON DELETE SET NULL. TRUNCATE on a referenced
+  -- table requires CASCADE which would conflict with the SET NULL action; DELETE
+  -- correctly triggers the SET NULL on dependent merge log rows.
+  DELETE FROM public.contact_duplicate_audit;
 
   -- Phone duplicates (live contacts only, excluding fully-marked-separate clusters)
   INSERT INTO public.contact_duplicate_audit
