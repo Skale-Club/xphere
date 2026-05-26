@@ -49,7 +49,7 @@ export function PlatformKpiRow({ kpis, new_orgs_30d }: { kpis: PlatformDashboard
   const convTrend = delta(kpis.conversations_30d, kpis.conversations_prev_30d)
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <KpiCard icon={Building2} label="Organizations" value={kpis.total_orgs} sub={`${kpis.active_orgs} active · +${new_orgs_30d} this month`} />
       <KpiCard icon={Users} label="Members" value={kpis.total_members} />
       <KpiCard icon={Contact2} label="Contacts" value={kpis.total_contacts} />

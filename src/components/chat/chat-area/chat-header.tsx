@@ -21,7 +21,6 @@ import {
   Trash2,
   Pin,
   Star,
-  Flag,
   PanelRight,
   PanelRightClose,
   Phone,
@@ -59,12 +58,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
-
-const PRIORITY_CYCLE: Record<ConversationPriority, ConversationPriority> = {
-  normal: 'high',
-  high: 'urgent',
-  urgent: 'normal',
-}
 
 interface ChatHeaderProps {
   conversation: ConversationSummary
@@ -108,7 +101,7 @@ export function ChatHeader({
   onBotStatusToggle: _onBotStatusToggle,
   isBotToggling: _isBotToggling,
   onPinToggle,
-  onPriorityCycle,
+  onPriorityCycle: _onPriorityCycle,
   onAssign: _onAssign,
   onStarToggle,
   orgLabels: _orgLabels,
@@ -127,7 +120,6 @@ export function ChatHeader({
   const name = conversation.contactName || conversation.visitorName || conversation.visitorPhone || conversation.visitorEmail || 'Anonymous'
   const initial = name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
   const isOpen = conversation.status === 'open'
-  const priority = conversation.priority ?? 'normal'
   const isStarred = Boolean(conversation.starred)
 
   // Subtitle: phone OR email if available, with the receiving phone number
@@ -186,6 +178,44 @@ export function ChatHeader({
       {/* Right cluster | panel toggle + secondary actions */}
       <div className="flex shrink-0 items-center gap-1">
         <TooltipProvider delayDuration={200}>
+          {/* Desktop-only quick actions: Pin + Star */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden md:inline-flex h-8 w-8"
+                onClick={() => onPinToggle(conversation.id, !conversation.pinned)}
+                aria-label={conversation.pinned ? 'Unpin' : 'Pin to top'}
+              >
+                <Pin
+                  className={cn('h-4 w-4', conversation.pinned && 'text-accent')}
+                  fill={conversation.pinned ? 'currentColor' : 'none'}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{conversation.pinned ? 'Unpin' : 'Pin to top'}</TooltipContent>
+          </Tooltip>
+          {onStarToggle && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden md:inline-flex h-8 w-8"
+                  onClick={() => onStarToggle(conversation.id, !isStarred)}
+                  aria-label={isStarred ? 'Unstar' : 'Star'}
+                >
+                  <Star
+                    className={cn('h-4 w-4', isStarred && 'text-amber-400')}
+                    fill={isStarred ? 'currentColor' : 'none'}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isStarred ? 'Unstar' : 'Star'}</TooltipContent>
+            </Tooltip>
+          )}
+
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -212,7 +242,10 @@ export function ChatHeader({
                   </Link>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => onPinToggle(conversation.id, !conversation.pinned)}>
+              <DropdownMenuItem
+                className="md:hidden"
+                onClick={() => onPinToggle(conversation.id, !conversation.pinned)}
+              >
                 <Pin
                   className={cn('h-4 w-4', conversation.pinned && 'text-accent')}
                   fill={conversation.pinned ? 'currentColor' : 'none'}
@@ -220,7 +253,10 @@ export function ChatHeader({
                 {conversation.pinned ? 'Unpin' : 'Pin to top'}
               </DropdownMenuItem>
               {onStarToggle && (
-                <DropdownMenuItem onClick={() => onStarToggle(conversation.id, !isStarred)}>
+                <DropdownMenuItem
+                  className="md:hidden"
+                  onClick={() => onStarToggle(conversation.id, !isStarred)}
+                >
                   <Star
                     className={cn('h-4 w-4', isStarred && 'text-amber-400')}
                     fill={isStarred ? 'currentColor' : 'none'}
@@ -228,18 +264,7 @@ export function ChatHeader({
                   {isStarred ? 'Unstar' : 'Star'}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => onPriorityCycle(conversation.id, PRIORITY_CYCLE[priority])}>
-                <Flag
-                  className={cn(
-                    'h-4 w-4',
-                    priority === 'high' && 'text-amber-400',
-                    priority === 'urgent' && 'text-rose-400',
-                  )}
-                  fill={priority !== 'normal' ? 'currentColor' : 'none'}
-                />
-                Priority: {priority === 'normal' ? 'Normal' : priority === 'high' ? 'High' : 'Urgent'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="md:hidden" />
               <DropdownMenuItem onClick={() => onStatusChange(isOpen ? 'closed' : 'open')}>
                 {isOpen ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
                 {isOpen ? 'Archive' : 'Reopen'}

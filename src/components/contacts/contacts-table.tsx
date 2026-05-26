@@ -30,7 +30,6 @@ import {
   FilterPopoverHeader,
   FilterSection,
 } from "@/components/data-table/filter-popover";
-import { ContactDetailSheet } from "./contact-detail-sheet";
 import { NewContactDialog } from "./new-contact-dialog";
 import { CustomFieldsFilterBar } from "@/components/custom-fields/custom-fields-filter-bar";
 import {
@@ -109,7 +108,6 @@ export function ContactsTable({
   }, [total, setSuffix]);
 
   const [query, setQuery] = React.useState(currentQuery ?? "");
-  const [openId, setOpenId] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   // Optimistic "pending delete" set | rows fade out immediately on delete
   // and snap back if the server returns an error.
@@ -320,11 +318,11 @@ export function ContactsTable({
                   key={c.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setOpenId(c.id)}
+                  onClick={() => router.push(`/chat?contact=${c.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setOpenId(c.id);
+                      router.push(`/chat?contact=${c.id}`);
                     }
                   }}
                   className={cn(
@@ -437,11 +435,11 @@ export function ContactsTable({
                   key={c.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setOpenId(c.id)}
+                  onClick={() => router.push(`/chat?contact=${c.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setOpenId(c.id);
+                      router.push(`/chat?contact=${c.id}`);
                     }
                   }}
                   className={cn(
@@ -584,10 +582,6 @@ export function ContactsTable({
         )}
       </div>
 
-      <ContactDetailSheet
-        contactId={openId}
-        onOpenChange={(o) => !o && setOpenId(null)}
-      />
     </div>
   );
 }

@@ -74,13 +74,13 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Link href="/admin/orgs" className="inline-flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm mb-6 transition-colors duration-100">
         <ArrowLeft className="h-4 w-4" />
         Back to Organizations
       </Link>
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-xl font-semibold text-text-primary">{org.name}</h1>
         <Badge
           className={org.is_active
@@ -91,11 +91,11 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
         >
           {org.is_active ? 'Active' : 'Inactive'}
         </Badge>
-        <span className="text-text-tertiary text-sm font-mono">{org.slug}</span>
+        <span className="text-text-tertiary text-sm font-mono truncate">{org.slug}</span>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <MetricCard icon={Contact2} label="Contacts" value={org.contacts_count} />
             <MetricCard icon={Phone} label="Calls" value={org.calls_count} />
@@ -108,7 +108,7 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
               <p className="text-sm font-semibold text-text-primary">Members</p>
             </CardHeader>
             <Separator className="bg-border-subtle" />
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               {org.members.length === 0 ? (
                 <p className="text-text-secondary text-sm p-4">No members in this organization.</p>
               ) : (
@@ -141,7 +141,7 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
           </Card>
         </div>
 
-        <div className="col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader className="pb-3 pt-4 px-4">
               <p className="text-sm font-semibold text-text-primary">Feature Flags</p>

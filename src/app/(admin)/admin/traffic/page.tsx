@@ -23,7 +23,7 @@ async function TrafficContent() {
   return (
     <div className="space-y-8">
       {/* KPI row */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard label="Total Setups" value={data.total_setups} sub={`${data.verified_setups} verified (${adoptionPct}%)`} />
         <MetricCard label="Pageviews (30d)" value={data.total_pageviews_30d} />
         <MetricCard label="Sessions (30d)" value={data.total_sessions_30d} />
@@ -31,9 +31,9 @@ async function TrafficContent() {
         <MetricCard label="Adoption Rate" value={`${adoptionPct}%`} sub="verified / total setups" />
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top orgs table */}
-        <div className="col-span-2 rounded-lg border border-border bg-bg-secondary overflow-hidden">
+        <div className="lg:col-span-2 rounded-lg border border-border bg-bg-secondary overflow-x-auto">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-text-tertiary" />
             <h2 className="text-[13px] font-semibold text-text-primary">Top Orgs by Traffic</h2>
@@ -68,7 +68,7 @@ async function TrafficContent() {
         </div>
 
         {/* Recent sessions */}
-        <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
+        <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden lg:col-span-1">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Activity className="h-4 w-4 text-text-tertiary" />
             <h2 className="text-[13px] font-semibold text-text-primary">Recent Sessions</h2>
@@ -109,13 +109,13 @@ async function TrafficContent() {
 function TrafficSkeleton() {
   return (
     <div className="space-y-8 animate-pulse">
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {['m1', 'm2', 'm3', 'm4', 'm5'].map((k) => (
           <div key={k} className="h-20 rounded-lg bg-bg-tertiary" />
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 h-64 rounded-lg bg-bg-tertiary" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 h-64 rounded-lg bg-bg-tertiary" />
         <div className="h-64 rounded-lg bg-bg-tertiary" />
       </div>
     </div>
@@ -124,7 +124,7 @@ function TrafficSkeleton() {
 
 export default function AdminTrafficPage() {
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-text-primary">Traffic Overview</h1>
         <p className="text-sm text-text-secondary mt-1">Platform-wide web traffic analytics across all organizations</p>

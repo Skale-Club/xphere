@@ -59,13 +59,13 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2 text-xs text-text-tertiary">
           <span className="rounded-full border border-border px-2 py-0.5">{orgs.length} orgs</span>
           <span className="rounded-full border border-border px-2 py-0.5">{orgs.filter(o => o.is_active).length} active</span>
           <span className="rounded-full border border-border px-2 py-0.5">{orgs.filter(o => !o.is_active).length} inactive</span>
         </div>
-        <div className="relative w-[280px]">
+        <div className="relative w-full sm:w-[280px] sm:ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" />
           <Input
             value={search}
@@ -81,7 +81,7 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
           <p className="text-text-secondary text-sm">No organizations match your search.</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border-subtle overflow-hidden">
+        <div className="rounded-lg border border-border-subtle overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border-subtle bg-bg-secondary hover:bg-bg-secondary">

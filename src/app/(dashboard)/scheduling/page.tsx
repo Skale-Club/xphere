@@ -28,8 +28,18 @@ export default async function SchedulingPage({ searchParams }: Props) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 
+  // No profile yet — show centered setup screen, no header buttons
+  if (!profile) {
+    return (
+      <div className="flex h-full min-h-[calc(100vh-56px)] items-start sm:items-center justify-center px-4 pt-8 sm:pt-0">
+        <SchedulingProfileSetup />
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header actions */}
       <div className="flex items-center justify-end gap-2">
         <Button asChild variant="outline" size="sm">
           <Link href="/scheduling/calendar">
@@ -41,10 +51,10 @@ export default async function SchedulingPage({ searchParams }: Props) {
             <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Availability
           </Link>
         </Button>
-        {profile && <NewEventTypeDialog />}
+        <NewEventTypeDialog />
       </div>
 
-      {/* Google Calendar banner */}
+      {/* Google Calendar banners */}
       {sp.calendar_connected === 'true' && (
         <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-400">
           Google Calendar connected | busy times will be respected when generating slots.
@@ -56,54 +66,48 @@ export default async function SchedulingPage({ searchParams }: Props) {
         </div>
       )}
 
-      {/* Profile setup / booking link */}
-      {!profile ? (
-        <SchedulingProfileSetup />
-      ) : (
-        <div className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Your booking page</p>
-            <code className="text-sm text-indigo-400">{siteUrl}/book/{profile.slug}</code>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
-              </a>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href="/api/google/calendar-oauth">
-                <Calendar className="h-3.5 w-3.5 mr-1.5" /> Connect Google Calendar
-              </a>
-            </Button>
-          </div>
+      {/* Booking page link */}
+      <div className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Your booking page</p>
+          <code className="text-sm text-indigo-400">{siteUrl}/book/{profile.slug}</code>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
+            </a>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <a href="/api/google/calendar-oauth">
+              <Calendar className="h-3.5 w-3.5 mr-1.5" /> Connect Google Calendar
+            </a>
+          </Button>
+        </div>
+      </div>
 
       {/* Event types */}
-      {profile && (
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Event Types</h2>
-          {eventTypes.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border py-12 text-center">
-              <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">No event types yet.</p>
-              <p className="text-xs text-muted-foreground mt-1">Create one to start accepting bookings.</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {eventTypes.map((et) => (
-                <EventTypeCard
-                  key={et.id}
-                  eventType={et}
-                  bookingSlug={profile.slug}
-                  siteUrl={siteUrl}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Event Types</h2>
+        {eventTypes.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border py-12 text-center">
+            <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">No event types yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">Create one to start accepting bookings.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {eventTypes.map((et) => (
+              <EventTypeCard
+                key={et.id}
+                eventType={et}
+                bookingSlug={profile.slug}
+                siteUrl={siteUrl}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

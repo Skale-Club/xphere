@@ -68,7 +68,7 @@ export function SetupScreen({ setup }: Props) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/10">
           <BarChart3 className="h-5 w-5 text-accent" />
         </div>
         <div>

@@ -104,11 +104,19 @@ interface ChatLayoutProps {
   currentOrgId: string | null
   currentUserId: string | null
   agentMap?: Record<string, string>
+  initialConversationId?: string | null
+  initialContactId?: string | null
 }
 
 type MobileView = 'list' | 'chat' | 'info'
 
-export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayoutProps) {
+export function ChatLayout({
+  currentOrgId,
+  currentUserId,
+  agentMap,
+  initialConversationId = null,
+  initialContactId = null,
+}: ChatLayoutProps) {
   // ─────────── Filters (server-side) ───────────
   const [filters, setFilters] = useState<ConversationFilterChange>({
     status: null,
@@ -146,7 +154,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
     remove: removeConversation,
   } = usePaginatedConversations(filters)
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialConversationId)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
@@ -661,7 +669,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
             })()}
             <div className="flex-1 min-h-0 overflow-hidden">
               <ContactInfoPanel
-                contactId={selected?.contactId ?? null}
+                contactId={selected?.contactId ?? initialContactId}
                 conversationId={selected?.id ?? null}
                 fallbackName={selected?.visitorName ?? null}
                 fallbackPhone={selected?.visitorPhone ?? null}
@@ -742,7 +750,7 @@ export function ChatLayout({ currentOrgId, currentUserId, agentMap }: ChatLayout
         {mobileView === 'info' && (
           <div className="h-full min-h-0 w-full">
             <ContactInfoPanel
-              contactId={selected?.contactId ?? null}
+              contactId={selected?.contactId ?? initialContactId}
               fallbackName={selected?.visitorName ?? null}
               fallbackPhone={selected?.visitorPhone ?? null}
               fallbackEmail={selected?.visitorEmail ?? null}

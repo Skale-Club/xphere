@@ -156,19 +156,25 @@ export function AccountCombobox({
           onFocus={() => {
             if (inputValue) setIsOpen(true)
           }}
-          placeholder="Search or create company..."
-          className={cn('h-10 text-[13.5px]', allowUnlink && inputValue && 'pr-9')}
+          placeholder="Add company"
+          className={cn(
+            'h-auto border-transparent bg-transparent px-1.5 py-0.5',
+            'text-[12.5px] text-text-primary placeholder:text-text-tertiary placeholder:italic placeholder:not-italic',
+            'rounded-[6px] hover:bg-bg-tertiary',
+            'focus:border-accent/60 focus:bg-bg-primary focus:ring-[3px] focus:ring-accent/15',
+            allowUnlink && inputValue && 'pr-7',
+          )}
           autoComplete="off"
         />
         {allowUnlink && inputValue && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-tertiary transition-colors hover:text-text-primary"
             aria-label="Unlink company"
             title="Unlink company"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </button>
         )}
       </div>

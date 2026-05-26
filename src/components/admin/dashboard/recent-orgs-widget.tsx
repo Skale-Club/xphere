@@ -31,7 +31,7 @@ export function RecentOrgsWidget({ orgs }: { orgs: RecentOrg[] }) {
                     }`}>
                       {org.is_active ? 'Active' : 'Inactive'}
                     </span>
-                    <span className="text-xs text-text-tertiary tabular-nums">{org.members_count} members</span>
+                    <span className="hidden sm:inline text-xs text-text-tertiary tabular-nums">{org.members_count} members</span>
                     <ChevronRight className="h-3.5 w-3.5 text-text-tertiary" />
                   </div>
                 </Link>

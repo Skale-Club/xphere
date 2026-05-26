@@ -1,12 +1,14 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, type Variants } from 'framer-motion'
-import { ArrowRight, Zap, Users, Globe, Phone, MessageSquare, BarChart3, ChevronRight } from 'lucide-react'
+import { Zap, Users, Globe, Phone, MessageSquare, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CTAButton } from '@/components/design-system/cta-button'
 import { LoginDialog, type AuthMode, type AuthView } from '@/components/auth/login-dialog'
+import { XphereOrb } from '@/components/xphere-orb'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -107,8 +109,110 @@ export function LandingPage({
   const logoSrc = faviconUrl ?? '/favicon.ico'
   const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
   const startHref = isAuthenticated ? '/dashboard' : '/?auth=login'
-  // scrollImages is currently surfaced to the component for the upcoming scroll-animation section.
-  void _scrollImages
+  const scrollImages = _scrollImages ?? []
+  const hasScrollImages = scrollImages.length > 0
+
+  // Fixed canvas background — animation runs from anim-start anchor to end of page
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasWrapperRef = useRef<HTMLDivElement>(null)
+  const animStartRef = useRef<HTMLDivElement>(null)
+  const loadedFrames = useRef<Map<string, HTMLImageElement>>(new Map())
+  const lastDrawnFrame = useRef<number>(-1)
+  const rafPending = useRef(false)
+
+  const drawFrame = useCallback((idx: number) => {
+    if (idx === lastDrawnFrame.current) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const img = loadedFrames.current.get(scrollImages[idx])
+    if (!img || !img.complete || img.naturalWidth === 0) return
+
+    // Cover: scale to fill canvas, crop overflow, center
+    const cW = canvas.width
+    const cH = canvas.height
+    const iW = img.naturalWidth
+    const iH = img.naturalHeight
+    const scale = Math.max(cW / iW, cH / iH)
+    const drawW = iW * scale
+    const drawH = iH * scale
+    const dx = (cW - drawW) / 2
+    const dy = (cH - drawH) / 2
+    ctx.clearRect(0, 0, cW, cH)
+    ctx.drawImage(img, dx, dy, drawW, drawH)
+    lastDrawnFrame.current = idx
+  }, [scrollImages])
+
+  // Resize canvas to match viewport × DPR for sharp rendering
+  useEffect(() => {
+    if (!hasScrollImages) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    function resize() {
+      const dpr = window.devicePixelRatio || 1
+      canvas!.width = window.innerWidth * dpr
+      canvas!.height = window.innerHeight * dpr
+      canvas!.style.width = `${window.innerWidth}px`
+      canvas!.style.height = `${window.innerHeight}px`
+      lastDrawnFrame.current = -1
+      // Redraw current frame at new size
+      const anchor = animStartRef.current
+      const startY = anchor ? anchor.getBoundingClientRect().top + window.scrollY : 0
+      const endY = document.documentElement.scrollHeight - window.innerHeight
+      const span = endY - startY
+      const progress = span > 0 ? Math.min(1, Math.max(0, (window.scrollY - startY) / span)) : 0
+      const idx = Math.min(scrollImages.length - 1, Math.max(0, Math.floor(progress * scrollImages.length)))
+      drawFrame(idx)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [hasScrollImages, scrollImages, drawFrame])
+
+  // Preload frames; draw first frame as soon as it lands
+  useEffect(() => {
+    if (!hasScrollImages) return
+    scrollImages.forEach((url, i) => {
+      if (loadedFrames.current.has(url)) return
+      const img = new window.Image()
+      img.onload = () => {
+        loadedFrames.current.set(url, img)
+        if (i === 0 && lastDrawnFrame.current === -1) drawFrame(0)
+      }
+      img.src = url
+    })
+  }, [scrollImages, hasScrollImages, drawFrame])
+
+  // Scroll → frame index; rAF-throttled. Animation range = anim-start anchor → end of page.
+  useEffect(() => {
+    if (!hasScrollImages) return
+    function onScroll() {
+      if (rafPending.current) return
+      rafPending.current = true
+      requestAnimationFrame(() => {
+        rafPending.current = false
+        const anchor = animStartRef.current
+        const wrapper = canvasWrapperRef.current
+        if (!anchor) return
+        const startY = anchor.getBoundingClientRect().top + window.scrollY
+        const endY = document.documentElement.scrollHeight - window.innerHeight
+        const span = endY - startY
+        if (span <= 0) return
+        const progress = Math.min(1, Math.max(0, (window.scrollY - startY) / span))
+        const idx = Math.min(scrollImages.length - 1, Math.floor(progress * scrollImages.length))
+        drawFrame(idx)
+        // Fade canvas in across first ~15% of the range, then hold full opacity
+        if (wrapper) {
+          const fadeIn = Math.min(1, progress / 0.15)
+          wrapper.style.opacity = String(fadeIn)
+        }
+      })
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [hasScrollImages, scrollImages, drawFrame])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [initialMode, setInitialMode] = useState<AuthMode>('signin')
@@ -133,7 +237,30 @@ export function LandingPage({
         />
       </Suspense>
 
-      {/* Grid background */}
+      {/* Glow orb */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full z-0"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.12) 0%, transparent 70%)',
+        }}
+      />
+
+      {/* Scroll-driven canvas — fades in past the hero, frames map from anchor → bottom */}
+      {hasScrollImages && (
+        <div
+          ref={canvasWrapperRef}
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-200"
+          style={{ opacity: 0 }}
+        >
+          <canvas ref={canvasRef} className="block" />
+          {/* Black multiply lens — deepens midtones/highlights without flattening */}
+          <div className="absolute inset-0 bg-black/45 mix-blend-multiply" />
+        </div>
+      )}
+
+      {/* Grid background — rendered after canvas so the lines sit on top of the video */}
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 z-0"
@@ -144,32 +271,14 @@ export function LandingPage({
         }}
       />
 
-      {/* Glow orb */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full z-0"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.12) 0%, transparent 70%)',
-        }}
-      />
-
       <div className="relative z-10">
         {/* Nav */}
         <header className="flex items-center justify-between px-6 sm:px-10 h-16 border-b border-white/5 backdrop-blur-sm">
           <Link href="/" className="inline-flex items-center gap-2 font-semibold text-base tracking-tight text-[#FAFAFA] hover:text-white transition-colors">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoSrc} alt="" width={22} height={22} />
+            <XphereOrb size={22} />
             Xphere
           </Link>
-          <Link href={startHref}>
-            <Button
-              size="sm"
-              className="h-8 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Start
-              <ChevronRight className="ml-1 h-3.5 w-3.5" />
-            </Button>
-          </Link>
+          <CTAButton href={startHref}>Start</CTAButton>
         </header>
 
         {/* Hero */}
@@ -210,12 +319,7 @@ export function LandingPage({
             transition={{ duration: 0.5, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             className="mt-8 flex flex-col sm:flex-row items-center gap-3"
           >
-            <Link href={startHref}>
-              <Button className="h-11 px-6 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
-                Start
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            <CTAButton href={startHref}>Start</CTAButton>
             <a href="#features">
               <Button
                 variant="ghost"
@@ -226,6 +330,9 @@ export function LandingPage({
             </a>
           </motion.div>
         </section>
+
+        {/* Scroll-animation anchor — frame 0 starts here; progress 1 = page bottom */}
+        {hasScrollImages && <div ref={animStartRef} aria-hidden />}
 
         {/* Dashboard preview strip */}
         <motion.div
@@ -272,7 +379,7 @@ export function LandingPage({
               <h2 className="text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.025em]">
                 Everything your business needs
               </h2>
-              <p className="mt-3 text-[#A1A1AA] text-[1rem]">
+              <p className="mt-3 text-white text-[1rem]">
                 One platform. All the primitives. Zero duct-tape.
               </p>
             </motion.div>
@@ -285,7 +392,7 @@ export function LandingPage({
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-60px' }}
                   transition={{ duration: 0.45, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                  className="group rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-5 hover:bg-white/[0.07] hover:border-white/15 transition-all duration-200"
+                  className="group select-none rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-5 hover:bg-white/[0.07] hover:border-white/15 transition-all duration-200"
                 >
                   <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                     <Icon className="h-4 w-4 text-indigo-400" />
@@ -298,17 +405,17 @@ export function LandingPage({
           </div>
         </section>
 
-        {/* CTA — section stays compact; image overflows upward (via absolute) so its native top fade is preserved without inflating the layout */}
+        {/* CTA */}
         <section className="relative px-6 pb-28">
-          {/* Cyberpunk background — anchored to footer line, full natural height, extends above the section behind the features grid (-z-10) */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={ctaBg}
-            alt=""
-            aria-hidden
-            className="pointer-events-none select-none absolute inset-x-0 bottom-0 w-full h-auto min-h-[560px] sm:min-h-[520px] md:min-h-[480px] lg:min-h-0 object-cover object-bottom -z-10"
-          />
-          {/* Subtle dark wash near the bottom to keep the card readable over the neon city */}
+          {!hasScrollImages && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={ctaBg}
+              alt=""
+              aria-hidden
+              className="pointer-events-none select-none absolute inset-x-0 bottom-0 w-full h-auto min-h-[560px] sm:min-h-[520px] md:min-h-[480px] lg:min-h-0 object-cover object-bottom -z-10"
+            />
+          )}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[340px] -z-10 bg-gradient-to-t from-[#08090A]/45 via-[#08090A]/15 to-transparent"
@@ -326,12 +433,7 @@ export function LandingPage({
             <p className="text-[#A1A1AA] text-[1rem] mb-7">
               Start automating client workflows today | no setup fees, no lock-in.
             </p>
-            <Link href={startHref}>
-              <Button className="h-11 px-8 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white">
-                Start
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            <CTAButton href={startHref}>Start</CTAButton>
           </motion.div>
         </section>
 
@@ -339,8 +441,7 @@ export function LandingPage({
         <footer className="border-t border-white/5 bg-[#0A0A0B]/90 backdrop-blur-sm px-6 py-8">
           <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <Link href="/" className="inline-flex items-center gap-2 text-base font-semibold text-[#FAFAFA] hover:text-white transition-colors">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoSrc} alt="" width={22} height={22} />
+              <XphereOrb size={22} />
               Xphere
             </Link>
             <p className="text-[0.8125rem] text-[#52525B]">

@@ -8,14 +8,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Filter, X } from 'lucide-react'
+import { Filter, X, Check, Star, Pin, Play, Pause } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
@@ -72,33 +69,48 @@ const CHANNELS: Array<{ value: Exclude<Channel, 'unknown'>; label: string }> = [
   { value: 'web', label: 'Web' },
 ]
 
-const channelBg: Record<Exclude<Channel, 'unknown'>, string> = {
-  whatsapp:  'bg-[var(--ch-whatsapp)]/30',
-  instagram: 'bg-[var(--ch-instagram)]/30',
-  messenger: 'bg-[var(--ch-messenger)]/30',
-  sms:      'bg-[var(--ch-sms)]/30',
-  voice:    'bg-[var(--ch-voice)]/30',
-  email:    'bg-[var(--ch-email)]/30',
-  web:      'bg-[var(--ch-web)]/30',
+const channelSelectedBg: Record<Exclude<Channel, 'unknown'>, string> = {
+  whatsapp:  '!bg-[var(--ch-whatsapp)]/50',
+  instagram: '!bg-[var(--ch-instagram)]/50',
+  messenger: '!bg-[var(--ch-messenger)]/50',
+  sms:       '!bg-[var(--ch-sms)]/50',
+  voice:     '!bg-[var(--ch-voice)]/50',
+  email:     '!bg-[var(--ch-email)]/50',
+  web:       '!bg-[var(--ch-web)]/50',
 }
 
-const STATUSES: Array<{ value: string; label: string; tone: string }> = [
-  { value: 'open', label: 'Open', tone: 'bg-blue-500' },
-  { value: 'pending', label: 'Pending', tone: 'bg-yellow-500' },
-  { value: 'waiting', label: 'Waiting', tone: 'bg-purple-500' },
-  { value: 'resolved', label: 'Resolved', tone: 'bg-emerald-500' },
-  { value: 'closed', label: 'Archived', tone: 'bg-slate-400' },
+const STATUSES: Array<{ value: string; label: string; tone: string; activeClass?: string }> = [
+  { value: 'open', label: 'Open', tone: 'bg-blue-500', activeClass: 'border-blue-500/40 bg-blue-500/15 text-blue-300' },
+  { value: 'pending', label: 'Pending', tone: 'bg-yellow-500', activeClass: 'border-yellow-500/40 bg-yellow-500/15 text-yellow-300' },
+  { value: 'waiting', label: 'Waiting', tone: 'bg-purple-500', activeClass: 'border-purple-500/40 bg-purple-500/15 text-purple-300' },
+  { value: 'resolved', label: 'Resolved', tone: 'bg-emerald-500', activeClass: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' },
+  { value: 'closed', label: 'Archived', tone: 'bg-slate-400', activeClass: 'border-slate-400/40 bg-slate-400/15 text-slate-300' },
 ]
 
-const PRIORITIES: Array<{ value: string; label: string; dot?: string }> = [
-  { value: 'urgent', label: 'Urgent', dot: 'bg-rose-500' },
-  { value: 'high', label: 'High', dot: 'bg-amber-500' },
+const PRIORITIES: Array<{ value: string; label: string; dot?: string; activeClass?: string }> = [
+  { value: 'urgent', label: 'Urgent', dot: 'bg-rose-500', activeClass: 'border-rose-500/40 bg-rose-500/15 text-rose-300' },
+  { value: 'high', label: 'High', dot: 'bg-amber-500', activeClass: 'border-amber-500/40 bg-amber-500/15 text-amber-300' },
   { value: 'normal', label: 'Normal' },
 ]
 
-const BOT_STATUSES: Array<{ value: string; label: string }> = [
-  { value: 'active', label: 'Bot active' },
-  { value: 'paused', label: 'Bot paused' },
+const BOT_STATUSES: Array<{
+  value: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  activeClass: string
+}> = [
+  {
+    value: 'active',
+    label: 'Active',
+    icon: Play,
+    activeClass: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+  },
+  {
+    value: 'paused',
+    label: 'Paused',
+    icon: Pause,
+    activeClass: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
+  },
 ]
 
 export function countActiveFilters(f: AdvancedFilters): number {
@@ -182,40 +194,34 @@ export function FilterPanel({
   }
 
   const body = (
-    <>
-      <div className="flex items-center justify-between border-b border-border-subtle px-3.5 py-3">
-        <div className="min-w-0">
-          <div className="text-[12.5px] font-semibold text-text-primary">Filters</div>
-          <div className="mt-0.5 text-[10.5px] text-text-tertiary">
-            {activeCount > 0 ? `${activeCount} active` : 'No filters applied'}
-          </div>
+    <div className="flex h-full max-h-[min(620px,calc(100vh-100px))] flex-col">
+      {/* Header — sticky */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-semibold text-text-primary">Filters</span>
+          {activeCount > 0 && (
+            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
+              {activeCount}
+            </span>
+          )}
         </div>
         {activeCount > 0 && (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[11px] text-text-secondary hover:text-text-primary"
-              onClick={clearAll}
-            >
-              <X className="mr-1 h-3 w-3" /> Clear
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => setOpen(false)}
-            >
-              Done
-            </Button>
-          </div>
+          <button
+            type="button"
+            onClick={clearAll}
+            className="inline-flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11px] text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          >
+            <X className="h-3 w-3" /> Clear all
+          </button>
         )}
       </div>
 
-      <ScrollArea className="h-[min(460px,calc(100vh-150px))]">
-        <div className="space-y-4 p-3.5">
-          <FilterGroup title="View" description="Choose the primary inbox slice.">
-            <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-border-subtle bg-bg-primary p-1">
+      {/* Body — scroll */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-5 p-4">
+          {/* View */}
+          <Section title="View">
+            <div className="flex gap-1 rounded-[8px] bg-bg-tertiary/40 p-0.5">
               {VIEW_FILTERS.filter((v) => allowMine || v.value !== 'mine').map((v) => {
                 const active = viewFilter === v.value
                 return (
@@ -224,10 +230,10 @@ export function FilterPanel({
                     type="button"
                     onClick={() => onViewFilterChange(v.value)}
                     className={cn(
-                      'h-7 rounded-[6px] px-2 text-[11.5px] font-medium transition-colors',
+                      'flex-1 h-7 rounded-[6px] text-[12px] font-medium transition-all',
                       active
-                        ? 'bg-accent-muted text-accent ring-1 ring-accent/25'
-                        : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+                        ? 'bg-bg-primary text-text-primary shadow-sm ring-1 ring-border-subtle'
+                        : 'text-text-tertiary hover:text-text-primary',
                     )}
                   >
                     {v.label}
@@ -235,10 +241,11 @@ export function FilterPanel({
                 )
               })}
             </div>
-          </FilterGroup>
+          </Section>
 
-          <FilterGroup title="Channels">
-            <div className="flex flex-wrap items-center justify-start gap-1">
+          {/* Channels */}
+          <Section title="Channels">
+            <div className="flex flex-wrap gap-1.5">
               {CHANNELS.map((channel) => {
                 const active = selectedChannels.has(channel.value)
                 return (
@@ -246,153 +253,158 @@ export function FilterPanel({
                     key={channel.value}
                     type="button"
                     title={channel.label}
-                    aria-label={`Filter by ${channel.label}`}
+                    aria-label={channel.label}
                     aria-pressed={active}
                     onClick={() => toggleChannel(channel.value)}
                     className={cn(
-                      'flex h-[31px] w-[31px] items-center justify-center rounded-[7px]',
-                      active ? channelBg[channel.value] : 'opacity-50',
+                      'relative flex h-8 w-8 items-center justify-center rounded-[7px] transition-all',
+                      active
+                        ? 'opacity-100'
+                        : 'opacity-40 hover:opacity-100',
                     )}
                   >
-                    <ChannelBadge channel={channel.value} showLabel={false} size="md" className="!h-[31px] !w-[31px] ring-0" />
+                    <ChannelBadge
+                      channel={channel.value}
+                      showLabel={false}
+                      size="md"
+                      className={cn(
+                        '!h-8 !w-8 ring-0',
+                        active && channelSelectedBg[channel.value],
+                      )}
+                    />
                   </button>
                 )
               })}
             </div>
-          </FilterGroup>
+          </Section>
 
-          <Separator />
-
-          <FilterGroup title="Status">
-            <div className="grid grid-cols-2 gap-1">
+          {/* Status */}
+          <Section title="Status">
+            <div className="flex flex-wrap gap-1.5">
               {STATUSES.map((s) => (
-                <FilterCheckbox
+                <FilterChip
                   key={s.value}
-                  id={`status-${s.value}`}
                   checked={local.statuses.includes(s.value)}
-                  onChange={() => toggle('statuses', s.value)}
-                  label={
-                    <span className="inline-flex items-center gap-2">
-                      <span className={cn('h-2 w-2 rounded-full', s.tone)} />
-                      {s.label}
-                    </span>
-                  }
-                />
+                  onClick={() => toggle('statuses', s.value)}
+                  dot={s.tone}
+                  activeClass={s.activeClass}
+                >
+                  {s.label}
+                </FilterChip>
               ))}
             </div>
-          </FilterGroup>
+          </Section>
 
-          <Separator />
+          {/* Priority */}
+          <Section title="Priority">
+            <div className="flex flex-wrap gap-1.5">
+              {PRIORITIES.map((p) => (
+                <FilterChip
+                  key={p.value}
+                  checked={local.priorities.includes(p.value)}
+                  onClick={() => toggle('priorities', p.value)}
+                  dot={p.dot}
+                  activeClass={p.activeClass}
+                >
+                  {p.label}
+                </FilterChip>
+              ))}
+            </div>
+          </Section>
 
-          <FilterGroup title="Assignment">
-            <div className="space-y-1">
-              <FilterCheckbox
-                id="assigned-unassigned"
+          {/* Bot */}
+          <Section title="Bot">
+            <div className="flex flex-wrap gap-1.5">
+              {BOT_STATUSES.map((b) => (
+                <FilterChip
+                  key={b.value}
+                  checked={local.botStatuses.includes(b.value)}
+                  onClick={() => toggle('botStatuses', b.value)}
+                  icon={b.icon}
+                  activeClass={b.activeClass}
+                >
+                  {b.label}
+                </FilterChip>
+              ))}
+            </div>
+          </Section>
+
+          {/* Assignment */}
+          <Section title="Assignment">
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
                 checked={local.assignedUserIds.includes('unassigned')}
-                onChange={() => toggle('assignedUserIds', 'unassigned')}
-                label="Unassigned"
-              />
+                onClick={() => toggle('assignedUserIds', 'unassigned')}
+              >
+                Unassigned
+              </FilterChip>
               {members.map((m) => (
-                <FilterCheckbox
+                <FilterChip
                   key={m.userId}
-                  id={`assigned-${m.userId}`}
                   checked={local.assignedUserIds.includes(m.userId)}
-                  onChange={() => toggle('assignedUserIds', m.userId)}
-                  label={m.displayName ?? m.email ?? m.userId}
-                />
+                  onClick={() => toggle('assignedUserIds', m.userId)}
+                >
+                  {m.displayName ?? m.email ?? m.userId}
+                </FilterChip>
               ))}
             </div>
-          </FilterGroup>
+          </Section>
 
-          <Separator />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FilterGroup title="Priority">
-              <div className="space-y-1">
-                {PRIORITIES.map((p) => (
-                  <FilterCheckbox
-                    key={p.value}
-                    id={`priority-${p.value}`}
-                    checked={local.priorities.includes(p.value)}
-                    onChange={() => toggle('priorities', p.value)}
-                    label={
-                      <span className="inline-flex items-center gap-2">
-                        {p.dot ? (
-                          <span className={cn('h-2 w-2 rounded-full', p.dot)} />
-                        ) : (
-                          <span className="h-2 w-2" />
-                        )}
-                        {p.label}
-                      </span>
-                    }
-                  />
-                ))}
-              </div>
-            </FilterGroup>
-
-            <FilterGroup title="Bot">
-              <div className="space-y-1">
-                {BOT_STATUSES.map((b) => (
-                  <FilterCheckbox
-                    key={b.value}
-                    id={`bot-${b.value}`}
-                    checked={local.botStatuses.includes(b.value)}
-                    onChange={() => toggle('botStatuses', b.value)}
-                    label={b.label}
-                  />
-                ))}
-              </div>
-            </FilterGroup>
-          </div>
-
+          {/* Labels */}
           {labels.length > 0 && (
-            <>
-              <Separator />
-              <FilterGroup title="Labels">
-                <div className="space-y-1">
-                  {labels.map((l) => (
-                    <FilterCheckbox
-                      key={l.id}
-                      id={`label-${l.id}`}
-                      checked={local.labelIds.includes(l.id)}
-                      onChange={() => toggle('labelIds', l.id)}
-                      label={
-                        <span className="inline-flex items-center gap-2">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: l.color }}
-                          />
-                          {l.name}
-                        </span>
-                      }
-                    />
-                  ))}
-                </div>
-              </FilterGroup>
-            </>
+            <Section title="Labels">
+              <div className="flex flex-wrap gap-1.5">
+                {labels.map((l) => (
+                  <FilterChip
+                    key={l.id}
+                    checked={local.labelIds.includes(l.id)}
+                    onClick={() => toggle('labelIds', l.id)}
+                    dotColor={l.color}
+                  >
+                    {l.name}
+                  </FilterChip>
+                ))}
+              </div>
+            </Section>
           )}
 
-          <Separator />
-
-          <FilterGroup title="Flags">
-            <div className="grid grid-cols-2 gap-1">
-              <FilterCheckbox
-                id="other-starred"
+          {/* Flags */}
+          <Section title="Flags">
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
                 checked={local.starred}
-                onChange={() => toggleBool('starred')}
-                label="Starred"
-              />
-              <FilterCheckbox
-                id="other-pinned"
+                onClick={() => toggleBool('starred')}
+                icon={Star}
+                activeClass="border-amber-400/40 bg-amber-400/15 text-amber-300"
+              >
+                Starred
+              </FilterChip>
+              <FilterChip
                 checked={local.pinned}
-                onChange={() => toggleBool('pinned')}
-                label="Pinned"
-              />
+                onClick={() => toggleBool('pinned')}
+                icon={Pin}
+                activeClass="border-accent/40 bg-accent-muted text-accent"
+              >
+                Pinned
+              </FilterChip>
             </div>
-          </FilterGroup>
+          </Section>
         </div>
-      </ScrollArea>
-    </>
+      </div>
+
+      {/* Footer — sticky Done */}
+      {activeCount > 0 && (
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border-subtle bg-bg-secondary/60 px-4 py-2.5 backdrop-blur">
+          <Button
+            size="sm"
+            className="h-8 px-4 text-[12px]"
+            onClick={() => setOpen(false)}
+          >
+            <Check className="mr-1 h-3.5 w-3.5" /> Done
+          </Button>
+        </div>
+      )}
+    </div>
   )
 
   const triggerClass = cn(
@@ -428,14 +440,12 @@ export function FilterPanel({
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent
             side="bottom"
-            className="max-h-[85vh] overflow-hidden rounded-t-[16px] p-0 pb-safe"
+            className="h-[85vh] overflow-hidden rounded-t-[16px] p-0 pb-safe"
           >
-            <SheetHeader className="px-4 pb-1 pt-3">
-              <SheetTitle className="text-[13px] font-semibold text-text-primary">
-                Filters
-              </SheetTitle>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Filters</SheetTitle>
             </SheetHeader>
-            {body}
+            <div className="h-full">{body}</div>
           </SheetContent>
         </Sheet>
       </>
@@ -454,67 +464,60 @@ export function FilterPanel({
           {triggerInner}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[350px] overflow-hidden p-0">
+      <PopoverContent align="start" className="w-[340px] overflow-hidden p-0">
         {body}
       </PopoverContent>
     </Popover>
   )
 }
 
-function FilterGroup({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description?: string
-  children: React.ReactNode
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2">
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">
-          {title}
-        </div>
-        {description && (
-          <div className="mt-0.5 text-[10.5px] leading-snug text-text-tertiary/80">
-            {description}
-          </div>
-        )}
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">
+        {title}
       </div>
       {children}
     </div>
   )
 }
 
-function FilterCheckbox({
-  id,
-  checked,
-  onChange,
-  label,
-}: {
-  id: string
+interface FilterChipProps {
   checked: boolean
-  onChange: () => void
-  label: React.ReactNode
-}) {
+  onClick: () => void
+  children: React.ReactNode
+  dot?: string
+  dotColor?: string
+  icon?: React.ComponentType<{ className?: string }>
+  /** Tailwind classes applied when `checked` — defaults to neutral accent. */
+  activeClass?: string
+}
+
+function FilterChip({ checked, onClick, children, dot, dotColor, icon: Icon, activeClass }: FilterChipProps) {
   return (
-    <label
-      htmlFor={id}
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
-        'flex min-w-0 cursor-pointer items-center gap-2 rounded-[6px] px-1.5 py-1.5 text-[12px] transition-colors',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all',
+        'border',
         checked
-          ? 'bg-accent-muted/50 text-text-primary'
-          : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
+          ? activeClass ?? 'border-accent/40 bg-accent-muted text-text-primary'
+          : 'border-border-subtle bg-transparent text-text-secondary hover:border-border hover:bg-bg-tertiary/60 hover:text-text-primary',
       )}
     >
-      <Checkbox
-        id={id}
-        checked={checked}
-        onCheckedChange={() => onChange()}
-        className="h-3.5 w-3.5 shrink-0"
-      />
-      <span className="min-w-0 truncate">{label}</span>
-    </label>
+      {Icon && (
+        <Icon
+          className={cn('h-3 w-3', checked && 'fill-current')}
+        />
+      )}
+      {(dot || dotColor) && (
+        <span
+          className={cn('h-1.5 w-1.5 rounded-full', dot)}
+          style={dotColor ? { backgroundColor: dotColor } : undefined}
+        />
+      )}
+      {children}
+    </button>
   )
 }

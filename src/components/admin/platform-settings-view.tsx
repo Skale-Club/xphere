@@ -54,7 +54,7 @@ export function PlatformSettingsView({ stats }: { stats: PlatformStats }) {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-text-primary">Platform Settings</h1>
         <p className="text-sm text-text-secondary mt-1">Global platform statistics and bulk feature flag controls</p>
@@ -62,7 +62,7 @@ export function PlatformSettingsView({ stats }: { stats: PlatformStats }) {
 
       <section className="mb-8">
         <p className="text-sm font-semibold text-text-primary mb-3">Platform Overview</p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <StatCard icon={Building2} label="Organizations" value={stats.total_orgs} sub={`${stats.active_orgs} active`} />
           <StatCard icon={Users} label="Members" value={stats.total_members} />
           <StatCard icon={Contact2} label="Contacts" value={stats.total_contacts} />

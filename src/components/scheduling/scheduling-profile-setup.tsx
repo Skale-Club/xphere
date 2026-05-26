@@ -68,7 +68,7 @@ export function SchedulingProfileSetup() {
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-border p-8 max-w-lg">
+    <div className="rounded-lg border border-dashed border-border p-8 max-w-lg w-full">
       <CalendarDays className="h-8 w-8 text-muted-foreground mb-3" />
       <h2 className="text-lg font-semibold mb-1">Set up your booking page</h2>
       <p className="text-sm text-muted-foreground mb-6">

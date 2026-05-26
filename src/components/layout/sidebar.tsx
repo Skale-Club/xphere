@@ -18,6 +18,7 @@ import { NAV_ITEMS as nav, NAV_GROUPS as groups } from './nav-items'
 
 import { createClient } from '@/lib/supabase/client'
 import { APP_NAME } from '@/lib/config'
+import { XphereOrb } from '@/components/xphere-orb'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -107,21 +108,8 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
             collapsed && 'hidden',
           )}
         >
-          <div className="relative">
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt={brandName ?? APP_NAME}
-                className="h-6 w-6 rounded-full object-cover transition-shadow duration-200 group-hover/logo:shadow-glow"
-              />
-            ) : (
-              <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover flex items-center justify-center transition-shadow duration-200 group-hover/logo:shadow-glow">
-                <span className="text-[11px] font-bold text-white tracking-tighter">
-                  {(brandName ?? APP_NAME).charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
+          <div className="relative h-6 w-6 transition-[filter] duration-200 group-hover/logo:drop-shadow-[0_0_8px_rgba(79,57,246,0.6)]">
+            <XphereOrb size={24} />
           </div>
           {!collapsed && (
             <span className="text-[13.5px] font-semibold tracking-tight text-text-primary">
@@ -153,21 +141,8 @@ export function Sidebar({ user, isPlatformAdmin, activeOrgId, activeOrgName, bra
             href="/"
             className="group/logo flex items-center justify-center rounded-[8px] py-1 motion-fast"
           >
-            <div className="relative">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoUrl}
-                  alt={brandName ?? APP_NAME}
-                  className="h-6 w-6 rounded-full object-cover transition-shadow duration-200 group-hover/logo:shadow-glow"
-                />
-              ) : (
-                <div className="h-6 w-6 rounded-[7px] bg-gradient-to-br from-accent via-accent to-accent-hover flex items-center justify-center transition-shadow duration-200 group-hover/logo:shadow-glow">
-                  <span className="text-[11px] font-bold text-white tracking-tighter">
-                    {(brandName ?? APP_NAME).charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
+            <div className="relative h-6 w-6 transition-[filter] duration-200 group-hover/logo:drop-shadow-[0_0_8px_rgba(79,57,246,0.6)]">
+              <XphereOrb size={24} />
             </div>
           </Link>
         </div>

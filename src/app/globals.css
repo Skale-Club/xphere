@@ -495,6 +495,42 @@
   .typing-dot:nth-child(2) { animation-delay: 0.15s; }
   .typing-dot:nth-child(3) { animation-delay: 0.30s; }
 
+  /* Landing — CTA button shine sweep */
+  @keyframes btn-shine {
+    0%        { transform: translateX(-150%) skewX(-20deg); }
+    40%, 100% { transform: translateX(350%)  skewX(-20deg); }
+  }
+  .btn-cta {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+    isolation: isolate;
+  }
+  .btn-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.14),
+      transparent
+    );
+    transform: translateX(-150%) skewX(-20deg);
+    animation: btn-shine 6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .btn-cta > * {
+    position: relative;
+    z-index: 1;
+  }
+  .btn-cta:hover::before {
+    animation-duration: 2.5s;
+  }
+
   /* Landing — animated gradient text */
   @keyframes gradient-flow {
     0%   { background-position: 0% center; }

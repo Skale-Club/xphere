@@ -9,7 +9,7 @@ import { getActiveAgents } from '@/app/(dashboard)/agents/actions'
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; conversation?: string; contact?: string }>
 }) {
   const params = await searchParams
   if (params.tab === 'playground') redirect('/agents')
@@ -20,6 +20,22 @@ export default async function ChatPage({
     supabase.rpc('get_current_org_id'),
     getUser(),
   ])
+
+  // Resolve initial conversation:
+  //  - explicit ?conversation=ID wins
+  //  - else ?contact=ID → most-recent conversation for that contact
+  let initialConversationId: string | null = params.conversation ?? null
+  const initialContactId: string | null = params.contact ?? null
+  if (!initialConversationId && initialContactId) {
+    const { data: convRow } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', initialContactId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+    initialConversationId = (convRow?.id as string | undefined) ?? null
+  }
 
   // OBS-08: Build agentMap (id → name) for message-level agent badges
   const agentList = await getActiveAgents()
@@ -38,6 +54,8 @@ export default async function ChatPage({
           currentOrgId={(activeOrgId as string | null) ?? null}
           currentUserId={user?.id ?? null}
           agentMap={agentMap}
+          initialConversationId={initialConversationId}
+          initialContactId={initialContactId}
         />
       </div>
     </div>
