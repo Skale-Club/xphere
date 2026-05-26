@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { CTAButton } from '@/components/design-system/cta-button'
 import { LoginDialog, type AuthMode, type AuthView } from '@/components/auth/login-dialog'
 import { XphereOrb } from '@/components/xphere-orb'
+import { loadSequential } from '@/lib/preload/sequential'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -119,6 +120,11 @@ export function LandingPage({
   const loadedFrames = useRef<Map<string, HTMLImageElement>>(new Map())
   const lastDrawnFrame = useRef<number>(-1)
   const rafPending = useRef(false)
+  // Updated on every scroll tick; the sequential preloader reads it so the
+  // frame currently under the user's scroll position gets bumped to the front
+  // of the queue. Without this, a fast scroller could outrun the loader and
+  // see a stale frame on the canvas.
+  const currentScrollFrame = useRef<number>(0)
 
   const drawFrame = useCallback((idx: number) => {
     if (idx === lastDrawnFrame.current) return
@@ -170,18 +176,29 @@ export function LandingPage({
     return () => window.removeEventListener('resize', resize)
   }, [hasScrollImages, scrollImages, drawFrame])
 
-  // Preload frames; draw first frame as soon as it lands
+  // Preload frames one at a time. Strict sequential — no parallel burst that
+  // saturates the connection pool. The priority hook lets the loader jump to
+  // whatever frame the user is currently looking at if they scroll past the
+  // linear cursor.
   useEffect(() => {
     if (!hasScrollImages) return
-    scrollImages.forEach((url, i) => {
-      if (loadedFrames.current.has(url)) return
-      const img = new window.Image()
-      img.onload = () => {
+    const handle = loadSequential({
+      urls: scrollImages,
+      isLoaded: (url) => loadedFrames.current.has(url),
+      getPriorityIndex: () => currentScrollFrame.current,
+      onLoad: (url, img, idx) => {
         loadedFrames.current.set(url, img)
-        if (i === 0 && lastDrawnFrame.current === -1) drawFrame(0)
-      }
-      img.src = url
+        // First frame just landed → paint it so the canvas isn't blank while
+        // the rest of the queue is still loading.
+        if (idx === 0 && lastDrawnFrame.current === -1) drawFrame(0)
+        // If the user has already scrolled to this frame's index while we
+        // were loading something else, paint it now.
+        if (idx === currentScrollFrame.current && idx !== lastDrawnFrame.current) {
+          drawFrame(idx)
+        }
+      },
     })
+    return () => handle.cancel()
   }, [scrollImages, hasScrollImages, drawFrame])
 
   // Scroll → frame index; rAF-throttled. Animation range = anim-start anchor → end of page.
@@ -201,6 +218,9 @@ export function LandingPage({
         if (span <= 0) return
         const progress = Math.min(1, Math.max(0, (window.scrollY - startY) / span))
         const idx = Math.min(scrollImages.length - 1, Math.floor(progress * scrollImages.length))
+        // Tell the preloader where we are so it can prioritize this frame
+        // even if it's deep in the queue.
+        currentScrollFrame.current = idx
         drawFrame(idx)
         // Fade canvas in across first ~15% of the range, then hold full opacity
         if (wrapper) {

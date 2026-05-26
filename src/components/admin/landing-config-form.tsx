@@ -27,6 +27,7 @@ import {
   type LandingConfig,
 } from '@/app/(admin)/admin/_actions/landing-config'
 import { SCROLL_IMAGES_LIMIT } from '@/app/(admin)/admin/_actions/landing-config-constants'
+import { loadSequential, type SequentialPreloaderHandle } from '@/lib/preload/sequential'
 
 const ACCEPT = '.png,.webp,.jpg,.jpeg,.svg'
 
@@ -54,6 +55,9 @@ export function LandingConfigForm({ config }: { config: LandingConfig }) {
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const rafRef = useRef<number | null>(null)
   const playStateRef = useRef<{ frame: number; lastTime: number; playing: boolean }>({ frame: 0, playing: false, lastTime: 0 })
+  // Active sequential-preload handle so we can cancel before kicking off a
+  // new run when scrollImages changes (admin can upload / remove mid-session).
+  const preloadHandleRef = useRef<SequentialPreloaderHandle | null>(null)
   const ctaInputRef = useRef<HTMLInputElement>(null)
   const scrollInputRef = useRef<HTMLInputElement>(null)
 
@@ -76,12 +80,19 @@ export function LandingConfigForm({ config }: { config: LandingConfig }) {
   }
 
   function preloadImages(urls: string[]) {
-    for (const url of urls) {
-      if (loadedImagesRef.current.has(url)) continue
-      const img = new window.Image()
-      img.onload = () => loadedImagesRef.current.set(url, img)
-      img.src = url
-    }
+    // Cancel any previous queue before starting a new one — admin can edit
+    // the list rapidly (add, remove, reorder) and we don't want two queues
+    // racing to set the same cache.
+    preloadHandleRef.current?.cancel()
+    preloadHandleRef.current = loadSequential({
+      urls,
+      isLoaded: (url) => loadedImagesRef.current.has(url),
+      // The admin preview's "current frame" lives in playStateRef.
+      getPriorityIndex: () => playStateRef.current.frame,
+      onLoad: (url, img) => {
+        loadedImagesRef.current.set(url, img)
+      },
+    })
   }
 
   function seekFrame(idx: number, images: string[]) {
@@ -134,7 +145,10 @@ export function LandingConfigForm({ config }: { config: LandingConfig }) {
     setPreviewFrame(idx)
     // Draw after a tick so the canvas is mounted
     requestAnimationFrame(() => drawFrame(scrollImages[idx]))
-    return () => { stopPlay() }
+    return () => {
+      stopPlay()
+      preloadHandleRef.current?.cancel()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollImages])
 
