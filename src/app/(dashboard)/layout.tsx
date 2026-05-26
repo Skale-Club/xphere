@@ -118,7 +118,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <div className="flex min-h-dvh bg-bg-primary">
                 <Sidebar
                   user={user}
-                  isPlatformAdmin={isPlatformAdmin}
                   activeOrgId={activeOrgId}
                   activeOrgName={activeOrgName}
                   brandName={branding.appName}
