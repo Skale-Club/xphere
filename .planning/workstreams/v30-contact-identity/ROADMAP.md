@@ -135,11 +135,11 @@
 7. `contacts.source` column removed (data lives in `contact_channel_identities` since Phase 108)
 8. `npm run build` exits 0; full e2e regression
 
-**Plans:** 4/7 plans executed
+**Plans:** 6/7 plans executed
 - [x] 110-01-PLAN.md — Migration 1062 contact_verifications + apply script with 4 SQL probes + manual types patch
 - [x] 110-02-PLAN.md — blocked-emails.ts + unit tests + wire into Zod, createContact, 3 webhooks
 - [x] 110-03-PLAN.md — markContactVerified server action + MarkVerifiedButton in contact-info-panel
 - [x] 110-04-PLAN.md — IdentityStatusBadge 5-state component + render in contact-info-panel + is_verified in getContact
-- [ ] 110-05-PLAN.md — Conflict filter chip + counter on /contacts list (identity_status URL param + getConflictCount)
-- [ ] 110-06-PLAN.md — CSV import pre-flight refactor: normalized columns + isBlockedEmail + wizard UI surfacing
+- [x] 110-05-PLAN.md — Conflict filter chip + counter on /contacts list (identity_status URL param + getConflictCount)
+- [x] 110-06-PLAN.md — CSV import pre-flight refactor: normalized columns + isBlockedEmail + wizard UI surfacing
 - [ ] 110-07-PLAN.md — Final validation: targeted tests + build + 110-VALIDATION-REPORT.md with GO/NO-GO
