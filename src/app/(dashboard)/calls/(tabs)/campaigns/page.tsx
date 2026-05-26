@@ -1,7 +1,7 @@
-import { getCampaigns } from '@/app/(dashboard)/outbound/actions'
-import { CampaignList } from '@/components/campaigns/campaign-list'
+import { redirect } from 'next/navigation'
 
-export default async function CallsCampaignsPage() {
-  const campaigns = await getCampaigns()
-  return <CampaignList campaigns={campaigns} />
+// Campaigns have moved to the top-level /campaigns module.
+// Redirect so bookmarks and existing links continue to work.
+export default function CallsCampaignsPage() {
+  redirect('/campaigns?channel=calls')
 }
