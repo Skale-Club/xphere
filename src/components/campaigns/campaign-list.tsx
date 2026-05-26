@@ -37,7 +37,6 @@ function CampaignStatusBadge({ status }: CampaignStatusBadgeProps) {
     stopped:     'bg-red-500/10 text-red-400 border-red-500/20',
     failed:      'bg-red-500/10 text-red-400 border-red-500/20',
     completed:   'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-    failed:      'bg-red-500/10 text-red-400 border-red-500/20',
     draft:       'bg-slate-500/10 text-slate-400 border-slate-500/20',
     scheduled:   'bg-blue-500/10 text-blue-400 border-blue-500/20',
   }
