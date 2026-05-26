@@ -24,12 +24,32 @@ export function NewContactPageForm({ defaultValues, returnTo }: NewContactPageFo
         const res = await createContact(values)
         if (res.error) return { error: res.error }
         if (res.existed) {
-          toast.message('Linked existing contact', {
-            description: 'A contact with this phone/email already existed in your CRM.',
-          })
-        } else {
-          toast.success('Contact created')
+          if (res.matched_via === 'multi_conflict') {
+            toast.warning(
+              'Conflito de identidade — phone bate com um contato, email bate com outro. Revisar em /admin/contacts/conflicts',
+              {
+                action: {
+                  label: 'Abrir',
+                  onClick: () => router.push('/admin/contacts/conflicts'),
+                },
+              },
+            )
+          } else {
+            // matched_via: 'phone' | 'email' | 'both_same'
+            toast.message('Contato já existe', {
+              description: `Vinculado ao contato existente (${res.matched_via ?? 'identidade'}).`,
+              action: {
+                label: 'Abrir',
+                onClick: () => {
+                  if (res.id) router.push(`/contacts/${res.id}`)
+                },
+              },
+            })
+          }
+          // D-04: no auto-redirect, no field overwrite. Stay on the form so the toast Abrir link is actionable.
+          return
         }
+        toast.success('Contato criado')
         router.push(returnTo ?? `/contacts`)
         router.refresh()
       }}
