@@ -60,10 +60,18 @@ export async function startCampaignBatch(
     return { fired: 0, errors: 0 }
   }
 
+  // Guard: voice campaigns require assistant/phone IDs
+  if (!campaign.vapi_assistant_id || !campaign.vapi_phone_number_id) {
+    console.error('[engine] Campaign missing vapi_assistant_id or vapi_phone_number_id')
+    return { fired: 0, errors: 0 }
+  }
+
+  const voiceCampaign = campaign as typeof campaign & { vapi_assistant_id: string; vapi_phone_number_id: string }
+
   // Fire calls concurrently (Promise.allSettled | partial failure is acceptable)
   const results = await Promise.allSettled(
     contacts.map((contact) =>
-      fireContactCall(contact, campaign, supabase, vapiApiKey)
+      fireContactCall(contact, voiceCampaign, supabase, vapiApiKey)
     )
   )
 

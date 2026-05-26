@@ -32,8 +32,10 @@ interface CampaignStatusBadgeProps {
 function CampaignStatusBadge({ status }: CampaignStatusBadgeProps) {
   const styles: Record<CampaignStatus, string> = {
     in_progress: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    running:     'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     paused:      'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
     stopped:     'bg-red-500/10 text-red-400 border-red-500/20',
+    failed:      'bg-red-500/10 text-red-400 border-red-500/20',
     completed:   'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
     draft:       'bg-slate-500/10 text-slate-400 border-slate-500/20',
     scheduled:   'bg-blue-500/10 text-blue-400 border-blue-500/20',

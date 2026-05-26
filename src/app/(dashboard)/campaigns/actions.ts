@@ -209,7 +209,7 @@ export async function getCampaigns(channel?: string): Promise<CampaignListItem[]
     .order('created_at', { ascending: false })
 
   if (channel && channel !== 'all') {
-    query = query.eq('channel', channel)
+    query = query.eq('channel', channel as import('@/types/database').CampaignChannel)
   }
 
   const [campaignsRes, contactsRes] = await Promise.all([
