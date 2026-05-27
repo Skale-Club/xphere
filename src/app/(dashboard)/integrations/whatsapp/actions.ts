@@ -159,6 +159,49 @@ export async function syncCloudTemplates(): Promise<
   return { ok: true, inserted: result.inserted, updated: result.updated, deleted: result.deleted }
 }
 
+// ── List approved templates (for campaign wizard) ──────────────────────────
+
+export interface ApprovedTemplate {
+  id: string
+  name: string
+  language: string
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  bodyVariableCount: number
+  headerVariableCount: number
+  bodyText: string | null
+}
+
+export async function listApprovedTemplates(): Promise<ApprovedTemplate[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return []
+  const { data } = await supabase
+    .from('whatsapp_templates')
+    .select('id, name, language, category, body_variable_count, header_variable_count, components')
+    .eq('org_id', orgId)
+    .eq('status', 'APPROVED')
+    .order('name', { ascending: true })
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    language: row.language,
+    category: row.category,
+    bodyVariableCount: row.body_variable_count,
+    headerVariableCount: row.header_variable_count,
+    bodyText: extractBody(row.components),
+  }))
+}
+
+function extractBody(components: unknown): string | null {
+  if (!Array.isArray(components)) return null
+  const block = (components as Array<{ type?: string; text?: string }>).find(
+    (c) => c.type === 'BODY',
+  )
+  return block?.text ?? null
+}
+
 // ── Disconnect ──────────────────────────────────────────────────────────────
 
 export async function disconnectCloudAccount(): Promise<{ ok: true } | { ok: false; error: string }> {

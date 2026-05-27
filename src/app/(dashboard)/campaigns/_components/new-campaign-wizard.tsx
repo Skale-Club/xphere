@@ -9,6 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createCampaign } from '../actions'
+import {
+  listApprovedTemplates,
+  type ApprovedTemplate,
+} from '@/app/(dashboard)/integrations/whatsapp/actions'
 import type { CampaignChannel } from '@/types/database'
 
 interface Props {
@@ -79,12 +83,26 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
   const [smsBody, setSmsBody] = useState('')
   const [phoneNumbers, setPhoneNumbers] = useState<VapiPhoneNumber[]>([])
   const [loadingPhones, setLoadingPhones] = useState(false)
+  // WhatsApp Cloud template
+  const [whatsappTemplates, setWhatsappTemplates] = useState<ApprovedTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [whatsappTemplateId, setWhatsappTemplateId] = useState<string>('')
+  // mapping[i] = source string ('contact.first_name' | 'literal:Hello' | etc)
+  const [bodyMapping, setBodyMapping] = useState<string[]>([])
+  const [headerMapping, setHeaderMapping] = useState<string[]>([])
 
   // Step 5 — schedule
   const [scheduleType, setScheduleType] = useState<'now' | 'later'>('now')
   const [scheduledAt, setScheduledAt] = useState('')
 
   useEffect(() => {
+    if (step === 4 && channel === 'whatsapp') {
+      setLoadingTemplates(true)
+      listApprovedTemplates()
+        .then((data) => setWhatsappTemplates(data))
+        .catch(() => setWhatsappTemplates([]))
+        .finally(() => setLoadingTemplates(false))
+    }
     if (step === 4 && channel === 'calls') {
       setLoadingPhones(true)
       fetch('/api/vapi/phone-numbers')
@@ -104,7 +122,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
 
   function getGatedMessage(c: CampaignChannel): string {
     if (c === 'email') return 'Connect Resend to unlock email campaigns.'
-    if (c === 'whatsapp') return 'Connect WhatsApp to unlock WhatsApp campaigns.'
+    if (c === 'whatsapp') return 'Connect WhatsApp Official (Meta Cloud) in Integrations to unlock campaigns.'
     if (c === 'calls') return 'Connect Twilio to unlock voice campaigns.'
     if (c === 'sms') return 'Connect Twilio to unlock SMS campaigns.'
     return ''
@@ -121,6 +139,16 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
   function canProceedStep4() {
     if (channel === 'calls') return !!vapiAssistantId && !!vapiPhoneNumberId
     if (channel === 'sms') return smsBody.trim().length >= 1
+    if (channel === 'whatsapp') {
+      if (!whatsappTemplateId) return false
+      const tpl = whatsappTemplates.find((t) => t.id === whatsappTemplateId)
+      if (!tpl) return false
+      if (bodyMapping.length !== tpl.bodyVariableCount) return false
+      if (headerMapping.length !== tpl.headerVariableCount) return false
+      if (bodyMapping.some((s) => !s)) return false
+      if (headerMapping.some((s) => !s)) return false
+      return true
+    }
     return true
   }
 
@@ -140,6 +168,14 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
         vapi_phone_number_id: channel === 'calls' ? vapiPhoneNumberId : null,
         calls_per_minute: channel === 'calls' ? callsPerMinute : undefined,
         sms_body: channel === 'sms' ? smsBody.trim() : null,
+        whatsapp_template_id: channel === 'whatsapp' ? whatsappTemplateId : null,
+        whatsapp_variable_mapping:
+          channel === 'whatsapp'
+            ? {
+                body: bodyMapping.map((source) => ({ source })),
+                header: headerMapping.map((source) => ({ source })),
+              }
+            : null,
         audience_filter,
         scheduled_start_at:
           scheduleType === 'later' && scheduledAt
@@ -367,12 +403,30 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
               </div>
             )}
 
-            {(channel === 'email' || channel === 'whatsapp') && (
+            {channel === 'email' && (
               <div className="rounded-md border border-border bg-bg-tertiary/50 p-4 text-center">
                 <p className="text-[13px] text-text-secondary">
-                  {channel === 'email' ? 'Email' : 'WhatsApp'} template configuration coming soon.
+                  Email template configuration coming soon.
                 </p>
               </div>
+            )}
+
+            {channel === 'whatsapp' && (
+              <WhatsAppTemplateStep
+                templates={whatsappTemplates}
+                loading={loadingTemplates}
+                selectedId={whatsappTemplateId}
+                onSelect={(id) => {
+                  setWhatsappTemplateId(id)
+                  const tpl = whatsappTemplates.find((t) => t.id === id)
+                  setBodyMapping(tpl ? new Array(tpl.bodyVariableCount).fill('') : [])
+                  setHeaderMapping(tpl ? new Array(tpl.headerVariableCount).fill('') : [])
+                }}
+                bodyMapping={bodyMapping}
+                setBodyMapping={setBodyMapping}
+                headerMapping={headerMapping}
+                setHeaderMapping={setHeaderMapping}
+              />
             )}
           </div>
         )}
@@ -460,5 +514,190 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
         </Button>
       </div>
     </div>
+  )
+}
+
+// ─── WhatsApp template selector + variable mapping ───────────────────────────
+
+const CONTACT_FIELDS: Array<{ value: string; label: string }> = [
+  { value: 'contact.first_name', label: 'First name' },
+  { value: 'contact.last_name', label: 'Last name' },
+  { value: 'contact.name', label: 'Full name' },
+  { value: 'contact.email', label: 'Email' },
+  { value: 'contact.phone', label: 'Phone' },
+  { value: 'contact.company', label: 'Company' },
+]
+
+function WhatsAppTemplateStep(props: {
+  templates: ApprovedTemplate[]
+  loading: boolean
+  selectedId: string
+  onSelect: (id: string) => void
+  bodyMapping: string[]
+  setBodyMapping: (next: string[]) => void
+  headerMapping: string[]
+  setHeaderMapping: (next: string[]) => void
+}) {
+  const selected = props.templates.find((t) => t.id === props.selectedId) ?? null
+
+  if (props.loading) {
+    return (
+      <div className="rounded-md border border-border bg-bg-tertiary/50 p-4 text-center text-[13px] text-text-secondary">
+        Loading approved templates…
+      </div>
+    )
+  }
+
+  if (props.templates.length === 0) {
+    return (
+      <div className="rounded-md border border-border bg-bg-tertiary/50 p-4 space-y-2">
+        <p className="text-[13px] text-text-secondary">
+          No approved templates yet. Create one in Meta Business Manager, sync it from Integrations →
+          WhatsApp Official, then come back to this campaign.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-[12px]">Choose a template</Label>
+        <select
+          value={props.selectedId}
+          onChange={(e) => props.onSelect(e.target.value)}
+          className="w-full h-9 px-3 rounded-[8px] border border-border bg-bg-secondary text-[13.5px] text-text-primary"
+        >
+          <option value="">— Select —</option>
+          {props.templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.language}) — {t.category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selected && (
+        <>
+          {selected.bodyText && (
+            <div className="rounded-[8px] border border-border-subtle bg-bg-tertiary/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-text-tertiary mb-1.5">Preview</p>
+              <p className="text-[12.5px] text-text-secondary whitespace-pre-wrap leading-relaxed">
+                {highlightVars(selected.bodyText)}
+              </p>
+            </div>
+          )}
+
+          {selected.category === 'MARKETING' && (
+            <div className="rounded-[8px] border border-amber-500/40 bg-amber-500/10 p-3">
+              <p className="text-[11.5px] text-amber-200">
+                <strong>Marketing template.</strong> Only contacts who have opted in to WhatsApp will receive this
+                campaign. Others are auto-skipped.
+              </p>
+            </div>
+          )}
+
+          {selected.headerVariableCount > 0 && (
+            <VariableMappingGroup
+              label="Header variables"
+              count={selected.headerVariableCount}
+              mapping={props.headerMapping}
+              onChange={props.setHeaderMapping}
+            />
+          )}
+
+          {selected.bodyVariableCount > 0 && (
+            <VariableMappingGroup
+              label="Body variables"
+              count={selected.bodyVariableCount}
+              mapping={props.bodyMapping}
+              onChange={props.setBodyMapping}
+            />
+          )}
+
+          {selected.bodyVariableCount === 0 && selected.headerVariableCount === 0 && (
+            <p className="text-[12.5px] text-text-tertiary">This template has no variables — nothing to map.</p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function VariableMappingGroup({
+  label,
+  count,
+  mapping,
+  onChange,
+}: {
+  label: string
+  count: number
+  mapping: string[]
+  onChange: (next: string[]) => void
+}) {
+  const safeMapping = mapping.length === count ? mapping : new Array(count).fill('')
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-[12px]">{label}</Label>
+      {Array.from({ length: count }).map((_, idx) => {
+        const value = safeMapping[idx] ?? ''
+        const isLiteral = value.startsWith('literal:')
+        const dropdownValue = isLiteral ? 'literal' : value
+        return (
+          <div key={idx} className="flex items-start gap-2">
+            <span className="mt-1.5 text-[11px] font-mono text-text-tertiary w-12 shrink-0">
+              {'{{' + (idx + 1) + '}}'}
+            </span>
+            <select
+              value={dropdownValue}
+              onChange={(e) => {
+                const next = [...safeMapping]
+                if (e.target.value === 'literal') {
+                  next[idx] = 'literal:'
+                } else {
+                  next[idx] = e.target.value
+                }
+                onChange(next)
+              }}
+              className="h-9 px-3 rounded-[8px] border border-border bg-bg-secondary text-[12.5px] text-text-primary"
+            >
+              <option value="">— Source —</option>
+              {CONTACT_FIELDS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+              <option value="literal">Literal text…</option>
+            </select>
+            {isLiteral && (
+              <Input
+                value={value.slice('literal:'.length)}
+                onChange={(e) => {
+                  const next = [...safeMapping]
+                  next[idx] = `literal:${e.target.value}`
+                  onChange(next)
+                }}
+                placeholder="Literal value"
+                className="flex-1 text-[12.5px]"
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function highlightVars(text: string): React.ReactNode {
+  const parts = text.split(/(\{\{\d+\}\})/)
+  return parts.map((part, i) =>
+    /^\{\{\d+\}\}$/.test(part) ? (
+      <span key={i} className="px-1 rounded bg-accent/15 text-accent font-mono text-[11.5px]">
+        {part}
+      </span>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
   )
 }
