@@ -51,6 +51,24 @@ export async function createCampaign(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) throw new Error('No organization found for user')
 
+  // Validate channel integration availability before creating
+  const [integRes, resendRes] = await Promise.all([
+    supabase.from('integrations').select('provider').eq('is_active', true),
+    input.channel === 'email'
+      ? supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1)
+      : Promise.resolve({ data: null }),
+  ])
+  const providers = new Set((integRes.data ?? []).map((i) => i.provider))
+  if ((input.channel === 'calls' || input.channel === 'sms') && !providers.has('twilio')) {
+    throw new Error(`Twilio is not connected. Set up Twilio to create ${input.channel} campaigns.`)
+  }
+  if (input.channel === 'email' && (resendRes.data ?? []).length === 0) {
+    throw new Error('Email integration is not connected. Set up Resend to create email campaigns.')
+  }
+  if (input.channel === 'whatsapp' && !providers.has('whatsapp')) {
+    throw new Error('WhatsApp is not connected. Connect WhatsApp to create WhatsApp campaigns.')
+  }
+
   const templateConfig: Json = input.channel === 'sms' && input.sms_body
     ? ({ sms_body: input.sms_body } as Json)
     : ({} as Json)

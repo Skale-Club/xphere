@@ -32,11 +32,12 @@ async function getSetupData() {
     assistants,
     hasTwilio: providers.has('twilio'),
     hasResend: (resendRes.data ?? []).length > 0,
+    hasWhatsApp: providers.has('whatsapp'),
   }
 }
 
 export default async function NewCampaignPage() {
-  const { assistants, hasTwilio, hasResend } = await getSetupData()
+  const { assistants, hasTwilio, hasResend, hasWhatsApp } = await getSetupData()
 
   return (
     <PageContainer>
@@ -52,6 +53,7 @@ export default async function NewCampaignPage() {
           assistants={assistants}
           hasTwilio={hasTwilio}
           hasResend={hasResend}
+          hasWhatsApp={hasWhatsApp}
         />
       </div>
     </PageContainer>

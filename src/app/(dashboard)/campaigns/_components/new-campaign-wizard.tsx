@@ -15,6 +15,7 @@ interface Props {
   assistants: Array<{ id: string; name: string }>
   hasTwilio: boolean
   hasResend: boolean
+  hasWhatsApp: boolean
 }
 
 interface VapiPhoneNumber {
@@ -28,8 +29,6 @@ const CHANNELS: Array<{
   label: string
   description: string
   icon: React.ComponentType<{ className?: string }>
-  gated?: boolean
-  gatedMessage?: string
 }> = [
   {
     value: 'calls',
@@ -48,20 +47,16 @@ const CHANNELS: Array<{
     label: 'Email',
     description: 'Send email campaigns via Resend.',
     icon: Mail,
-    gated: true,
-    gatedMessage: 'Connect Resend to unlock email campaigns.',
   },
   {
     value: 'whatsapp',
     label: 'WhatsApp',
-    description: 'WhatsApp campaign support is coming soon.',
+    description: 'Send WhatsApp messages to your contacts.',
     icon: MessageCircle,
-    gated: true,
-    gatedMessage: 'WhatsApp campaigns are coming soon.',
   },
 ]
 
-export function NewCampaignWizard({ assistants, hasTwilio, hasResend }: Props) {
+export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsApp }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
@@ -102,8 +97,17 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend }: Props) {
 
   function isChannelGated(c: CampaignChannel): boolean {
     if (c === 'email') return !hasResend
-    if (c === 'whatsapp') return true
+    if (c === 'whatsapp') return !hasWhatsApp
+    if (c === 'calls' || c === 'sms') return !hasTwilio
     return false
+  }
+
+  function getGatedMessage(c: CampaignChannel): string {
+    if (c === 'email') return 'Connect Resend to unlock email campaigns.'
+    if (c === 'whatsapp') return 'Connect WhatsApp to unlock WhatsApp campaigns.'
+    if (c === 'calls') return 'Connect Twilio to unlock voice campaigns.'
+    if (c === 'sms') return 'Connect Twilio to unlock SMS campaigns.'
+    return ''
   }
 
   function canProceedStep1() {
@@ -214,7 +218,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend }: Props) {
                     <ch.icon className={['h-5 w-5 mb-2', selected ? 'text-accent' : 'text-text-secondary'].join(' ')} />
                     <p className="text-[13px] font-semibold text-text-primary">{ch.label}</p>
                     <p className="text-[12px] text-text-tertiary mt-0.5">
-                      {gated ? ch.gatedMessage : ch.description}
+                      {gated ? getGatedMessage(ch.value) : ch.description}
                     </p>
                   </button>
                 )

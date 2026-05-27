@@ -57,13 +57,15 @@ function humanStatus(status: string) {
 
 async function getProviderAvailability() {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('integrations')
-    .select('provider')
-    .eq('is_active', true)
-  const providers = new Set((data ?? []).map((i) => i.provider))
+  const [integRes, resendRes] = await Promise.all([
+    supabase.from('integrations').select('provider').eq('is_active', true),
+    supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1),
+  ])
+  const providers = new Set((integRes.data ?? []).map((i) => i.provider))
   return {
     hasTwilio: providers.has('twilio'),
+    hasResend: (resendRes.data ?? []).length > 0,
+    hasWhatsApp: providers.has('whatsapp'),
   }
 }
 
@@ -118,16 +120,16 @@ export default async function CampaignsPage({ searchParams }: PageProps) {
         </nav>
       </div>
 
-      {/* Provider availability banners (only when viewing that channel) */}
-      {activeChannel === 'email' && (
+      {/* Provider availability banners (only when viewing that channel and integration is missing) */}
+      {activeChannel === 'email' && !availability.hasResend && (
         <div className="rounded-[10px] border border-violet-500/20 bg-violet-500/5 px-4 py-3 flex items-center gap-3">
           <Mail className="h-4 w-4 text-violet-400 shrink-0" />
           <div>
-            <p className="text-[13px] font-medium text-text-primary">Email campaigns coming soon</p>
+            <p className="text-[13px] font-medium text-text-primary">Email integration not connected</p>
             <p className="text-[12px] text-text-secondary mt-0.5">
               Connect Resend to enable email campaigns.{' '}
-              <Link href="/integrations" className="underline hover:text-text-primary">
-                Go to Integrations
+              <Link href="/settings/email" className="underline hover:text-text-primary">
+                Set up email
               </Link>
             </p>
           </div>
@@ -147,13 +149,30 @@ export default async function CampaignsPage({ searchParams }: PageProps) {
           </div>
         </div>
       )}
-      {activeChannel === 'whatsapp' && (
+      {activeChannel === 'calls' && !availability.hasTwilio && (
+        <div className="rounded-[10px] border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
+          <Phone className="h-4 w-4 text-amber-400 shrink-0" />
+          <div>
+            <p className="text-[13px] font-medium text-text-primary">Voice provider not connected</p>
+            <p className="text-[12px] text-text-secondary mt-0.5">
+              Connect Twilio to enable voice campaigns.{' '}
+              <Link href="/integrations/twilio" className="underline hover:text-text-primary">
+                Set up Twilio
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+      {activeChannel === 'whatsapp' && !availability.hasWhatsApp && (
         <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex items-center gap-3">
           <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
           <div>
-            <p className="text-[13px] font-medium text-text-primary">WhatsApp campaigns coming soon</p>
+            <p className="text-[13px] font-medium text-text-primary">WhatsApp not connected</p>
             <p className="text-[12px] text-text-secondary mt-0.5">
-              WhatsApp campaign support is in development.
+              Connect WhatsApp to enable WhatsApp campaigns.{' '}
+              <Link href="/integrations" className="underline hover:text-text-primary">
+                Go to Integrations
+              </Link>
             </p>
           </div>
         </div>
