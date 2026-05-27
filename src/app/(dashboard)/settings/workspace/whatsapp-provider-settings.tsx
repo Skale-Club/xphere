@@ -20,20 +20,27 @@ interface Props {
   initial: ActiveWhatsAppProvider | null
 }
 
-const PROVIDER_LABEL: Record<WhatsAppProvider, string> = {
+// Legacy non-official inbox providers only — Meta Cloud has its own settings.
+type LegacyProvider = Exclude<WhatsAppProvider, 'meta_cloud'>
+
+const PROVIDER_LABEL: Record<LegacyProvider, string> = {
   evolution: 'Evolution Go',
   zapi: 'Z-API',
   wapi: 'W-API',
 }
 
-const WEBHOOK_URL: Record<WhatsAppProvider, string> = {
+const WEBHOOK_URL: Record<LegacyProvider, string> = {
   evolution: 'https://xphere.app/api/evolution/webhook',
   zapi: 'https://xphere.app/api/zapi/webhook?instance={instanceId}',
   wapi: 'https://xphere.app/api/wapi/webhook?instance={instance_key}',
 }
 
 export function WhatsAppProviderSettings({ initial }: Props) {
-  const [provider, setProvider] = useState<WhatsAppProvider>(initial?.provider ?? 'evolution')
+  // Cloud is stored in a separate table, so initial.provider here is always a
+  // legacy value in practice — narrow defensively.
+  const initialProvider: LegacyProvider =
+    initial?.provider && initial.provider !== 'meta_cloud' ? initial.provider : 'evolution'
+  const [provider, setProvider] = useState<LegacyProvider>(initialProvider)
   const [displayName, setDisplayName] = useState<string>(initial?.displayName ?? '')
   const [config, setConfig] = useState<Record<string, string>>(initial?.config ?? {})
   const [pending, startTransition] = useTransition()
@@ -42,7 +49,7 @@ export function WhatsAppProviderSettings({ initial }: Props) {
     setConfig((prev) => ({ ...prev, [key]: value }))
   }
 
-  function switchProvider(next: WhatsAppProvider) {
+  function switchProvider(next: LegacyProvider) {
     if (next === provider) return
     // Reset config when switching to a different provider so we don't smuggle
     // stale fields from the previous provider's shape.
@@ -84,7 +91,7 @@ export function WhatsAppProviderSettings({ initial }: Props) {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="wa-provider">Provider</Label>
-          <Select value={provider} onValueChange={(v) => switchProvider(v as WhatsAppProvider)}>
+          <Select value={provider} onValueChange={(v) => switchProvider(v as LegacyProvider)}>
             <SelectTrigger id="wa-provider" className="w-full max-w-sm">
               <SelectValue />
             </SelectTrigger>

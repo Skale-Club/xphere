@@ -25,7 +25,11 @@ import {
 import type { CustomPanelProps } from '@/lib/integrations/registry'
 import type { WhatsAppProvider } from '@/lib/whatsapp/types'
 
-const PROVIDER_LABEL: Record<WhatsAppProvider, { label: string; hint: string }> = {
+// Non-official inbox providers only. The official Meta Cloud lives in a
+// separate integration (whatsapp_cloud_accounts) with its own panel.
+type LegacyProvider = Exclude<WhatsAppProvider, 'meta_cloud'>
+
+const PROVIDER_LABEL: Record<LegacyProvider, { label: string; hint: string }> = {
   evolution: { label: 'Evolution Go', hint: 'Self-hosted' },
   zapi: { label: 'Z-API', hint: 'Cloud' },
   wapi: { label: 'W-API', hint: 'Cloud' },
@@ -35,7 +39,7 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
   const router = useRouter()
   const [active, setActive] = useState<ActiveWhatsAppProvider | null>(null)
   const [loading, setLoading] = useState(true)
-  const [provider, setProvider] = useState<WhatsAppProvider>('evolution')
+  const [provider, setProvider] = useState<LegacyProvider>('evolution')
   const [displayName, setDisplayName] = useState('')
   const [config, setConfig] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
@@ -46,8 +50,8 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
       .then((data) => {
         if (cancelled) return
         setActive(data)
-        if (data) {
-          setProvider(data.provider)
+        if (data && data.provider !== 'meta_cloud') {
+          setProvider(data.provider as LegacyProvider)
           setDisplayName(data.displayName ?? '')
           setConfig(data.config ?? {})
         }
@@ -58,7 +62,7 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
     }
   }, [])
 
-  function switchProvider(next: WhatsAppProvider) {
+  function switchProvider(next: LegacyProvider) {
     if (next === provider) return
     setProvider(next)
     if (active && active.provider === next) {
@@ -107,7 +111,7 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
             <div className="space-y-2">
               <Label>Provider</Label>
               <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(PROVIDER_LABEL) as WhatsAppProvider[]).map((p) => (
+                {(Object.keys(PROVIDER_LABEL) as LegacyProvider[]).map((p) => (
                   <button
                     key={p}
                     type="button"

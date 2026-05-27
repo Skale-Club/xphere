@@ -7,7 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
-import { sendWhatsAppMessage } from './send'
+import { routeWhatsAppReply } from './route-reply'
 import type { ChannelProvider } from '@/types/database'
 import type {
   NormalizedWhatsAppMessage,
@@ -133,6 +133,10 @@ export async function processWhatsAppMessage(
         provider: msg.provider,
       }
       if (msg.instanceName) channelMetadata.instance_name = msg.instanceName
+      if (msg.provider === 'meta_cloud') {
+        const cfg = provider.config as Record<string, string> | undefined
+        if (cfg?.phone_number_id) channelMetadata.phone_number_id = cfg.phone_number_id
+      }
 
       const insertPayload: Record<string, unknown> = {
         org_id: orgId,
@@ -164,6 +168,30 @@ export async function processWhatsAppMessage(
         return
       }
       conversationId = convo.id
+    }
+
+    // --- 1b. WhatsApp Cloud opt-in side effect -------------------------------
+    // Meta requires explicit opt-in for MARKETING templates. Any inbound from a
+    // contact via the Cloud API implicitly counts as opt-in (the user reached
+    // out to us). Stamp it once; subsequent inbounds don't re-set the timestamp.
+    if (msg.provider === 'meta_cloud') {
+      try {
+        const { data: convForContact } = await supabase
+          .from('conversations')
+          .select('contact_id')
+          .eq('id', conversationId)
+          .maybeSingle()
+        const cid = convForContact?.contact_id
+        if (cid) {
+          await supabase
+            .from('contacts')
+            .update({ whatsapp_opt_in: true, whatsapp_opted_at: now })
+            .eq('id', cid)
+            .eq('whatsapp_opt_in', false)
+        }
+      } catch (err) {
+        console.error('[whatsapp/process] opt-in update error:', err)
+      }
     }
 
     // --- 2. Idempotency check ------------------------------------------------
@@ -259,11 +287,11 @@ export async function processWhatsAppMessage(
 
       if (!result.text) return
 
-      await sendWhatsAppMessage({
+      await routeWhatsAppReply({
         orgId,
+        conversationId,
         to: fromPhone,
         text: result.text,
-        conversationId,
       })
     } catch (err) {
       console.error('[whatsapp/process] runAgent/send error:', err)

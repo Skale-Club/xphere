@@ -1,7 +1,7 @@
 // src/lib/whatsapp/types.ts
 // Shared types for the multi-provider WhatsApp abstraction (SEED-031).
 
-export type WhatsAppProvider = 'evolution' | 'zapi' | 'wapi'
+export type WhatsAppProvider = 'evolution' | 'zapi' | 'wapi' | 'meta_cloud'
 
 export type WhatsAppProviderStatus =
   | 'disconnected'

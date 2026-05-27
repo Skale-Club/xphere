@@ -62,7 +62,7 @@ export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'faile
 // migration 1090: multi-channel campaigns
 export type CampaignChannel = 'calls' | 'sms' | 'email' | 'whatsapp'
 export type CampaignType = 'one_time' | 'flow'
-export type CampaignRecipientStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'skipped' | 'unsubscribed'
+export type CampaignRecipientStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'skipped' | 'unsubscribed'
 
 export type ConversationChannel = 'widget' | 'messenger' | 'instagram'
 export type MetaChannelType = 'messenger' | 'instagram'
@@ -1727,6 +1727,9 @@ export interface Database {
           dnd_note: string | null
           dnd_set_at: string | null
           dnd_set_by: string | null
+          /** Migration 1100: WhatsApp opt-in for Meta Cloud campaigns */
+          whatsapp_opt_in: boolean
+          whatsapp_opted_at: string | null
         }
         Insert: {
           id?: string
@@ -1753,6 +1756,8 @@ export interface Database {
           dnd_note?: string | null
           dnd_set_at?: string | null
           dnd_set_by?: string | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opted_at?: string | null
         }
         Update: {
           first_name?: string | null
@@ -1775,6 +1780,8 @@ export interface Database {
           dnd_note?: string | null
           dnd_set_at?: string | null
           dnd_set_by?: string | null
+          whatsapp_opt_in?: boolean
+          whatsapp_opted_at?: string | null
         }
         Relationships: [
           {
@@ -2880,6 +2887,9 @@ export interface Database {
           created_by: string | null
           // migration 1091: sms_body
           sms_body: string | null
+          // migration 1100: WhatsApp Cloud template
+          whatsapp_template_id: string | null
+          whatsapp_variable_mapping: Json | null
           created_at: string
           updated_at: string
         }
@@ -2909,6 +2919,8 @@ export interface Database {
           metrics?: Json
           created_by?: string | null
           sms_body?: string | null
+          whatsapp_template_id?: string | null
+          whatsapp_variable_mapping?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -2934,6 +2946,8 @@ export interface Database {
           metrics?: Json
           created_by?: string | null
           sms_body?: string | null
+          whatsapp_template_id?: string | null
+          whatsapp_variable_mapping?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -2955,6 +2969,10 @@ export interface Database {
           sent_at: string | null
           result: Json
           error_message: string | null
+          // migration 1100: WhatsApp Cloud tracking
+          wamid: string | null
+          cost_usd: number | null
+          message_type: 'marketing' | 'utility' | 'authentication' | 'service' | null
           created_at: string
           updated_at: string
         }
@@ -2966,6 +2984,9 @@ export interface Database {
           sent_at?: string | null
           result?: Json
           error_message?: string | null
+          wamid?: string | null
+          cost_usd?: number | null
+          message_type?: 'marketing' | 'utility' | 'authentication' | 'service' | null
           created_at?: string
           updated_at?: string
         }
@@ -2974,6 +2995,9 @@ export interface Database {
           sent_at?: string | null
           result?: Json
           error_message?: string | null
+          wamid?: string | null
+          cost_usd?: number | null
+          message_type?: 'marketing' | 'utility' | 'authentication' | 'service' | null
           updated_at?: string
         }
         Relationships: [
@@ -4882,6 +4906,124 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'whatsapp_providers_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      whatsapp_cloud_accounts: {
+        Row: {
+          id: string
+          org_id: string
+          display_name: string
+          waba_id: string
+          phone_number_id: string
+          phone_number_e164: string | null
+          access_token_encrypted: string
+          app_secret_encrypted: string | null
+          webhook_verify_token_encrypted: string | null
+          status: 'connected' | 'disconnected' | 'error'
+          is_active: boolean
+          last_synced_at: string | null
+          last_error: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          display_name: string
+          waba_id: string
+          phone_number_id: string
+          phone_number_e164?: string | null
+          access_token_encrypted: string
+          app_secret_encrypted?: string | null
+          webhook_verify_token_encrypted?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+          is_active?: boolean
+          last_synced_at?: string | null
+          last_error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          display_name?: string
+          waba_id?: string
+          phone_number_id?: string
+          phone_number_e164?: string | null
+          access_token_encrypted?: string
+          app_secret_encrypted?: string | null
+          webhook_verify_token_encrypted?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+          is_active?: boolean
+          last_synced_at?: string | null
+          last_error?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_cloud_accounts_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      whatsapp_templates: {
+        Row: {
+          id: string
+          org_id: string
+          cloud_account_id: string
+          meta_template_id: string
+          name: string
+          language: string
+          category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+          status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
+          components: Json
+          body_variable_count: number
+          header_variable_count: number
+          synced_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          cloud_account_id: string
+          meta_template_id: string
+          name: string
+          language: string
+          category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+          status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
+          components: Json
+          body_variable_count?: number
+          header_variable_count?: number
+          synced_at?: string
+        }
+        Update: {
+          meta_template_id?: string
+          name?: string
+          language?: string
+          category?: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+          status?: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
+          components?: Json
+          body_variable_count?: number
+          header_variable_count?: number
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_templates_cloud_account_id_fkey'
+            columns: ['cloud_account_id']
+            isOneToOne: false
+            referencedRelation: 'whatsapp_cloud_accounts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'whatsapp_templates_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
