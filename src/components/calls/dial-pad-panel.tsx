@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { normaliseE164 } from '@/lib/calls/zod-schemas'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   getOrgPhoneNumbers,
   toggleRecordCalls,
@@ -428,7 +429,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                         className="block w-full border-b border-border px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-bg-tertiary"
                       >
                         <div className="truncate text-[12px] font-medium text-text-primary">
-                          {c.name || c.phone || 'Unnamed contact'}
+                          {c.name || (c.phone ? formatPhoneDisplay(c.phone) : 'Unnamed contact')}
                         </div>
                         <div className="mt-0.5 flex items-center gap-1.5 truncate text-[10.5px] text-text-tertiary">
                           {c.company && (
@@ -439,7 +440,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                           )}
                           {c.company && c.phone && <span>·</span>}
                           {c.phone && (
-                            <span className="truncate font-mono">{c.phone}</span>
+                            <span className="truncate font-mono">{formatPhoneDisplay(c.phone)}</span>
                           )}
                         </div>
                       </button>

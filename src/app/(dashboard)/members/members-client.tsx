@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   Select,
   SelectContent,
@@ -270,7 +271,7 @@ export function MembersClient({
                     {member.email ?? '—'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {member.phone ?? '—'}
+                    {member.phone ? formatPhoneDisplay(member.phone) : '—'}
                   </TableCell>
                   <TableCell>
                     <Select

@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { CrmEntityType, TaskPriority, TaskStatus } from '@/types/database'
 import type { TaskRow, ContactOption } from '@/app/(dashboard)/tasks/actions'
 import { displayContactName } from '@/lib/contacts/names'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 function toDatetimeLocal(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -256,7 +257,7 @@ export function TaskForm({
                     <SelectItem value="__none__">No contact</SelectItem>
                     {contacts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {displayContactName(c, c.email ?? c.phone ?? 'Unknown')}
+                        {displayContactName(c, c.email ?? (c.phone ? formatPhoneDisplay(c.phone) : null) ?? 'Unknown')}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -49,8 +49,8 @@ describe('FIELD_RENDER_CONFIG displayFormatters', () => {
     expect(FIELD_RENDER_CONFIG.email.displayFormatter('user@example.com')).toBe('user@example.com')
   })
 
-  it('phone: returns the phone string as-is', () => {
-    expect(FIELD_RENDER_CONFIG.phone.displayFormatter('+15551234567')).toBe('+15551234567')
+  it('phone: formats E.164 for display', () => {
+    expect(FIELD_RENDER_CONFIG.phone.displayFormatter('+15551234567')).toBe('+1 (555) 123-4567')
   })
 
   it('select: returns the value string as-is', () => {

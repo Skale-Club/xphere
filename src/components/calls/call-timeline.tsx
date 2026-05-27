@@ -14,6 +14,7 @@ import {
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { CallLogWithContact } from '@/app/(dashboard)/voice/actions'
 
 type Filter = 'all' | 'inbound' | 'outbound' | 'missed'
@@ -128,7 +129,9 @@ function CallRow({ row }: { row: CallLogWithContact }) {
           />
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-text-tertiary">
-          <span>{(row.direction === 'inbound' ? row.from_number : row.to_number) ?? '|'}</span>
+          <span>
+            {formatPhoneDisplay(row.direction === 'inbound' ? row.from_number : row.to_number) || '|'}
+          </span>
           {row.routing_mode && (
             <>
               <span>·</span>

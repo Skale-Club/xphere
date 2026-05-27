@@ -6,6 +6,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SyncTemplatesButton } from './sync-templates-button'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface TemplateRow {
   id: string
@@ -73,7 +74,7 @@ export default async function WhatsAppTemplatesPage() {
         <div>
           <h1 className="text-[18px] font-semibold text-text-primary">WhatsApp Templates</h1>
           <p className="text-[13px] text-text-tertiary mt-0.5">
-            {account.phone_number_e164 ?? account.display_name}
+            {account.phone_number_e164 ? formatPhoneDisplay(account.phone_number_e164) : account.display_name}
             {account.last_synced_at && (
               <span> · last synced {new Date(account.last_synced_at).toLocaleString()}</span>
             )}

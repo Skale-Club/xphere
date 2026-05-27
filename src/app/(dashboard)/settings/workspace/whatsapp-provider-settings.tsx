@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { saveWhatsAppProvider } from './actions'
 import type { ActiveWhatsAppProvider } from './actions'
 import type { WhatsAppProvider } from '@/lib/whatsapp/types'
@@ -210,7 +211,7 @@ export function WhatsAppProviderSettings({ initial }: Props) {
 
         {initial?.phoneNumber && (
           <p className="text-sm text-muted-foreground">
-            Connected as <strong>{initial.phoneNumber}</strong>
+            Connected as <strong>{formatPhoneDisplay(initial.phoneNumber)}</strong>
             {initial.status ? ` · status: ${initial.status}` : ''}
           </p>
         )}

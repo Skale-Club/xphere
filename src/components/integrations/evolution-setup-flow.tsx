@@ -31,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { StatusPill } from '@/components/design-system/status-pill'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { cn } from '@/lib/utils'
 import {
   createEvolutionInstance,
@@ -466,7 +467,7 @@ function ConnectedCard({
             {instance.phoneNumber && (
               <div className="mt-1 flex items-center gap-1.5 text-[13px] text-text-primary">
                 <Phone className="h-3.5 w-3.5 text-success" />
-                <span className="font-medium">{instance.phoneNumber}</span>
+                <span className="font-medium">{formatPhoneDisplay(instance.phoneNumber)}</span>
               </div>
             )}
           </div>

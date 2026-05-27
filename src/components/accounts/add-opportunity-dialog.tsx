@@ -30,6 +30,7 @@ import {
 } from '@/app/(dashboard)/pipeline/actions'
 import type { Database } from '@/types/database'
 import { displayContactName } from '@/lib/contacts/names'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 type PipelineRow = Database['public']['Tables']['pipelines']['Row']
@@ -247,7 +248,7 @@ export function AddOpportunityDialog({
                             <span>{displayContactName(c, 'Unnamed')}</span>
                             {(c.phone ?? c.email) && (
                               <span className="text-[11px] text-text-tertiary">
-                                {c.phone ?? c.email}
+                                {c.phone ? formatPhoneDisplay(c.phone) : c.email}
                               </span>
                             )}
                           </span>

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { cn } from '@/lib/utils'
 
 import { IntegrationLogo } from '../integration-logo'
@@ -228,7 +229,7 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
 
             {active?.phoneNumber && (
               <p className="text-[12px] text-text-tertiary">
-                Connected as <strong>{active.phoneNumber}</strong>
+                Connected as <strong>{formatPhoneDisplay(active.phoneNumber)}</strong>
                 {active.status ? ` · ${active.status}` : ''}
               </p>
             )}

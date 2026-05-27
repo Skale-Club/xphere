@@ -6,6 +6,7 @@
 // future Phase 71 renderer.
 
 import { z } from 'zod'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { CustomFieldType } from '@/types/database'
 
 /** Per-type render and validation contract. */
@@ -81,7 +82,7 @@ export const FIELD_RENDER_CONFIG: Record<CustomFieldType, FieldRenderConfig> = {
   phone: {
     inputType: 'tel',
     zodSchema: z.string().regex(/^\+[1-9]\d{1,14}$/),
-    displayFormatter: (v) => String(v),
+    displayFormatter: (v) => formatPhoneDisplay(String(v)),
   },
   currency: {
     inputType: 'currency',

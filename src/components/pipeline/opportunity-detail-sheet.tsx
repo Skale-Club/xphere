@@ -43,6 +43,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { TagBadge } from '@/components/tags/tag-badge'
 import { ActivityFeedItem } from '@/components/pipeline/activity-feed-item'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   getOpportunity,
   updateOpportunity,
@@ -436,7 +437,7 @@ export function OpportunityDetailSheet({
                                   {displayContactName(contact, 'Unnamed')}
                                 </div>
                                 <div className="text-[11.5px] text-text-tertiary truncate">
-                                  {contact.phone ?? contact.email ?? ''}
+                                  {contact.phone ? formatPhoneDisplay(contact.phone) : contact.email ?? ''}
                                 </div>
                               </div>
                               <button
@@ -470,7 +471,9 @@ export function OpportunityDetailSheet({
                                     >
                                       <div className="min-w-0">
                                         <div className="text-[12.5px] font-medium text-text-primary truncate">{displayContactName(s, 'Unnamed')}</div>
-                                        <div className="text-[11px] text-text-tertiary truncate">{s.phone ?? s.email ?? ''}</div>
+                                        <div className="text-[11px] text-text-tertiary truncate">
+                                          {s.phone ? formatPhoneDisplay(s.phone) : s.email ?? ''}
+                                        </div>
                                       </div>
                                     </button>
                                   ))}

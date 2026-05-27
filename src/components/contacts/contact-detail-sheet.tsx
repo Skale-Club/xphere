@@ -231,7 +231,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                             }
                         : undefined
                     }
-                    title={contact.phone ? (dialpadAvailable ? 'Open in dial-pad' : `Call ${contact.phone}`) : undefined}
+                    title={contact.phone ? (dialpadAvailable ? 'Open in dial-pad' : `Call ${formatPhoneDisplay(contact.phone)}`) : undefined}
                   />
                   <InfoRow
                     icon={Mail}

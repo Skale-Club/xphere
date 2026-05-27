@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { TaskRow, ContactOption } from "@/app/(dashboard)/tasks/actions";
 import type { TaskPriority } from "@/types/database";
 import { displayContactName } from "@/lib/contacts/names";
+import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: "bg-zinc-500/15 text-zinc-400",
@@ -74,7 +75,7 @@ export function TaskListItem({
 }: TaskListItemProps) {
   const done = task.status === "done";
   const contactName = contact
-    ? displayContactName(contact, contact.phone ?? contact.email ?? "")
+    ? displayContactName(contact, contact.phone ? formatPhoneDisplay(contact.phone) : contact.email ?? "")
     : null;
   const [confirmOpen, setConfirmOpen] = useState(false);
 

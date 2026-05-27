@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,8 +99,8 @@ export function ClusterCard({ cluster }: { cluster: ClusterRow }) {
                 <div>
                   <dt className="inline text-text-tertiary">phone </dt>
                   <dd className="inline">
-                    {c.phone}
-                    {c.phone_e164 && c.phone_e164 !== c.phone ? ` (${c.phone_e164})` : ''}
+                    {formatPhoneDisplay(c.phone)}
+                    {c.phone_e164 && c.phone_e164 !== c.phone ? ` (${formatPhoneDisplay(c.phone_e164)})` : ''}
                   </dd>
                 </div>
               )}

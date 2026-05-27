@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { Database, CampaignContactStatus, CampaignStatus } from '@/types/database'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
 
@@ -172,7 +173,7 @@ export function ContactStatusBoard({ campaignId, initialContacts, campaignStatus
               contacts.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>{c.name ?? '|'}</TableCell>
-                  <TableCell className="font-mono text-sm">{c.phone}</TableCell>
+                  <TableCell className="font-mono text-sm">{formatPhoneDisplay(c.phone)}</TableCell>
                   <TableCell><StatusBadge status={c.status as CampaignContactStatus} /></TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {c.called_at ? new Date(c.called_at).toLocaleTimeString() : '|'}

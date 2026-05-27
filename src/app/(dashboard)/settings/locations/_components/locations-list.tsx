@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { StoreLocationForm } from '@/components/scheduling/store-location-form'
 import { deleteTenantLocation } from '../_actions/tenant-locations'
 import type { Database } from '@/types/database'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 type TenantLocation = Database['public']['Tables']['tenant_locations']['Row']
 
@@ -116,7 +117,7 @@ export function LocationsList({ initial }: Props) {
                           .join(', ')}
                       </p>
                       {loc.phone && (
-                        <p className="text-xs text-text-tertiary mt-0.5">{loc.phone}</p>
+                        <p className="text-xs text-text-tertiary mt-0.5">{formatPhoneDisplay(loc.phone)}</p>
                       )}
                       {loc.latitude == null && (
                         <p className="text-[11px] text-amber-500 mt-1">

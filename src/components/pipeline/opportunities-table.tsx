@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency, relativeTime } from '@/lib/pipeline/format'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   deleteOpportunity,
   type OpportunityWithContact,
@@ -177,7 +178,7 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
                 </Link>
               </TableCell>
               <TableCell className="text-text-secondary">
-                {o.contact?.name ?? o.contact?.phone ?? '|'}
+                {o.contact?.name ?? (o.contact?.phone ? formatPhoneDisplay(o.contact.phone) : '|')}
               </TableCell>
               <TableCell>
                 <span className="inline-flex items-center gap-1.5 text-[12px]">

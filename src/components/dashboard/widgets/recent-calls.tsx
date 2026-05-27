@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { WidgetCard } from '@/components/dashboard/widget-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { StatusPill } from '@/components/design-system/status-pill'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { relativeTime, initialsOf } from '@/lib/pipeline/format'
 
 interface CallRow {
@@ -95,7 +96,7 @@ export async function RecentCalls() {
 
     rows = raw.map((c) => {
       const phone = c.direction === 'inbound' ? c.from_number : c.to_number
-      const name = c.contacts?.name?.trim() || phone || 'Unknown'
+      const name = c.contacts?.name?.trim() || (phone ? formatPhoneDisplay(phone) : null) || 'Unknown'
       return {
         id: c.id,
         name,

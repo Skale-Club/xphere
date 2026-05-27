@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { IntegrationLogo } from '@/components/integrations/integration-logo'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   getActiveCloudAccountSummary,
   getWebhookConfig,
@@ -218,7 +219,7 @@ function ConnectedState({
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           <span className="text-[13px] font-medium text-text-primary">
-            {account.phoneNumberE164 ?? account.displayName}
+            {account.phoneNumberE164 ? formatPhoneDisplay(account.phoneNumberE164) : account.displayName}
           </span>
           <Badge variant="outline" className="ml-auto text-[10px]">
             {account.status}

@@ -38,6 +38,7 @@ import { createContact } from '@/app/(dashboard)/contacts/actions'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { isValidEmail } from '@/lib/contacts/zod-schemas'
 import { displayContactName, splitContactName } from '@/lib/contacts/names'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { Database } from '@/types/database'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
@@ -312,7 +313,7 @@ export function NewOpportunityDialog({
                   </span>
                   {(contact.phone ?? contact.email) && (
                     <span className="ml-2 text-[11.5px] text-text-tertiary truncate">
-                      {contact.phone ?? contact.email}
+                      {contact.phone ? formatPhoneDisplay(contact.phone) : contact.email}
                     </span>
                   )}
                 </div>
@@ -362,7 +363,7 @@ export function NewOpportunityDialog({
                             {displayContactName(s, 'Unnamed')}
                           </div>
                           <div className="text-[11px] text-text-tertiary truncate">
-                            {s.phone ?? s.email ?? ''}
+                            {s.phone ? formatPhoneDisplay(s.phone) : s.email ?? ''}
                           </div>
                         </div>
                       </button>

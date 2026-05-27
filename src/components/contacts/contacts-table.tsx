@@ -46,6 +46,7 @@ import type { CustomFieldDefinitionRow } from "@/app/(dashboard)/settings/custom
 import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
 import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
 import type { CustomFieldType } from "@/types/database";
+import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
 
 import {
   displayContactName,
@@ -386,7 +387,7 @@ export function ContactsTable({
                       <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                     </div>
                     <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
-                      {c.company || c.email || c.phone || "No contact details"}
+                      {c.company || c.email || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
                     </div>
                     {c.tags.length > 0 && (
                       <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -515,7 +516,7 @@ export function ContactsTable({
                     </div>
                   </div>
                   <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
-                    {c.phone || "|"}
+                    {c.phone ? formatPhoneDisplay(c.phone) : "|"}
                   </div>
                   <div
                     className={

@@ -1,6 +1,7 @@
 import { Building2, Globe, Phone, ExternalLink } from 'lucide-react'
 import type { AccountRow } from '@/lib/accounts'
 import { relativeTime } from '@/lib/pipeline/format'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface Props {
   account: AccountRow
@@ -58,7 +59,7 @@ export function AccountDetailHeader({ account }: Props) {
               className="inline-flex items-center gap-1.5 hover:text-text-primary transition-colors"
             >
               <Phone className="h-3.5 w-3.5 text-text-tertiary" />
-              {account.phone}
+              {formatPhoneDisplay(account.phone)}
             </a>
           )}
           {account.website && (

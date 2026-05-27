@@ -85,6 +85,7 @@ import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
 import { formatCurrency } from '@/lib/pipeline/format'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
@@ -1594,7 +1595,7 @@ function UnregisteredCard({
 
         {(name || phone || email) && (
           <div className="mt-5 space-y-2">
-            {phone && <InfoRow icon={Phone} label="Phone" value={phone} />}
+            {phone && <InfoRow icon={Phone} label="Phone" value={formatPhoneDisplay(phone)} />}
             {email && <InfoRow icon={Mail} label="Email" value={email} />}
             {name && <InfoRow icon={UserPlus} label="Name" value={name} />}
           </div>

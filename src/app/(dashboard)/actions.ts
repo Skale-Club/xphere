@@ -7,6 +7,7 @@
  */
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { ActivityFeedEvent, ActivityFeedFilter } from './activity-feed-types'
 
 /**
@@ -101,7 +102,7 @@ export async function getActivityFeed(
 
     for (const c of (calls as unknown as CallRow[] | null) ?? []) {
       const phone = c.direction === 'inbound' ? c.from_number : c.to_number
-      const name = c.contacts?.name || phone || 'Unknown'
+      const name = c.contacts?.name || (phone ? formatPhoneDisplay(phone) : null) || 'Unknown'
       const verb = c.direction === 'inbound' ? 'inbound from' : 'outbound to'
       events.push({
         id: `call-${c.id}`,
