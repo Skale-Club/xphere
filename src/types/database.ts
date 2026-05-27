@@ -64,7 +64,17 @@ export type CampaignChannel = 'calls' | 'sms' | 'email' | 'whatsapp'
 export type CampaignType = 'one_time' | 'flow'
 export type CampaignRecipientStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'skipped' | 'unsubscribed'
 
-export type ConversationChannel = 'widget' | 'messenger' | 'instagram'
+export type ConversationChannel =
+  | 'widget'
+  | 'messenger'
+  | 'instagram'
+  | 'sms'
+  | 'voice'
+  | 'whatsapp'
+  | 'telegram'
+  | 'manual'
+  | 'ghl_sms'
+  | 'ghl_whatsapp'
 export type MetaChannelType = 'messenger' | 'instagram'
 
 // v2.0 (Phase 33) | agent runtime enums

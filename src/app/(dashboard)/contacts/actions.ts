@@ -578,6 +578,26 @@ export async function createContact(
     await setContactTags(inserted.id, data.tags)
   }
 
+  // Auto-create a placeholder "manual" conversation so the new contact shows
+  // up as a card in the Chat Inbox immediately, even before any real channel
+  // (WhatsApp, SMS, etc.) is attached. Skip when the contact landed in a
+  // merge_conflict state (admin will review) or as channel_only (already came
+  // from a real channel). Failure here must not block contact creation.
+  if (identityStatus === 'identified') {
+    const { error: convErr } = await supabase.from('conversations').insert({
+      org_id: orgId,
+      widget_token: '',
+      contact_id: inserted.id,
+      channel: 'manual',
+      status: 'open',
+    })
+    if (convErr) {
+      console.log(
+        `[contacts/create] manual_conversation.insert_failed org_id=${orgId} contact_id=${inserted.id} code=${convErr.code} message=${convErr.message}`,
+      )
+    }
+  }
+
   revalidatePath('/contacts')
   return {
     id: inserted.id,

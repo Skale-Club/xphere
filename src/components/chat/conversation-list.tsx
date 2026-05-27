@@ -71,6 +71,7 @@ const CHANNEL_MAP: Record<string, Channel> = {
   voice: 'voice',
   widget: 'web',
   web: 'web',
+  manual: 'direct',
 }
 
 // Reverse: design-system label → raw DB value for /api filter param
@@ -82,6 +83,7 @@ const CHANNEL_TO_DB: Record<Channel, string> = {
   voice: 'voice',
   email: 'email',
   web: 'widget',
+  direct: 'manual',
   unknown: '',
 }
 
@@ -702,6 +704,7 @@ function ConversationCardBase({
                       voice: 'Voice',
                       email: 'Email',
                       web: 'Web',
+                      direct: 'Direct',
                       unknown: 'Unknown',
                     }[channel] ?? channel}
                   </span>

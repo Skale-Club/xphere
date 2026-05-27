@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Globe, Mail, MessageSquare } from 'lucide-react'
+import { Globe, Mail, MessageSquare, User } from 'lucide-react'
 
 // Filled phone glyph (Material Design solid style) so the channel pill renders
 // a solid shape instead of the outlined lucide variant.
@@ -30,6 +30,7 @@ export type Channel =
   | 'voice'
   | 'email'
   | 'web'
+  | 'direct'
   | 'unknown'
 
 interface ChannelMeta {
@@ -51,6 +52,7 @@ const channelMeta: Record<Channel, ChannelMeta> = {
   voice:     { label: 'Voice',     icon: PhoneFilled,                bg: 'bg-[var(--ch-voice)]/15',     color: 'text-[var(--ch-voice)]' },
   email:     { label: 'Email',     icon: Mail,                       bg: 'bg-[var(--ch-email)]/15',     color: 'text-[var(--ch-email)]' },
   web:       { label: 'Web',       icon: Globe,                      bg: 'bg-[var(--ch-web)]/15',       color: 'text-[var(--ch-web)]' },
+  direct:    { label: 'Direct',    icon: User,                       bg: 'bg-bg-tertiary',              color: 'text-text-secondary' },
   unknown:   { label: 'Channel',   icon: MessageSquare,              bg: 'bg-bg-tertiary',              color: 'text-text-tertiary' },
 }
 
