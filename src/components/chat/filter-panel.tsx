@@ -70,6 +70,7 @@ const CHANNELS: Array<{ value: Exclude<Channel, 'unknown'>; label: string }> = [
   { value: 'voice', label: 'Voice' },
   { value: 'email', label: 'Email' },
   { value: 'web', label: 'Web' },
+  { value: 'direct', label: 'Direct' },
 ]
 
 const channelSelectedBg: Record<Exclude<Channel, 'unknown'>, string> = {
@@ -80,6 +81,7 @@ const channelSelectedBg: Record<Exclude<Channel, 'unknown'>, string> = {
   voice:     '!bg-[var(--ch-voice)]/50',
   email:     '!bg-[var(--ch-email)]/50',
   web:       '!bg-[var(--ch-web)]/50',
+  direct:    '!bg-bg-tertiary',
 }
 
 const STATUSES: Array<{ value: string; label: string; tone: string; activeClass?: string }> = [
