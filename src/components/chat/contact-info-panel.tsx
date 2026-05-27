@@ -78,6 +78,7 @@ import { DealActionDialog } from '@/components/pipeline/deal-action-dialog'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
+import { InlineEditPhoneField } from '@/components/chat/inline-edit-phone-field'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
@@ -586,10 +587,9 @@ export function ContactInfoPanel({
             defaultOpen
           >
             <InlineRow icon={Phone} label="Phone">
-              <InlineEditField
+              <InlineEditPhoneField
                 value={contact.phone}
                 placeholder="Add phone"
-                type="tel"
                 onSave={saveField('phone')}
                 ariaLabel="Edit phone"
               />
