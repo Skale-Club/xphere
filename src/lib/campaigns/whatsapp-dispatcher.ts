@@ -24,8 +24,22 @@ import { sendCloudTemplate } from '@/lib/whatsapp/cloud/send-template'
 import { resolveVariables, type VariableMapping, type ContactShape } from '@/lib/whatsapp/cloud/variable-resolver'
 import { estimateCost, templateCategoryToCost } from '@/lib/whatsapp/cloud/pricing'
 
-const BATCH_SIZE = 10
-const BATCH_DELAY_MS = 2_000 // ~5 msg/s ceiling
+// NOTE on serverless timeout (Vercel):
+//   This dispatcher is invoked via `after()` in the /api/campaigns/[id]/start
+//   route. The function's wall-clock budget is bounded by the route's
+//   maxDuration (60s default on Pro; configurable up to 300s).
+//
+//   With BATCH_SIZE=20 and BATCH_DELAY_MS=1500, we can process roughly:
+//     - 60s budget  → ~800 recipients per launch
+//     - 300s budget → ~4000 recipients per launch
+//
+//   For larger campaigns the dispatcher leaves the remaining recipients in
+//   status='pending', and a cron / re-invocation can pick them up later
+//   (campaigns.status is only marked 'completed' when zero pending remain).
+//   A future iteration should move this to a Supabase Edge Function or a
+//   proper job queue; for v1 the run-and-resume model is acceptable.
+const BATCH_SIZE = 20
+const BATCH_DELAY_MS = 1_500
 
 export interface DispatchResult {
   ok: boolean

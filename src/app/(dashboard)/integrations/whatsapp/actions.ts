@@ -84,10 +84,21 @@ export async function connectCloudAccount(input: {
   wabaId: string
   phoneNumberId: string
   accessToken: string
-  appSecret?: string
+  appSecret: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'Not authenticated' }
+
+  // App Secret is required — without it we cannot validate webhook HMAC
+  // signatures, and the webhook handler refuses to process events from
+  // accounts without an app_secret.
+  if (!input.appSecret || input.appSecret.trim().length < 8) {
+    return {
+      ok: false,
+      error:
+        'App Secret is required. Find it in Meta Business Manager → App Settings → Basic → App Secret.',
+    }
+  }
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
@@ -101,7 +112,7 @@ export async function connectCloudAccount(input: {
   if (!verify.ok) return { ok: false, error: verify.error }
 
   const accessTokenEnc = await encrypt(input.accessToken)
-  const appSecretEnc = input.appSecret ? await encrypt(input.appSecret) : null
+  const appSecretEnc = await encrypt(input.appSecret)
 
   // Auto-generate a per-tenant webhook verify token (32 hex chars = 128 bits).
   // The user will copy this from the panel into their Meta Business Manager.

@@ -11,6 +11,12 @@ import { startWhatsAppCampaign } from '@/lib/campaigns/whatsapp-dispatcher'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import type { Database } from '@/types/database'
 
+// Extend Vercel function timeout so the WhatsApp dispatcher has room to
+// process larger campaign batches inside `after()`. Pro: max 300s.
+// For very large campaigns (>4k recipients) the dispatcher will leave
+// remaining rows as 'pending' and a re-invocation picks them up.
+export const maxDuration = 300
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

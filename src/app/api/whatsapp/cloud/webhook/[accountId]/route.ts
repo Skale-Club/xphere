@@ -124,13 +124,21 @@ async function dispatchPayload(
     return
   }
 
-  // HMAC validation — per-account app_secret. Skip if not configured.
-  if (account.appSecret) {
-    const ok = verifySignature(rawBody, signature, account.appSecret)
-    if (!ok) {
-      console.warn('[meta/webhook] invalid signature for org', account.orgId)
-      return
-    }
+  // HMAC validation — per-account app_secret. REQUIRED.
+  // If app_secret is missing (legacy rows or partial setup) we refuse to
+  // process events to prevent spoofed delivery statuses or fake inbound.
+  if (!account.appSecret) {
+    console.warn(
+      '[meta/webhook] refusing event: app_secret not configured for account',
+      account.id,
+      '(org', account.orgId + ')',
+    )
+    return
+  }
+  const ok = verifySignature(rawBody, signature, account.appSecret)
+  if (!ok) {
+    console.warn('[meta/webhook] invalid signature for org', account.orgId)
+    return
   }
 
   for (const entry of payload.entry ?? []) {

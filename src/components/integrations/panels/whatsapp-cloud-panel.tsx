@@ -98,13 +98,17 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
   }
 
   function handleConnect() {
+    if (!appSecret.trim()) {
+      toast.error('App Secret is required to validate webhook events')
+      return
+    }
     startTransition(async () => {
       const res = await connectCloudAccount({
         displayName,
         wabaId,
         phoneNumberId,
         accessToken,
-        appSecret: appSecret || undefined,
+        appSecret,
       })
       if (!res.ok) {
         toast.error(res.error)
@@ -377,7 +381,7 @@ function ConnectForm(props: ConnectFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="cloud-app-secret" className="text-[12px]">
-          App Secret (optional, required for webhook verification)
+          App Secret <span className="text-rose-400">*</span>
         </Label>
         <Input
           id="cloud-app-secret"
@@ -387,6 +391,10 @@ function ConnectForm(props: ConnectFormProps) {
           placeholder="app_secret"
           autoComplete="off"
         />
+        <p className="text-[10.5px] text-text-tertiary leading-relaxed">
+          Required. Used to validate webhook signatures. Find it in Meta Business Manager →
+          App Settings → Basic → App Secret.
+        </p>
       </div>
 
       <div className="rounded-[8px] border border-border-subtle bg-bg-tertiary/40 p-3 text-[11px] text-text-secondary">
