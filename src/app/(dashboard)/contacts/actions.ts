@@ -1134,6 +1134,116 @@ export async function updateContactField(
   return { ok: false, error: `Unsupported field "${field}"` }
 }
 
+// ─── Avatar upload (migration 1104) ──────────────────────────────────────────
+//
+// Uploads a contact's profile photo to the 'avatars' Supabase Storage bucket
+// (created in 059_avatars_bucket.sql) and persists the public URL on the
+// contacts row. Bucket RLS only allows uploads under `${auth.uid()}/...`, so
+// we key paths by the current user; the file's logical owner is still the
+// contact via avatar_url. Resizes to 512x512 webp via sharp to keep storage
+// usage bounded and bandwidth predictable.
+
+const AVATAR_MAX_BYTES = 8 * 1024 * 1024 // 8MB raw upload limit
+const AVATAR_ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+])
+
+export async function uploadContactAvatar(
+  contactId: string,
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!contactId) return { ok: false, error: 'Missing contact id' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return { ok: false, error: 'Missing file' }
+  if (file.size === 0) return { ok: false, error: 'Empty file' }
+  if (file.size > AVATAR_MAX_BYTES) {
+    return { ok: false, error: 'File too large (max 8MB)' }
+  }
+  if (!AVATAR_ALLOWED_MIME.has(file.type)) {
+    return { ok: false, error: 'Unsupported image type' }
+  }
+
+  // Verify the contact belongs to the active org (RLS covers reads, but we
+  // want to fail fast with a clear error before doing any work).
+  const supabase = await createClient()
+  const { data: contactRow, error: readErr } = await supabase
+    .from('contacts')
+    .select('id, avatar_url')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: readErr.message }
+  if (!contactRow) return { ok: false, error: 'Contact not found' }
+
+  // Resize + normalise to webp via sharp. Square crop centered.
+  const arrayBuffer = await file.arrayBuffer()
+  const sharp = (await import('sharp')).default
+  let processed: Buffer
+  try {
+    processed = await sharp(Buffer.from(arrayBuffer))
+      .rotate() // honour EXIF orientation
+      .resize(512, 512, { fit: 'cover', position: 'attention' })
+      .webp({ quality: 82 })
+      .toBuffer()
+  } catch {
+    return { ok: false, error: 'Could not process image' }
+  }
+
+  // Path: {auth.uid()}/contacts/{contactId}-{nonce}.webp — satisfies the
+  // existing 'avatars_upload_own' RLS policy that requires the first folder
+  // to be the uploading user's id.
+  const nonce = Math.random().toString(36).slice(2, 10)
+  const objectPath = `${user.id}/contacts/${contactId}-${nonce}.webp`
+
+  const { error: uploadErr } = await supabase.storage
+    .from('avatars')
+    .upload(objectPath, processed, {
+      contentType: 'image/webp',
+      upsert: false,
+      cacheControl: '3600',
+    })
+  if (uploadErr) return { ok: false, error: uploadErr.message }
+
+  const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(objectPath)
+  const publicUrl = publicUrlData.publicUrl
+  if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
+
+  const { error: updateErr } = await supabase
+    .from('contacts')
+    .update({ avatar_url: publicUrl })
+    .eq('id', contactId)
+  if (updateErr) {
+    // Best-effort cleanup of the orphaned object — failure here is non-fatal.
+    await supabase.storage.from('avatars').remove([objectPath]).catch(() => {})
+    return { ok: false, error: updateErr.message }
+  }
+
+  revalidatePath('/contacts')
+  return { ok: true, url: publicUrl }
+}
+
+export async function removeContactAvatar(
+  contactId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!contactId) return { ok: false, error: 'Missing contact id' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('contacts')
+    .update({ avatar_url: null })
+    .eq('id', contactId)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/contacts')
+  return { ok: true }
+}
+
 // ─── Inline note add (SEED-039) ─────────────────────────────────────────────
 
 export async function addContactNote(

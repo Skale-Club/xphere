@@ -1740,6 +1740,8 @@ export interface Database {
           /** Migration 1100: WhatsApp opt-in for Meta Cloud campaigns */
           whatsapp_opt_in: boolean
           whatsapp_opted_at: string | null
+          /** Migration 1104: public URL of the contact's avatar in the 'avatars' storage bucket */
+          avatar_url: string | null
         }
         Insert: {
           id?: string
@@ -1768,6 +1770,7 @@ export interface Database {
           dnd_set_by?: string | null
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
+          avatar_url?: string | null
         }
         Update: {
           first_name?: string | null
@@ -1792,6 +1795,7 @@ export interface Database {
           dnd_set_by?: string | null
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
+          avatar_url?: string | null
         }
         Relationships: [
           {

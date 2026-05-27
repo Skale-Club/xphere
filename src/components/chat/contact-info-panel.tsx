@@ -45,7 +45,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ContactAvatarUploader } from '@/components/contacts/contact-avatar-uploader'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -447,11 +447,12 @@ export function ContactInfoPanel({
           )}
         </div>
         <div className="flex items-start gap-3">
-          <Avatar className="h-14 w-14">
-            <AvatarFallback className="bg-accent-muted text-accent text-[15px] font-semibold">
-              {initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
-            </AvatarFallback>
-          </Avatar>
+          <ContactAvatarUploader
+            contactId={contact.id}
+            avatarUrl={contact.avatar_url ?? null}
+            initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
+          />
+
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-0.5">
               <InlineEditField
