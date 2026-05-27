@@ -91,6 +91,7 @@ export interface IntegrationDefinition {
 // Custom panel components are loaded lazily where needed; the registry only
 // keeps stable references. Real components are wired below the array.
 import { WhatsAppPanel } from '@/components/integrations/panels/whatsapp-panel'
+import { WhatsAppCloudPanel } from '@/components/integrations/panels/whatsapp-cloud-panel'
 import { TwilioPanel } from '@/components/integrations/panels/twilio-panel'
 import { OpenRouterPanel } from '@/components/integrations/panels/openrouter-panel'
 
@@ -98,15 +99,27 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   // ── Messaging ─────────────────────────────────────────────────────────────
   {
     id: 'whatsapp',
-    name: 'WhatsApp',
+    name: 'WhatsApp Inbox',
     description:
-      'Connect via Evolution Go, Z-API or W-API to send and receive messages.',
+      'Connect via Evolution Go, Z-API or W-API to send and receive 1:1 messages.',
     category: 'messaging',
     logo: { path: '/logos/whatsapp.svg', letter: 'W', color: 'bg-emerald-500' },
     panelType: 'custom',
     canActivate: true,
     testable: false,
     CustomPanel: WhatsAppPanel,
+  },
+  {
+    id: 'whatsapp_cloud',
+    name: 'WhatsApp Official (Campaigns)',
+    description:
+      'Meta Cloud API for template-based outbound campaigns. Required for compliant bulk messaging.',
+    category: 'messaging',
+    logo: { path: '/logos/whatsapp.svg', letter: 'W', color: 'bg-emerald-600' },
+    panelType: 'custom',
+    canActivate: true,
+    testable: false,
+    CustomPanel: WhatsAppCloudPanel,
   },
   {
     id: 'meta',
