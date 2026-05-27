@@ -1,6 +1,11 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { rateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
+
+// S11 — rate-limit public widget config lookup: 30/min per IP (token enumeration prevention)
+const RL_LIMIT = 30
+const RL_WINDOW = 60
 
 const DEFAULT_WIDGET_CONFIG = {
   displayName: 'AI Assistant',
@@ -16,9 +21,15 @@ function normalizeWidgetValue(value: string | null | undefined, fallback: string
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> }
 ): Promise<Response> {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = await rateLimit(`widget:config:${ip}`, RL_LIMIT, RL_WINDOW)
+  if (!rl.allowed) {
+    return Response.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { token } = await params
 
   const supabase = createServiceRoleClient()
