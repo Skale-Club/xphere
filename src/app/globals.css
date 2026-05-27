@@ -679,7 +679,7 @@ button:disabled,
   border-radius: 8px;
   border: 1px solid var(--border);
   background-color: var(--bg-primary);
-  overflow: hidden;
+  position: relative;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .vo-phone-input:focus-within {
@@ -699,8 +699,10 @@ button:disabled,
   background-color: var(--bg-tertiary) !important;
   border: 0 !important;
   border-right: 1px solid var(--border-subtle) !important;
+  border-radius: 7px 0 0 7px !important;
   cursor: pointer;
   height: 100% !important;
+  flex-shrink: 0;
 }
 .vo-phone-input__button:hover {
   background-color: var(--bg-elevated) !important;
@@ -717,6 +719,7 @@ button:disabled,
   padding: 0 12px !important;
   height: 100% !important;
   min-width: 0 !important;
+  border-radius: 0 7px 7px 0 !important;
 }
 .vo-phone-input__input::placeholder {
   color: var(--text-tertiary) !important;
@@ -730,7 +733,8 @@ button:disabled,
   margin-top: 4px !important;
   max-height: 320px !important;
   overflow-y: auto !important;
-  z-index: 50 !important;
+  z-index: 9999 !important;
+  position: absolute !important;
 }
 .vo-phone-input__list-item {
   padding: 6px 10px !important;

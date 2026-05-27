@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { TagPicker } from '@/components/tags/tag-picker'
 import { listTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
@@ -114,15 +113,6 @@ export function ContactForm({
           value={tagIds}
           onChange={(ids) => setValue('tags', ids, { shouldDirty: true })}
           onTagCreated={(tag) => setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)))}
-        />
-      </Field>
-
-      <Field label="Notes" htmlFor="contact-notes" error={errors.notes?.message}>
-        <Textarea
-          id="contact-notes"
-          rows={4}
-          placeholder="Anything worth remembering about this contact"
-          {...register('notes')}
         />
       </Field>
 
