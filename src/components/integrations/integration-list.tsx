@@ -66,6 +66,10 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
   const grouped = useMemo(() => {
     const out: Record<string, IntegrationDefinition[]> = {}
     for (const def of INTEGRATION_REGISTRY) {
+      // 'whatsapp_cloud' is exposed as a tab inside the unified WhatsApp card,
+      // not as its own row. The registry entry is kept so workflow specs and
+      // active-integration detection still resolve it.
+      if (def.id === 'whatsapp_cloud') continue
       out[def.category] ??= []
       out[def.category].push(def)
     }

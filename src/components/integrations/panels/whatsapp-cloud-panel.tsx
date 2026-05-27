@@ -42,6 +42,40 @@ import {
 import type { CustomPanelProps } from '@/lib/integrations/registry'
 
 export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
+  return (
+    <div className="flex h-full flex-col px-6 pt-6 pb-4">
+      <SheetHeader className="space-y-3 pb-4">
+        <div className="flex items-center gap-3">
+          <IntegrationLogo logo={definition.logo} name={definition.name} size={40} />
+          <div className="min-w-0">
+            <SheetTitle className="text-[15px]">{definition.name}</SheetTitle>
+            <p className="text-[12px] text-text-tertiary">{definition.description}</p>
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div className="flex-1 overflow-y-auto py-2">
+        <WhatsAppCloudSection />
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-border">
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Body-only variant of the Cloud panel. No header / no footer / no close
+ * button — used when the section is embedded inside the unified WhatsApp
+ * panel as one of its provider tabs (alongside Evolution / Z-API / W-API).
+ *
+ * Both the standalone Cloud panel and the embedded version go through this
+ * component so the connect/test/sync/disconnect logic stays in one place.
+ */
+export function WhatsAppCloudSection() {
   const [active, setActive] = useState<CloudAccountSummary | null>(null)
   const [webhook, setWebhook] = useState<WebhookConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -147,55 +181,37 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
   }
 
   return (
-    <div className="flex h-full flex-col px-6 pt-6 pb-4">
-      <SheetHeader className="space-y-3 pb-4">
-        <div className="flex items-center gap-3">
-          <IntegrationLogo logo={definition.logo} name={definition.name} size={40} />
-          <div className="min-w-0">
-            <SheetTitle className="text-[15px]">{definition.name}</SheetTitle>
-            <p className="text-[12px] text-text-tertiary">{definition.description}</p>
-          </div>
+    <div className="space-y-5">
+      {loading ? (
+        <div className="flex items-center justify-center py-10 text-text-tertiary">
+          <Loader2 className="h-4 w-4 animate-spin" />
         </div>
-      </SheetHeader>
-
-      <div className="flex-1 overflow-y-auto space-y-5 py-2">
-        {loading ? (
-          <div className="flex items-center justify-center py-10 text-text-tertiary">
-            <Loader2 className="h-4 w-4 animate-spin" />
-          </div>
-        ) : active ? (
-          <ConnectedState
-            account={active}
-            webhook={webhook}
-            onSync={handleSync}
-            onDisconnect={handleDisconnect}
-            pending={pending}
-          />
-        ) : (
-          <ConnectForm
-            displayName={displayName}
-            setDisplayName={setDisplayName}
-            wabaId={wabaId}
-            setWabaId={setWabaId}
-            phoneNumberId={phoneNumberId}
-            setPhoneNumberId={setPhoneNumberId}
-            accessToken={accessToken}
-            setAccessToken={setAccessToken}
-            appSecret={appSecret}
-            setAppSecret={setAppSecret}
-            testResult={testResult}
-            onTest={handleTest}
-            onConnect={handleConnect}
-            pending={pending}
-          />
-        )}
-      </div>
-
-      <div className="flex justify-end pt-4 border-t border-border">
-        <Button variant="ghost" onClick={onClose}>
-          Close
-        </Button>
-      </div>
+      ) : active ? (
+        <ConnectedState
+          account={active}
+          webhook={webhook}
+          onSync={handleSync}
+          onDisconnect={handleDisconnect}
+          pending={pending}
+        />
+      ) : (
+        <ConnectForm
+          displayName={displayName}
+          setDisplayName={setDisplayName}
+          wabaId={wabaId}
+          setWabaId={setWabaId}
+          phoneNumberId={phoneNumberId}
+          setPhoneNumberId={setPhoneNumberId}
+          accessToken={accessToken}
+          setAccessToken={setAccessToken}
+          appSecret={appSecret}
+          setAppSecret={setAppSecret}
+          testResult={testResult}
+          onTest={handleTest}
+          onConnect={handleConnect}
+          pending={pending}
+        />
+      )}
     </div>
   )
 }

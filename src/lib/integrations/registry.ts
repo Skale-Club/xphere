@@ -99,9 +99,9 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   // ── Messaging ─────────────────────────────────────────────────────────────
   {
     id: 'whatsapp',
-    name: 'WhatsApp Inbox',
+    name: 'WhatsApp',
     description:
-      'Connect via Evolution Go, Z-API or W-API to send and receive 1:1 messages.',
+      'Meta Cloud API for compliant campaigns, plus Evolution Go / Z-API / W-API for 1:1 inbox.',
     category: 'messaging',
     logo: { path: '/logos/whatsapp.svg', letter: 'W', color: 'bg-emerald-500' },
     panelType: 'custom',
@@ -109,6 +109,10 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     testable: false,
     CustomPanel: WhatsAppPanel,
   },
+  // 'whatsapp_cloud' is intentionally kept in the registry (workflow specs and
+  // active-integration detection still reference the key) but is hidden from
+  // the integrations grid by `HIDDEN_INTEGRATION_IDS` below — the unified
+  // WhatsApp card now exposes Meta Cloud as one of its provider tabs.
   {
     id: 'whatsapp_cloud',
     name: 'WhatsApp Official (Campaigns)',

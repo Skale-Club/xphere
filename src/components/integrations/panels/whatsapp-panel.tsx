@@ -1,9 +1,11 @@
 'use client'
 
 // SEED-042 | WhatsApp custom panel.
-// Inline provider selector (Evolution Go / Z-API / W-API) backed by the same
-// server actions used in /settings/workspace (SEED-031). Both surfaces stay
-// in sync because they call `saveWhatsAppProvider` directly.
+// Unified provider selector: WhatsApp API (Meta Cloud) + Evolution Go / Z-API
+// / W-API. Cloud uses its own actions/storage and is rendered via the shared
+// WhatsAppCloudSection; the other three are non-official inbox providers
+// persisted via `saveWhatsAppProvider` (the same action used in
+// /settings/workspace, so both surfaces stay in sync).
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +20,7 @@ import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { cn } from '@/lib/utils'
 
 import { IntegrationLogo } from '../integration-logo'
+import { WhatsAppCloudSection } from './whatsapp-cloud-panel'
 import {
   getActiveWhatsAppProvider,
   saveWhatsAppProvider,
@@ -26,21 +29,27 @@ import {
 import type { CustomPanelProps } from '@/lib/integrations/registry'
 import type { WhatsAppProvider } from '@/lib/whatsapp/types'
 
-// Non-official inbox providers only. The official Meta Cloud lives in a
-// separate integration (whatsapp_cloud_accounts) with its own panel.
+// Non-official inbox providers persisted via saveWhatsAppProvider.
 type LegacyProvider = Exclude<WhatsAppProvider, 'meta_cloud'>
+// All providers offered in the unified panel, ordered as they render.
+type PanelProvider = 'cloud' | LegacyProvider
 
-const PROVIDER_LABEL: Record<LegacyProvider, { label: string; hint: string }> = {
+const PROVIDER_LABEL: Record<PanelProvider, { label: string; hint: string }> = {
+  cloud: { label: 'WhatsApp API', hint: 'Meta Cloud · Official' },
   evolution: { label: 'Evolution Go', hint: 'Self-hosted' },
   zapi: { label: 'Z-API', hint: 'Cloud' },
   wapi: { label: 'W-API', hint: 'Cloud' },
 }
 
+const PROVIDER_ORDER: PanelProvider[] = ['cloud', 'evolution', 'zapi', 'wapi']
+
 export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
   const router = useRouter()
   const [active, setActive] = useState<ActiveWhatsAppProvider | null>(null)
   const [loading, setLoading] = useState(true)
-  const [provider, setProvider] = useState<LegacyProvider>('evolution')
+  // 'cloud' is the default landing tab — it's the most-common path users
+  // actually want and lines up with the visual order of the tabs.
+  const [provider, setProvider] = useState<PanelProvider>('cloud')
   const [displayName, setDisplayName] = useState('')
   const [config, setConfig] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
@@ -51,6 +60,8 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
       .then((data) => {
         if (cancelled) return
         setActive(data)
+        // If the user already has a non-Cloud provider configured, open the
+        // panel on that tab so they see their existing config immediately.
         if (data && data.provider !== 'meta_cloud') {
           setProvider(data.provider as LegacyProvider)
           setDisplayName(data.displayName ?? '')
@@ -63,9 +74,10 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
     }
   }, [])
 
-  function switchProvider(next: LegacyProvider) {
+  function switchProvider(next: PanelProvider) {
     if (next === provider) return
     setProvider(next)
+    if (next === 'cloud') return
     if (active && active.provider === next) {
       setConfig(active.config)
     } else {
@@ -73,13 +85,20 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
     }
   }
 
+  const isLegacy = provider !== 'cloud'
+
   function update(key: string, value: string) {
     setConfig((prev) => ({ ...prev, [key]: value }))
   }
 
   function onSave() {
+    if (!isLegacy) return // Cloud has its own Connect/Disconnect buttons.
     startTransition(async () => {
-      const res = await saveWhatsAppProvider({ provider, displayName, config })
+      const res = await saveWhatsAppProvider({
+        provider: provider as LegacyProvider,
+        displayName,
+        config,
+      })
       if (res?.error) {
         toast.error(res.error)
       } else {
@@ -111,8 +130,8 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
           <>
             <div className="space-y-2">
               <Label>Provider</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(PROVIDER_LABEL) as LegacyProvider[]).map((p) => (
+              <div className="grid grid-cols-2 gap-2">
+                {PROVIDER_ORDER.map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -133,15 +152,19 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="wa-display-name">Display name</Label>
-              <Input
-                id="wa-display-name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={`${PROVIDER_LABEL[provider].label} instance`}
-              />
-            </div>
+            {provider === 'cloud' && <WhatsAppCloudSection />}
+
+            {isLegacy && (
+              <div className="space-y-1.5">
+                <Label htmlFor="wa-display-name">Display name</Label>
+                <Input
+                  id="wa-display-name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={`${PROVIDER_LABEL[provider].label} instance`}
+                />
+              </div>
+            )}
 
             {provider === 'evolution' && (
               <div className="space-y-3">
@@ -227,7 +250,7 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
               </div>
             )}
 
-            {active?.phoneNumber && (
+            {isLegacy && active?.phoneNumber && (
               <p className="text-[12px] text-text-tertiary">
                 Connected as <strong>{formatPhoneDisplay(active.phoneNumber)}</strong>
                 {active.status ? ` · ${active.status}` : ''}
@@ -237,19 +260,21 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
         )}
       </div>
 
-      <div className="border-t border-border-subtle pt-4">
-        <Button onClick={onSave} disabled={pending || loading} className="w-full">
-          {pending ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…
-            </>
-          ) : (
-            <>
-              <Save className="mr-1 h-3.5 w-3.5" /> Save
-            </>
-          )}
-        </Button>
-      </div>
+      {isLegacy && (
+        <div className="border-t border-border-subtle pt-4">
+          <Button onClick={onSave} disabled={pending || loading} className="w-full">
+            {pending ? (
+              <>
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…
+              </>
+            ) : (
+              <>
+                <Save className="mr-1 h-3.5 w-3.5" /> Save
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
