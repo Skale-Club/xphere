@@ -74,6 +74,17 @@ export async function getActiveIntegrations(): Promise<IntegrationKey[]> {
     } catch {
       /* ignore */
     }
+
+    // WhatsApp Cloud (Meta Official) — campaigns + workflow templates
+    try {
+      const { count } = await supabase
+        .from('whatsapp_cloud_accounts')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true)
+      if ((count ?? 0) > 0) active.add('whatsapp_cloud')
+    } catch {
+      /* ignore */
+    }
   } catch {
     /* DB failure → fall through with empty set */
   }

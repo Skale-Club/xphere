@@ -329,6 +329,36 @@ export const NODES: NodeSpec[] = [
     },
   },
   {
+    type: 'send_whatsapp_template',
+    kind: 'action',
+    description: 'Send a Meta-approved WhatsApp template via the official Cloud API. Used for compliant outbound (mandatory outside the 24h customer service window).',
+    integration_required: ['whatsapp_cloud'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        to: {
+          type: 'string',
+          description: 'Recipient phone in E.164 format (with or without leading +)',
+        },
+        template_id: {
+          type: 'string',
+          description: 'UUID of the row in whatsapp_templates (must be APPROVED)',
+        },
+        body_values: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Values for body {{1}}, {{2}}, ... placeholders (in order)',
+        },
+        header_values: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Values for header placeholders (in order)',
+        },
+      },
+      required: ['to', 'template_id'],
+    },
+  },
+  {
     type: 'manychat_send_message',
     kind: 'action',
     description: 'Send a ManyChat message to a subscriber.',

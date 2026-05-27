@@ -19,6 +19,7 @@ import { executeWebhook } from '@/lib/custom-webhook/execute-webhook'
 import { sendSms } from '@/lib/twilio/send-sms'
 import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
 import { sendWhatsappMessageAction } from '@/lib/action-engine/executors/send-whatsapp-message'
+import { sendWhatsappTemplateAction } from '@/lib/action-engine/executors/send-whatsapp-template'
 import { sendWhatsappMentionAllAction } from '@/lib/action-engine/executors/send-whatsapp-mention-all'
 import { executeSendTelegramNotification } from '@/lib/action-engine/executors/send-telegram-notification'
 import {
@@ -220,6 +221,22 @@ async function _executeActionInner(
         }
       }
       return sendWhatsappMessageAction(params, ctx)
+    }
+    case 'send_whatsapp_template': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('send_whatsapp_template requires ctx.organizationId and ctx.supabase')
+      }
+      {
+        const contactId = ctx.contactId ?? (typeof params.contact_id === 'string' ? params.contact_id : undefined)
+        if (contactId) {
+          const dnd = await checkDnd(contactId, 'whatsapp', ctx.supabase)
+          if (dnd.blocked) {
+            void insertDndTimelineEvent(ctx, 'whatsapp')
+            return JSON.stringify({ ok: false, reason: dnd.reason, channel: 'whatsapp' })
+          }
+        }
+      }
+      return sendWhatsappTemplateAction(params, ctx)
     }
     case 'send_whatsapp_mention_all': {
       if (!ctx?.organizationId || !ctx?.supabase) {

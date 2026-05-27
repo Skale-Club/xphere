@@ -23,6 +23,7 @@ import {
 
 export type IntegrationKey =
   | 'whatsapp'
+  | 'whatsapp_cloud'
   | 'vapi'
   | 'meta'
   | 'manychat'
@@ -131,10 +132,18 @@ export const ACTION_METADATA: ActionMetadata[] = [
   {
     key: 'send_whatsapp',
     label: 'Send WhatsApp',
-    description: 'Send a WhatsApp message',
+    description: 'Send a WhatsApp message via Evolution / Z-API / W-API',
     icon: ChatCircle,
     iconClass: 'bg-emerald-500/15 text-emerald-300',
     requiresIntegration: 'whatsapp',
+  },
+  {
+    key: 'send_whatsapp_template',
+    label: 'Send WhatsApp Template (Official)',
+    description: 'Send a Meta-approved template via the official Cloud API',
+    icon: ChatCircle,
+    iconClass: 'bg-emerald-600/15 text-emerald-300',
+    requiresIntegration: 'whatsapp_cloud',
   },
   {
     key: 'send_email',

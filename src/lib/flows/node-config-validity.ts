@@ -57,6 +57,9 @@ export function isNodeConfigComplete(
     case 'send_whatsapp_message':
       return hasAllOf(config, ['to']) && hasAnyOf(config, ['message', 'body', 'template'])
 
+    case 'send_whatsapp_template':
+      return hasAllOf(config, ['to', 'template_id'])
+
     case 'send_email':
       return hasAllOf(config, ['to']) && hasAnyOf(config, ['subject', 'template'])
 
