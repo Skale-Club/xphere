@@ -32,7 +32,7 @@ import { StatusPill } from '@/components/design-system/status-pill'
 import { EmptyState } from '@/components/empty-states/empty-state'
 import { ListSkeleton } from '@/components/skeletons/list-skeleton'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Tooltip,
@@ -577,6 +577,9 @@ function ConversationCardBase({
       )}
     >
       <Avatar className="h-9 w-9 shrink-0">
+        {conversation.contactAvatarUrl ? (
+          <AvatarImage src={conversation.contactAvatarUrl} alt="" />
+        ) : null}
         <AvatarFallback
           className={cn(
             'text-[12.5px] font-semibold',

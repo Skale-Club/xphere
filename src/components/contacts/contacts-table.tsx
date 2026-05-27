@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -373,6 +373,7 @@ export function ContactsTable({
                     />
                   </div>
                   <Avatar className="h-8 w-8 shrink-0">
+                    {c.avatar_url ? <AvatarImage src={c.avatar_url} alt="" /> : null}
                     <AvatarFallback className="text-[11px] font-semibold bg-accent-muted text-accent">
                       {initialsFromContactName(c, c.email ?? c.phone ?? "?")}
                     </AvatarFallback>
@@ -495,6 +496,7 @@ export function ContactsTable({
                   </div>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar className="h-8 w-8 shrink-0">
+                      {c.avatar_url ? <AvatarImage src={c.avatar_url} alt="" /> : null}
                       <AvatarFallback className="text-[11px] font-semibold bg-accent-muted text-accent">
                         {initialsFromContactName(c, c.email ?? c.phone ?? "?")}
                       </AvatarFallback>

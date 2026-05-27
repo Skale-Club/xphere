@@ -52,6 +52,8 @@ export interface ConversationSummary {
   contactId?: string | null
   /** Resolved contact name (from contacts table JOIN). Preferred over visitorName in display. */
   contactName?: string | null
+  /** Public URL of the contact's uploaded avatar (contacts.avatar_url). NULL → fall back to initials. */
+  contactAvatarUrl?: string | null
   /** v2.2 | User the conversation is assigned to (assigned_user_id). */
   assignedUserId?: string | null
   /** SEED-035 | starred (favorite). Independent of pinned. */

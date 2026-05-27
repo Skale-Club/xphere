@@ -31,7 +31,7 @@ import Link from 'next/link'
 
 import { ConversationSummary, ConversationPriority, ConversationStatus, ConversationLabel } from '@/types/chat'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Tooltip,
   TooltipContent,
@@ -154,6 +154,9 @@ export function ChatHeader({
         </Button>
         <div className="relative shrink-0">
           <Avatar className="h-10 w-10">
+            {conversation.contactAvatarUrl ? (
+              <AvatarImage src={conversation.contactAvatarUrl} alt="" />
+            ) : null}
             <AvatarFallback className="bg-accent-muted text-accent text-[13px] font-semibold">
               {initial}
             </AvatarFallback>
