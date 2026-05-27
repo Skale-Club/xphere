@@ -104,6 +104,7 @@ export interface ConversationFilterChange {
   priority?: string | null
   botStatus?: string | null
   unread?: boolean | null
+  phoneNumberId?: string | null
 }
 
 interface ConversationListProps {
@@ -141,6 +142,8 @@ interface ConversationListProps {
   orgLabels?: Array<{ id: string; name: string; color: string }>
   /** SEED-035: org members for advanced filter panel */
   members?: OrgMember[]
+  /** Active Twilio phone numbers to filter by */
+  phoneNumbers?: Array<{ id: string; label: string; e164: string }>
 }
 
 function formatRelative(c: ConversationSummary): string {
@@ -200,6 +203,7 @@ export function ConversationList({
   onPin,
   orgLabels = [],
   members = [],
+  phoneNumbers = [],
 }: ConversationListProps) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -259,6 +263,7 @@ export function ConversationList({
       priority: advancedFilters.priorities[0] ?? null,
       botStatus: advancedFilters.botStatuses[0] ?? null,
       unread: advancedFilters.unread || null,
+      phoneNumberId: advancedFilters.phoneNumberIds[0] ?? null,
     })
   }, [statusFilter, selectedChannels, advancedFilters, onFilterChange])
 
@@ -340,6 +345,7 @@ export function ConversationList({
                 onSelectedChannelsChange={setSelectedChannels}
                 members={members}
                 labels={orgLabels}
+                phoneNumbers={phoneNumbers}
                 allowMine={false}
             />
           </div>

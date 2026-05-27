@@ -399,7 +399,7 @@ export async function softDeleteTwilioNumber(
   // the org with no default, which is the correct prompt to pick a new one.
   const { error } = await supabase
     .from('twilio_phone_numbers')
-    .update({ is_active: false, is_default: false })
+    .update({ is_active: false, is_default: false, archived_at: new Date().toISOString() })
     .eq('id', id)
 
   if (error) return { error: error.message }

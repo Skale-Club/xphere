@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 async function getSetupData() {
   const supabase = await createClient()
-  const [assistantsRes, integRes] = await Promise.all([
+  const [assistantsRes, integRes, resendRes] = await Promise.all([
     supabase
       .from('assistant_mappings')
       .select('vapi_assistant_id, name')
@@ -14,6 +14,11 @@ async function getSetupData() {
       .from('integrations')
       .select('provider')
       .eq('is_active', true),
+    supabase
+      .from('tenant_email_integrations')
+      .select('id')
+      .eq('status', 'connected')
+      .limit(1),
   ])
 
   const assistants = (assistantsRes.data ?? []).map((a) => ({
@@ -26,8 +31,7 @@ async function getSetupData() {
   return {
     assistants,
     hasTwilio: providers.has('twilio'),
-    // Resend is not yet a supported integration provider — email campaigns are always gated
-    hasResend: false,
+    hasResend: (resendRes.data ?? []).length > 0,
   }
 }
 

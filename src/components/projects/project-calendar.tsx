@@ -14,7 +14,7 @@ interface Props {
   onRefresh: () => void
 }
 
-type CalendarMode = 'month' | 'week'
+type CalendarMode = 'month' | 'week' | 'day'
 
 const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -82,12 +82,14 @@ export function ProjectCalendar({ projectId, tasks, onOpenTask, onRefresh }: Pro
 
   function goPrev() {
     if (mode === 'month') setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1))
-    else setCursor((c) => addDays(c, -7))
+    else if (mode === 'week') setCursor((c) => addDays(c, -7))
+    else setCursor((c) => addDays(c, -1))
   }
 
   function goNext() {
     if (mode === 'month') setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1))
-    else setCursor((c) => addDays(c, 7))
+    else if (mode === 'week') setCursor((c) => addDays(c, 7))
+    else setCursor((c) => addDays(c, 1))
   }
 
   const headerLabel = React.useMemo(() => {
@@ -96,6 +98,8 @@ export function ProjectCalendar({ projectId, tasks, onOpenTask, onRefresh }: Pro
         month: 'long',
         year: 'numeric',
       })
+    if (mode === 'day')
+      return cursor.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     const start = startOfWeek(cursor)
     return start.toLocaleString('en-US', { month: 'long', year: 'numeric' })
   }, [mode, cursor])
@@ -129,7 +133,7 @@ export function ProjectCalendar({ projectId, tasks, onOpenTask, onRefresh }: Pro
             </span>
           )}
           <div className="flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5 border border-border/40">
-            {(['month', 'week'] as const).map((m) => (
+            {(['month', 'week', 'day'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
@@ -140,7 +144,7 @@ export function ProjectCalendar({ projectId, tasks, onOpenTask, onRefresh }: Pro
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {m === 'month' ? 'Months' : 'Weeks'}
+                {m === 'month' ? 'Months' : m === 'week' ? 'Weeks' : 'Day'}
               </button>
             ))}
           </div>
@@ -160,6 +164,16 @@ export function ProjectCalendar({ projectId, tasks, onOpenTask, onRefresh }: Pro
       )}
       {mode === 'week' && (
         <WeekView
+          cursor={cursor}
+          tasks={tasks}
+          today={today}
+          projectId={projectId}
+          onOpenTask={onOpenTask}
+          onRefresh={onRefresh}
+        />
+      )}
+      {mode === 'day' && (
+        <DayView
           cursor={cursor}
           tasks={tasks}
           today={today}
@@ -329,6 +343,62 @@ function MonthCell({
             + Add task
           </button>
         </NewTaskDialog>
+      </div>
+    </div>
+  )
+}
+
+// ── Day view ──────────────────────────────────────────────────────────────────
+
+function DayView({ cursor, tasks, today, projectId, onOpenTask, onRefresh }: ViewProps) {
+  const dayTasks = tasks.filter((t) => {
+    const dateStr = t.end_date ?? t.start_date
+    if (!dateStr) return false
+    return sameDay(new Date(dateStr), cursor)
+  })
+  const isToday = sameDay(cursor, today)
+  const isoDate = toIsoDate(cursor)
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 px-4 sm:px-6 lg:px-8">
+      <div
+        className={cn(
+          'flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pt-4 pb-4 max-w-2xl mx-auto w-full',
+          isToday && 'bg-blue-500/5 rounded-lg'
+        )}
+      >
+        {dayTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <p className="text-sm text-muted-foreground">No tasks scheduled</p>
+            <NewTaskDialog projectId={projectId} defaultEndDate={isoDate} onCreated={onRefresh}>
+              <Button size="sm" variant="outline">+ Add task</Button>
+            </NewTaskDialog>
+          </div>
+        ) : (
+          <>
+            {dayTasks.map((t) => {
+              const { bg, fg } = chipStyle(t, today)
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => onOpenTask(t.id)}
+                  className={cn(
+                    'w-full text-left text-sm px-4 py-3 rounded-lg flex items-center gap-3 hover:opacity-80 transition-opacity',
+                    t.completed && 'opacity-50'
+                  )}
+                  style={{ backgroundColor: bg, color: fg }}
+                >
+                  <span className={cn('flex-1 truncate', t.completed && 'line-through')}>{t.name}</span>
+                </button>
+              )
+            })}
+            <div className="pt-2">
+              <NewTaskDialog projectId={projectId} defaultEndDate={isoDate} onCreated={onRefresh}>
+                <Button size="sm" variant="outline" className="w-full">+ Add task</Button>
+              </NewTaskDialog>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

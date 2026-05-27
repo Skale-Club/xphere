@@ -159,6 +159,7 @@ export function ChatLayout({
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
+  const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; label: string; e164: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
   const [isTyping, setIsTyping] = useState(false)
@@ -224,6 +225,28 @@ export function ChatLayout({
   // Fetch org members once for the assign dropdown
   useEffect(() => {
     listOrgMembers().then(setMembers).catch(() => setMembers([]))
+  }, [])
+
+  // Fetch active Twilio numbers for the phone filter
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('twilio_phone_numbers')
+      .select('id, label, phone_number')
+      .eq('is_active', true)
+      .is('archived_at', null)
+      .order('label')
+      .then((res) => {
+        if (!res.data) return
+        setPhoneNumbers(
+          (res.data as Array<{ id: string; label: string | null; phone_number: string }>).map((r) => ({
+            id: r.id,
+            label: r.label ?? '',
+            e164: r.phone_number,
+          })),
+        )
+      })
+      .catch(() => {})
   }, [])
 
   // ───────────────────────── Realtime: conversations ─────────────────────────
@@ -599,6 +622,7 @@ export function ChatLayout({
             }}
             onPin={handlePinToggle}
             onStar={handleStarToggle}
+            phoneNumbers={phoneNumbers}
           />
         </div>
         <button
@@ -719,6 +743,7 @@ export function ChatLayout({
               }}
               onPin={handlePinToggle}
               onStar={handleStarToggle}
+              phoneNumbers={phoneNumbers}
             />
           </div>
         )}
