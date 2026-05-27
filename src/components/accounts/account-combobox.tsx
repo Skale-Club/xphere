@@ -157,13 +157,7 @@ export function AccountCombobox({
             if (inputValue) setIsOpen(true)
           }}
           placeholder="Add company"
-          className={cn(
-            'h-auto border-transparent bg-transparent px-1.5 py-0.5',
-            'text-[12.5px] text-text-primary placeholder:text-text-tertiary placeholder:italic placeholder:not-italic',
-            'rounded-[6px] hover:bg-bg-tertiary',
-            'focus:border-accent/60 focus:bg-bg-primary focus:ring-[3px] focus:ring-accent/15',
-            allowUnlink && inputValue && 'pr-7',
-          )}
+          className={cn(allowUnlink && inputValue && 'pr-8')}
           autoComplete="off"
         />
         {allowUnlink && inputValue && (

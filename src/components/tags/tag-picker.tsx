@@ -98,15 +98,18 @@ export function TagPicker({
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="w-full justify-between font-normal text-text-secondary"
+            className={cn(
+              'flex h-9 w-full items-center justify-between rounded-[8px] border border-border bg-bg-secondary px-3',
+              'text-[13.5px] text-text-tertiary',
+              'transition-[border-color,box-shadow] duration-150 ease-out',
+              'hover:border-border focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30',
+            )}
           >
             <span>{placeholder}</span>
             <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
-          </Button>
+          </button>
         </PopoverTrigger>
 
         <PopoverContent className="w-64 p-0" align="start">
