@@ -10,7 +10,9 @@ import {
   History,
   Download,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
+import { isValidEmail } from "@/lib/contacts/zod-schemas";
 import { toast } from "sonner";
 
 import Link from "next/link";
@@ -515,8 +517,23 @@ export function ContactsTable({
                   <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
                     {c.phone || "|"}
                   </div>
-                  <div className="truncate text-[12.5px] text-text-secondary">
-                    {c.email || "|"}
+                  <div
+                    className={
+                      "flex items-center gap-1 truncate text-[12.5px] " +
+                      (c.email && !isValidEmail(c.email)
+                        ? "text-amber-200"
+                        : "text-text-secondary")
+                    }
+                    title={
+                      c.email && !isValidEmail(c.email)
+                        ? `Invalid email format: ${c.email}`
+                        : undefined
+                    }
+                  >
+                    {c.email && !isValidEmail(c.email) && (
+                      <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />
+                    )}
+                    <span className="truncate">{c.email || "|"}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 overflow-hidden">
                     {c.tags.slice(0, 2).map((tagName) => {

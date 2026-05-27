@@ -14,6 +14,7 @@ import {
   PhoneCall,
   Activity,
   TrendingUp,
+  AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -31,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { useDialpadAvailable } from '@/components/phone/dialpad-availability-context'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { isValidEmail } from '@/lib/contacts/zod-schemas'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
@@ -236,6 +238,11 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                     label="Email"
                     value={contact.email}
                     onClick={contact.email ? () => { window.location.href = `mailto:${contact.email}` } : undefined}
+                    warning={
+                      contact.email && !isValidEmail(contact.email)
+                        ? 'Invalid email format — open this contact to fix it'
+                        : undefined
+                    }
                   />
                   <InfoRow icon={Building2} label="Company" value={contact.account?.name ?? contact.company} />
                   <InfoRow
@@ -392,12 +399,15 @@ function InfoRow({
   value,
   onClick,
   title,
+  warning,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: string | null
   onClick?: () => void
   title?: string
+  /** When set, renders an amber AlertTriangle next to the value and uses amber text color. */
+  warning?: string
 }) {
   const interactive = Boolean(onClick && value)
   const Inner = (
@@ -409,12 +419,17 @@ function InfoRow({
         <div className="text-[11px] uppercase tracking-wide text-text-tertiary">{label}</div>
         <div
           className={cn(
-            'text-[13px]',
-            value ? 'text-text-primary' : 'text-text-tertiary italic',
+            'text-[13px] flex items-center gap-1.5',
+            value
+              ? warning
+                ? 'text-amber-200'
+                : 'text-text-primary'
+              : 'text-text-tertiary italic',
             interactive && 'group-hover:text-accent transition-colors',
           )}
         >
-          {value || 'Not set'}
+          {warning && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />}
+          <span className="truncate">{value || 'Not set'}</span>
         </div>
       </div>
     </>

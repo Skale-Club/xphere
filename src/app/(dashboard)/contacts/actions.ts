@@ -26,6 +26,7 @@ import {
   contactListFiltersSchema,
   normalisePhone,
   normaliseEmail,
+  normaliseEmailStrict,
   normaliseContactInput,
   type ContactFormInput,
   type ContactListFilters,
@@ -753,6 +754,7 @@ export interface ImportSummary {
   errors: number
   conflictRows: number         // D-06: rows skipped due to phone/email conflict with existing live contact
   blockedEmailCount: number    // D-04a: rows whose email matched BLOCKED_EMAIL_PATTERNS (still imported via phone if present)
+  invalidEmailCount: number    // Email format failed validation — row imported with email=null
   errorSamples: string[]
 }
 
@@ -830,6 +832,7 @@ export async function importContactsCsv(
     errors: 0,
     conflictRows: 0,
     blockedEmailCount: 0,
+    invalidEmailCount: 0,
     errorSamples: [],
   }
 
@@ -851,7 +854,14 @@ export async function importContactsCsv(
     const lastName = getField('last_name') ?? splitName.lastName
     const name = composeContactName(firstName, lastName) ?? fullName
     const phone = normalisePhone(getField('phone'))
-    const rawEmail = normaliseEmail(getField('email'))
+    const rawEmailInput = getField('email')
+    const rawEmail = normaliseEmail(rawEmailInput)
+    // Track when the user provided something email-shaped but it failed
+    // validation (e.g. "skale.clubgmail.com" — missing @). Row still goes
+    // through if a valid phone is present.
+    if (rawEmailInput && !rawEmail) {
+      summary.invalidEmailCount++
+    }
     // D-04a: drop blocked/placeholder emails (e.g. noemail@example.com) but
     // still allow the row through if a valid phone is present (phone carries
     // the contact). Counted for the dry-run summary.
@@ -1041,7 +1051,14 @@ export async function updateContactField(
     const f = field as InlineBuiltinField
     let normalised: string | null = value.trim()
     if (f === 'phone') normalised = normalisePhone(normalised) ?? null
-    if (f === 'email') normalised = normaliseEmail(normalised) ?? null
+    if (f === 'email') {
+      // Surface invalid emails as a user-facing error instead of silently
+      // saving null — keeps the inline editor open with a toast so the
+      // operator can fix the typo (e.g. "skale.clubgmail.com" → "skale@gmail.com").
+      const result = normaliseEmailStrict(normalised)
+      if (!result.ok) return { ok: false, error: result.error }
+      normalised = result.value
+    }
     if (!normalised) normalised = null
     const updates: Record<string, string | null> = { [f]: normalised }
     if (f === 'name') {

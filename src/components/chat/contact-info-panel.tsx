@@ -79,6 +79,7 @@ import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { InlineEditPhoneField } from '@/components/chat/inline-edit-phone-field'
+import { InlineEditEmailField } from '@/components/chat/inline-edit-email-field'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
@@ -595,10 +596,9 @@ export function ContactInfoPanel({
               />
             </InlineRow>
             <InlineRow icon={Mail} label="Email">
-              <InlineEditField
+              <InlineEditEmailField
                 value={contact.email}
                 placeholder="Add email"
-                type="email"
                 onSave={saveField('email')}
                 ariaLabel="Edit email"
               />

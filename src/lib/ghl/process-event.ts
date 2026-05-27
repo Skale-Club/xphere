@@ -7,6 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 import { sendGhlMessage, channelToGhlType } from './send-message'
 import { executeAction } from '@/lib/action-engine/execute-action'
+import { normaliseEmail } from '@/lib/contacts/zod-schemas'
 
 export type GhlWebhookPayload = {
   type: string          // 'InboundMessage' | 'OutboundMessage' | etc.
@@ -59,7 +60,7 @@ export async function processGhlEvent(
     phone: payload.phone ?? null,
     first_name: payload.firstName ?? null,
     last_name: payload.lastName ?? null,
-    email: payload.email ?? null,
+    email: normaliseEmail(payload.email),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     raw_payload: payload as any,
   })

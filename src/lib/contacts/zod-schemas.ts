@@ -40,10 +40,41 @@ const PLACEHOLDER_EMAILS = new Set([
   'example@example.com',
 ])
 
+/**
+ * Trim + lowercase an email and **validate the format**. Returns null when
+ * input is missing or doesn't match a valid email shape — this is the
+ * single source of truth used by server actions, dedup helpers, CSV
+ * imports and webhook processors. Anything garbage in → null out.
+ *
+ * If you need to surface a user-facing error message instead of silently
+ * dropping the value, use {@link normaliseEmailStrict}.
+ */
 export function normaliseEmail(input: string | null | undefined): string | null {
   if (!input) return null
   const trimmed = input.trim().toLowerCase()
-  return trimmed || null
+  if (!trimmed) return null
+  return isValidEmail(trimmed) ? trimmed : null
+}
+
+/**
+ * Like {@link normaliseEmail} but reports invalid formats via a result
+ * object so callers (forms, server actions backing inline edits) can
+ * toast the error to the user instead of silently dropping the value.
+ *
+ * - empty input → `{ ok: true, value: null }`
+ * - valid email → `{ ok: true, value: <normalised> }`
+ * - invalid     → `{ ok: false, error: 'Enter a valid email address' }`
+ */
+export function normaliseEmailStrict(
+  input: string | null | undefined,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (!input) return { ok: true, value: null }
+  const trimmed = input.trim().toLowerCase()
+  if (!trimmed) return { ok: true, value: null }
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, error: 'Enter a valid email address' }
+  }
+  return { ok: true, value: trimmed }
 }
 
 export function isPlaceholderEmail(email: string | null | undefined): boolean {
