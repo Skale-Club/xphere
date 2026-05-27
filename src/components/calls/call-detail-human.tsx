@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { CallWaveformPlayer } from '@/components/calls/call-waveform-player'
 import { CallNotesEditor } from '@/components/calls/call-notes-editor'
 import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface Props {
   call: UnifiedCallWithContact
@@ -66,7 +67,9 @@ export async function CallDetailHuman({ call }: Props) {
                 {call.contact.name ?? '(unnamed contact)'}
               </div>
               {call.contact.phone && (
-                <div className="text-[11.5px] text-text-tertiary">{call.contact.phone}</div>
+                <div className="text-[11.5px] tabular-nums text-text-tertiary">
+                  {formatPhoneDisplay(call.contact.phone)}
+                </div>
               )}
             </Link>
           </div>

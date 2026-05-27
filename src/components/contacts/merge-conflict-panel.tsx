@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   mergeContactAction,
   getPendingMergeConflict,
@@ -78,7 +79,9 @@ function ContactCard({
         {contact.name ?? <span className="italic text-text-tertiary">Unnamed</span>}
       </p>
       {contact.phone && (
-        <p className="mt-1 text-[12.5px] text-text-secondary">{contact.phone}</p>
+        <p className="mt-1 text-[12.5px] tabular-nums text-text-secondary">
+          {formatPhoneDisplay(contact.phone)}
+        </p>
       )}
       {contact.email && (
         <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">{contact.email}</p>

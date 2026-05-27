@@ -6,6 +6,7 @@ import { WidgetCard } from '@/components/dashboard/widget-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { relativeTime, initialsOf } from '@/lib/pipeline/format'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { cn } from '@/lib/utils'
 
 interface RowData {
@@ -32,7 +33,7 @@ function mapChannel(raw: string | null | undefined): Channel {
 
 function formatPhone(p: string | null | undefined): string {
   if (!p) return 'Unknown contact'
-  return p
+  return formatPhoneDisplay(p) || p
 }
 
 /**

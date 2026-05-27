@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
+import { useDialpadAvailable } from '@/components/phone/dialpad-availability-context'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
@@ -68,6 +70,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
   const [loading, setLoading] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
   const router = useRouter()
+  const dialpadAvailable = useDialpadAvailable()
 
   React.useEffect(() => {
     if (!contactId) {
@@ -216,9 +219,17 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   <InfoRow
                     icon={Phone}
                     label="Phone"
-                    value={contact.phone}
-                    onClick={contact.phone ? () => prefillDialPad(contact.phone!) : undefined}
-                    title={contact.phone ? 'Open in dial-pad' : undefined}
+                    value={contact.phone ? formatPhoneDisplay(contact.phone) : null}
+                    onClick={
+                      contact.phone
+                        ? dialpadAvailable
+                          ? () => prefillDialPad(contact.phone!)
+                          : () => {
+                              window.location.href = `tel:${contact.phone}`
+                            }
+                        : undefined
+                    }
+                    title={contact.phone ? (dialpadAvailable ? 'Open in dial-pad' : `Call ${contact.phone}`) : undefined}
                   />
                   <InfoRow
                     icon={Mail}

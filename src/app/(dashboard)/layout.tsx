@@ -14,6 +14,7 @@ import { OnboardingTour } from '@/components/onboarding/tour'
 import { PageTransition } from '@/components/layout/page-transition'
 import { CopilotShell } from '@/components/copilot/copilot-launcher'
 import { CopilotPanel } from '@/components/copilot/copilot-panel'
+import { DialpadAvailabilityProvider } from '@/components/phone/dialpad-availability-context'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
@@ -95,7 +96,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       supabase
         .from('twilio_phone_numbers')
         .select('id', { count: 'exact', head: true })
-        .eq('is_active', true),
+        .eq('is_active', true)
+        .eq('capability_voice', true),
     ])
     browserVoiceEnabled = settings?.routing_mode === 'browser' && Boolean(settings.twilio_client_identity)
     hasPhoneNumber = (numberCount ?? 0) > 0
@@ -108,6 +110,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <BreadcrumbOverrideProvider>
       <SidebarStateProvider>
         <CommandPaletteProvider>
+          <DialpadAvailabilityProvider available={hasPhoneNumber}>
           <VoiceDeviceShell enabled={browserVoiceEnabled}>
             <BrandingStyle branding={branding} />
             {effectiveLogoUrl && (
@@ -144,6 +147,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <CopilotShell />
             </CelebrationProvider>
           </VoiceDeviceShell>
+          </DialpadAvailabilityProvider>
         </CommandPaletteProvider>
       </SidebarStateProvider>
     </BreadcrumbOverrideProvider>

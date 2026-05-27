@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { initialsOf, relativeTime } from '@/lib/pipeline/format'
 import { displayContactName } from '@/lib/contacts/names'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface ContactItem {
   id: string
@@ -66,7 +67,9 @@ export function AccountContactsTab({ contacts, accountId }: Props) {
                   {displayContactName(contact, 'Unnamed')}
                 </p>
                 <p className="text-[12px] text-text-tertiary truncate">
-                  {[contact.phone, contact.email].filter(Boolean).join(' · ') || 'No contact info'}
+                  {[contact.phone ? formatPhoneDisplay(contact.phone) : null, contact.email]
+                    .filter(Boolean)
+                    .join(' · ') || 'No contact info'}
                 </p>
               </div>
               <span className="shrink-0 text-[11px] text-text-tertiary">
