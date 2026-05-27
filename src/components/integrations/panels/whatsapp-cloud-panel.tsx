@@ -19,7 +19,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { CheckCircle2, Loader2, RefreshCw, Link2Off, ExternalLink, Info } from 'lucide-react'
+import { CheckCircle2, Loader2, RefreshCw, Link2Off, ExternalLink, Info, Copy, Eye, EyeOff } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,16 +30,19 @@ import { SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { IntegrationLogo } from '@/components/integrations/integration-logo'
 import {
   getActiveCloudAccountSummary,
+  getWebhookConfig,
   testCloudCredentials,
   connectCloudAccount,
   syncCloudTemplates,
   disconnectCloudAccount,
   type CloudAccountSummary,
+  type WebhookConfig,
 } from '@/app/(dashboard)/integrations/whatsapp/actions'
 import type { CustomPanelProps } from '@/lib/integrations/registry'
 
 export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
   const [active, setActive] = useState<CloudAccountSummary | null>(null)
+  const [webhook, setWebhook] = useState<WebhookConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [pending, startTransition] = useTransition()
 
@@ -57,15 +60,26 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
 
   useEffect(() => {
     let cancelled = false
-    getActiveCloudAccountSummary()
-      .then((data) => {
-        if (!cancelled) setActive(data)
+    Promise.all([getActiveCloudAccountSummary(), getWebhookConfig()])
+      .then(([summary, hook]) => {
+        if (cancelled) return
+        setActive(summary)
+        setWebhook(hook)
       })
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
   }, [])
+
+  async function refreshAll() {
+    const [summary, hook] = await Promise.all([
+      getActiveCloudAccountSummary(),
+      getWebhookConfig(),
+    ])
+    setActive(summary)
+    setWebhook(hook)
+  }
 
   function handleTest() {
     if (!wabaId || !phoneNumberId || !accessToken) {
@@ -97,8 +111,7 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
         return
       }
       toast.success('WhatsApp Cloud connected')
-      const refreshed = await getActiveCloudAccountSummary()
-      setActive(refreshed)
+      await refreshAll()
     })
   }
 
@@ -110,8 +123,7 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
         return
       }
       toast.success(`Templates synced: +${res.inserted} new, ${res.updated} updated, -${res.deleted} removed`)
-      const refreshed = await getActiveCloudAccountSummary()
-      setActive(refreshed)
+      await refreshAll()
     })
   }
 
@@ -125,6 +137,7 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
       }
       toast.success('Disconnected')
       setActive(null)
+      setWebhook(null)
     })
   }
 
@@ -148,6 +161,7 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
         ) : active ? (
           <ConnectedState
             account={active}
+            webhook={webhook}
             onSync={handleSync}
             onDisconnect={handleDisconnect}
             pending={pending}
@@ -183,11 +197,13 @@ export function WhatsAppCloudPanel({ definition, onClose }: CustomPanelProps) {
 
 function ConnectedState({
   account,
+  webhook,
   onSync,
   onDisconnect,
   pending,
 }: {
   account: CloudAccountSummary
+  webhook: WebhookConfig | null
   onSync: () => void
   onDisconnect: () => void
   pending: boolean
@@ -218,6 +234,8 @@ function ConnectedState({
           <p className="text-[11.5px] text-rose-400">{account.lastError}</p>
         )}
       </div>
+
+      {webhook && <WebhookConfigCard webhook={webhook} />}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -374,8 +392,9 @@ function ConnectForm(props: ConnectFormProps) {
       <div className="rounded-[8px] border border-border-subtle bg-bg-tertiary/40 p-3 text-[11px] text-text-secondary">
         <p className="font-medium text-text-primary mb-1">Webhook setup</p>
         <p className="leading-relaxed">
-          Set the callback URL to <code className="break-all">https://xphere.app/api/whatsapp/cloud/webhook</code> and
-          the Verify Token to the value of <code>META_WEBHOOK_VERIFY_TOKEN</code> in your xphere environment.
+          After you click <strong>Connect</strong>, this panel will show a unique webhook URL and
+          verify token for your account. Paste both into your Meta Business Manager → WhatsApp →
+          Configuration → Callback URL.
         </p>
       </div>
 
@@ -413,6 +432,85 @@ function ConnectForm(props: ConnectFormProps) {
           Connect
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ── Per-tenant webhook configuration card ──────────────────────────────────
+
+function WebhookConfigCard({ webhook }: { webhook: WebhookConfig }) {
+  const [showToken, setShowToken] = useState(false)
+
+  async function copy(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(`${label} copied`)
+    } catch {
+      toast.error('Copy failed')
+    }
+  }
+
+  const maskedToken = webhook.verifyToken.slice(0, 4) + '••••••••••••' + webhook.verifyToken.slice(-4)
+
+  return (
+    <div className="rounded-[10px] border border-border bg-bg-secondary p-4 space-y-3">
+      <div>
+        <p className="text-[12.5px] font-medium text-text-primary mb-0.5">Webhook configuration</p>
+        <p className="text-[11.5px] text-text-tertiary leading-relaxed">
+          Paste both values into Meta Business Manager → WhatsApp → Configuration → Callback URL.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Callback URL</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 min-w-0 break-all rounded-[6px] border border-border-subtle bg-bg-tertiary/40 px-2 py-1.5 text-[11px] font-mono text-text-primary">
+            {webhook.url}
+          </code>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => copy(webhook.url, 'Webhook URL')}
+            title="Copy URL"
+            className="h-7 w-7 shrink-0"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Verify Token</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 min-w-0 break-all rounded-[6px] border border-border-subtle bg-bg-tertiary/40 px-2 py-1.5 text-[11px] font-mono text-text-primary">
+            {showToken ? webhook.verifyToken : maskedToken}
+          </code>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setShowToken((v) => !v)}
+            title={showToken ? 'Hide' : 'Show'}
+            className="h-7 w-7 shrink-0"
+          >
+            {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => copy(webhook.verifyToken, 'Verify token')}
+            title="Copy token"
+            className="h-7 w-7 shrink-0"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      <p className="text-[10.5px] text-text-tertiary leading-relaxed">
+        Subscribe events: <code>messages</code>, <code>message_status</code>,{' '}
+        <code>message_template_status_update</code>. For Coexistence add{' '}
+        <code>smb_message_echoes</code> and <code>smb_app_state_sync</code>.
+      </p>
     </div>
   )
 }

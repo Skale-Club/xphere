@@ -1,30 +1,36 @@
-// src/app/api/whatsapp/cloud/webhook/route.ts
+// src/app/api/whatsapp/cloud/webhook/[accountId]/route.ts
 //
-// WhatsApp Cloud API (Meta Official) webhook receiver.
+// Per-tenant WhatsApp Cloud webhook receiver.
 //
-// Multi-tenant strategy:
-//   - Webhook URL is global: <host>/api/whatsapp/cloud/webhook
-//   - GET handshake validates META_WEBHOOK_VERIFY_TOKEN env (SaaS-wide)
-//   - POST demultiplexes by entry[].changes[].value.metadata.phone_number_id
-//     → whatsapp_cloud_accounts row → org_id → process
-//   - Per-request HMAC validated with the per-account app_secret
-//     (each customer creates their own Meta App, so the secret differs)
+// Each customer's Cloud account has a unique webhook URL with its account
+// UUID in the path:
+//
+//   https://xphere.app/api/whatsapp/cloud/webhook/<accountId>
+//
+// GET handshake validates `hub.verify_token` against the per-account
+// `webhook_verify_token_encrypted` (auto-generated on Connect). POST events
+// continue to use per-account `app_secret` for HMAC validation.
+//
+// Why per-tenant URL instead of a global one + demux by phone_number_id:
+//   - Each customer copies a unique URL into their Business Manager (no
+//     shared SaaS secret to leak)
+//   - Easier revocation: disconnecting an account immediately invalidates
+//     that URL without affecting other tenants
+//   - Cleaner cross-tenant isolation if multiple accounts happen to point
+//     to overlapping phone_number_ids (rare, but possible in test setups)
 //
 // Events handled:
-//   - messages: customer inbound → reuse processWhatsAppMessage()
-//   - statuses: delivery receipts → update campaign_recipients.status
-//   - message_template_status_update: template APPROVED/REJECTED flips
-//   - smb_message_echoes (Coexistence): outbound from the mobile Business
-//     App → mirror into our inbox so the thread stays complete
-//
-// Always returns HTTP 200 — Meta retries on non-2xx and we never want
-// bad payloads to trigger infinite retries.
+//   - messages: customer inbound → processWhatsAppMessage()
+//   - statuses: delivery receipts → update campaign_recipients by wamid
+//   - message_template_status_update: template approval/rejection flips
+//   - smb_message_echoes (Coexistence): mobile-app outbound → persist as
+//     outbound conversation message with metadata.source='mobile_app_echo'
 
 import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { getCloudAccountByPhoneNumberId } from '@/lib/whatsapp/cloud/resolve-account'
+import { getCloudAccountById } from '@/lib/whatsapp/cloud/resolve-account'
 import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
 import {
   normalizeMetaMessages,
@@ -40,26 +46,42 @@ export const runtime = 'nodejs'
 
 // ── GET handshake ──────────────────────────────────────────────────────────
 
-export async function GET(request: Request): Promise<Response> {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ accountId: string }> },
+): Promise<Response> {
+  const { accountId } = await params
   const url = new URL(request.url)
   const mode = url.searchParams.get('hub.mode')
   const challenge = url.searchParams.get('hub.challenge')
   const token = url.searchParams.get('hub.verify_token')
 
-  const expected = process.env.META_WEBHOOK_VERIFY_TOKEN
-  if (mode === 'subscribe' && token && expected && token === expected && challenge) {
-    return new Response(challenge, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    })
+  if (mode !== 'subscribe' || !token || !challenge) {
+    return new Response('Verification failed', { status: 403 })
   }
-  return new Response('Verification failed', { status: 403 })
+
+  const account = await getCloudAccountById(accountId)
+  if (!account || !account.webhookVerifyToken) {
+    return new Response('Verification failed', { status: 403 })
+  }
+  if (token !== account.webhookVerifyToken) {
+    return new Response('Verification failed', { status: 403 })
+  }
+
+  return new Response(challenge, {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain' },
+  })
 }
 
 // ── POST events ────────────────────────────────────────────────────────────
 
-export async function POST(request: Request): Promise<Response> {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ accountId: string }> },
+): Promise<Response> {
   try {
+    const { accountId } = await params
     const rawBody = await request.text()
     const signature = request.headers.get('x-hub-signature-256')
 
@@ -75,7 +97,7 @@ export async function POST(request: Request): Promise<Response> {
     // on slow responses, so even a fast 200 is critical.
     after(async () => {
       try {
-        await dispatchPayload(payload, rawBody, signature)
+        await dispatchPayload(accountId, payload, rawBody, signature)
       } catch (err) {
         console.error('[meta/webhook] dispatch error:', err)
       }
@@ -89,50 +111,45 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 async function dispatchPayload(
+  accountId: string,
   payload: MetaWebhookPayload,
   rawBody: string,
   signature: string | null,
 ): Promise<void> {
   if (payload.object !== 'whatsapp_business_account') return
 
+  const account = await getCloudAccountById(accountId)
+  if (!account) {
+    console.warn('[meta/webhook] unknown accountId', accountId)
+    return
+  }
+
+  // HMAC validation — per-account app_secret. Skip if not configured.
+  if (account.appSecret) {
+    const ok = verifySignature(rawBody, signature, account.appSecret)
+    if (!ok) {
+      console.warn('[meta/webhook] invalid signature for org', account.orgId)
+      return
+    }
+  }
+
   for (const entry of payload.entry ?? []) {
     for (const change of entry.changes ?? []) {
       const field = change.field
       const value = change.value
-      const phoneNumberId = value?.metadata?.phone_number_id
+      const payloadPhoneNumberId = value?.metadata?.phone_number_id
 
-      // Most events carry phone_number_id; some app-state events do not.
-      // For events without it we fall back to the entry id (WABA id).
-      let account = phoneNumberId
-        ? await getCloudAccountByPhoneNumberId(phoneNumberId)
-        : null
-
-      if (!account && entry.id) {
-        // Best-effort lookup by WABA id (covers template-status / app-state events)
-        const supabase = createServiceRoleClient()
-        const { data: row } = await supabase
-          .from('whatsapp_cloud_accounts')
-          .select('id, org_id, app_secret_encrypted, phone_number_id')
-          .eq('waba_id', entry.id)
-          .eq('is_active', true)
-          .maybeSingle()
-        if (row) {
-          account = await getCloudAccountByPhoneNumberId(row.phone_number_id)
-        }
-      }
-
-      if (!account) {
-        console.warn('[meta/webhook] no account for', phoneNumberId ?? entry.id, 'field=', field)
+      // Sanity check: confirm the payload's phone_number_id matches the
+      // account associated with this webhook URL. Reject events for other
+      // numbers (e.g. someone replaying / misrouting payloads).
+      if (payloadPhoneNumberId && payloadPhoneNumberId !== account.phoneNumberId) {
+        console.warn(
+          '[meta/webhook] phone_number_id mismatch — payload=',
+          payloadPhoneNumberId,
+          'account=',
+          account.phoneNumberId,
+        )
         continue
-      }
-
-      // HMAC validation — per-account app_secret. Skip if not configured.
-      if (account.appSecret) {
-        const ok = verifySignature(rawBody, signature, account.appSecret)
-        if (!ok) {
-          console.warn('[meta/webhook] invalid signature for org', account.orgId)
-          continue
-        }
       }
 
       switch (field) {
@@ -149,7 +166,6 @@ async function dispatchPayload(
           // v1: log and skip; future: import contacts from Business App
           break
         default:
-          // Statuses arrive under field='messages' too in some payload variants
           if ((value as { statuses?: unknown[] }).statuses) {
             await handleStatuses(value, account.orgId)
           }
@@ -164,7 +180,6 @@ async function handleMessages(
   value: MetaWebhookPayload['entry'][number]['changes'][number]['value'],
   account: { orgId: string; phoneNumberId: string; phoneNumberE164: string | null; displayName: string; id: string },
 ): Promise<void> {
-  // Statuses can ride along inside the same value as inbound messages
   if (value.statuses && value.statuses.length > 0) {
     await handleStatuses(value, account.orgId)
   }
@@ -215,7 +230,7 @@ async function handleStatuses(
     } catch (err) {
       console.error('[meta/webhook] status update error:', err)
     }
-    void orgId // currently unused; kept for future per-org audit logging
+    void orgId
   }
 }
 
@@ -272,14 +287,9 @@ async function handleEchoes(
   if (!value.messages || value.messages.length === 0) return
   const supabase = createServiceRoleClient()
   for (const msg of value.messages) {
-    // Echo `from` is OUR business number; the recipient is in msg.context
-    // or a `to` field depending on the variant. The simplest dedup key is
-    // the wamid (msg.id) — Meta dedups against this on its end too.
     const text = msg.text?.body ?? msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption ?? ''
     if (!text) continue
 
-    // Best-effort match a recent conversation by phone_number_id metadata.
-    // If we can't locate it we skip silently (no history to attach to).
     const { data: convo } = await supabase
       .from('conversations')
       .select('id')
@@ -290,7 +300,6 @@ async function handleEchoes(
       .maybeSingle()
     if (!convo) continue
 
-    // Idempotency: skip if we already persisted this wamid
     const { data: dup } = await supabase
       .from('conversation_messages')
       .select('id')
@@ -337,9 +346,6 @@ function verifySignature(
 }
 
 // ── No-op media adapter ───────────────────────────────────────────────────
-// The Meta inbound payload references media by media_id; fetching needs a
-// separate Graph API call we'll add in a follow-up. For now leave media as
-// an empty array — text-only messages still work end-to-end.
 const NOOP_ADAPTER: WhatsAppAdapter = {
   normalize(): NormalizedWhatsAppMessage[] {
     return []

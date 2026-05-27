@@ -7,10 +7,11 @@
  * Cloud account, and by the templates page to refresh the template list.
  */
 
+import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { encrypt } from '@/lib/crypto'
+import { encrypt, decrypt } from '@/lib/crypto'
 import { verifyCredentials } from '@/lib/whatsapp/cloud/verify-credentials'
 import { subscribeApp, unsubscribeApp } from '@/lib/whatsapp/cloud/subscribe-webhook'
 import { syncTemplates } from '@/lib/whatsapp/cloud/templates'
@@ -102,6 +103,11 @@ export async function connectCloudAccount(input: {
   const accessTokenEnc = await encrypt(input.accessToken)
   const appSecretEnc = input.appSecret ? await encrypt(input.appSecret) : null
 
+  // Auto-generate a per-tenant webhook verify token (32 hex chars = 128 bits).
+  // The user will copy this from the panel into their Meta Business Manager.
+  const verifyToken = randomBytes(16).toString('hex')
+  const verifyTokenEnc = await encrypt(verifyToken)
+
   // Use service-role for the write so we don't depend on the RLS context
   // matching this user — the org check above is enough.
   const svc = createServiceRoleClient()
@@ -121,6 +127,7 @@ export async function connectCloudAccount(input: {
     phone_number_e164: verify.displayPhoneNumber,
     access_token_encrypted: accessTokenEnc,
     app_secret_encrypted: appSecretEnc,
+    webhook_verify_token_encrypted: verifyTokenEnc,
     status: 'connected',
     is_active: true,
     created_by: user.id,
@@ -140,6 +147,44 @@ export async function connectCloudAccount(input: {
 
   revalidatePath('/integrations')
   return { ok: true }
+}
+
+// ── Webhook config (per-tenant URL + verify token) ─────────────────────────
+
+export interface WebhookConfig {
+  url: string
+  verifyToken: string
+}
+
+export async function getWebhookConfig(): Promise<WebhookConfig | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+
+  const { data } = await supabase
+    .from('whatsapp_cloud_accounts')
+    .select('id, webhook_verify_token_encrypted')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (!data || !data.webhook_verify_token_encrypted) return null
+
+  let verifyToken: string
+  try {
+    verifyToken = await decrypt(data.webhook_verify_token_encrypted)
+  } catch {
+    return null
+  }
+
+  // Build absolute URL using the canonical xphere host. Fallback to the
+  // request-derived host would require a Request object we don't have here,
+  // so we rely on the env var convention used elsewhere in the app.
+  const host = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
+  const url = `${host.replace(/\/$/, '')}/api/whatsapp/cloud/webhook/${data.id}`
+
+  return { url, verifyToken }
 }
 
 // ── Sync templates ──────────────────────────────────────────────────────────

@@ -11,6 +11,11 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 import type { CloudAccount } from './types'
 
+/** CloudAccount + decrypted webhook verify token (for the GET handshake handler). */
+export interface CloudAccountWithVerifyToken extends CloudAccount {
+  webhookVerifyToken: string | null
+}
+
 export async function getActiveCloudAccount(orgId: string): Promise<CloudAccount | null> {
   if (!orgId) return null
   const supabase = createServiceRoleClient()
@@ -38,6 +43,39 @@ export async function getCloudAccountByPhoneNumberId(
 
   if (error || !data) return null
   return hydrate(data)
+}
+
+/**
+ * Look up a Cloud account by its row id. Used by the per-tenant webhook
+ * handler (URL: /api/whatsapp/cloud/webhook/[accountId]). Returns the
+ * decrypted webhook verify token alongside the standard CloudAccount fields
+ * so the GET handshake can validate it directly.
+ */
+export async function getCloudAccountById(
+  accountId: string,
+): Promise<CloudAccountWithVerifyToken | null> {
+  if (!accountId) return null
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase
+    .from('whatsapp_cloud_accounts')
+    .select(
+      'id, org_id, display_name, waba_id, phone_number_id, phone_number_e164, access_token_encrypted, app_secret_encrypted, webhook_verify_token_encrypted, status',
+    )
+    .eq('id', accountId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (error || !data) return null
+  const account = await hydrate(data)
+  let webhookVerifyToken: string | null = null
+  if (data.webhook_verify_token_encrypted) {
+    try {
+      webhookVerifyToken = await decrypt(data.webhook_verify_token_encrypted)
+    } catch {
+      webhookVerifyToken = null
+    }
+  }
+  return { ...account, webhookVerifyToken }
 }
 
 type Row = {
