@@ -90,6 +90,7 @@ import { MergedBanner } from '@/components/contacts/merged-banner'
 import { IdentityStatusBadge } from '@/components/contacts/identity-status-badge'
 import { markContactVerified } from '@/app/(dashboard)/contacts/_actions/verify'
 import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
+import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 
 export interface ContactInfoPanelProps {
   contactId: string | null
@@ -675,6 +676,17 @@ export function ContactInfoPanel({
               </div>
             )}
           </Section>
+
+          {/* ── DND ── */}
+          <ContactDndSection
+            contactId={contact.id}
+            initialDnd={{
+              dnd_enabled: Boolean(contact.dnd_enabled),
+              dnd_channels: contact.dnd_channels ?? [],
+              dnd_note: contact.dnd_note ?? null,
+            }}
+            compact
+          />
 
           {/* ── Tasks ── */}
           <Section

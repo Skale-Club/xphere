@@ -32,9 +32,13 @@ import {
 } from '@/lib/action-engine/executors/pipeline-actions'
 import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
+import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
+import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { checkDnd, dndBlockedMessage } from '@/lib/dnd'
+import { log } from '@/lib/logger'
 
 type ActionType = Database['public']['Enums']['action_type']
 type IntegrationProvider = Database['public']['Enums']['integration_provider']
@@ -48,9 +52,81 @@ export interface ActionContext {
   integrationProvider?: IntegrationProvider
   /** Phase 38 DELEG-07: ordered list of agentIds in the delegation chain | for intersection authorization logging */
   delegationChain?: string[]
+  /** Phase 1085 DND: contact id to check before sending outbound messages */
+  contactId?: string
+  /** Phase 1085 DND: conversation id to write DND-blocked timeline events into */
+  conversationId?: string
+}
+
+/** Insert a system timeline message into a conversation (best-effort, never throws). */
+async function insertDndTimelineEvent(
+  ctx: ActionContext,
+  channel: string,
+): Promise<void> {
+  try {
+    if (!ctx.conversationId || !ctx.organizationId || !ctx.supabase) return
+    await ctx.supabase.from('conversation_messages').insert({
+      conversation_id: ctx.conversationId,
+      org_id: ctx.organizationId,
+      role: 'system',
+      content: dndBlockedMessage(channel),
+      metadata: { type: 'dnd_blocked', channel, contact_id: ctx.contactId },
+    })
+  } catch {
+    // best-effort
+  }
 }
 
 export async function executeAction(
+  actionType: ActionType,
+  params: Record<string, unknown>,
+  credentials: GhlCredentials,
+  ctx?: ActionContext
+): Promise<string> {
+  const startMs = Date.now()
+
+  // Log action execution start
+  void log({
+    event_type: 'action.executed',
+    source: 'action-engine',
+    severity: 'info',
+    status: 'ok',
+    org_id: ctx?.organizationId,
+    actor_type: 'system',
+    payload: { action_type: actionType, params_keys: Object.keys(params) },
+  })
+
+  try {
+    const result = await _executeActionInner(actionType, params, credentials, ctx)
+    void log({
+      event_type: 'action.completed',
+      source: 'action-engine',
+      severity: 'info',
+      status: 'ok',
+      org_id: ctx?.organizationId,
+      actor_type: 'system',
+      duration_ms: Date.now() - startMs,
+      payload: { action_type: actionType, result_length: result.length },
+    })
+    return result
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    void log({
+      event_type: 'action.failed',
+      source: 'action-engine',
+      severity: 'error',
+      status: 'failed',
+      org_id: ctx?.organizationId,
+      actor_type: 'system',
+      duration_ms: Date.now() - startMs,
+      error_message: message,
+      payload: { action_type: actionType },
+    })
+    throw err
+  }
+}
+
+async function _executeActionInner(
   actionType: ActionType,
   params: Record<string, unknown>,
   credentials: GhlCredentials,
@@ -98,6 +174,17 @@ export async function executeAction(
       if (!ctx?.organizationId || !ctx?.supabase) {
         throw new Error('send_sms requires ctx.organizationId and ctx.supabase')
       }
+      // DND check: abort if contact has SMS blocked
+      {
+        const contactId = ctx.contactId ?? (typeof params.contact_id === 'string' ? params.contact_id : undefined)
+        if (contactId) {
+          const dnd = await checkDnd(contactId, 'sms', ctx.supabase)
+          if (dnd.blocked) {
+            void insertDndTimelineEvent(ctx, 'sms')
+            return JSON.stringify({ ok: false, reason: dnd.reason, channel: 'sms' })
+          }
+        }
+      }
       if (ctx.integrationProvider === 'gohighlevel') {
         return sendSmsViaGhl(params, credentials)
       }
@@ -121,11 +208,33 @@ export async function executeAction(
       if (!ctx?.organizationId || !ctx?.supabase) {
         throw new Error('send_whatsapp_message requires ctx.organizationId and ctx.supabase')
       }
+      // DND check: abort if contact has WhatsApp blocked
+      {
+        const contactId = ctx.contactId ?? (typeof params.contact_id === 'string' ? params.contact_id : undefined)
+        if (contactId) {
+          const dnd = await checkDnd(contactId, 'whatsapp', ctx.supabase)
+          if (dnd.blocked) {
+            void insertDndTimelineEvent(ctx, 'whatsapp')
+            return JSON.stringify({ ok: false, reason: dnd.reason, channel: 'whatsapp' })
+          }
+        }
+      }
       return sendWhatsappMessageAction(params, ctx)
     }
     case 'send_whatsapp_mention_all': {
       if (!ctx?.organizationId || !ctx?.supabase) {
         throw new Error('send_whatsapp_mention_all requires ctx.organizationId and ctx.supabase')
+      }
+      // DND check: abort if contact has WhatsApp blocked
+      {
+        const contactId = ctx.contactId ?? (typeof params.contact_id === 'string' ? params.contact_id : undefined)
+        if (contactId) {
+          const dnd = await checkDnd(contactId, 'whatsapp', ctx.supabase)
+          if (dnd.blocked) {
+            void insertDndTimelineEvent(ctx, 'whatsapp')
+            return JSON.stringify({ ok: false, reason: dnd.reason, channel: 'whatsapp' })
+          }
+        }
       }
       return sendWhatsappMentionAllAction(params, ctx)
     }
@@ -176,7 +285,27 @@ export async function executeAction(
       return executeCreateNote(params, ctx.organizationId)
     }
     case 'send_email': {
+      // DND check: abort if contact has email blocked
+      if (ctx?.supabase) {
+        const contactId = ctx.contactId ?? (typeof params.contact_id === 'string' ? params.contact_id : undefined)
+        if (contactId) {
+          const dnd = await checkDnd(contactId, 'email', ctx.supabase)
+          if (dnd.blocked) {
+            void insertDndTimelineEvent(ctx, 'email')
+            return JSON.stringify({ ok: false, reason: dnd.reason, channel: 'email' })
+          }
+        }
+      }
       return executeSendEmail(params)
+    }
+    case 'send_tenant_email': {
+      if (!ctx?.organizationId) {
+        throw new Error('send_tenant_email requires ctx.organizationId')
+      }
+      return executeSendTenantEmail(params, ctx.organizationId)
+    }
+    case 'send_platform_email': {
+      return executeSendPlatformEmail(params)
     }
     default: {
       // TypeScript exhaustiveness check

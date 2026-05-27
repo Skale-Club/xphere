@@ -38,6 +38,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   google_contacts: 'Google Contacts',
   google_calendar: 'Google Calendar',
   telegram: 'Telegram',
+  resend: 'Resend',
 }
 
 const integrationSchema = z.object({

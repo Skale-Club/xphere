@@ -52,6 +52,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useBreadcrumbOverride } from "@/components/layout/breadcrumb-override-context";
+import { DndBadge } from "@/components/contacts/dnd-badge";
 
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
@@ -374,12 +375,13 @@ export function ContactsTable({
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium text-text-primary">
-                      {displayContactName(c, "") || (
+                    <div className="flex items-center gap-1.5 truncate text-[13px] font-medium text-text-primary">
+                      <span className="truncate">{displayContactName(c, "") || (
                         <span className="italic text-text-tertiary">
                           Unnamed
                         </span>
-                      )}
+                      )}</span>
+                      <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                     </div>
                     <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
                       {c.company || c.email || c.phone || "No contact details"}
@@ -495,12 +497,13 @@ export function ContactsTable({
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium text-text-primary">
-                        {displayContactName(c, "") || (
+                      <div className="flex items-center gap-1.5 text-[13px] font-medium text-text-primary">
+                        <span className="truncate">{displayContactName(c, "") || (
                           <span className="italic text-text-tertiary">
                             Unnamed
                           </span>
-                        )}
+                        )}</span>
+                        <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                       </div>
                       {c.company && (
                         <div className="truncate text-[11.5px] text-text-tertiary">

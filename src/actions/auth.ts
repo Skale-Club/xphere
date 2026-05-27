@@ -1,6 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstile } from '@/lib/auth/verify-turnstile'
 import { mapSupabaseError, type AuthErrorCode } from '@/lib/auth/errors'
@@ -51,7 +52,11 @@ export async function signInWithEmail(
     }
   }
 
-  return { ok: true, hasSession: Boolean(data.session) }
+  if (data.session) {
+    redirect('/dashboard')
+  }
+
+  return { ok: true, hasSession: false }
 }
 
 export async function signUpWithEmail(
@@ -80,5 +85,9 @@ export async function signUpWithEmail(
     }
   }
 
-  return { ok: true, hasSession: Boolean(data.session) }
+  if (data.session) {
+    redirect('/dashboard')
+  }
+
+  return { ok: true, hasSession: false }
 }

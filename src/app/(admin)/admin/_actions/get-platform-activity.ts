@@ -22,7 +22,8 @@ export type PlatformEvent = {
 }
 
 export async function getPlatformActivity(hours: 24 | 48 | 72 = 72): Promise<PlatformEvent[]> {
-  const admin = createServiceRoleClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createServiceRoleClient() as any
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 
   const [orgsRes, membersRes, callsRes, convsRes, contactsRes, workflowsRes, campaignsRes, bookingsRes] =
@@ -41,15 +42,20 @@ export async function getPlatformActivity(hours: 24 | 48 | 72 = 72): Promise<Pla
 
   // Build org name lookup
   const orgIds = new Set<string>()
-  ;(membersRes.data ?? []).forEach(r => orgIds.add(r.organization_id))
-  ;(callsRes.data ?? []).forEach(r => orgIds.add(r.organization_id))
-  ;(convsRes.data ?? []).forEach(r => orgIds.add(r.org_id))
-  ;(contactsRes.data ?? []).forEach(r => orgIds.add(r.org_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(membersRes.data ?? []).forEach((r: any) => orgIds.add(r.organization_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(callsRes.data ?? []).forEach((r: any) => orgIds.add(r.organization_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(convsRes.data ?? []).forEach((r: any) => orgIds.add(r.org_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(contactsRes.data ?? []).forEach((r: any) => orgIds.add(r.org_id))
 
   let orgMap = new Map<string, string>()
   if (orgIds.size > 0) {
     const { data } = await admin.from('organizations').select('id, name').in('id', [...orgIds])
-    orgMap = new Map((data ?? []).map(o => [o.id, o.name]))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    orgMap = new Map((data ?? []).map((o: any) => [o.id, o.name]))
   }
 
   const events: PlatformEvent[] = []

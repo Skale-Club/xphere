@@ -7,13 +7,34 @@ import type { Database } from '@/types/database'
 import { VapiEndOfCallMessageSchema } from '@/types/vapi'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
 import { insertNotification } from '@/lib/notifications/insert'
+import { log } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request): Promise<Response> {
+  const webhookStart = Date.now()
+  void log({
+    event_type: 'webhook.received',
+    source: 'vapi-webhook',
+    severity: 'info',
+    status: 'ok',
+    actor_type: 'webhook',
+    payload: { endpoint: '/api/vapi/calls' },
+  })
+
   try {
     if (!verifyVapiSecret(request)) {
       console.warn('[vapi/calls] Rejected request with invalid or missing X-Vapi-Secret')
+      void log({
+        event_type: 'webhook.rejected',
+        source: 'vapi-webhook',
+        severity: 'warn',
+        status: 'failed',
+        actor_type: 'webhook',
+        error_message: 'Invalid or missing X-Vapi-Secret',
+        duration_ms: Date.now() - webhookStart,
+        payload: { endpoint: '/api/vapi/calls' },
+      })
       return new Response(null, { status: 200 })
     }
 
@@ -82,7 +103,35 @@ export async function POST(request: Request): Promise<Response> {
       // Duplicate vapi_call_id | idempotent: Vapi may retry, ignore unique constraint violations
       if (error.code !== '23505') {
         console.error('[vapi/calls] Insert error:', error.message)
+        void log({
+          event_type: 'call.ingested',
+          source: 'vapi-webhook',
+          severity: 'error',
+          status: 'failed',
+          org_id: organizationId,
+          actor_type: 'webhook',
+          actor_id: vapiCallId,
+          error_message: error.message,
+          duration_ms: Date.now() - webhookStart,
+          payload: { vapi_call_id: vapiCallId, ended_reason: endedReason },
+        })
       }
+    } else {
+      void log({
+        event_type: 'call.ingested',
+        source: 'vapi-webhook',
+        severity: 'info',
+        status: 'ok',
+        org_id: organizationId,
+        actor_type: 'webhook',
+        actor_id: vapiCallId,
+        duration_ms: Date.now() - webhookStart,
+        payload: {
+          vapi_call_id: vapiCallId,
+          ended_reason: endedReason,
+          call_type: call?.type ?? null,
+        },
+      })
     }
 
     // Emit missed_call notification for unanswered calls (NOTIF-04)

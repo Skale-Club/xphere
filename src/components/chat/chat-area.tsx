@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, PhoneOff } from 'lucide-react'
 
 import {
   ConversationSummary,
@@ -30,6 +30,7 @@ import {
 import { EmptyState } from '@/components/empty-states/empty-state'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
 import { getContact } from '@/app/(dashboard)/contacts/actions'
+import { DND_CHANNEL_LABELS } from '@/lib/dnd'
 
 const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: 'WhatsApp',
@@ -127,6 +128,8 @@ export function ChatArea({
   // SEED-039: operator-selected outbound channel for the composer.
   const [activeChannel, setActiveChannel] = useState<string | null>(null)
   const [contactChannels, setContactChannels] = useState<ComposerChannel[]>([])
+  // Phase 1085 DND: track contact DND state to block composer.
+  const [contactDnd, setContactDnd] = useState<{ enabled: boolean; channels: string[] }>({ enabled: false, channels: [] })
 
   // SEED-039: derive distinct channels present in the thread (for filter UI).
   // Must be declared before any early return to satisfy Rules of Hooks.
@@ -149,6 +152,7 @@ export function ChatArea({
   useEffect(() => {
     let cancelled = false
     setContactChannels([])
+    setContactDnd({ enabled: false, channels: [] })
     if (!conversation?.contactId) return
 
     getContact(conversation.contactId).then((contact) => {
@@ -161,6 +165,10 @@ export function ChatArea({
           conversationId: c.id,
         }))
       setContactChannels(openChannels)
+      // Phase 1085 DND: surface contact DND state in the composer.
+      if (contact.dnd_enabled) {
+        setContactDnd({ enabled: true, channels: contact.dnd_channels ?? [] })
+      }
     })
 
     return () => {
@@ -210,6 +218,23 @@ export function ChatArea({
 
   const isBotActive = conversation.botStatus === 'active'
 
+  // Phase 1085 DND: determine if the active channel is DND-blocked.
+  const activeChannelForDnd = activeChannel ?? conversation.channel
+  // Map conversation channel to a DND channel key
+  const channelToDndKey: Record<string, string> = {
+    sms: 'sms', ghl_sms: 'sms',
+    email: 'email',
+    whatsapp: 'whatsapp', ghl_whatsapp: 'whatsapp',
+    voice: 'calls',
+  }
+  const dndKey = channelToDndKey[activeChannelForDnd] ?? activeChannelForDnd
+  const isDndBlocked = contactDnd.enabled && (
+    contactDnd.channels.includes('all') || contactDnd.channels.includes(dndKey)
+  )
+  const dndBlockedChannelLabel = contactDnd.channels.includes('all')
+    ? 'all channels'
+    : contactDnd.channels.map((c) => DND_CHANNEL_LABELS[c] ?? c).join(', ')
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       <ChatHeader
@@ -234,6 +259,8 @@ export function ChatArea({
         onChannelFilterChange={setChannelFilter}
         showDebug={showDebug}
         onToggleDebug={() => setShowDebug((v) => !v)}
+        dndEnabled={contactDnd.enabled}
+        dndChannels={contactDnd.channels}
       />
 
       <MessageList
@@ -245,18 +272,27 @@ export function ChatArea({
         primaryChannel={conversation.channel}
       />
       <MessageBanner conversation={conversation} />
+      {/* Phase 1085 DND: banner when this channel is blocked for the contact */}
+      {isDndBlocked && (
+        <div className="flex items-center gap-2 border-t border-rose-500/20 bg-rose-500/10 px-4 py-2 text-[12px] text-rose-400">
+          <PhoneOff className="h-3.5 w-3.5 shrink-0" />
+          <span>DND active — outbound {dndBlockedChannelLabel} blocked for this contact.</span>
+        </div>
+      )}
       <MessageComposer
         onSendMessage={onSendMessage}
         onTyping={onTyping}
         channelLabel={channelLabel(activeChannel ?? conversation.channel)}
-        disabled={isBotActive}
+        disabled={isBotActive || isDndBlocked}
         disabledHint={
-          isBotActive
+          isDndBlocked
+            ? `DND active — outbound ${dndBlockedChannelLabel} blocked for this contact.`
+            : isBotActive
             ? 'Bot is active | pause it to send messages manually.'
             : undefined
         }
         onResumeManual={
-          isBotActive
+          isBotActive && !isDndBlocked
             ? () => onBotStatusToggle(conversation.id, conversation.botStatus)
             : undefined
         }

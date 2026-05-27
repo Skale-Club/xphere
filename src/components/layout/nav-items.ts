@@ -4,6 +4,7 @@ import {
   Phone,
   BookOpen,
   MessageSquare,
+  Megaphone,
   Star,
   LayoutDashboard,
   Bot,
@@ -15,6 +16,8 @@ import {
   CheckSquare,
   FolderKanban,
   BarChart3,
+  Mail,
+  ScrollText,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -29,11 +32,13 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview' },
   { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
+  { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage' },
+  { icon: Mail,            label: 'Email Templates', href: '/email-templates', group: 'engage' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
-  { icon: CheckSquare,    label: 'Tasks',        href: '/tasks',        group: 'sales' },
+  { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales' },
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
   { icon: FolderKanban,   label: 'Projects',     href: '/projects',     group: 'build' },
@@ -42,6 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
   { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage' },
+  { icon: ScrollText,      label: 'Logs',         href: '/logs',         group: 'manage' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [
