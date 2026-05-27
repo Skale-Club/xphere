@@ -60,7 +60,7 @@ async function getProviderAvailability() {
   const [integRes, resendRes, whatsappRes] = await Promise.all([
     supabase.from('integrations').select('provider').eq('is_active', true),
     supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1),
-    supabase.from('whatsapp_providers').select('id').eq('status', 'connected').eq('is_active', true).limit(1),
+    supabase.from('whatsapp_cloud_accounts').select('id').eq('status', 'connected').eq('is_active', true).limit(1),
   ])
   const providers = new Set((integRes.data ?? []).map((i) => i.provider))
   return {

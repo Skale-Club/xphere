@@ -20,7 +20,7 @@ async function getSetupData() {
       .eq('status', 'connected')
       .limit(1),
     supabase
-      .from('whatsapp_providers')
+      .from('whatsapp_cloud_accounts')
       .select('id')
       .eq('status', 'connected')
       .eq('is_active', true)

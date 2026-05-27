@@ -21,6 +21,9 @@ export interface CreateCampaignInput {
   calls_per_minute?: number
   // SMS-specific
   sms_body?: string | null
+  // WhatsApp Cloud (Meta) specific
+  whatsapp_template_id?: string | null
+  whatsapp_variable_mapping?: Record<string, unknown> | null
   // Audience
   audience_filter?: Record<string, unknown>
   // Schedule
@@ -51,14 +54,16 @@ export async function createCampaign(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) throw new Error('No organization found for user')
 
-  // Validate channel integration availability before creating
-  const [integRes, resendRes, whatsappRes] = await Promise.all([
+  // Validate channel integration availability before creating.
+  // NOTE: WhatsApp campaigns are EXCLUSIVE to the official Meta Cloud API
+  // — non-official providers (Evolution/Z-API/W-API) are for inbox only.
+  const [integRes, resendRes, whatsappCloudRes] = await Promise.all([
     supabase.from('integrations').select('provider').eq('is_active', true),
     input.channel === 'email'
       ? supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1)
       : Promise.resolve({ data: null }),
     input.channel === 'whatsapp'
-      ? supabase.from('whatsapp_providers').select('id').eq('status', 'connected').eq('is_active', true).limit(1)
+      ? supabase.from('whatsapp_cloud_accounts').select('id').eq('status', 'connected').eq('is_active', true).limit(1)
       : Promise.resolve({ data: null }),
   ])
   const providers = new Set((integRes.data ?? []).map((i) => i.provider))
@@ -68,8 +73,26 @@ export async function createCampaign(
   if (input.channel === 'email' && (resendRes.data ?? []).length === 0) {
     throw new Error('Email integration is not connected. Set up Resend to create email campaigns.')
   }
-  if (input.channel === 'whatsapp' && (whatsappRes.data ?? []).length === 0) {
-    throw new Error('WhatsApp is not connected. Connect WhatsApp to create WhatsApp campaigns.')
+  if (input.channel === 'whatsapp' && (whatsappCloudRes.data ?? []).length === 0) {
+    throw new Error(
+      'WhatsApp campaigns require the official Meta Cloud integration. Connect it in Integrations → WhatsApp Official.',
+    )
+  }
+
+  // For WhatsApp campaigns, also validate the chosen template exists and is APPROVED.
+  if (input.channel === 'whatsapp') {
+    if (!input.whatsapp_template_id) {
+      throw new Error('Select an approved WhatsApp template for this campaign.')
+    }
+    const { data: template } = await supabase
+      .from('whatsapp_templates')
+      .select('id, status')
+      .eq('id', input.whatsapp_template_id)
+      .maybeSingle()
+    if (!template) throw new Error('Selected template not found.')
+    if (template.status !== 'APPROVED') {
+      throw new Error(`Selected template is ${template.status} — only APPROVED templates can be used.`)
+    }
   }
 
   const templateConfig: Json = input.channel === 'sms' && input.sms_body
@@ -91,6 +114,10 @@ export async function createCampaign(
       calls_per_minute: input.calls_per_minute ?? 5,
       audience_filter: audienceFilter,
       template_config: templateConfig,
+      sms_body: input.sms_body ?? null,
+      whatsapp_template_id: input.whatsapp_template_id ?? null,
+      whatsapp_variable_mapping:
+        (input.whatsapp_variable_mapping as unknown as Json | null) ?? null,
       status: 'draft' as const,
       scheduled_start_at: input.scheduled_start_at ?? null,
       created_by: user.id,

@@ -3,9 +3,11 @@
 // Uses service-role client for engine operations.
 // Called from UI via fetch() in client component.
 
+import { after } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { startCampaignBatch } from '@/lib/campaigns/engine'
+import { startWhatsAppCampaign } from '@/lib/campaigns/whatsapp-dispatcher'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import type { Database } from '@/types/database'
 
@@ -33,8 +35,37 @@ export async function POST(
     { auth: { persistSession: false } }
   )
 
-  // Optimistic status transition: draft | paused → in_progress
-  // organization_id filter enforces ownership even through service-role client
+  // Branch by channel — WhatsApp Cloud campaigns use a different engine
+  const { data: campaignRow } = await serviceClient
+    .from('campaigns')
+    .select('id, channel, status, organization_id')
+    .eq('id', campaignId)
+    .eq('organization_id', member.organization_id)
+    .single()
+  if (!campaignRow) {
+    return Response.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
+  if (campaignRow.channel === 'whatsapp') {
+    if (!['draft', 'scheduled', 'paused'].includes(campaignRow.status)) {
+      return Response.json(
+        { error: 'Campaign cannot be started (already running, completed, or stopped)' },
+        { status: 409 }
+      )
+    }
+    // Kick off in the background so the response returns immediately;
+    // status updates handled by the dispatcher.
+    after(async () => {
+      try {
+        await startWhatsAppCampaign(campaignId)
+      } catch (err) {
+        console.error('[campaigns/start] whatsapp dispatcher error:', err)
+      }
+    })
+    return Response.json({ success: true, channel: 'whatsapp' })
+  }
+
+  // Voice campaigns: existing path
   const { data: updated, error } = await serviceClient
     .from('campaigns')
     .update({ status: 'in_progress', updated_at: new Date().toISOString() })
