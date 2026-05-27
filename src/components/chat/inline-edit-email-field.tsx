@@ -17,11 +17,12 @@
  */
 
 import * as React from 'react'
-import { Pencil, AlertTriangle } from 'lucide-react'
+import { Mail, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
 import { normaliseEmailStrict, isValidEmail } from '@/lib/contacts/zod-schemas'
+import { SavedFlash } from './saved-flash'
 
 interface InlineEditEmailFieldProps {
   value: string | null
@@ -43,6 +44,7 @@ export function InlineEditEmailField({
   const [draft, setDraft] = React.useState<string>(value ?? '')
   const [displayed, setDisplayed] = React.useState<string | null>(value)
   const [saving, setSaving] = React.useState(false)
+  const [savedKey, setSavedKey] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const skipBlurRef = React.useRef(false)
 
@@ -89,7 +91,7 @@ export function InlineEditEmailField({
     setSaving(true)
     try {
       await onSave(next)
-      toast.success('Saved')
+      setSavedKey(Date.now())
     } catch (e) {
       setDisplayed(previous)
       setDraft(previous ?? '')
@@ -149,35 +151,58 @@ export function InlineEditEmailField({
   const empty = !displayed
   const malformed = !empty && !isValidEmail(displayed)
 
-  return (
-    <button
-      type="button"
-      onClick={() => setEditing(true)}
-      aria-label={ariaLabel}
-      className={cn(
-        'group inline-flex w-full items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 text-left',
-        'hover:bg-bg-tertiary transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        className,
-      )}
-      title={malformed ? 'Invalid email format — click to fix' : 'Click to edit'}
-    >
-      {malformed && (
-        <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />
-      )}
-      <span
+  // Empty: whole row enters edit mode (no value to act on).
+  if (empty) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label={ariaLabel}
         className={cn(
-          'min-w-0 flex-1 truncate text-[12.5px]',
-          empty
-            ? 'italic text-text-tertiary'
-            : malformed
-              ? 'text-amber-200'
-              : 'text-text-primary',
+          'inline-flex w-full items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 text-left',
+          'hover:bg-bg-tertiary transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          className,
         )}
+        title="Click to edit"
       >
-        {empty ? placeholder : displayed}
-      </span>
-      <Pencil className="h-3 w-3 shrink-0 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
-    </button>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] italic text-text-tertiary">
+          {placeholder}
+        </span>
+      </button>
+    )
+  }
+
+  // Populated: value text is clickable to edit; right action icon opens mailto.
+  return (
+    <div className={cn('inline-flex w-full items-center gap-1.5', className)}>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label={ariaLabel}
+        className={cn(
+          'min-w-0 flex-1 truncate rounded-[6px] px-1.5 py-0.5 text-left text-[12.5px] flex items-center gap-1.5',
+          'hover:bg-bg-tertiary transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          malformed ? 'text-amber-200' : 'text-text-primary',
+        )}
+        title={malformed ? 'Invalid email format — click to fix' : 'Click to edit'}
+      >
+        {malformed && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />}
+        <span className="truncate">{displayed}</span>
+      </button>
+      <SavedFlash flashKey={savedKey} />
+      {!malformed && (
+        <a
+          href={`mailto:${displayed}`}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Send email"
+          title={`Send email to ${displayed}`}
+          className="shrink-0 rounded p-1 text-text-tertiary hover:text-accent hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <Mail className="h-3 w-3" />
+        </a>
+      )}
+    </div>
   )
 }

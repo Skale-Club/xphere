@@ -80,6 +80,7 @@ import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { InlineEditPhoneField } from '@/components/chat/inline-edit-phone-field'
 import { InlineEditEmailField } from '@/components/chat/inline-edit-email-field'
+import { SavedFlash } from '@/components/chat/saved-flash'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
@@ -1143,15 +1144,32 @@ function ContactCompanyControl({
   onSaved: (patch: Pick<ContactDetail, 'account_id' | 'company' | 'account'>) => void
 }) {
   const [saving, setSaving] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
+  const [savedKey, setSavedKey] = React.useState(0)
   const companyName = contact.account?.name ?? contact.company ?? undefined
 
   async function handleChange(accountId: string | null) {
+    const previousAccountId = contact.account_id ?? null
+    // Skip noop changes (combobox sometimes re-fires on focus loss).
+    if (accountId === previousAccountId) {
+      setEditing(false)
+      return
+    }
+    const previousSnapshot = {
+      account_id: contact.account_id ?? null,
+      company: contact.company ?? null,
+      account: contact.account ?? null,
+    }
     setSaving(true)
     const result = await setContactCompany(contact.id, accountId)
     setSaving(false)
 
     if (!result.ok) {
+      // Rollback: restore the parent state to what it was before the attempt
+      // so a server failure can't leave the UI in a half-applied state.
+      onSaved(previousSnapshot)
       toast.error(result.error ?? 'Failed to update company')
+      setEditing(false)
       return
     }
 
@@ -1160,26 +1178,76 @@ function ContactCompanyControl({
       company: result.company ?? null,
       account: result.account ?? null,
     })
-    toast.success(accountId ? 'Company linked' : 'Company unlinked')
+    setSavedKey(Date.now())
+    setEditing(false)
+  }
+
+  // Edit mode: render the combobox. Blur closes the editor; the combobox
+  // already commits on selection via onChange (handleChange above).
+  if (editing) {
+    return (
+      <div
+        className={cn('w-full', saving && 'opacity-70')}
+        onBlur={(e) => {
+          // Only close when focus leaves the wrapper entirely (combobox has
+          // internal focusable children we don't want to treat as blur).
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setEditing(false)
+          }
+        }}
+      >
+        <AccountCombobox
+          value={contact.account_id ?? null}
+          defaultAccountName={companyName}
+          onChange={(accountId) => {
+            void handleChange(accountId)
+          }}
+        />
+      </div>
+    )
+  }
+
+  // Display mode — same shape as Phone/Email: clickable value + saved flash
+  // + right-side action icon (opens the linked company page).
+  const empty = !companyName
+
+  if (empty) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label="Add company"
+        className="inline-flex w-full items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 text-left hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        title="Click to edit"
+      >
+        <span className="min-w-0 flex-1 truncate text-[12.5px] italic text-text-tertiary">
+          Add company
+        </span>
+      </button>
+    )
   }
 
   return (
-    <div className={cn('space-y-1.5', saving && 'opacity-70')}>
-      <AccountCombobox
-        value={contact.account_id ?? null}
-        defaultAccountName={companyName}
-        onChange={(accountId) => {
-          void handleChange(accountId)
-        }}
-      />
+    <div className="inline-flex w-full items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label="Edit company"
+        className="min-w-0 flex-1 truncate rounded-[6px] px-1.5 py-0.5 text-left text-[12.5px] text-text-primary hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        title="Click to edit"
+      >
+        {companyName}
+      </button>
+      <SavedFlash flashKey={savedKey} />
       {contact.account && (
         <Link
           href={`/companies/${contact.account.id}`}
-          className="inline-flex items-center gap-1 px-1 text-[11.5px] text-text-tertiary transition-colors hover:text-accent"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Open company"
           title={`Open company ${contact.account.name}`}
+          className="shrink-0 rounded p-1 text-text-tertiary hover:text-accent hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <ExternalLink className="h-3 w-3" />
-          Open company
         </Link>
       )}
     </div>
@@ -1226,7 +1294,7 @@ function InfoRow({
         <div className="text-[10px] uppercase tracking-wide text-text-tertiary">{label}</div>
         <div
           className={cn(
-            'text-[12.5px] px-1',
+            'text-[12.5px] px-1.5 py-0.5',
             value ? 'text-text-primary' : 'italic text-text-tertiary',
           )}
         >

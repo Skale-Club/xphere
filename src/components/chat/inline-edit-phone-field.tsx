@@ -13,7 +13,6 @@
  */
 
 import * as React from 'react'
-import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   defaultCountries,
@@ -26,6 +25,8 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { useDialpadAvailable } from '@/components/phone/dialpad-availability-context'
+import { SavedFlash } from './saved-flash'
+import { Phone } from 'lucide-react'
 
 interface InlineEditPhoneFieldProps {
   /** Current value in E.164 (or null when unset). */
@@ -69,6 +70,7 @@ export function InlineEditPhoneField({
   const skipBlurRef = React.useRef(false)
   const wrapperRef = React.useRef<HTMLDivElement | null>(null)
   const editorCountry = React.useMemo(() => inferCountry(displayed), [displayed])
+  const [savedKey, setSavedKey] = React.useState(0)
 
   // Keep local state in sync with external updates while not editing.
   React.useEffect(() => {
@@ -113,7 +115,7 @@ export function InlineEditPhoneField({
     setSaving(true)
     try {
       await onSave(normalised)
-      toast.success('Saved')
+      setSavedKey(Date.now())
     } catch (e) {
       setDisplayed(previous)
       setDraft(previous ?? '')
@@ -190,7 +192,7 @@ export function InlineEditPhoneField({
         onClick={() => setEditing(true)}
         aria-label={ariaLabel}
         className={cn(
-          'group inline-flex w-full items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 text-left',
+          'inline-flex w-full items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 text-left',
           'hover:bg-bg-tertiary transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
           className,
@@ -200,55 +202,53 @@ export function InlineEditPhoneField({
         <span className="min-w-0 flex-1 truncate text-[12.5px] italic text-text-tertiary">
           {placeholder}
         </span>
-        <Pencil className="h-3 w-3 shrink-0 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
       </button>
     )
   }
 
-  // Populated state: number is clickable to dial (or tel:); a separate
-  // pencil icon (hover-revealed) opens the edit mode.
-  const phoneClassName = cn(
-    'min-w-0 flex-1 truncate text-left text-[12.5px] text-text-primary tabular-nums',
-    'rounded-[6px] px-1.5 py-0.5 hover:underline focus-visible:outline-none focus-visible:underline',
-  )
-
+  // Populated state: the value is clickable to enter edit mode; a separate
+  // action button on the right fires call (dialpad or tel:). Both always
+  // visible — no more hover-revealed pencil.
   return (
-    <div
-      className={cn(
-        'group inline-flex w-full items-center gap-1.5',
-        className,
-      )}
-    >
-      {dialpadAvailable ? (
-        <button
-          type="button"
-          onClick={() => prefillDialPad(displayed!)}
-          className={phoneClassName}
-          title={`Call ${displayed}`}
-        >
-          {formatted}
-        </button>
-      ) : (
-        <a
-          href={`tel:${displayed}`}
-          className={phoneClassName}
-          title={`Call ${displayed}`}
-        >
-          {formatted}
-        </a>
-      )}
+    <div className={cn('inline-flex w-full items-center gap-1.5', className)}>
       <button
         type="button"
         onClick={() => setEditing(true)}
         aria-label={ariaLabel ?? 'Edit phone'}
         className={cn(
-          'shrink-0 rounded p-0.5 text-text-tertiary transition-opacity hover:text-text-primary',
-          'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          'min-w-0 flex-1 truncate rounded-[6px] px-1.5 py-0.5 text-left text-[12.5px] text-text-primary tabular-nums',
+          'hover:bg-bg-tertiary transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
         )}
-        title="Edit phone"
+        title="Click to edit"
       >
-        <Pencil className="h-3 w-3" />
+        {formatted}
       </button>
+      <SavedFlash flashKey={savedKey} />
+      {dialpadAvailable ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            prefillDialPad(displayed!)
+          }}
+          aria-label="Call"
+          title={`Call ${displayed}`}
+          className="shrink-0 rounded p-1 text-text-tertiary hover:text-accent hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <Phone className="h-3 w-3" />
+        </button>
+      ) : (
+        <a
+          href={`tel:${displayed}`}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Call"
+          title={`Call ${displayed}`}
+          className="shrink-0 rounded p-1 text-text-tertiary hover:text-accent hover:bg-bg-tertiary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <Phone className="h-3 w-3" />
+        </a>
+      )}
     </div>
   )
 }
