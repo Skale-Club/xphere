@@ -12,7 +12,7 @@
  */
 
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Send, Paperclip, Smile, Mic, Square, X } from 'lucide-react'
+import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -71,6 +71,19 @@ interface MessageComposerProps {
   onActiveChannelChange?: React.Dispatch<React.SetStateAction<string | null>>
   priority?: ConversationPriority
   onPriorityCycle?: () => void
+  /**
+   * WhatsApp Cloud template support. When `available` is true, the composer
+   * shows a "Send template" button next to Send. When `outsideWindow` is
+   * true, the 24h customer service window has expired and free-text
+   * messages will be rejected by Meta — the composer renders a banner and
+   * disables the regular Send button to steer the user to a template.
+   */
+  templateSupport?: {
+    available: boolean
+    outsideWindow: boolean
+  }
+  /** Opens the template selector modal. Required when templateSupport.available. */
+  onSendTemplate?: () => void
 }
 
 const MAX_ROWS = 8
@@ -104,6 +117,8 @@ export function MessageComposer({
   onActiveChannelChange,
   priority = 'normal',
   onPriorityCycle,
+  templateSupport,
+  onSendTemplate,
 }: MessageComposerProps) {
   const [value, setValue] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -261,8 +276,12 @@ export function MessageComposer({
     }
   }
 
+  const outsideWindow = Boolean(templateSupport?.outsideWindow)
   const isDisabled = isSending || disabled
-  const canSend = value.trim().length > 0 && !isDisabled
+  // Outside the 24h customer service window, free-text via Cloud will fail
+  // — only templates work. We block the regular Send button to steer the
+  // operator to the template path instead of letting them get a Meta error.
+  const canSend = value.trim().length > 0 && !isDisabled && !outsideWindow
   const activeOption =
     availableChannels.find((ch) => ch.channel === activeChannel) ??
     availableChannels[0] ??
@@ -344,6 +363,16 @@ export function MessageComposer({
           })()}
         </div>
       </div>
+
+      {outsideWindow && (
+        <div className="mb-2 flex items-start gap-2 rounded-[8px] border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span className="leading-relaxed">
+            Outside the 24-hour customer service window — free text won&apos;t be delivered by
+            Meta. Use a <strong>template</strong> to continue this conversation.
+          </span>
+        </div>
+      )}
 
       <div
         className={cn(
@@ -489,6 +518,25 @@ export function MessageComposer({
               )}
               style={{ minHeight: '20px' }}
             />
+          )}
+
+          {templateSupport?.available && onSendTemplate && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSendTemplate}
+              disabled={isDisabled}
+              className={cn(
+                'h-8 w-8 shrink-0 rounded-[8px] transition-colors',
+                outsideWindow
+                  ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                  : 'text-text-tertiary hover:text-text-primary',
+              )}
+              aria-label="Send template"
+              title="Send approved WhatsApp template"
+            >
+              <FileText className="h-3.5 w-3.5" />
+            </Button>
           )}
 
           <Button

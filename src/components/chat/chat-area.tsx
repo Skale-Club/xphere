@@ -27,6 +27,7 @@ import {
   MessageComposer,
   type ComposerChannel,
 } from '@/components/chat/chat-area/message-composer'
+import { SendTemplateDialog } from '@/components/chat/chat-area/send-template-dialog'
 import { EmptyState } from '@/components/empty-states/empty-state'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
 import { getContact } from '@/app/(dashboard)/contacts/actions'
@@ -130,6 +131,18 @@ export function ChatArea({
   const [contactChannels, setContactChannels] = useState<ComposerChannel[]>([])
   // Phase 1085 DND: track contact DND state to block composer.
   const [contactDnd, setContactDnd] = useState<{ enabled: boolean; channels: string[] }>({ enabled: false, channels: [] })
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+
+  // WhatsApp Cloud template support: available when the conversation is via
+  // meta_cloud. Outside the 24h customer service window, free text fails;
+  // the composer banner pushes the user toward the template path.
+  const templateAvailable = conversation?.channelMetadata?.provider === 'meta_cloud'
+  const lastInboundAt = conversation?.lastInboundAt ?? null
+  const outsideWindow = useMemo(() => {
+    if (!templateAvailable) return false
+    if (!lastInboundAt) return true // no inbound ever ⇒ no open service window
+    return Date.now() - new Date(lastInboundAt).getTime() > 24 * 60 * 60 * 1000
+  }, [templateAvailable, lastInboundAt])
 
   // SEED-039: derive distinct channels present in the thread (for filter UI).
   // Must be declared before any early return to satisfy Rules of Hooks.
@@ -304,7 +317,18 @@ export function ChatArea({
           conversation.id,
           PRIORITY_CYCLE[conversation.priority ?? 'normal'],
         )}
+        templateSupport={
+          templateAvailable ? { available: true, outsideWindow } : undefined
+        }
+        onSendTemplate={() => setTemplateDialogOpen(true)}
       />
+      {templateAvailable && (
+        <SendTemplateDialog
+          open={templateDialogOpen}
+          onOpenChange={setTemplateDialogOpen}
+          conversationId={conversation.id}
+        />
+      )}
     </div>
   )
 }

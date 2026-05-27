@@ -66,6 +66,8 @@ export interface ConversationSummary {
   phoneNumberId?: string | null
   /** phone-numbers Phase 4 | inbox_label > friendly_name > e164 for the receiving number. */
   phoneNumberLabel?: string | null
+  /** WhatsApp Cloud | timestamp of the last inbound from this contact (used to detect 24h window expiry). */
+  lastInboundAt?: string | null
 }
 
 export interface ConversationMessage {

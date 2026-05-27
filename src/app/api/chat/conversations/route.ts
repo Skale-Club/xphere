@@ -42,7 +42,7 @@ const CHANNEL_ALIAS: Record<string, string> = {
 }
 
 const SELECT_COLS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, phone_number_id, contacts:contact_id ( first_name, last_name, name ), phone_number:phone_number_id ( id, e164, friendly_name, inbox_label )'
+  'id, status, created_at, updated_at, last_message_at, last_inbound_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, phone_number_id, contacts:contact_id ( first_name, last_name, name ), phone_number:phone_number_id ( id, e164, friendly_name, inbox_label )'
 
 const VALID_STATUSES = new Set<ConversationStatus>([
   'open',
@@ -205,6 +205,7 @@ export async function GET(request: Request): Promise<Response> {
       assignedUserId: (row.assigned_user_id as string | null) ?? null,
       phoneNumberId: (row.phone_number_id as string | null) ?? null,
       phoneNumberLabel,
+      lastInboundAt: (row.last_inbound_at as string | null) ?? null,
     }
   }
 
