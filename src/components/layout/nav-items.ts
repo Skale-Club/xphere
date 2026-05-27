@@ -8,7 +8,6 @@ import {
   Star,
   LayoutDashboard,
   Bot,
-  Users,
   TrendingUp,
   Contact,
   Building2,
@@ -45,7 +44,6 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build' },
   { icon: BookOpen,        label: 'Knowledge',    href: '/knowledge',    group: 'build' },
   { icon: Plug2,           label: 'Integrations', href: '/integrations', group: 'manage' },
-  { icon: Users,           label: 'Members',      href: '/members',      group: 'manage' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage' },
   { icon: ScrollText,      label: 'Logs',         href: '/logs',         group: 'manage' },
 ]

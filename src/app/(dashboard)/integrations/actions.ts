@@ -1,7 +1,9 @@
 'use server'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { encrypt, decrypt, maskApiKey } from '@/lib/crypto'
+import { testResendApiKey } from '@/lib/email/resend'
 
 // Type returned to UI | encrypted_api_key is NEVER included
 export type IntegrationForDisplay = {
@@ -187,6 +189,12 @@ export async function testConnection(
       return { success: false, error: `Vapi returned status ${response.status}` }
     }
 
+    if (provider === 'resend') {
+      const result = await testResendApiKey(apiKey)
+      if (result.ok) return { success: true }
+      return { success: false, error: result.error ?? 'Resend connection failed.' }
+    }
+
     // Other providers (twilio, calcom, custom_webhook) | no test endpoint defined yet
     return { success: false, error: `Test not supported for provider: ${provider}` }
   } catch (err) {
@@ -293,6 +301,10 @@ export async function testIntegrationConnection(
       return { ok: false, error: `Twilio returned ${res.status}` }
     }
 
+    if (provider === 'resend') {
+      return testResendApiKey(apiKey)
+    }
+
     // No test path defined | assume callers will handle the unconfigured case.
     return { ok: false, error: `No test endpoint defined for ${provider}` }
   } catch (err) {
@@ -321,13 +333,15 @@ export async function saveIntegrationCredentials(
   const { data: orgId, error: orgError } = await supabase.rpc('get_current_org_id')
   if (orgError || !orgId) return { ok: false, error: 'No active organization.' }
 
-  const apiKey = credentials.api_key ?? ''
-  if (!apiKey) return { ok: false, error: 'API key is required.' }
-
+  const apiKey = (credentials.api_key ?? '').trim()
   const locationId = credentials.location_id ?? null
   const config: Record<string, string> = { ...credentials }
   delete config.api_key
   delete config.location_id
+
+  if (provider === 'resend' && !config.default_from_email?.trim()) {
+    return { ok: false, error: 'Default From Email is required.' }
+  }
 
   // Find an existing row for this provider/org
   const { data: existing } = await supabase
@@ -338,26 +352,35 @@ export async function saveIntegrationCredentials(
     .limit(1)
     .maybeSingle()
 
-  const encryptedKey = await encrypt(apiKey)
+  if (!existing?.id && !apiKey) {
+    return { ok: false, error: 'API key is required.' }
+  }
+
+  const encryptedKey = apiKey ? await encrypt(apiKey) : null
+  const keyHint = apiKey ? maskApiKey(apiKey) : null
   const payload = {
     organization_id: orgId,
     provider: provider as Provider,
     name: provider,
-    encrypted_api_key: encryptedKey,
-    key_hint: maskApiKey(apiKey),
+    encrypted_api_key: encryptedKey ?? '',
+    key_hint: keyHint,
     location_id: locationId,
     config,
   }
 
   if (existing?.id) {
+    const updateData: Record<string, unknown> = {
+      location_id: locationId,
+      config,
+    }
+    if (encryptedKey) {
+      updateData.encrypted_api_key = encryptedKey
+      updateData.key_hint = keyHint
+    }
+
     const { error } = await supabase
       .from('integrations')
-      .update({
-        encrypted_api_key: encryptedKey,
-        key_hint: maskApiKey(apiKey),
-        location_id: locationId,
-        config,
-      })
+      .update(updateData)
       .eq('id', existing.id)
     if (error) return { ok: false, error: error.message }
   } else {
@@ -365,7 +388,85 @@ export async function saveIntegrationCredentials(
     if (error) return { ok: false, error: error.message }
   }
 
+  if (provider === 'resend') {
+    const syncResult = await syncResendTenantEmailIntegration({
+      orgId,
+      encryptedKey,
+      keyHint,
+      config,
+      markConnected: !!apiKey,
+    })
+    if (!syncResult.ok) return syncResult
+    revalidatePath('/settings/email')
+  }
+
   revalidatePath('/integrations')
+  return { ok: true }
+}
+
+async function syncResendTenantEmailIntegration({
+  orgId,
+  encryptedKey,
+  keyHint,
+  config,
+  markConnected,
+}: {
+  orgId: string
+  encryptedKey: string | null
+  keyHint: string | null
+  config: Record<string, string>
+  markConnected: boolean
+}): Promise<{ ok: boolean; error?: string }> {
+  const serviceSupabase = createServiceRoleClient()
+  const { data: existing, error: fetchError } = await serviceSupabase
+    .from('tenant_email_integrations')
+    .select('id')
+    .eq('org_id', orgId)
+    .maybeSingle()
+
+  if (fetchError) return { ok: false, error: fetchError.message }
+
+  const payload: Record<string, unknown> = {
+    provider: 'resend',
+    default_from_name: config.default_from_name || 'Xphere',
+    default_from_email: config.default_from_email,
+    default_reply_to: config.default_reply_to || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (encryptedKey) {
+    payload.api_key_encrypted = encryptedKey
+    payload.key_hint = keyHint
+  }
+
+  if (markConnected) {
+    payload.status = 'connected'
+    payload.last_tested_at = new Date().toISOString()
+    payload.last_error = null
+  }
+
+  if (existing?.id) {
+    const { error } = await serviceSupabase
+      .from('tenant_email_integrations')
+      .update(payload)
+      .eq('id', existing.id)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  if (!encryptedKey) {
+    return { ok: false, error: 'API key is required.' }
+  }
+
+  const { error } = await serviceSupabase.from('tenant_email_integrations').insert({
+    ...payload,
+    org_id: orgId,
+    api_key_encrypted: encryptedKey,
+    key_hint: keyHint,
+    status: markConnected ? 'connected' : 'disconnected',
+  })
+
+  if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 
@@ -390,6 +491,17 @@ export async function toggleIntegrationActive(
     .eq('provider', provider as Provider)
 
   if (error) return { ok: false, error: error.message }
+  if (provider === 'resend') {
+    const serviceSupabase = createServiceRoleClient()
+    const { error: emailError } = await serviceSupabase
+      .from('tenant_email_integrations')
+      .update({ status: active ? 'connected' : 'disconnected' })
+      .eq('org_id', orgId)
+
+    if (emailError) return { ok: false, error: emailError.message }
+    revalidatePath('/settings/email')
+  }
+
   revalidatePath('/integrations')
   return { ok: true }
 }

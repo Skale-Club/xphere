@@ -14,7 +14,7 @@ import {
   savePlatformEmailSettings,
   testPlatformEmailConnection,
   sendTestPlatformEmail,
-} from '@/app/(dashboard)/settings/platform/email-actions'
+} from '@/app/(admin)/admin/settings/email-actions'
 import type { PlatformEmailSettingsRow } from '@/types/database'
 
 type SettingsSummary = Omit<PlatformEmailSettingsRow, 'api_key_encrypted'> & { key_hint?: string }

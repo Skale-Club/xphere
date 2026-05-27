@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
 import { Turnstile } from '@marsidev/react-turnstile'
+import { unstable_rethrow } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -296,7 +297,8 @@ function Step2SignInForm({
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
-    } catch {
+    } catch (err) {
+      unstable_rethrow(err)
       onError('Unable to connect. Check your internet connection and try again.')
     }
   }
@@ -351,7 +353,7 @@ function Step2SignInForm({
             className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
+            Back
           </Button>
           <Button
             type="submit"
@@ -416,7 +418,8 @@ function Step2SignUpForm({
       if (!result.hasSession) {
         onEmailSent(email)
       }
-    } catch {
+    } catch (err) {
+      unstable_rethrow(err)
       onError('Unable to connect. Check your internet connection and try again.')
     }
   }
@@ -480,7 +483,7 @@ function Step2SignUpForm({
             className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
+            Back
           </Button>
           <Button
             type="submit"
@@ -589,7 +592,8 @@ function ResetForm({
         return
       }
       onSent(values.email)
-    } catch {
+    } catch (err) {
+      unstable_rethrow(err)
       onError('Unable to connect. Check your internet connection and try again.')
     }
   }
@@ -643,7 +647,7 @@ function ResetForm({
             className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
+            Back
           </Button>
           <Button
             type="submit"

@@ -15,7 +15,7 @@ import type { IntegrationKey } from './node-metadata'
  *  - `vapi`     → an active `integrations` row with provider 'vapi'
  *  - `twilio`   → an active `integrations` row with provider 'twilio'
  *  - `ghl`      → an active `integrations` row with provider 'gohighlevel'
- *  - `resend`   → env var RESEND_API_KEY present (platform-wide)
+ *  - `resend`   → an active tenant `integrations` row with provider 'resend'
  */
 export async function getActiveIntegrations(): Promise<IntegrationKey[]> {
   const active = new Set<IntegrationKey>()
@@ -35,6 +35,7 @@ export async function getActiveIntegrations(): Promise<IntegrationKey[]> {
         if (provider === 'vapi') active.add('vapi')
         if (provider === 'twilio') active.add('twilio')
         if (provider === 'gohighlevel') active.add('ghl')
+        if (provider === 'resend') active.add('resend')
       }
     } catch {
       /* table missing → ignore */
@@ -76,9 +77,6 @@ export async function getActiveIntegrations(): Promise<IntegrationKey[]> {
   } catch {
     /* DB failure → fall through with empty set */
   }
-
-  // Platform-level
-  if (process.env.RESEND_API_KEY) active.add('resend')
 
   return Array.from(active)
 }

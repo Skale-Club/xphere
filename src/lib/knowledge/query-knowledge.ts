@@ -1,6 +1,6 @@
 // src/lib/knowledge/query-knowledge.ts
 // Hot path: LangChain SupabaseVectorStore similarity search → synthesize answer
-// Keys fetched from DB integrations table (not env vars) | supports OpenRouter + Anthropic.
+// AI provider resolved via shared resolver (OpenRouter first, Anthropic fallback).
 // Budget: ~50ms embed + ~50ms search + ~200ms synthesis = ~300ms (within 500ms Vapi limit)
 
 import OpenAI from 'openai'
@@ -10,6 +10,7 @@ import { OpenAIEmbeddings } from '@langchain/openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { resolveCopilotProvider } from '@/lib/copilot/resolve-provider'
 
 const FALLBACK_RESPONSE = "I don't have information about that in my knowledge base."
 
@@ -46,31 +47,34 @@ export async function queryKnowledge(
 
     if (results.length === 0) return FALLBACK_RESPONSE
 
-    // Step 4: Synthesize answer | prefer OpenRouter, fall back to Anthropic (~200ms)
+    // Step 4: Synthesize answer | resolver picks OpenRouter first, Anthropic last (~200ms)
     const context = results.map((doc) => doc.pageContent).join('\n\n---\n\n')
 
     const synthesisPrompt = `Answer the following question using ONLY the provided context. Be concise | 2-3 sentences maximum. If the context does not contain the answer, say you don't have that information.\n\nContext:\n${context}\n\nQuestion: ${query}`
 
-    const openrouterKey = await getProviderKey('openrouter', organizationId, supabase)
-    if (openrouterKey) {
-      const openrouterClient = new OpenAI({
-        apiKey: openrouterKey,
+    // Hot path: prefer Haiku for sub-500ms latency.
+    const provider = await resolveCopilotProvider(organizationId, {
+      openrouterModel: 'anthropic/claude-haiku-4-5',
+      anthropicModel: 'claude-haiku-4-5-20251001',
+    })
+    if (!provider) return FALLBACK_RESPONSE
+
+    if (provider.kind === 'openrouter') {
+      const client = new OpenAI({
+        apiKey: provider.apiKey,
         baseURL: 'https://openrouter.ai/api/v1',
       })
-      const completion = await openrouterClient.chat.completions.create({
-        model: 'anthropic/claude-haiku-4-5',
+      const completion = await client.chat.completions.create({
+        model: provider.model,
         max_tokens: 256,
         messages: [{ role: 'user', content: synthesisPrompt }],
       })
       return completion.choices[0]?.message?.content ?? FALLBACK_RESPONSE
     }
 
-    const anthropicKey = await getProviderKey('anthropic', organizationId, supabase)
-    if (!anthropicKey) return FALLBACK_RESPONSE
-
-    const anthropicClient = new Anthropic({ apiKey: anthropicKey })
+    const anthropicClient = new Anthropic({ apiKey: provider.apiKey })
     const message = await anthropicClient.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: provider.model,
       max_tokens: 256,
       messages: [{ role: 'user', content: synthesisPrompt }],
     })

@@ -15,7 +15,6 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Bot,
-  Users,
   Contact2,
   TrendingUp,
   Building2,
@@ -67,7 +66,6 @@ const navItems = [
   { icon: CalendarDays, label: 'Scheduling', href: '/scheduling', active: true },
   { icon: Mail, label: 'Email', href: '/email-marketing', active: true },
   { icon: Sparkles, label: 'Copilot', href: '/copilot/conversations', active: true },
-  { icon: Users, label: 'Members', href: '/members', active: true },
   { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]
 
@@ -227,7 +225,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings/platform">
+                  <Link href="/admin/settings">
                     <ShieldCheck className="h-4 w-4 mr-2" />
                     Platform Settings
                   </Link>

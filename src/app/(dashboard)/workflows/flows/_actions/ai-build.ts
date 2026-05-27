@@ -3,7 +3,7 @@
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { resolveCopilotProvider, type ProviderChoice } from '@/lib/copilot/resolve-provider'
 import { FlowDefinition } from '@/lib/flows/schema'
 import { AI_BUILDER_TOOLS, dispatchTool } from '@/lib/flows/ai-tools'
 
@@ -34,38 +34,8 @@ update_pipeline_stage, query_knowledge, execute_flow, log.
 For configurable params, populate the action's data.config with the right shape.
 Use {{ trigger.payload.field }} or {{ steps.node_id.output.field }} for variable interpolation.`
 
-// ─── Provider selection ──────────────────────────────────────────────────────
-// Resolution order (matches existing knowledge synthesis pattern):
-//   1. Org-stored OpenRouter key (preferred | multi-model, billed per org)
-//   2. Org-stored Anthropic key
-//   3. ANTHROPIC_API_KEY env var (platform fallback for dev)
-
-type ProviderChoice =
-  | { kind: 'openrouter'; apiKey: string; model: string }
-  | { kind: 'anthropic';  apiKey: string; model: string }
-
-async function resolveProvider(orgId: string): Promise<ProviderChoice | null> {
-  const supabase = await createClient()
-
-  const orKey = await getProviderKey('openrouter', orgId, supabase)
-  if (orKey) {
-    return {
-      kind: 'openrouter',
-      apiKey: orKey,
-      model: 'anthropic/claude-sonnet-4.5',
-    }
-  }
-
-  const anthKey = await getProviderKey('anthropic', orgId, supabase)
-  if (anthKey) {
-    return { kind: 'anthropic', apiKey: anthKey, model: 'claude-sonnet-4-6' }
-  }
-
-  const envKey = process.env.ANTHROPIC_API_KEY
-  if (envKey) return { kind: 'anthropic', apiKey: envKey, model: 'claude-sonnet-4-6' }
-
-  return null
-}
+// Provider resolution is shared with the rest of the AI surfaces — see
+// src/lib/copilot/resolve-provider.ts. OpenRouter (org key or env) is preferred.
 
 // ─── Tool schema conversion: Anthropic → OpenAI (OpenRouter) ─────────────────
 
@@ -221,7 +191,7 @@ export async function aiBuildFlow(input: {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
-  const provider = await resolveProvider(orgId as string)
+  const provider = await resolveCopilotProvider(orgId as string)
   if (!provider) {
     return {
       ok: false,

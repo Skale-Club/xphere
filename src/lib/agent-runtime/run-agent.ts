@@ -483,7 +483,12 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
       // Get Anthropic API key | Phase 34 supports Anthropic only (ADOPT path)
       // OpenRouter path is deferred to Phase 35 (ai SDK @ai-sdk/openai)
-      const anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+      // Resolution: org key → platform key (managed by super admin at /admin/settings)
+      let anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+      if (!anthropicKey) {
+        const { getPlatformSetting } = await import('@/lib/platform-settings')
+        anthropicKey = await getPlatformSetting('ANTHROPIC_API_KEY')
+      }
       if (!anthropicKey) {
         throw new Error('no_anthropic_key')
       }
@@ -997,9 +1002,13 @@ function runAgentStreaming(
         const timeoutId = setTimeout(() => abortController.abort(), AGENT_TURN_TIMEOUT_MS)
 
         try {
-          // Build Anthropic API key
+          // Build Anthropic API key | org first, platform fallback
           const serviceClient = createServiceRoleClient()
-          const anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+          let anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+          if (!anthropicKey) {
+            const { getPlatformSetting } = await import('@/lib/platform-settings')
+            anthropicKey = await getPlatformSetting('ANTHROPIC_API_KEY', serviceClient)
+          }
           if (!anthropicKey) throw new Error('no_anthropic_key')
           process.env.ANTHROPIC_API_KEY = anthropicKey
 

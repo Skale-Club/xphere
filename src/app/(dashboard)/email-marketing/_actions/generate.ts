@@ -4,6 +4,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { EMAIL_SYSTEM_PROMPT, parseGeneratedEmail } from '@/lib/email-marketing/ai-prompt'
+import { resolveCopilotProvider, type ProviderChoice } from '@/lib/copilot/resolve-provider'
+
+function makeClient(provider: ProviderChoice): Anthropic {
+  return new Anthropic({
+    apiKey: provider.apiKey,
+    ...(provider.kind === 'openrouter' ? { baseURL: 'https://openrouter.ai/api/v1' } : {}),
+  })
+}
 
 type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -19,19 +27,19 @@ export async function generateEmailFromPrompt(input: {
   if (!input.prompt.trim()) return { ok: false, error: 'prompt_required' }
   if (!input.templateName.trim()) return { ok: false, error: 'name_required' }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return { ok: false, error: 'ai_not_configured' }
-
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
-  // ── Call Anthropic ──────────────────────────────────────────────────────────
+  const provider = await resolveCopilotProvider(orgId as string)
+  if (!provider) return { ok: false, error: 'ai_not_configured' }
+
+  // ── Call AI provider (OpenRouter or Anthropic via Anthropic-compat endpoint) ─
   let generated
   try {
-    const client = new Anthropic({ apiKey })
+    const client = makeClient(provider)
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: provider.model,
       max_tokens: 8192,
       system: EMAIL_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: input.prompt }],
@@ -89,10 +97,12 @@ export async function regenerateSection(input: {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return { ok: false, error: 'ai_not_configured' }
-
   const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  const provider = await resolveCopilotProvider(orgId as string)
+  if (!provider) return { ok: false, error: 'ai_not_configured' }
 
   // Fetch current section for context
   const { data: section } = await supabase
@@ -107,9 +117,9 @@ export async function regenerateSection(input: {
 
   let html = ''
   try {
-    const client = new Anthropic({ apiKey })
+    const client = makeClient(provider)
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: provider.model,
       max_tokens: 4096,
       system: `${EMAIL_SYSTEM_PROMPT}\n\nYou are regenerating a SINGLE email section. Return ONLY the HTML fragment for that section | no JSON wrapper, no code fences.`,
       messages: [

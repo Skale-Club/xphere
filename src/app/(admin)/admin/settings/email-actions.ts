@@ -112,7 +112,7 @@ export async function savePlatformEmailSettings(input: {
     if (error) return { error: error.message }
   }
 
-  revalidatePath('/settings/platform')
+  revalidatePath('/admin/settings')
   return {}
 }
 
@@ -152,7 +152,7 @@ export async function testPlatformEmailConnection(): Promise<{ ok: boolean; erro
     .update({ last_tested_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', settings.id)
 
-  revalidatePath('/settings/platform')
+  revalidatePath('/admin/settings')
   return result
 }
 

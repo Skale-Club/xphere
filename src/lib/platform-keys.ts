@@ -1,15 +1,24 @@
-export const MANAGED_PLATFORM_KEYS = ['GOOGLE_PLACES_API_KEY'] as const
+export const MANAGED_PLATFORM_KEYS = [
+  'OPENROUTER_API_KEY',
+  'ANTHROPIC_API_KEY',
+] as const
 export type PlatformKey = (typeof MANAGED_PLATFORM_KEYS)[number]
 
 export const PLATFORM_KEY_META: Record<
   PlatformKey,
   { label: string; description: string; tab: string }
 > = {
-  GOOGLE_PLACES_API_KEY: {
-    label: 'Google Places API Key',
+  OPENROUTER_API_KEY: {
+    label: 'OpenRouter API Key (platform default)',
     description:
-      'Used to sync Google reviews for all organizations. Get it from Google Cloud Console → APIs & Services → Credentials.',
-    tab: 'Google',
+      'Single key that powers Copilot, AI workflow builder, knowledge synthesis, AI email generation, and the MCP/Copilot template generator for every org that hasn\'t connected its own. Get it from https://openrouter.ai/keys. Preferred over Anthropic — one key covers Claude, GPT, Llama, etc.',
+    tab: 'AI provider',
+  },
+  ANTHROPIC_API_KEY: {
+    label: 'Anthropic API Key (fallback)',
+    description:
+      'Used only when OpenRouter is not configured (neither here nor on the org). Get it from https://console.anthropic.com/settings/keys.',
+    tab: 'AI provider',
   },
 }
 

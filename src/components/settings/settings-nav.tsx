@@ -39,7 +39,7 @@ const items: NavItem[] = [
   { href: '/settings/notifications', label: 'Notifications', description: 'Email & in-app', icon: Bell, disabled: true },
   { href: '/settings/api-keys', label: 'API Keys', description: 'Developer access', icon: KeyRound, disabled: true },
   { href: '/settings/email', label: 'Email', description: 'Resend integration', icon: Mail },
-  { href: '/settings/platform', label: 'Platform', description: 'Global admin', icon: ShieldCheck, adminOnly: true },
+  { href: '/admin/settings', label: 'Platform', description: 'AI, email, feature flags — super admin only', icon: ShieldCheck, adminOnly: true },
 ]
 
 interface Props {

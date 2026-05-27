@@ -10,6 +10,7 @@ import type { ComponentType } from 'react'
 
 export type IntegrationCategory =
   | 'messaging'
+  | 'email'
   | 'voice_sms'
   | 'crm'
   | 'ai'
@@ -136,6 +137,51 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
         required: true,
         placeholder: 'mc-...',
         hint: 'Find it in ManyChat → Settings → API.',
+      },
+    ],
+  },
+
+  {
+    id: 'resend',
+    name: 'Resend',
+    description:
+      'Tenant-owned email sending for conversations, campaigns and workflows.',
+    category: 'email',
+    logo: { path: '/logos/resend.svg', letter: 'R', color: 'bg-zinc-950' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: true,
+    docsUrl: 'https://resend.com/docs',
+    fields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+        placeholder: 're_...',
+        hint: 'Create or copy a tenant API key in Resend.',
+      },
+      {
+        key: 'default_from_name',
+        label: 'Default From Name',
+        type: 'text',
+        required: false,
+        placeholder: 'Xphere Support',
+      },
+      {
+        key: 'default_from_email',
+        label: 'Default From Email',
+        type: 'text',
+        required: true,
+        placeholder: 'support@example.com',
+        hint: 'Domain authentication stays in Resend.',
+      },
+      {
+        key: 'default_reply_to',
+        label: 'Reply-To Email',
+        type: 'text',
+        required: false,
+        placeholder: 'team@example.com',
       },
     ],
   },
@@ -279,6 +325,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [
   'messaging',
+  'email',
   'voice_sms',
   'crm',
   'ai',
@@ -289,6 +336,7 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 
 export const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
   messaging: 'Messaging',
+  email: 'Email',
   voice_sms: 'Voice & SMS',
   crm: 'CRM',
   ai: 'AI',
@@ -309,6 +357,7 @@ export function getDefinitionsByCategory(): Record<
 > {
   const out: Record<IntegrationCategory, IntegrationDefinition[]> = {
     messaging: [],
+    email: [],
     voice_sms: [],
     crm: [],
     ai: [],

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition, useCallback, useId } from 'react'
+import { useState, useTransition, useCallback, useId, useEffect, useRef, Fragment } from 'react'
 import { toast } from 'sonner'
 import {
-  Save, Eye, EyeOff, Plus, Trash2, Loader2, GripVertical,
+  Save, Eye, Plus, Trash2, Loader2, GripVertical,
   Type, Image, MousePointerClick, Minus, AlignJustify, Bookmark,
-  ChevronDown, ChevronUp, X, PanelRightOpen, PanelRightClose,
+  X, Settings, Code,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,7 +33,7 @@ import { CSS } from '@dnd-kit/utilities'
 
 import type {
   EmailDocument, EmailSection, EmailBlock,
-  TextBlock, HeadingBlock, ImageBlock, ButtonBlock, DividerBlock, SpacerBlock,
+  TextBlock, HeadingBlock, ImageBlock, ButtonBlock, DividerBlock, SpacerBlock, HtmlBlock,
 } from '@/lib/email/render-template'
 import { renderTemplate, emptyDocument, BLOCK_DEFAULTS } from '@/lib/email/render-template'
 import { saveTemplate, saveReusableBlock, deleteReusableBlock } from '../actions'
@@ -84,6 +84,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const [reusableBlocks, setReusableBlocks] = useState<ReusableBlock[]>(initialBlocks)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [selectedBlockPath, setSelectedBlockPath] = useState<{ sectionId: string; colIdx: number; blockIdx: number } | null>(null)
+  const [docSettingsOpen, setDocSettingsOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -251,6 +252,15 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               size="sm"
               variant="ghost"
               className="h-7 gap-1 text-xs"
+              onClick={() => setDocSettingsOpen(true)}
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Email
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 text-xs"
               onClick={() => setActivePanel((p) => p === 'reusable' ? null : 'reusable')}
             >
               <Bookmark className="h-3.5 w-3.5" />
@@ -309,14 +319,14 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               </DndContext>
 
               {/* Add section buttons */}
-              <div className="px-4 py-4 flex items-center gap-2 flex-wrap border-t border-dashed border-zinc-200">
-                <span className="text-xs text-zinc-400 mr-1">Add section:</span>
+              <div className="px-4 py-4 flex items-center gap-2 flex-wrap border-t border-dashed border-zinc-300 bg-zinc-50">
+                <span className="text-xs text-zinc-700 font-medium mr-1">Add section:</span>
                 {([1, 2, 3] as const).map((layout) => (
                   <Button
                     key={layout}
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs gap-1"
+                    className="h-7 text-xs gap-1 bg-white border-zinc-400 text-zinc-800 hover:bg-zinc-100 hover:border-zinc-500 hover:text-zinc-900"
                     onClick={() => addSection(layout)}
                   >
                     <Plus className="h-3 w-3" />
@@ -370,6 +380,70 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
           </ScrollArea>
         </div>
       )}
+
+      {/* ── Document settings sheet ──────────────────────────────────────────── */}
+      <Sheet open={docSettingsOpen} onOpenChange={setDocSettingsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Email Settings</SheetTitle>
+            <SheetDescription>
+              Global settings applied to the whole email.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 px-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background color (outside the email)</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={doc.backgroundColor ?? '#f0f0f0'}
+                  onChange={(e) => setDoc((p) => ({ ...p, backgroundColor: e.target.value }))}
+                  className="w-10 h-8 rounded border border-zinc-300 cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={doc.backgroundColor ?? '#f0f0f0'}
+                  onChange={(e) => setDoc((p) => ({ ...p, backgroundColor: e.target.value }))}
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Content width (px)</Label>
+              <Input
+                type="number"
+                min={320}
+                max={900}
+                value={doc.contentWidth ?? 600}
+                onChange={(e) => setDoc((p) => ({ ...p, contentWidth: Number(e.target.value) }))}
+                className="h-8 text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">Most email clients render best between 560–680 px.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Font family</Label>
+              <Select
+                value={doc.fontFamily ?? "Arial, Helvetica, sans-serif"}
+                onValueChange={(v) => setDoc((p) => ({ ...p, fontFamily: v }))}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Arial, Helvetica, sans-serif">Arial / Helvetica</SelectItem>
+                  <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                  <SelectItem value="'Times New Roman', Times, serif">Times New Roman</SelectItem>
+                  <SelectItem value="Verdana, Geneva, sans-serif">Verdana</SelectItem>
+                  <SelectItem value="'Trebuchet MS', sans-serif">Trebuchet MS</SelectItem>
+                  <SelectItem value="'Courier New', Courier, monospace">Courier New</SelectItem>
+                  <SelectItem value="system-ui, -apple-system, sans-serif">System UI</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">Use only email-safe fonts. Custom web fonts won&apos;t render in most clients.</p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Preview sheet ────────────────────────────────────────────────────── */}
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -459,41 +533,61 @@ function SortableSection({
 }: SortableSectionProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: section.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
-  const [showSettings, setShowSettings] = useState(false)
+  const colorInputRef = useRef<HTMLInputElement>(null)
+
+  const padding = {
+    top: section.padding?.top ?? 16,
+    right: section.padding?.right ?? 24,
+    bottom: section.padding?.bottom ?? 16,
+    left: section.padding?.left ?? 24,
+  }
+  const columnsGap = section.columnsGap ?? 0
 
   return (
     <div
       ref={setNodeRef}
       style={{ ...style, backgroundColor: section.backgroundColor ?? '#ffffff' }}
-      className={cn('group relative border-2 transition-colors', isSelected ? 'border-blue-400/60' : 'border-transparent hover:border-zinc-200')}
+      className={cn('group relative border-2 transition-colors', isSelected ? 'border-blue-500' : 'border-transparent hover:border-zinc-400')}
       onClick={onSelect}
     >
-      {/* Section controls */}
-      <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      {/* Section controls (floating pill, top-right) */}
+      <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity z-30 bg-white/95 rounded shadow-sm border border-zinc-200">
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+          className="cursor-grab active:cursor-grabbing h-6 w-6 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
           title="Drag to reorder"
         >
           <GripVertical className="h-3 w-3" />
         </button>
         <button
-          className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
-          onClick={(e) => { e.stopPropagation(); setShowSettings((p) => !p) }}
-          title="Section settings"
+          className="h-6 w-6 flex items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 relative"
+          onClick={(e) => { e.stopPropagation(); colorInputRef.current?.click() }}
+          title="Background color"
         >
-          {showSettings ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <span
+            className="block w-3 h-3 rounded border border-zinc-400"
+            style={{ backgroundColor: section.backgroundColor ?? '#ffffff' }}
+          />
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={section.backgroundColor ?? '#ffffff'}
+            onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+            tabIndex={-1}
+          />
         </button>
         <button
-          className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:text-blue-500 hover:bg-zinc-100"
+          className="h-6 w-6 flex items-center justify-center rounded text-zinc-600 hover:text-blue-600 hover:bg-zinc-100"
           onClick={(e) => { e.stopPropagation(); onSaveAsReusable() }}
           title="Save as reusable block"
         >
           <Bookmark className="h-3 w-3" />
         </button>
         <button
-          className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-zinc-100"
+          className="h-6 w-6 flex items-center justify-center rounded text-zinc-600 hover:text-red-600 hover:bg-zinc-100"
           onClick={(e) => { e.stopPropagation(); onRemove() }}
           title="Remove section"
         >
@@ -501,59 +595,185 @@ function SortableSection({
         </button>
       </div>
 
-      {/* Section settings panel */}
-      {showSettings && (
-        <div
-          className="px-3 pt-2 pb-1 bg-zinc-50 border-b border-zinc-200 flex flex-wrap gap-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-1.5">
-            <Label className="text-[10px] text-zinc-500">BG Color</Label>
-            <input
-              type="color"
-              value={section.backgroundColor ?? '#ffffff'}
-              onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
-              className="w-6 h-5 rounded border-0 cursor-pointer"
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Label className="text-[10px] text-zinc-500">Padding</Label>
-            {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
-              <input
-                key={side}
-                type="number"
-                min={0}
-                max={80}
-                value={section.padding?.[side] ?? 16}
-                onChange={(e) => onUpdate({ padding: { ...section.padding, [side]: Number(e.target.value) } })}
-                className="w-10 h-5 text-[10px] border border-zinc-200 rounded px-1"
-                title={`${side} padding`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Padding drag handles (one per edge) */}
+      <PaddingDragHandle
+        side="top"
+        value={padding.top}
+        onChange={(v) => onUpdate({ padding: { ...section.padding, top: v } })}
+      />
+      <PaddingDragHandle
+        side="bottom"
+        value={padding.bottom}
+        onChange={(v) => onUpdate({ padding: { ...section.padding, bottom: v } })}
+      />
+      <PaddingDragHandle
+        side="left"
+        value={padding.left}
+        onChange={(v) => onUpdate({ padding: { ...section.padding, left: v } })}
+      />
+      <PaddingDragHandle
+        side="right"
+        value={padding.right}
+        onChange={(v) => onUpdate({ padding: { ...section.padding, right: v } })}
+      />
 
       {/* Columns */}
-      <div className={cn('flex', section.layout > 1 ? 'divide-x divide-zinc-100' : '')}>
+      <div className="flex">
         {Array.from({ length: section.layout }).map((_, colIdx) => (
-          <ColumnEditor
-            key={colIdx}
-            blocks={section.columns[colIdx] ?? []}
-            colIdx={colIdx}
-            layout={section.layout}
-            sectionId={section.id}
-            selectedBlockPath={selectedBlockPath}
-            onAddBlock={(type) => onAddBlock(colIdx, type)}
-            onInsertReusable={(rb) => onInsertReusable(colIdx, rb)}
-            onRemoveBlock={(blockIdx) => onRemoveBlock(colIdx, blockIdx)}
-            onUpdateBlock={(blockIdx, updates) => onUpdateBlock(colIdx, blockIdx, updates)}
-            onSelectBlock={(blockIdx) => onSelectBlock(colIdx, blockIdx)}
-            reusableBlocks={reusableBlocks}
-            padding={section.padding}
-          />
+          <Fragment key={colIdx}>
+            <ColumnEditor
+              blocks={section.columns[colIdx] ?? []}
+              colIdx={colIdx}
+              layout={section.layout}
+              sectionId={section.id}
+              selectedBlockPath={selectedBlockPath}
+              onAddBlock={(type) => onAddBlock(colIdx, type)}
+              onInsertReusable={(rb) => onInsertReusable(colIdx, rb)}
+              onRemoveBlock={(blockIdx) => onRemoveBlock(colIdx, blockIdx)}
+              onUpdateBlock={(blockIdx, updates) => onUpdateBlock(colIdx, blockIdx, updates)}
+              onSelectBlock={(blockIdx) => onSelectBlock(colIdx, blockIdx)}
+              reusableBlocks={reusableBlocks}
+              padding={section.padding}
+            />
+            {section.layout > 1 && colIdx < section.layout - 1 && (
+              <ColumnGapDragHandle
+                value={columnsGap}
+                onChange={(v) => onUpdate({ columnsGap: v })}
+              />
+            )}
+          </Fragment>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── Padding drag handle (edge of section) ───────────────────────────────────
+
+function PaddingDragHandle({
+  side,
+  value,
+  onChange,
+}: {
+  side: 'top' | 'right' | 'bottom' | 'left'
+  value: number
+  onChange: (v: number) => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const startRef = useRef({ pos: 0, value: 0 })
+
+  function handleMouseDown(e: React.MouseEvent) {
+    e.stopPropagation()
+    e.preventDefault()
+    const startPos = side === 'top' || side === 'bottom' ? e.clientY : e.clientX
+    startRef.current = { pos: startPos, value }
+    setDragging(true)
+
+    function handleMove(ev: MouseEvent) {
+      const cur = side === 'top' || side === 'bottom' ? ev.clientY : ev.clientX
+      let delta = cur - startRef.current.pos
+      // Direction: positive delta means OUTWARD; we want OUTWARD = more padding
+      if (side === 'top' || side === 'left') delta = -delta
+      const next = Math.max(0, Math.min(120, Math.round(startRef.current.value + delta)))
+      onChange(next)
+    }
+    function handleUp() {
+      setDragging(false)
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+  }
+
+  const posClass = {
+    top: 'top-0 left-0 right-0 h-2 cursor-ns-resize',
+    bottom: 'bottom-0 left-0 right-0 h-2 cursor-ns-resize',
+    left: 'top-0 bottom-0 left-0 w-2 cursor-ew-resize',
+    right: 'top-0 bottom-0 right-0 w-2 cursor-ew-resize',
+  }[side]
+  const indicatorClass = {
+    top: 'absolute inset-x-2 top-0 h-0.5',
+    bottom: 'absolute inset-x-2 bottom-0 h-0.5',
+    left: 'absolute inset-y-2 left-0 w-0.5',
+    right: 'absolute inset-y-2 right-0 w-0.5',
+  }[side]
+
+  return (
+    <div
+      className={cn('absolute z-20 group/handle', posClass)}
+      onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()}
+      title={`Drag to adjust ${side} padding`}
+    >
+      <span
+        className={cn(
+          indicatorClass,
+          'transition-colors rounded-full',
+          dragging ? 'bg-blue-500' : 'bg-transparent group-hover/handle:bg-blue-400',
+        )}
+      />
+      {dragging && (
+        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded shadow z-40 pointer-events-none whitespace-nowrap">
+          {value}px
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Column gap drag handle (between columns) ────────────────────────────────
+
+function ColumnGapDragHandle({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const startRef = useRef({ x: 0, value: 0 })
+
+  function handleMouseDown(e: React.MouseEvent) {
+    e.stopPropagation()
+    e.preventDefault()
+    startRef.current = { x: e.clientX, value }
+    setDragging(true)
+
+    function handleMove(ev: MouseEvent) {
+      const delta = ev.clientX - startRef.current.x
+      // Drag right -> increase gap; drag left -> decrease
+      const next = Math.max(0, Math.min(80, Math.round(startRef.current.value + delta)))
+      onChange(next)
+    }
+    function handleUp() {
+      setDragging(false)
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+  }
+
+  return (
+    <div
+      className="relative shrink-0 cursor-ew-resize group/gap z-20"
+      style={{ width: Math.max(8, value) }}
+      onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag right to widen gap, drag left to close"
+    >
+      <span
+        className={cn(
+          'absolute top-2 bottom-2 left-1/2 -translate-x-1/2 w-px transition-colors',
+          dragging ? 'bg-blue-500 w-0.5' : 'bg-zinc-300 group-hover/gap:bg-blue-400 group-hover/gap:w-0.5',
+        )}
+      />
+      {dragging && (
+        <span className="absolute top-1 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded shadow z-40 pointer-events-none whitespace-nowrap">
+          {value}px
+        </span>
+      )}
     </div>
   )
 }
@@ -581,6 +801,19 @@ function ColumnEditor({
 }: ColumnEditorProps) {
   const [showBlockMenu, setShowBlockMenu] = useState(false)
   const [showReusableMenu, setShowReusableMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showBlockMenu && !showReusableMenu) return
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowBlockMenu(false)
+        setShowReusableMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showBlockMenu, showReusableMenu])
 
   const p = {
     top: padding?.top ?? 16,
@@ -596,6 +829,7 @@ function ColumnEditor({
     { type: 'button', label: 'Button', icon: <MousePointerClick className="h-3 w-3" /> },
     { type: 'divider', label: 'Divider', icon: <Minus className="h-3 w-3" /> },
     { type: 'spacer', label: 'Spacer', icon: <AlignJustify className="h-3 w-3" /> },
+    { type: 'html', label: 'HTML', icon: <Code className="h-3 w-3" /> },
   ]
 
   return (
@@ -608,6 +842,12 @@ function ColumnEditor({
         paddingLeft: p.left,
       }}
     >
+      {blocks.length === 0 && (
+        <div className="flex items-center justify-center min-h-16 border-2 border-dashed border-zinc-400 rounded mb-2 text-xs text-zinc-600 bg-zinc-50">
+          Empty column — add a block below
+        </div>
+      )}
+
       {blocks.map((block, blockIdx) => (
         <BlockEditor
           key={blockIdx}
@@ -624,25 +864,28 @@ function ColumnEditor({
       ))}
 
       {/* Add block controls */}
-      <div className="flex flex-wrap gap-1 mt-2 opacity-0 group-hover/col:opacity-100 transition-opacity">
+      <div
+        ref={menuRef}
+        className={cn('flex flex-wrap gap-1 mt-2 transition-opacity', blocks.length === 0 ? 'opacity-100' : 'opacity-0 group-hover/col:opacity-100')}
+      >
         <div className="relative">
           <Button
             size="sm"
             variant="outline"
-            className="h-6 text-[10px] gap-0.5 px-1.5 border-dashed"
+            className="h-6 text-[10px] gap-0.5 px-1.5 border-dashed border-zinc-400 text-zinc-600 bg-white hover:bg-zinc-50 hover:border-zinc-500"
             onClick={(e) => { e.stopPropagation(); setShowBlockMenu((p) => !p); setShowReusableMenu(false) }}
           >
             <Plus className="h-2.5 w-2.5" /> Block
           </Button>
           {showBlockMenu && (
             <div
-              className="absolute z-20 top-full mt-1 left-0 bg-white border border-zinc-200 rounded shadow-md py-1 min-w-32"
+              className="absolute z-20 top-full mt-1 left-0 bg-white border border-zinc-300 rounded shadow-md py-1 min-w-32"
               onClick={(e) => e.stopPropagation()}
             >
               {BLOCK_TYPES.map(({ type, label, icon }) => (
                 <button
                   key={type}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-50 text-left"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-800 hover:bg-zinc-100 text-left"
                   onClick={() => { onAddBlock(type); setShowBlockMenu(false) }}
                 >
                   {icon} {label}
@@ -657,24 +900,24 @@ function ColumnEditor({
             <Button
               size="sm"
               variant="outline"
-              className="h-6 text-[10px] gap-0.5 px-1.5 border-dashed"
+              className="h-6 text-[10px] gap-0.5 px-1.5 border-dashed border-zinc-400 text-zinc-600 bg-white hover:bg-zinc-50 hover:border-zinc-500"
               onClick={(e) => { e.stopPropagation(); setShowReusableMenu((p) => !p); setShowBlockMenu(false) }}
             >
               <Bookmark className="h-2.5 w-2.5" /> Insert
             </Button>
             {showReusableMenu && (
               <div
-                className="absolute z-20 top-full mt-1 left-0 bg-white border border-zinc-200 rounded shadow-md py-1 min-w-40"
+                className="absolute z-20 top-full mt-1 left-0 bg-white border border-zinc-300 rounded shadow-md py-1 min-w-40"
                 onClick={(e) => e.stopPropagation()}
               >
                 {reusableBlocks.map((rb) => (
                   <button
                     key={rb.id}
-                    className="w-full flex flex-col px-3 py-1.5 text-xs hover:bg-zinc-50 text-left"
+                    className="w-full flex flex-col px-3 py-1.5 text-xs text-zinc-800 hover:bg-zinc-100 text-left"
                     onClick={() => { onInsertReusable(rb); setShowReusableMenu(false) }}
                   >
                     <span>{rb.name}</span>
-                    <span className="text-zinc-400 text-[10px]">{rb.block_type}</span>
+                    <span className="text-zinc-600 text-[10px]">{rb.block_type}</span>
                   </button>
                 ))}
               </div>
@@ -701,14 +944,14 @@ function BlockEditor({ block, isSelected, onSelect, onUpdate, onRemove }: BlockE
     <div
       className={cn(
         'group/block relative mb-2 border-2 rounded transition-colors cursor-pointer',
-        isSelected ? 'border-blue-400' : 'border-transparent hover:border-blue-200',
+        isSelected ? 'border-blue-500' : 'border-transparent hover:border-blue-400',
       )}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
     >
       {/* Block controls */}
       <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity z-10">
         <button
-          className="h-5 w-5 flex items-center justify-center rounded bg-white border border-zinc-200 text-zinc-400 hover:text-red-500"
+          className="h-5 w-5 flex items-center justify-center rounded bg-white border border-zinc-400 text-zinc-700 hover:text-white hover:bg-red-500 hover:border-red-500 shadow-sm"
           onClick={(e) => { e.stopPropagation(); onRemove() }}
           title="Remove block"
         >
@@ -746,8 +989,10 @@ function BlockPreviewAndEdit({ block, onUpdate, isSelected }: BlockPreviewAndEdi
       return <DividerBlockEditor block={block} onUpdate={onUpdate} />
     case 'spacer':
       return <SpacerBlockEditor block={block} onUpdate={onUpdate} />
+    case 'html':
+      return <HtmlBlockEditor block={block} onUpdate={onUpdate} isSelected={isSelected} />
     default:
-      return <div className="text-xs text-zinc-400 p-2">Unknown block</div>
+      return <div className="text-xs text-zinc-700 p-2">Unknown block</div>
   }
 }
 
@@ -763,19 +1008,19 @@ function TextBlockEditor({ block, onUpdate, isSelected }: { block: TextBlock; on
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
       {isSelected && (
-        <div className="mt-2 flex flex-wrap gap-2 border-t border-zinc-100 pt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 flex flex-wrap gap-2 border-t border-zinc-300 pt-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Color</Label>
-            <input type="color" value={block.color ?? '#333333'} onChange={(e) => onUpdate({ color: e.target.value })} className="w-5 h-4 rounded border-0 cursor-pointer" />
+            <Label className="text-[10px] text-zinc-700 font-medium">Color</Label>
+            <input type="color" value={block.color ?? '#333333'} onChange={(e) => onUpdate({ color: e.target.value })} className="w-5 h-4 rounded border border-zinc-300 cursor-pointer" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Size</Label>
-            <input type="number" min={10} max={48} value={block.fontSize ?? 15} onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })} className="w-10 h-4 text-[10px] border border-zinc-200 rounded px-1" />
+            <Label className="text-[10px] text-zinc-700 font-medium">Size</Label>
+            <input type="number" min={10} max={48} value={block.fontSize ?? 15} onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })} className="w-10 h-4 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Align</Label>
+            <Label className="text-[10px] text-zinc-700 font-medium">Align</Label>
             <Select value={block.align ?? 'left'} onValueChange={(v) => onUpdate({ align: v as TextBlock['align'] })}>
-              <SelectTrigger className="h-5 text-[10px] w-16"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-5 text-[10px] w-16 text-zinc-800 border-zinc-400 bg-white"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {['left', 'center', 'right'].map((a) => <SelectItem key={a} value={a} className="text-[10px]">{a}</SelectItem>)}
               </SelectContent>
@@ -801,24 +1046,24 @@ function HeadingBlockEditor({ block, onUpdate, isSelected }: { block: HeadingBlo
         dangerouslySetInnerHTML={{ __html: block.content }}
       />
       {isSelected && (
-        <div className="mt-2 flex flex-wrap gap-2 border-t border-zinc-100 pt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 flex flex-wrap gap-2 border-t border-zinc-300 pt-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Level</Label>
+            <Label className="text-[10px] text-zinc-700 font-medium">Level</Label>
             <Select value={String(block.level ?? 2)} onValueChange={(v) => onUpdate({ level: Number(v) as HeadingBlock['level'] })}>
-              <SelectTrigger className="h-5 text-[10px] w-12"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-5 text-[10px] w-12 text-zinc-800 border-zinc-400 bg-white"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3].map((l) => <SelectItem key={l} value={String(l)} className="text-[10px]">H{l}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Color</Label>
-            <input type="color" value={block.color ?? '#111111'} onChange={(e) => onUpdate({ color: e.target.value })} className="w-5 h-4 rounded border-0 cursor-pointer" />
+            <Label className="text-[10px] text-zinc-700 font-medium">Color</Label>
+            <input type="color" value={block.color ?? '#111111'} onChange={(e) => onUpdate({ color: e.target.value })} className="w-5 h-4 rounded border border-zinc-300 cursor-pointer" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500">Align</Label>
+            <Label className="text-[10px] text-zinc-700 font-medium">Align</Label>
             <Select value={block.align ?? 'left'} onValueChange={(v) => onUpdate({ align: v as HeadingBlock['align'] })}>
-              <SelectTrigger className="h-5 text-[10px] w-16"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-5 text-[10px] w-16 text-zinc-800 border-zinc-400 bg-white"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {['left', 'center', 'right'].map((a) => <SelectItem key={a} value={a} className="text-[10px]">{a}</SelectItem>)}
               </SelectContent>
@@ -840,18 +1085,18 @@ function ImageBlockEditor({ block, onUpdate, isSelected }: { block: ImageBlock; 
         style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }}
       />
       {isSelected && (
-        <div className="mt-2 space-y-1.5 border-t border-zinc-100 pt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 space-y-1.5 border-t border-zinc-300 pt-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500 w-8 shrink-0">Src</Label>
-            <input type="text" value={block.src} onChange={(e) => onUpdate({ src: e.target.value })} className="flex-1 h-5 text-[10px] border border-zinc-200 rounded px-1.5 min-w-0" placeholder="Image URL" />
+            <Label className="text-[10px] text-zinc-700 font-medium w-8 shrink-0">Src</Label>
+            <input type="text" value={block.src} onChange={(e) => onUpdate({ src: e.target.value })} className="flex-1 h-5 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1.5 min-w-0" placeholder="Image URL" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500 w-8 shrink-0">Alt</Label>
-            <input type="text" value={block.alt ?? ''} onChange={(e) => onUpdate({ alt: e.target.value })} className="flex-1 h-5 text-[10px] border border-zinc-200 rounded px-1.5 min-w-0" placeholder="Alt text" />
+            <Label className="text-[10px] text-zinc-700 font-medium w-8 shrink-0">Alt</Label>
+            <input type="text" value={block.alt ?? ''} onChange={(e) => onUpdate({ alt: e.target.value })} className="flex-1 h-5 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1.5 min-w-0" placeholder="Alt text" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500 w-8 shrink-0">Link</Label>
-            <input type="text" value={block.link ?? ''} onChange={(e) => onUpdate({ link: e.target.value })} className="flex-1 h-5 text-[10px] border border-zinc-200 rounded px-1.5 min-w-0" placeholder="Click URL" />
+            <Label className="text-[10px] text-zinc-700 font-medium w-8 shrink-0">Link</Label>
+            <input type="text" value={block.link ?? ''} onChange={(e) => onUpdate({ link: e.target.value })} className="flex-1 h-5 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1.5 min-w-0" placeholder="Click URL" />
           </div>
         </div>
       )}
@@ -878,23 +1123,23 @@ function ButtonBlockEditor({ block, onUpdate, isSelected }: { block: ButtonBlock
         </span>
       </div>
       {isSelected && (
-        <div className="mt-2 space-y-1.5 border-t border-zinc-100 pt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 space-y-1.5 border-t border-zinc-300 pt-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500 w-10 shrink-0">Label</Label>
-            <input type="text" value={block.label} onChange={(e) => onUpdate({ label: e.target.value })} className="flex-1 h-5 text-[10px] border border-zinc-200 rounded px-1.5 min-w-0" />
+            <Label className="text-[10px] text-zinc-700 font-medium w-10 shrink-0">Label</Label>
+            <input type="text" value={block.label} onChange={(e) => onUpdate({ label: e.target.value })} className="flex-1 h-5 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1.5 min-w-0" />
           </div>
           <div className="flex items-center gap-1">
-            <Label className="text-[10px] text-zinc-500 w-10 shrink-0">URL</Label>
-            <input type="text" value={block.href} onChange={(e) => onUpdate({ href: e.target.value })} className="flex-1 h-5 text-[10px] border border-zinc-200 rounded px-1.5 min-w-0" />
+            <Label className="text-[10px] text-zinc-700 font-medium w-10 shrink-0">URL</Label>
+            <input type="text" value={block.href} onChange={(e) => onUpdate({ href: e.target.value })} className="flex-1 h-5 text-[10px] text-zinc-800 border border-zinc-400 bg-white rounded px-1.5 min-w-0" />
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <Label className="text-[10px] text-zinc-500">BG</Label>
-              <input type="color" value={block.backgroundColor ?? '#000000'} onChange={(e) => onUpdate({ backgroundColor: e.target.value })} className="w-5 h-4 rounded border-0 cursor-pointer" />
+              <Label className="text-[10px] text-zinc-700 font-medium">BG</Label>
+              <input type="color" value={block.backgroundColor ?? '#000000'} onChange={(e) => onUpdate({ backgroundColor: e.target.value })} className="w-5 h-4 rounded border border-zinc-300 cursor-pointer" />
             </div>
             <div className="flex items-center gap-1">
-              <Label className="text-[10px] text-zinc-500">Text</Label>
-              <input type="color" value={block.textColor ?? '#ffffff'} onChange={(e) => onUpdate({ textColor: e.target.value })} className="w-5 h-4 rounded border-0 cursor-pointer" />
+              <Label className="text-[10px] text-zinc-700 font-medium">Text</Label>
+              <input type="color" value={block.textColor ?? '#ffffff'} onChange={(e) => onUpdate({ textColor: e.target.value })} className="w-5 h-4 rounded border border-zinc-300 cursor-pointer" />
             </div>
           </div>
         </div>
@@ -914,9 +1159,31 @@ function DividerBlockEditor({ block, onUpdate }: { block: DividerBlock; onUpdate
 function SpacerBlockEditor({ block, onUpdate }: { block: SpacerBlock; onUpdate: (u: Partial<SpacerBlock>) => void }) {
   return (
     <div className="flex items-center gap-2 px-1">
-      <div className="flex-1 border-t border-dashed border-zinc-200" />
-      <span className="text-[10px] text-zinc-400 shrink-0">{block.height ?? 24}px space</span>
-      <div className="flex-1 border-t border-dashed border-zinc-200" />
+      <div className="flex-1 border-t border-dashed border-zinc-400" />
+      <span className="text-[10px] text-zinc-700 font-medium shrink-0">{block.height ?? 24}px space</span>
+      <div className="flex-1 border-t border-dashed border-zinc-400" />
+    </div>
+  )
+}
+
+function HtmlBlockEditor({ block, onUpdate, isSelected }: { block: HtmlBlock; onUpdate: (u: Partial<HtmlBlock>) => void; isSelected: boolean }) {
+  return (
+    <div>
+      {isSelected ? (
+        <textarea
+          value={block.content}
+          onChange={(e) => onUpdate({ content: e.target.value })}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full min-h-24 text-xs font-mono text-zinc-800 border border-zinc-400 bg-zinc-50 rounded p-2 resize-y"
+          placeholder="<p>Custom email-safe HTML…</p>"
+          spellCheck={false}
+        />
+      ) : (
+        <div
+          className="text-xs text-zinc-800 [&_*]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: block.content || '<span class="text-zinc-400 italic">Empty HTML block — click to edit</span>' }}
+        />
+      )}
     </div>
   )
 }

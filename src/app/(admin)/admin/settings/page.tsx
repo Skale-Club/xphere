@@ -1,4 +1,6 @@
 import { getPlatformStats } from '../_actions/get-platform-stats'
+import { getPlatformSettingsForAdmin } from './global-actions'
+import { getPlatformEmailSettings } from './email-actions'
 import { PlatformSettingsView } from '@/components/admin/platform-settings-view'
 
 export default async function AdminSettingsPage() {
@@ -13,5 +15,16 @@ export default async function AdminSettingsPage() {
     )
   }
 
-  return <PlatformSettingsView stats={stats} />
+  const globalResult = await getPlatformSettingsForAdmin()
+  const emailResult  = await getPlatformEmailSettings()
+
+  const globalSettings = 'error' in globalResult ? [] : globalResult.settings
+
+  return (
+    <PlatformSettingsView
+      stats={stats}
+      globalSettings={globalSettings}
+      emailSettings={emailResult.settings ?? null}
+    />
+  )
 }

@@ -76,6 +76,11 @@ export type SpacerBlock = {
   height?: number
 }
 
+export type HtmlBlock = {
+  blockType: 'html'
+  content: string
+}
+
 export type EmailBlock =
   | TextBlock
   | HeadingBlock
@@ -83,12 +88,14 @@ export type EmailBlock =
   | ButtonBlock
   | DividerBlock
   | SpacerBlock
+  | HtmlBlock
 
 export type EmailSection = {
   id: string
   layout: 1 | 2 | 3
   backgroundColor?: string
   padding?: Partial<BlockPadding>
+  columnsGap?: number
   columns: EmailBlock[][]
 }
 
@@ -166,16 +173,20 @@ function renderSection(section: EmailSection, fontFamily: string): string {
 
   const cols = section.columns ?? [[]]
   const layout = section.layout ?? 1
+  const gap = section.columnsGap ?? 0
+  const halfGap = gap > 0 ? gap / 2 : 0
   const colWidth = Math.floor(100 / layout)
 
   const colsHtml = cols
     .slice(0, layout)
-    .map((blocks) => {
+    .map((blocks, idx) => {
       const blocksHtml = blocks.map((b) => renderBlock(b, fontFamily)).join('\n')
       if (layout === 1) {
         return `<td class="col-block" valign="top" style="padding:${pad.top}px ${pad.right}px ${pad.bottom}px ${pad.left}px;background-color:${bg};">\n${blocksHtml}\n</td>`
       }
-      return `<td class="col-block" valign="top" width="${colWidth}%" style="width:${colWidth}%;padding:${pad.top}px ${pad.right}px ${pad.bottom}px ${pad.left}px;background-color:${bg};">\n${blocksHtml}\n</td>`
+      const leftPad = idx === 0 ? pad.left : pad.left + halfGap
+      const rightPad = idx === layout - 1 ? pad.right : pad.right + halfGap
+      return `<td class="col-block" valign="top" width="${colWidth}%" style="width:${colWidth}%;padding:${pad.top}px ${rightPad}px ${pad.bottom}px ${leftPad}px;background-color:${bg};">\n${blocksHtml}\n</td>`
     })
     .join('\n')
 
@@ -202,6 +213,8 @@ function renderBlock(block: EmailBlock, fontFamily: string): string {
       return renderDividerBlock(block)
     case 'spacer':
       return renderSpacerBlock(block)
+    case 'html':
+      return renderHtmlBlock(block)
     default:
       return ''
   }
@@ -255,6 +268,10 @@ function renderDividerBlock(block: DividerBlock): string {
 function renderSpacerBlock(block: SpacerBlock): string {
   const height = block.height ?? 24
   return `<div style="height:${height}px;line-height:${height}px;">&nbsp;</div>`
+}
+
+function renderHtmlBlock(block: HtmlBlock): string {
+  return block.content ?? ''
 }
 
 // ─── Plain text extraction ────────────────────────────────────────────────────
@@ -344,5 +361,9 @@ export const BLOCK_DEFAULTS: Record<string, EmailBlock> = {
   spacer: {
     blockType: 'spacer',
     height: 24,
+  },
+  html: {
+    blockType: 'html',
+    content: '<p>Custom HTML here…</p>',
   },
 }

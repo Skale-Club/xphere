@@ -58,7 +58,7 @@ export async function savePlatformSetting(
 
   try {
     await setPlatformSetting(key, value.trim())
-    revalidatePath('/settings/platform')
+    revalidatePath('/admin/settings')
     return {}
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Failed to save.' }

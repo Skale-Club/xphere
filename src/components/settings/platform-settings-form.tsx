@@ -6,15 +6,18 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { savePlatformSetting } from '@/app/(dashboard)/settings/platform/actions'
+import { savePlatformSetting } from '@/app/(admin)/admin/settings/global-actions'
 import type { PlatformSettingEntry, PlatformKey } from '@/lib/platform-keys'
-import { PLATFORM_TABS } from '@/lib/platform-keys'
 
 interface PlatformSettingsFormProps {
   settings: PlatformSettingEntry[]
 }
 
+/**
+ * Renders a list of platform settings as editable cards.
+ * Tab grouping is the caller's responsibility | filter `settings` upstream
+ * and render multiple instances of this form per tab.
+ */
 export function PlatformSettingsForm({ settings }: PlatformSettingsFormProps) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
@@ -38,56 +41,50 @@ export function PlatformSettingsForm({ settings }: PlatformSettingsFormProps) {
     }
   }
 
-  const byTab = (tab: string) => settings.filter((s) => s.tab === tab)
+  if (settings.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        No settings in this section yet.
+      </p>
+    )
+  }
 
   return (
-    <Tabs defaultValue={PLATFORM_TABS[0]}>
-      <TabsList className="mb-4">
-        {PLATFORM_TABS.map((tab) => (
-          <TabsTrigger key={tab} value={tab}>
-            {tab}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-
-      {PLATFORM_TABS.map((tab) => (
-        <TabsContent key={tab} value={tab} className="space-y-4">
-          {byTab(tab).map((setting) => (
-            <Card key={setting.key}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">{setting.label}</CardTitle>
-                <CardDescription className="text-xs">{setting.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor={setting.key} className="text-xs text-muted-foreground">
-                      {setting.hint ? `Current: ${setting.hint}` : 'Not configured'}
-                    </Label>
-                    <Input
-                      id={setting.key}
-                      type="password"
-                      placeholder="Enter new value"
-                      value={values[setting.key] ?? ''}
-                      onChange={(e) =>
-                        setValues((v) => ({ ...v, [setting.key]: e.target.value }))
-                      }
-                      className="font-mono text-sm"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={saving[setting.key] || !values[setting.key]?.trim()}
-                    onClick={() => handleSave(setting.key as PlatformKey)}
-                  >
-                    {saving[setting.key] ? 'Saving…' : 'Save'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
+    <div className="space-y-4">
+      {settings.map((setting) => (
+        <Card key={setting.key}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">{setting.label}</CardTitle>
+            <CardDescription className="text-xs">{setting.description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor={setting.key} className="text-xs text-muted-foreground">
+                  {setting.hint ? `Current: ${setting.hint}` : 'Not configured'}
+                </Label>
+                <Input
+                  id={setting.key}
+                  type="password"
+                  placeholder="Enter new value"
+                  value={values[setting.key] ?? ''}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, [setting.key]: e.target.value }))
+                  }
+                  className="font-mono text-sm"
+                />
+              </div>
+              <Button
+                size="sm"
+                disabled={saving[setting.key] || !values[setting.key]?.trim()}
+                onClick={() => handleSave(setting.key as PlatformKey)}
+              >
+                {saving[setting.key] ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ))}
-    </Tabs>
+    </div>
   )
 }

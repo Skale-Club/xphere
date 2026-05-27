@@ -27,6 +27,15 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
   const router = useRouter()
   const [fields, setFields] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
+    const config =
+      existing?.config && typeof existing.config === 'object' && !Array.isArray(existing.config)
+        ? (existing.config as Record<string, unknown>)
+        : {}
+    for (const field of definition.fields ?? []) {
+      if (field.key === 'api_key') continue
+      const value = config[field.key]
+      if (typeof value === 'string') init[field.key] = value
+    }
     if (existing?.location_id) init.location_id = existing.location_id
     return init
   })
@@ -39,9 +48,14 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
 
   const apiKeyDirty = !!fields.api_key && fields.api_key.trim().length > 0
   const hasChanges = Object.keys(fields).length > 0
-  const canSave = definition.testable
-    ? testState === 'pass'
-    : apiKeyDirty || !existing
+  const requiredFieldsFilled = (definition.fields ?? []).every((field) => {
+    if (!field.required) return true
+    if (field.key === 'api_key') return !!existing || apiKeyDirty
+    return (fields[field.key] ?? '').trim().length > 0
+  })
+  const canSave = requiredFieldsFilled && (definition.testable
+    ? testState === 'pass' || (!!existing && !apiKeyDirty && hasChanges)
+    : apiKeyDirty || !existing || hasChanges)
 
   async function handleTest() {
     setTestState('testing')
@@ -143,7 +157,7 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
                   onChange={(e) => {
                     const v = e.target.value
                     setFields((prev) => ({ ...prev, [field.key]: v }))
-                    if (testState !== 'idle') setTestState('idle')
+                    if (field.key === 'api_key' && testState !== 'idle') setTestState('idle')
                   }}
                   autoComplete="new-password"
                 />

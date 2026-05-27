@@ -1,35 +1,61 @@
-// Shared BYOK resolver for the CRM copilot.
+// Shared AI provider resolver for all AI features (copilot, workflow builder,
+// knowledge synthesis, /api/email-templates/generate, AI email marketing, etc).
+//
+// OpenRouter is the platform default | one key covers Claude, GPT, Llama, etc.
+// Platform-level keys are managed by the super admin under /admin/settings
+// (encrypted in platform_settings table, never read from env).
+//
 // Resolution order:
-//   1. Org-stored OpenRouter key (preferred | multi-model, billed per org)
-//   2. Org-stored Anthropic key
-//   3. ANTHROPIC_API_KEY env var (dev fallback only)
+//   1. Org-stored OpenRouter key       (org BYOK)
+//   2. Platform OpenRouter key         (super admin, applies to all orgs)
+//   3. Org-stored Anthropic key        (org BYOK, legacy/direct)
+//   4. Platform Anthropic key          (super admin fallback)
 
 import { createClient } from '@/lib/supabase/server'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { getPlatformSetting } from '@/lib/platform-settings'
 
 export type ProviderChoice =
   | { kind: 'openrouter'; apiKey: string; model: string }
   | { kind: 'anthropic';  apiKey: string; model: string }
 
-export async function resolveCopilotProvider(orgId: string): Promise<ProviderChoice | null> {
+// Default model per provider. Callers can override via the optional `model`
+// param when they need a specific Haiku/Opus/etc.
+export const DEFAULT_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4.5'
+export const DEFAULT_ANTHROPIC_MODEL  = 'claude-sonnet-4-6'
+
+export async function resolveCopilotProvider(
+  orgId: string,
+  overrides?: { openrouterModel?: string; anthropicModel?: string },
+): Promise<ProviderChoice | null> {
   const supabase = await createClient()
 
-  const orKey = await getProviderKey('openrouter', orgId, supabase)
-  if (orKey) {
-    return {
-      kind: 'openrouter',
-      apiKey: orKey,
-      model: 'anthropic/claude-sonnet-4.5',
-    }
+  const orModel = overrides?.openrouterModel ?? DEFAULT_OPENROUTER_MODEL
+  const anModel = overrides?.anthropicModel ?? DEFAULT_ANTHROPIC_MODEL
+
+  // 1. Org-level OpenRouter
+  const orgOr = await getProviderKey('openrouter', orgId, supabase)
+  if (orgOr) {
+    return { kind: 'openrouter', apiKey: orgOr, model: orModel }
   }
 
-  const anthKey = await getProviderKey('anthropic', orgId, supabase)
-  if (anthKey) {
-    return { kind: 'anthropic', apiKey: anthKey, model: 'claude-sonnet-4-6' }
+  // 2. Platform-level OpenRouter (super admin → /admin/settings)
+  const platformOr = await getPlatformSetting('OPENROUTER_API_KEY')
+  if (platformOr) {
+    return { kind: 'openrouter', apiKey: platformOr, model: orModel }
   }
 
-  const envKey = process.env.ANTHROPIC_API_KEY
-  if (envKey) return { kind: 'anthropic', apiKey: envKey, model: 'claude-sonnet-4-6' }
+  // 3. Org-level Anthropic
+  const orgAnth = await getProviderKey('anthropic', orgId, supabase)
+  if (orgAnth) {
+    return { kind: 'anthropic', apiKey: orgAnth, model: anModel }
+  }
+
+  // 4. Platform-level Anthropic
+  const platformAnth = await getPlatformSetting('ANTHROPIC_API_KEY')
+  if (platformAnth) {
+    return { kind: 'anthropic', apiKey: platformAnth, model: anModel }
+  }
 
   return null
 }
