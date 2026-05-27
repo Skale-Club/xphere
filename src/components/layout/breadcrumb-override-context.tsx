@@ -5,6 +5,9 @@ import * as React from 'react'
 type OverrideContextValue = {
   setSegmentLabel: (segment: string, label: string) => void
   getSegmentLabel: (segment: string) => string | undefined
+  /** Replace the rendered text of the last breadcrumb segment with arbitrary JSX. */
+  setSegmentNode: (segment: string, node: React.ReactNode) => void
+  getSegmentNode: (segment: string) => React.ReactNode | undefined
   /** Optional node rendered inline after the last breadcrumb segment. */
   suffix: React.ReactNode
   setSuffix: (node: React.ReactNode) => void
@@ -13,12 +16,15 @@ type OverrideContextValue = {
 const BreadcrumbOverrideContext = React.createContext<OverrideContextValue>({
   setSegmentLabel: () => {},
   getSegmentLabel: () => undefined,
+  setSegmentNode: () => {},
+  getSegmentNode: () => undefined,
   suffix: null,
   setSuffix: () => {},
 })
 
 export function BreadcrumbOverrideProvider({ children }: { children: React.ReactNode }) {
   const [overrides, setOverrides] = React.useState<Record<string, string>>({})
+  const [nodes, setNodes] = React.useState<Record<string, React.ReactNode>>({})
   const [suffix, setSuffix] = React.useState<React.ReactNode>(null)
 
   const value = React.useMemo<OverrideContextValue>(
@@ -26,10 +32,13 @@ export function BreadcrumbOverrideProvider({ children }: { children: React.React
       setSegmentLabel: (segment, label) =>
         setOverrides((prev) => (prev[segment] === label ? prev : { ...prev, [segment]: label })),
       getSegmentLabel: (segment) => overrides[segment],
+      setSegmentNode: (segment, node) =>
+        setNodes((prev) => (prev[segment] === node ? prev : { ...prev, [segment]: node })),
+      getSegmentNode: (segment) => nodes[segment],
       suffix,
       setSuffix,
     }),
-    [overrides, suffix],
+    [overrides, nodes, suffix],
   )
 
   return (

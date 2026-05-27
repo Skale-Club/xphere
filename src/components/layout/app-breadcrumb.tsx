@@ -27,7 +27,7 @@ export function AppBreadcrumb() {
   const segments = rawSegments
     .map((segment, index) => ({ segment, rawIndex: index }))
     .filter(({ segment, rawIndex }) => !(rawSegments[0] === 'workflows' && rawSegments[1] === 'flows' && rawIndex === 1))
-  const { getSegmentLabel, suffix } = useBreadcrumbOverride()
+  const { getSegmentLabel, getSegmentNode, suffix } = useBreadcrumbOverride()
 
   // Match the top-level path segment to a sidebar nav item so the icon
   // shown in the header is the same as the icon highlighted in the sidebar.
@@ -62,7 +62,7 @@ export function AppBreadcrumb() {
                 {isFirst && <Icon className="h-4 w-4 text-text-secondary shrink-0" />}
                 {isLast ? (
                   <BreadcrumbPage className="flex items-center gap-2">
-                    {getSegmentLabel(segment) ?? toTitleCase(segment)}
+                    {getSegmentNode(segment) ?? getSegmentLabel(segment) ?? toTitleCase(segment)}
                     {suffix}
                   </BreadcrumbPage>
                 ) : (

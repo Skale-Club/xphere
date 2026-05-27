@@ -14,8 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from '@/components/ui/sheet'
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -85,6 +86,52 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [selectedBlockPath, setSelectedBlockPath] = useState<{ sectionId: string; colIdx: number; blockIdx: number } | null>(null)
   const [docSettingsOpen, setDocSettingsOpen] = useState(false)
+
+  // Replace the UUID segment in the global breadcrumb with an inline-editable
+  // template name. Clicking the name reveals an input bound to the editor's
+  // local `name` state; Save persists it.
+  const { setSegmentNode } = useBreadcrumbOverride()
+  const [nameEditing, setNameEditing] = useState(false)
+  const [nameDraft, setNameDraft] = useState(template.name)
+  useEffect(() => {
+    setSegmentNode(
+      template.id,
+      nameEditing ? (
+        <input
+          autoFocus
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={() => {
+            const next = nameDraft.trim()
+            if (next && next !== name) setName(next)
+            setNameEditing(false)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              ;(e.target as HTMLInputElement).blur()
+            } else if (e.key === 'Escape') {
+              setNameDraft(name)
+              setNameEditing(false)
+            }
+          }}
+          className="bg-transparent border-b border-border outline-none text-sm font-medium min-w-32 max-w-xs focus:border-accent"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setNameDraft(name)
+            setNameEditing(true)
+          }}
+          className="text-sm font-medium hover:underline cursor-pointer"
+          title="Click to rename"
+        >
+          {name || 'Untitled'}
+        </button>
+      ),
+    )
+  }, [template.id, name, nameEditing, nameDraft, setSegmentNode])
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -240,13 +287,6 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/80 shrink-0 flex-wrap gap-y-1">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-7 text-sm max-w-48"
-            placeholder="Template name"
-          />
-
           <div className="flex items-center gap-1 ml-auto">
             <Button
               size="sm"
@@ -255,7 +295,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               onClick={() => setDocSettingsOpen(true)}
             >
               <Settings className="h-3.5 w-3.5" />
-              Email
+              Settings
             </Button>
             <Button
               size="sm"
@@ -339,57 +379,57 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
         </ScrollArea>
       </div>
 
-      {/* ── Reusable blocks panel ────────────────────────────────────────────── */}
-      {activePanel === 'reusable' && (
-        <div className="w-64 border-l border-border flex flex-col shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-xs font-medium">Reusable Blocks</span>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setActivePanel(null)}>
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
+      {/* ── Reusable blocks dialog ───────────────────────────────────────────── */}
+      <Dialog
+        open={activePanel === 'reusable'}
+        onOpenChange={(open) => setActivePanel(open ? 'reusable' : null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="mb-2">
+            <DialogTitle>Reusable Blocks</DialogTitle>
+            <DialogDescription>
+              Insert a saved block into any section via the section&apos;s &quot;Insert&quot; menu.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-2 pr-1">
               {reusableBlocks.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">
+                <p className="text-xs text-muted-foreground text-center py-6">
                   No reusable blocks yet. Save a section as a reusable block to see it here.
                 </p>
               )}
               {reusableBlocks.map((rb) => (
-                <div key={rb.id} className="rounded border border-border p-2 space-y-1">
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      <p className="text-xs font-medium leading-tight">{rb.name}</p>
-                      <Badge variant="outline" className="text-[10px] mt-0.5">{rb.block_type}</Badge>
+                <div key={rb.id} className="rounded border border-border p-2.5 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium leading-tight truncate">{rb.name}</p>
+                      <Badge variant="outline" className="text-[10px] mt-1">{rb.block_type}</Badge>
                     </div>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-5 w-5 text-destructive hover:text-destructive shrink-0"
+                      className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
                       onClick={() => handleDeleteReusable(rb.id)}
                     >
-                      <Trash2 className="h-2.5 w-2.5" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Click a section&apos;s &quot;Insert&quot; button to add
-                  </p>
                 </div>
               ))}
             </div>
           </ScrollArea>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-      {/* ── Document settings sheet ──────────────────────────────────────────── */}
-      <Sheet open={docSettingsOpen} onOpenChange={setDocSettingsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-sm">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Email Settings</SheetTitle>
-            <SheetDescription>
+      {/* ── Document settings dialog ─────────────────────────────────────────── */}
+      <Dialog open={docSettingsOpen} onOpenChange={setDocSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="mb-2">
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
               Global settings applied to the whole email.
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 px-1">
             <div className="space-y-1.5">
               <Label className="text-xs">Background color (outside the email)</Label>
@@ -442,15 +482,15 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               <p className="text-[11px] text-muted-foreground">Use only email-safe fonts. Custom web fonts won&apos;t render in most clients.</p>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      {/* ── Preview sheet ────────────────────────────────────────────────────── */}
-      <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col">
-          <div className="px-6 py-4 border-b border-border shrink-0">
-            <h2 className="text-sm font-medium">HTML Preview — {name}</h2>
-          </div>
+      {/* ── Preview dialog ───────────────────────────────────────────────────── */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-4xl p-0 flex flex-col h-[80vh] gap-0">
+          <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+            <DialogTitle className="text-sm font-medium">HTML Preview — {name}</DialogTitle>
+          </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <iframe
               srcDoc={previewHtml}
@@ -459,18 +499,18 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               sandbox="allow-same-origin"
             />
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
-      {/* ── Save as reusable sheet ───────────────────────────────────────────── */}
-      <Sheet open={saveBlockOpen} onOpenChange={setSaveBlockOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-sm">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Save as Reusable Block</SheetTitle>
-            <SheetDescription>
+      {/* ── Save as reusable dialog ──────────────────────────────────────────── */}
+      <Dialog open={saveBlockOpen} onOpenChange={setSaveBlockOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="mb-2">
+            <DialogTitle>Save as Reusable Block</DialogTitle>
+            <DialogDescription>
               Save this section&apos;s blocks as a reusable block that can be inserted into any template.
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Block name</Label>
@@ -502,8 +542,8 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               Save block
             </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
