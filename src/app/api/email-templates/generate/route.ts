@@ -208,7 +208,7 @@ export async function POST(request: Request) {
     // Optionally save as draft template
     let savedTemplateId: string | undefined
     if (body.saveAs?.name && body.saveAs.name.trim()) {
-      const { html, text } = renderTemplate(document)
+      const { html, plainText } = renderTemplate(document)
       const { data, error } = await supabase
         .from('email_templates')
         .insert({
@@ -216,7 +216,7 @@ export async function POST(request: Request) {
           name: body.saveAs.name.trim(),
           document,
           html_snapshot: html,
-          plain_text_snapshot: text,
+          plain_text_snapshot: plainText,
           status: 'draft',
           created_by: user.id,
         })

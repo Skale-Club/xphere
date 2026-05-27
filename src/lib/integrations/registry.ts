@@ -340,7 +340,6 @@ export const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
   voice_sms: 'Voice & SMS',
   crm: 'CRM',
   ai: 'AI',
-  email: 'Email',
   scheduling: 'Scheduling',
   reviews: 'Reviews',
 }
@@ -361,7 +360,6 @@ export function getDefinitionsByCategory(): Record<
     voice_sms: [],
     crm: [],
     ai: [],
-    email: [],
     scheduling: [],
     reviews: [],
   }

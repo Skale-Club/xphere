@@ -57,15 +57,16 @@ function humanStatus(status: string) {
 
 async function getProviderAvailability() {
   const supabase = await createClient()
-  const [integRes, resendRes] = await Promise.all([
+  const [integRes, resendRes, whatsappRes] = await Promise.all([
     supabase.from('integrations').select('provider').eq('is_active', true),
     supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1),
+    supabase.from('whatsapp_providers').select('id').eq('status', 'connected').eq('is_active', true).limit(1),
   ])
   const providers = new Set((integRes.data ?? []).map((i) => i.provider))
   return {
     hasTwilio: providers.has('twilio'),
     hasResend: (resendRes.data ?? []).length > 0,
-    hasWhatsApp: providers.has('whatsapp'),
+    hasWhatsApp: (whatsappRes.data ?? []).length > 0,
   }
 }
 

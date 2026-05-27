@@ -52,10 +52,13 @@ export async function createCampaign(
   if (!orgId) throw new Error('No organization found for user')
 
   // Validate channel integration availability before creating
-  const [integRes, resendRes] = await Promise.all([
+  const [integRes, resendRes, whatsappRes] = await Promise.all([
     supabase.from('integrations').select('provider').eq('is_active', true),
     input.channel === 'email'
       ? supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1)
+      : Promise.resolve({ data: null }),
+    input.channel === 'whatsapp'
+      ? supabase.from('whatsapp_providers').select('id').eq('status', 'connected').eq('is_active', true).limit(1)
       : Promise.resolve({ data: null }),
   ])
   const providers = new Set((integRes.data ?? []).map((i) => i.provider))
@@ -65,7 +68,7 @@ export async function createCampaign(
   if (input.channel === 'email' && (resendRes.data ?? []).length === 0) {
     throw new Error('Email integration is not connected. Set up Resend to create email campaigns.')
   }
-  if (input.channel === 'whatsapp' && !providers.has('whatsapp')) {
+  if (input.channel === 'whatsapp' && (whatsappRes.data ?? []).length === 0) {
     throw new Error('WhatsApp is not connected. Connect WhatsApp to create WhatsApp campaigns.')
   }
 

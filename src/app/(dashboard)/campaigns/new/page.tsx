@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 async function getSetupData() {
   const supabase = await createClient()
-  const [assistantsRes, integRes, resendRes] = await Promise.all([
+  const [assistantsRes, integRes, resendRes, whatsappRes] = await Promise.all([
     supabase
       .from('assistant_mappings')
       .select('vapi_assistant_id, name')
@@ -19,6 +19,12 @@ async function getSetupData() {
       .select('id')
       .eq('status', 'connected')
       .limit(1),
+    supabase
+      .from('whatsapp_providers')
+      .select('id')
+      .eq('status', 'connected')
+      .eq('is_active', true)
+      .limit(1),
   ])
 
   const assistants = (assistantsRes.data ?? []).map((a) => ({
@@ -32,7 +38,7 @@ async function getSetupData() {
     assistants,
     hasTwilio: providers.has('twilio'),
     hasResend: (resendRes.data ?? []).length > 0,
-    hasWhatsApp: providers.has('whatsapp'),
+    hasWhatsApp: (whatsappRes.data ?? []).length > 0,
   }
 }
 
