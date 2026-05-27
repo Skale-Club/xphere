@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { getUser } from '@/lib/supabase/server'
 import { getEmailTemplates } from './_actions/templates'
 import { TemplateCard } from '@/components/email-marketing/template-card'
+import { PageContainer } from '@/components/layout/page-header'
 
 export default async function EmailMarketingPage() {
   const user = await getUser()
@@ -20,7 +21,7 @@ export default async function EmailMarketingPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <PageContainer className="space-y-6">
       <div className="flex items-center justify-end gap-2">
         <Button asChild variant="outline" size="sm">
           <Link href="/email-marketing/sections">
@@ -64,6 +65,6 @@ export default async function EmailMarketingPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

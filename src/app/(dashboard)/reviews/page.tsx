@@ -10,6 +10,7 @@ import { ReviewsFilters } from '@/components/reviews/reviews-filters'
 import { StarRating } from '@/components/reviews/star-rating'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageContainer } from '@/components/layout/page-header'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,14 +26,14 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Card>
           <CardHeader>
             <CardTitle>No active organization</CardTitle>
             <CardDescription>Pick an organization to view its reviews.</CardDescription>
           </CardHeader>
         </Card>
-      </div>
+      </PageContainer>
     )
   }
 
@@ -50,7 +51,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
 
   if (!profile || !profile.is_active || profile.place_id === '__pending__') {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <div className="rounded-full bg-amber-100 p-3 dark:bg-amber-900/40">
@@ -68,7 +69,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     )
   }
 
@@ -105,7 +106,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-8 p-6">
+    <PageContainer>
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-amber-50 via-background to-background p-8 dark:from-amber-950/30 dark:via-background dark:to-background">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-300/30 blur-3xl" />
@@ -197,6 +198,6 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

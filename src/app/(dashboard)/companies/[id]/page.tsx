@@ -15,6 +15,7 @@ import { AccountActivitiesTab } from '@/components/accounts/account-activities-t
 import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-display'
 import { TasksPanel } from '@/components/tasks/tasks-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
+import { PageContainer } from '@/components/layout/page-header'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -35,7 +36,7 @@ export default async function AccountDetailPage({ params }: Props) {
   const activities = activitiesResult.ok ? activitiesResult.data : []
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <PageContainer className="space-y-6">
       <Button asChild variant="ghost" size="sm">
         <Link href="/accounts">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Companies
@@ -73,6 +74,6 @@ export default async function AccountDetailPage({ params }: Props) {
           <NotesPanel entityType="account" entityId={id} />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   )
 }

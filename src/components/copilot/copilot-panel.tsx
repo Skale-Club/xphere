@@ -2,22 +2,22 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
-  Send,
+  PaperPlaneTilt,
   Pencil,
   ShieldCheck,
-  RotateCcw,
-  History,
+  ArrowCounterClockwise,
+  ClockCounterClockwise,
   X,
-  Mic,
-  ImagePlus,
-  Loader2,
-  Sparkles,
+  Microphone,
+  ImageSquare,
+  CircleNotch,
+  ChatCircle,
   Square,
   Users,
-  Activity,
-  ListTodo,
+  Pulse,
+  ListChecks,
   GitMerge,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -373,14 +373,14 @@ export function CopilotPanel() {
             onClick={() => setWriteMode(!writeMode)}
             className={cn(
               "h-7 gap-1 px-2 text-xs",
-              writeMode ? "text-amber-500" : "text-text-secondary",
+              writeMode ? "text-amber-500" : "text-green-500",
             )}
             title={writeMode ? "Write mode ON" : "Read-only mode"}
           >
             {writeMode ? (
-              <Pencil className="h-3 w-3" />
+              <Pencil size={16} weight="bold" />
             ) : (
-              <ShieldCheck className="h-3 w-3" />
+              <ShieldCheck size={16} weight="bold" />
             )}
             <span className="hidden sm:inline">
               {writeMode ? "Write" : "Read-only"}
@@ -393,7 +393,7 @@ export function CopilotPanel() {
             className="h-7 px-2"
             title="New conversation"
           >
-            <RotateCcw className="h-3 w-3" />
+            <ArrowCounterClockwise size={16} weight="bold" />
           </Button>
           <Link
             href="/copilot/conversations"
@@ -401,7 +401,7 @@ export function CopilotPanel() {
             onClick={() => setOpen(false)}
             title="History"
           >
-            <History className="h-3 w-3" />
+            <ClockCounterClockwise size={16} weight="bold" />
           </Link>
           <Button
             variant="ghost"
@@ -409,7 +409,7 @@ export function CopilotPanel() {
             onClick={() => setOpen(false)}
             className="h-7 px-2"
           >
-            <X className="h-3.5 w-3.5" />
+            <X size={16} weight="bold" />
           </Button>
         </div>
       </div>
@@ -443,7 +443,7 @@ export function CopilotPanel() {
                   onClick={() => removeImage(i)}
                   className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary hover:text-text-primary"
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <X size={10} weight="bold" />
                 </button>
               </div>
             ))}
@@ -463,7 +463,7 @@ export function CopilotPanel() {
                 title="Attach image"
                 disabled={sending || images.length >= 4}
               >
-                <ImagePlus className="h-4 w-4" />
+                <ImageSquare size={16} weight="bold" />
               </Button>
               <Button
                 type="button"
@@ -478,9 +478,9 @@ export function CopilotPanel() {
                 disabled={sending}
               >
                 {listening ? (
-                  <Square className="h-3.5 w-3.5 fill-current" />
+                  <Square size={14} weight="fill" />
                 ) : (
-                  <Mic className="h-4 w-4" />
+                  <Microphone size={16} weight="bold" />
                 )}
               </Button>
             </div>
@@ -503,9 +503,9 @@ export function CopilotPanel() {
               title="Send"
             >
               {sending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <CircleNotch size={16} weight="bold" className="animate-spin" />
               ) : (
-                <Send className="h-3.5 w-3.5" />
+                <PaperPlaneTilt size={16} weight="bold" />
               )}
             </Button>
           </div>
@@ -546,43 +546,31 @@ export function CopilotPanel() {
     <div className="relative flex h-full flex-col bg-bg-primary">
       {/* Branded header */}
       <header className="flex items-center gap-3 border-b border-border bg-bg-primary px-4 pt-safe-3 pb-3 shrink-0">
-        <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent shadow-lg shadow-accent/30">
-          <Sparkles className="h-4 w-4 text-white" strokeWidth={2.5} />
-        </div>
-        <div className="flex min-w-0 flex-col leading-tight">
-          <span className="text-[15px] font-semibold text-text-primary">
-            Copilot
-          </span>
-          <span
-            className={cn(
-              "text-[11px] leading-tight",
-              writeMode ? "text-amber-500" : "text-text-tertiary",
-            )}
-          >
-            {writeMode ? "Write mode" : "Read-only"}
-            {sessionCostUsd > 0 && (
-              <span className="text-text-tertiary">
-                {" "}
-                · ~${sessionCostUsd.toFixed(4)}
-              </span>
-            )}
-          </span>
-        </div>
+        <img src="/xphere-icon.svg" alt="Xphere" className="h-9 w-9 shrink-0" />
+        <span className="text-[15px] font-semibold text-text-primary">
+          Copilot
+        </span>
         <div className="ml-auto flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setWriteMode(!writeMode)}
             className={cn(
-              "h-9 w-9 p-0",
-              writeMode ? "text-amber-500" : "text-text-secondary",
+              "h-9 gap-1.5 px-2.5 text-xs font-medium",
+              writeMode ? "text-amber-500" : "text-green-500",
             )}
             title={writeMode ? "Write mode ON" : "Read-only mode"}
           >
             {writeMode ? (
-              <Pencil className="h-4 w-4" />
+              <Pencil size={16} weight="bold" />
             ) : (
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck size={16} weight="bold" />
+            )}
+            {writeMode ? "Write" : "Read-only"}
+            {sessionCostUsd > 0 && (
+              <span className="text-text-tertiary font-normal">
+                · ~${sessionCostUsd.toFixed(4)}
+              </span>
             )}
           </Button>
           <Button
@@ -592,7 +580,7 @@ export function CopilotPanel() {
             className="h-9 w-9 p-0 text-text-secondary"
             title="New conversation"
           >
-            <RotateCcw className="h-4 w-4" />
+            <ArrowCounterClockwise size={18} weight="bold" />
           </Button>
           <Link
             href="/copilot/conversations"
@@ -600,7 +588,7 @@ export function CopilotPanel() {
             onClick={() => setOpen(false)}
             title="History"
           >
-            <History className="h-4 w-4" />
+            <ClockCounterClockwise size={18} weight="bold" />
           </Link>
           <Button
             variant="ghost"
@@ -609,7 +597,7 @@ export function CopilotPanel() {
             className="h-9 w-9 p-0 text-text-secondary"
             title="Close"
           >
-            <X className="h-5 w-5" />
+            <X size={22} weight="bold" />
           </Button>
         </div>
       </header>
@@ -643,7 +631,7 @@ export function CopilotPanel() {
                   onClick={() => removeImage(i)}
                   className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary active:text-text-primary"
                 >
-                  <X className="h-3 w-3" />
+                  <X size={12} weight="bold" />
                 </button>
               </div>
             ))}
@@ -660,7 +648,7 @@ export function CopilotPanel() {
             title="Attach image"
             disabled={sending || images.length >= 4}
           >
-            <ImagePlus className="h-5 w-5 text-text-secondary" />
+            <ImageSquare size={20} weight="bold" className="text-text-secondary" />
           </Button>
           <Textarea
             value={input}
@@ -685,9 +673,9 @@ export function CopilotPanel() {
               title="Send"
             >
               {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <CircleNotch size={20} weight="bold" className="animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <PaperPlaneTilt size={20} weight="bold" />
               )}
             </Button>
           ) : (
@@ -706,9 +694,9 @@ export function CopilotPanel() {
               disabled={sending}
             >
               {listening ? (
-                <Square className="h-3.5 w-3.5 fill-current" />
+                <Square size={14} weight="fill" />
               ) : (
-                <Mic className="h-5 w-5" />
+                <Microphone size={20} weight="bold" />
               )}
             </Button>
           )}
@@ -796,15 +784,15 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
     label: string;
   }> = [
     { icon: Users, label: "List my 10 most recent contacts" },
-    { icon: Activity, label: "Summarize pipeline health" },
-    { icon: ListTodo, label: "Show all open tasks due this week" },
-    { icon: GitMerge, label: "Find duplicate contacts by email" },
+    { icon: Pulse, label: "Summarize pipeline health" },
+    { icon: ListChecks, label: "Show all open tasks due this week" },
+    { icon: GitMerge, label: "Show deals closing this month" },
   ];
   return (
     <div className="flex flex-col gap-5 py-4 animate-fade-in">
       <div className="flex flex-col items-center text-center gap-3">
         <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-accent shadow-xl shadow-accent/30">
-          <Sparkles className="h-8 w-8 text-white" strokeWidth={2.25} />
+          <ChatCircle size={32} weight="fill" className="text-white" />
         </div>
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-text-primary">
@@ -825,7 +813,7 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
             className="flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-3 text-left text-[13px] text-text-primary active:bg-bg-tertiary active:scale-[0.99] transition"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-bg-tertiary text-accent shrink-0">
-              <Icon className="h-4 w-4" />
+              <Icon size={16} weight="bold" />
             </span>
             <span className="leading-snug">{label}</span>
           </button>
@@ -902,9 +890,7 @@ function VoiceRecordingOverlay({
           compact ? "px-3 py-1 text-xs" : "px-5 py-2 text-sm",
         )}
       >
-        <Square
-          className={cn("fill-white", compact ? "h-3 w-3" : "h-3.5 w-3.5")}
-        />
+        <Square size={compact ? 12 : 14} weight="fill" />
         Stop
       </button>
     </div>

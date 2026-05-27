@@ -7,6 +7,7 @@ import { EventTypeCard } from '@/components/scheduling/event-type-card'
 import { NewEventTypeDialog } from '@/components/scheduling/new-event-type-dialog'
 import { SchedulingProfileSetup } from '@/components/scheduling/scheduling-profile-setup'
 import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/layout/page-header'
 import Link from 'next/link'
 
 interface Props {
@@ -38,7 +39,7 @@ export default async function SchedulingPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <PageContainer>
       {/* Header actions */}
       <div className="flex items-center justify-end gap-2">
         <Button asChild variant="outline" size="sm">
@@ -108,6 +109,6 @@ export default async function SchedulingPage({ searchParams }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   )
 }

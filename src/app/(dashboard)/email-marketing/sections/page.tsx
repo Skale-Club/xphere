@@ -23,6 +23,7 @@ import {
   deleteEmailSection,
   type EmailSectionRow,
 } from '../_actions/sections'
+import { PageContainer } from '@/components/layout/page-header'
 
 const TYPES = ['header', 'footer', 'hero', 'cta', 'text', 'image', 'divider', 'social', 'custom'] as const
 
@@ -88,7 +89,7 @@ export default function EmailSectionsPage() {
   const local = sections.filter((s) => !s.is_global)
 
   return (
-    <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <PageContainer className="space-y-6">
       <Button asChild variant="ghost" size="sm">
         <Link href="/email-marketing"><ArrowLeft className="h-3.5 w-3.5 mr-1" /> Templates</Link>
       </Button>
@@ -155,7 +156,7 @@ export default function EmailSectionsPage() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </PageContainer>
   )
 }
 
