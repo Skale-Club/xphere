@@ -4,6 +4,7 @@
 
 import Link from 'next/link'
 import {
+  Download,
   MapPin,
   Palette,
   Phone,
@@ -86,6 +87,17 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         icon: Plug,
         title: 'MCP server',
         description: 'Token and endpoint URL for external AI agents.',
+      },
+    ],
+  },
+  {
+    heading: 'App',
+    cards: [
+      {
+        href: '/settings/install',
+        icon: Download,
+        title: 'Install app',
+        description: 'Add xphere to your home screen or desktop. Required for push notifications on iOS.',
       },
     ],
   },

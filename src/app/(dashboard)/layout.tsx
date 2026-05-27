@@ -15,6 +15,8 @@ import { PageTransition } from '@/components/layout/page-transition'
 import { CopilotShell } from '@/components/copilot/copilot-launcher'
 import { CopilotPanel } from '@/components/copilot/copilot-panel'
 import { DialpadAvailabilityProvider } from '@/components/phone/dialpad-availability-context'
+import { PwaInstallProvider } from '@/components/pwa/pwa-install-context'
+import { PwaInstallDialog } from '@/components/pwa/pwa-install-dialog'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
@@ -111,6 +113,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <SidebarStateProvider>
         <CommandPaletteProvider>
           <DialpadAvailabilityProvider available={hasPhoneNumber}>
+          <PwaInstallProvider>
           <VoiceDeviceShell enabled={browserVoiceEnabled}>
             <BrandingStyle branding={branding} />
             {effectiveLogoUrl && (
@@ -145,8 +148,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <OnboardingTour />
               <DialPadPanelServer />
               <CopilotShell />
+              <PwaInstallDialog />
             </CelebrationProvider>
           </VoiceDeviceShell>
+          </PwaInstallProvider>
           </DialpadAvailabilityProvider>
         </CommandPaletteProvider>
       </SidebarStateProvider>
