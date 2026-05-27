@@ -29,10 +29,25 @@ export function normalisePhone(input: string | null | undefined): string | null 
   return plus + digits
 }
 
+const PLACEHOLDER_EMAILS = new Set([
+  'noemail@email.com',
+  'test@test.com',
+  'none@none.com',
+  'no@email.com',
+  'fake@fake.com',
+  'noreply@noreply.com',
+  'example@example.com',
+])
+
 export function normaliseEmail(input: string | null | undefined): string | null {
   if (!input) return null
   const trimmed = input.trim().toLowerCase()
   return trimmed || null
+}
+
+export function isPlaceholderEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  return PLACEHOLDER_EMAILS.has(email.trim().toLowerCase())
 }
 
 export function isValidEmail(input: string | null | undefined): boolean {

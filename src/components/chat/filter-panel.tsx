@@ -25,6 +25,7 @@ export interface AdvancedFilters {
   botStatuses: string[]
   assignedUserIds: string[] // 'unassigned' encoded as a sentinel value
   labelIds: string[]
+  phoneNumberIds: string[]
   starred: boolean
   pinned: boolean
   unread: boolean
@@ -36,6 +37,7 @@ export const EMPTY_FILTERS: AdvancedFilters = {
   botStatuses: [],
   assignedUserIds: [],
   labelIds: [],
+  phoneNumberIds: [],
   starred: false,
   pinned: false,
   unread: false,
@@ -50,6 +52,7 @@ interface FilterPanelProps {
   onSelectedChannelsChange: (next: Set<Channel>) => void
   members: OrgMember[]
   labels: Array<{ id: string; name: string; color: string }>
+  phoneNumbers?: Array<{ id: string; label: string; e164: string }>
   allowMine: boolean
 }
 
@@ -120,6 +123,7 @@ export function countActiveFilters(f: AdvancedFilters): number {
     f.botStatuses.length +
     f.assignedUserIds.length +
     f.labelIds.length +
+    f.phoneNumberIds.length +
     (f.starred ? 1 : 0) +
     (f.pinned ? 1 : 0)
   )
@@ -144,6 +148,7 @@ export function FilterPanel({
   onSelectedChannelsChange,
   members,
   labels,
+  phoneNumbers = [],
   allowMine,
 }: FilterPanelProps) {
   const [open, setOpen] = useState(false)
@@ -362,6 +367,23 @@ export function FilterPanel({
                     dotColor={l.color}
                   >
                     {l.name}
+                  </FilterChip>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Phone Numbers */}
+          {phoneNumbers.length > 0 && (
+            <Section title="Phone Number">
+              <div className="flex flex-wrap gap-1.5">
+                {phoneNumbers.map((pn) => (
+                  <FilterChip
+                    key={pn.id}
+                    checked={local.phoneNumberIds.includes(pn.id)}
+                    onClick={() => toggle('phoneNumberIds', pn.id)}
+                  >
+                    {pn.label || pn.e164}
                   </FilterChip>
                 ))}
               </div>
