@@ -6,6 +6,8 @@ export const CONTACT_SOURCES = [
   'whatsapp',
   'sms',
   'instagram',
+  'facebook',
+  'messenger',
   'csv_import',
   'ghl_sync',
 ] as const
