@@ -232,21 +232,23 @@ export function ChatLayout({
     const supabase = createClient()
     supabase
       .from('twilio_phone_numbers')
-      .select('id, label, phone_number')
+      .select('id, inbox_label, friendly_name, e164')
       .eq('is_active', true)
       .is('archived_at', null)
-      .order('label')
-      .then((res) => {
-        if (!res.data) return
-        setPhoneNumbers(
-          (res.data as Array<{ id: string; label: string | null; phone_number: string }>).map((r) => ({
-            id: r.id,
-            label: r.label ?? '',
-            e164: r.phone_number,
-          })),
-        )
-      })
-      .catch(() => {})
+      .order('inbox_label')
+      .then(
+        (res) => {
+          if (!res.data) return
+          setPhoneNumbers(
+            res.data.map((r) => ({
+              id: r.id,
+              label: r.inbox_label ?? r.friendly_name ?? '',
+              e164: r.e164,
+            })),
+          )
+        },
+        () => {},
+      )
   }, [])
 
   // ───────────────────────── Realtime: conversations ─────────────────────────

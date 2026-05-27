@@ -73,7 +73,7 @@ export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' 
 export type AgentInvocationMode = 'production' | 'playground'
 
 // v2.1 | contacts (CRM) source enum
-export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'csv_import' | 'ghl_sync'
+export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'facebook' | 'messenger' | 'csv_import' | 'ghl_sync'
 export type ContactIdentityStatus =
   | 'channel_only'
   | 'identified'
