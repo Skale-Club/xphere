@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   BarChart3,
   GitMerge,
+  ScrollText,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/admin/orgs',     label: 'Organizations',  icon: Building2 },
   { href: '/admin/contacts/conflicts', label: 'Conflicts', icon: GitMerge },
   { href: '/admin/activity', label: 'Activity',       icon: Activity },
+  { href: '/admin/logs',     label: 'Logs',           icon: ScrollText },
   { href: '/admin/settings', label: 'Settings',       icon: Settings },
   { href: '/admin/seo',      label: 'SEO & Branding', icon: Search },
   { href: '/admin/landing',  label: 'Landing Page',   icon: ImageIcon },

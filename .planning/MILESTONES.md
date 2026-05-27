@@ -45,6 +45,7 @@
 **Key accomplishments:**
 
 1. **Super Admin Panel** — `/admin/*` route group restricted to `skale.club@gmail.com`; `(admin)` layout with `AdminSidebar`; service-role server actions for org listing with parallel usage counts, org detail with member resolution via `auth.admin.listUsers`, `updateOrgSettings` jsonb patch; `OrgsTable`, `OrgDetailView` components (ADM-01..06)
+   - Post-ship hardening (2026-05-27): operational `event_logs` moved out of tenant dashboard into `/admin/logs`; tenant direct reads removed; super admin can filter logs by tenant, severity, status, source, period, and search text.
 2. **Platform Settings** — `/admin/settings` with `getPlatformStats` (6 parallel counts), `bulkApplyFeatureFlag` patching all orgs in parallel; `PlatformSettingsView` with 6 stat cards and feature-flag toggle UI (ADM-05)
 3. **Landing Page** — `/` public route with `LandingPage` component: hero, features grid (6 items), pricing CTA; Framer Motion stagger entrance + `whileInView` scroll reveal; dark-mode-first, fully responsive at sm/lg breakpoints; authenticated users redirect to `/dashboard`
 4. **Auth Redesign** — `/login` split-layout with dark left panel (feature bullets, stagger animations) and right auth form; `(auth)` layout with full-screen `#08090A` background; consistent visual with landing; `npm run build` exits 0, 70 pages generated

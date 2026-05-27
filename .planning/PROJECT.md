@@ -281,6 +281,7 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - /notes page with NotesGrid (pinned/unpinned sections, pin toggle), NoteForm + NoteSlideOver — v2.5
 - Tasks + Notes panels embedded in Account and Opportunity detail pages — v2.5
 - Super admin panel `/admin/*` restricted to platform admin email with service-role data access — v2.6 (ADM-01..06)
+- Operational `event_logs` viewer moved to `/admin/logs`; direct tenant reads removed and filters support cross-tenant diagnostics by tenant/severity/status/source/period — post-v3.0 hardening (2026-05-27)
 - Landing page with Framer Motion animations, dark-mode-first, fully responsive — v2.6 (LND-01..06)
 - SEO structure: metadata, OG, sitemap, robots.txt, JSON-LD, `/admin/seo` config panel — v2.6 (SEO-01..06)
 - Unified Calls Hub: `unified_calls` VIEW, `/calls` timeline with AI+Human filter, tabs sub-routes, detail variants — v2.7 (CALL-01..10)

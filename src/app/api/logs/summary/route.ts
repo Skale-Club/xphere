@@ -1,13 +1,14 @@
 // src/app/api/logs/summary/route.ts
 // AI Logs Summary endpoint — returns an aggregated snapshot of event_logs
-// for the last 24 hours scoped to the authenticated org.
+// for the last 24 hours. Operational logs are platform-admin only.
 //
 // Intended for AI agents, dashboards, and monitoring tools to quickly
 // assess system health without reading raw log entries.
 
 export const runtime = 'nodejs'
 
-import { createClient, getUser } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 type SummaryStatus = 'ok' | 'degraded'
 
@@ -24,22 +25,36 @@ interface LogSummary {
   status: SummaryStatus
 }
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   const user = await getUser()
   if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = await createClient()
+  if (!process.env.PLATFORM_ADMIN_EMAIL || user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const supabase = createServiceRoleClient()
+  const { searchParams } = new URL(request.url)
+  const tenant = searchParams.get('tenant')?.trim() || 'all'
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-  // Fetch all logs from the last 24h — RLS scopes to current org automatically
-  const { data: logs, error } = await supabase
+  // Fetch all logs from the last 24h through the trusted platform-admin path.
+  let query = supabase
     .from('event_logs')
     .select('event_type, source, severity, status, error_message, created_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
+
+  if (tenant === 'platform') {
+    query = query.is('org_id', null)
+  } else if (tenant !== 'all') {
+    query = query.eq('org_id', tenant)
+  }
+
+  const { data: logs, error } = await query
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 })
