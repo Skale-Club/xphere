@@ -677,17 +677,6 @@ export function ContactInfoPanel({
             )}
           </Section>
 
-          {/* ── DND ── */}
-          <ContactDndSection
-            contactId={contact.id}
-            initialDnd={{
-              dnd_enabled: Boolean(contact.dnd_enabled),
-              dnd_channels: contact.dnd_channels ?? [],
-              dnd_note: contact.dnd_note ?? null,
-            }}
-            compact
-          />
-
           {/* ── Tasks ── */}
           <Section
             title={`Tasks ${contact.tasks.length > 0 ? `(${contact.tasks.length})` : ''}`}
@@ -951,6 +940,19 @@ export function ContactInfoPanel({
                 ))}
               </div>
             )}
+          </Section>
+
+          {/* ── DND ── */}
+          <Section title="DND" defaultOpen={false}>
+            <ContactDndSection
+              contactId={contact.id}
+              initialDnd={{
+                dnd_enabled: Boolean(contact.dnd_enabled),
+                dnd_channels: contact.dnd_channels ?? [],
+                dnd_note: contact.dnd_note ?? null,
+              }}
+              compact
+            />
           </Section>
         </div>
       </ScrollArea>
