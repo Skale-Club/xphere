@@ -95,7 +95,10 @@ export async function GET(request: Request): Promise<Response> {
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
+  // Archived (status='closed') conversations are hidden from the default inbox
+  // and only surface when the caller explicitly filters by status.
   if (status) pinnedQuery = pinnedQuery.eq('status', status)
+  else pinnedQuery = pinnedQuery.neq('status', 'closed')
   if (assigned === 'me') pinnedQuery = pinnedQuery.eq('assigned_user_id', user.id)
   if (channels.length === 1) pinnedQuery = pinnedQuery.eq('channel', channels[0])
   else if (channels.length > 1) pinnedQuery = pinnedQuery.in('channel', channels)
@@ -124,6 +127,7 @@ export async function GET(request: Request): Promise<Response> {
     .range(from, to)
 
   if (status) pageQuery = pageQuery.eq('status', status)
+  else pageQuery = pageQuery.neq('status', 'closed')
   if (assigned === 'me') pageQuery = pageQuery.eq('assigned_user_id', user.id)
   if (channels.length === 1) pageQuery = pageQuery.eq('channel', channels[0])
   else if (channels.length > 1) pageQuery = pageQuery.in('channel', channels)
