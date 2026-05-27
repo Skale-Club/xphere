@@ -13,7 +13,7 @@
  */
 
 import * as React from 'react'
-import { Pencil } from 'lucide-react'
+import { Check, Loader2, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -121,50 +121,64 @@ export function InlineEditField({
     }
   }
 
-  function handleBlur() {
-    if (skipBlurRef.current) {
-      skipBlurRef.current = false
-      return
-    }
-    void commit()
-  }
-
   if (editing) {
     const sharedClasses = cn(
       'w-full rounded-[6px] border border-accent/60 bg-bg-primary px-2 py-1 text-[12.5px] text-text-primary',
       'outline-none ring-[3px] ring-accent/15',
       inputClassName,
     )
-    return multiline ? (
-      <textarea
-        ref={(el) => {
-          inputRef.current = el
-        }}
-        value={draft}
-        rows={3}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKey}
-        onBlur={handleBlur}
-        disabled={saving}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className={cn(sharedClasses, 'resize-y leading-relaxed')}
-      />
-    ) : (
-      <input
-        ref={(el) => {
-          inputRef.current = el
-        }}
-        type={type}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKey}
-        onBlur={handleBlur}
-        disabled={saving}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className={sharedClasses}
-      />
+    // Blur commits unless the next focus target is the Save / Cancel button
+    // inside this same wrapper — otherwise clicking Save would race the
+    // implicit blur-commit and either drop the click or fire two writes.
+    const wrapperBlurGuard = (e: React.FocusEvent<HTMLDivElement>) => {
+      if (skipBlurRef.current) {
+        skipBlurRef.current = false
+        return
+      }
+      const next = e.relatedTarget as Node | null
+      if (next && e.currentTarget.contains(next)) return
+      void commit()
+    }
+    return (
+      <div
+        className="flex w-full items-center gap-1"
+        onBlur={wrapperBlurGuard}
+      >
+        {multiline ? (
+          <textarea
+            ref={(el) => {
+              inputRef.current = el
+            }}
+            value={draft}
+            rows={3}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKey}
+            disabled={saving}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            className={cn(sharedClasses, 'resize-y leading-relaxed')}
+          />
+        ) : (
+          <input
+            ref={(el) => {
+              inputRef.current = el as HTMLInputElement | null
+            }}
+            type={type}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKey}
+            disabled={saving}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            className={sharedClasses}
+          />
+        )}
+        <InlineEditActions
+          saving={saving}
+          onSave={() => void commit()}
+          onCancel={cancel}
+        />
+      </div>
     )
   }
 
@@ -191,5 +205,61 @@ export function InlineEditField({
       </span>
       <Pencil className="h-3 w-3 shrink-0 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
+  )
+}
+
+/**
+ * Save / Cancel buttons shown to the right of an inline editor. Exported so
+ * sibling editors (phone, email, …) can reuse the same shapes and behaviour.
+ *
+ * `onMouseDown` prevents the default focus shift so the editor's input keeps
+ * focus until `onClick` runs — otherwise the wrapper's blur-commit would race
+ * the click and either fire twice or eat it entirely.
+ */
+export function InlineEditActions({
+  saving,
+  onSave,
+  onCancel,
+}: {
+  saving: boolean
+  onSave: () => void
+  onCancel: () => void
+}) {
+  const stopFocus = (e: React.MouseEvent) => e.preventDefault()
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <button
+        type="button"
+        onMouseDown={stopFocus}
+        onClick={onSave}
+        disabled={saving}
+        aria-label="Save"
+        title="Save (Enter)"
+        className={cn(
+          'inline-flex h-7 w-7 items-center justify-center rounded-[6px]',
+          'bg-accent text-accent-foreground hover:bg-accent/90 transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          'disabled:opacity-60 disabled:cursor-not-allowed',
+        )}
+      >
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+      </button>
+      <button
+        type="button"
+        onMouseDown={stopFocus}
+        onClick={onCancel}
+        disabled={saving}
+        aria-label="Cancel"
+        title="Cancel (Esc)"
+        className={cn(
+          'inline-flex h-7 w-7 items-center justify-center rounded-[6px]',
+          'text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+          'disabled:opacity-60 disabled:cursor-not-allowed',
+        )}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   )
 }

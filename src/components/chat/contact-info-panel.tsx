@@ -80,7 +80,6 @@ import { InlineContactPicker } from '@/components/chat/inline-contact-picker'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { InlineEditPhoneField } from '@/components/chat/inline-edit-phone-field'
 import { InlineEditEmailField } from '@/components/chat/inline-edit-email-field'
-import { SavedFlash } from '@/components/chat/saved-flash'
 import { AccountCombobox } from '@/components/accounts/account-combobox'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
@@ -447,11 +446,34 @@ export function ContactInfoPanel({
           )}
         </div>
         <div className="flex items-start gap-3">
-          <ContactAvatarUploader
-            contactId={contact.id}
-            avatarUrl={contact.avatar_url ?? null}
-            initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
-          />
+          {/* Left column: avatar + identity status stacked vertically so the
+              "Identified" pill and "Mark verified" button don't steal horizontal
+              space from the contact's name on narrow panels. */}
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <ContactAvatarUploader
+              contactId={contact.id}
+              avatarUrl={contact.avatar_url ?? null}
+              initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
+            />
+            {/* Phase 110 D-07a + D-01a: identity status badge + Mark verified
+                action. MarkVerifiedButton is gated on identity_status='identified'
+                AND a present phone/email (Pitfall 2 — never rendered for
+                channel_only, merge_conflict, archived_duplicate, or verified). */}
+            <IdentityStatusBadge
+              status={contact.identity_status}
+              isVerified={contact.is_verified ?? false}
+            />
+            {contact.identity_status === 'identified' &&
+              !contact.is_verified &&
+              (contact.phone || contact.email) && (
+                <MarkVerifiedButton
+                  contactId={contact.id}
+                  identifierType={contact.phone ? 'phone' : 'email'}
+                  identifierValue={(contact.phone ?? contact.email)!}
+                  onMarked={refresh}
+                />
+              )}
+          </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-0.5">
@@ -470,19 +492,8 @@ export function ContactInfoPanel({
                 className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
               />
             </div>
-            {contact.account ? (
-              <Link
-                href={`/companies/${contact.account.id}`}
-                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate px-1 text-[12px] text-text-secondary hover:text-accent transition-colors"
-                title={`Open account ${contact.account.name}`}
-              >
-                <Building2 className="h-3 w-3 shrink-0" />
-                <span className="truncate">{contact.account.name}</span>
-                <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-60" />
-              </Link>
-            ) : contact.company ? (
-              <p className="mt-0.5 truncate px-1 text-[12px] text-text-secondary">{contact.company}</p>
-            ) : null}
+            {/* Company shown only in the INFO section below — keeping it here
+                duplicates the value and pushes the action grid further down. */}
             {contact.tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {contact.tags.map((t) => (
@@ -495,26 +506,6 @@ export function ContactInfoPanel({
                 ))}
               </div>
             )}
-            {/* Phase 110 D-07a + D-01a: identity status badge + Mark verified
-                action. MarkVerifiedButton is gated on identity_status='identified'
-                AND a present phone/email (Pitfall 2 — never rendered for
-                channel_only, merge_conflict, archived_duplicate, or verified). */}
-            <div className="mt-2 flex items-center gap-2">
-              <IdentityStatusBadge
-                status={contact.identity_status}
-                isVerified={contact.is_verified ?? false}
-              />
-              {contact.identity_status === 'identified' &&
-                !contact.is_verified &&
-                (contact.phone || contact.email) && (
-                  <MarkVerifiedButton
-                    contactId={contact.id}
-                    identifierType={contact.phone ? 'phone' : 'email'}
-                    identifierValue={(contact.phone ?? contact.email)!}
-                    onMarked={refresh}
-                  />
-                )}
-            </div>
           </div>
         </div>
 
@@ -1147,7 +1138,6 @@ function ContactCompanyControl({
 }) {
   const [saving, setSaving] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
-  const [savedKey, setSavedKey] = React.useState(0)
   const companyName = contact.account?.name ?? contact.company ?? undefined
 
   async function handleChange(accountId: string | null) {
@@ -1180,7 +1170,7 @@ function ContactCompanyControl({
       company: result.company ?? null,
       account: result.account ?? null,
     })
-    setSavedKey(Date.now())
+    toast.success('Saved')
     setEditing(false)
   }
 
@@ -1240,7 +1230,6 @@ function ContactCompanyControl({
       >
         {companyName}
       </button>
-      <SavedFlash flashKey={savedKey} />
       {contact.account && (
         <Link
           href={`/companies/${contact.account.id}`}

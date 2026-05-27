@@ -25,7 +25,7 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { useDialpadAvailable } from '@/components/phone/dialpad-availability-context'
-import { SavedFlash } from './saved-flash'
+import { InlineEditActions } from './inline-edit-field'
 import { Phone } from 'lucide-react'
 
 interface InlineEditPhoneFieldProps {
@@ -70,7 +70,6 @@ export function InlineEditPhoneField({
   const skipBlurRef = React.useRef(false)
   const wrapperRef = React.useRef<HTMLDivElement | null>(null)
   const editorCountry = React.useMemo(() => inferCountry(displayed), [displayed])
-  const [savedKey, setSavedKey] = React.useState(0)
 
   // Keep local state in sync with external updates while not editing.
   React.useEffect(() => {
@@ -115,7 +114,7 @@ export function InlineEditPhoneField({
     setSaving(true)
     try {
       await onSave(normalised)
-      setSavedKey(Date.now())
+      toast.success('Saved')
     } catch (e) {
       setDisplayed(previous)
       setDraft(previous ?? '')
@@ -165,16 +164,19 @@ export function InlineEditPhoneField({
         ref={wrapperRef}
         onKeyDown={handleKey}
         onBlur={handleBlur}
-        className={cn('w-full', className)}
+        className={cn('flex w-full items-center gap-1', className)}
       >
-        <PhoneInput
-          value={draft}
-          onChange={setDraft}
-          defaultCountry={editorCountry}
-          placeholder={placeholder}
-          disabled={saving}
-          aria-invalid={false}
-        />
+        <div className="min-w-0 flex-1">
+          <PhoneInput
+            value={draft}
+            onChange={setDraft}
+            defaultCountry={editorCountry}
+            placeholder={placeholder}
+            disabled={saving}
+            aria-invalid={false}
+          />
+        </div>
+        <InlineEditActions saving={saving} onSave={() => void commit(draft)} onCancel={cancel} />
       </div>
     )
   }
@@ -224,7 +226,6 @@ export function InlineEditPhoneField({
       >
         {formatted}
       </button>
-      <SavedFlash flashKey={savedKey} />
       {dialpadAvailable ? (
         <button
           type="button"

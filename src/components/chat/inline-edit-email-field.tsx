@@ -22,7 +22,7 @@ import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
 import { normaliseEmailStrict, isValidEmail } from '@/lib/contacts/zod-schemas'
-import { SavedFlash } from './saved-flash'
+import { InlineEditActions } from './inline-edit-field'
 
 interface InlineEditEmailFieldProps {
   value: string | null
@@ -44,7 +44,6 @@ export function InlineEditEmailField({
   const [draft, setDraft] = React.useState<string>(value ?? '')
   const [displayed, setDisplayed] = React.useState<string | null>(value)
   const [saving, setSaving] = React.useState(false)
-  const [savedKey, setSavedKey] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const skipBlurRef = React.useRef(false)
 
@@ -91,7 +90,7 @@ export function InlineEditEmailField({
     setSaving(true)
     try {
       await onSave(next)
-      setSavedKey(Date.now())
+      toast.success('Saved')
     } catch (e) {
       setDisplayed(previous)
       setDraft(previous ?? '')
@@ -119,32 +118,38 @@ export function InlineEditEmailField({
     }
   }
 
-  function handleBlur() {
+  function handleWrapperBlur(e: React.FocusEvent<HTMLDivElement>) {
     if (skipBlurRef.current) {
       skipBlurRef.current = false
       return
     }
+    const next = e.relatedTarget as Node | null
+    if (next && e.currentTarget.contains(next)) return
     void commit()
   }
 
   if (editing) {
     return (
-      <input
-        ref={inputRef}
-        type="email"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKey}
-        onBlur={handleBlur}
-        disabled={saving}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className={cn(
-          'w-full rounded-[6px] border border-accent/60 bg-bg-primary px-2 py-1 text-[12.5px] text-text-primary',
-          'outline-none ring-[3px] ring-accent/15',
-          className,
-        )}
-      />
+      <div
+        className={cn('flex w-full items-center gap-1', className)}
+        onBlur={handleWrapperBlur}
+      >
+        <input
+          ref={inputRef}
+          type="email"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKey}
+          disabled={saving}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          className={cn(
+            'w-full rounded-[6px] border border-accent/60 bg-bg-primary px-2 py-1 text-[12.5px] text-text-primary',
+            'outline-none ring-[3px] ring-accent/15',
+          )}
+        />
+        <InlineEditActions saving={saving} onSave={() => void commit()} onCancel={cancel} />
+      </div>
     )
   }
 
@@ -191,7 +196,6 @@ export function InlineEditEmailField({
         {malformed && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />}
         <span className="truncate">{displayed}</span>
       </button>
-      <SavedFlash flashKey={savedKey} />
       {!malformed && (
         <a
           href={`mailto:${displayed}`}
