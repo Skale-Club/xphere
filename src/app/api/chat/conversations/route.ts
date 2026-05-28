@@ -42,7 +42,7 @@ const CHANNEL_ALIAS: Record<string, string> = {
 }
 
 const SELECT_COLS =
-  'id, status, created_at, updated_at, last_message_at, last_inbound_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, phone_number_id, contacts:contact_id ( first_name, last_name, name, avatar_url ), phone_number:phone_number_id ( id, e164, friendly_name, inbox_label )'
+  'id, status, created_at, updated_at, last_message_at, last_inbound_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, pinned, priority, contact_id, assigned_user_id, starred, wait_until, phone_number_id, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) ), phone_number:phone_number_id ( id, e164, friendly_name, inbox_label )'
 
 const VALID_STATUSES = new Set<ConversationStatus>([
   'open',
@@ -77,6 +77,7 @@ export async function GET(request: Request): Promise<Response> {
   const assigned = url.searchParams.get('assigned')
   const channelParam = url.searchParams.get('channel')
   const starred = url.searchParams.get('starred') === '1'
+  const verifiedOnly = url.searchParams.get('verified') === '1'
   const priority = url.searchParams.get('priority')
   const botStatus = url.searchParams.get('botStatus')
   const phoneNumberId = url.searchParams.get('phone_number_id')
@@ -86,6 +87,37 @@ export async function GET(request: Request): Promise<Response> {
     : []
 
   const supabase = await createClient()
+
+  // ─────────── Verified-only filter ───────────
+  // PostgREST can't easily push an EXISTS over an embedded resource into the
+  // top-level WHERE, so we resolve the set of verified contact ids first and
+  // narrow both queries with `.in('contact_id', …)`. Empty set → empty inbox.
+  let verifiedContactIds: string[] | null = null
+  if (verifiedOnly) {
+    const { data: verifiedRows, error: verifiedErr } = await supabase
+      .from('contact_verifications')
+      .select('contact_id')
+    if (verifiedErr) {
+      console.error('[GET /api/chat/conversations] verified-prefetch', verifiedErr)
+      return Response.json(
+        { error: 'Failed to load conversations', detail: verifiedErr.message },
+        { status: 500 },
+      )
+    }
+    verifiedContactIds = Array.from(
+      new Set((verifiedRows ?? []).map((r) => r.contact_id as string).filter(Boolean)),
+    )
+    if (verifiedContactIds.length === 0) {
+      return Response.json({
+        conversations: [],
+        pinned: [],
+        page,
+        pageSize,
+        totalCount: 0,
+        totalPages: 0,
+      })
+    }
+  }
 
   // ─────────── Pinned (always full, no pagination) ───────────
   let pinnedQuery = supabase
@@ -103,6 +135,7 @@ export async function GET(request: Request): Promise<Response> {
   if (channels.length === 1) pinnedQuery = pinnedQuery.eq('channel', channels[0])
   else if (channels.length > 1) pinnedQuery = pinnedQuery.in('channel', channels)
   if (starred) pinnedQuery = pinnedQuery.eq('starred', true)
+  if (verifiedContactIds) pinnedQuery = pinnedQuery.in('contact_id', verifiedContactIds)
   if (priority && VALID_PRIORITIES.has(priority)) pinnedQuery = pinnedQuery.eq('priority', priority)
   if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pinnedQuery = pinnedQuery.eq('bot_status', botStatus)
   if (phoneNumberId) pinnedQuery = pinnedQuery.eq('phone_number_id', phoneNumberId)
@@ -132,6 +165,7 @@ export async function GET(request: Request): Promise<Response> {
   if (channels.length === 1) pageQuery = pageQuery.eq('channel', channels[0])
   else if (channels.length > 1) pageQuery = pageQuery.in('channel', channels)
   if (starred) pageQuery = pageQuery.eq('starred', true)
+  if (verifiedContactIds) pageQuery = pageQuery.in('contact_id', verifiedContactIds)
   if (priority && VALID_PRIORITIES.has(priority)) pageQuery = pageQuery.eq('priority', priority)
   if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pageQuery = pageQuery.eq('bot_status', botStatus)
   if (phoneNumberId) pageQuery = pageQuery.eq('phone_number_id', phoneNumberId)
@@ -177,12 +211,15 @@ export async function GET(request: Request): Promise<Response> {
       last_name?: string | null
       name?: string | null
       avatar_url?: string | null
+      contact_verifications?: Array<{ id: string }> | null
     } | null
     const contactName =
       [contact?.first_name?.trim(), contact?.last_name?.trim()].filter(Boolean).join(' ') ||
       contact?.name?.trim() ||
       null
     const contactAvatarUrl = contact?.avatar_url?.trim() || null
+    const contactVerified = Array.isArray(contact?.contact_verifications)
+      && contact!.contact_verifications!.length > 0
     const phoneNumber = row.phone_number as
       | { id: string; e164: string | null; friendly_name: string | null; inbox_label: string | null }
       | null
@@ -209,6 +246,7 @@ export async function GET(request: Request): Promise<Response> {
       contactId: (row.contact_id as string | null) ?? null,
       contactName,
       contactAvatarUrl,
+      contactVerified,
       assignedUserId: (row.assigned_user_id as string | null) ?? null,
       phoneNumberId: (row.phone_number_id as string | null) ?? null,
       phoneNumberLabel,

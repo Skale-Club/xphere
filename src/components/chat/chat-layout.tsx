@@ -86,6 +86,7 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     contactId: (row.contact_id as string | null) ?? null,
     contactName: null, // realtime raw row has no joined contact — preserved from API state via upsert
     contactAvatarUrl: null, // same as contactName — joined later via the next paged fetch
+    contactVerified: false, // unknown until the paged refetch resolves it
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
     lastInboundAt: (row.last_inbound_at as string | null) ?? null,
   }

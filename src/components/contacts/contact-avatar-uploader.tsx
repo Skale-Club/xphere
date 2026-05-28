@@ -20,7 +20,7 @@
  */
 
 import * as React from 'react'
-import { Camera, Loader2, Trash2 } from 'lucide-react'
+import { Camera, CheckCircle2, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -46,6 +46,13 @@ export interface ContactAvatarUploaderProps {
   className?: string
   /** Called with the newly uploaded URL (or null after removal). */
   onAvatarChange?: (url: string | null) => void
+  /**
+   * When true, render a small CheckCircle in the bottom-left corner of the
+   * avatar — same visual weight as the camera badge in the bottom-right,
+   * mirroring its position. Read-only indicator: the verification action
+   * lives outside this component (MarkVerifiedButton).
+   */
+  isVerified?: boolean
 }
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif'
@@ -56,15 +63,18 @@ export function ContactAvatarUploader({
   initials,
   className,
   onAvatarChange,
+  isVerified = false,
 }: ContactAvatarUploaderProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [pending, setPending] = React.useState(false)
-  // Optimistic preview while the upload is in flight. We don't trust this for
-  // longer than the request — once the server responds we either swap to the
-  // canonical URL or revert to whatever was there before.
-  const [optimisticUrl, setOptimisticUrl] = React.useState<string | null>(null)
+  // Local override that wins over the `avatarUrl` prop. The wrapper object
+  // lets us distinguish "no override → use prop" (null) from "explicit
+  // override → use this value, even if null" ({ url: null }). Needed because
+  // a successful remove must render fallback initials regardless of whether
+  // the parent has refetched.
+  const [override, setOverride] = React.useState<{ url: string | null } | null>(null)
 
-  const displayUrl = optimisticUrl ?? avatarUrl
+  const displayUrl = override ? override.url : avatarUrl
 
   const openPicker = React.useCallback(() => {
     if (pending) return
@@ -84,24 +94,28 @@ export function ContactAvatarUploader({
       }
 
       const localUrl = URL.createObjectURL(file)
-      setOptimisticUrl(localUrl)
+      setOverride({ url: localUrl })
       setPending(true)
       try {
         const fd = new FormData()
         fd.append('file', file)
         const res = await uploadContactAvatar(contactId, fd)
         if (!res.ok) {
-          setOptimisticUrl(null)
+          setOverride(null) // back to parent prop
           toast.error(res.error || 'Could not upload avatar.')
           return
         }
-        // Swap from the blob URL to the real public URL so other surfaces
-        // pick it up after a refresh.
-        setOptimisticUrl(null)
+        // Pin the canonical public URL via the override so the avatar stays
+        // visible even if the parent never refetches the contact. (Earlier
+        // version cleared the override after success and relied on a parent
+        // refresh — when nothing was wired, the displayed image silently fell
+        // back to initials.) Parent still gets onAvatarChange so other
+        // surfaces can stay in sync.
+        setOverride({ url: res.url })
         onAvatarChange?.(res.url)
         toast.success('Avatar updated.')
       } catch (err) {
-        setOptimisticUrl(null)
+        setOverride(null)
         toast.error(err instanceof Error ? err.message : 'Upload failed.')
       } finally {
         setPending(false)
@@ -122,6 +136,9 @@ export function ContactAvatarUploader({
         toast.error(res.error || 'Could not remove avatar.')
         return
       }
+      // Explicit override → null so the fallback initials render even if the
+      // parent prop hasn't refreshed yet.
+      setOverride({ url: null })
       onAvatarChange?.(null)
       toast.success('Avatar removed.')
     } finally {
@@ -161,6 +178,18 @@ export function ContactAvatarUploader({
           <Camera className="h-2.5 w-2.5" />
         )}
       </span>
+      {isVerified && (
+        <span
+          className={cn(
+            'pointer-events-none absolute -bottom-0.5 -left-0.5 flex h-5 w-5 items-center justify-center rounded-full',
+            'border-2 border-bg-primary bg-emerald-500/20 text-emerald-400',
+          )}
+          aria-label="Verified"
+          title="Verified contact"
+        >
+          <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} />
+        </span>
+      )}
     </span>
   )
 

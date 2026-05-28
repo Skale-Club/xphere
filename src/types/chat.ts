@@ -54,6 +54,8 @@ export interface ConversationSummary {
   contactName?: string | null
   /** Public URL of the contact's uploaded avatar (contacts.avatar_url). NULL → fall back to initials. */
   contactAvatarUrl?: string | null
+  /** True when the linked contact has at least one row in contact_verifications. */
+  contactVerified?: boolean
   /** v2.2 | User the conversation is assigned to (assigned_user_id). */
   assignedUserId?: string | null
   /** SEED-035 | starred (favorite). Independent of pinned. */

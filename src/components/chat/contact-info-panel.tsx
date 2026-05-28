@@ -454,15 +454,27 @@ export function ContactInfoPanel({
               contactId={contact.id}
               avatarUrl={contact.avatar_url ?? null}
               initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
-            />
-            {/* Phase 110 D-07a + D-01a: identity status badge + Mark verified
-                action. MarkVerifiedButton is gated on identity_status='identified'
-                AND a present phone/email (Pitfall 2 — never rendered for
-                channel_only, merge_conflict, archived_duplicate, or verified). */}
-            <IdentityStatusBadge
-              status={contact.identity_status}
               isVerified={contact.is_verified ?? false}
+              onAvatarChange={(url) =>
+                setContact((prev) => (prev ? { ...prev, avatar_url: url } : prev))
+              }
             />
+            {/* Phase 110 D-07a + D-01a: identity status visuals.
+                - 'verified'           → CheckCircle overlay on the avatar
+                                         (ContactAvatarUploader handles it),
+                                         no pill, no Mark verified button.
+                - 'identified'         → no pill (default state), expose the
+                                         Mark verified action as a small button
+                                         here for one-click promotion.
+                - 'channel_only' /
+                  'merge_conflict'     → keep the pill so the operator sees the
+                                         exception state explicitly. */}
+            {contact.identity_status !== 'identified' && (
+              <IdentityStatusBadge
+                status={contact.identity_status}
+                isVerified={contact.is_verified ?? false}
+              />
+            )}
             {contact.identity_status === 'identified' &&
               !contact.is_verified &&
               (contact.phone || contact.email) && (

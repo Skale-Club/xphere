@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
-import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star } from 'lucide-react'
+import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star, CheckCircle2 } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 import { ConversationSummary } from '@/types/chat'
@@ -106,6 +106,7 @@ export interface ConversationFilterChange {
   priority?: string | null
   botStatus?: string | null
   unread?: boolean | null
+  verified?: boolean | null
   phoneNumberId?: string | null
 }
 
@@ -265,6 +266,7 @@ export function ConversationList({
       priority: advancedFilters.priorities[0] ?? null,
       botStatus: advancedFilters.botStatuses[0] ?? null,
       unread: advancedFilters.unread || null,
+      verified: advancedFilters.verified || null,
       phoneNumberId: advancedFilters.phoneNumberIds[0] ?? null,
     })
   }, [statusFilter, selectedChannels, advancedFilters, onFilterChange])
@@ -576,21 +578,32 @@ function ConversationCardBase({
           : 'hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/60 focus-visible:ring-2 focus-visible:ring-accent/20',
       )}
     >
-      <Avatar className="h-9 w-9 shrink-0">
-        {conversation.contactAvatarUrl ? (
-          <AvatarImage src={conversation.contactAvatarUrl} alt="" />
-        ) : null}
-        <AvatarFallback
-          className={cn(
-            'text-[12.5px] font-semibold',
-            selected
-              ? 'bg-accent text-white'
-              : 'bg-bg-tertiary text-text-secondary',
-          )}
-        >
-          {initial}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative shrink-0">
+        <Avatar className="h-9 w-9">
+          {conversation.contactAvatarUrl ? (
+            <AvatarImage src={conversation.contactAvatarUrl} alt="" />
+          ) : null}
+          <AvatarFallback
+            className={cn(
+              'text-[12.5px] font-semibold',
+              selected
+                ? 'bg-accent text-white'
+                : 'bg-bg-tertiary text-text-secondary',
+            )}
+          >
+            {initial}
+          </AvatarFallback>
+        </Avatar>
+        {conversation.contactVerified && (
+          <span
+            className="pointer-events-none absolute -bottom-0.5 -left-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-bg-primary bg-emerald-500/25 text-emerald-400"
+            aria-label="Verified contact"
+            title="Verified contact"
+          >
+            <CheckCircle2 className="h-2.5 w-2.5" strokeWidth={2.5} />
+          </span>
+        )}
+      </div>
 
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

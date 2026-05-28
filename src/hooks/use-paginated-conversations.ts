@@ -41,6 +41,8 @@ export interface ConversationFilters {
   priority?: string | null
   botStatus?: string | null
   unread?: boolean | null
+  /** Only conversations whose linked contact has a row in contact_verifications. */
+  verified?: boolean | null
   /** phone-numbers Phase 4 | restrict to a specific twilio_phone_numbers.id. */
   phoneNumberId?: string | null
 }
@@ -94,6 +96,7 @@ function buildUrl(filters: ConversationFilters, page: number, pageSize: number):
   if (filters.priority) sp.set('priority', filters.priority)
   if (filters.botStatus) sp.set('botStatus', filters.botStatus)
   if (filters.unread) sp.set('unread', '1')
+  if (filters.verified) sp.set('verified', '1')
   if (filters.phoneNumberId) sp.set('phone_number_id', filters.phoneNumberId)
   return `/api/chat/conversations?${sp.toString()}`
 }
@@ -133,6 +136,7 @@ export function usePaginatedConversations(
         p: filters.priority ?? null,
         b: filters.botStatus ?? null,
         u: filters.unread ?? null,
+        v: filters.verified ?? null,
         pn: filters.phoneNumberId ?? null,
       }),
     [
@@ -144,6 +148,7 @@ export function usePaginatedConversations(
       filters.priority,
       filters.botStatus,
       filters.unread,
+      filters.verified,
       filters.phoneNumberId,
     ],
   )

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Filter, X, Check, Star, Pin, Play, Pause } from 'lucide-react'
+import { Filter, X, Check, Star, Pin, Play, Pause, CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -29,6 +29,7 @@ export interface AdvancedFilters {
   starred: boolean
   pinned: boolean
   unread: boolean
+  verified: boolean
 }
 
 export const EMPTY_FILTERS: AdvancedFilters = {
@@ -41,6 +42,7 @@ export const EMPTY_FILTERS: AdvancedFilters = {
   starred: false,
   pinned: false,
   unread: false,
+  verified: false,
 }
 
 interface FilterPanelProps {
@@ -127,7 +129,8 @@ export function countActiveFilters(f: AdvancedFilters): number {
     f.labelIds.length +
     f.phoneNumberIds.length +
     (f.starred ? 1 : 0) +
-    (f.pinned ? 1 : 0)
+    (f.pinned ? 1 : 0) +
+    (f.verified ? 1 : 0)
   )
 }
 
@@ -180,7 +183,7 @@ export function FilterPanel({
     onChange(updated)
   }
 
-  const toggleBool = (key: 'starred' | 'pinned') => {
+  const toggleBool = (key: 'starred' | 'pinned' | 'verified') => {
     const updated = { ...local, [key]: !local[key] }
     setLocal(updated)
     onChange(updated)
@@ -410,6 +413,14 @@ export function FilterPanel({
                 activeClass="border-accent/40 bg-accent-muted text-accent"
               >
                 Pinned
+              </FilterChip>
+              <FilterChip
+                checked={local.verified}
+                onClick={() => toggleBool('verified')}
+                icon={CheckCircle2}
+                activeClass="border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+              >
+                Verified
               </FilterChip>
             </div>
           </Section>
