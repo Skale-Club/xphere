@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             SUPER ADMIN
           </span>
           <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            <span className="hidden sm:inline text-text-tertiary text-xs truncate max-w-[180px]">{user.email}</span>
+            <span className="hidden sm:inline text-text-tertiary text-xs truncate max-w-[180px]">{formatEmailDisplay(user.email)}</span>
             <Link
               href="/dashboard"
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle px-3 text-xs font-medium text-text-secondary transition-colors duration-100 hover:bg-bg-tertiary hover:text-text-primary"

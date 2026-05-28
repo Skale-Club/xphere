@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { TaskAssigneeAvatar } from './task-assignee-avatar'
 import { listProjectAssignees, updateTaskAssignee } from '@/app/(dashboard)/projects/actions'
 import type { AssigneeProfile } from '@/app/(dashboard)/projects/actions'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import { toast } from 'sonner'
 import { UserPlus2, X } from 'lucide-react'
 
@@ -55,7 +56,7 @@ export function AssigneePicker({ taskId, projectId, current, onChange }: Props) 
           {current ? (
             <>
               <TaskAssigneeAvatar name={current.full_name} email={current.email} size="xs" />
-              <span className="truncate max-w-[140px]">{current.full_name ?? current.email}</span>
+              <span className="truncate max-w-[140px]">{current.full_name ?? formatEmailDisplay(current.email)}</span>
             </>
           ) : (
             <>
@@ -86,7 +87,7 @@ export function AssigneePicker({ taskId, projectId, current, onChange }: Props) 
                     size="xs"
                     className="mr-2"
                   />
-                  <span className="truncate">{m.full_name ?? m.email}</span>
+                  <span className="truncate">{m.full_name ?? formatEmailDisplay(m.email)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

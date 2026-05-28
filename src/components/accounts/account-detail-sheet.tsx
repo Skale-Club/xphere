@@ -71,12 +71,23 @@ import {
 } from '@/components/ui/alert-dialog'
 import { InlineEditField } from '@/components/chat/inline-edit-field'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AvatarUploader } from '@/components/ui/avatar-uploader'
+import { InlinePhoneField } from '@/components/accounts/inline-phone-field'
+import { InlineSizeField } from '@/components/accounts/inline-size-field'
+import { AccountLinkContact } from '@/components/accounts/account-link-contact'
+import { AccountAttachDeal } from '@/components/accounts/account-attach-deal'
+import { OpportunityDetailSheet } from '@/components/pipeline/opportunity-detail-sheet'
+import { getStages } from '@/app/(dashboard)/pipeline/actions'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { initialsFromContactName, displayContactName } from '@/lib/contacts/names'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import {
   updateAccountField,
   deleteAccount,
+  uploadAccountAvatar,
+  removeAccountAvatar,
 } from '@/app/(dashboard)/companies/actions'
 import {
   getAccountDetail,
@@ -126,6 +137,20 @@ export function AccountDetailSheet({
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
+  // Clicking a linked deal opens the opportunity detail sheet ON TOP of this
+  // one (overlay popup) instead of navigating away. Stages are loaded lazily
+  // for the deal's pipeline, mirroring the chat contact info panel.
+  const [dealId, setDealId] = React.useState<string | null>(null)
+  const [dealStages, setDealStages] = React.useState<Awaited<ReturnType<typeof getStages>>>([])
+  const [dealCurrency, setDealCurrency] = React.useState('USD')
+
+  const openDeal = React.useCallback(async (o: OpportunityWithStage) => {
+    setDealCurrency(o.currency ?? 'USD')
+    setDealStages([])
+    setDealId(o.id)
+    if (o.pipeline_id) setDealStages(await getStages(o.pipeline_id))
+  }, [])
+
   // Load fresh data each time the dialog opens for a new account. Two parallel
   // queries: account+contacts and opportunities (separate action because the
   // opportunities query has its own OR-on-contact-ids fan-out).
@@ -160,6 +185,29 @@ export function AccountDetailSheet({
     }
   }, [accountId, open, onOpenChange])
 
+  // Re-fetch account + contacts + opportunities without the loading flash.
+  // Used after linking/attaching/quick-create and after a website save (which
+  // also rewrites the derived `domain` column server-side).
+  const reload = React.useCallback(async () => {
+    if (!accountId) return
+    const [detail, oppsRes] = await Promise.all([
+      getAccountDetail(accountId),
+      getAccountOpportunities(accountId),
+    ])
+    if (!detail.ok) return
+    setState({
+      account: detail.data.account,
+      contacts: detail.data.contacts,
+      opportunities: oppsRes.ok ? oppsRes.data : [],
+    })
+  }, [accountId])
+
+  // Re-fetch the modal AND tell the parent table to refresh its counts.
+  const handleChanged = React.useCallback(() => {
+    void reload()
+    onChanged?.()
+  }, [reload, onChanged])
+
   // Per-field save handler that commits a single column and patches the
   // in-memory account so the next edit picks up the new baseline.
   const saveField = React.useCallback(
@@ -167,6 +215,13 @@ export function AccountDetailSheet({
       if (!state) return
       const res = await updateAccountField(state.account.id, { field, value: next })
       if (!res.ok) throw new Error(res.error)
+      // Website rewrites the derived `domain` column too — re-fetch so the
+      // in-memory account stays consistent instead of patching one column.
+      if (field === 'website') {
+        await reload()
+        onChanged?.()
+        return
+      }
       setState((prev) =>
         prev
           ? {
@@ -183,7 +238,7 @@ export function AccountDetailSheet({
       )
       onChanged?.()
     },
-    [state, onChanged],
+    [state, onChanged, reload],
   )
 
   const handleDelete = React.useCallback(async () => {
@@ -240,9 +295,26 @@ export function AccountDetailSheet({
               {/* ── Header ─────────────────────────────────────────────── */}
               <div className="shrink-0 border-b border-border-subtle px-6 pt-6 pb-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-bg-tertiary">
-                    <Building2 className="h-5 w-5 text-text-secondary" />
-                  </div>
+                  <AvatarUploader
+                    id={account.id}
+                    avatarUrl={account.avatar_url}
+                    initials=""
+                    fallback={<Building2 className="h-5 w-5 text-text-secondary" />}
+                    fallbackClassName="bg-bg-tertiary text-text-secondary"
+                    className="h-12 w-12"
+                    uploadAction={uploadAccountAvatar}
+                    removeAction={removeAccountAvatar}
+                    uploadLabel="Upload company logo"
+                    changeLabel="Change or remove company logo"
+                    onAvatarChange={(url) => {
+                      setState((prev) =>
+                        prev
+                          ? { ...prev, account: { ...prev.account, avatar_url: url } as AccountRow }
+                          : prev,
+                      )
+                      onChanged?.()
+                    }}
+                  />
                   <div className="min-w-0 flex-1">
                     <InlineEditField
                       value={account.name}
@@ -275,15 +347,7 @@ export function AccountDetailSheet({
                 <div className="px-6 py-4 space-y-5">
                   {/* Info grid: 1 col on small, 2 cols on md+ */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-                    <InlineRow icon={Globe} label="Domain">
-                      <InlineEditField
-                        value={account.domain}
-                        placeholder="acme.com"
-                        onSave={saveField('domain')}
-                        ariaLabel="Edit domain"
-                      />
-                    </InlineRow>
-                    <InlineRow icon={ExternalLink} label="Website">
+                    <InlineRow icon={Globe} label="Website">
                       <InlineEditField
                         value={account.website}
                         placeholder="https://acme.com"
@@ -301,18 +365,15 @@ export function AccountDetailSheet({
                       />
                     </InlineRow>
                     <InlineRow icon={Users} label="Size">
-                      <InlineEditField
+                      <InlineSizeField
                         value={account.size}
-                        placeholder="e.g. 11-50"
                         onSave={saveField('size')}
                         ariaLabel="Edit size"
                       />
                     </InlineRow>
                     <InlineRow icon={Phone} label="Phone">
-                      <InlineEditField
+                      <InlinePhoneField
                         value={account.phone}
-                        placeholder="+1 (555) 010-0000"
-                        type="tel"
                         onSave={saveField('phone')}
                         ariaLabel="Edit phone"
                       />
@@ -370,7 +431,7 @@ export function AccountDetailSheet({
                     {contacts.length === 0 ? (
                       <EmptyHint>No contacts linked yet.</EmptyHint>
                     ) : (
-                      <div className="divide-y divide-border-subtle rounded-[10px] border border-border-subtle">
+                      <div className="mb-2 divide-y divide-border-subtle rounded-[10px] border border-border-subtle">
                         {contacts.map((c) => (
                           <Link
                             key={c.id}
@@ -390,12 +451,13 @@ export function AccountDetailSheet({
                               )}
                             </span>
                             <span className="shrink-0 truncate text-[11px] text-text-tertiary">
-                              {c.email ?? c.phone ?? ''}
+                              {formatEmailDisplay(c.email) || formatPhoneDisplay(c.phone) || ''}
                             </span>
                           </Link>
                         ))}
                       </div>
                     )}
+                    <AccountLinkContact accountId={account.id} onLinked={handleChanged} />
                   </Section>
 
                   {/* Linked opportunities */}
@@ -403,13 +465,13 @@ export function AccountDetailSheet({
                     {opportunities.length === 0 ? (
                       <EmptyHint>No deals linked yet.</EmptyHint>
                     ) : (
-                      <div className="divide-y divide-border-subtle rounded-[10px] border border-border-subtle">
+                      <div className="mb-2 divide-y divide-border-subtle rounded-[10px] border border-border-subtle">
                         {opportunities.map((o) => (
-                          <Link
+                          <button
                             key={o.id}
-                            href={`/pipeline/${o.id}`}
-                            className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-bg-tertiary/40"
-                            onClick={() => onOpenChange(false)}
+                            type="button"
+                            onClick={() => void openDeal(o)}
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-bg-tertiary/40"
                           >
                             <TrendingUp className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
                             <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-primary">
@@ -429,10 +491,15 @@ export function AccountDetailSheet({
                             <span className="shrink-0 text-[11px] text-text-tertiary tabular-nums">
                               {o.value ? formatCurrency(Number(o.value)) : ''}
                             </span>
-                          </Link>
+                          </button>
                         ))}
                       </div>
                     )}
+                    <AccountAttachDeal
+                      accountId={account.id}
+                      accountContacts={contacts}
+                      onChanged={handleChanged}
+                    />
                   </Section>
                 </div>
               </ScrollArea>
@@ -487,6 +554,19 @@ export function AccountDetailSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Deal detail — opens as an overlay on top of this sheet. */}
+      <OpportunityDetailSheet
+        opportunityId={dealId}
+        stages={dealStages}
+        defaultCurrency={dealCurrency}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDealId(null)
+            handleChanged()
+          }
+        }}
+      />
     </>
   )
 }
@@ -503,8 +583,8 @@ function InlineRow({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn('flex items-start gap-2', full && 'md:col-span-2')}>
-      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-bg-tertiary text-text-tertiary">
+    <div className={cn('flex items-center gap-2', full && 'md:col-span-2')}>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-bg-tertiary text-text-tertiary">
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="min-w-0 flex-1">

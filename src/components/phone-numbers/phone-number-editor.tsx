@@ -38,6 +38,7 @@ import {
   type OrgMemberOption,
   type TwilioPhoneNumberRow,
 } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 interface Props {
   number: TwilioPhoneNumberRow
@@ -261,7 +262,7 @@ export function PhoneNumberEditor({ number, members }: Props) {
                   <SelectItem key={m.user_id} value={m.user_id}>
                     {m.display_name}
                     {m.email && m.email !== m.display_name && (
-                      <span className="ml-1 text-text-tertiary">({m.email})</span>
+                      <span className="ml-1 text-text-tertiary">({formatEmailDisplay(m.email)})</span>
                     )}
                   </SelectItem>
                 ))}

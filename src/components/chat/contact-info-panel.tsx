@@ -85,6 +85,7 @@ import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType, Database } from '@/types/database'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
@@ -487,7 +488,7 @@ export function ContactInfoPanel({
                 <MarkVerifiedButton
                   contactId={contact.id}
                   identifierType={contact.phone ? 'phone' : 'email'}
-                  identifierValue={(contact.phone ?? contact.email)!}
+                  identifierValue={(contact.phone ?? formatEmailDisplay(contact.email))!}
                   onMarked={refresh}
                 />
               )}
@@ -609,7 +610,7 @@ export function ContactInfoPanel({
             </InlineRow>
             <InlineRow icon={Mail} label="Email">
               <InlineEditEmailField
-                value={contact.email}
+                value={formatEmailDisplay(contact.email)}
                 placeholder="Add email"
                 onSave={saveField('email')}
                 ariaLabel="Edit email"

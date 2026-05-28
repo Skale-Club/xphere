@@ -10,16 +10,30 @@ interface Props {
 export function AccountDetailHeader({ account }: Props) {
   return (
     <div className="rounded-[12px] border border-border bg-bg-secondary p-6">
-      {/* Eyebrow breadcrumb */}
-      <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-        <Building2 className="h-3.5 w-3.5 text-accent" />
-        <span>CRM / Companies</span>
-      </div>
+      <div className="flex items-start gap-4">
+        {/* Company logo (read-only here; editing lives in the modal) */}
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-bg-tertiary">
+          {account.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={account.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Building2 className="h-6 w-6 text-text-secondary" />
+          )}
+        </div>
 
-      {/* Company name */}
-      <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-text-primary">
-        {account.name}
-      </h1>
+        <div className="min-w-0 flex-1">
+          {/* Eyebrow breadcrumb */}
+          <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+            <Building2 className="h-3.5 w-3.5 text-accent" />
+            <span>CRM / Companies</span>
+          </div>
+
+          {/* Company name */}
+          <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-text-primary">
+            {account.name}
+          </h1>
+        </div>
+      </div>
 
       {/* Pill grid: domain, industry, size, tags */}
       <div className="mt-3 flex flex-wrap gap-2">

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { initialsOf, relativeTime } from '@/lib/pipeline/format'
 import { displayContactName } from '@/lib/contacts/names'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 interface ContactItem {
   id: string
@@ -67,7 +68,7 @@ export function AccountContactsTab({ contacts, accountId }: Props) {
                   {displayContactName(contact, 'Unnamed')}
                 </p>
                 <p className="text-[12px] text-text-tertiary truncate">
-                  {[contact.phone ? formatPhoneDisplay(contact.phone) : null, contact.email]
+                  {[contact.phone ? formatPhoneDisplay(contact.phone) : null, formatEmailDisplay(contact.email) || null]
                     .filter(Boolean)
                     .join(' · ') || 'No contact info'}
                 </p>

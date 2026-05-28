@@ -47,6 +47,7 @@ import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
 import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
 import type { CustomFieldType } from "@/types/database";
 import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
+import { formatEmailDisplay } from "@/lib/email-addresses/format";
 
 import {
   displayContactName,
@@ -388,7 +389,7 @@ export function ContactsTable({
                       <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                     </div>
                     <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
-                      {c.company || c.email || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
+                      {c.company || formatEmailDisplay(c.email) || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
                     </div>
                     {c.tags.length > 0 && (
                       <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -536,7 +537,7 @@ export function ContactsTable({
                     {c.email && !isValidEmail(c.email) && (
                       <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />
                     )}
-                    <span className="truncate">{c.email || "|"}</span>
+                    <span className="truncate">{formatEmailDisplay(c.email) || "|"}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 overflow-hidden">
                     {c.tags.slice(0, 2).map((tagName) => {

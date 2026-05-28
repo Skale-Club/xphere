@@ -31,6 +31,7 @@ import {
 import type { Database } from '@/types/database'
 import { displayContactName } from '@/lib/contacts/names'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 type PipelineRow = Database['public']['Tables']['pipelines']['Row']
@@ -48,6 +49,9 @@ interface AddOpportunityDialogProps {
   accountId: string
   accountContacts: AccountContact[]
   children?: React.ReactNode // custom trigger element
+  /** Called after a deal is successfully created + linked. Lets a parent that
+   *  holds its own client state (e.g. the company modal) re-fetch. */
+  onCreated?: () => void
 }
 
 type CreationPath = 'contact' | 'account' | null
@@ -56,6 +60,7 @@ export function AddOpportunityDialog({
   accountId,
   accountContacts,
   children,
+  onCreated,
 }: AddOpportunityDialogProps) {
   const router = useRouter()
 
@@ -145,6 +150,7 @@ export function AddOpportunityDialog({
     toast.success('Opportunity created')
     setOpen(false)
     resetState()
+    onCreated?.()
     router.refresh()
   }
 
@@ -248,7 +254,7 @@ export function AddOpportunityDialog({
                             <span>{displayContactName(c, 'Unnamed')}</span>
                             {(c.phone ?? c.email) && (
                               <span className="text-[11px] text-text-tertiary">
-                                {c.phone ? formatPhoneDisplay(c.phone) : c.email}
+                                {c.phone ? formatPhoneDisplay(c.phone) : formatEmailDisplay(c.email)}
                               </span>
                             )}
                           </span>

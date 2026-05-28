@@ -11,6 +11,7 @@ import {
   searchContactsForLink,
 } from '@/app/(dashboard)/chat/actions'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 interface ContactHit {
   id: string
@@ -134,7 +135,7 @@ export function InlineContactPicker({ conversationId, onLinked }: InlineContactP
                       {displayContactName(c)}
                     </div>
                     <div className="truncate text-[10.5px] text-text-tertiary">
-                      {[c.phone, c.email, c.company].filter(Boolean).join(' · ') ||
+                      {[c.phone, formatEmailDisplay(c.email), c.company].filter(Boolean).join(' · ') ||
                         'No contact info'}
                     </div>
                   </div>

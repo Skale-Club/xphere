@@ -2066,6 +2066,7 @@ export interface Database {
           phone: string | null
           address: string | null
           notes: string | null
+          avatar_url: string | null
           tags: string[]
           custom_fields: Record<string, unknown>
           external_id: string | null
@@ -2086,6 +2087,7 @@ export interface Database {
           phone?: string | null
           address?: string | null
           notes?: string | null
+          avatar_url?: string | null
           tags?: string[]
           custom_fields?: Record<string, unknown>
           external_id?: string | null
@@ -2104,6 +2106,7 @@ export interface Database {
           phone?: string | null
           address?: string | null
           notes?: string | null
+          avatar_url?: string | null
           tags?: string[]
           custom_fields?: Record<string, unknown>
           external_id?: string | null

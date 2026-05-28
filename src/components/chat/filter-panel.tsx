@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { cn } from '@/lib/utils'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
 
 export type InboxViewFilter = 'all' | 'unread' | 'mine'
@@ -354,7 +355,7 @@ export function FilterPanel({
                   checked={local.assignedUserIds.includes(m.userId)}
                   onClick={() => toggle('assignedUserIds', m.userId)}
                 >
-                  {m.displayName ?? m.email ?? m.userId}
+                  {m.displayName ?? (formatEmailDisplay(m.email) || m.userId)}
                 </FilterChip>
               ))}
             </div>

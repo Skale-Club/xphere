@@ -917,6 +917,38 @@ export async function searchContactsForOpportunity(q: string): Promise<
   return data ?? []
 }
 
+// ─── Opportunity lookup for "attach existing deal to company" ────────────────
+//
+// Returns open deals that are NOT yet attached to any account, so the company
+// modal can offer them for attaching. (A deal has a single account_id, so a
+// deal already on another company is intentionally hidden here.)
+
+export async function searchOpportunities(q: string): Promise<
+  Array<{ id: string; title: string | null; value: number | null; stage_name: string | null }>
+> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  let query = supabase
+    .from('opportunities')
+    .select('id, title, value, status, account_id, stage:pipeline_stages(name)')
+    .eq('status', 'open')
+    .is('account_id', null)
+    .limit(10)
+  if (q && q.trim()) {
+    const escaped = q.trim().replace(/[%_]/g, (m) => `\\${m}`)
+    query = query.ilike('title', `%${escaped}%`)
+  } else {
+    query = query.order('updated_at', { ascending: false })
+  }
+  const { data } = await query
+  return (data ?? []).map((o) => {
+    const stage = o.stage as { name?: string } | { name?: string }[] | null
+    const stageName = Array.isArray(stage) ? (stage[0]?.name ?? null) : (stage?.name ?? null)
+    return { id: o.id, title: o.title, value: o.value, stage_name: stageName }
+  })
+}
+
 // ─── Export (CF-13) ──────────────────────────────────────────────────────────
 
 function csvEscape(val: string): string {
