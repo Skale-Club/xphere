@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { formatCurrency } from '@/lib/pipeline/format'
+import { getOrgSettings } from '@/lib/org/settings'
 import type { ResolvedPeriod } from '@/lib/dashboard/period'
 
 /**
@@ -21,6 +22,7 @@ export async function MetricDealsWon({ range }: Props) {
   let prevCount = 0
   let series: { value: number }[] = []
   let everCount = 0
+  const { currency } = await getOrgSettings()
 
   try {
     const supabase = await createClient()
@@ -84,7 +86,7 @@ export async function MetricDealsWon({ range }: Props) {
       data={series}
       tone="success"
       href="/pipeline?status=won"
-      hint={value > 0 ? `${formatCurrency(value)} · ${range.label}` : range.label}
+      hint={value > 0 ? `${formatCurrency(value, currency)} · ${range.label}` : range.label}
       index={2}
     />
   )
@@ -95,7 +97,7 @@ function bucketByDay<T>(
   range: ResolvedPeriod,
   ts: (r: T) => string | null | undefined,
 ): { value: number }[] {
-  const startMs = range.from.getTime()
+  const startMs = range.bucketStart.getTime()
   const dayMs = 86_400_000
   const buckets = new Array(range.days).fill(0)
   for (const r of rows) {

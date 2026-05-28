@@ -4,6 +4,15 @@ import { MessageSquarePlus, UserPlus, TrendingUp, Sparkles } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { StatusPill } from '@/components/design-system/status-pill'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
+import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
+import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dialog'
+import { getDefaultPipeline } from '@/app/(dashboard)/pipeline/actions'
+
+// Shared chip styling | reused by the link chip and the dialog-trigger chips.
+const CHIP_CLASS =
+  'group inline-flex items-center gap-1.5 rounded-[6px] border border-border-subtle bg-bg-tertiary px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-all hover:-translate-y-0.5 hover:border-border-strong hover:bg-bg-tertiary/70 hover:text-text-primary hover:shadow-elevation-sm'
+
+const CHIP_ICON_CLASS = 'h-3.5 w-3.5 text-text-tertiary group-hover:text-accent'
 
 /**
  * Hero / overview row for the home dashboard.
@@ -53,6 +62,17 @@ export async function HeroSection() {
     console.error('[dashboard:hero] health lookup failed', err)
   }
 
+  // Default pipeline | needed so the "New deal" dialog can create an
+  // opportunity inline. Falls back to a plain link if none exists yet.
+  let defaultPipelineId: string | null = null
+  try {
+    const pipeline = await getDefaultPipeline()
+    defaultPipelineId = pipeline?.id ?? null
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[dashboard:hero] default pipeline lookup failed', err)
+  }
+
   const greeting = greetingFor(new Date())
 
   return (
@@ -73,8 +93,26 @@ export async function HeroSection() {
 
         <div className="flex flex-wrap items-center gap-2">
           <QuickChip href="/chat" icon={MessageSquarePlus} label="New conversation" />
-          <QuickChip href="/contacts/new" icon={UserPlus} label="New contact" />
-          <QuickChip href="/pipeline" icon={TrendingUp} label="New deal" />
+
+          <NewContactDialog
+            trigger={
+              <button type="button" className={CHIP_CLASS}>
+                <UserPlus className={CHIP_ICON_CLASS} />
+                <span>New contact</span>
+              </button>
+            }
+          />
+
+          {defaultPipelineId ? (
+            <NewOpportunityDialog pipelineId={defaultPipelineId}>
+              <button type="button" className={CHIP_CLASS}>
+                <TrendingUp className={CHIP_ICON_CLASS} />
+                <span>New deal</span>
+              </button>
+            </NewOpportunityDialog>
+          ) : (
+            <QuickChip href="/pipeline" icon={TrendingUp} label="New deal" />
+          )}
         </div>
       </div>
 
@@ -106,11 +144,8 @@ function QuickChip({
   label: string
 }) {
   return (
-    <Link
-      href={href}
-      className="group inline-flex items-center gap-1.5 rounded-[6px] border border-border-subtle bg-bg-tertiary px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-all hover:-translate-y-0.5 hover:border-border-strong hover:bg-bg-tertiary/70 hover:text-text-primary hover:shadow-elevation-sm"
-    >
-      <Icon className="h-3.5 w-3.5 text-text-tertiary group-hover:text-accent" />
+    <Link href={href} className={CHIP_CLASS}>
+      <Icon className={CHIP_ICON_CLASS} />
       <span>{label}</span>
     </Link>
   )

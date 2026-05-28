@@ -21,6 +21,7 @@ export type Period =
   | '30d'
   | 'month'
   | 'last_month'
+  | 'all_time'
 
 export const PERIODS: { value: Period; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -29,6 +30,7 @@ export const PERIODS: { value: Period; label: string }[] = [
   { value: '30d', label: 'Last 30 days' },
   { value: 'month', label: 'This month' },
   { value: 'last_month', label: 'Last month' },
+  { value: 'all_time', label: 'All time' },
 ]
 
 export const DEFAULT_PERIOD: Period = 'today'
@@ -54,6 +56,13 @@ export interface ResolvedPeriod {
   prevTo: Date
   /** Window length in whole days. Bucket count for the sparkline (capped at 30). */
   days: number
+  /**
+   * Origin date for sparkline bucketing. Equals `from` for fixed windows, but
+   * for 'all_time' it's pinned to the most recent `days` so the chart shows
+   * recent trend instead of an empty band (bucketing from 1970 would push all
+   * data far past the bucket count).
+   */
+  bucketStart: Date
 }
 
 const MS_DAY = 86_400_000
@@ -95,16 +104,36 @@ export function resolvePeriod(period: Period): ResolvedPeriod {
       from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       to = new Date(now.getFullYear(), now.getMonth(), 1)
       break
+    case 'all_time':
+      // Epoch → tomorrow. No meaningful previous window, so trends suppress.
+      from = new Date(0)
+      to = tomorrow
+      break
   }
 
   const length = to.getTime() - from.getTime()
-  const prevFrom = new Date(from.getTime() - length)
-  const prevTo = new Date(from.getTime())
 
-  // Day count rounded up so partial last day still counts as one bucket.
-  const days = Math.max(1, Math.min(30, Math.ceil(length / MS_DAY)))
+  let prevFrom: Date
+  let prevTo: Date
+  let days: number
+  let bucketStart: Date
+
+  if (period === 'all_time') {
+    // No comparison window — zero-length so prevCount=0 → trend renders null.
+    prevFrom = from
+    prevTo = from
+    // Sparkline shows the most recent 30 days of the (unbounded) range.
+    days = 30
+    bucketStart = new Date(today.getTime() - (days - 1) * MS_DAY)
+  } else {
+    prevFrom = new Date(from.getTime() - length)
+    prevTo = new Date(from.getTime())
+    // Day count rounded up so a partial last day still counts as one bucket.
+    days = Math.max(1, Math.min(30, Math.ceil(length / MS_DAY)))
+    bucketStart = from
+  }
 
   const label = PERIODS.find((p) => p.value === period)?.label ?? period
 
-  return { period, label, from, to, prevFrom, prevTo, days }
+  return { period, label, from, to, prevFrom, prevTo, days, bucketStart }
 }

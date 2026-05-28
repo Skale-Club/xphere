@@ -120,6 +120,86 @@ export async function updateDefaultCurrency(currency: string): Promise<ActionRes
   return { ok: true }
 }
 
+// ---------------------------------------------------------------------------
+// Company profile (migration 1105) — legal identity, tax id, address, timezone
+// ---------------------------------------------------------------------------
+
+const optionalText = (max: number) =>
+  z.string().trim().max(max).optional().nullable().or(z.literal(''))
+
+// Validate against the runtime's IANA tz list when available; fall back to a
+// loose check so older runtimes don't reject valid input.
+const SUPPORTED_TZS: string[] =
+  typeof (Intl as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf === 'function'
+    ? (Intl as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone')
+    : []
+
+const companyProfileSchema = z.object({
+  legal_name: optionalText(160),
+  tax_id: optionalText(64),
+  address_line1: optionalText(200),
+  address_line2: optionalText(200),
+  address_city: optionalText(120),
+  address_state: optionalText(120),
+  address_postal_code: optionalText(40),
+  // ISO-3166-1 alpha-2 (or empty)
+  address_country: z.string().trim().regex(/^[A-Za-z]{2}$/, 'Country must be a 2-letter code').optional().nullable().or(z.literal('')),
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .refine((v) => SUPPORTED_TZS.length === 0 || SUPPORTED_TZS.includes(v), 'Unknown timezone')
+    .optional(),
+})
+
+export type UpdateCompanyProfileInput = z.infer<typeof companyProfileSchema>
+
+/**
+ * Persist the company control-panel fields on the active org. Empty strings
+ * normalize to null; country is upper-cased. RLS enforces org membership.
+ */
+export async function updateCompanyProfile(input: UpdateCompanyProfileInput): Promise<ActionResult> {
+  const parsed = companyProfileSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+  }
+
+  const supabase = await createClient()
+  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
+  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+
+  const blank = (v: string | null | undefined) =>
+    v == null || v.trim() === '' ? null : v.trim()
+
+  const patch: Record<string, string | null> = {}
+  const d = parsed.data
+  if (d.legal_name !== undefined) patch.legal_name = blank(d.legal_name)
+  if (d.tax_id !== undefined) patch.tax_id = blank(d.tax_id)
+  if (d.address_line1 !== undefined) patch.address_line1 = blank(d.address_line1)
+  if (d.address_line2 !== undefined) patch.address_line2 = blank(d.address_line2)
+  if (d.address_city !== undefined) patch.address_city = blank(d.address_city)
+  if (d.address_state !== undefined) patch.address_state = blank(d.address_state)
+  if (d.address_postal_code !== undefined) patch.address_postal_code = blank(d.address_postal_code)
+  if (d.address_country !== undefined) {
+    const c = blank(d.address_country)
+    patch.address_country = c ? c.toUpperCase() : null
+  }
+  if (d.timezone !== undefined && d.timezone) patch.timezone = d.timezone
+
+  if (Object.keys(patch).length === 0) return { ok: true }
+
+  const { error } = await supabase
+    .from('organizations')
+    .update(patch)
+    .eq('id', orgId as string)
+  if (error) return { ok: false, error: error.message }
+
+  // Timezone/currency feed dashboard + email; revalidate the whole layout so
+  // server-rendered dates pick up the new org timezone.
+  revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
 export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | null }): Promise<ActionResult> {
   const parsed = costCapSchema.safeParse(input)
   if (!parsed.success) {

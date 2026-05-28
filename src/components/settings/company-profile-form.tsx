@@ -1,0 +1,227 @@
+'use client'
+
+import * as React from 'react'
+import { toast } from 'sonner'
+import { Building2, Loader2, Check } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { CurrencySelect } from '@/components/pipeline/currency-select'
+import {
+  updateCompanyProfile,
+  updateDefaultCurrency,
+} from '@/app/(dashboard)/settings/workspace/actions'
+
+export interface CompanyProfileShape {
+  legal_name: string | null
+  tax_id: string | null
+  address_line1: string | null
+  address_line2: string | null
+  address_city: string | null
+  address_state: string | null
+  address_postal_code: string | null
+  address_country: string | null
+  timezone: string
+  default_currency: string
+}
+
+interface Props {
+  initial: CompanyProfileShape
+}
+
+// IANA timezone list from the runtime when available; small fallback otherwise.
+const TIMEZONES: string[] = (() => {
+  const intl = Intl as { supportedValuesOf?: (k: string) => string[] }
+  if (typeof intl.supportedValuesOf === 'function') {
+    try {
+      return intl.supportedValuesOf('timeZone')
+    } catch {
+      /* fall through */
+    }
+  }
+  return ['UTC', 'America/Sao_Paulo', 'America/New_York', 'Europe/London', 'Europe/Lisbon']
+})()
+
+// Curated country list (ISO-3166-1 alpha-2). Expand as needed.
+const COUNTRIES: { code: string; name: string }[] = [
+  { code: 'BR', name: 'Brazil' },
+  { code: 'US', name: 'United States' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'MX', name: 'Mexico' },
+  { code: 'AR', name: 'Argentina' },
+  { code: 'CL', name: 'Chile' },
+  { code: 'CO', name: 'Colombia' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'FR', name: 'France' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'NZ', name: 'New Zealand' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'IN', name: 'India' },
+  { code: 'AE', name: 'United Arab Emirates' },
+]
+
+export function CompanyProfileForm({ initial }: Props) {
+  const [legalName, setLegalName] = React.useState(initial.legal_name ?? '')
+  const [taxId, setTaxId] = React.useState(initial.tax_id ?? '')
+  const [line1, setLine1] = React.useState(initial.address_line1 ?? '')
+  const [line2, setLine2] = React.useState(initial.address_line2 ?? '')
+  const [city, setCity] = React.useState(initial.address_city ?? '')
+  const [state, setState] = React.useState(initial.address_state ?? '')
+  const [postal, setPostal] = React.useState(initial.address_postal_code ?? '')
+  const [country, setCountry] = React.useState(initial.address_country ?? '')
+  const [timezone, setTimezone] = React.useState(initial.timezone ?? 'UTC')
+  const [currency, setCurrency] = React.useState(initial.default_currency ?? 'USD')
+  const [saving, setSaving] = React.useState(false)
+
+  const dirty =
+    legalName !== (initial.legal_name ?? '') ||
+    taxId !== (initial.tax_id ?? '') ||
+    line1 !== (initial.address_line1 ?? '') ||
+    line2 !== (initial.address_line2 ?? '') ||
+    city !== (initial.address_city ?? '') ||
+    state !== (initial.address_state ?? '') ||
+    postal !== (initial.address_postal_code ?? '') ||
+    country !== (initial.address_country ?? '') ||
+    timezone !== (initial.timezone ?? 'UTC') ||
+    currency !== (initial.default_currency ?? 'USD')
+
+  async function handleSave(e?: React.FormEvent) {
+    e?.preventDefault()
+    setSaving(true)
+    try {
+      const res = await updateCompanyProfile({
+        legal_name: legalName,
+        tax_id: taxId,
+        address_line1: line1,
+        address_line2: line2,
+        address_city: city,
+        address_state: state,
+        address_postal_code: postal,
+        address_country: country,
+        timezone,
+      })
+      if (!res.ok) {
+        toast.error(res.error ?? 'Failed to save company profile')
+        return
+      }
+      // Currency lives on its own action; only call when it changed.
+      if (currency !== (initial.default_currency ?? 'USD')) {
+        const cur = await updateDefaultCurrency(currency)
+        if (!cur.ok) {
+          toast.error(cur.error ?? 'Failed to save currency')
+          return
+        }
+      }
+      toast.success('Company profile saved')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSave}>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-text-tertiary" />
+            <CardTitle>Company</CardTitle>
+          </div>
+          <CardDescription>
+            Legal identity, tax ID, address, timezone and currency. The address is
+            used in email footers (legally required for marketing email) and the
+            timezone drives how dates display across the dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Legal name" htmlFor="legal_name">
+              <Input id="legal_name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Acme Inc." maxLength={160} />
+            </Field>
+            <Field label="Tax ID" htmlFor="tax_id">
+              <Input id="tax_id" value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="CNPJ / EIN / VAT" maxLength={64} />
+            </Field>
+          </div>
+
+          <div className="space-y-3">
+            <Field label="Address line 1" htmlFor="line1">
+              <Input id="line1" value={line1} onChange={(e) => setLine1(e.target.value)} placeholder="Street, number" maxLength={200} />
+            </Field>
+            <Field label="Address line 2" htmlFor="line2">
+              <Input id="line2" value={line2} onChange={(e) => setLine2(e.target.value)} placeholder="Suite, unit (optional)" maxLength={200} />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="City" htmlFor="city">
+                <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />
+              </Field>
+              <Field label="State / Region" htmlFor="state">
+                <Input id="state" value={state} onChange={(e) => setState(e.target.value)} maxLength={120} />
+              </Field>
+              <Field label="Postal code" htmlFor="postal">
+                <Input id="postal" value={postal} onChange={(e) => setPostal(e.target.value)} maxLength={40} />
+              </Field>
+            </div>
+            <Field label="Country" htmlFor="country">
+              <NativeSelect id="country" value={country} onChange={(e) => setCountry(e.target.value)}>
+                <option value="">Select country…</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Timezone" htmlFor="timezone">
+              <NativeSelect id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Default currency" htmlFor="currency">
+              <CurrencySelect value={currency} onChange={setCurrency} className="w-full" />
+            </Field>
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={!dirty || saving}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Save company profile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </form>
+  )
+}
+
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-[12px] text-text-secondary">{label}</Label>
+      {children}
+    </div>
+  )
+}
+
+function NativeSelect({
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className="h-9 w-full rounded-[8px] border border-border bg-bg-secondary px-2.5 text-[13.5px] text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {children}
+    </select>
+  )
+}

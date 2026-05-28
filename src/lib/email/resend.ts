@@ -10,6 +10,60 @@
 import { Resend } from 'resend'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { signUnsubscribeToken } from '@/lib/email/unsubscribe-token'
+
+const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
+
+/**
+ * 'marketing' email gets a compliance footer (physical address + unsubscribe
+ * link) and is suppressed for recipients on the org's unsubscribe list.
+ * 'transactional' (default) sends as-is — booking confirmations, receipts, etc.
+ */
+export type EmailKind = 'marketing' | 'transactional'
+
+/** Build the org's compliance footer HTML from the company profile + token. */
+function buildFooter(
+  org: {
+    name: string | null
+    legal_name: string | null
+    address_line1: string | null
+    address_line2: string | null
+    address_city: string | null
+    address_state: string | null
+    address_postal_code: string | null
+    address_country: string | null
+  } | null,
+  unsubscribeUrl: string,
+): string {
+  const company = org?.legal_name?.trim() || org?.name?.trim() || ''
+  const addressParts = [
+    org?.address_line1,
+    org?.address_line2,
+    [org?.address_city, org?.address_state].filter(Boolean).join(', '),
+    org?.address_postal_code,
+    org?.address_country,
+  ]
+    .map((p) => (p ?? '').trim())
+    .filter(Boolean)
+  const addressLine = addressParts.join(' · ')
+
+  return `
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#6b7280;text-align:center;">
+      ${company ? `<div style="font-weight:600;color:#374151;">${escapeHtml(company)}</div>` : ''}
+      ${addressLine ? `<div>${escapeHtml(addressLine)}</div>` : ''}
+      <div style="margin-top:8px;">
+        <a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a> from these emails.
+      </div>
+    </div>`
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
 
 // ─── Platform email ────────────────────────────────────────────────────────
 
@@ -75,10 +129,28 @@ export async function sendTenantEmail(
   to: string,
   subject: string,
   html: string,
-  replyTo?: string
-): Promise<{ id?: string; error?: string }> {
+  replyTo?: string,
+  opts?: { kind?: EmailKind }
+): Promise<{ id?: string; error?: string; skipped?: boolean }> {
   try {
+    const kind: EmailKind = opts?.kind ?? 'transactional'
     const supabase = createServiceRoleClient()
+    const recipient = to.trim().toLowerCase()
+
+    // Marketing email: honour the suppression list (skip silently if opted out).
+    if (kind === 'marketing') {
+      const { data: suppressed } = await supabase
+        .from('email_unsubscribes')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('email', recipient)
+        .maybeSingle()
+      if (suppressed) {
+        console.log(`[sendTenantEmail] skipped — ${recipient} unsubscribed (org ${orgId})`)
+        return { skipped: true }
+      }
+    }
+
     const { data: integrationRaw } = await supabase
       .from('tenant_email_integrations')
       .select('api_key_encrypted, default_from_name, default_from_email, default_reply_to, status')
@@ -107,12 +179,33 @@ export async function sendTenantEmail(
     const from = `${fromName} <${fromEmail}>`
     const resolvedReplyTo = replyTo ?? integration.default_reply_to ?? undefined
 
+    // Marketing email gets the compliance footer + List-Unsubscribe headers.
+    let finalHtml = html
+    let headers: Record<string, string> | undefined
+    if (kind === 'marketing') {
+      const { data: org } = await supabase
+        .from('organizations')
+        .select(
+          'name, legal_name, address_line1, address_line2, address_city, address_state, address_postal_code, address_country',
+        )
+        .eq('id', orgId)
+        .maybeSingle()
+      const token = await signUnsubscribeToken(orgId, recipient)
+      const unsubUrl = `${APP_ORIGIN}/unsubscribe/${token}`
+      finalHtml = html + buildFooter(org, unsubUrl)
+      headers = {
+        'List-Unsubscribe': `<${APP_ORIGIN}/api/unsubscribe/${token}>, <${unsubUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      }
+    }
+
     const { data, error } = await resend.emails.send({
       from,
       to,
       subject,
-      html,
+      html: finalHtml,
       ...(resolvedReplyTo ? { reply_to: resolvedReplyTo } : {}),
+      ...(headers ? { headers } : {}),
     })
 
     if (error) {

@@ -10,8 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { APP_NAME } from '@/lib/config'
-import { DEFAULT_ACCENT, deriveAccentHover, hexToRgba } from '@/lib/branding'
+import { DEFAULT_ACCENT } from '@/lib/branding'
 import { updateWorkspaceBranding, updateDailyCostCap } from '@/app/(dashboard)/settings/workspace/actions'
 
 interface OrgBrandingShape {
@@ -57,7 +56,6 @@ export function WorkspaceBrandingForm({ org }: Props) {
   const [logoUrl, setLogoUrl] = React.useState(org.logo_url ?? '')
   const [accent, setAccent] = React.useState(org.accent_color ?? DEFAULT_ACCENT)
   const [accentInput, setAccentInput] = React.useState(org.accent_color ?? DEFAULT_ACCENT)
-  const [brandName, setBrandName] = React.useState(org.brand_name ?? '')
   const [capInput, setCapInput] = React.useState(org.daily_cost_cap_usd != null ? String(org.daily_cost_cap_usd) : '')
   const [savingCap, setSavingCap] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -74,8 +72,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
   // Dirty detection.
   const dirty =
     (logoUrl || '') !== (org.logo_url ?? '') ||
-    accent !== (org.accent_color ?? DEFAULT_ACCENT) ||
-    (brandName || '') !== (org.brand_name ?? '')
+    accent !== (org.accent_color ?? DEFAULT_ACCENT)
 
   async function handleSave(e?: React.FormEvent) {
     e?.preventDefault()
@@ -87,7 +84,6 @@ export function WorkspaceBrandingForm({ org }: Props) {
     const result = await updateWorkspaceBranding({
       logo_url: logoUrl.trim() || null,
       accent_color: accentInput,
-      brand_name: brandName.trim() || null,
     })
     setSaving(false)
     if (!result.ok) {
@@ -104,12 +100,6 @@ export function WorkspaceBrandingForm({ org }: Props) {
   }
 
   const savedLabel = savedAt ? `Saved ${formatAgo(Date.now() - savedAt)}` : null
-
-  // Live preview values.
-  const previewAccent = HEX_RE.test(accentInput) ? accentInput : DEFAULT_ACCENT
-  const previewHover = deriveAccentHover(previewAccent)
-  const previewMuted = hexToRgba(previewAccent, 0.12)
-  const previewBrand = brandName.trim() || APP_NAME
 
   return (
     <form onSubmit={handleSave} className="space-y-4">
@@ -195,78 +185,6 @@ export function WorkspaceBrandingForm({ org }: Props) {
               className="font-mono"
               maxLength={7}
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Brand name */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Brand name</CardTitle>
-          <CardDescription>Optional white-label override. Replaces &quot;{APP_NAME}&quot; in the sidebar.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
-            value={brandName}
-            onChange={(e) => setBrandName(e.target.value)}
-            placeholder={APP_NAME}
-            maxLength={64}
-            className="max-w-md"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Live preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Live preview</CardTitle>
-          <CardDescription>How your dashboard chrome will look with these changes.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className="rounded-[12px] border border-border bg-bg-primary p-4"
-            style={{
-              ['--preview-accent' as string]: previewAccent,
-              ['--preview-accent-hover' as string]: previewHover,
-              ['--preview-accent-muted' as string]: previewMuted,
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="" className="h-6 w-6 rounded-[7px] object-cover ring-1 ring-border-subtle" />
-                ) : (
-                  <div
-                    className="h-6 w-6 rounded-[7px] flex items-center justify-center"
-                    style={{ background: `linear-gradient(135deg, ${previewAccent}, ${previewHover})` }}
-                  >
-                    <span className="text-[11px] font-bold text-white tracking-tighter">
-                      {previewBrand.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <span className="text-[13.5px] font-semibold text-text-primary">{previewBrand}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[12px] font-medium px-2 py-1 rounded-[6px]"
-                  style={{ background: previewMuted, color: previewAccent }}
-                >
-                  Active
-                </span>
-                <button
-                  type="button"
-                  className="text-[12px] font-medium px-3 py-1.5 rounded-[8px] text-white"
-                  style={{ backgroundColor: previewAccent }}
-                  onMouseDown={(e) => (e.currentTarget.style.backgroundColor = previewHover)}
-                  onMouseUp={(e) => (e.currentTarget.style.backgroundColor = previewAccent)}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = previewAccent)}
-                >
-                  Primary CTA
-                </button>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>

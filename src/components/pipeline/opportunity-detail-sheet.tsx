@@ -1,5 +1,21 @@
 'use client'
 
+/**
+ * OpportunityDetailSheet (v2 — inline edit + tabbed + mobile-first).
+ *
+ * Every field commits on its own (no Update button) — mirrors the chat
+ * contact info panel and the AccountDetailSheet. Sections live in a left
+ * sidebar on desktop and a horizontal scrollable tab bar on mobile:
+ *   Details · Contact · Activity · Tasks · Notes · Scheduling
+ *
+ * Reuses platform primitives:
+ *   - InlineEditField for text/date fields
+ *   - TasksTable / NotesGrid (client) fed by getTasks / getNotes
+ *   - ActivityFeedItem for the read-only timeline
+ *   - getSchedulingProfile / getEventTypes for the Scheduling CTA
+ *   - updateOpportunity (partial) / moveOpportunity / setOpportunityTags
+ */
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -10,20 +26,19 @@ import {
   Search,
   X,
   User as UserIcon,
-  Mail,
-  Phone,
-  Send,
   Info,
   CalendarDays,
+  CalendarPlus,
   ListChecks,
-  MessageSquare,
-  Radio,
+  StickyNote,
+  Activity as ActivityIcon,
+  ExternalLink,
+  Check,
 } from 'lucide-react'
 
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
@@ -31,7 +46,6 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -40,9 +54,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { TagPicker } from '@/components/tags/tag-picker'
-import { TagBadge } from '@/components/tags/tag-badge'
 import { ActivityFeedItem } from '@/components/pipeline/activity-feed-item'
+import { InlineEditField, InlineEditActions } from '@/components/chat/inline-edit-field'
+import { TasksTable } from '@/components/tasks/tasks-table'
+import { NotesGrid } from '@/components/notes/notes-grid'
+import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
   getOpportunity,
@@ -50,26 +77,36 @@ import {
   deleteOpportunity,
   moveOpportunity,
   getActivities,
-  addNote,
   searchContactsForOpportunity,
   type OpportunityWithContact,
   type ActivityWithMeta,
 } from '@/app/(dashboard)/pipeline/actions'
-import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
 import {
   listTags,
   setOpportunityTags,
   getOpportunityTagIds,
   type TagRow,
 } from '@/app/(dashboard)/settings/tags/actions'
-import { formatCurrency, initialsOf } from '@/lib/pipeline/format'
-import { displayContactName } from '@/lib/contacts/names'
+import { getTasks, type TaskRow } from '@/app/(dashboard)/tasks/actions'
+import { getNotes, type NoteRow } from '@/app/(dashboard)/notes/actions'
+import {
+  getSchedulingProfile,
+  type SchedulingProfile,
+} from '@/app/(dashboard)/scheduling/_actions/scheduling-profile'
+import {
+  getEventTypes,
+  type EventTypeRow,
+} from '@/app/(dashboard)/scheduling/_actions/event-types'
+import { formatCurrency } from '@/lib/pipeline/format'
+import { formatDateTime as formatDateTimeTz } from '@/lib/datetime'
+import { useOrgSettings } from '@/components/providers/org-settings-provider'
+import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import type { Database } from '@/types/database'
 import { cn } from '@/lib/utils'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 type OpportunityStatus = 'open' | 'won' | 'lost'
-type SideSection = 'details' | 'scheduling' | 'tasks' | 'notes' | 'channels'
+type SideSection = 'details' | 'contact' | 'activity' | 'tasks' | 'notes' | 'scheduling'
 
 interface ContactSuggestion {
   id: string
@@ -88,22 +125,13 @@ interface OpportunityDetailSheetProps {
 }
 
 const SIDE_ITEMS: { id: SideSection; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'details', label: 'Opportunity Details', icon: Info },
-  { id: 'scheduling', label: 'Scheduling', icon: CalendarDays },
+  { id: 'details', label: 'Details', icon: Info },
+  { id: 'contact', label: 'Contact', icon: UserIcon },
+  { id: 'activity', label: 'Activity', icon: ActivityIcon },
   { id: 'tasks', label: 'Tasks', icon: ListChecks },
-  { id: 'notes', label: 'Notes', icon: MessageSquare },
-  { id: 'channels', label: 'Channels', icon: Radio },
+  { id: 'notes', label: 'Notes', icon: StickyNote },
+  { id: 'scheduling', label: 'Scheduling', icon: CalendarDays },
 ]
-
-function formatDateTime(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
 
 export function OpportunityDetailSheet({
   opportunityId,
@@ -112,55 +140,40 @@ export function OpportunityDetailSheet({
   onOpenChange,
 }: OpportunityDetailSheetProps) {
   const router = useRouter()
+  const { timezone } = useOrgSettings()
   const [opp, setOpp] = React.useState<OpportunityWithContact | null>(null)
   const [activities, setActivities] = React.useState<ActivityWithMeta[]>([])
   const [allTags, setAllTags] = React.useState<TagRow[]>([])
   const [tagIds, setTagIds] = React.useState<string[]>([])
   const [loading, setLoading] = React.useState(false)
-  const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
-  const [noteDraft, setNoteDraft] = React.useState('')
-  const [addingNote, setAddingNote] = React.useState(false)
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [section, setSection] = React.useState<SideSection>('details')
-  const [dirty, setDirty] = React.useState(false)
 
-  // Form state
-  const [title, setTitle] = React.useState('')
-  const [value, setValue] = React.useState('')
-  const [stageId, setStageId] = React.useState('')
-  const [status, setStatus] = React.useState<OpportunityStatus>('open')
-  const [expectedClose, setExpectedClose] = React.useState('')
-  const [contact, setContact] = React.useState<ContactSuggestion | null>(null)
+  // Lazily-loaded section data
+  const [tasks, setTasks] = React.useState<TaskRow[] | null>(null)
+  const [notes, setNotes] = React.useState<NoteRow[] | null>(null)
+  const [profile, setProfile] = React.useState<SchedulingProfile | null>(null)
+  const [eventTypes, setEventTypes] = React.useState<EventTypeRow[]>([])
+  const [schedLoaded, setSchedLoaded] = React.useState(false)
+
+  // Contact picker (Contact tab)
   const [contactQuery, setContactQuery] = React.useState('')
   const [contactSuggestions, setContactSuggestions] = React.useState<ContactSuggestion[]>([])
   const [contactPickerOpen, setContactPickerOpen] = React.useState(false)
-  const [customFields, setCustomFields] = React.useState<Record<string, unknown>>({})
 
-  function populateForm(o: OpportunityWithContact) {
-    setTitle(o.title)
-    setValue(String(o.value ?? 0))
-    setStageId(o.stage_id)
-    setStatus((o.status as OpportunityStatus) ?? 'open')
-    setExpectedClose(o.expected_close_date ?? '')
-    setContact(o.contact ? {
-      id: o.contact.id,
-      first_name: o.contact.first_name ?? null,
-      last_name: o.contact.last_name ?? null,
-      name: o.contact.name,
-      phone: o.contact.phone,
-      email: o.contact.email,
-    } : null)
-    setCustomFields((o.custom_fields as Record<string, unknown>) ?? {})
-    setDirty(false)
-  }
+  const oppId = opp?.id ?? null
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   React.useEffect(() => {
     if (!opportunityId) {
       setOpp(null)
       setActivities([])
       setTagIds([])
+      setTasks(null)
+      setNotes(null)
+      setSchedLoaded(false)
       setSection('details')
-      setDirty(false)
       return
     }
     let cancelled = false
@@ -177,12 +190,66 @@ export function OpportunityDetailSheet({
       setActivities(acts)
       setTagIds(ids)
       setAllTags(tags)
-      if (o) populateForm(o)
       setLoading(false)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [opportunityId])
 
+  // ── Re-fetch opp + activities (after stage/status changes that log events) ──
+  const refreshOpp = React.useCallback(async () => {
+    if (!oppId) return
+    const [fresh, freshActs] = await Promise.all([
+      getOpportunity(oppId),
+      getActivities(oppId),
+    ])
+    setOpp(fresh)
+    setActivities(freshActs)
+    router.refresh()
+  }, [oppId, router])
+
+  // ── Tasks / Notes lazy fetch (+ refetch on focus, the slide-over seam) ──────
+  const fetchTasks = React.useCallback(async () => {
+    if (!oppId) return
+    const res = await getTasks({ entity_type: 'opportunity', entity_id: oppId })
+    setTasks(res.ok ? res.data : [])
+  }, [oppId])
+
+  const fetchNotes = React.useCallback(async () => {
+    if (!oppId) return
+    const res = await getNotes({ entity_type: 'opportunity', entity_id: oppId })
+    setNotes(res.ok ? res.data : [])
+  }, [oppId])
+
+  const fetchScheduling = React.useCallback(async () => {
+    const [p, et] = await Promise.all([getSchedulingProfile(), getEventTypes()])
+    setProfile(p.ok ? p.data : null)
+    setEventTypes(et.ok ? et.data : [])
+    setSchedLoaded(true)
+  }, [])
+
+  // Load section data when the section becomes active.
+  React.useEffect(() => {
+    if (!oppId) return
+    if (section === 'tasks' && tasks === null) void fetchTasks()
+    if (section === 'notes' && notes === null) void fetchNotes()
+    if (section === 'scheduling' && !schedLoaded) void fetchScheduling()
+  }, [section, oppId, tasks, notes, schedLoaded, fetchTasks, fetchNotes, fetchScheduling])
+
+  // TasksTable / NotesGrid mutate via their own slide-overs + router.refresh().
+  // Our in-sheet lists are client-fetched, so re-pull them when the window
+  // regains focus (covers returning from the slide-over) for the active tab.
+  React.useEffect(() => {
+    function onFocus() {
+      if (section === 'tasks') void fetchTasks()
+      else if (section === 'notes') void fetchNotes()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [section, fetchTasks, fetchNotes])
+
+  // ── Contact picker search ───────────────────────────────────────────────────
   React.useEffect(() => {
     if (!contactPickerOpen) return
     let cancelled = false
@@ -190,65 +257,111 @@ export function OpportunityDetailSheet({
       const rows = await searchContactsForOpportunity(contactQuery)
       if (!cancelled) setContactSuggestions(rows)
     }, 180)
-    return () => { cancelled = true; clearTimeout(t) }
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
   }, [contactQuery, contactPickerOpen])
 
-  function markDirty() {
-    if (!dirty) setDirty(true)
+  // ── Inline save handlers ────────────────────────────────────────────────────
+  const saveField = (field: 'title' | 'expected_close_date') => async (next: string) => {
+    if (!oppId) return
+    const payload =
+      field === 'expected_close_date'
+        ? { expected_close_date: next || undefined }
+        : { title: next.trim() }
+    const res = await updateOpportunity(oppId, payload)
+    if (res && 'error' in res && res.error) throw new Error(res.error)
+    setOpp((prev) =>
+      prev ? ({ ...prev, [field]: field === 'title' ? next.trim() : next || null } as OpportunityWithContact) : prev,
+    )
   }
 
-  async function handleSave() {
-    if (!opp) return
-    if (!title.trim()) { toast.error('Title is required'); return }
-    setSaving(true)
-    const numValue = Number((value || '0').replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0
-    const stageChanged = stageId !== opp.stage_id
+  async function saveValue(next: number) {
+    if (!oppId) return
+    const res = await updateOpportunity(oppId, { value: next, currency: defaultCurrency })
+    if (res && 'error' in res && res.error) throw new Error(res.error)
+    setOpp((prev) => (prev ? { ...prev, value: next } : prev))
+  }
 
-    const res = await updateOpportunity(opp.id, {
-      title: title.trim(),
-      value: numValue,
-      currency: defaultCurrency,
-      contact_id: contact?.id ?? null,
-      expected_close_date: expectedClose || undefined,
-      status,
-      custom_fields: customFields,
-    })
+  async function saveStage(stageId: string) {
+    if (!oppId || !opp || stageId === opp.stage_id) return
+    const res = await moveOpportunity(oppId, stageId)
     if (res && 'error' in res && res.error) {
-      setSaving(false)
       toast.error(res.error)
       return
     }
+    toast.success('Stage updated')
+    await refreshOpp()
+  }
 
-    if (stageChanged) {
-      const moveRes = await moveOpportunity(opp.id, stageId)
-      if (moveRes && 'error' in moveRes && moveRes.error) {
-        setSaving(false)
-        toast.error(moveRes.error)
-        return
-      }
+  async function saveStatus(status: OpportunityStatus) {
+    if (!oppId || !opp || status === opp.status) return
+    const res = await updateOpportunity(oppId, { status })
+    if (res && 'error' in res && res.error) {
+      toast.error(res.error)
+      return
     }
+    toast.success('Status updated')
+    await refreshOpp()
+  }
 
-    await setOpportunityTags(opp.id, tagIds)
+  async function saveContact(next: ContactSuggestion | null) {
+    if (!oppId) return
+    const res = await updateOpportunity(oppId, { contact_id: next?.id ?? null })
+    if (res && 'error' in res && res.error) {
+      toast.error(res.error)
+      return
+    }
+    setOpp((prev) =>
+      prev
+        ? {
+            ...prev,
+            contact_id: next?.id ?? null,
+            contact: next
+              ? {
+                  id: next.id,
+                  first_name: next.first_name,
+                  last_name: next.last_name,
+                  name: next.name,
+                  phone: next.phone,
+                  email: next.email,
+                  company: null,
+                }
+              : null,
+          }
+        : prev,
+    )
+    setContactPickerOpen(false)
+    setContactQuery('')
+    toast.success(next ? 'Contact linked' : 'Contact removed')
+  }
 
-    setSaving(false)
-    setDirty(false)
-    toast.success('Opportunity updated')
+  async function saveTags(ids: string[]) {
+    if (!oppId) return
+    setTagIds(ids)
+    const res = await setOpportunityTags(oppId, ids)
+    if (res && 'error' in (res as { error?: string }) && (res as { error?: string }).error) {
+      toast.error((res as { error?: string }).error!)
+    }
+  }
 
-    const [fresh, freshActs] = await Promise.all([
-      getOpportunity(opp.id),
-      getActivities(opp.id),
-    ])
-    setOpp(fresh)
-    setActivities(freshActs)
-    router.refresh()
+  async function saveCustomFields(v: Record<string, unknown>) {
+    if (!oppId) return
+    const res = await updateOpportunity(oppId, { custom_fields: v })
+    if (res && 'error' in res && res.error) {
+      toast.error(res.error)
+      return
+    }
+    setOpp((prev) => (prev ? { ...prev, custom_fields: v } : prev))
   }
 
   async function handleDelete() {
     if (!opp) return
-    if (!confirm(`Delete "${opp.title}"? This cannot be undone.`)) return
     setDeleting(true)
     const res = await deleteOpportunity(opp.id)
     setDeleting(false)
+    setConfirmDelete(false)
     if (res && 'error' in res && res.error) {
       toast.error(res.error)
       return
@@ -258,143 +371,125 @@ export function OpportunityDetailSheet({
     router.refresh()
   }
 
-  function handleCancel() {
-    if (opp) populateForm(opp)
-  }
-
-  async function handleAddNote() {
-    if (!opp || !noteDraft.trim()) return
-    setAddingNote(true)
-    const res = await addNote(opp.id, noteDraft.trim())
-    setAddingNote(false)
-    if ('error' in res && res.error) {
-      toast.error(res.error)
-      return
-    }
-    setNoteDraft('')
-    const fresh = await getActivities(opp.id)
-    setActivities(fresh)
-    router.refresh()
-  }
-
-  const stage = stages.find((s) => s.id === stageId)
-  const selectedTags = allTags.filter((t) => tagIds.includes(t.id))
+  const stage = opp ? stages.find((s) => s.id === opp.stage_id) : undefined
+  const status = (opp?.status as OpportunityStatus) ?? 'open'
 
   return (
-    <Dialog open={Boolean(opportunityId)} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(780px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[960px] flex-col overflow-hidden p-0 gap-0 bg-bg-secondary">
-        {loading && !opp ? (
-          <>
-            <VisuallyHidden><DialogTitle>Loading opportunity</DialogTitle></VisuallyHidden>
-            <div className="p-6 space-y-3 animate-pulse">
-              <div className="h-6 w-2/3 rounded bg-bg-tertiary" />
-              <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
-              <div className="h-32 rounded bg-bg-tertiary" />
-            </div>
-          </>
-        ) : !opp ? (
-          <>
-            <VisuallyHidden><DialogTitle>Opportunity not found</DialogTitle></VisuallyHidden>
-            <div className="p-6 text-[13px] text-text-secondary">Opportunity not found.</div>
-          </>
-        ) : (
-          <div className="flex flex-col overflow-hidden h-full">
-            {/* Header */}
-            <DialogHeader className="border-b border-border-subtle px-6 pt-5 pb-5 pr-14 space-y-0 shrink-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {stage && (
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
-                        style={{ backgroundColor: `${stage.color}1f`, color: stage.color }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stage.color }} />
-                        {stage.name}
-                      </span>
-                    )}
-                    <span className={cn(
+    <>
+      <Dialog open={Boolean(opportunityId)} onOpenChange={onOpenChange}>
+        <DialogContent
+          className={cn(
+            'flex flex-col overflow-hidden p-0 gap-0 bg-bg-secondary',
+            // Mobile: near-fullscreen. Desktop: capped width + height.
+            'w-[calc(100vw-1rem)] h-[calc(100dvh-1rem)]',
+            'sm:w-[calc(100vw-2rem)] md:h-[min(820px,calc(100vh-2rem))] md:max-w-[960px]',
+          )}
+        >
+          {loading && !opp ? (
+            <>
+              <VisuallyHidden><DialogTitle>Loading opportunity</DialogTitle></VisuallyHidden>
+              <div className="p-6 space-y-3 animate-pulse">
+                <div className="h-6 w-2/3 rounded bg-bg-tertiary" />
+                <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
+                <div className="h-32 rounded bg-bg-tertiary" />
+              </div>
+            </>
+          ) : !opp ? (
+            <>
+              <VisuallyHidden><DialogTitle>Opportunity not found</DialogTitle></VisuallyHidden>
+              <div className="p-6 text-[13px] text-text-secondary">Opportunity not found.</div>
+            </>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <VisuallyHidden><DialogTitle>{opp.title}</DialogTitle></VisuallyHidden>
+              <VisuallyHidden>
+                <DialogDescription>Edit opportunity details, contact, tasks and notes.</DialogDescription>
+              </VisuallyHidden>
+
+              {/* ── Header: inline title + value, display badges ──────────── */}
+              <div className="shrink-0 border-b border-border-subtle px-5 pt-5 pb-4 pr-14">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {stage && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                      style={{ backgroundColor: `${stage.color}1f`, color: stage.color }}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stage.color }} />
+                      {stage.name}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
                       'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium uppercase tracking-wider',
                       status === 'won' && 'bg-emerald-500/10 text-emerald-400',
                       status === 'lost' && 'bg-rose-500/10 text-rose-400',
                       status === 'open' && 'bg-bg-tertiary text-text-tertiary',
-                    )}>
-                      {status}
-                    </span>
-                  </div>
-                  <DialogTitle className="text-[22px] leading-[1.2] font-semibold tracking-[-0.01em] truncate">
-                    {opp.title}
-                  </DialogTitle>
-                  <DialogDescription asChild>
-                    <div className="text-[28px] leading-[1.1] font-semibold tabular-nums text-accent">
-                      {formatCurrency(Number(value) || Number(opp.value), defaultCurrency)}
-                    </div>
-                  </DialogDescription>
-                  {selectedTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {selectedTags.map((t) => <TagBadge key={t.id} name={t.name} color={t.color} />)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </DialogHeader>
-
-            {/* Body: sidebar + content */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar */}
-              <nav className="w-48 shrink-0 border-r border-border-subtle py-3 px-2 flex flex-col gap-0.5">
-                {SIDE_ITEMS.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setSection(id)}
-                    className={cn(
-                      'flex items-center gap-2.5 w-full rounded-[7px] px-3 py-2 text-left text-[13px] font-medium transition-colors',
-                      section === id
-                        ? 'bg-bg-tertiary text-text-primary'
-                        : 'text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary',
                     )}
                   >
-                    <Icon className={cn(
-                      'h-3.5 w-3.5 shrink-0',
-                      section === id ? 'text-accent' : 'text-text-tertiary',
-                    )} />
-                    <span className="truncate">{label}</span>
-                  </button>
-                ))}
-              </nav>
+                    {status}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <InlineEditField
+                    value={opp.title}
+                    placeholder="Untitled opportunity"
+                    onSave={saveField('title')}
+                    allowEmpty={false}
+                    ariaLabel="Edit title"
+                    className="!px-1 [&_span]:text-[20px] [&_span]:font-semibold [&_span]:tracking-tight"
+                  />
+                </div>
+                <div className="mt-0.5">
+                  <InlineValueField
+                    value={Number(opp.value) || 0}
+                    currency={defaultCurrency}
+                    onSave={saveValue}
+                  />
+                </div>
+              </div>
 
-              {/* Content */}
-              <div className="flex-1 overflow-hidden flex flex-col">
+              {/* ── Body: nav + content (column on mobile, row on desktop) ── */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+                {/* Nav: horizontal scroll tabs on mobile, vertical sidebar on md+ */}
+                <nav
+                  className={cn(
+                    'shrink-0 border-border-subtle',
+                    'flex gap-1 overflow-x-auto border-b px-2 py-2',
+                    'md:w-48 md:flex-col md:gap-0.5 md:overflow-x-visible md:border-b-0 md:border-r md:px-2 md:py-3',
+                  )}
+                >
+                  {SIDE_ITEMS.map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setSection(id)}
+                      className={cn(
+                        'flex shrink-0 items-center gap-2 rounded-[7px] px-3 py-2 text-left text-[13px] font-medium transition-colors',
+                        'md:w-full',
+                        section === id
+                          ? 'bg-bg-tertiary text-text-primary'
+                          : 'text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary',
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'h-3.5 w-3.5 shrink-0',
+                          section === id ? 'text-accent' : 'text-text-tertiary',
+                        )}
+                      />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </nav>
 
-                {/* DETAILS — always inline */}
-                {section === 'details' && (
-                  <>
-                    <div className="flex-1 overflow-y-auto px-6 py-5">
+                {/* Content */}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  {/* DETAILS */}
+                  {section === 'details' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                       <div className="space-y-4">
-                        <Field label="Title">
-                          <Input
-                            value={title}
-                            onChange={(e) => { setTitle(e.target.value); markDirty() }}
-                            maxLength={160}
-                          />
-                        </Field>
-
-                        <Field label={`Value (${defaultCurrency})`}>
-                          <Input
-                            value={value}
-                            onChange={(e) => { setValue(e.target.value); markDirty() }}
-                            onBlur={(e) => {
-                              const n = parseFloat(e.target.value.replace(/[^0-9.,-]/g, '').replace(',', '.'))
-                              if (!isNaN(n)) setValue(n.toFixed(2))
-                            }}
-                            inputMode="decimal"
-                            placeholder="0,00"
-                          />
-                        </Field>
-
-                        <Field label="Stage">
-                          <Select value={stageId} onValueChange={(v) => { setStageId(v); markDirty() }}>
+                        <FieldRow label="Stage">
+                          <Select value={opp.stage_id} onValueChange={saveStage}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {stages.map((s) => (
@@ -407,11 +502,11 @@ export function OpportunityDetailSheet({
                               ))}
                             </SelectContent>
                           </Select>
-                        </Field>
+                        </FieldRow>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <Field label="Status">
-                            <Select value={status} onValueChange={(v) => { setStatus(v as OpportunityStatus); markDirty() }}>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <FieldRow label="Status">
+                            <Select value={status} onValueChange={(v) => saveStatus(v as OpportunityStatus)}>
                               <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="open">Open</SelectItem>
@@ -419,201 +514,404 @@ export function OpportunityDetailSheet({
                                 <SelectItem value="lost">Lost</SelectItem>
                               </SelectContent>
                             </Select>
-                          </Field>
-                          <Field label="Expected close">
+                          </FieldRow>
+                          <FieldRow label="Expected close">
                             <Input
                               type="date"
-                              value={expectedClose}
-                              onChange={(e) => { setExpectedClose(e.target.value); markDirty() }}
+                              defaultValue={opp.expected_close_date ?? ''}
+                              onChange={(e) => void saveField('expected_close_date')(e.target.value)}
                             />
-                          </Field>
+                          </FieldRow>
                         </div>
 
-                        <Field label="Contact">
-                          {contact ? (
-                            <div className="flex items-center justify-between gap-2 rounded-[8px] border border-border-subtle px-3 py-2">
-                              <div className="min-w-0">
-                                <div className="text-[13px] font-medium text-text-primary truncate">
-                                  {displayContactName(contact, 'Unnamed')}
-                                </div>
-                                <div className="text-[11.5px] text-text-tertiary truncate">
-                                  {contact.phone ? formatPhoneDisplay(contact.phone) : contact.email ?? ''}
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => { setContact(null); markDirty() }}
-                                className="text-text-tertiary hover:text-text-primary"
-                                aria-label="Clear contact"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary" />
-                              <Input
-                                value={contactQuery}
-                                onChange={(e) => { setContactQuery(e.target.value); setContactPickerOpen(true) }}
-                                onFocus={() => setContactPickerOpen(true)}
-                                onBlur={() => setTimeout(() => setContactPickerOpen(false), 150)}
-                                placeholder="Search by name, phone, or email"
-                                className="pl-8"
-                              />
-                              {contactPickerOpen && contactSuggestions.length > 0 && (
-                                <div className="absolute z-50 mt-1 w-full rounded-[8px] border border-border-subtle bg-bg-primary shadow-elevation-md max-h-[220px] overflow-y-auto">
-                                  {contactSuggestions.map((s) => (
-                                    <button
-                                      key={s.id}
-                                      type="button"
-                                      onClick={() => { setContact(s); setContactPickerOpen(false); setContactQuery(''); markDirty() }}
-                                      className="flex w-full items-center justify-between gap-2 px-3 py-2 hover:bg-bg-secondary text-left"
-                                    >
-                                      <div className="min-w-0">
-                                        <div className="text-[12.5px] font-medium text-text-primary truncate">{displayContactName(s, 'Unnamed')}</div>
-                                        <div className="text-[11px] text-text-tertiary truncate">
-                                          {s.phone ? formatPhoneDisplay(s.phone) : s.email ?? ''}
-                                        </div>
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </Field>
-
-                        <Field label="Tags">
+                        <FieldRow label="Tags">
                           <TagPicker
                             allTags={allTags}
                             value={tagIds}
-                            onChange={(ids) => { setTagIds(ids); markDirty() }}
-                            onTagCreated={(tag) => setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)))}
+                            onChange={saveTags}
+                            onTagCreated={(tag) =>
+                              setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)))
+                            }
                           />
-                        </Field>
+                        </FieldRow>
 
                         <CustomFieldsForm
                           entity="opportunity"
-                          value={customFields}
-                          onChange={(v) => { setCustomFields(v); markDirty() }}
+                          value={(opp.custom_fields as Record<string, unknown>) ?? {}}
+                          onChange={saveCustomFields}
                         />
                       </div>
                     </div>
+                  )}
 
-                    {/* Fixed footer */}
-                    <div className="border-t border-border-subtle px-6 py-3 shrink-0 flex items-center justify-between gap-4">
-                      <div className="space-y-0.5 text-[11px] text-text-tertiary leading-relaxed">
-                        <div>Created On: <span className="text-text-secondary">{formatDateTime(opp.created_at)}</span></div>
-                        <div>Audit Logs: <span className="font-mono text-text-secondary">{opp.id}</span></div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={handleDelete}
-                          disabled={deleting}
-                          className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                          aria-label="Delete opportunity"
-                        >
-                          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleCancel} disabled={!dirty}>
-                          Cancel
-                        </Button>
-                        <Button size="sm" onClick={handleSave} disabled={saving || !dirty}>
-                          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                          Update
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* SCHEDULING */}
-                {section === 'scheduling' && (
-                  <div className="flex-1 flex items-center justify-center px-6 py-10">
-                    <div className="text-center space-y-2">
-                      <CalendarDays className="h-8 w-8 text-text-tertiary mx-auto" />
-                      <p className="text-[13px] font-medium text-text-secondary">Scheduling</p>
-                      <p className="text-[12px] text-text-tertiary">Coming soon</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* TASKS */}
-                {section === 'tasks' && (
-                  <div className="flex-1 flex items-center justify-center px-6 py-10">
-                    <div className="text-center space-y-2">
-                      <ListChecks className="h-8 w-8 text-text-tertiary mx-auto" />
-                      <p className="text-[13px] font-medium text-text-secondary">Tasks</p>
-                      <p className="text-[12px] text-text-tertiary">Coming soon</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* NOTES */}
-                {section === 'notes' && (
-                  <div className="flex-1 overflow-hidden flex flex-col">
-                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-                      {activities.length === 0 ? (
-                        <p className="text-[12.5px] text-text-tertiary py-8 text-center">No activity yet.</p>
+                  {/* CONTACT */}
+                  {section === 'contact' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                      {opp.contact ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary p-3">
+                            <Avatar className="h-10 w-10 shrink-0">
+                              <AvatarFallback className="bg-accent-muted text-accent text-[13px] font-semibold">
+                                {initialsFromContactName(
+                                  opp.contact,
+                                  opp.contact.email ?? opp.contact.phone ?? '?',
+                                )}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[14px] font-medium text-text-primary">
+                                {displayContactName(opp.contact, 'Unnamed')}
+                              </div>
+                              <div className="truncate text-[12px] text-text-tertiary">
+                                {opp.contact.phone
+                                  ? formatPhoneDisplay(opp.contact.phone)
+                                  : opp.contact.email ?? ''}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void saveContact(null)}
+                              className="shrink-0 rounded p-1 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
+                              aria-label="Unlink contact"
+                              title="Unlink contact"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {opp.contact.email && (
+                              <InfoCell label="Email" value={opp.contact.email} />
+                            )}
+                            {opp.contact.phone && (
+                              <InfoCell label="Phone" value={formatPhoneDisplay(opp.contact.phone)} />
+                            )}
+                            {opp.contact.company && (
+                              <InfoCell label="Company" value={opp.contact.company} />
+                            )}
+                          </div>
+                          <Button asChild variant="secondary" size="sm" className="gap-1.5">
+                            <Link href={`/chat?contact=${opp.contact.id}`} onClick={() => onOpenChange(false)}>
+                              Open contact <ExternalLink className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        </div>
                       ) : (
-                        activities.map((a) => <ActivityFeedItem key={a.id} activity={a} />)
+                        <div className="space-y-2">
+                          <Label className="text-[12px] text-text-secondary">Link a contact</Label>
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary" />
+                            <Input
+                              value={contactQuery}
+                              onChange={(e) => {
+                                setContactQuery(e.target.value)
+                                setContactPickerOpen(true)
+                              }}
+                              onFocus={() => setContactPickerOpen(true)}
+                              onBlur={() => setTimeout(() => setContactPickerOpen(false), 150)}
+                              placeholder="Search by name, phone, or email"
+                              className="pl-8"
+                            />
+                            {contactPickerOpen && contactSuggestions.length > 0 && (
+                              <div className="absolute z-50 mt-1 max-h-[240px] w-full overflow-y-auto rounded-[8px] border border-border-subtle bg-bg-primary shadow-elevation-md">
+                                {contactSuggestions.map((s) => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => void saveContact(s)}
+                                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-bg-secondary"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="truncate text-[12.5px] font-medium text-text-primary">
+                                        {displayContactName(s, 'Unnamed')}
+                                      </div>
+                                      <div className="truncate text-[11px] text-text-tertiary">
+                                        {s.phone ? formatPhoneDisplay(s.phone) : s.email ?? ''}
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <div className="border-t border-border-subtle px-6 py-3 shrink-0">
-                      <div className="flex gap-2">
-                        <Textarea
-                          value={noteDraft}
-                          onChange={(e) => setNoteDraft(e.target.value)}
-                          placeholder="Add a note…"
-                          rows={2}
-                          className="resize-none text-[13px]"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                              e.preventDefault()
-                              handleAddNote()
-                            }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={handleAddNote}
-                          disabled={addingNote || !noteDraft.trim()}
-                          className="self-end"
-                        >
-                          {addingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                        </Button>
-                      </div>
-                      <p className="mt-1 text-[10.5px] text-text-tertiary">⌘+Enter to send</p>
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {/* CHANNELS */}
-                {section === 'channels' && (
-                  <div className="flex-1 flex items-center justify-center px-6 py-10">
-                    <div className="text-center space-y-2">
-                      <Radio className="h-8 w-8 text-text-tertiary mx-auto" />
-                      <p className="text-[13px] font-medium text-text-secondary">Channels</p>
-                      <p className="text-[12px] text-text-tertiary">Coming soon</p>
+                  {/* ACTIVITY */}
+                  {section === 'activity' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                      {activities.length === 0 ? (
+                        <p className="py-8 text-center text-[12.5px] text-text-tertiary">No activity yet.</p>
+                      ) : (
+                        <div className="space-y-0">
+                          {activities.map((a, i) => (
+                            <ActivityFeedItem key={a.id} activity={a} last={i === activities.length - 1} />
+                          ))}
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* TASKS */}
+                  {section === 'tasks' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                      {tasks === null ? (
+                        <Loading />
+                      ) : (
+                        <TasksTable
+                          tasks={tasks}
+                          prefill={{ entity_type: 'opportunity', entity_id: opp.id }}
+                          compact
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* NOTES */}
+                  {section === 'notes' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                      {notes === null ? (
+                        <Loading />
+                      ) : (
+                        <NotesGrid
+                          notes={notes}
+                          prefill={{ entity_type: 'opportunity', entity_id: opp.id }}
+                          compact
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* SCHEDULING */}
+                  {section === 'scheduling' && (
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                      {!schedLoaded ? (
+                        <Loading />
+                      ) : !profile || eventTypes.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                          <CalendarPlus className="h-8 w-8 text-text-tertiary" />
+                          <div>
+                            <p className="text-[13px] font-medium text-text-secondary">
+                              Scheduling isn&apos;t set up yet
+                            </p>
+                            <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-text-tertiary">
+                              Connect a calendar and create an event type to start booking
+                              meetings from opportunities.
+                            </p>
+                          </div>
+                          <Button asChild size="sm" className="gap-1.5">
+                            <Link href="/scheduling" onClick={() => onOpenChange(false)}>
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Set up scheduling
+                            </Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label className="text-[12px] text-text-secondary">Event types</Label>
+                          <div className="divide-y divide-border-subtle rounded-[10px] border border-border-subtle">
+                            {eventTypes.map((et) => (
+                              <Link
+                                key={et.id}
+                                href={`/book/${profile.slug}/${et.slug}`}
+                                onClick={() => onOpenChange(false)}
+                                className="flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-bg-tertiary/40"
+                              >
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: et.color }}
+                                />
+                                <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-primary">
+                                  {et.title}
+                                </span>
+                                <span className="shrink-0 text-[11px] text-text-tertiary">
+                                  {et.duration_minutes} min
+                                </span>
+                                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+                              </Link>
+                            ))}
+                          </div>
+                          <Button asChild variant="ghost" size="sm" className="gap-1.5">
+                            <Link href="/scheduling" onClick={() => onOpenChange(false)}>
+                              Manage scheduling <ExternalLink className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Footer ─────────────────────────────────────────────────── */}
+              <div className="flex shrink-0 items-center justify-between gap-4 border-t border-border-subtle px-5 py-3">
+                <div className="space-y-0.5 text-[11px] leading-relaxed text-text-tertiary">
+                  <div>
+                    Created On: <span className="text-text-secondary">{formatDateTimeTz(opp.created_at, timezone)}</span>
                   </div>
-                )}
+                  <div className="hidden sm:block">
+                    Audit Logs: <span className="font-mono text-text-secondary">{opp.id}</span>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={deleting}
+                  className="shrink-0 gap-1.5 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                >
+                  {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Delete
+                </Button>
               </div>
             </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this opportunity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {opp ? `"${opp.title}" will be permanently removed. This cannot be undone.` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDelete()
+              }}
+              disabled={deleting}
+              className="bg-rose-500 hover:bg-rose-600"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * Inline currency editor for the header value. Display shows the formatted
+ * amount; clicking swaps to a raw-number input with Save/Cancel (reusing
+ * InlineEditActions). Mirrors InlineEditField's commit/rollback/toast loop.
+ */
+function InlineValueField({
+  value,
+  currency,
+  onSave,
+}: {
+  value: number
+  currency: string
+  onSave: (next: number) => Promise<void>
+}) {
+  const [editing, setEditing] = React.useState(false)
+  const [draft, setDraft] = React.useState(String(value))
+  const [saving, setSaving] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement | null>(null)
+
+  React.useEffect(() => {
+    if (!editing) setDraft(String(value))
+  }, [value, editing])
+
+  React.useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  async function commit() {
+    const n = Number(draft.replace(/[^0-9.,-]/g, '').replace(',', '.'))
+    const parsed = isNaN(n) ? 0 : n
+    if (parsed === value) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(parsed)
+      setEditing(false)
+      toast.success('Saved')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div
+        className="flex w-full items-center gap-1"
+        onBlur={(e) => {
+          const next = e.relatedTarget as Node | null
+          if (next && e.currentTarget.contains(next)) return
+          void commit()
+        }}
+      >
+        <Input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void commit()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              setDraft(String(value))
+              setEditing(false)
+            }
+          }}
+          inputMode="decimal"
+          disabled={saving}
+          className="h-9 max-w-[200px] text-[18px] font-semibold tabular-nums"
+        />
+        <InlineEditActions saving={saving} onSave={() => void commit()} onCancel={() => setEditing(false)} />
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="group inline-flex items-center gap-1.5 rounded-[6px] px-1 py-0.5 text-left transition-colors hover:bg-bg-tertiary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      title="Click to edit value"
+    >
+      <span className="text-[28px] font-semibold leading-[1.1] tabular-nums text-accent">
+        {formatCurrency(value, currency)}
+      </span>
+    </button>
+  )
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-[12px] font-medium text-text-secondary">{label}</Label>
       {children}
+    </div>
+  )
+}
+
+function InfoCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[8px] border border-border-subtle px-3 py-2">
+      <div className="text-[10.5px] uppercase tracking-wide text-text-tertiary">{label}</div>
+      <div className="mt-0.5 truncate text-[12.5px] text-text-primary">{value}</div>
+    </div>
+  )
+}
+
+function Loading() {
+  return (
+    <div className="flex items-center justify-center py-10">
+      <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
     </div>
   )
 }

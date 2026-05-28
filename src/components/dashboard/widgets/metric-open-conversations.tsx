@@ -99,7 +99,7 @@ function bucketByDay<T>(
   range: ResolvedPeriod,
   ts: (r: T) => string | null | undefined,
 ): { value: number }[] {
-  const startMs = range.from.getTime()
+  const startMs = range.bucketStart.getTime()
   const dayMs = 86_400_000
   const buckets = new Array(range.days).fill(0)
   for (const r of rows) {

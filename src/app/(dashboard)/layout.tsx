@@ -18,6 +18,8 @@ import { DialpadAvailabilityProvider } from '@/components/phone/dialpad-availabi
 import { PwaInstallProvider } from '@/components/pwa/pwa-install-context'
 import { PwaInstallDialog } from '@/components/pwa/pwa-install-dialog'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getOrgSettings } from '@/lib/org/settings'
+import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
 
@@ -108,8 +110,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     hasPhoneNumber = false
   }
 
+  // Org timezone + currency → client context so client-side date/money
+  // formatting matches server rendering (org is the source of truth).
+  const orgSettings = await getOrgSettings()
+
   return (
     <BreadcrumbOverrideProvider>
+      <OrgSettingsProvider value={{ timezone: orgSettings.timezone, currency: orgSettings.currency }}>
       <SidebarStateProvider>
         <CommandPaletteProvider>
           <DialpadAvailabilityProvider available={hasPhoneNumber}>
@@ -155,6 +162,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </DialpadAvailabilityProvider>
         </CommandPaletteProvider>
       </SidebarStateProvider>
+      </OrgSettingsProvider>
     </BreadcrumbOverrideProvider>
   )
 }

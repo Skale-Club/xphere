@@ -3,11 +3,8 @@ import { Palette } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { CompanyProfileForm } from '@/components/settings/company-profile-form'
 import { WorkspaceBrandingForm } from '@/components/settings/workspace-branding-form'
-import { CurrencySettingsSection } from '@/components/settings/currency-settings-section'
-import { WhatsAppProviderSettings } from './whatsapp-provider-settings'
-import { LabelsSettings } from './labels-settings'
-import { getActiveWhatsAppProvider } from './actions'
 
 export default async function WorkspaceSettingsPage() {
   const user = await getUser()
@@ -19,40 +16,50 @@ export default async function WorkspaceSettingsPage() {
 
   const { data: org } = await supabase
     .from('organizations')
-    .select('id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override, default_currency')
+    .select(
+      'id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country, timezone',
+    )
     .eq('id', orgId as string)
     .single()
 
   if (!org) redirect('/organizations')
-
-  const whatsapp = await getActiveWhatsAppProvider()
 
   return (
     <PageContainer size="narrow">
       <PageHeader
         eyebrow="Workspace"
         eyebrowIcon={Palette}
-        title="Branding"
-        description="Customize your workspace logo, accent color, and brand name. Changes apply instantly across the dashboard."
+        title="Workspace"
+        description="Your company identity, branding and usage controls. The company details below also feed billing and email compliance."
       />
-      <WorkspaceBrandingForm
-        org={{
-          id: org.id,
-          name: org.name,
-          logo_url: org.logo_url,
-          accent_color: org.accent_color,
-          brand_name: org.brand_name,
-          daily_cost_cap_usd: org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
+
+      <CompanyProfileForm
+        initial={{
+          legal_name: org.legal_name,
+          tax_id: org.tax_id,
+          address_line1: org.address_line1,
+          address_line2: org.address_line2,
+          address_city: org.address_city,
+          address_state: org.address_state,
+          address_postal_code: org.address_postal_code,
+          address_country: org.address_country,
+          timezone: org.timezone ?? 'UTC',
+          default_currency: org.default_currency ?? 'USD',
         }}
       />
+
       <div className="mt-8">
-        <CurrencySettingsSection defaultCurrency={org.default_currency ?? 'USD'} />
-      </div>
-      <div className="mt-8">
-        <WhatsAppProviderSettings initial={whatsapp} />
-      </div>
-      <div className="mt-8">
-        <LabelsSettings />
+        <WorkspaceBrandingForm
+          org={{
+            id: org.id,
+            name: org.name,
+            logo_url: org.logo_url,
+            accent_color: org.accent_color,
+            brand_name: org.brand_name,
+            daily_cost_cap_usd:
+              org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
+          }}
+        />
       </div>
     </PageContainer>
   )

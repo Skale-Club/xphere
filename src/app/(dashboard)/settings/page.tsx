@@ -8,6 +8,7 @@ import {
   Download,
   Mail,
   MapPin,
+  MessageSquare,
   Palette,
   Phone,
   PhoneCall,
@@ -46,15 +47,15 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
       {
         href: '/settings/workspace',
         icon: Palette,
-        title: 'Workspace & branding',
+        title: 'Workspace',
         description:
-          'Logo, accent color, brand name, default currency, cost cap, WhatsApp provider.',
+          'Company identity, tax ID, address, timezone, currency, branding and AI cost cap.',
       },
       {
         href: '/settings/tags',
         icon: Tag,
-        title: 'Tags',
-        description: 'Reusable tags for contacts and deals.',
+        title: 'Tags & labels',
+        description: 'Tags for contacts and deals, plus conversation labels for the inbox.',
       },
       {
         href: '/settings/custom-fields',
@@ -96,6 +97,12 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         icon: Plug,
         title: 'MCP server',
         description: 'Token and endpoint URL for external AI agents.',
+      },
+      {
+        href: '/widget',
+        icon: MessageSquare,
+        title: 'Chat widget',
+        description: 'Embeddable website chat — branding, welcome message and embed token.',
       },
     ],
   },

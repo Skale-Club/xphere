@@ -1,16 +1,16 @@
 'use client'
 
 /**
- * SEED-035 | workspace-level CRUD for conversation labels.
+ * Conversation labels CRUD (SEED-035).
  *
- * NOTE: integration into the workspace settings page is a follow-up step.
- * This file intentionally only defines the component so it can be embedded
- * later without touching `page.tsx` / `actions.ts` (which other agents may
- * modify in parallel).
+ * Lives on the Tags settings page alongside contact/deal tags — both are the
+ * same "colored chip" categorization pattern, so they share one settings
+ * surface. Conversation labels are a distinct entity (`conversation_labels`
+ * table, edited via `/api/chat/labels`) used to tag conversations across
+ * channels; they show up on inbox cards and in the advanced filter panel.
  *
- * Usage (when ready):
- *   import { LabelsSettings } from './labels-settings'
- *   <LabelsSettings />
+ * Self-contained: talks to the REST endpoints directly, no shared state with
+ * the Tags manager above it.
  */
 
 import { useEffect, useState } from 'react'
@@ -39,7 +39,7 @@ const DEFAULT_COLORS = [
   '#64748B', // slate
 ]
 
-export function LabelsSettings() {
+export function ConversationLabelsSettings() {
   const [labels, setLabels] = useState<Label[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)

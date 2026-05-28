@@ -308,6 +308,16 @@ export interface Database {
           accent_color: string | null
           brand_name: string | null
           default_currency: string
+          /** Migration 1105: company control panel fields */
+          legal_name: string | null
+          tax_id: string | null
+          address_line1: string | null
+          address_line2: string | null
+          address_city: string | null
+          address_state: string | null
+          address_postal_code: string | null
+          address_country: string | null
+          timezone: string
           settings: Json
           created_at: string
           updated_at: string
@@ -328,6 +338,15 @@ export interface Database {
           accent_color?: string | null
           brand_name?: string | null
           default_currency?: string
+          legal_name?: string | null
+          tax_id?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_postal_code?: string | null
+          address_country?: string | null
+          timezone?: string
           settings?: Json
           created_at?: string
           updated_at?: string
@@ -348,8 +367,41 @@ export interface Database {
           accent_color?: string | null
           brand_name?: string | null
           default_currency?: string
+          legal_name?: string | null
+          tax_id?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_postal_code?: string | null
+          address_country?: string | null
+          timezone?: string
           settings?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribes: {
+        Row: {
+          id: string
+          org_id: string
+          email: string
+          contact_id: string | null
+          unsubscribed_at: string
+          source: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          email: string
+          contact_id?: string | null
+          unsubscribed_at?: string
+          source?: string
+        }
+        Update: {
+          email?: string
+          contact_id?: string | null
+          source?: string
         }
         Relationships: []
       }

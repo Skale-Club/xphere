@@ -423,6 +423,11 @@ export function ContactInfoPanel({
 
   const reach = availableChannelsForContact(contact)
   const customFields = (contact.custom_fields as Record<string, unknown> | null) ?? {}
+  // A contact is "verified" either by an explicit verification row
+  // (is_verified) or by the literal DB status — treat both the same so the
+  // avatar dot shows and the redundant pill stays hidden in either case.
+  const isVerifiedContact =
+    (contact.is_verified ?? false) || contact.identity_status === 'verified'
 
   return (
     <>
@@ -454,29 +459,30 @@ export function ContactInfoPanel({
               contactId={contact.id}
               avatarUrl={contact.avatar_url ?? null}
               initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
-              isVerified={contact.is_verified ?? false}
+              isVerified={isVerifiedContact}
               onAvatarChange={(url) =>
                 setContact((prev) => (prev ? { ...prev, avatar_url: url } : prev))
               }
             />
             {/* Phase 110 D-07a + D-01a: identity status visuals.
-                - 'verified'           → CheckCircle overlay on the avatar
-                                         (ContactAvatarUploader handles it),
+                - verified (is_verified flag OR identity_status='verified')
+                                       → CheckCircle overlay on the avatar only,
                                          no pill, no Mark verified button.
                 - 'identified'         → no pill (default state), expose the
                                          Mark verified action as a small button
                                          here for one-click promotion.
                 - 'channel_only' /
-                  'merge_conflict'     → keep the pill so the operator sees the
+                  'merge_conflict'     → show the pill so the operator sees the
                                          exception state explicitly. */}
-            {contact.identity_status !== 'identified' && (
+            {(contact.identity_status === 'channel_only' ||
+              contact.identity_status === 'merge_conflict') && (
               <IdentityStatusBadge
                 status={contact.identity_status}
-                isVerified={contact.is_verified ?? false}
+                isVerified={isVerifiedContact}
               />
             )}
             {contact.identity_status === 'identified' &&
-              !contact.is_verified &&
+              !isVerifiedContact &&
               (contact.phone || contact.email) && (
                 <MarkVerifiedButton
                   contactId={contact.id}

@@ -16,7 +16,6 @@ export type IntegrationCategory =
   | 'ai'
   | 'scheduling'
   | 'reviews'
-  | 'email'
 
 export type PanelType =
   | 'api_key' // generic field form + Test + Save + Activate
@@ -313,19 +312,6 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     ],
   },
 
-  // ── Email ─────────────────────────────────────────────────────────────────
-  {
-    id: 'resend',
-    name: 'Resend',
-    description: 'Send and receive emails using your own domain. Powers email campaigns and conversation replies.',
-    category: 'email',
-    logo: { letter: 'R', color: 'bg-purple-600' },
-    panelType: 'oauth',
-    canActivate: false,
-    testable: false,
-    oauthHref: '/settings/email',
-  },
-
   // ── Reviews ───────────────────────────────────────────────────────────────
   {
     id: 'google_reviews',
@@ -346,7 +332,6 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
   'voice_sms',
   'crm',
   'ai',
-  'email',
   'scheduling',
   'reviews',
 ]
