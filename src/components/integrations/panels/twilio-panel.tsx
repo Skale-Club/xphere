@@ -39,7 +39,7 @@ export function TwilioPanel({ definition, existing, onClose }: CustomPanelProps)
   const [tab, setTab] = useState<Tab>('credentials')
 
   return (
-    <div className="flex h-full flex-col px-6 pt-6 pb-4">
+    <div className="flex flex-1 min-h-0 flex-col px-6 pt-6 pb-4">
       <SheetHeader className="space-y-3 pb-3">
         <div className="flex items-center gap-3">
           <IntegrationLogo logo={definition.logo} name={definition.name} size={40} />

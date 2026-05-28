@@ -110,7 +110,13 @@ export function WhatsAppPanel({ definition, onClose }: CustomPanelProps) {
   }
 
   return (
-    <div className="flex h-full flex-col px-6 pt-6 pb-4">
+    // `flex-1 min-h-0` instead of `h-full`: the DialogContent is a flex column
+    // capped at max-h-[85vh]; `h-full` (percentage) doesn't resolve against a
+    // max-height-only parent, so the inner `flex-1 overflow-y-auto` never got
+    // a constrained box to scroll inside. The min-h-0 trick lets flex children
+    // shrink below their intrinsic min-content height, which is what unblocks
+    // overflow scrolling.
+    <div className="flex flex-1 min-h-0 flex-col px-6 pt-6 pb-4">
       <SheetHeader className="space-y-3 pb-4">
         <div className="flex items-center gap-3">
           <IntegrationLogo logo={definition.logo} name={definition.name} size={40} />
