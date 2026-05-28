@@ -4,6 +4,7 @@ import { Inbox, Send, Phone, UserPlus, TrendingUp, Star, Calendar } from 'lucide
 import { createClient } from '@/lib/supabase/server'
 import { WidgetCard } from '@/components/dashboard/widget-card'
 import { cn } from '@/lib/utils'
+import type { ResolvedPeriod } from '@/lib/dashboard/period'
 
 interface Stat {
   id: string
@@ -15,11 +16,16 @@ interface Stat {
   hint?: string
 }
 
+interface Props {
+  range: ResolvedPeriod
+}
+
 /**
- * Snapshot of today's activity numbers | each stat is clickable and
- * deep-links to the relevant area filtered to today.
+ * Snapshot of activity numbers across the selected period. Each row is
+ * clickable and deep-links to the relevant area; the title and the row
+ * counters all flex with `range`.
  */
-export async function ActivitySnapshot() {
+export async function ActivitySnapshot({ range }: Props) {
   let messagesReceived = 0
   let messagesSent = 0
   let callsTotal = 0
@@ -30,15 +36,15 @@ export async function ActivitySnapshot() {
 
   try {
     const supabase = await createClient()
-    const startToday = new Date()
-    startToday.setHours(0, 0, 0, 0)
-    const startIso = startToday.toISOString()
+    const fromIso = range.from.toISOString()
+    const toIso = range.to.toISOString()
 
     // Messages: role-based bucket (inbound = user/contact, outbound = agent/staff)
     const { data: msgRows } = await supabase
       .from('conversation_messages')
       .select('role')
-      .gte('created_at', startIso)
+      .gte('created_at', fromIso)
+      .lt('created_at', toIso)
 
     for (const m of msgRows ?? []) {
       const role = (m.role ?? '').toLowerCase()
@@ -50,15 +56,32 @@ export async function ActivitySnapshot() {
     }
 
     const [{ count: callC }, { count: missC }, { count: contC }, { count: oppC }, { count: revC }] = [
-      await supabase.from('call_logs').select('id', { count: 'exact', head: true }).gte('started_at', startIso),
       await supabase
         .from('call_logs')
         .select('id', { count: 'exact', head: true })
-        .gte('started_at', startIso)
+        .gte('started_at', fromIso)
+        .lt('started_at', toIso),
+      await supabase
+        .from('call_logs')
+        .select('id', { count: 'exact', head: true })
+        .gte('started_at', fromIso)
+        .lt('started_at', toIso)
         .in('status', ['no-answer', 'missed', 'failed']),
-      await supabase.from('contacts').select('id', { count: 'exact', head: true }).gte('created_at', startIso),
-      await supabase.from('opportunities').select('id', { count: 'exact', head: true }).gte('created_at', startIso),
-      await supabase.from('google_reviews').select('id', { count: 'exact', head: true }).gte('first_seen_at', startIso),
+      await supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', fromIso)
+        .lt('created_at', toIso),
+      await supabase
+        .from('opportunities')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', fromIso)
+        .lt('created_at', toIso),
+      await supabase
+        .from('google_reviews')
+        .select('id', { count: 'exact', head: true })
+        .gte('first_seen_at', fromIso)
+        .lt('first_seen_at', toIso),
     ]
     callsTotal = callC ?? 0
     callsMissed = missC ?? 0
@@ -123,7 +146,7 @@ export async function ActivitySnapshot() {
   ]
 
   return (
-    <WidgetCard title="Today by the numbers" icon={Calendar}>
+    <WidgetCard title={`${range.label} by the numbers`} icon={Calendar}>
       <ul className="-mx-2 flex flex-col">
         {stats.map((s) => {
           const Icon = s.icon

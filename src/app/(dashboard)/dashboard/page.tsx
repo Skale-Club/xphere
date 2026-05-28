@@ -23,6 +23,7 @@ import { IntegrationsStatus } from '@/components/dashboard/widgets/integrations-
 import { ActivitySnapshot } from '@/components/dashboard/widgets/activity-snapshot'
 import { TopCompanies } from '@/components/dashboard/widgets/top-companies'
 import { WelcomeWizard } from '@/components/dashboard/welcome-wizard'
+import { parsePeriod, resolvePeriod } from '@/lib/dashboard/period'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,13 +122,16 @@ async function detectFreshOrg(): Promise<FreshOrgSignals> {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ welcome?: string }>
+  searchParams?: Promise<{ welcome?: string; range?: string }>
 }) {
   // Honour an explicit dismiss either via cookie or query-param.
   const cookieStore = await cookies()
   const dismissedCookie = cookieStore.get('dashboard_welcome_dismissed')?.value === '1'
   const sp = (await searchParams) ?? {}
   const dismissedNow = sp.welcome === 'skip'
+  // Period selector on the hero feeds ?range= into every period-aware widget.
+  // Defaults to 'today' when missing or invalid.
+  const range = resolvePeriod(parsePeriod(sp.range))
 
   let signals: FreshOrgSignals | null = null
   if (!dismissedCookie && !dismissedNow) {
@@ -172,17 +176,17 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <WidgetErrorBoundary name="metric-conversations" fallback={<WidgetError title="Conversations" />}>
           <Suspense fallback={<MetricSkeleton />}>
-            <MetricOpenConversations />
+            <MetricOpenConversations range={range} />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="metric-calls" fallback={<WidgetError title="Calls" />}>
           <Suspense fallback={<MetricSkeleton />}>
-            <MetricCallsToday />
+            <MetricCallsToday range={range} />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="metric-deals" fallback={<WidgetError title="Deals" />}>
           <Suspense fallback={<MetricSkeleton />}>
-            <MetricDealsWon />
+            <MetricDealsWon range={range} />
           </Suspense>
         </WidgetErrorBoundary>
         <WidgetErrorBoundary name="metric-rating" fallback={<WidgetError title="Reviews" />}>
@@ -218,9 +222,9 @@ export default async function DashboardPage({
             <IntegrationsStatus />
           </Suspense>
         </WidgetErrorBoundary>
-        <WidgetErrorBoundary name="activity-snapshot" fallback={<WidgetError title="Today" />}>
+        <WidgetErrorBoundary name="activity-snapshot" fallback={<WidgetError title="Activity" />}>
           <Suspense fallback={<PanelSkeleton rows={5} />}>
-            <ActivitySnapshot />
+            <ActivitySnapshot range={range} />
           </Suspense>
         </WidgetErrorBoundary>
       </div>

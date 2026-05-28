@@ -3,59 +3,53 @@ import { MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
+import type { ResolvedPeriod } from '@/lib/dashboard/period'
 
 /**
- * Open conversations count + 7-day new-conversation sparkline.
- * Server Component | each render runs its own query.
+ * New conversations created inside the selected period (was: open-now snapshot).
+ * The selector on the hero card drives `range`; we count `created_at`
+ * inside the window, compare with the same-length previous window for the
+ * trend, and bucket new conversations per day for the sparkline.
+ *
+ * Server Component | re-renders whenever the URL ?range= changes because the
+ * parent passes a fresh `range` prop.
  */
-export async function MetricOpenConversations() {
-  let openCount = 0
-  let yesterdayCount = 0
+interface Props {
+  range: ResolvedPeriod
+}
+
+export async function MetricOpenConversations({ range }: Props) {
+  let count = 0
+  let prevCount = 0
   let series: { value: number }[] = []
   let total = 0
 
   try {
     const supabase = await createClient()
 
-    // Count open conversations
-    const { count: openNow } = await supabase
-      .from('conversations')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'open')
-    openCount = openNow ?? 0
-
-    // Total ever (for empty-state detection)
-    const { count: anyEver } = await supabase
-      .from('conversations')
-      .select('id', { count: 'exact', head: true })
-    total = anyEver ?? 0
-
-    // Same-time-yesterday open count | best-effort: count created prior to "yesterday now"
-    // that were still open as of yesterday. We approximate with count of created_at <= 24h ago AND status='open'.
-    const yest = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { count: openYesterday } = await supabase
-      .from('conversations')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'open')
-      .lte('created_at', yest)
-    yesterdayCount = openYesterday ?? 0
-
-    // 7-day sparkline | new conversations per day
-    const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
-    sevenDaysAgo.setHours(0, 0, 0, 0)
-    const { data: rows } = await supabase
-      .from('conversations')
-      .select('created_at')
-      .gte('created_at', sevenDaysAgo.toISOString())
-
-    const bucket = new Array(7).fill(0)
-    for (const r of rows ?? []) {
-      const t = new Date(r.created_at)
-      const diff = Math.floor((Date.now() - t.getTime()) / (24 * 60 * 60 * 1000))
-      const idx = 6 - diff
-      if (idx >= 0 && idx < 7) bucket[idx] += 1
-    }
-    series = bucket.map((v) => ({ value: v }))
+    const [{ count: currentCount }, { count: previousCount }, { count: ever }, { data: rows }] =
+      await Promise.all([
+        supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', range.from.toISOString())
+          .lt('created_at', range.to.toISOString()),
+        supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .gte('created_at', range.prevFrom.toISOString())
+          .lt('created_at', range.prevTo.toISOString()),
+        supabase.from('conversations').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('conversations')
+          .select('created_at')
+          .gte('created_at', range.from.toISOString())
+          .lt('created_at', range.to.toISOString()),
+      ])
+    count = currentCount ?? 0
+    prevCount = previousCount ?? 0
+    total = ever ?? 0
+    series = bucketByDay(rows ?? [], range, (r) => r.created_at)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[dashboard:metric-open-conversations]', err)
@@ -66,7 +60,7 @@ export async function MetricOpenConversations() {
     return (
       <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm h-full">
         <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-          Open conversations
+          Conversations
         </div>
         <WidgetEmpty
           icon={MessageSquare}
@@ -79,18 +73,41 @@ export async function MetricOpenConversations() {
     )
   }
 
-  const trend = yesterdayCount === 0 ? null : Math.round(((openCount - yesterdayCount) / yesterdayCount) * 100)
+  const trend = prevCount === 0 ? null : Math.round(((count - prevCount) / prevCount) * 100)
 
   return (
     <MetricCard
       label="Conversations"
-      value={openCount}
+      value={count}
       icon="conversations"
       trend={trend}
       data={series}
       tone="info"
       href="/chat"
+      hint={range.label}
       index={0}
     />
   )
+}
+
+/**
+ * Bucket a list of timestamped rows into `range.days` daily slots, oldest
+ * first. Shared shape lets the sparkline component stay row-count agnostic.
+ */
+function bucketByDay<T>(
+  rows: T[],
+  range: ResolvedPeriod,
+  ts: (r: T) => string | null | undefined,
+): { value: number }[] {
+  const startMs = range.from.getTime()
+  const dayMs = 86_400_000
+  const buckets = new Array(range.days).fill(0)
+  for (const r of rows) {
+    const v = ts(r)
+    if (!v) continue
+    const t = new Date(v).getTime()
+    const idx = Math.floor((t - startMs) / dayMs)
+    if (idx >= 0 && idx < range.days) buckets[idx] += 1
+  }
+  return buckets.map((value) => ({ value }))
 }

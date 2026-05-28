@@ -3,71 +3,62 @@ import { Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
+import type { ResolvedPeriod } from '@/lib/dashboard/period'
 
 /**
- * Calls today (inbound + outbound) with a 7-day sparkline and a
- * "X missed" sub-label when present.
+ * Calls in the selected period (inbound + outbound), with a per-day
+ * sparkline and a "X missed" hint when applicable.
  */
-export async function MetricCallsToday() {
-  let todayCount = 0
-  let yesterdayCount = 0
-  let missedToday = 0
+interface Props {
+  range: ResolvedPeriod
+}
+
+export async function MetricCallsToday({ range }: Props) {
+  let count = 0
+  let prevCount = 0
+  let missed = 0
   let series: { value: number }[] = []
   let everCount = 0
 
   try {
     const supabase = await createClient()
 
-    const startToday = new Date()
-    startToday.setHours(0, 0, 0, 0)
-    const startYesterday = new Date(startToday.getTime() - 24 * 60 * 60 * 1000)
-    const sevenDaysAgo = new Date(startToday.getTime() - 6 * 24 * 60 * 60 * 1000)
+    const fromIso = range.from.toISOString()
+    const toIso = range.to.toISOString()
+    const prevFromIso = range.prevFrom.toISOString()
+    const prevToIso = range.prevTo.toISOString()
 
-    // Today
-    const { count: today } = await supabase
-      .from('call_logs')
-      .select('id', { count: 'exact', head: true })
-      .gte('started_at', startToday.toISOString())
-    todayCount = today ?? 0
+    const [{ count: cur }, { count: prev }, { count: missedC }, { count: ever }, { data: rows }] =
+      await Promise.all([
+        supabase
+          .from('call_logs')
+          .select('id', { count: 'exact', head: true })
+          .gte('started_at', fromIso)
+          .lt('started_at', toIso),
+        supabase
+          .from('call_logs')
+          .select('id', { count: 'exact', head: true })
+          .gte('started_at', prevFromIso)
+          .lt('started_at', prevToIso),
+        supabase
+          .from('call_logs')
+          .select('id', { count: 'exact', head: true })
+          .gte('started_at', fromIso)
+          .lt('started_at', toIso)
+          .in('status', ['no-answer', 'missed', 'failed']),
+        supabase.from('call_logs').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('call_logs')
+          .select('started_at')
+          .gte('started_at', fromIso)
+          .lt('started_at', toIso),
+      ])
 
-    // Yesterday
-    const { count: yesterday } = await supabase
-      .from('call_logs')
-      .select('id', { count: 'exact', head: true })
-      .gte('started_at', startYesterday.toISOString())
-      .lt('started_at', startToday.toISOString())
-    yesterdayCount = yesterday ?? 0
-
-    // Missed today
-    const { count: missed } = await supabase
-      .from('call_logs')
-      .select('id', { count: 'exact', head: true })
-      .gte('started_at', startToday.toISOString())
-      .in('status', ['no-answer', 'missed', 'failed'])
-    missedToday = missed ?? 0
-
-    // Ever (for empty state)
-    const { count: ever } = await supabase
-      .from('call_logs')
-      .select('id', { count: 'exact', head: true })
+    count = cur ?? 0
+    prevCount = prev ?? 0
+    missed = missedC ?? 0
     everCount = ever ?? 0
-
-    // 7-day sparkline
-    const { data: rows } = await supabase
-      .from('call_logs')
-      .select('started_at, created_at')
-      .gte('created_at', sevenDaysAgo.toISOString())
-
-    const bucket = new Array(7).fill(0)
-    for (const r of rows ?? []) {
-      const ts = r.started_at ?? r.created_at
-      if (!ts) continue
-      const t = new Date(ts)
-      const diff = Math.floor((Date.now() - t.getTime()) / (24 * 60 * 60 * 1000))
-      const idx = 6 - diff
-      if (idx >= 0 && idx < 7) bucket[idx] += 1
-    }
-    series = bucket.map((v) => ({ value: v }))
+    series = bucketByDay(rows ?? [], range, (r) => r.started_at)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[dashboard:metric-calls-today]', err)
@@ -77,7 +68,7 @@ export async function MetricCallsToday() {
     return (
       <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm h-full">
         <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-          Calls today
+          Calls
         </div>
         <WidgetEmpty
           icon={Phone}
@@ -90,19 +81,37 @@ export async function MetricCallsToday() {
     )
   }
 
-  const trend = yesterdayCount === 0 ? null : Math.round(((todayCount - yesterdayCount) / yesterdayCount) * 100)
+  const trend = prevCount === 0 ? null : Math.round(((count - prevCount) / prevCount) * 100)
 
   return (
     <MetricCard
-      label="Calls today"
-      value={todayCount}
+      label="Calls"
+      value={count}
       icon="phone"
       trend={trend}
       data={series}
       tone="success"
       href="/calls"
-      hint={missedToday > 0 ? `${missedToday} missed` : undefined}
+      hint={missed > 0 ? `${missed} missed · ${range.label}` : range.label}
       index={1}
     />
   )
+}
+
+function bucketByDay<T>(
+  rows: T[],
+  range: ResolvedPeriod,
+  ts: (r: T) => string | null | undefined,
+): { value: number }[] {
+  const startMs = range.from.getTime()
+  const dayMs = 86_400_000
+  const buckets = new Array(range.days).fill(0)
+  for (const r of rows) {
+    const v = ts(r)
+    if (!v) continue
+    const t = new Date(v).getTime()
+    const idx = Math.floor((t - startMs) / dayMs)
+    if (idx >= 0 && idx < range.days) buckets[idx] += 1
+  }
+  return buckets.map((value) => ({ value }))
 }

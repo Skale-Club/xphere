@@ -4,63 +4,53 @@ import { createClient } from '@/lib/supabase/server'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { formatCurrency } from '@/lib/pipeline/format'
+import type { ResolvedPeriod } from '@/lib/dashboard/period'
 
 /**
- * Deals won this month | count + summed BRL value + 4-week sparkline.
+ * Deals won inside the selected period — count + summed value + per-day
+ * sparkline. We key on `updated_at` here because that's when the deal
+ * transitioned to `status='won'` (the pipeline never back-dates closes).
  */
-export async function MetricDealsWon() {
-  let countThis = 0
-  let valueThis = 0
-  let countLast = 0
+interface Props {
+  range: ResolvedPeriod
+}
+
+export async function MetricDealsWon({ range }: Props) {
+  let count = 0
+  let value = 0
+  let prevCount = 0
   let series: { value: number }[] = []
   let everCount = 0
 
   try {
     const supabase = await createClient()
 
-    const now = new Date()
-    const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const endLastMonth = startThisMonth
+    const fromIso = range.from.toISOString()
+    const toIso = range.to.toISOString()
+    const prevFromIso = range.prevFrom.toISOString()
+    const prevToIso = range.prevTo.toISOString()
 
-    const { data: thisMonthRows } = await supabase
-      .from('opportunities')
-      .select('value, updated_at')
-      .eq('status', 'won')
-      .gte('updated_at', startThisMonth.toISOString())
+    const [{ data: curRows }, { count: prev }, { count: ever }] = await Promise.all([
+      supabase
+        .from('opportunities')
+        .select('value, updated_at')
+        .eq('status', 'won')
+        .gte('updated_at', fromIso)
+        .lt('updated_at', toIso),
+      supabase
+        .from('opportunities')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'won')
+        .gte('updated_at', prevFromIso)
+        .lt('updated_at', prevToIso),
+      supabase.from('opportunities').select('id', { count: 'exact', head: true }),
+    ])
 
-    countThis = (thisMonthRows ?? []).length
-    valueThis = (thisMonthRows ?? []).reduce((s, r) => s + (Number(r.value) || 0), 0)
-
-    const { count: last } = await supabase
-      .from('opportunities')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'won')
-      .gte('updated_at', startLastMonth.toISOString())
-      .lt('updated_at', endLastMonth.toISOString())
-    countLast = last ?? 0
-
-    const { count: ever } = await supabase
-      .from('opportunities')
-      .select('id', { count: 'exact', head: true })
+    count = (curRows ?? []).length
+    value = (curRows ?? []).reduce((s, r) => s + (Number(r.value) || 0), 0)
+    prevCount = prev ?? 0
     everCount = ever ?? 0
-
-    // 4-week sparkline of won deals
-    const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000)
-    const { data: wonRows } = await supabase
-      .from('opportunities')
-      .select('updated_at')
-      .eq('status', 'won')
-      .gte('updated_at', fourWeeksAgo.toISOString())
-
-    const bucket = new Array(4).fill(0)
-    for (const r of wonRows ?? []) {
-      const t = new Date(r.updated_at)
-      const diff = Math.floor((Date.now() - t.getTime()) / (7 * 24 * 60 * 60 * 1000))
-      const idx = 3 - diff
-      if (idx >= 0 && idx < 4) bucket[idx] += 1
-    }
-    series = bucket.map((v) => ({ value: v }))
+    series = bucketByDay(curRows ?? [], range, (r) => r.updated_at)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[dashboard:metric-deals-won]', err)
@@ -70,7 +60,7 @@ export async function MetricDealsWon() {
     return (
       <div className="rounded-[12px] border border-border bg-bg-secondary p-5 shadow-elevation-sm h-full">
         <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
-          Deals won (mo)
+          Deals won
         </div>
         <WidgetEmpty
           icon={Trophy}
@@ -83,19 +73,37 @@ export async function MetricDealsWon() {
     )
   }
 
-  const trend = countLast === 0 ? null : Math.round(((countThis - countLast) / countLast) * 100)
+  const trend = prevCount === 0 ? null : Math.round(((count - prevCount) / prevCount) * 100)
 
   return (
     <MetricCard
-      label="Deals won (mo)"
-      value={countThis}
+      label="Deals won"
+      value={count}
       icon="trophy"
       trend={trend}
       data={series}
       tone="success"
       href="/pipeline?status=won"
-      hint={valueThis > 0 ? formatCurrency(valueThis) : undefined}
+      hint={value > 0 ? `${formatCurrency(value)} · ${range.label}` : range.label}
       index={2}
     />
   )
+}
+
+function bucketByDay<T>(
+  rows: T[],
+  range: ResolvedPeriod,
+  ts: (r: T) => string | null | undefined,
+): { value: number }[] {
+  const startMs = range.from.getTime()
+  const dayMs = 86_400_000
+  const buckets = new Array(range.days).fill(0)
+  for (const r of rows) {
+    const v = ts(r)
+    if (!v) continue
+    const t = new Date(v).getTime()
+    const idx = Math.floor((t - startMs) / dayMs)
+    if (idx >= 0 && idx < range.days) buckets[idx] += 1
+  }
+  return buckets.map((value) => ({ value }))
 }

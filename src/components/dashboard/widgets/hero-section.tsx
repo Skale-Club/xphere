@@ -3,6 +3,7 @@ import { MessageSquarePlus, UserPlus, TrendingUp, Sparkles } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { StatusPill } from '@/components/design-system/status-pill'
+import { PeriodSelector } from '@/components/dashboard/period-selector'
 
 /**
  * Hero / overview row for the home dashboard.
@@ -77,6 +78,12 @@ export async function HeroSection() {
         </div>
       </div>
 
+      {/* Bottom-right period selector — drives every period-aware widget on
+          the dashboard via the ?range= URL param. Lives here so the chosen
+          window is right next to the greeting/status block it scopes. */}
+      <div className="mt-5 flex justify-end">
+        <PeriodSelector />
+      </div>
     </div>
   )
 }
