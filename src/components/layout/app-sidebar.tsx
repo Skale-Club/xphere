@@ -145,7 +145,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
                         disabled
                         className="opacity-40 cursor-not-allowed"
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-5 w-5 md:h-4 md:w-4" />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -160,7 +160,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
                       data-active={isCurrentPage}
                     >
                       <Link href={item.href}>
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-5 w-5 md:h-4 md:w-4" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -181,7 +181,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
                   data-active={pathname.startsWith('/settings')}
                 >
                   <Link href="/settings/custom-fields">
-                    <SlidersHorizontal className="h-4 w-4" />
+                    <SlidersHorizontal className="h-5 w-5 md:h-4 md:w-4" />
                     <span>Custom Fields</span>
                   </Link>
                 </SidebarMenuButton>

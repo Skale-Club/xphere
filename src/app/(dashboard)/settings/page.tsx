@@ -4,12 +4,15 @@
 
 import Link from 'next/link'
 import {
+  BookOpen,
   Download,
+  Mail,
   MapPin,
   Palette,
   Phone,
   PhoneCall,
   Plug,
+  Plug2,
   Settings2,
   Tag,
   UserCog,
@@ -83,10 +86,35 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         description: 'Call routing and behavior.',
       },
       {
+        href: '/email-templates',
+        icon: Mail,
+        title: 'Email templates',
+        description: 'Reusable templates for one-off emails and campaigns.',
+      },
+      {
         href: '/settings/mcp',
         icon: Plug,
         title: 'MCP server',
         description: 'Token and endpoint URL for external AI agents.',
+      },
+    ],
+  },
+  {
+    heading: 'Build',
+    cards: [
+      {
+        href: '/integrations',
+        icon: Plug2,
+        title: 'Integrations',
+        description:
+          'Connect WhatsApp, Twilio, OpenRouter and other external services.',
+      },
+      {
+        href: '/knowledge',
+        icon: BookOpen,
+        title: 'Knowledge',
+        description:
+          'Upload documents and URLs your AI agents can search and quote from.',
       },
     ],
   },
@@ -132,14 +160,14 @@ function SettingsCard({ href, icon: Icon, title, description }: SettingsCardConf
     <Link
       href={href}
       className="
-        group flex items-start gap-3 rounded-lg border border-border-subtle bg-bg-secondary
+        group flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-secondary
         px-4 py-3.5 transition-colors
         hover:border-border hover:bg-bg-tertiary/60
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary
       "
     >
       <span className="
-        mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md
+        flex h-8 w-8 shrink-0 items-center justify-center rounded-md
         bg-bg-tertiary/70 text-text-secondary
         transition-colors group-hover:bg-accent-muted group-hover:text-accent
       ">
