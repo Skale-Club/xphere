@@ -438,6 +438,66 @@ export async function updateAccount(
   return okResult<AccountRow>(data as AccountRow);
 }
 
+// ─── Inline single-field update ──────────────────────────────────────────────
+//
+// Companion to updateAccount() for the click-row-opens-dialog UX where each
+// field commits independently as the operator tabs through them. Mirrors
+// updateContactField in src/app/(dashboard)/contacts/actions.ts: keeps the
+// surface tight to the columns we want inline-editable, normalises per-field
+// (domain through normaliseDomain, the rest trimmed-or-null), and bypasses
+// the full Zod schema since validating one column at a time would require
+// a separate partial schema for every form.
+
+const INLINE_ACCOUNT_FIELDS = [
+  'name',
+  'domain',
+  'website',
+  'industry',
+  'size',
+  'phone',
+  'address',
+  'notes',
+] as const
+type InlineAccountField = (typeof INLINE_ACCOUNT_FIELDS)[number]
+
+export async function updateAccountField(
+  id: string,
+  patch: { field: string; value: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+  if (!id) return { ok: false, error: 'missing_id' }
+
+  const { field, value } = patch
+  if (!(INLINE_ACCOUNT_FIELDS as readonly string[]).includes(field)) {
+    return { ok: false, error: `Unsupported field "${field}"` }
+  }
+  const f = field as InlineAccountField
+
+  const trimmed = (value ?? '').trim()
+  let normalised: string | null
+  if (f === 'name') {
+    if (!trimmed) return { ok: false, error: 'Name cannot be empty' }
+    normalised = trimmed
+  } else if (f === 'domain') {
+    normalised = normaliseDomain(trimmed)
+  } else {
+    // Generic columns: empty string → null so the cell visually clears.
+    normalised = trimmed.length > 0 ? trimmed : null
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('accounts')
+    .update({ [f]: normalised })
+    .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/companies')
+  revalidatePath(`/accounts/${id}`)
+  return { ok: true }
+}
+
 // ─── Delete (reference-blocking | ACC-03 LOCKED behavior) ────────────────────
 
 export async function deleteAccount(

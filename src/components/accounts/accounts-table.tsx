@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Building2 } from 'lucide-react'
 
@@ -15,6 +14,7 @@ import type { CustomFieldType } from '@/types/database'
 import { cn } from '@/lib/utils'
 import type { AccountRow } from '@/lib/accounts'
 import { AccountsBulkActions } from './accounts-bulk-actions'
+import { AccountDetailSheet } from './account-detail-sheet'
 import { Badge } from '@/components/ui/badge'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { SortableColumnHeader } from '@/components/data-table/sortable-column-header'
@@ -70,11 +70,25 @@ export function AccountsTable({
   }, [total, setSuffix])
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  // Which row's details dialog is open. null = closed.
+  const [activeAccountId, setActiveAccountId] = React.useState<string | null>(null)
 
   // Reset selection when rows change
   React.useEffect(() => {
     setSelected(new Set())
   }, [rows])
+
+  const openAccount = React.useCallback((id: string) => {
+    setActiveAccountId(id)
+  }, [])
+  const handleDialogChange = React.useCallback((open: boolean) => {
+    if (!open) setActiveAccountId(null)
+  }, [])
+  const handleAccountChanged = React.useCallback(() => {
+    // Inline edits + delete from inside the dialog can change counts shown
+    // on the row — re-fetch the current /companies query so they update.
+    router.refresh()
+  }, [router])
 
   function setParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString())
@@ -150,12 +164,13 @@ export function AccountsTable({
                 </div>
 
                 <div className="min-w-0">
-                  <Link
-                    href={`/accounts/${row.id}`}
-                    className="block truncate text-[13px] font-medium text-text-primary underline-offset-4 hover:text-accent hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => openAccount(row.id)}
+                    className="block truncate text-left text-[13px] font-medium text-text-primary underline-offset-4 hover:text-accent hover:underline"
                   >
                     {row.name ?? <span className="italic text-text-tertiary">Unnamed</span>}
-                  </Link>
+                  </button>
                   <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
                     {row.domain || row.industry || 'No company details'}
                   </div>
@@ -240,17 +255,20 @@ export function AccountsTable({
                     />
                   </div>
 
-                  {/* Company name | link to detail page */}
-                  <Link
-                    href={`/accounts/${row.id}`}
-                    className="flex items-center gap-2 min-w-0 group"
-                    onClick={(e) => e.stopPropagation()}
+                  {/* Company name | clicks open the detail dialog */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openAccount(row.id)
+                    }}
+                    className="flex items-center gap-2 min-w-0 group text-left"
                   >
                     <Building2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary group-hover:text-accent transition-colors" />
                     <span className="truncate text-[13px] font-medium text-text-primary group-hover:text-accent transition-colors">
                       {row.name ?? <span className="italic text-text-tertiary">Unnamed</span>}
                     </span>
-                  </Link>
+                  </button>
 
                   {/* Domain */}
                   <div className="truncate text-[12.5px] text-text-secondary">
@@ -339,6 +357,13 @@ export function AccountsTable({
           </div>
         </div>
       )}
+
+      <AccountDetailSheet
+        accountId={activeAccountId}
+        open={activeAccountId !== null}
+        onOpenChange={handleDialogChange}
+        onChanged={handleAccountChanged}
+      />
     </div>
   )
 }
