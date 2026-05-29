@@ -48,6 +48,7 @@ import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
 import type { CustomFieldType } from "@/types/database";
 import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
 import { formatEmailDisplay } from "@/lib/email-addresses/format";
+import { PhoneDisplay } from "@/components/phone/phone-display";
 
 import {
   displayContactName,
@@ -531,7 +532,11 @@ export function ContactsTable({
                     </div>
                   </div>
                   <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
-                    {c.phone ? formatPhoneDisplay(c.phone) : "|"}
+                    {c.phone ? (
+                      <PhoneDisplay value={c.phone} stopPropagation className="text-text-secondary" />
+                    ) : (
+                      "-"
+                    )}
                   </div>
                   <div
                     className={
@@ -549,7 +554,7 @@ export function ContactsTable({
                     {c.email && !isValidEmail(c.email) && (
                       <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />
                     )}
-                    <span className="truncate">{formatEmailDisplay(c.email) || "|"}</span>
+                    <span className="truncate">{formatEmailDisplay(c.email) || "-"}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 overflow-hidden">
                     {c.tags.slice(0, 2).map((tagName) => {
@@ -600,7 +605,7 @@ export function ContactsTable({
                     const display =
                       val !== undefined && val !== null
                         ? config.displayFormatter(val)
-                        : "|";
+                        : "-";
                     return (
                       <div
                         key={def.id}

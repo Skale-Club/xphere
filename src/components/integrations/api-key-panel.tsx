@@ -40,6 +40,9 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
     return init
   })
   const [showField, setShowField] = useState<Record<string, boolean>>({})
+  // When a key is already saved, the field shows solid masked bullets as a real
+  // value (not a faded placeholder). Focusing clears it so a new key can be typed.
+  const [apiKeyTouched, setApiKeyTouched] = useState(false)
   const [testState, setTestState] = useState<'idle' | 'testing' | 'pass' | 'fail'>('idle')
   const [testMessage, setTestMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -137,7 +140,10 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
       <div className="flex-1 overflow-y-auto space-y-4 py-2">
         {definition.fields?.map((field) => {
           const isPwd = field.type === 'password'
+          const isApiKey = field.key === 'api_key'
           const visible = showField[field.key] ?? false
+          // Saved key, untouched: show solid bullets as a real value.
+          const showSavedMask = isApiKey && !!existing && !apiKeyTouched
           return (
             <div key={field.key} className="space-y-1.5">
               <Label htmlFor={`fld-${field.key}`}>
@@ -147,21 +153,27 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
               <div className="relative">
                 <Input
                   id={`fld-${field.key}`}
-                  type={isPwd && !visible ? 'password' : 'text'}
-                  placeholder={
-                    existing && field.key === 'api_key'
-                      ? `••••••••• (${existing.masked_api_key})`
-                      : field.placeholder
-                  }
-                  value={fields[field.key] ?? ''}
+                  type={showSavedMask ? 'text' : isPwd && !visible ? 'password' : 'text'}
+                  placeholder={showSavedMask ? undefined : field.placeholder}
+                  value={showSavedMask ? existing!.masked_api_key : (fields[field.key] ?? '')}
+                  readOnly={showSavedMask}
+                  onFocus={() => {
+                    if (showSavedMask) setApiKeyTouched(true)
+                  }}
+                  onBlur={() => {
+                    if (isApiKey && existing && !(fields.api_key ?? '').trim()) {
+                      setApiKeyTouched(false)
+                    }
+                  }}
                   onChange={(e) => {
                     const v = e.target.value
                     setFields((prev) => ({ ...prev, [field.key]: v }))
-                    if (field.key === 'api_key' && testState !== 'idle') setTestState('idle')
+                    if (isApiKey && testState !== 'idle') setTestState('idle')
                   }}
                   autoComplete="new-password"
+                  className={cn(showSavedMask && 'cursor-text')}
                 />
-                {isPwd && (
+                {isPwd && !showSavedMask && (
                   <button
                     type="button"
                     onClick={() => setShowField((p) => ({ ...p, [field.key]: !visible }))}

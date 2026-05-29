@@ -186,7 +186,7 @@ export function ManychatEvents({
                 <TableCell className="text-sm font-mono text-muted-foreground">
                   {event.action_log_id
                     ? event.action_log_id.slice(0, 8) + '…'
-                    : '|'}
+                    : '-'}
                 </TableCell>
               </TableRow>
             ))}

@@ -666,7 +666,7 @@ export function ContactInfoPanel({
                         {editable ? (
                           <InlineEditField
                             value={display || null}
-                            placeholder="|"
+                            placeholder="-"
                             type={def.type === 'email' ? 'email' : 'text'}
                             multiline={def.type === 'long_text'}
                             onSave={saveField(`custom_fields.${def.key}`)}
@@ -679,7 +679,7 @@ export function ContactInfoPanel({
                               display ? 'text-text-primary' : 'italic text-text-tertiary',
                             )}
                           >
-                            {display || '|'}
+                            {display || '-'}
                           </div>
                         )}
                       </div>
@@ -908,7 +908,7 @@ export function ContactInfoPanel({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] capitalize text-text-primary">
-                        {c.direction} · {c.status ?? '|'}
+                        {c.direction} · {c.status ?? '-'}
                       </div>
                       <div className="text-[10.5px] text-text-tertiary">
                         {relativeTime(c.started_at)}
@@ -943,7 +943,7 @@ export function ContactInfoPanel({
                     <ChannelBadge channel={(c.channel as Channel) ?? 'unknown'} showLabel={false} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] text-text-primary">
-                        {c.last_message || '|'}
+                        {c.last_message || '-'}
                       </div>
                       <div className="text-[10.5px] text-text-tertiary">
                         {relativeTime(c.last_message_at)} · {c.status}
@@ -1157,7 +1157,32 @@ function ContactCompanyControl({
 }) {
   const [saving, setSaving] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
+  const editWrapperRef = React.useRef<HTMLDivElement>(null)
   const companyName = contact.account?.name ?? contact.company ?? undefined
+
+  // Revert to display mode on any click outside the editor (and on Escape).
+  // The previous blur-only approach missed clicks on non-focusable areas
+  // (empty panel space), leaving the combobox stuck open. A document-level
+  // listener — the same pattern AccountCombobox uses internally — reliably
+  // closes the editor. Clicks inside the dropdown stay open because the
+  // dropdown renders within editWrapperRef.
+  React.useEffect(() => {
+    if (!editing) return
+    function handlePointerDown(e: MouseEvent) {
+      if (editWrapperRef.current && !editWrapperRef.current.contains(e.target as Node)) {
+        setEditing(false)
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setEditing(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [editing])
 
   async function handleChange(accountId: string | null) {
     const previousAccountId = contact.account_id ?? null
@@ -1193,20 +1218,12 @@ function ContactCompanyControl({
     setEditing(false)
   }
 
-  // Edit mode: render the combobox. Blur closes the editor; the combobox
-  // already commits on selection via onChange (handleChange above).
+  // Edit mode: render the combobox. An outside click / Escape closes the
+  // editor (see effect above); the combobox commits on selection via onChange
+  // (handleChange above).
   if (editing) {
     return (
-      <div
-        className={cn('w-full', saving && 'opacity-70')}
-        onBlur={(e) => {
-          // Only close when focus leaves the wrapper entirely (combobox has
-          // internal focusable children we don't want to treat as blur).
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setEditing(false)
-          }
-        }}
-      >
+      <div ref={editWrapperRef} className={cn('w-full', saving && 'opacity-70')}>
         <AccountCombobox
           value={contact.account_id ?? null}
           defaultAccountName={companyName}

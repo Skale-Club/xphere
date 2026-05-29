@@ -2,25 +2,25 @@
 /**
  * Twilio integration UI (v2.3 | per-org credentials panel + multi-number).
  *
- * Sections:
+ * Credentials-only surface. Sections:
  *   1. Connection status   | summary pills (SMS / Voice SDK / SIP)
  *   2. SMS & basics        | account_sid, auth_token, SMS webhook URL
- *   3. Phone numbers       | list + CRUD dialog (TwilioPhoneNumbers component)
- *   4. Voice SDK           | api_key_sid, api_key_secret, twiml_app_sid (+ webhook URL hint)
- *   5. SIP / Zoiper        | sip_domain
+ *   3. Voice SDK           | api_key_sid, api_key_secret, twiml_app_sid (+ webhook URL hint)
+ *   4. SIP / Zoiper        | sip_domain
  *
  * Secrets are NEVER returned to the client | the parent server component passes
  * a "view" object with masked hints + boolean presence flags. The user types a
  * new value into an empty input to rotate; leaving it blank keeps the previous
  * value.
  *
- * Phone numbers are managed via numbers-actions.ts and the TwilioPhoneNumbers
- * client component | independent of the credentials save flow.
+ * Phone numbers are NOT managed here | they live at /settings/phone-numbers.
+ * view.numbers is still consumed to derive the SMS/Voice readiness pills.
  */
 
 import * as React from 'react'
 import { toast } from 'sonner'
 import {
+  ArrowRight,
   Check,
   Copy,
   Eye,
@@ -28,9 +28,11 @@ import {
   Globe,
   Loader2,
   Mic2,
+  Phone,
   Save,
   ShieldCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 
 import { TwilioLogo } from '@/components/brand/twilio-logo'
 
@@ -47,7 +49,6 @@ import {
   testSipConfig,
   type TwilioIntegrationView,
 } from '@/app/(dashboard)/integrations/twilio/actions'
-import { TwilioPhoneNumbers } from '@/components/integrations/twilio-phone-numbers'
 
 interface TwilioSettingsProps {
   initial: TwilioIntegrationView
@@ -91,8 +92,8 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
       setApiKeySecret('')
       // Optimistically update boolean flags so the status pills flip without a reload.
       // smsConfigured / voiceConfigured also need at least one capable active number;
-      // numbers state is managed separately (see TwilioPhoneNumbers component) so
-      // we keep the prev.numbers slice intact.
+      // numbers are managed at /settings/phone-numbers, so we keep the
+      // prev.numbers slice intact for the readiness pills.
       setView((prev) => {
         const hasAccountSid = prev.hasAccountSid || accountSid.trim().length > 0
         const hasAuthToken = prev.hasAuthToken || authToken.trim().length > 0
@@ -183,10 +184,27 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
         <TestSmsRow defaultTo={getDefaultE164(view) ?? ''} disabled={!view.smsConfigured} />
       </SectionCard>
 
-      {/* ── 2. Phone numbers ────────────────────────────────────────────── */}
-      <TwilioPhoneNumbers initial={view.numbers} />
+      {/* ── Phone numbers live in Settings now ──────────────────────────── */}
+      <Link
+        href="/settings/phone-numbers"
+        className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-bg-secondary px-5 py-4 transition-colors hover:border-border-strong"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-bg-tertiary text-text-secondary">
+            <Phone className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-[14px] font-medium text-text-primary">Phone numbers</div>
+            <p className="mt-0.5 text-[12.5px] text-text-secondary">
+              {view.numbers.filter((n) => n.is_active).length} active.
+              Add, configure capabilities/routing, and remove numbers in Settings.
+            </p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-text-tertiary" />
+      </Link>
 
-      {/* ── 2. Voice SDK ─────────────────────────────────────────────────── */}
+      {/* ── Voice SDK ────────────────────────────────────────────────────── */}
       <SectionCard
         icon={Mic2}
         title="Voice SDK (browser calling)"

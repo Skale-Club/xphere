@@ -707,6 +707,16 @@ button:disabled,
 .vo-phone-input__button:hover {
   background-color: var(--bg-elevated) !important;
 }
+.vo-phone-input__button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.vo-phone-input__chevron {
+  width: 12px;
+  height: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
 
 .vo-phone-input__input {
   flex: 1 1 auto !important;
@@ -726,26 +736,92 @@ button:disabled,
 }
 
 .vo-phone-input__dropdown {
-  background-color: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  box-shadow: var(--shadow-lg) !important;
-  margin-top: 4px !important;
-  max-height: 320px !important;
-  overflow-y: auto !important;
-  z-index: 9999 !important;
-  position: absolute !important;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9999;
+  width: max(100%, 280px);
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Sticky search header */
+.vo-phone-input__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-elevated);
+}
+.vo-phone-input__search-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.vo-phone-input__search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+.vo-phone-input__search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.vo-phone-input__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.vo-phone-input__empty {
+  padding: 12px 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 .vo-phone-input__list-item {
-  padding: 6px 10px !important;
-  font-size: 13px !important;
-  color: var(--text-primary) !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
   cursor: pointer;
 }
-.vo-phone-input__list-item:hover {
-  background-color: var(--bg-tertiary) !important;
+.vo-phone-input__list-item--active {
+  background-color: var(--bg-tertiary);
 }
 .vo-phone-input__list-item--selected {
-  background-color: var(--accent-muted) !important;
-  color: var(--accent) !important;
+  background-color: var(--accent-muted);
+}
+.vo-phone-input__list-item--selected .vo-phone-input__list-name {
+  font-weight: 600;
+}
+.vo-phone-input__list-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+.vo-phone-input__list-dial {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }

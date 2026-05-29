@@ -293,7 +293,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           <ChannelBadge channel={c.channel as Channel} showLabel={false} size="md" />
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary">
-                              {c.last_message || '|'}
+                              {c.last_message || '-'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.last_message_at)} · {c.status}
@@ -328,7 +328,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary capitalize">
-                              {c.direction} · {c.status ?? '|'}
+                              {c.direction} · {c.status ?? '-'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.started_at)}

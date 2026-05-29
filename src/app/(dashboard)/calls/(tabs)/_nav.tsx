@@ -15,7 +15,6 @@ function isTimelineActive(pathname: string): boolean {
 
 const TABS = [
   { href: '/calls', label: 'Timeline', isActive: isTimelineActive },
-  { href: '/calls/campaigns', label: 'Campaigns', isActive: (p: string) => p === '/calls/campaigns' || p.startsWith('/calls/campaigns/') },
   { href: '/calls/assistants', label: 'Vapi Assistants', isActive: (p: string) => p === '/calls/assistants' || p.startsWith('/calls/assistants/') },
   { href: '/calls/settings', label: 'Settings', isActive: (p: string) => p === '/calls/settings' || p.startsWith('/calls/settings/') },
 ]

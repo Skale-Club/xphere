@@ -96,8 +96,8 @@ export function LogsTable({
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {log.call
-                    ? (log.call.customer_name ?? log.call.customer_number ?? '|')
-                    : '|'}
+                    ? (log.call.customer_name ?? log.call.customer_number ?? '-')
+                    : '-'}
                 </TableCell>
                 <TableCell>
                   <Button

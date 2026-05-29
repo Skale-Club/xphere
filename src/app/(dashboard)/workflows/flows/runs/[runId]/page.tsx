@@ -50,9 +50,9 @@ export default async function RunDetailPage({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <Field label="Started" value={run.started_at ? format(parseISO(run.started_at), 'HH:mm:ss') : '|'} />
-          <Field label="Ended" value={run.ended_at ? format(parseISO(run.ended_at), 'HH:mm:ss') : '|'} />
-          <Field label="Duration" value={duration ?? '|'} />
+          <Field label="Started" value={run.started_at ? format(parseISO(run.started_at), 'HH:mm:ss') : '-'} />
+          <Field label="Ended" value={run.ended_at ? format(parseISO(run.ended_at), 'HH:mm:ss') : '-'} />
+          <Field label="Duration" value={duration ?? '-'} />
           <Field label="Steps" value={String(run.steps.length)} />
         </div>
 

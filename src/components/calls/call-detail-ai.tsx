@@ -110,7 +110,7 @@ function MetaRow({
       <div className="min-w-0">
         <div className="text-[10.5px] uppercase tracking-wide text-text-tertiary">{label}</div>
         <div className={`mt-0.5 truncate text-[12.5px] text-text-primary ${mono ? 'font-mono' : ''}`}>
-          {value || '|'}
+          {value || '-'}
         </div>
       </div>
     </div>
@@ -118,13 +118,13 @@ function MetaRow({
 }
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds || seconds < 0) return '|'
+  if (!seconds || seconds < 0) return '-'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '|'
+  if (!iso) return '-'
   return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }

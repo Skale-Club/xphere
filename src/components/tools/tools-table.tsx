@@ -631,7 +631,7 @@ export function ToolsTable({
       header: () => <span className="text-xs font-medium">Labels</span>,
       cell: ({ row }) => {
         const labels = row.original.labels ?? []
-        if (labels.length === 0) return <span className="text-muted-foreground text-sm">|</span>
+        if (labels.length === 0) return <span className="text-muted-foreground text-sm">-</span>
         return (
           <div className="flex flex-wrap gap-1">
             {labels.map((label) => (
@@ -647,7 +647,7 @@ export function ToolsTable({
       id: 'integration',
       header: () => <span className="text-xs font-medium">Integration</span>,
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.integrations?.name ?? '|'}</span>
+        <span className="text-sm">{row.original.integrations?.name ?? '-'}</span>
       ),
     },
     {

@@ -3,16 +3,12 @@
 /**
  * Settings > Phone Numbers > [id] editor (phone-numbers project Phase 5).
  *
- * Covers the per-number operational fields added in migration 1046:
- *   - inbox_label (preferred display name in the inbox)
- *   - business_purpose
- *   - vapi_assistant_id (per-number override for assistant_mappings)
- *   - responsible_user_id
- *   - notes
+ * The single full-edit surface for a number: identity (inbox_label,
+ * business_purpose), capabilities (voice/sms/mms) + default routing mode,
+ * the per-number vapi_assistant_id override, responsible owner, and notes.
  *
- * Capabilities, routing mode, and credentials still live on the Twilio
- * integration page (/integrations/twilio) — this surface is intentionally
- * focused on operational configuration, not provider credentials.
+ * Only provider credentials (Account SID, Auth Token, Voice SDK, SIP) live on
+ * the Twilio integration page (/integrations/twilio) — numbers are managed here.
  */
 
 import * as React from 'react'
@@ -23,6 +19,7 @@ import { Loader2, Star, Power, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -46,6 +43,10 @@ interface Props {
 }
 
 const UNASSIGNED = '__unassigned__'
+const ROUTING_NONE = '__none__'
+const E164_REGEX = /^\+[1-9]\d{6,14}$/
+
+type RoutingMode = 'browser' | 'sip' | 'forward'
 
 export function PhoneNumberEditor({ number, members }: Props) {
   const router = useRouter()
@@ -61,7 +62,23 @@ export function PhoneNumberEditor({ number, members }: Props) {
   )
   const [notes, setNotes] = React.useState(number.notes ?? '')
 
+  const [capVoice, setCapVoice] = React.useState(number.capability_voice)
+  const [capSms, setCapSms] = React.useState(number.capability_sms)
+  const [capMms, setCapMms] = React.useState(number.capability_mms)
+  const [routingMode, setRoutingMode] = React.useState<'none' | RoutingMode>(
+    (number.default_routing_mode as RoutingMode | null) ?? 'none',
+  )
+  const [forwardTo, setForwardTo] = React.useState(number.forward_to_number ?? '')
+
   const handleSave = React.useCallback(async () => {
+    if (!capVoice && !capSms && !capMms) {
+      toast.error('Enable at least one capability (Voice, SMS, or MMS).')
+      return
+    }
+    if (routingMode === 'forward' && !E164_REGEX.test(forwardTo.trim())) {
+      toast.error('Forward target must be a valid E.164 number.')
+      return
+    }
     setSaving(true)
     try {
       const result = await updateTwilioNumber(number.id, {
@@ -71,6 +88,11 @@ export function PhoneNumberEditor({ number, members }: Props) {
         vapi_assistant_id: vapiAssistantId.trim() || '',
         responsible_user_id: responsibleUserId === UNASSIGNED ? null : responsibleUserId,
         notes: notes.trim() || '',
+        capability_voice: capVoice,
+        capability_sms: capSms,
+        capability_mms: capMms,
+        default_routing_mode: routingMode === 'none' ? null : routingMode,
+        forward_to_number: routingMode === 'forward' ? forwardTo.trim() : '',
       })
       if (result.error) {
         toast.error(result.error)
@@ -90,6 +112,11 @@ export function PhoneNumberEditor({ number, members }: Props) {
     vapiAssistantId,
     responsibleUserId,
     notes,
+    capVoice,
+    capSms,
+    capMms,
+    routingMode,
+    forwardTo,
     router,
   ])
 
@@ -226,12 +253,69 @@ export function PhoneNumberEditor({ number, members }: Props) {
         </div>
       </section>
 
-      {/* Routing & ownership */}
+      {/* Capabilities & routing */}
       <section className="space-y-4">
         <header>
-          <h3 className="text-sm font-semibold text-text-primary">Routing & ownership</h3>
+          <h3 className="text-sm font-semibold text-text-primary">Capabilities & routing</h3>
           <p className="text-[11px] text-text-tertiary">
-            Per-number overrides for the org defaults configured in /integrations/twilio.
+            Mark the capabilities enabled on the Twilio side, and how inbound calls to this
+            number are routed by default.
+          </p>
+        </header>
+        <div className="space-y-2">
+          <Label>Capabilities</Label>
+          <div className="flex flex-wrap items-center gap-4">
+            <CapabilityCheckbox label="Voice" checked={capVoice} onChange={setCapVoice} />
+            <CapabilityCheckbox label="SMS" checked={capSms} onChange={setCapSms} />
+            <CapabilityCheckbox label="MMS" checked={capMms} onChange={setCapMms} />
+          </div>
+          <p className="text-[11px] text-text-tertiary">
+            Xphere refuses to send SMS from a number without the SMS capability.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="routing_mode">Default routing mode</Label>
+            <Select
+              value={routingMode === 'none' ? ROUTING_NONE : routingMode}
+              onValueChange={(v) =>
+                setRoutingMode(v === ROUTING_NONE ? 'none' : (v as RoutingMode))
+              }
+            >
+              <SelectTrigger id="routing_mode">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROUTING_NONE}>None | handled per call</SelectItem>
+                <SelectItem value="browser">Browser dialer</SelectItem>
+                <SelectItem value="sip">SIP (Zoiper, softphone)</SelectItem>
+                <SelectItem value="forward">Forward to number</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {routingMode === 'forward' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="forward_to">Forward to (E.164)</Label>
+              <Input
+                id="forward_to"
+                value={forwardTo}
+                onChange={(e) => setForwardTo(e.target.value)}
+                placeholder="+14155557890"
+                className="font-mono text-[12.5px]"
+                autoComplete="off"
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Assistant & ownership */}
+      <section className="space-y-4">
+        <header>
+          <h3 className="text-sm font-semibold text-text-primary">Assistant & ownership</h3>
+          <p className="text-[11px] text-text-tertiary">
+            Per-number overrides for the org-level Vapi mapping and the human accountable for
+            this line.
           </p>
         </header>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -301,6 +385,26 @@ export function PhoneNumberEditor({ number, members }: Props) {
           Save changes
         </Button>
       </div>
+    </div>
+  )
+}
+
+function CapabilityCheckbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (next: boolean) => void
+}) {
+  const id = `cap-${label.toLowerCase()}`
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(v === true)} />
+      <Label htmlFor={id} className="cursor-pointer text-[13px] font-medium">
+        {label}
+      </Label>
     </div>
   )
 }

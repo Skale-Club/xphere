@@ -62,7 +62,7 @@ export function ActivityFeedItem({ activity, last = false }: ActivityFeedItemPro
           {status ? `${status} · ` : ''}
           {dur != null
             ? `${Math.floor(dur / 60)}:${(dur % 60).toString().padStart(2, '0')}`
-            : '|'}
+            : '-'}
           {recording ? ' · recorded' : ''}
         </span>
       )
@@ -72,7 +72,7 @@ export function ActivityFeedItem({ activity, last = false }: ActivityFeedItemPro
     case 'sms':
     case 'instagram':
       title = `${activity.type === 'whatsapp' ? 'WhatsApp' : activity.type === 'sms' ? 'SMS' : 'Instagram'} message`
-      body = activity.conversation?.last_message ?? activity.content ?? '|'
+      body = activity.conversation?.last_message ?? activity.content ?? '-'
       break
     case 'email':
       title = 'Email'
