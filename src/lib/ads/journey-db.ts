@@ -36,7 +36,7 @@ export async function getOrCreateJourney(orgId: string): Promise<{ id: string }>
 
   const { data: created } = await db()
     .from('ads_journey')
-    .insert({ org_id: orgId, title: 'Jornada de Ads' })
+    .insert({ org_id: orgId, title: 'Ads Journey' })
     .select('id')
     .single()
 
@@ -122,24 +122,24 @@ export async function recordMutationExecution(params: {
     switch (params.toolName) {
       case 'pause_campaign':
         type = 'campaign_pause'
-        title = campaignName ? `Campanha pausada: ${campaignName}` : 'Campanha pausada'
+        title = campaignName ? `Campaign paused: ${campaignName}` : 'Campaign paused'
         break
       case 'enable_campaign':
         type = 'campaign_enable'
-        title = campaignName ? `Campanha ativada: ${campaignName}` : 'Campanha ativada'
+        title = campaignName ? `Campaign enabled: ${campaignName}` : 'Campaign enabled'
         break
       case 'set_daily_budget': {
         const budget = params.input.daily_budget_usd as number | undefined
         type = 'budget_increase'
         title = campaignName
-          ? `Orçamento atualizado: ${campaignName} → $${budget ?? '?'}/dia`
-          : `Orçamento atualizado → $${budget ?? '?'}/dia`
+          ? `Budget updated: ${campaignName} → $${budget ?? '?'}/day`
+          : `Budget updated → $${budget ?? '?'}/day`
         afterValue = budget != null ? `$${budget}/day` : undefined
         break
       }
       default:
         type = 'manual'
-        title = `Ação executada: ${params.toolName}`
+        title = `Action executed: ${params.toolName}`
     }
 
     await db().from('ads_executions').insert({

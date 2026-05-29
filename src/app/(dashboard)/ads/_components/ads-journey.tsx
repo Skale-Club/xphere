@@ -79,10 +79,10 @@ type Audit = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'historia', label: 'História', icon: BookOpen },
-  { id: 'planejamento', label: 'Planejamento', icon: Target },
-  { id: 'execucao', label: 'Execução', icon: Zap },
-  { id: 'auditoria', label: 'Auditoria', icon: BarChart2 },
+  { id: 'story', label: 'Story', icon: BookOpen },
+  { id: 'planning', label: 'Planning', icon: Target },
+  { id: 'execution', label: 'Execution', icon: Zap },
+  { id: 'audit', label: 'Audit', icon: BarChart2 },
 ]
 
 const MEMORY_TYPE_ICONS: Record<string, React.ElementType> = {
@@ -149,7 +149,7 @@ function ConfidenceDots({ value }: { value: number }) {
 
 // ─── História tab ─────────────────────────────────────────────────────────────
 
-function HistoriaTab({ memories, onApprove, onDismiss }: {
+function StoryTab({ memories, onApprove, onDismiss }: {
   memories: Memory[]
   onApprove: (id: string) => void
   onDismiss: (id: string) => void
@@ -163,7 +163,7 @@ function HistoriaTab({ memories, onApprove, onDismiss }: {
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
-              Aguardando revisão ({pending.length})
+              Pending review ({pending.length})
             </span>
           </div>
           <div className="space-y-2">
@@ -193,10 +193,10 @@ function HistoriaTab({ memories, onApprove, onDismiss }: {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Button size="sm" className="h-6 px-2 text-[11px]" onClick={() => onApprove(m.id)}>
-                        Aprovar
+                        Approve
                       </Button>
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => onDismiss(m.id)}>
-                        Ignorar
+                        Dismiss
                       </Button>
                     </div>
                   </div>
@@ -210,7 +210,7 @@ function HistoriaTab({ memories, onApprove, onDismiss }: {
       {active.length > 0 ? (
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary mb-3 block">
-            Memórias ativas ({active.length})
+            Active memories ({active.length})
           </span>
           <div className="space-y-2">
             {active.map((m) => {
@@ -246,8 +246,8 @@ function HistoriaTab({ memories, onApprove, onDismiss }: {
       ) : pending.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <BookOpen className="h-8 w-8 text-text-tertiary mb-3" />
-          <p className="text-[13px] text-text-secondary">Nenhuma memória ainda</p>
-          <p className="text-[12px] text-text-tertiary mt-1">Converse com a IA de Ads para começar a construir a história</p>
+          <p className="text-[13px] text-text-secondary">No memories yet</p>
+          <p className="text-[12px] text-text-tertiary mt-1">Chat with the Ads AI to start building the story</p>
         </div>
       )}
     </div>
@@ -256,13 +256,13 @@ function HistoriaTab({ memories, onApprove, onDismiss }: {
 
 // ─── Planejamento tab ─────────────────────────────────────────────────────────
 
-function PlanejamentoTab({ plans }: { plans: Plan[] }) {
+function PlanningTab({ plans }: { plans: Plan[] }) {
   if (!plans.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Target className="h-8 w-8 text-text-tertiary mb-3" />
-        <p className="text-[13px] text-text-secondary">Nenhum plano ainda</p>
-        <p className="text-[12px] text-text-tertiary mt-1">Use o MCP <code className="text-[11px]">ads_create_plan</code> para registrar estratégias</p>
+        <p className="text-[13px] text-text-secondary">No plans yet</p>
+        <p className="text-[12px] text-text-tertiary mt-1">Use the MCP <code className="text-[11px]">ads_create_plan</code> to record strategies</p>
       </div>
     )
   }
@@ -315,13 +315,13 @@ function PlanejamentoTab({ plans }: { plans: Plan[] }) {
 
 // ─── Execução tab ─────────────────────────────────────────────────────────────
 
-function ExecucaoTab({ executions }: { executions: Execution[] }) {
+function ExecutionTab({ executions }: { executions: Execution[] }) {
   if (!executions.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Zap className="h-8 w-8 text-text-tertiary mb-3" />
-        <p className="text-[13px] text-text-secondary">Nenhuma execução ainda</p>
-        <p className="text-[12px] text-text-tertiary mt-1">Ações executadas pela IA ou manualmente aparecerão aqui</p>
+        <p className="text-[13px] text-text-secondary">No executions yet</p>
+        <p className="text-[12px] text-text-tertiary mt-1">Actions executed by AI or manually will appear here</p>
       </div>
     )
   }
@@ -366,13 +366,13 @@ function ExecucaoTab({ executions }: { executions: Execution[] }) {
 
 // ─── Auditoria tab ────────────────────────────────────────────────────────────
 
-function AuditoriaTab({ audits }: { audits: Audit[] }) {
+function AuditTab({ audits }: { audits: Audit[] }) {
   if (!audits.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <BarChart2 className="h-8 w-8 text-text-tertiary mb-3" />
-        <p className="text-[13px] text-text-secondary">Nenhuma auditoria ainda</p>
-        <p className="text-[12px] text-text-tertiary mt-1">Use o MCP para gerar auditorias periódicas de performance</p>
+        <p className="text-[13px] text-text-secondary">No audits yet</p>
+        <p className="text-[12px] text-text-tertiary mt-1">Use MCP to generate periodic performance audits</p>
       </div>
     )
   }
@@ -392,22 +392,22 @@ function AuditoriaTab({ audits }: { audits: Audit[] }) {
                   {a.status}
                 </span>
               </div>
-              <p className="text-[11.5px] text-text-tertiary mt-0.5">
+              <p className="text-[11.5px] text-text-tertiary mt-0.5 capitalize">
                 {a.period_from} → {a.period_to} · {a.period_type}
               </p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-[13px] font-semibold text-text-primary">
-                ${a.revenue_total.toLocaleString('pt-BR')}
+                ${a.revenue_total.toLocaleString()}
               </p>
-              <p className="text-[11px] text-text-tertiary">receita</p>
+              <p className="text-[11px] text-text-tertiary">revenue</p>
             </div>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-3">
             {[
-              { label: 'Gasto', value: `$${a.spend_total.toLocaleString('pt-BR')}` },
+              { label: 'Spend', value: `$${a.spend_total.toLocaleString()}` },
               { label: 'Leads', value: a.leads_total.toString() },
-              { label: 'Oportunidades', value: a.opportunities_total.toString() },
+              { label: 'Opportunities', value: a.opportunities_total.toString() },
             ].map((stat) => (
               <div key={stat.label} className="rounded-lg bg-bg-tertiary px-3 py-2 text-center">
                 <p className="text-[11px] text-text-tertiary">{stat.label}</p>
@@ -439,7 +439,7 @@ export function AdsJourneyView({
   plans: Plan[]
   audits: Audit[]
 }) {
-  const [activeTab, setActiveTab] = useState('historia')
+  const [activeTab, setActiveTab] = useState('story')
   const [localMemories, setLocalMemories] = useState(memories)
 
   async function handleApprove(id: string) {
@@ -465,12 +465,12 @@ export function AdsJourneyView({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-4 border-b border-border-subtle px-6 py-3 shrink-0">
-        <span className="text-[14px] font-semibold text-text-primary">Jornada de Ads</span>
+        <span className="text-[14px] font-semibold text-text-primary">Ads Journey</span>
         <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
-            const hasBadge = tab.id === 'historia' && pendingCount > 0
+                const hasBadge = tab.id === 'story' && pendingCount > 0
             return (
               <button
                 key={tab.id}
@@ -496,16 +496,16 @@ export function AdsJourneyView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        {activeTab === 'historia' && (
-          <HistoriaTab
+        {activeTab === 'story' && (
+          <StoryTab
             memories={localMemories}
             onApprove={handleApprove}
             onDismiss={handleDismiss}
           />
         )}
-        {activeTab === 'planejamento' && <PlanejamentoTab plans={plans} />}
-        {activeTab === 'execucao' && <ExecucaoTab executions={executions} />}
-        {activeTab === 'auditoria' && <AuditoriaTab audits={audits} />}
+        {activeTab === 'planning' && <PlanningTab plans={plans} />}
+        {activeTab === 'execution' && <ExecutionTab executions={executions} />}
+        {activeTab === 'audit' && <AuditTab audits={audits} />}
       </div>
     </div>
   )

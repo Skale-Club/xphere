@@ -129,11 +129,11 @@ async function buildSystemPrompt(orgId: string): Promise<string> {
 
   let memorySection = ''
   if (memories.length > 0) {
-    memorySection = '\n\n## Contexto de Conversas Anteriores\n'
+    memorySection = '\n\n## Context from Previous Conversations\n'
     for (const m of memories) {
       memorySection += `- [${m.type.toUpperCase()}] ${m.title}: ${m.content}\n`
     }
-    memorySection += '\nUse esse contexto para dar continuidade a análises e decisões anteriores.'
+    memorySection += '\nUse this context to continue previous analyses and decisions.'
   }
 
   return `You are an expert Meta Ads analyst and manager embedded in the Xphere platform.

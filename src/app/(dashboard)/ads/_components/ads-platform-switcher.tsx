@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { label: 'Meta Ads', href: '/ads', value: 'meta' },
   { label: 'Google Ads', href: '/ads/google', value: 'google' },
-  { label: 'Jornada', href: '/ads/journey', value: 'journey' },
+  { label: 'Journey', href: '/ads/journey', value: 'journey' },
 ]
 
 export function AdsPlatformSwitcher() {
