@@ -15,7 +15,9 @@ WORKDIR /app
 
 # ---- Dependencies ----
 FROM base AS deps
-COPY package.json package-lock.json ./
+# .npmrc carries legacy-peer-deps=true — required or npm ci hits an ERESOLVE
+# peer conflict (@langchain/community wants openai 4.x via stagehand vs root 6.x).
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 # ---- Build ----
