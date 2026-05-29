@@ -17,13 +17,7 @@
     "workflows:validate": "tsx scripts/validate-workflows.ts",
     "workflows:validate-all": "tsx scripts/validate-workflows.ts",
     "workflows:load-seeds": "tsx scripts/load-workflow-seeds.ts",
-    "workflows:load-seeds:dry": "tsx scripts/load-workflow-seeds.ts --dry-run",
-    "vercel:pull": "vercel pull --yes --environment preview --scope skaleclub",
-    "vercel:build": "vercel build --yes --scope skaleclub",
-    "vercel:build:prod": "vercel build --prod --yes --scope skaleclub",
-    "vercel:list": "vercel ls --scope skaleclub",
-    "vercel:deploy": "vercel deploy --yes --scope skaleclub",
-    "vercel:deploy:prod": "vercel deploy --prod --yes --scope skaleclub"
+    "workflows:load-seeds:dry": "tsx scripts/load-workflow-seeds.ts --dry-run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
@@ -113,14 +107,15 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
+    "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "^16.2.2",
     "jsdom": "^29.0.1",
     "pg": "^8.21.0",
     "postcss": "^8",
     "tailwindcss": "^4",
+    "tsx": "^4.22.3",
     "typescript": "^5",
-    "vercel": "^50.38.3",
     "vitest": "^4.1.2"
   }
 }
