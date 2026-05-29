@@ -17,6 +17,17 @@ export type UserRole = 'admin' | 'member'
 // Template Organizations (migration 1108)
 export type OrgTemplateStatus = 'draft' | 'active' | 'archived'
 
+// Stripe billing foundation (migration 1109) | mirrors Stripe subscription statuses
+export type BillingSubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'paused'
+
 // Resend email system (migrations 1075–1078)
 export type EmailDeliveryStatus = 'delivered' | 'bounced' | 'complained' | 'failed'
 export type TenantEmailIntegrationStatus = 'connected' | 'disconnected' | 'error'
@@ -405,6 +416,84 @@ export interface Database {
           email?: string
           contact_id?: string | null
           source?: string
+        }
+        Relationships: []
+      }
+      billing_customers: {
+        Row: {
+          id: string
+          org_id: string
+          stripe_customer_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          stripe_customer_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          stripe_customer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_subscriptions: {
+        Row: {
+          id: string
+          org_id: string
+          stripe_subscription_id: string
+          stripe_customer_id: string
+          stripe_price_id: string | null
+          status: BillingSubscriptionStatus
+          cancel_at_period_end: boolean
+          current_period_start: string | null
+          current_period_end: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          stripe_subscription_id: string
+          stripe_customer_id: string
+          stripe_price_id?: string | null
+          status?: BillingSubscriptionStatus
+          cancel_at_period_end?: boolean
+          current_period_start?: string | null
+          current_period_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          stripe_price_id?: string | null
+          status?: BillingSubscriptionStatus
+          cancel_at_period_end?: boolean
+          current_period_start?: string | null
+          current_period_end?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_events: {
+        Row: {
+          id: string
+          stripe_event_id: string
+          type: string
+          received_at: string
+          processed_at: string | null
+        }
+        Insert: {
+          id?: string
+          stripe_event_id: string
+          type: string
+          received_at?: string
+          processed_at?: string | null
+        }
+        Update: {
+          processed_at?: string | null
         }
         Relationships: []
       }
