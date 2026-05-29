@@ -5672,6 +5672,55 @@ export interface Database {
         Relationships: []
       }
     }
+      ads_connections: {
+        Row: {
+          id: string
+          org_id: string
+          platform: 'meta' | 'google'
+          ad_account_id: string
+          ad_account_name: string | null
+          encrypted_access_token: string
+          token_expires_at: string | null
+          status: 'active' | 'error' | 'revoked'
+          connection_error: string | null
+          meta_app_scoped_user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          platform: 'meta' | 'google'
+          ad_account_id: string
+          ad_account_name?: string | null
+          encrypted_access_token: string
+          token_expires_at?: string | null
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          meta_app_scoped_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          ad_account_name?: string | null
+          encrypted_access_token?: string
+          token_expires_at?: string | null
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          meta_app_scoped_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ads_connections_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+    }
     Views: Record<string, never>
     Functions: {
       _is_cluster_fully_excluded: {
