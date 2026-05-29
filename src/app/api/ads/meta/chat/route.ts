@@ -114,6 +114,7 @@ const MUTATE_TOOL_NAMES = new Set(MUTATE_TOOLS.map((t) => t.name))
 const ChatRequestSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() })).min(1),
   ad_account_id: z.string().min(1),
+  account_snapshot: z.string().optional(),
   approved_tool: z.object({
     tool_use_id: z.string(),
     tool_name: z.string(),
@@ -124,8 +125,13 @@ const ChatRequestSchema = z.object({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function buildSystemPrompt(orgId: string): Promise<string> {
+async function buildSystemPrompt(orgId: string, snapshot?: string): Promise<string> {
   const memories = await fetchRecentMemories(orgId, 'meta', 8).catch(() => [])
+
+  let snapshotSection = ''
+  if (snapshot) {
+    snapshotSection = `\n\n${snapshot}`
+  }
 
   let memorySection = ''
   if (memories.length > 0) {
@@ -145,7 +151,7 @@ When a user asks you to make a change:
 2. Call the mutation tool — the system will intercept it and show the user an approval dialog.
 3. After the user approves, the approved_tool will be sent back to you in the next message.
 
-Always be specific about numbers, campaign names, and impacts. Never guess — use the read tools first.${memorySection}
+The account snapshot below reflects the current state (last 30 days). Use it to answer overview questions directly without calling tools. Call tools only when you need fresher data or deeper detail.${snapshotSection}${memorySection}
 
 Today: ${new Date().toISOString().split('T')[0]}`
 }
@@ -167,7 +173,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const parsed = ChatRequestSchema.safeParse(body)
   if (!parsed.success) return err(parsed.error.message)
 
-  const { messages, ad_account_id, approved_tool } = parsed.data
+  const { messages, ad_account_id, account_snapshot, approved_tool } = parsed.data
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
@@ -216,7 +222,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
-  const systemPrompt = await buildSystemPrompt(orgId as string)
+  const systemPrompt = await buildSystemPrompt(orgId as string, account_snapshot)
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({

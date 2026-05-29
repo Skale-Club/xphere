@@ -116,12 +116,11 @@ const MUTATE_NAMES = new Set(MUTATE_TOOLS.map((t) => t.name))
 const ChatSchema = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() })).min(1),
   customer_id: z.string().min(1),
+  account_snapshot: z.string().optional(),
   approved_tool: z.object({
     tool_use_id: z.string(),
     tool_name: z.string(),
     input: z.record(z.unknown()),
-    // Full response.content from Claude's turn — required to reconstruct the
-    // tool_use block before the tool_result (Anthropic API requirement).
     assistant_content: z.array(z.unknown()).optional(),
   }).optional(),
 })
@@ -130,8 +129,13 @@ function err(msg: string, status = 400) {
   return Response.json({ error: msg }, { status })
 }
 
-async function buildSystemPrompt(orgId: string): Promise<string> {
+async function buildSystemPrompt(orgId: string, snapshot?: string): Promise<string> {
   const memories = await fetchRecentMemories(orgId, 'google', 8).catch(() => [])
+
+  let snapshotSection = ''
+  if (snapshot) {
+    snapshotSection = `\n\n${snapshot}`
+  }
 
   let memorySection = ''
   if (memories.length > 0) {
@@ -145,7 +149,9 @@ async function buildSystemPrompt(orgId: string): Promise<string> {
   return `You are an expert Google Ads analyst and manager embedded in the Xphere platform.
 Use read tools freely to fetch data. Mutation tools (pause, enable, set_daily_budget) require explicit user approval — when you call one, the system will intercept it and show an approval dialog.
 After the user approves, the approved_tool is sent back and you should complete the response.
-Amounts in the API are in micros (1,000,000 micros = $1 USD). Always present budgets and costs in USD to the user.${memorySection}
+Amounts in the API are in micros (1,000,000 micros = $1 USD). Always present budgets and costs in USD to the user.
+
+The account snapshot below reflects the current state (last 30 days). Use it to answer overview questions directly without calling tools. Call tools only when you need fresher data or deeper detail.${snapshotSection}${memorySection}
 
 Today: ${new Date().toISOString().split('T')[0]}`
 }
@@ -163,7 +169,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const parsed = ChatSchema.safeParse(body)
   if (!parsed.success) return err(parsed.error.message)
 
-  const { messages, customer_id, approved_tool } = parsed.data
+  const { messages, customer_id, account_snapshot, approved_tool } = parsed.data
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
@@ -215,7 +221,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
-  const systemPrompt = await buildSystemPrompt(orgId as string)
+  const systemPrompt = await buildSystemPrompt(orgId as string, account_snapshot)
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {

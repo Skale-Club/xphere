@@ -104,10 +104,12 @@ export function AdsAiChat({
   adAccountId,
   adAccountName,
   connections,
+  accountSnapshot,
 }: {
   adAccountId: string
   adAccountName: string
   connections: { id: string; name: string }[]
+  accountSnapshot?: string
 }) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -143,7 +145,7 @@ export function AdsAiChat({
       try {
         await streamChat(
           '/api/ads/meta/chat',
-          { messages: history, ad_account_id: activeAccountId },
+          { messages: history, ad_account_id: activeAccountId, account_snapshot: accountSnapshot || undefined },
           (text) => {
             assistantText += text
             setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m))
@@ -201,7 +203,7 @@ export function AdsAiChat({
       try {
         await streamChat(
           '/api/ads/meta/chat',
-          { messages: historyForServer, ad_account_id: activeAccountId, approved_tool: tool },
+          { messages: historyForServer, ad_account_id: activeAccountId, approved_tool: tool, account_snapshot: accountSnapshot || undefined },
           (text) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)),
           (newTool) => setPendingTool(newTool),
           (errMsg) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errMsg}` } : m)),

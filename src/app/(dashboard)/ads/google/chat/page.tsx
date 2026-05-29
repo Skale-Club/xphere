@@ -1,5 +1,8 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { decrypt } from '@/lib/crypto'
+import { parseTokens } from '@/lib/ads/google-api'
+import { buildGoogleSnapshot } from '@/lib/ads/snapshot'
 import { GoogleAdsAiChat } from '../../_components/google-ads-chat'
 
 export default async function GoogleAdsChatPage() {
@@ -9,7 +12,7 @@ export default async function GoogleAdsChatPage() {
   const supabase = await createClient()
   const { data: connections } = await supabase
     .from('ads_connections')
-    .select('ad_account_id, ad_account_name')
+    .select('ad_account_id, ad_account_name, encrypted_access_token')
     .eq('platform', 'google')
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -17,11 +20,23 @@ export default async function GoogleAdsChatPage() {
   if (!connections?.length) redirect('/ads/google')
 
   const primary = connections[0]
+
+  const snapshot = await (async () => {
+    try {
+      const decrypted = await decrypt(primary.encrypted_access_token)
+      const tokens = parseTokens(decrypted)
+      return await buildGoogleSnapshot(primary.ad_account_id, tokens.refresh_token)
+    } catch {
+      return ''
+    }
+  })()
+
   return (
     <GoogleAdsAiChat
       customerId={primary.ad_account_id}
       customerName={primary.ad_account_name ?? primary.ad_account_id}
       connections={connections.map((c) => ({ id: c.ad_account_id, name: c.ad_account_name ?? c.ad_account_id }))}
+      accountSnapshot={snapshot}
     />
   )
 }
