@@ -112,7 +112,7 @@ export async function listCampaigns(
   accessToken: string,
 ): Promise<MetaCampaign[]> {
   const res = await graphRequest<{ data?: MetaCampaign[] }>(
-    `${adAccountId}/campaigns?fields=id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,created_time,updated_time&limit=100&access_token=${accessToken}`,
+    `${adAccountId}/campaigns?fields=id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,created_time,updated_time&limit=100`,
     accessToken,
   )
   return res.data ?? []
@@ -150,7 +150,6 @@ export async function listAdSets(
   const params = new URLSearchParams({
     fields: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,created_time,updated_time',
     limit: '100',
-    access_token: accessToken,
   })
   if (campaignId) params.set('campaign_id', campaignId)
   const res = await graphRequest<{ data?: MetaAdSet[] }>(
@@ -188,7 +187,6 @@ export async function getInsights(
     fields: 'impressions,clicks,spend,reach,cpc,cpm,ctr,cpp,frequency,actions',
     level: opts.level,
     limit: String(opts.limit ?? 100),
-    access_token: accessToken,
   })
   if (opts.datePreset) params.set('date_preset', opts.datePreset)
   if (opts.timeRange) params.set('time_range', JSON.stringify(opts.timeRange))
@@ -204,7 +202,7 @@ export async function getAdAccountInfo(
   accessToken: string,
 ): Promise<{ id: string; name: string; currency: string; account_status: number }> {
   return graphRequest<{ id: string; name: string; currency: string; account_status: number }>(
-    `${adAccountId}?fields=id,name,currency,account_status&access_token=${accessToken}`,
+    `${adAccountId}?fields=id,name,currency,account_status`,
     accessToken,
   )
 }

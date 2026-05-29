@@ -8,6 +8,8 @@ import {
   listAdSets,
   getInsights,
   getAdAccountInfo,
+  updateCampaignStatus,
+  updateCampaignDailyBudget,
   MetaAdsError,
 } from '@/lib/ads/meta-api'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -116,11 +118,13 @@ const MessageSchema = z.object({
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(1),
   ad_account_id: z.string().min(1),
-  /** Tool results approved by the user and being submitted for execution */
   approved_tool: z.object({
     tool_use_id: z.string(),
     tool_name: z.string(),
     input: z.record(z.unknown()),
+    // Full response.content from Claude's turn — required to reconstruct the
+    // tool_use block before the tool_result (Anthropic API requirement).
+    assistant_content: z.array(z.unknown()).optional(),
   }).optional(),
 })
 
@@ -179,18 +183,18 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!conn) return err('No active Meta Ads connection', 404)
 
   const accessToken = await decrypt(conn.encrypted_access_token)
-
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  // Build the message array for the API
+  // Build flat message array
   const apiMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
   }))
 
-  // If the user just approved a mutation tool, append a synthetic tool_result
+  // If the user just approved a mutation, reconstruct the proper tool_use + tool_result
+  // turns. The Anthropic API requires a tool_use block in the assistant turn before
+  // a tool_result can be provided.
   if (approved_tool) {
-    // Execute the approved mutation server-side
     let toolResultContent: string
     try {
       const result = await executeMutation(approved_tool.tool_name, approved_tool.input, ad_account_id, accessToken)
@@ -200,17 +204,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       toolResultContent = JSON.stringify({ error: msg })
     }
 
-    // The last assistant message should contain the tool_use block
-    // We add it as a proper tool_result message
+    // Use the stored assistant_content (which includes TextBlock + ToolUseBlock) if
+    // available; fall back to a minimal tool_use block so the API stays valid.
+    const assistantContent = approved_tool.assistant_content?.length
+      ? approved_tool.assistant_content as Anthropic.ContentBlock[]
+      : [{ type: 'tool_use' as const, id: approved_tool.tool_use_id, name: approved_tool.tool_name, input: approved_tool.input }]
+
+    apiMessages.push({ role: 'assistant', content: assistantContent })
     apiMessages.push({
       role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: approved_tool.tool_use_id,
-          content: toolResultContent,
-        },
-      ],
+      content: [{ type: 'tool_result', tool_use_id: approved_tool.tool_use_id, content: toolResultContent }],
     })
   }
 
@@ -242,42 +245,34 @@ export async function POST(request: NextRequest): Promise<Response> {
           const textBlocks = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text')
           const toolBlocks = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
 
-          // Emit any text
           for (const block of textBlocks) {
             write('text', JSON.stringify({ text: block.text }))
           }
 
-          // If there are tool use blocks, handle them
           if (toolBlocks.length > 0) {
-            const toolBlock = toolBlocks[0] // handle one at a time
+            const toolBlock = toolBlocks[0]
 
-            // Mutating tools → send to browser for approval, stop the loop
             if (MUTATE_TOOL_NAMES.has(toolBlock.name)) {
+              // Include the full response.content so the client can send it back
+              // when the user approves, allowing proper conversation reconstruction.
               write('tool_approval_required', JSON.stringify({
                 tool_use_id: toolBlock.id,
                 tool_name: toolBlock.name,
                 input: toolBlock.input,
+                assistant_content: response.content,
               }))
               break
             }
 
-            // Read tools → resolve server-side
             const toolResult = await resolveReadTool(toolBlock.name, toolBlock.input as Record<string, unknown>, ad_account_id, accessToken)
             write('tool_result', JSON.stringify({ tool_use_id: toolBlock.id, result: toolResult }))
 
-            // Append assistant + tool_result and continue
             currentMessages = [
               ...currentMessages,
               { role: 'assistant', content: response.content },
               {
                 role: 'user',
-                content: [
-                  {
-                    type: 'tool_result',
-                    tool_use_id: toolBlock.id,
-                    content: JSON.stringify(toolResult),
-                  },
-                ],
+                content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(toolResult) }],
               },
             ]
 
@@ -285,7 +280,6 @@ export async function POST(request: NextRequest): Promise<Response> {
             continue
           }
 
-          // No tool use → done
           break
         }
 
@@ -357,8 +351,6 @@ async function executeMutation(
   adAccountId: string,
   accessToken: string,
 ): Promise<unknown> {
-  const { updateCampaignStatus, updateCampaignDailyBudget } = await import('@/lib/ads/meta-api')
-
   switch (name) {
     case 'pause_campaign':
       return updateCampaignStatus(input.campaign_id as string, 'PAUSED', accessToken)

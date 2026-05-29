@@ -16,6 +16,9 @@ type PendingTool = {
   tool_use_id: string
   tool_name: string
   input: Record<string, unknown>
+  // Full Claude response.content blocks — needed to reconstruct the proper
+  // tool_use turn when the user approves (Anthropic API requires it).
+  assistant_content?: unknown[]
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -32,6 +35,69 @@ const TOOL_DESCRIPTIONS: Record<string, (input: Record<string, unknown>) => stri
 
 function uid() {
   return Math.random().toString(36).slice(2)
+}
+
+async function streamChat(
+  url: string,
+  payload: unknown,
+  onText: (text: string) => void,
+  onToolApprovalRequired: (tool: PendingTool) => void,
+  onError: (msg: string) => void,
+) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok || !res.body) {
+    throw new Error('Failed to connect to AI')
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let currentEvent = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim()
+        continue
+      }
+      if (!line.startsWith('data: ')) continue
+
+      const raw = line.slice(6).trim()
+      if (!raw || raw === '{}') continue
+
+      try {
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+
+        if (currentEvent === 'error' || 'error' in parsed) {
+          onError((parsed.error as string | undefined) ?? 'Unknown error')
+          continue
+        }
+
+        if (currentEvent === 'text' || 'text' in parsed) {
+          onText(parsed.text as string)
+          continue
+        }
+
+        if (currentEvent === 'tool_approval_required' || ('tool_use_id' in parsed && 'tool_name' in parsed)) {
+          onToolApprovalRequired(parsed as PendingTool)
+          continue
+        }
+      } catch {
+        // skip malformed SSE lines
+      }
+    }
+  }
 }
 
 export function AdsAiChat({
@@ -61,73 +127,26 @@ export function AdsAiChat({
   }, [messages, pendingTool])
 
   const sendMessage = useCallback(
-    async (userText: string, approvedTool?: PendingTool) => {
+    async (userText: string) => {
       if (streaming) return
 
       const userMsg: Message = { id: uid(), role: 'user', content: userText }
       const assistantId = uid()
-      const assistantMsg: Message = { id: assistantId, role: 'assistant', content: '' }
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      setMessages((prev) => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }])
       setStreaming(true)
       setPendingTool(null)
 
-      // Build history for API (exclude the blank assistant placeholder we just added)
       const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }))
 
       try {
-        const res = await fetch('/api/ads/meta/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: history,
-            ad_account_id: activeAccountId,
-            ...(approvedTool ? { approved_tool: approvedTool } : {}),
-          }),
-        })
-
-        if (!res.ok || !res.body) {
-          throw new Error('Failed to connect to AI')
-        }
-
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() ?? ''
-
-          for (const line of lines) {
-            if (line.startsWith('event: ')) continue
-            if (!line.startsWith('data: ')) continue
-
-            const raw = line.slice(6).trim()
-            if (!raw || raw === '{}') continue
-
-            try {
-              const parsed = JSON.parse(raw) as Record<string, unknown>
-
-              if ('text' in parsed) {
-                const text = parsed.text as string
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: m.content + text } : m,
-                  ),
-                )
-              } else if ('tool_use_id' in parsed && 'tool_name' in parsed && 'input' in parsed) {
-                // Mutating tool — needs approval
-                setPendingTool(parsed as PendingTool)
-              }
-            } catch {
-              // skip malformed SSE
-            }
-          }
-        }
+        await streamChat(
+          '/api/ads/meta/chat',
+          { messages: history, ad_account_id: activeAccountId },
+          (text) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)),
+          (tool) => setPendingTool(tool),
+          (errMsg) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errMsg}` } : m)),
+        )
       } catch (e) {
         setMessages((prev) =>
           prev.map((m) =>
@@ -143,13 +162,50 @@ export function AdsAiChat({
     [messages, streaming, activeAccountId],
   )
 
-  async function handleApprove() {
-    if (!pendingTool) return
-    // Re-send the last user message with the approved tool attached
-    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-    if (!lastUser) return
-    await sendMessage(lastUser.content, pendingTool)
-  }
+  // Separate approval submission: does NOT add a new user message.
+  // The server reconstructs the conversation from assistant_content (tool_use) +
+  // tool_result internally, so the client just continues from the current history.
+  const submitApproval = useCallback(
+    async (tool: PendingTool) => {
+      if (streaming) return
+
+      const assistantId = uid()
+      // Keep existing messages; only append a new assistant placeholder
+      setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+      setStreaming(true)
+      setPendingTool(null)
+
+      // Send history without the trailing empty/partial assistant message so the
+      // server can append assistant_content + tool_result in the right position.
+      const currentMessages = messages
+      const trailingAssistant = currentMessages.at(-1)
+      const historyForServer = (trailingAssistant?.role === 'assistant' && !trailingAssistant.content.trim()
+        ? currentMessages.slice(0, -1)
+        : currentMessages
+      ).map((m) => ({ role: m.role, content: m.content }))
+
+      try {
+        await streamChat(
+          '/api/ads/meta/chat',
+          { messages: historyForServer, ad_account_id: activeAccountId, approved_tool: tool },
+          (text) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)),
+          (newTool) => setPendingTool(newTool),
+          (errMsg) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errMsg}` } : m)),
+        )
+      } catch (e) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: e instanceof Error ? `Error: ${e.message}` : 'An error occurred.' }
+              : m,
+          ),
+        )
+      } finally {
+        setStreaming(false)
+      }
+    },
+    [messages, streaming, activeAccountId],
+  )
 
   function handleDeny() {
     setPendingTool(null)
@@ -241,7 +297,7 @@ export function AdsAiChat({
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleApprove} className="h-7 gap-1.5">
+                <Button size="sm" onClick={() => void submitApproval(pendingTool)} className="h-7 gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Approve
                 </Button>

@@ -13,7 +13,7 @@ import {
   toGaqlDuration,
   GoogleAdsError,
 } from '@/lib/ads/google-api'
-import { getCustomerInfo } from '@/lib/ads/google-oauth'
+import { getCustomerInfo, refreshAccessToken } from '@/lib/ads/google-oauth'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -119,6 +119,9 @@ const ChatSchema = z.object({
     tool_use_id: z.string(),
     tool_name: z.string(),
     input: z.record(z.unknown()),
+    // Full response.content from Claude's turn — required to reconstruct the
+    // tool_use block before the tool_result (Anthropic API requirement).
+    assistant_content: z.array(z.unknown()).optional(),
   }).optional(),
 })
 
@@ -169,6 +172,9 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const apiMessages: Anthropic.MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }))
 
+  // Reconstruct the proper tool_use + tool_result turns for the approved mutation.
+  // The Anthropic API requires a tool_use block in the assistant turn immediately
+  // before any tool_result — it cannot appear alone.
   if (approved_tool) {
     let resultContent: string
     try {
@@ -177,6 +183,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     } catch (e) {
       resultContent = JSON.stringify({ error: e instanceof Error ? e.message : 'Mutation failed' })
     }
+
+    const assistantContent = approved_tool.assistant_content?.length
+      ? approved_tool.assistant_content as Anthropic.ContentBlock[]
+      : [{ type: 'tool_use' as const, id: approved_tool.tool_use_id, name: approved_tool.tool_name, input: approved_tool.input }]
+
+    apiMessages.push({ role: 'assistant', content: assistantContent })
     apiMessages.push({
       role: 'user',
       content: [{ type: 'tool_result', tool_use_id: approved_tool.tool_use_id, content: resultContent }],
@@ -210,7 +222,14 @@ export async function POST(request: NextRequest): Promise<Response> {
           if (toolBlocks.length > 0) {
             const tool = toolBlocks[0]
             if (MUTATE_NAMES.has(tool.name)) {
-              write('tool_approval_required', JSON.stringify({ tool_use_id: tool.id, tool_name: tool.name, input: tool.input }))
+              // Include full response.content so the client can reconstruct the
+              // tool_use turn on approval without an extra round-trip.
+              write('tool_approval_required', JSON.stringify({
+                tool_use_id: tool.id,
+                tool_name: tool.name,
+                input: tool.input,
+                assistant_content: response.content,
+              }))
               break
             }
             const result = await resolveReadTool(tool.name, tool.input as Record<string, unknown>, customer_id, tokens.refresh_token)
@@ -244,7 +263,9 @@ async function resolveReadTool(name: string, input: Record<string, unknown>, cus
   switch (name) {
     case 'get_account_overview': {
       const [info, metrics] = await Promise.all([
-        getCustomerInfo(customerId, '').catch(() => ({ id: customerId, name: customerId, currency_code: 'USD', manager: false, test_account: false })),
+        refreshAccessToken(refreshToken)
+          .then((at) => getCustomerInfo(customerId, at))
+          .catch(() => ({ id: customerId, name: customerId, currency_code: 'USD', manager: false, test_account: false })),
         getAccountOverview(customerId, refreshToken, duration),
       ])
       return { customer: info, metrics }

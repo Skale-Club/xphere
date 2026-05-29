@@ -8,7 +8,7 @@ import {
   listAdGroups,
   toGaqlDuration,
 } from '@/lib/ads/google-api'
-import { getCustomerInfo } from '@/lib/ads/google-oauth'
+import { getCustomerInfo, refreshAccessToken } from '@/lib/ads/google-oauth'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -53,13 +53,16 @@ export async function GET(request: NextRequest): Promise<Response> {
     switch (report) {
       case 'overview': {
         const [info, overview] = await Promise.all([
-          getCustomerInfo(customerId, tokens.access_token).catch(() => ({
-            id: customerId,
-            name: conn.ad_account_name ?? customerId,
-            currency_code: 'USD',
-            manager: false,
-            test_account: false,
-          })),
+          // Refresh the access token first — the stored one may be stale
+          refreshAccessToken(tokens.refresh_token)
+            .then((at) => getCustomerInfo(customerId, at))
+            .catch(() => ({
+              id: customerId,
+              name: conn.ad_account_name ?? customerId,
+              currency_code: 'USD',
+              manager: false,
+              test_account: false,
+            })),
           getAccountOverview(customerId, tokens.refresh_token, duration),
         ])
         return Response.json({ customer: info, metrics: overview })
