@@ -6,7 +6,9 @@
 // definitions. They intentionally contain no contacts, conversations, bookings,
 // logs, credentials, phone numbers, or connected-account data.
 
-export type OrgTemplateStatus = 'draft' | 'active' | 'archived'
+// Canonical definition lives with the DB types; re-exported here for colocation.
+import type { OrgTemplateStatus } from '@/types/database'
+export type { OrgTemplateStatus }
 
 export const ASSET_GROUPS = [
   'pipelines',

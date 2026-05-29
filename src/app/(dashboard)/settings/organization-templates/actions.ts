@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { seedOrgWorkflows } from '@/lib/workflows/seed-org'
+import { slugify } from '@/lib/slug'
 import { captureOrgSnapshot } from '@/lib/org-templates/snapshot'
 import { installSnapshotIntoOrg } from '@/lib/org-templates/install'
 import {
@@ -64,10 +65,6 @@ function snapshotCounts(snapshot: OrgTemplateSnapshot) {
     message_templates: snapshot.message_templates?.length ?? 0,
     workflows: snapshot.workflows?.length ?? 0,
   }
-}
-
-function generateSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export async function listOrgTemplates(): Promise<OrgTemplateListItem[]> {
@@ -259,7 +256,7 @@ export async function createOrgFromTemplate(
   if (!tmpl) return { error: 'Template not found.' }
 
   const admin = createServiceRoleClient()
-  const slug = generateSlug(parsed.data.name)
+  const slug = slugify(parsed.data.name)
 
   const { data: org, error: orgError } = await admin
     .from('organizations')

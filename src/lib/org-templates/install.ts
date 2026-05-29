@@ -111,27 +111,33 @@ async function installCustomFields(
   createdBy: string | null,
   counts: InstallCounts
 ) {
-  for (const f of snapshot.custom_fields ?? []) {
-    const { error } = await admin.from('custom_field_definitions').insert({
-      org_id: orgId,
-      entity: f.entity,
-      key: f.key,
-      label: f.label,
-      type: f.type as Database['public']['Tables']['custom_field_definitions']['Insert']['type'],
-      required: f.required,
-      unique_per_org: f.unique_per_org,
-      position: f.position,
-      group_name: f.group_name,
-      help_text: f.help_text,
-      default_value: f.default_value as Database['public']['Tables']['custom_field_definitions']['Insert']['default_value'],
-      options: f.options as Database['public']['Tables']['custom_field_definitions']['Insert']['options'],
-      validation: f.validation as Database['public']['Tables']['custom_field_definitions']['Insert']['validation'],
-      visible_in_list: f.visible_in_list,
-      filterable: f.filterable,
-      created_by: createdBy,
-    })
-    if (!error) counts.custom_fields += 1
+  const rows = (snapshot.custom_fields ?? []).map((f) => ({
+    org_id: orgId,
+    entity: f.entity,
+    key: f.key,
+    label: f.label,
+    type: f.type as Database['public']['Tables']['custom_field_definitions']['Insert']['type'],
+    required: f.required,
+    unique_per_org: f.unique_per_org,
+    position: f.position,
+    group_name: f.group_name,
+    help_text: f.help_text,
+    default_value: f.default_value as Database['public']['Tables']['custom_field_definitions']['Insert']['default_value'],
+    options: f.options as Database['public']['Tables']['custom_field_definitions']['Insert']['options'],
+    validation: f.validation as Database['public']['Tables']['custom_field_definitions']['Insert']['validation'],
+    visible_in_list: f.visible_in_list,
+    filterable: f.filterable,
+    created_by: createdBy,
+  }))
+  if (!rows.length) return
+  // The target org is freshly created, so there are no pre-existing rows to
+  // collide with — a single batch insert is safe and accurate.
+  const { data, error } = await admin.from('custom_field_definitions').insert(rows).select('id')
+  if (error) {
+    console.warn('[org-templates] custom field import failed:', error.message)
+    return
   }
+  counts.custom_fields += data?.length ?? 0
 }
 
 async function installTags(
@@ -141,16 +147,20 @@ async function installTags(
   createdBy: string | null,
   counts: InstallCounts
 ) {
-  for (const t of snapshot.tags ?? []) {
-    const { error } = await admin.from('tags').insert({
-      org_id: orgId,
-      name: t.name,
-      slug: t.slug,
-      color: t.color,
-      created_by: createdBy,
-    })
-    if (!error) counts.tags += 1
+  const rows = (snapshot.tags ?? []).map((t) => ({
+    org_id: orgId,
+    name: t.name,
+    slug: t.slug,
+    color: t.color,
+    created_by: createdBy,
+  }))
+  if (!rows.length) return
+  const { data, error } = await admin.from('tags').insert(rows).select('id')
+  if (error) {
+    console.warn('[org-templates] tag import failed:', error.message)
+    return
   }
+  counts.tags += data?.length ?? 0
 }
 
 async function installMessageTemplates(
@@ -160,24 +170,28 @@ async function installMessageTemplates(
   createdBy: string | null,
   counts: InstallCounts
 ) {
-  for (const m of snapshot.message_templates ?? []) {
-    const { error } = await admin.from('email_templates').insert({
-      org_id: orgId,
-      name: m.name,
-      description: m.description,
-      subject_line: m.subject_line,
-      preview_text: m.preview_text,
-      ai_prompt: m.ai_prompt,
-      // Imported templates start as drafts regardless of source status.
-      status: 'draft',
-      tags: m.tags,
-      document: m.document as Database['public']['Tables']['email_templates']['Insert']['document'],
-      html_snapshot: m.html_snapshot,
-      plain_text_snapshot: m.plain_text_snapshot,
-      created_by: createdBy,
-    })
-    if (!error) counts.message_templates += 1
+  const rows = (snapshot.message_templates ?? []).map((m) => ({
+    org_id: orgId,
+    name: m.name,
+    description: m.description,
+    subject_line: m.subject_line,
+    preview_text: m.preview_text,
+    ai_prompt: m.ai_prompt,
+    // Imported templates start as drafts regardless of source status.
+    status: 'draft',
+    tags: m.tags,
+    document: m.document as Database['public']['Tables']['email_templates']['Insert']['document'],
+    html_snapshot: m.html_snapshot,
+    plain_text_snapshot: m.plain_text_snapshot,
+    created_by: createdBy,
+  }))
+  if (!rows.length) return
+  const { data, error } = await admin.from('email_templates').insert(rows).select('id')
+  if (error) {
+    console.warn('[org-templates] message template import failed:', error.message)
+    return
   }
+  counts.message_templates += data?.length ?? 0
 }
 
 async function installWorkflows(
@@ -216,7 +230,10 @@ async function installWorkflows(
       })
       .select('id')
       .single()
-    if (wErr || !workflow) continue
+    if (wErr || !workflow) {
+      if (wErr) console.warn(`[org-templates] workflow import failed (${w.slug}):`, wErr.message)
+      continue
+    }
     taken.add(w.slug)
 
     const definition = (w.definition ?? EMPTY_FLOW) as Database['public']['Tables']['workflow_versions']['Insert']['definition']
