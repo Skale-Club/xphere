@@ -14,6 +14,9 @@ export type Json =
 
 export type UserRole = 'admin' | 'member'
 
+// Template Organizations (migration 1108)
+export type OrgTemplateStatus = 'draft' | 'active' | 'archived'
+
 // Resend email system (migrations 1075–1078)
 export type EmailDeliveryStatus = 'delivered' | 'bounced' | 'complained' | 'failed'
 export type TenantEmailIntegrationStatus = 'connected' | 'disconnected' | 'error'
@@ -402,6 +405,82 @@ export interface Database {
           email?: string
           contact_id?: string | null
           source?: string
+        }
+        Relationships: []
+      }
+      org_templates: {
+        Row: {
+          id: string
+          owner_org_id: string
+          source_org_id: string | null
+          name: string
+          industry: string | null
+          description: string | null
+          status: OrgTemplateStatus
+          asset_groups: string[]
+          snapshot: Json
+          snapshot_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_org_id: string
+          source_org_id?: string | null
+          name: string
+          industry?: string | null
+          description?: string | null
+          status?: OrgTemplateStatus
+          asset_groups?: string[]
+          snapshot?: Json
+          snapshot_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          industry?: string | null
+          description?: string | null
+          status?: OrgTemplateStatus
+          asset_groups?: string[]
+          snapshot?: Json
+          snapshot_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      org_template_installs: {
+        Row: {
+          id: string
+          owner_org_id: string
+          template_id: string | null
+          template_name: string | null
+          target_org_id: string | null
+          target_org_name: string | null
+          asset_groups: string[]
+          summary: Json
+          installed_by: string | null
+          installed_at: string
+        }
+        Insert: {
+          id?: string
+          owner_org_id: string
+          template_id?: string | null
+          template_name?: string | null
+          target_org_id?: string | null
+          target_org_name?: string | null
+          asset_groups?: string[]
+          summary?: Json
+          installed_by?: string | null
+          installed_at?: string
+        }
+        Update: {
+          template_name?: string | null
+          target_org_id?: string | null
+          target_org_name?: string | null
+          summary?: Json
         }
         Relationships: []
       }
