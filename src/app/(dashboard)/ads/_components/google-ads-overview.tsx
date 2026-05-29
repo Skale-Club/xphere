@@ -7,6 +7,7 @@ import { TrendingUp, Eye, MousePointerClick, DollarSign, Target, Loader2, AlertC
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { AdsAttribution } from './ads-attribution'
 
 type Metrics = {
   impressions: string
@@ -190,6 +191,19 @@ export function GoogleAdsOverview({
           />
         </div>
       )}
+
+      {/* Lead & Revenue Attribution */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[13px] font-semibold text-text-primary">Lead & Revenue Attribution</h2>
+          <span className="rounded-full bg-[#4285F4]/10 px-2 py-0.5 text-[10px] font-medium text-[#4285F4]">via UTM</span>
+        </div>
+        <AdsAttribution
+          platform="google"
+          datePreset={datePreset}
+          currency={data?.customer?.currency_code ?? 'USD'}
+        />
+      </div>
     </div>
   )
 }

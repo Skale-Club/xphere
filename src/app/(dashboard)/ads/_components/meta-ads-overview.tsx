@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { AdsAttribution } from './ads-attribution'
 
 type AdAccountOption = { id: string; name: string }
 
@@ -281,6 +282,19 @@ export function MetaAdsOverview({
           )}
         </>
       )}
+
+      {/* Lead & Revenue Attribution */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[13px] font-semibold text-text-primary">Lead & Revenue Attribution</h2>
+          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">via UTM</span>
+        </div>
+        <AdsAttribution
+          platform="meta"
+          datePreset={datePreset}
+          currency={data?.account?.currency ?? 'USD'}
+        />
+      </div>
     </div>
   )
 }
