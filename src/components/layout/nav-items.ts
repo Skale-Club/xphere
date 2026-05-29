@@ -13,6 +13,7 @@ import {
   CheckSquare,
   FolderKanban,
   BarChart3,
+  MonitorPlay,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -20,6 +21,8 @@ export type NavItem = {
   label: string
   href: string
   group: string
+  /** When true, only shown to PLATFORM_ADMIN users. */
+  adminOnly?: boolean
 }
 
 /**
@@ -35,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage' },
+  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },

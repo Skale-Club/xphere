@@ -53,9 +53,10 @@ interface SidebarProps {
   brandName?: string
   /** Optional org logo URL | replaces the default "O" mark when set. */
   logoUrl?: string | null
+  isPlatformAdmin?: boolean
 }
 
-export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl }: SidebarProps) {
+export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebarState()
@@ -148,7 +149,7 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl }
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         {groups.map((g, gIdx) => {
-          const items = nav.filter((n) => n.group === g.id)
+          const items = nav.filter((n) => n.group === g.id && (!n.adminOnly || isPlatformAdmin))
           if (items.length === 0) return null
           return (
             <div key={g.id} className={cn('flex flex-col', gIdx > 0 && 'mt-3')}>

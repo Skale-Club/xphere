@@ -5839,9 +5839,266 @@ export interface Database {
         }
         Relationships: []
       }
+      ads_connections: {
+        Row: {
+          ad_account_id: string
+          ad_account_name: string | null
+          connection_error: string | null
+          created_at: string
+          encrypted_access_token: string
+          id: string
+          meta_app_scoped_user_id: string | null
+          org_id: string
+          platform: string
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ad_account_id: string
+          ad_account_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          encrypted_access_token: string
+          id?: string
+          meta_app_scoped_user_id?: string | null
+          org_id: string
+          platform: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ad_account_id?: string
+          ad_account_name?: string | null
+          connection_error?: string | null
+          created_at?: string
+          encrypted_access_token?: string
+          id?: string
+          meta_app_scoped_user_id?: string | null
+          org_id?: string
+          platform?: string
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_executions: {
+        Row: {
+          after_value: string | null
+          before_value: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          created_at: string
+          description: string | null
+          executed_at: string
+          executed_by_ai: boolean
+          id: string
+          journey_id: string
+          org_id: string
+          plan_id: string | null
+          platform: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          after_value?: string | null
+          before_value?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          description?: string | null
+          executed_at?: string
+          executed_by_ai?: boolean
+          id?: string
+          journey_id: string
+          org_id: string
+          plan_id?: string | null
+          platform?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          after_value?: string | null
+          before_value?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          description?: string | null
+          executed_at?: string
+          executed_by_ai?: boolean
+          id?: string
+          journey_id?: string
+          org_id?: string
+          plan_id?: string | null
+          platform?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_executions_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "ads_journey"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_executions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_executions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "ads_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_journey: {
+        Row: {
+          created_at: string
+          current_phase: string | null
+          id: string
+          org_id: string
+          started_at: string
+          status: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_phase?: string | null
+          id?: string
+          org_id: string
+          started_at?: string
+          status?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_phase?: string | null
+          id?: string
+          org_id?: string
+          started_at?: string
+          status?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_journey_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_memories: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          confidence: number
+          content: string
+          created_at: string
+          id: string
+          journey_id: string
+          metadata: Json
+          org_id: string
+          platform: string | null
+          proposed: boolean
+          source: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          confidence?: number
+          content: string
+          created_at?: string
+          id?: string
+          journey_id: string
+          metadata?: Json
+          org_id: string
+          platform?: string | null
+          proposed?: boolean
+          source: string
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          confidence?: number
+          content?: string
+          created_at?: string
+          id?: string
+          journey_id?: string
+          metadata?: Json
+          org_id?: string
+          platform?: string | null
+          proposed?: boolean
+          source?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_memories_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "ads_journey"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_memories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
+      get_ads_attribution: {
+        Args: { p_from: string; p_platform?: string; p_to: string }
+        Returns: {
+          identified_contacts: number
+          opportunities: number
+          revenue: number
+          sessions: number
+          utm_campaign: string
+          utm_medium: string
+          utm_source: string
+        }[]
+      }
       _is_cluster_fully_excluded: {
         Args: {
           p_org_id: string
