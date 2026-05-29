@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { MonitorPlay, AlertCircle } from 'lucide-react'
+import { MonitorPlay, AlertCircle, ChevronDown, HelpCircle } from 'lucide-react'
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: 'Authorization code missing. Please try again.',
@@ -19,7 +19,7 @@ export function GoogleAdsConnect() {
 
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="flex max-w-md flex-col items-center gap-6 text-center">
+      <div className="flex w-full max-w-lg flex-col items-center gap-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#4285F4]/10">
           <MonitorPlay className="h-8 w-8 text-[#4285F4]" />
         </div>
@@ -65,6 +65,66 @@ export function GoogleAdsConnect() {
             ))}
           </ul>
         </div>
+
+        <details className="group w-full rounded-lg border border-border-subtle bg-bg-secondary text-left open:bg-bg-tertiary/40">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-[12.5px] font-medium text-text-primary [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <HelpCircle className="h-3.5 w-3.5 text-text-tertiary" />
+              How to connect — step by step
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-text-tertiary transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border-subtle px-4 pb-4 pt-3 space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Before you start</p>
+              <ul className="space-y-1.5 text-[12px] text-text-secondary">
+                <li className="flex gap-2"><span className="text-text-tertiary">•</span>You need a Google account that has access to a Google Ads account.</li>
+                <li className="flex gap-2"><span className="text-text-tertiary">•</span>Manager accounts (MCC) work — Xphere will see the accounts you manage under it.</li>
+                <li className="flex gap-2"><span className="text-text-tertiary">•</span>If you don&apos;t have one yet, create it at <a href="https://ads.google.com" target="_blank" rel="noreferrer" className="text-accent hover:underline">ads.google.com</a>.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Steps</p>
+              <ol className="space-y-2 text-[12px] text-text-secondary">
+                {[
+                  ['Click ', <strong key="b" className="text-text-primary">Connect with Google</strong>, ' above. A Google OAuth window opens.'],
+                  ['Sign in with the Google account that manages your ads.'],
+                  ['Click ', <strong key="a" className="text-text-primary">Allow</strong>, ' when Google asks for access to view and manage your Google Ads campaigns.'],
+                  ['Pick the ad account if Google asks. Xphere uses the first account in your list by default — you can switch later from the account picker.'],
+                  ['You\'ll be redirected back here. The dashboard loads automatically once at least one campaign is found.'],
+                ].map((parts, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#4285F4]/15 text-[10px] font-semibold text-[#4285F4]">{i + 1}</span>
+                    <span className="flex-1 leading-snug">{parts}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Troubleshooting</p>
+              <dl className="space-y-2 text-[12px] text-text-secondary">
+                <div>
+                  <dt className="font-medium text-text-primary">&quot;No Google Ads accounts found&quot;</dt>
+                  <dd className="mt-0.5">This Google account isn&apos;t linked to any Google Ads account. Sign in at <a href="https://ads.google.com" target="_blank" rel="noreferrer" className="text-accent hover:underline">ads.google.com</a> to create one or ask an admin to add you to an existing account.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-text-primary">&quot;Google did not return a refresh token&quot;</dt>
+                  <dd className="mt-0.5">You already granted Xphere access on a previous attempt. Go to <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer" className="text-accent hover:underline">myaccount.google.com/permissions</a>, remove Xphere, then click Connect again.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-text-primary">&quot;Security check failed&quot;</dt>
+                  <dd className="mt-0.5">CSRF token expired. Refresh this page and click Connect again — don&apos;t reopen the Google tab from history.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-text-primary">Need to revoke access</dt>
+                  <dd className="mt-0.5">Open <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer" className="text-accent hover:underline">myaccount.google.com/permissions</a> and remove Xphere.</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   )

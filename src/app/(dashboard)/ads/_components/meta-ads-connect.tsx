@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { MonitorPlay, AlertCircle } from 'lucide-react'
+import { MonitorPlay, AlertCircle, ChevronDown, HelpCircle } from 'lucide-react'
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: 'Authorization code missing. Please try again.',
@@ -18,7 +18,7 @@ export function MetaAdsConnect() {
 
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="flex max-w-md flex-col items-center gap-6 text-center">
+      <div className="flex w-full max-w-lg flex-col items-center gap-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1877F2]/10">
           <MonitorPlay className="h-8 w-8 text-[#1877F2]" />
         </div>
@@ -70,6 +70,61 @@ export function MetaAdsConnect() {
             ))}
           </ul>
         </div>
+
+        <details className="group w-full rounded-lg border border-border-subtle bg-bg-secondary text-left open:bg-bg-tertiary/40">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-[12.5px] font-medium text-text-primary [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <HelpCircle className="h-3.5 w-3.5 text-text-tertiary" />
+              How to connect — step by step
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-text-tertiary transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border-subtle px-4 pb-4 pt-3 space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Before you start</p>
+              <ul className="space-y-1.5 text-[12px] text-text-secondary">
+                <li className="flex gap-2"><span className="text-text-tertiary">•</span>You need a Facebook account with admin access to the ad account.</li>
+                <li className="flex gap-2"><span className="text-text-tertiary">•</span>The ad account must be inside a Meta Business Manager (<a href="https://business.facebook.com" target="_blank" rel="noreferrer" className="text-accent hover:underline">business.facebook.com</a>) you belong to.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Steps</p>
+              <ol className="space-y-2 text-[12px] text-text-secondary">
+                {[
+                  ['Click', <strong key="b" className="text-text-primary">Connect with Meta</strong>, ' above. A Facebook OAuth window opens.'],
+                  ['Sign in with the Facebook account that manages your business.'],
+                  ['When asked, grant ', <code key="p" className="rounded bg-bg-primary px-1 py-0.5 text-[11px] text-text-primary">ads_read</code>, ', ', <code key="m" className="rounded bg-bg-primary px-1 py-0.5 text-[11px] text-text-primary">ads_management</code>, ', and ', <code key="b" className="rounded bg-bg-primary px-1 py-0.5 text-[11px] text-text-primary">business_management</code>, '. Leaving any of these unchecked will block the connection.'],
+                  ['Pick the ad account if Facebook asks. Xphere uses the first active account by default — you can switch later from the account picker.'],
+                  ['You\'ll be redirected back here. The dashboard loads automatically once at least one campaign is found.'],
+                ].map((parts, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/15 text-[10px] font-semibold text-[#1877F2]">{i + 1}</span>
+                    <span className="flex-1 leading-snug">{parts}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-tertiary">Troubleshooting</p>
+              <dl className="space-y-2 text-[12px] text-text-secondary">
+                <div>
+                  <dt className="font-medium text-text-primary">&quot;No ad accounts found&quot;</dt>
+                  <dd className="mt-0.5">Your Facebook user has no ad accounts visible. Ask a Business Manager admin to add you to the ad account, then try again.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-text-primary">&quot;Security check failed&quot;</dt>
+                  <dd className="mt-0.5">CSRF token expired. Refresh this page and click Connect again — don&apos;t reopen the Facebook tab from history.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-text-primary">Need to revoke access</dt>
+                  <dd className="mt-0.5">Open <a href="https://www.facebook.com/settings?tab=business_tools" target="_blank" rel="noreferrer" className="text-accent hover:underline">Facebook Settings → Business Integrations</a> and remove Xphere.</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   )
