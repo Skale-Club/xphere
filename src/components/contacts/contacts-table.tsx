@@ -320,6 +320,18 @@ export function ContactsTable({
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 pb-2 space-y-4">
+        {/* Top pagination — desktop only (prev/next) */}
+        {totalPages > 1 && (
+          <div className="hidden sm:block">
+            <PaginationControls
+              page={page}
+              totalPages={totalPages}
+              onPage={(p) => setParam("page", String(p))}
+              align="end"
+            />
+          </div>
+        )}
+
         {/* Bulk actions bar */}
         {selected.size > 0 && (
           <div className="flex items-center justify-between rounded-[10px] border border-accent/30 bg-accent-muted/40 px-3 py-2">
@@ -609,32 +621,96 @@ export function ContactsTable({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-text-tertiary">
-              Page {page} of {totalPages} · {total} total
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page <= 1}
-                onClick={() => setParam("page", String(page - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page >= totalPages}
-                onClick={() => setParam("page", String(page + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPage={(p) => setParam("page", String(p))}
+            showNumbers
+          />
         )}
       </div>
 
+    </div>
+  );
+}
+
+/**
+ * Pagination controls shared by the contacts table (top + bottom bars).
+ *
+ * Layout: "Page X of Y · N total" sits on the left with the Previous/Next
+ * buttons immediately to its right. When `showNumbers` is set, a numbered page
+ * selector is rendered on the far side in windows of 10 (e.g. 1–10, then
+ * 11–20, …) so large datasets stay navigable without an endless button row.
+ */
+function PaginationControls({
+  page,
+  totalPages,
+  total,
+  onPage,
+  showNumbers = false,
+  align = "between",
+}: {
+  page: number;
+  totalPages: number;
+  total?: number;
+  onPage: (page: number) => void;
+  showNumbers?: boolean;
+  align?: "between" | "end";
+}) {
+  const WINDOW = 10;
+  const windowStart = Math.floor((page - 1) / WINDOW) * WINDOW + 1;
+  const windowEnd = Math.min(windowStart + WINDOW - 1, totalPages);
+  const pageNumbers: number[] = [];
+  for (let p = windowStart; p <= windowEnd; p++) pageNumbers.push(p);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3",
+        align === "between" ? "justify-between" : "justify-end",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-text-tertiary whitespace-nowrap">
+          Page {page} of {totalPages}
+          {typeof total === "number" ? ` · ${total} total` : ""}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={page <= 1}
+            onClick={() => onPage(page - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={page >= totalPages}
+            onClick={() => onPage(page + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+      {showNumbers && (
+        <div className="flex flex-wrap items-center gap-1">
+          {pageNumbers.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={p === page ? "secondary" : "ghost"}
+              aria-current={p === page ? "page" : undefined}
+              className="h-8 min-w-8 px-2 tabular-nums"
+              onClick={() => onPage(p)}
+            >
+              {p}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
