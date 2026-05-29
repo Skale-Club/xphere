@@ -7,8 +7,8 @@ import {
   exchangeCodeForTokens,
   listAccessibleCustomers,
   getCustomerInfo,
-  serializeTokens,
 } from '@/lib/ads/google-oauth'
+import { serializeTokens } from '@/lib/ads/google-api'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
