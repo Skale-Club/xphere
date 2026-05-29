@@ -318,20 +318,20 @@ export function ContactsTable({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Pagination — inline with the toolbar */}
+        {totalPages > 1 && (
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPage={(p) => setParam("page", String(p))}
+            align="end"
+          />
+        )}
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 pb-2 space-y-4">
-        {/* Top pagination — desktop only (prev/next) */}
-        {totalPages > 1 && (
-          <div className="hidden sm:block">
-            <PaginationControls
-              page={page}
-              totalPages={totalPages}
-              onPage={(p) => setParam("page", String(p))}
-              align="end"
-            />
-          </div>
-        )}
 
         {/* Bulk actions bar */}
         {selected.size > 0 && (
@@ -624,7 +624,7 @@ export function ContactsTable({
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Pagination — numbered, bottom of the list */}
         {totalPages > 1 && (
           <PaginationControls
             page={page}
