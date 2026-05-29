@@ -6,35 +6,19 @@ import { cn } from '@/lib/utils'
 
 const PLATFORMS = [
   { label: 'Meta Ads', href: '/ads', value: 'meta' },
-  { label: 'Google Ads', href: '#', value: 'google', comingSoon: true },
+  { label: 'Google Ads', href: '/ads/google', value: 'google' },
 ]
 
 export function AdsPlatformSwitcher() {
   const pathname = usePathname()
-  const isMetaActive = !PLATFORMS.slice(1).some((p) => pathname.startsWith(p.href))
+
+  // /ads/google/* → google active; anything else → meta active
+  const activeValue = pathname.startsWith('/ads/google') ? 'google' : 'meta'
 
   return (
     <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
       {PLATFORMS.map((platform) => {
-        const isActive = platform.value === 'meta' ? isMetaActive : false
-
-        if (platform.comingSoon) {
-          return (
-            <span
-              key={platform.value}
-              className={cn(
-                'relative flex h-7 items-center gap-1.5 rounded-[6px] px-3 text-[12.5px] font-medium',
-                'text-text-tertiary cursor-not-allowed select-none',
-              )}
-            >
-              {platform.label}
-              <span className="rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-bg-secondary text-text-tertiary">
-                Em breve
-              </span>
-            </span>
-          )
-        }
-
+        const isActive = platform.value === activeValue
         return (
           <Link
             key={platform.value}
