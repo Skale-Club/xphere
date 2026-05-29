@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import type { Json } from '@/types/database'
 
 export type AdsMemoryType = 'insight' | 'decision' | 'plan' | 'risk' | 'observation' | 'result' | 'goal'
 export type AdsMemoryStatus = 'active' | 'archived' | 'superseded' | 'needs_review'
@@ -94,7 +95,7 @@ export async function createMemory(params: {
         campaign_name: params.campaignName ?? null,
         confidence: params.confidence ?? 3,
         proposed: params.proposed ?? false,
-        metadata: params.metadata ?? {},
+        metadata: (params.metadata ?? {}) as Json,
       })
       .select('id')
       .single()

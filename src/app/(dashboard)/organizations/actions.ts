@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { seedOrgWorkflows } from '@/lib/workflows/seed-org'
+import { slugify } from '@/lib/slug'
 
 const ORG_COOKIE = 'vo_active_org'
 const COOKIE_OPTS = { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' as const }
@@ -11,10 +12,6 @@ const COOKIE_OPTS = { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' as 
 async function setActiveOrgCookie(id: string, name: string) {
   const jar = await cookies()
   jar.set(ORG_COOKIE, JSON.stringify({ id, name }), COOKIE_OPTS)
-}
-
-function generateSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export async function getUserOrgs(): Promise<{ id: string; name: string }[]> {
@@ -38,7 +35,7 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
   const supabase = await createClient()
 
   const admin = createServiceRoleClient()
-  const slug = generateSlug(data.name)
+  const slug = slugify(data.name)
 
   const { data: org, error: orgError } = await admin
     .from('organizations')
@@ -98,7 +95,7 @@ export async function updateOrganization(
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
-  const slug = generateSlug(data.name)
+  const slug = slugify(data.name)
   const { error } = await supabase
     .from('organizations')
     .update({ name: data.name, slug, is_active: data.is_active })

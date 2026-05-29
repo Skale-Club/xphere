@@ -46,7 +46,7 @@ export async function getAdsAttribution(opts: {
   const { data, error } = await supabase.rpc('get_ads_attribution', {
     p_from: from,
     p_to: to,
-    p_platform: platformFilter,
+    p_platform: platformFilter ?? undefined,
   })
 
   if (error) {

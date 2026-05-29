@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import {
   BookOpen,
+  Boxes,
   Download,
   Mail,
   MapPin,
@@ -68,6 +69,13 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         icon: MapPin,
         title: 'Locations',
         description: 'Physical addresses for bookings.',
+      },
+      {
+        href: '/settings/organization-templates',
+        icon: Boxes,
+        title: 'Organization templates',
+        description:
+          'Capture this organization’s structure as a reusable industry template, then create new organizations from it.',
       },
     ],
   },
