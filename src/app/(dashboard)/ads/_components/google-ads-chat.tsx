@@ -120,15 +120,29 @@ export function GoogleAdsAiChat({
     setPendingTool(null)
 
     const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }))
+    let assistantText = ''
 
     try {
       await streamChat(
         '/api/ads/google/chat',
         { messages: history, customer_id: activeCustomerId },
-        (text) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)),
+        (text) => {
+          assistantText += text
+          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m))
+        },
         (tool) => setPendingTool(tool),
         (errMsg) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errMsg}` } : m)),
       )
+      if (assistantText.length > 80) {
+        void fetch('/api/ads/memories/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [...history, { role: 'assistant', content: assistantText }],
+            platform: 'google',
+          }),
+        }).catch(() => {})
+      }
     } catch (e) {
       setMessages((prev) => prev.map((m) =>
         m.id === assistantId ? { ...m, content: e instanceof Error ? `Error: ${e.message}` : 'An error occurred.' } : m,

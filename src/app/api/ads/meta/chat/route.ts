@@ -13,6 +13,7 @@ import {
   MetaAdsError,
 } from '@/lib/ads/meta-api'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { recordMutationExecution, fetchRecentMemories } from '@/lib/ads/journey-db'
 
 export const runtime = 'nodejs'
 
@@ -110,27 +111,31 @@ const MUTATE_TOOL_NAMES = new Set(MUTATE_TOOLS.map((t) => t.name))
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
-const MessageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
-  content: z.string(),
-})
-
 const ChatRequestSchema = z.object({
-  messages: z.array(MessageSchema).min(1),
+  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() })).min(1),
   ad_account_id: z.string().min(1),
   approved_tool: z.object({
     tool_use_id: z.string(),
     tool_name: z.string(),
     input: z.record(z.unknown()),
-    // Full response.content from Claude's turn — required to reconstruct the
-    // tool_use block before the tool_result (Anthropic API requirement).
     assistant_content: z.array(z.unknown()).optional(),
   }).optional(),
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(): string {
+async function buildSystemPrompt(orgId: string): Promise<string> {
+  const memories = await fetchRecentMemories(orgId, 'meta', 8).catch(() => [])
+
+  let memorySection = ''
+  if (memories.length > 0) {
+    memorySection = '\n\n## Contexto de Conversas Anteriores\n'
+    for (const m of memories) {
+      memorySection += `- [${m.type.toUpperCase()}] ${m.title}: ${m.content}\n`
+    }
+    memorySection += '\nUse esse contexto para dar continuidade a análises e decisões anteriores.'
+  }
+
   return `You are an expert Meta Ads analyst and manager embedded in the Xphere platform.
 You have access to read tools (get_account_overview, list_campaigns, list_adsets) which you may call freely.
 You also have access to mutation tools (pause_campaign, enable_campaign, set_daily_budget) which REQUIRE explicit user approval before execution.
@@ -140,7 +145,8 @@ When a user asks you to make a change:
 2. Call the mutation tool — the system will intercept it and show the user an approval dialog.
 3. After the user approves, the approved_tool will be sent back to you in the next message.
 
-Always be specific about numbers, campaign names, and impacts. Never guess — use the read tools first.
+Always be specific about numbers, campaign names, and impacts. Never guess — use the read tools first.${memorySection}
+
 Today: ${new Date().toISOString().split('T')[0]}`
 }
 
@@ -156,11 +162,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return err('Invalid JSON')
-  }
+  try { body = await request.json() } catch { return err('Invalid JSON') }
 
   const parsed = ChatRequestSchema.safeParse(body)
   if (!parsed.success) return err(parsed.error.message)
@@ -185,27 +187,24 @@ export async function POST(request: NextRequest): Promise<Response> {
   const accessToken = await decrypt(conn.encrypted_access_token)
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  // Build flat message array
-  const apiMessages: Anthropic.MessageParam[] = messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }))
+  const apiMessages: Anthropic.MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }))
 
-  // If the user just approved a mutation, reconstruct the proper tool_use + tool_result
-  // turns. The Anthropic API requires a tool_use block in the assistant turn before
-  // a tool_result can be provided.
   if (approved_tool) {
     let toolResultContent: string
     try {
       const result = await executeMutation(approved_tool.tool_name, approved_tool.input, ad_account_id, accessToken)
       toolResultContent = JSON.stringify(result)
+      void recordMutationExecution({
+        toolName: approved_tool.tool_name,
+        input: approved_tool.input as Record<string, unknown>,
+        orgId: orgId as string,
+        platform: 'meta',
+      })
     } catch (e) {
       const msg = e instanceof MetaAdsError ? e.message : 'Mutation failed'
       toolResultContent = JSON.stringify({ error: msg })
     }
 
-    // Use the stored assistant_content (which includes TextBlock + ToolUseBlock) if
-    // available; fall back to a minimal tool_use block so the API stays valid.
     const assistantContent = approved_tool.assistant_content?.length
       ? approved_tool.assistant_content as Anthropic.ContentBlock[]
       : [{ type: 'tool_use' as const, id: approved_tool.tool_use_id, name: approved_tool.tool_name, input: approved_tool.input }]
@@ -217,11 +216,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
-  // Agentic loop — max 4 read-tool iterations, halts on mutating tool
-  let iterCount = 0
-  const MAX_READ_ITERATIONS = 4
-
+  const systemPrompt = await buildSystemPrompt(orgId as string)
   const encoder = new TextEncoder()
+
   const stream = new ReadableStream({
     async start(controller) {
       function write(event: string, data: string) {
@@ -230,14 +227,15 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       try {
         let currentMessages = [...apiMessages]
+        let iters = 0
 
-        while (iterCount < MAX_READ_ITERATIONS) {
-          iterCount++
+        while (iters < 4) {
+          iters++
 
           const response = await anthropic.messages.create({
             model: 'claude-opus-4-8',
             max_tokens: 4096,
-            system: buildSystemPrompt(),
+            system: systemPrompt,
             tools: ALL_TOOLS,
             messages: currentMessages,
           })
@@ -253,8 +251,6 @@ export async function POST(request: NextRequest): Promise<Response> {
             const toolBlock = toolBlocks[0]
 
             if (MUTATE_TOOL_NAMES.has(toolBlock.name)) {
-              // Include the full response.content so the client can send it back
-              // when the user approves, allowing proper conversation reconstruction.
               write('tool_approval_required', JSON.stringify({
                 tool_use_id: toolBlock.id,
                 tool_name: toolBlock.name,
@@ -270,10 +266,7 @@ export async function POST(request: NextRequest): Promise<Response> {
             currentMessages = [
               ...currentMessages,
               { role: 'assistant', content: response.content },
-              {
-                role: 'user',
-                content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(toolResult) }],
-              },
+              { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(toolResult) }] },
             ]
 
             if (response.stop_reason === 'end_turn') break
@@ -285,8 +278,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
         write('done', '{}')
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'AI error'
-        write('error', JSON.stringify({ error: msg }))
+        write('error', JSON.stringify({ error: e instanceof Error ? e.message : 'AI error' }))
       } finally {
         controller.close()
       }
@@ -294,11 +286,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   })
 
   return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    },
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
   })
 }
 
@@ -365,6 +353,6 @@ async function executeMutation(
     }
 
     default:
-      throw new Error(`Unknown mutation: ${name}`)
+      throw new MetaAdsError(`Unknown mutation: ${name}`, 400)
   }
 }

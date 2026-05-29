@@ -138,15 +138,29 @@ export function AdsAiChat({
       setPendingTool(null)
 
       const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }))
+      let assistantText = ''
 
       try {
         await streamChat(
           '/api/ads/meta/chat',
           { messages: history, ad_account_id: activeAccountId },
-          (text) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)),
+          (text) => {
+            assistantText += text
+            setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m))
+          },
           (tool) => setPendingTool(tool),
           (errMsg) => setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errMsg}` } : m)),
         )
+        if (assistantText.length > 80) {
+          void fetch('/api/ads/memories/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [...history, { role: 'assistant', content: assistantText }],
+              platform: 'meta',
+            }),
+          }).catch(() => {})
+        }
       } catch (e) {
         setMessages((prev) =>
           prev.map((m) =>

@@ -15,6 +15,7 @@ import {
 } from '@/lib/ads/google-api'
 import { getCustomerInfo, refreshAccessToken } from '@/lib/ads/google-oauth'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { recordMutationExecution, fetchRecentMemories } from '@/lib/ads/journey-db'
 
 export const runtime = 'nodejs'
 
@@ -129,11 +130,23 @@ function err(msg: string, status = 400) {
   return Response.json({ error: msg }, { status })
 }
 
-function buildSystemPrompt(): string {
+async function buildSystemPrompt(orgId: string): Promise<string> {
+  const memories = await fetchRecentMemories(orgId, 'google', 8).catch(() => [])
+
+  let memorySection = ''
+  if (memories.length > 0) {
+    memorySection = '\n\n## Contexto de Conversas Anteriores\n'
+    for (const m of memories) {
+      memorySection += `- [${m.type.toUpperCase()}] ${m.title}: ${m.content}\n`
+    }
+    memorySection += '\nUse esse contexto para dar continuidade a análises e decisões anteriores.'
+  }
+
   return `You are an expert Google Ads analyst and manager embedded in the Xphere platform.
 Use read tools freely to fetch data. Mutation tools (pause, enable, set_daily_budget) require explicit user approval — when you call one, the system will intercept it and show an approval dialog.
 After the user approves, the approved_tool is sent back and you should complete the response.
-Amounts in the API are in micros (1,000,000 micros = $1 USD). Always present budgets and costs in USD to the user.
+Amounts in the API are in micros (1,000,000 micros = $1 USD). Always present budgets and costs in USD to the user.${memorySection}
+
 Today: ${new Date().toISOString().split('T')[0]}`
 }
 
@@ -180,6 +193,13 @@ export async function POST(request: NextRequest): Promise<Response> {
     try {
       const result = await executeMutation(approved_tool.tool_name, approved_tool.input, customer_id, tokens.refresh_token)
       resultContent = JSON.stringify(result)
+      // After successful mutation, record execution in journey (non-blocking)
+      void recordMutationExecution({
+        toolName: approved_tool.tool_name,
+        input: approved_tool.input as Record<string, unknown>,
+        orgId: orgId as string,
+        platform: 'google',
+      })
     } catch (e) {
       resultContent = JSON.stringify({ error: e instanceof Error ? e.message : 'Mutation failed' })
     }
@@ -195,6 +215,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
+  const systemPrompt = await buildSystemPrompt(orgId as string)
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
@@ -209,7 +230,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           const response = await anthropic.messages.create({
             model: 'claude-opus-4-8',
             max_tokens: 4096,
-            system: buildSystemPrompt(),
+            system: systemPrompt,
             tools: ALL_TOOLS,
             messages: currentMessages,
           })
