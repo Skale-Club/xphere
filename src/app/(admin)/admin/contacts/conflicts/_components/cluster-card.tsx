@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,7 +109,7 @@ export function ClusterCard({ cluster }: { cluster: ClusterRow }) {
                 <div>
                   <dt className="inline text-text-tertiary">email </dt>
                   <dd className="inline">
-                    {c.email}
+                    {formatEmailDisplay(c.email)}
                     {c.email_normalized && c.email_normalized !== c.email
                       ? ` (${c.email_normalized})`
                       : ''}

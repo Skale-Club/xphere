@@ -173,7 +173,7 @@ export function TasksTable({ tasks, prefill, compact }: TasksTableProps) {
                           {format(parseISO(task.due_date), 'MMM d, yyyy')}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">|</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>

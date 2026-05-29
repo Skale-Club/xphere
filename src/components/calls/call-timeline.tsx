@@ -130,7 +130,7 @@ function CallRow({ row }: { row: CallLogWithContact }) {
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-text-tertiary">
           <span>
-            {formatPhoneDisplay(row.direction === 'inbound' ? row.from_number : row.to_number) || '|'}
+            {formatPhoneDisplay(row.direction === 'inbound' ? row.from_number : row.to_number) || '-'}
           </span>
           {row.routing_mode && (
             <>
@@ -211,7 +211,7 @@ function initialsOf(name: string | null | undefined): string {
 }
 
 function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || seconds < 0) return '|'
+  if (!seconds || seconds < 0) return '-'
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`

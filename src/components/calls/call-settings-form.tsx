@@ -254,7 +254,7 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
                 hidden={!showPassword && Boolean(sipPassword)}
                 onToggleHidden={sipPassword ? () => setShowPassword((v) => !v) : undefined}
               />
-              <CopyField label="Server / Proxy" value={sipDomain ?? '|'} disabled={!sipDomain} />
+              <CopyField label="Server / Proxy" value={sipDomain ?? '-'} disabled={!sipDomain} />
             </div>
 
             {sipPassword && (

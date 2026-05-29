@@ -22,6 +22,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { randomOpaqueToken, sha256Hex } from '@/lib/mcp/crypto'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -187,7 +188,7 @@ export default async function OAuthAuthorizePage({
         </div>
 
         <div className="mt-4 text-[11.5px] text-text-tertiary">
-          Signed in as <span className="text-text-secondary">{user.email}</span>.
+          Signed in as <span className="text-text-secondary">{formatEmailDisplay(user.email)}</span>.
           Actions are logged for audit.
         </div>
 

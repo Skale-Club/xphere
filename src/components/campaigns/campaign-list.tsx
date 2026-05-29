@@ -244,7 +244,7 @@ export function CampaignList({ campaigns }: CampaignListProps) {
                   <div className="text-[11.5px] text-text-tertiary">
                     {c.scheduled_start_at
                       ? format(new Date(c.scheduled_start_at), 'MMM d, HH:mm')
-                      : '|'}
+                      : '-'}
                   </div>
 
                   {/* Created */}

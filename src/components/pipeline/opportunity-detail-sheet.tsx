@@ -71,6 +71,7 @@ import { TasksTable } from '@/components/tasks/tasks-table'
 import { NotesGrid } from '@/components/notes/notes-grid'
 import { CustomFieldsForm } from '@/components/custom-fields/custom-fields-form'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import {
   getOpportunity,
   updateOpportunity,
@@ -580,7 +581,7 @@ export function OpportunityDetailSheet({
                           </div>
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                             {opp.contact.email && (
-                              <InfoCell label="Email" value={opp.contact.email} />
+                              <InfoCell label="Email" value={formatEmailDisplay(opp.contact.email)} />
                             )}
                             {opp.contact.phone && (
                               <InfoCell label="Phone" value={formatPhoneDisplay(opp.contact.phone)} />
@@ -625,7 +626,7 @@ export function OpportunityDetailSheet({
                                         {displayContactName(s, 'Unnamed')}
                                       </div>
                                       <div className="truncate text-[11px] text-text-tertiary">
-                                        {s.phone ? formatPhoneDisplay(s.phone) : s.email ?? ''}
+                                        {s.phone ? formatPhoneDisplay(s.phone) : formatEmailDisplay(s.email)}
                                       </div>
                                     </div>
                                   </button>

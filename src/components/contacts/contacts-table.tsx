@@ -47,6 +47,8 @@ import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
 import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
 import type { CustomFieldType } from "@/types/database";
 import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
+import { formatEmailDisplay } from "@/lib/email-addresses/format";
+import { PhoneDisplay } from "@/components/phone/phone-display";
 
 import {
   displayContactName,
@@ -316,9 +318,21 @@ export function ContactsTable({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Pagination — inline with the toolbar */}
+        {totalPages > 1 && (
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPage={(p) => setParam("page", String(p))}
+            align="end"
+          />
+        )}
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 pb-2 space-y-4">
+
         {/* Bulk actions bar */}
         {selected.size > 0 && (
           <div className="flex items-center justify-between rounded-[10px] border border-accent/30 bg-accent-muted/40 px-3 py-2">
@@ -388,7 +402,7 @@ export function ContactsTable({
                       <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                     </div>
                     <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
-                      {c.company || c.email || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
+                      {c.company || formatEmailDisplay(c.email) || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
                     </div>
                     {c.tags.length > 0 && (
                       <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -518,7 +532,11 @@ export function ContactsTable({
                     </div>
                   </div>
                   <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
-                    {c.phone ? formatPhoneDisplay(c.phone) : "|"}
+                    {c.phone ? (
+                      <PhoneDisplay value={c.phone} stopPropagation className="text-text-secondary" />
+                    ) : (
+                      "-"
+                    )}
                   </div>
                   <div
                     className={
@@ -536,7 +554,7 @@ export function ContactsTable({
                     {c.email && !isValidEmail(c.email) && (
                       <AlertTriangle className="h-3 w-3 shrink-0 text-amber-400" />
                     )}
-                    <span className="truncate">{c.email || "|"}</span>
+                    <span className="truncate">{formatEmailDisplay(c.email) || "-"}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 overflow-hidden">
                     {c.tags.slice(0, 2).map((tagName) => {
@@ -587,7 +605,7 @@ export function ContactsTable({
                     const display =
                       val !== undefined && val !== null
                         ? config.displayFormatter(val)
-                        : "|";
+                        : "-";
                     return (
                       <div
                         key={def.id}
@@ -606,34 +624,98 @@ export function ContactsTable({
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Pagination — numbered, bottom of the list */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-text-tertiary">
-              Page {page} of {totalPages} · {total} total
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page <= 1}
-                onClick={() => setParam("page", String(page - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page >= totalPages}
-                onClick={() => setParam("page", String(page + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPage={(p) => setParam("page", String(p))}
+            showNumbers
+          />
         )}
       </div>
 
+    </div>
+  );
+}
+
+/**
+ * Pagination controls shared by the contacts table (top + bottom bars).
+ *
+ * Layout: "Page X of Y · N total" sits on the left with the Previous/Next
+ * buttons immediately to its right. When `showNumbers` is set, a numbered page
+ * selector is rendered on the far side in windows of 10 (e.g. 1–10, then
+ * 11–20, …) so large datasets stay navigable without an endless button row.
+ */
+function PaginationControls({
+  page,
+  totalPages,
+  total,
+  onPage,
+  showNumbers = false,
+  align = "between",
+}: {
+  page: number;
+  totalPages: number;
+  total?: number;
+  onPage: (page: number) => void;
+  showNumbers?: boolean;
+  align?: "between" | "end";
+}) {
+  const WINDOW = 10;
+  const windowStart = Math.floor((page - 1) / WINDOW) * WINDOW + 1;
+  const windowEnd = Math.min(windowStart + WINDOW - 1, totalPages);
+  const pageNumbers: number[] = [];
+  for (let p = windowStart; p <= windowEnd; p++) pageNumbers.push(p);
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3",
+        align === "between" ? "justify-between" : "justify-end",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-text-tertiary whitespace-nowrap">
+          Page {page} of {totalPages}
+          {typeof total === "number" ? ` · ${total} total` : ""}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={page <= 1}
+            onClick={() => onPage(page - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={page >= totalPages}
+            onClick={() => onPage(page + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+      {showNumbers && (
+        <div className="flex flex-wrap items-center gap-1">
+          {pageNumbers.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={p === page ? "secondary" : "ghost"}
+              aria-current={p === page ? "page" : undefined}
+              className="h-8 min-w-8 px-2 tabular-nums"
+              onClick={() => onPage(p)}
+            >
+              {p}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

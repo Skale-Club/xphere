@@ -9,6 +9,7 @@ import { updateTask } from '@/app/(dashboard)/projects/actions'
 import { toast } from 'sonner'
 import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectTaskStep } from '@/types/database'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 interface Props {
   projectId: string
@@ -506,7 +507,7 @@ export function ProjectTimeline({ projectId, tasks, onOpenTask, onRefresh }: Pro
                               left: Math.max(0, visualOffset) * slotW,
                               width: Math.max(slotW, visualDuration * slotW),
                             }}
-                            title={`${t.name}\n${fmtDateTime(range.start)} → ${fmtDateTime(range.end)}${t.assignee ? `\n${t.assignee.full_name ?? t.assignee.email}` : ''}`}
+                            title={`${t.name}\n${fmtDateTime(range.start)} → ${fmtDateTime(range.end)}${t.assignee ? `\n${t.assignee.full_name ?? formatEmailDisplay(t.assignee.email)}` : ''}`}
                           >
                             {t.assignee && (
                               <TaskAssigneeAvatar

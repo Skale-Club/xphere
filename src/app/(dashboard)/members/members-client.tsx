@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import {
   Select,
   SelectContent,
@@ -268,7 +269,7 @@ export function MembersClient({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {member.email ?? '—'}
+                    {formatEmailDisplay(member.email) || '—'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {member.phone ? formatPhoneDisplay(member.phone) : '—'}
@@ -380,7 +381,7 @@ export function MembersClient({
             <TableBody>
               {pendingInvites.map(invite => (
                 <TableRow key={invite.id}>
-                  <TableCell className="text-sm">{invite.email}</TableCell>
+                  <TableCell className="text-sm">{formatEmailDisplay(invite.email)}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{invite.role}</Badge>
                   </TableCell>

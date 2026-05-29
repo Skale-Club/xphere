@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, initialsOf, relativeTime } from '@/lib/pipeline/format'
 import { displayContactName } from '@/lib/contacts/names'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import { getOpportunityTagIds, listTags } from '@/app/(dashboard)/settings/tags/actions'
 import { TasksPanel } from '@/components/tasks/tasks-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
@@ -85,7 +86,7 @@ export default async function OpportunityDetailPage({ params }: Props) {
                   {displayContactName(opp.contact, 'Unnamed')}
                 </div>
                 <div className="text-[11.5px] text-text-tertiary truncate">
-                  {opp.contact.phone ? formatPhoneDisplay(opp.contact.phone) : opp.contact.email ?? ''}
+                  {opp.contact.phone ? formatPhoneDisplay(opp.contact.phone) : formatEmailDisplay(opp.contact.email)}
                 </div>
               </div>
             </Link>
@@ -157,7 +158,7 @@ export default async function OpportunityDetailPage({ params }: Props) {
                   Contact
                 </div>
                 <SidebarItem icon={Phone} label="Phone" value={opp.contact.phone ? formatPhoneDisplay(opp.contact.phone) : 'Not set'} />
-                <SidebarItem icon={Mail} label="Email" value={opp.contact.email ?? 'Not set'} />
+                <SidebarItem icon={Mail} label="Email" value={formatEmailDisplay(opp.contact.email) || 'Not set'} />
                 <SidebarItem icon={Building2} label="Company" value={opp.contact.company ?? 'Not set'} />
               </>
             )}

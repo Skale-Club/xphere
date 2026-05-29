@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import {
   mergeContactAction,
   getPendingMergeConflict,
@@ -84,7 +85,7 @@ function ContactCard({
         </p>
       )}
       {contact.email && (
-        <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">{contact.email}</p>
+        <p className="mt-0.5 text-[12.5px] text-text-secondary truncate">{formatEmailDisplay(contact.email)}</p>
       )}
       <p className="mt-2 text-[11px] text-text-tertiary capitalize">
         Added {formatDate(contact.created_at)}

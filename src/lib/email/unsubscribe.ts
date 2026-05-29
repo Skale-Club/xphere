@@ -34,10 +34,23 @@ export async function recordUnsubscribe(
       .update({ contact_id: contact.id })
       .eq('org_id', orgId)
       .eq('email', normalized)
-    await supabase
-      .from('campaign_recipients')
-      .update({ status: 'unsubscribed' })
-      .eq('contact_id', contact.id)
-      .in('status', ['pending'])
+
+    // Stop pending sends only for this org's EMAIL campaigns. An email opt-out
+    // must not cancel the contact's pending WhatsApp/other-channel campaigns.
+    const { data: emailCampaigns } = await supabase
+      .from('campaigns')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('channel', 'email')
+    const emailCampaignIds = (emailCampaigns ?? []).map((c) => c.id)
+
+    if (emailCampaignIds.length > 0) {
+      await supabase
+        .from('campaign_recipients')
+        .update({ status: 'unsubscribed' })
+        .eq('contact_id', contact.id)
+        .eq('status', 'pending')
+        .in('campaign_id', emailCampaignIds)
+    }
   }
 }

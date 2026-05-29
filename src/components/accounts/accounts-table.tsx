@@ -272,22 +272,22 @@ export function AccountsTable({
 
                   {/* Domain */}
                   <div className="truncate text-[12.5px] text-text-secondary">
-                    {row.domain ?? '|'}
+                    {row.domain ?? '-'}
                   </div>
 
                   {/* Contacts count */}
                   <div className="text-[12.5px] text-text-secondary tabular-nums">
-                    {row.contact_count ?? '|'}
+                    {row.contact_count ?? '-'}
                   </div>
 
                   {/* Open deals count */}
                   <div className="text-[12.5px] text-text-secondary tabular-nums">
-                    {row.open_opportunity_count ?? '|'}
+                    {row.open_opportunity_count ?? '-'}
                   </div>
 
                   {/* Pipeline value */}
                   <div className="text-[12.5px] text-text-secondary tabular-nums">
-                    {row.pipeline_value ? formatCurrency(row.pipeline_value) : '|'}
+                    {row.pipeline_value ? formatCurrency(row.pipeline_value) : '-'}
                   </div>
 
                   {/* Tags | up to 2 chips + remainder */}
@@ -312,7 +312,7 @@ export function AccountsTable({
                     const cf = (row.custom_fields ?? {}) as Record<string, unknown>
                     const val = cf[def.key]
                     const config = FIELD_RENDER_CONFIG[def.type as CustomFieldType]
-                    const display = val !== undefined && val !== null ? config.displayFormatter(val) : '|'
+                    const display = val !== undefined && val !== null ? config.displayFormatter(val) : '-'
                     return (
                       <div key={def.id} className="truncate text-[12.5px] text-text-secondary">
                         {display}

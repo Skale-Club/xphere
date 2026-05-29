@@ -71,7 +71,7 @@ function ImportListRow({ imp }: { imp: ImportRow }) {
     ? formatDuration(new Date(imp.started_at), new Date(imp.finished_at))
     : imp.started_at && !imp.finished_at
     ? 'Running…'
-    : '|'
+    : '-'
 
   return (
     <tr className="hover:bg-bg-secondary/50 transition-colors">
@@ -115,7 +115,7 @@ function ImportListRow({ imp }: { imp: ImportRow }) {
         <div className="text-[10.5px] text-text-tertiary">ins/upd/skip{imp.error_rows > 0 ? '/err' : ''}</div>
       </td>
       <td className="px-4 py-3 text-text-secondary">
-        {imp.started_at ? formatTime(new Date(imp.started_at)) : '|'}
+        {imp.started_at ? formatTime(new Date(imp.started_at)) : '-'}
       </td>
       <td className="px-4 py-3 text-text-secondary">
         {duration}

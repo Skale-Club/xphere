@@ -33,13 +33,13 @@ function statusColor(status: string): string {
 }
 
 function formatMs(ms: number | null): string {
-  if (ms === null || ms < 0) return '|'
+  if (ms === null || ms < 0) return '-'
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
 
 function formatCost(usd: number | null): string {
-  if (usd === null) return '|'
+  if (usd === null) return '-'
   if (usd === 0) return '$0.00'
   if (usd < 0.0001) return '<$0.0001'
   return `$${usd.toFixed(4)}`

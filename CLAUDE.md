@@ -115,9 +115,11 @@ When you need to author a workflow (manually, via Copilot, or from a Claude Code
 
 ## Deployment
 
-- Vercel Hobby hosts the Next.js app
+- Self-hosted **Coolify** (Hetzner box, shared Docker host) builds and runs the
+  Next.js app from the `Dockerfile` (standalone output). Production: `xphere.app`.
 - Supabase handles background Edge Functions and database-backed jobs
 - GitHub Actions is reserved for low-risk scheduled automation
+  (cron-tick, keepalive, etc.) — domain-stable, not host-coupled.
 
 ## Sensitive Paths
 

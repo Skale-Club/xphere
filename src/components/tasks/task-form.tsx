@@ -26,6 +26,7 @@ import type { CrmEntityType, TaskPriority, TaskStatus } from '@/types/database'
 import type { TaskRow, ContactOption } from '@/app/(dashboard)/tasks/actions'
 import { displayContactName } from '@/lib/contacts/names'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 
 function toDatetimeLocal(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0')
@@ -257,7 +258,7 @@ export function TaskForm({
                     <SelectItem value="__none__">No contact</SelectItem>
                     {contacts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {displayContactName(c, c.email ?? (c.phone ? formatPhoneDisplay(c.phone) : null) ?? 'Unknown')}
+                        {displayContactName(c, formatEmailDisplay(c.email) || (c.phone ? formatPhoneDisplay(c.phone) : null) || 'Unknown')}
                       </SelectItem>
                     ))}
                   </SelectContent>

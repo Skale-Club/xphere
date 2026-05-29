@@ -183,7 +183,7 @@ export function MetricCard({
             )}
           >
             <TrendIcon className="h-3 w-3" />
-            <span>{trend === null || trend === undefined ? '|' : `${Math.abs(trend) > 999 ? '999+' : Math.abs(trend)}%`}</span>
+            <span>{trend === null || trend === undefined ? '-' : `${Math.abs(trend) > 999 ? '999+' : Math.abs(trend)}%`}</span>
           </div>
         )}
       </div>

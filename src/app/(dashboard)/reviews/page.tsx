@@ -128,7 +128,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
             <div className="flex items-baseline gap-4 pt-2">
               <div>
                 <p className="font-serif text-6xl font-semibold tabular-nums leading-none">
-                  {profile.average_rating?.toFixed(1) ?? '|'}
+                  {profile.average_rating?.toFixed(1) ?? '-'}
                 </p>
                 <div className="mt-1.5">
                   <StarRating rating={profile.average_rating ?? 0} size="lg" />

@@ -8,6 +8,7 @@ const withSerwist = withSerwistInit({
 })
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   serverExternalPackages: ['sharp'],
   turbopack: {},
   async redirects() {
@@ -28,8 +29,8 @@ const nextConfig: NextConfig = {
     // tighten these as part of the CSP enforcement follow-up.
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
-      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://va.vercel-scripts.com`,
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline'",

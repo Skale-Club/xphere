@@ -190,14 +190,14 @@ export default async function GoogleReviewsIntegrationPage() {
             description="Live snapshot of your reviews pipeline."
             statusReady={true}
             readyLabel="Pipeline healthy"
-            emptyLabel="|"
+            emptyLabel="-"
           >
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Average rating</p>
                 <div className="flex items-baseline gap-2">
                   <span className="font-serif text-3xl font-semibold tabular-nums">
-                    {profile?.average_rating?.toFixed(1) ?? '|'}
+                    {profile?.average_rating?.toFixed(1) ?? '-'}
                   </span>
                   <StarRating rating={profile?.average_rating ?? 0} size="md" />
                 </div>
@@ -256,7 +256,7 @@ export default async function GoogleReviewsIntegrationPage() {
                         ) : null}
                       </div>
                     </div>
-                    <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '|'}</p>
+                    <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '-'}</p>
                   </li>
                 ))}
               </ul>
@@ -277,7 +277,7 @@ export default async function GoogleReviewsIntegrationPage() {
             description="Drop this <iframe> anywhere | no script tags, no API keys exposed."
             statusReady={Boolean(profile?.widget_token)}
             readyLabel="Snippet ready"
-            emptyLabel="|"
+            emptyLabel="-"
           >
             {profile?.widget_token ? (
               <EmbedSnippet baseUrl={PRODUCTION_ORIGIN} widgetToken={profile.widget_token} />

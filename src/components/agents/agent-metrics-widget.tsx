@@ -61,7 +61,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 function formatMs(ms: number): string {
-  if (ms === 0) return '|'
+  if (ms === 0) return '-'
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }

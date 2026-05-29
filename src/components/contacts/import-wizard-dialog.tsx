@@ -407,7 +407,7 @@ export function ImportWizardDialog({ trigger }: ImportWizardDialogProps = {}) {
                       <tr key={ri}>
                         {r.map((cell, ci) => (
                           <td key={ci} className="px-3 py-2 text-text-primary truncate max-w-[140px]">
-                            {cell || '|'}
+                            {cell || '-'}
                           </td>
                         ))}
                       </tr>

@@ -28,12 +28,12 @@ import {
 type CallRow = Database['public']['Tables']['calls']['Row']
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null) return '|'
+  if (seconds === null) return '-'
   return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0')
 }
 
 function formatCallType(callType: string | null): string {
-  if (!callType) return '|'
+  if (!callType) return '-'
   switch (callType) {
     case 'inboundPhoneCall':
       return 'Inbound'
@@ -47,7 +47,7 @@ function formatCallType(callType: string | null): string {
 }
 
 function EndedReasonBadge({ reason }: { reason: string | null }) {
-  if (!reason) return <span className="text-muted-foreground text-sm">|</span>
+  if (!reason) return <span className="text-muted-foreground text-sm">-</span>
 
   let className = 'bg-zinc-500/15 text-zinc-400'
   if (reason === 'customer-ended-call' || reason === 'assistant-ended-call') {
@@ -97,7 +97,7 @@ export function CallsTable({ calls, total: _total, page, totalPages }: CallsTabl
       ),
       cell: ({ row }) => {
         const dateStr = row.getValue<string | null>('started_at')
-        if (!dateStr) return <span className="text-muted-foreground">|</span>
+        if (!dateStr) return <span className="text-muted-foreground">-</span>
         return <span className="whitespace-nowrap">{format(new Date(dateStr), 'MMM d, yyyy HH:mm')}</span>
       },
     },
@@ -117,14 +117,14 @@ export function CallsTable({ calls, total: _total, page, totalPages }: CallsTabl
       accessorKey: 'customer_number',
       header: 'Phone',
       cell: ({ row }) => (
-        <span>{row.getValue<string | null>('customer_number') ?? '|'}</span>
+        <span>{row.getValue<string | null>('customer_number') ?? '-'}</span>
       ),
     },
     {
       accessorKey: 'customer_name',
       header: 'Contact',
       cell: ({ row }) => (
-        <span>{row.getValue<string | null>('customer_name') ?? '|'}</span>
+        <span>{row.getValue<string | null>('customer_name') ?? '-'}</span>
       ),
     },
     {

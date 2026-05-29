@@ -460,6 +460,22 @@ const INLINE_ACCOUNT_FIELDS = [
 ] as const
 type InlineAccountField = (typeof INLINE_ACCOUNT_FIELDS)[number]
 
+/**
+ * Derive a clean host from a website URL. `normaliseDomain` alone only strips
+ * the scheme + a trailing slash and lowercases — it does NOT drop the path or
+ * query — so we parse with the URL constructor first and fall back to the raw
+ * normaliser when the input isn't a parseable URL.
+ */
+function deriveDomain(website: string | null): string | null {
+  if (!website) return null
+  try {
+    const u = new URL(website.includes('://') ? website : `https://${website}`)
+    return normaliseDomain(u.hostname)
+  } catch {
+    return normaliseDomain(website)
+  }
+}
+
 export async function updateAccountField(
   id: string,
   patch: { field: string; value: string },
@@ -475,6 +491,24 @@ export async function updateAccountField(
   const f = field as InlineAccountField
 
   const trimmed = (value ?? '').trim()
+  const supabase = await createClient()
+
+  // Website is the single source of truth for both `website` (full URL) and
+  // `domain` (derived host): the modal merged the two rows into one field, so
+  // saving the website also keeps the domain column consistent for the parts
+  // of the system that read/search/dedup by domain.
+  if (f === 'website') {
+    const website = trimmed.length > 0 ? trimmed : null
+    const { error } = await supabase
+      .from('accounts')
+      .update({ website, domain: deriveDomain(website) })
+      .eq('id', id)
+    if (error) return { ok: false, error: error.message }
+    revalidatePath('/companies')
+    revalidatePath(`/accounts/${id}`)
+    return { ok: true }
+  }
+
   let normalised: string | null
   if (f === 'name') {
     if (!trimmed) return { ok: false, error: 'Name cannot be empty' }
@@ -486,7 +520,6 @@ export async function updateAccountField(
     normalised = trimmed.length > 0 ? trimmed : null
   }
 
-  const supabase = await createClient()
   const { error } = await supabase
     .from('accounts')
     .update({ [f]: normalised })
@@ -495,6 +528,110 @@ export async function updateAccountField(
 
   revalidatePath('/companies')
   revalidatePath(`/accounts/${id}`)
+  return { ok: true }
+}
+
+// ─── Company logo upload ─────────────────────────────────────────────────────
+//
+// Mirrors uploadContactAvatar/removeContactAvatar in contacts/actions.ts. Stores
+// the logo in the shared 'avatars' bucket under `${auth.uid()}/accounts/...`
+// (satisfies the existing per-user upload RLS policy) and persists the public
+// URL on accounts.avatar_url. Resizes to 512x512 webp via sharp.
+
+const ACCOUNT_AVATAR_MAX_BYTES = 8 * 1024 * 1024 // 8MB raw upload limit
+const ACCOUNT_AVATAR_ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+])
+
+export async function uploadAccountAvatar(
+  accountId: string,
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!accountId) return { ok: false, error: 'Missing account id' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return { ok: false, error: 'Missing file' }
+  if (file.size === 0) return { ok: false, error: 'Empty file' }
+  if (file.size > ACCOUNT_AVATAR_MAX_BYTES) {
+    return { ok: false, error: 'File too large (max 8MB)' }
+  }
+  if (!ACCOUNT_AVATAR_ALLOWED_MIME.has(file.type)) {
+    return { ok: false, error: 'Unsupported image type' }
+  }
+
+  const supabase = await createClient()
+  const { data: accountRow, error: readErr } = await supabase
+    .from('accounts')
+    .select('id, avatar_url')
+    .eq('id', accountId)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: readErr.message }
+  if (!accountRow) return { ok: false, error: 'Company not found' }
+
+  const arrayBuffer = await file.arrayBuffer()
+  const sharp = (await import('sharp')).default
+  let processed: Buffer
+  try {
+    processed = await sharp(Buffer.from(arrayBuffer))
+      .rotate() // honour EXIF orientation
+      .resize(512, 512, { fit: 'cover', position: 'attention' })
+      .webp({ quality: 82 })
+      .toBuffer()
+  } catch {
+    return { ok: false, error: 'Could not process image' }
+  }
+
+  const nonce = Math.random().toString(36).slice(2, 10)
+  const objectPath = `${user.id}/accounts/${accountId}-${nonce}.webp`
+
+  const { error: uploadErr } = await supabase.storage
+    .from('avatars')
+    .upload(objectPath, processed, {
+      contentType: 'image/webp',
+      upsert: false,
+      cacheControl: '3600',
+    })
+  if (uploadErr) return { ok: false, error: uploadErr.message }
+
+  const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(objectPath)
+  const publicUrl = publicUrlData.publicUrl
+  if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
+
+  const { error: updateErr } = await supabase
+    .from('accounts')
+    .update({ avatar_url: publicUrl })
+    .eq('id', accountId)
+  if (updateErr) {
+    await supabase.storage.from('avatars').remove([objectPath]).catch(() => {})
+    return { ok: false, error: updateErr.message }
+  }
+
+  revalidatePath('/companies')
+  revalidatePath(`/accounts/${accountId}`)
+  return { ok: true, url: publicUrl }
+}
+
+export async function removeAccountAvatar(
+  accountId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  if (!accountId) return { ok: false, error: 'Missing account id' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('accounts')
+    .update({ avatar_url: null })
+    .eq('id', accountId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/companies')
+  revalidatePath(`/accounts/${accountId}`)
   return { ok: true }
 }
 

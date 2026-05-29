@@ -32,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { prefillDialPad } from '@/components/calls/dial-pad-context'
 import { useDialpadAvailable } from '@/components/phone/dialpad-availability-context'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import { isValidEmail } from '@/lib/contacts/zod-schemas'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -236,7 +237,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                   <InfoRow
                     icon={Mail}
                     label="Email"
-                    value={contact.email}
+                    value={formatEmailDisplay(contact.email)}
                     onClick={contact.email ? () => { window.location.href = `mailto:${contact.email}` } : undefined}
                     warning={
                       contact.email && !isValidEmail(contact.email)
@@ -292,7 +293,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           <ChannelBadge channel={c.channel as Channel} showLabel={false} size="md" />
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary">
-                              {c.last_message || '|'}
+                              {c.last_message || '-'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.last_message_at)} · {c.status}
@@ -327,7 +328,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[12.5px] text-text-primary capitalize">
-                              {c.direction} · {c.status ?? '|'}
+                              {c.direction} · {c.status ?? '-'}
                             </div>
                             <div className="text-[11px] text-text-tertiary">
                               {relativeTime(c.started_at)}

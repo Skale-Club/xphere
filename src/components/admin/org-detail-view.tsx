@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator'
 import { AdminSaveBar } from '@/components/admin/admin-save-bar'
 import { updateOrgSettings } from '@/app/(admin)/admin/_actions/get-org-detail'
+import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import type { OrgDetail } from '@/app/(admin)/admin/_actions/get-org-detail'
 
 const FEATURE_FLAGS = [
@@ -123,7 +124,7 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
                   <TableBody>
                     {org.members.map(member => (
                       <TableRow key={member.id} className="border-border-subtle hover:bg-bg-tertiary transition-colors duration-100">
-                        <TableCell className="text-text-primary text-sm pl-4">{member.email}</TableCell>
+                        <TableCell className="text-text-primary text-sm pl-4">{formatEmailDisplay(member.email)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs capitalize">
                             {member.role}

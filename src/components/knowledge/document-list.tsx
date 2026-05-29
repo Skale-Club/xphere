@@ -85,7 +85,7 @@ function SourceRow({ source }: SourceRowProps) {
           )}
         </td>
         <td className="py-3 pr-4 text-sm text-muted-foreground">
-          {source.status === 'ready' ? source.chunk_count : '|'}
+          {source.status === 'ready' ? source.chunk_count : '-'}
         </td>
         <td className="py-3 pr-4 text-sm text-muted-foreground">
           {formatDate(source.created_at)}
