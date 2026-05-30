@@ -73,14 +73,41 @@ export async function can(permissionKey: string): Promise<boolean> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('role_permissions')
-    .select('permission_key, enabled')
+    .select('permission_key, enabled, role')
     .eq('organization_id', orgId)
-    .eq('role', role)
 
-  if (error || !data || data.length === 0) {
-    return DEFAULT_ROLE_PERMISSIONS[role].includes(permissionKey)
-  }
-  return data.find((r) => r.permission_key === permissionKey)?.enabled ?? false
+  // RBAC not configured for this org yet → no restriction (non-disruptive:
+  // enforcement only kicks in once an Owner saves a configuration).
+  if (error || !data || data.length === 0) return true
+
+  const roleRows = data.filter((r) => r.role === role)
+  if (roleRows.length === 0) return DEFAULT_ROLE_PERMISSIONS[role].includes(permissionKey)
+  return roleRows.find((r) => r.permission_key === permissionKey)?.enabled ?? false
+}
+
+/**
+ * The permission keys the current user effectively holds, or `null` when the
+ * user is unrestricted — a platform admin, an Owner, or any org that has no
+ * RBAC configuration yet. UI (e.g. the sidebar) treats `null` as "show all".
+ */
+export async function getMyPermissions(): Promise<string[] | null> {
+  const { userId, orgId, role, isPlatformAdmin } = await getRbacContext()
+  if (!userId) return []
+  // Unrestricted: platform staff, Owner, or any non-configurable/unknown role
+  // (fail open for nav — row-level data is still protected by RLS).
+  if (isPlatformAdmin || role === 'owner' || (role !== 'admin' && role !== 'member')) return null
+  if (!orgId) return null
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('role_permissions')
+    .select('permission_key, enabled, role')
+    .eq('organization_id', orgId)
+
+  if (error || !data || data.length === 0) return null // RBAC not configured → unrestricted
+  const roleRows = data.filter((r) => r.role === role)
+  if (roleRows.length === 0) return [...DEFAULT_ROLE_PERMISSIONS[role]]
+  return roleRows.filter((r) => r.enabled).map((r) => r.permission_key as string)
 }
 
 /** Throwable-style guard for server actions: returns an error string if denied. */

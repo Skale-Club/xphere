@@ -33,7 +33,7 @@ export async function getBillingContext(): Promise<BillingContext | null> {
   return {
     userId: user.id,
     orgId: orgId as string,
-    isAdmin: membership?.role === 'admin',
+    isAdmin: membership?.role === 'admin' || membership?.role === 'owner',
   }
 }
 

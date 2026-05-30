@@ -270,9 +270,10 @@ export async function createOrgFromTemplate(
     return { error: orgError.message }
   }
 
+  // The creator is the org Owner (top of the RBAC hierarchy; can manage roles).
   const { error: memberError } = await admin
     .from('org_members')
-    .insert({ organization_id: org.id, user_id: user.id, role: 'admin' })
+    .insert({ organization_id: org.id, user_id: user.id, role: 'owner' })
   if (memberError) return { error: memberError.message }
 
   const groups = (tmpl.asset_groups ?? []) as OrgTemplateAssetGroup[]
