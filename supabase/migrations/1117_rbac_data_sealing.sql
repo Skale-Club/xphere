@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Migration 1117: RBAC data-layer sealing ("Restrict data visibility to only
--- assigned data") + owner backfill.
+-- assigned data"). Owner backfill is split into 1119_owner_backfill.sql so it
+-- can be applied in lockstep with the code deploy (it changes live behavior).
 -- Project: Xphere / Active Projects / Roles, Permissions & Access Control
 -- Depends on: 1116_rbac_foundation.sql (user_role 'owner', role_settings,
 --             current_org_role(), is_platform_admin()).
@@ -21,33 +22,7 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- Section 1: Owner backfill (idempotent)
--- Each org needs an owner. Promote the earliest admin (the de-facto creator)
--- to 'owner' — but ONLY for orgs that don't already have one. Safe to re-run.
--- 'owner' is usable here because it was committed by migration 1113.
--- ---------------------------------------------------------------------------
-WITH orgs_without_owner AS (
-  SELECT o.id AS org_id
-  FROM public.organizations o
-  WHERE NOT EXISTS (
-    SELECT 1 FROM public.org_members m
-    WHERE m.organization_id = o.id AND m.role::text = 'owner'
-  )
-),
-first_admin AS (
-  SELECT DISTINCT ON (m.organization_id) m.id
-  FROM public.org_members m
-  JOIN orgs_without_owner ow ON ow.org_id = m.organization_id
-  WHERE m.role::text = 'admin'
-  ORDER BY m.organization_id, m.created_at ASC
-)
-UPDATE public.org_members m
-SET role = 'owner'
-FROM first_admin fa
-WHERE m.id = fa.id;
-
--- ---------------------------------------------------------------------------
--- Section 2: contacts.assigned_to (missing — opportunities/tasks/conversations
+-- Section 1: contacts.assigned_to (missing — opportunities/tasks/conversations
 -- already have an assignee). NULL = unassigned -> not visible to a sealed user.
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.contacts
@@ -58,7 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_contacts_org_assigned_to
   WHERE assigned_to IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
--- Section 3: rbac_seal_active(group) — is the assigned-only seal in effect for
+-- Section 2: rbac_seal_active(group) — is the assigned-only seal in effect for
 -- the current caller on this group? Constant argument + STABLE + SECURITY
 -- DEFINER => evaluated ONCE per query (cached), not per row. The per-row check
 -- in each policy is then just `assigned = uid`.
@@ -88,7 +63,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.rbac_seal_active(TEXT) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- Section 4: restrictive SELECT seal per table.
+-- Section 3: restrictive SELECT seal per table.
 -- Visible when sealing is off for this caller, OR the row is assigned to them.
 -- ---------------------------------------------------------------------------
 
