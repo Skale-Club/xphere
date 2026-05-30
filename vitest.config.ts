@@ -20,6 +20,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // `server-only` is a no-op in RSC bundlers but is unresolvable in the
+      // node test runner; stub it so server modules can be imported in tests.
+      'server-only': path.resolve(__dirname, './tests/stubs/server-only.ts'),
     },
   },
 })

@@ -24,6 +24,11 @@ vi.mock('server-only', () => ({}))
 // Mock next/cache (revalidatePath is a no-op in tests).
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
+// Keep the RBAC permission gate transparent — these tests cover contact identity.
+vi.mock('@/lib/rbac/server', () => ({
+  requirePermission: vi.fn().mockResolvedValue({ ok: true, error: null }),
+}))
+
 // ─── Unit imports ────────────────────────────────────────────────────────────
 
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'

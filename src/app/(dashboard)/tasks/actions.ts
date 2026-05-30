@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/rbac/server'
 import type { Database, TaskPriority, TaskStatus, CrmEntityType } from '@/types/database'
 
 export type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -61,6 +62,9 @@ export async function createTask(
   const user = await getUser()
   if (!user) return err('not_authenticated')
 
+  const perm = await requirePermission('tasks.manage')
+  if (!perm.ok) return err('forbidden')
+
   const parsed = taskCreateSchema.safeParse(input)
   if (!parsed.success) return err('validation_error', parsed.error.issues)
 
@@ -93,6 +97,9 @@ export async function updateTask(
   const user = await getUser()
   if (!user) return err('not_authenticated')
 
+  const perm = await requirePermission('tasks.manage')
+  if (!perm.ok) return err('forbidden')
+
   const parsed = taskUpdateSchema.safeParse(input)
   if (!parsed.success) return err('validation_error', parsed.error.issues)
 
@@ -120,6 +127,9 @@ export async function updateTask(
 export async function deleteTask(id: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return err('not_authenticated')
+
+  const perm = await requirePermission('tasks.manage')
+  if (!perm.ok) return err('forbidden')
 
   const supabase = await createClient()
 
@@ -194,6 +204,9 @@ export async function getContactsForPicker(): Promise<ContactOption[]> {
 export async function toggleTaskDone(id: string): Promise<ActionResult<TaskRow>> {
   const user = await getUser()
   if (!user) return err('not_authenticated')
+
+  const perm = await requirePermission('tasks.manage')
+  if (!perm.ok) return err('forbidden')
 
   const supabase = await createClient()
 
