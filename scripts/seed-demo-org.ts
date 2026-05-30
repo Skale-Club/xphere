@@ -79,9 +79,9 @@ const opportunityActivities = [
 ]
 
 const conversations = [
-  { id: V(1), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-1', channel: 'whatsapp', status: 'open', contact_id: C(1), visitor_name: 'Maria Demo', last_message: 'Perfect, talk soon!', last_message_at: daysAgo(1), bot_status: 'off' },
-  { id: V(2), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-2', channel: 'widget', status: 'open', contact_id: C(3), visitor_name: 'Priya Example', last_message: 'Can you send a quote?', last_message_at: daysAgo(2), bot_status: 'off' },
-  { id: V(3), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-3', channel: 'instagram', status: 'closed', contact_id: C(6), visitor_name: 'Carlos Teste', last_message: 'Thanks for the help!', last_message_at: daysAgo(4), bot_status: 'off' },
+  { id: V(1), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-1', channel: 'whatsapp', status: 'open', contact_id: C(1), visitor_name: 'Maria Demo', last_message: 'Perfect, talk soon!', last_message_at: daysAgo(1), bot_status: 'paused' },
+  { id: V(2), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-2', channel: 'widget', status: 'open', contact_id: C(3), visitor_name: 'Priya Example', last_message: 'Can you send a quote?', last_message_at: daysAgo(2), bot_status: 'paused' },
+  { id: V(3), org_id: DEMO_ORG_ID, widget_token: 'demo-conv-3', channel: 'instagram', status: 'closed', contact_id: C(6), visitor_name: 'Carlos Teste', last_message: 'Thanks for the help!', last_message_at: daysAgo(4), bot_status: 'paused' },
 ]
 
 const messages = [

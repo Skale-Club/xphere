@@ -17,11 +17,12 @@
 --   VALUES ('<DEMO_AUTH_USER_UUID>')
 --   ON CONFLICT (singleton) DO UPDATE SET demo_user_id = EXCLUDED.demo_user_id;
 
-INSERT INTO public.organizations (id, name, slug, is_active)
+INSERT INTO public.organizations (id, name, slug, is_active, widget_token)
 VALUES (
   '0000de00-0000-4000-8000-000000000001',
   'Xphere Demo',
   'demo',
-  true
+  true,
+  'demo-org-widget'
 )
 ON CONFLICT (slug) DO NOTHING;
