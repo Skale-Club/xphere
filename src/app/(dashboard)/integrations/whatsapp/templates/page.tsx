@@ -108,7 +108,7 @@ export default async function WhatsAppTemplatesPage() {
           <h3 className="text-[14px] font-medium text-text-primary mb-1">No templates yet</h3>
           <p className="text-[12.5px] text-text-secondary max-w-md mx-auto">
             Create approved templates in Meta Business Manager, then click <strong>Sync from Meta</strong> above
-            to pull them into xphere.
+            to pull them into Xphere.
           </p>
         </div>
       )}

@@ -158,6 +158,12 @@ export function ChatLayout({
   } = usePaginatedConversations(filters)
 
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId)
+  // Holds the selected conversation's summary when it is NOT on the currently
+  // loaded page of the list (e.g. arriving via /chat?contact=ID for an older
+  // conversation). Without this, `selected` would resolve to null and the chat
+  // area would fall back to the "pick a conversation" empty state.
+  const [fetchedConversation, setFetchedConversation] =
+    useState<ConversationSummary | null>(null)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
@@ -224,6 +230,36 @@ export function ChatLayout({
     }
     fetchMessages(selectedId)
   }, [selectedId, fetchMessages])
+
+  // When the selected conversation isn't on the currently-loaded page of the
+  // list, fetch its summary directly so the chat area can render it instead of
+  // showing the "pick a conversation" empty state.
+  useEffect(() => {
+    if (!selectedId) {
+      setFetchedConversation(null)
+      return
+    }
+    const inList =
+      conversations.some((c) => c.id === selectedId) ||
+      pinned.some((c) => c.id === selectedId)
+    if (inList) {
+      // The list holds the canonical row — drop any stale fetched copy.
+      setFetchedConversation((prev) => (prev ? null : prev))
+      return
+    }
+    if (fetchedConversation?.id === selectedId) return
+    let cancelled = false
+    fetch(`/api/chat/conversations/${selectedId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.conversation) return
+        setFetchedConversation(data.conversation as ConversationSummary)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId, conversations, pinned, fetchedConversation])
 
   // Fetch org members once for the assign dropdown
   useEffect(() => {
@@ -573,11 +609,14 @@ export function ChatLayout({
 
   // ───────────────────────── Derived ─────────────────────────
 
-  // Selected conversation may be in either bucket on the current page.
+  // Selected conversation may be in either bucket on the current page, or — when
+  // it lives on a page we haven't loaded — in the directly-fetched fallback.
   const selected =
     conversations.find((c) => c.id === selectedId) ??
     pinned.find((c) => c.id === selectedId) ??
-    null
+    (fetchedConversation && fetchedConversation.id === selectedId
+      ? fetchedConversation
+      : null)
 
   // Helper for optimistic mutations: lookup across both buckets.
   const findVisibleConversation = useCallback(
@@ -661,6 +700,7 @@ export function ChatLayout({
             infoPanelOpen={infoOpen}
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
             agentMap={agentMap}
+            emptyContactId={!selectedId ? initialContactId : null}
           />
         </div>
         {infoOpen && (
@@ -774,6 +814,7 @@ export function ChatLayout({
               infoPanelOpen={false}
               onToggleInfoPanel={() => setMobileView('info')}
               agentMap={agentMap}
+              emptyContactId={!selectedId ? initialContactId : null}
             />
           </div>
         )}

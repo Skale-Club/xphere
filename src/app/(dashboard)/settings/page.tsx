@@ -140,7 +140,7 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         href: '/settings/install',
         icon: Download,
         title: 'Install app',
-        description: 'Add xphere to your home screen or desktop. Required for push notifications on iOS.',
+        description: 'Add Xphere to your home screen or desktop. Required for push notifications on iOS.',
       },
     ],
   },

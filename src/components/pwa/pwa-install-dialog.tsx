@@ -10,6 +10,7 @@
  */
 
 import * as React from 'react'
+import Image from 'next/image'
 import {
   Download,
   Share,
@@ -82,12 +83,17 @@ function DesktopAndroidInstall({
   return (
     <>
       <DialogHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-emerald-500/15 text-emerald-300">
-            <Download className="h-5 w-5" />
-          </div>
+        <div className="flex items-start gap-3">
+          <Image
+            src="/xphere-icon.svg"
+            alt="Xphere"
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 rounded-[10px]"
+            priority
+          />
           <div>
-            <DialogTitle>Install xphere</DialogTitle>
+            <DialogTitle>Install Xphere</DialogTitle>
             <DialogDescription>
               Add the app to your device for a faster, dedicated experience.
             </DialogDescription>
@@ -118,12 +124,17 @@ function IosInstructions({ onDismiss }: { onDismiss: () => void }) {
   return (
     <>
       <DialogHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-emerald-500/15 text-emerald-300">
-            <Download className="h-5 w-5" />
-          </div>
+        <div className="flex items-start gap-3">
+          <Image
+            src="/xphere-icon.svg"
+            alt="Xphere"
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 rounded-[10px]"
+            priority
+          />
           <div>
-            <DialogTitle>Add xphere to your Home Screen</DialogTitle>
+            <DialogTitle>Add Xphere to your Home Screen</DialogTitle>
             <DialogDescription>
               Required to receive push notifications on iOS, and gives you a full-screen native feel.
             </DialogDescription>
@@ -148,7 +159,7 @@ function IosInstructions({ onDismiss }: { onDismiss: () => void }) {
           n={3}
           icon={Check}
           title="Tap 'Add'"
-          description="The xphere icon appears on your home screen. Open it from there from now on."
+          description="The Xphere icon appears on your home screen. Open it from there from now on."
         />
       </ol>
 

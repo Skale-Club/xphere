@@ -96,6 +96,12 @@ interface ChatAreaProps {
   agentMap?: Record<string, string>
   /** SEED-039: channels this contact can be reached on (for composer Select). */
   composerChannels?: ComposerChannel[]
+  /**
+   * When set (and there is no selected conversation), the empty state reflects
+   * "this contact has no conversations yet" instead of the generic picker.
+   * Used when arriving via /chat?contact=ID for a contact with no thread.
+   */
+  emptyContactId?: string | null
 }
 
 export function ChatArea({
@@ -122,6 +128,7 @@ export function ChatArea({
   onToggleInfoPanel,
   agentMap,
   composerChannels,
+  emptyContactId,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   // SEED-039: per-thread channel filter (client-side, no refetch).
@@ -206,13 +213,22 @@ export function ChatArea({
   if (!conversation) {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-bg-primary px-6">
-        <EmptyState
-          icon={MessageSquare}
-          title="Pick a conversation"
-          description="Select a conversation on the left to start chatting. Customer messages from any connected channel land in your inbox here."
-          secondary={{ label: 'Open command palette (⌘K)', onClick: () => {} }}
-          className="max-w-md"
-        />
+        {emptyContactId ? (
+          <EmptyState
+            icon={MessageSquare}
+            title="No conversations yet"
+            description="This contact doesn't have any conversations yet. Once a message is exchanged on any connected channel, the thread will appear here."
+            className="max-w-md"
+          />
+        ) : (
+          <EmptyState
+            icon={MessageSquare}
+            title="Pick a conversation"
+            description="Select a conversation on the left to start chatting. Customer messages from any connected channel land in your inbox here."
+            secondary={{ label: 'Open command palette (⌘K)', onClick: () => {} }}
+            className="max-w-md"
+          />
+        )}
       </div>
     )
   }

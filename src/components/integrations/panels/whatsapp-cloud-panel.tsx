@@ -292,7 +292,7 @@ function ConnectedState({
         </div>
         <p className="text-[11.5px] text-text-secondary leading-relaxed">
           Enable <strong>Coexistence</strong> in your Meta Business Manager and your team can keep
-          answering customers from the WhatsApp Business app on mobile — while xphere handles
+          answering customers from the WhatsApp Business app on mobile — while Xphere handles
           campaigns and automations from the Cloud API. Messages sync in real time both ways.
         </p>
         <a

@@ -24,7 +24,7 @@ export function PwaInstallControl() {
           <div>
             <h2 className="text-[15px] font-semibold text-text-primary">App installed</h2>
             <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
-              You&apos;re launching xphere as a standalone app. Push notifications, offline mode and
+              You&apos;re launching Xphere as a standalone app. Push notifications, offline mode and
               faster startup are all active.
             </p>
           </div>
@@ -40,7 +40,7 @@ export function PwaInstallControl() {
           <h2 className="text-[15px] font-semibold text-text-primary">Add to Home Screen</h2>
           <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
             iOS Safari doesn&apos;t let apps install themselves. Follow the steps below to add
-            xphere to your home screen — required for push notifications on iOS.
+            Xphere to your home screen — required for push notifications on iOS.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export function PwaInstallControl() {
             n={3}
             icon={Check}
             title="Tap 'Add'"
-            description="The xphere icon will appear on your home screen. Open the app from there from now on."
+            description="The Xphere icon will appear on your home screen. Open the app from there from now on."
           />
         </ol>
       </div>
@@ -72,7 +72,7 @@ export function PwaInstallControl() {
     return (
       <div className="rounded-[12px] border border-border bg-bg-secondary p-5 space-y-4">
         <div>
-          <h2 className="text-[15px] font-semibold text-text-primary">Install xphere</h2>
+          <h2 className="text-[15px] font-semibold text-text-primary">Install Xphere</h2>
           <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
             Add the app to your device for a faster, dedicated experience — instant launch, push
             notifications, and offline support.
@@ -104,7 +104,7 @@ export function PwaInstallControl() {
         <div>
           <h2 className="text-[15px] font-semibold text-text-primary">Browser not supported</h2>
           <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
-            This browser can&apos;t install web apps. Try opening xphere in Chrome or Edge on
+            This browser can&apos;t install web apps. Try opening Xphere in Chrome or Edge on
             desktop, or in Safari on iOS, to install.
           </p>
         </div>
