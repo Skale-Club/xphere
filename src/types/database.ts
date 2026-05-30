@@ -12,7 +12,38 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type UserRole = 'admin' | 'member'
+// Org roles. 'owner' tops an org; 'member' is the basic "User" tier.
+// (migration 1116 — RBAC foundation)
+export type UserRole = 'owner' | 'admin' | 'member'
+
+// Platform (Skale Club / super admin) roles — sit above every org (migration 1116)
+export type PlatformRole = 'platform_admin' | 'platform_member'
+
+// Roles whose permission sets are configurable in the Roles & Permissions panel
+export type ConfigurableRole = Extract<UserRole, 'admin' | 'member'>
+
+export interface PlatformAdminRow {
+  user_id: string
+  role: PlatformRole
+  created_at: string
+}
+
+export interface RolePermissionRow {
+  id: string
+  organization_id: string
+  role: ConfigurableRole
+  permission_key: string
+  enabled: boolean
+  updated_at: string
+}
+
+export interface RoleSettingsRow {
+  id: string
+  organization_id: string
+  role: ConfigurableRole
+  restrict_to_assigned: boolean
+  updated_at: string
+}
 
 // Template Organizations (migration 1108)
 export type OrgTemplateStatus = 'draft' | 'active' | 'archived'
@@ -607,6 +638,63 @@ export interface Database {
             referencedColumns: ['id']
           }
         ]
+      }
+      platform_admins: {
+        Row: { user_id: string; role: PlatformRole; created_at: string }
+        Insert: { user_id: string; role?: PlatformRole; created_at?: string }
+        Update: { user_id?: string; role?: PlatformRole; created_at?: string }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          id: string
+          organization_id: string
+          role: ConfigurableRole
+          permission_key: string
+          enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          role: ConfigurableRole
+          permission_key: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          role?: ConfigurableRole
+          permission_key?: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      role_settings: {
+        Row: {
+          id: string
+          organization_id: string
+          role: ConfigurableRole
+          restrict_to_assigned: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          role: ConfigurableRole
+          restrict_to_assigned?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          role?: ConfigurableRole
+          restrict_to_assigned?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       org_invites: {
         Row: {
@@ -1962,6 +2050,8 @@ export interface Database {
           whatsapp_opted_at: string | null
           /** Migration 1104: public URL of the contact's avatar in the 'avatars' storage bucket */
           avatar_url: string | null
+          /** Migration 1117: RBAC seal — user this contact is assigned to (NULL = unassigned) */
+          assigned_to: string | null
         }
         Insert: {
           id?: string
@@ -1991,6 +2081,7 @@ export interface Database {
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
+          assigned_to?: string | null
         }
         Update: {
           first_name?: string | null
@@ -2016,6 +2107,7 @@ export interface Database {
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
+          assigned_to?: string | null
         }
         Relationships: [
           {

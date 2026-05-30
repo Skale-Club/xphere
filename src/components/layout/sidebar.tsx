@@ -54,9 +54,14 @@ interface SidebarProps {
   /** Optional org logo URL | replaces the default "O" mark when set. */
   logoUrl?: string | null
   isPlatformAdmin?: boolean
+  /**
+   * RBAC permission keys the user holds. `null`/undefined = unrestricted (Owner,
+   * platform admin, or an org with no RBAC config yet) → all items shown.
+   */
+  navPermissions?: string[] | null
 }
 
-export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin }: SidebarProps) {
+export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin, navPermissions }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebarState()
@@ -149,7 +154,14 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         {groups.map((g, gIdx) => {
-          const items = nav.filter((n) => n.group === g.id && (!n.adminOnly || isPlatformAdmin))
+          const items = nav.filter(
+            (n) =>
+              n.group === g.id &&
+              (!n.adminOnly || isPlatformAdmin) &&
+              // navPermissions == null → unrestricted; otherwise the user must
+              // hold the item's permission key (items without a key stay visible).
+              (navPermissions == null || !n.permission || navPermissions.includes(n.permission)),
+          )
           if (items.length === 0) return null
           return (
             <div key={g.id} className={cn('flex flex-col', gIdx > 0 && 'mt-3')}>

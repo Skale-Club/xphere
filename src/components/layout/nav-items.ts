@@ -23,6 +23,12 @@ export type NavItem = {
   group: string
   /** When true, only shown to PLATFORM_ADMIN users. */
   adminOnly?: boolean
+  /**
+   * RBAC permission key gating this item. When set, the item is hidden unless
+   * the user holds the key (or is unrestricted — Owner / platform / unconfigured
+   * org). Omit for always-visible utility surfaces.
+   */
+  permission?: string
 }
 
 /**
@@ -33,21 +39,21 @@ export type NavItem = {
  * not workflows operators reach for every day.
  */
 export const NAV_ITEMS: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview' },
-  { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage' },
-  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage' },
-  { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage' },
-  { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage' },
-  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true },
-  { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales' },
-  { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales' },
-  { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales' },
-  { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales' },
-  { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build' },
-  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build' },
-  { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build' },
-  { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build' },
-  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage' },
+  { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview', permission: 'dashboard.view' },
+  { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage',   permission: 'chat.view' },
+  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view' },
+  { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view' },
+  { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
+  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true, permission: 'ads.view' },
+  { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view' },
+  { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view' },
+  { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales',    permission: 'pipeline.view' },
+  { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales',    permission: 'tasks.view' },
+  { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build',    permission: 'agents.view' },
+  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view' },
+  { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view' },
+  { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build',    permission: 'scheduling.view' },
+  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [

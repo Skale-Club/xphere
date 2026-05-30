@@ -18,6 +18,7 @@ import { DialpadAvailabilityProvider } from '@/components/phone/dialpad-availabi
 import { PwaInstallProvider } from '@/components/pwa/pwa-install-context'
 import { PwaInstallDialog } from '@/components/pwa/pwa-install-dialog'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getMyPermissions } from '@/lib/rbac/server'
 import { getOrgSettings } from '@/lib/org/settings'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
@@ -82,6 +83,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
 
+  // RBAC: which nav items this user may see. null = unrestricted (Owner /
+  // platform / unconfigured org). Fail open on error — RLS still guards data.
+  const navPermissions = await getMyPermissions().catch(() => null)
+
   // Decide whether to mount the Twilio Voice SDK Device for this user.
   // Only users in routing_mode='browser' incur the SDK bundle/connection.
   let browserVoiceEnabled = false
@@ -136,6 +141,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   brandName={branding.appName}
                   logoUrl={effectiveLogoUrl}
                   isPlatformAdmin={isPlatformAdmin}
+                  navPermissions={navPermissions}
                 />
                 <div className="flex min-w-0 flex-1 h-dvh overflow-hidden">
                   <main className="flex flex-1 min-h-0 flex-col overflow-auto">

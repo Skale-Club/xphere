@@ -23,7 +23,8 @@ async function requireAdmin() {
     .eq('organization_id', orgId as string)
     .single()
 
-  if (membership?.role !== 'admin') {
+  // Owner ranks above admin — both may manage members (RBAC role hierarchy).
+  if (membership?.role !== 'admin' && membership?.role !== 'owner') {
     return { error: 'Admin access required', user: null, orgId: null }
   }
 
