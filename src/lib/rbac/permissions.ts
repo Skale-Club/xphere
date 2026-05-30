@@ -295,3 +295,53 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<ConfigurableRole, string[]> = {
 export function isValidPermissionKey(key: string): boolean {
   return ALL_PERMISSION_KEYS.includes(key)
 }
+
+// --- Shared config shapes used by the panel + server actions ---------------
+
+/** One configurable role's resolved state. */
+export type RoleConfig = {
+  /** permission_key -> enabled, covering every ORG_PERMISSION_KEYS entry. */
+  permissions: Record<string, boolean>
+  restrictToAssigned: boolean
+}
+
+/** Both configurable roles' state for an org. */
+export type OrgRolesConfig = Record<ConfigurableRole, RoleConfig>
+
+/** An org option for the super-admin owner selector. */
+export type RoleOrgOption = { id: string; name: string; slug: string }
+
+/**
+ * Resolve a role's full permission map from stored rows. When the role has no
+ * stored rows yet (uninitialized org), fall back to DEFAULT_ROLE_PERMISSIONS.
+ */
+export function resolveRoleConfig(
+  role: ConfigurableRole,
+  rows: { permission_key: string; enabled: boolean }[],
+  restrictToAssigned: boolean,
+): RoleConfig {
+  const permissions: Record<string, boolean> = {}
+  if (rows.length === 0) {
+    for (const key of ORG_PERMISSION_KEYS) {
+      permissions[key] = DEFAULT_ROLE_PERMISSIONS[role].includes(key)
+    }
+  } else {
+    for (const key of ORG_PERMISSION_KEYS) permissions[key] = false
+    for (const r of rows) {
+      if (isValidPermissionKey(r.permission_key)) permissions[r.permission_key] = r.enabled
+    }
+  }
+  return { permissions, restrictToAssigned }
+}
+
+/** Build the full explicit grant rows (every catalog key, true/false) to upsert. */
+export function buildPermissionRows(
+  role: ConfigurableRole,
+  permissions: Record<string, boolean>,
+): { role: ConfigurableRole; permission_key: string; enabled: boolean }[] {
+  return ORG_PERMISSION_KEYS.map((key) => ({
+    role,
+    permission_key: key,
+    enabled: permissions[key] === true,
+  }))
+}

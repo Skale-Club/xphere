@@ -16,6 +16,7 @@ import {
   Plug,
   Plug2,
   Settings2,
+  ShieldCheck,
   Tag,
   UserCog,
   type LucideIcon,
@@ -76,6 +77,13 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         title: 'Organization templates',
         description:
           'Capture this organization’s structure as a reusable industry template, then create new organizations from it.',
+      },
+      {
+        href: '/settings/roles',
+        icon: ShieldCheck,
+        title: 'Roles & Permissions',
+        description:
+          'Control what your Admins and Users can see and do, and restrict data visibility to assigned records.',
       },
     ],
   },
