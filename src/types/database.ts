@@ -643,6 +643,7 @@ export interface Database {
         Row: { user_id: string; role: PlatformRole; created_at: string }
         Insert: { user_id: string; role?: PlatformRole; created_at?: string }
         Update: { user_id?: string; role?: PlatformRole; created_at?: string }
+        Relationships: []
       }
       role_permissions: {
         Row: {
@@ -669,6 +670,7 @@ export interface Database {
           enabled?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       role_settings: {
         Row: {
@@ -692,6 +694,7 @@ export interface Database {
           restrict_to_assigned?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       org_invites: {
         Row: {
