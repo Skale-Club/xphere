@@ -1,8 +1,8 @@
 -- =============================================================================
--- Migration 1114: RBAC data-layer sealing ("Restrict data visibility to only
+-- Migration 1117: RBAC data-layer sealing ("Restrict data visibility to only
 -- assigned data") + owner backfill.
 -- Project: Xphere / Active Projects / Roles, Permissions & Access Control
--- Depends on: 1113_rbac_foundation.sql (user_role 'owner', role_settings,
+-- Depends on: 1116_rbac_foundation.sql (user_role 'owner', role_settings,
 --             current_org_role(), is_platform_admin()).
 --
 -- DESIGN: the seal NARROWS row visibility without rewriting the existing

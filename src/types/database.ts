@@ -13,10 +13,10 @@ export type Json =
   | Json[]
 
 // Org roles. 'owner' tops an org; 'member' is the basic "User" tier.
-// (migration 1113 — RBAC foundation)
+// (migration 1116 — RBAC foundation)
 export type UserRole = 'owner' | 'admin' | 'member'
 
-// Platform (Skale Club / super admin) roles — sit above every org (migration 1113)
+// Platform (Skale Club / super admin) roles — sit above every org (migration 1116)
 export type PlatformRole = 'platform_admin' | 'platform_member'
 
 // Roles whose permission sets are configurable in the Roles & Permissions panel
@@ -2050,7 +2050,7 @@ export interface Database {
           whatsapp_opted_at: string | null
           /** Migration 1104: public URL of the contact's avatar in the 'avatars' storage bucket */
           avatar_url: string | null
-          /** Migration 1114: RBAC seal — user this contact is assigned to (NULL = unassigned) */
+          /** Migration 1117: RBAC seal — user this contact is assigned to (NULL = unassigned) */
           assigned_to: string | null
         }
         Insert: {

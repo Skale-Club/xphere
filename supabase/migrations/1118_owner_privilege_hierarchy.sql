@@ -1,10 +1,10 @@
 -- =============================================================================
--- Migration 1115: Privilege hierarchy — treat 'owner' as >= 'admin' in legacy
+-- Migration 1118: Privilege hierarchy — treat 'owner' as >= 'admin' in legacy
 -- RLS policies that predate the RBAC role model.
 -- Project: Xphere / Active Projects / Roles, Permissions & Access Control
--- Depends on: 1113 (adds 'owner' to public.user_role).
+-- Depends on: 1116 (adds 'owner' to public.user_role).
 --
--- WHY: migration 1114 promotes each org's creator to 'owner'. Several older
+-- WHY: migration 1117 promotes each org's creator to 'owner'. Several older
 -- policies hardcode `role = 'admin'` for management actions (invites, contact
 -- merge exclusions, contact verifications). Without this, a freshly-promoted
 -- Owner would LOSE those abilities. We broaden each to `role IN ('admin','owner')`.

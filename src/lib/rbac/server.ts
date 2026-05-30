@@ -8,7 +8,7 @@ import {
 
 /**
  * Server-side RBAC helpers. These mirror the database `has_permission()`
- * function (migration 1113) so the app can gate UI + server actions before the
+ * function (migration 1116) so the app can gate UI + server actions before the
  * data-layer RLS seal lands. Tenant isolation is still enforced by
  * get_current_org_id() / RLS — these helpers only resolve *feature* permissions.
  */
@@ -29,7 +29,7 @@ export async function getRbacContext(): Promise<RbacContext> {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
 
   // Platform admin: env bootstrap OR a row in platform_admins (table may not
-  // exist until migration 1113 is applied — treat any error as "not admin").
+  // exist until migration 1116 is applied — treat any error as "not admin").
   const isEnvAdmin = !!user.email && user.email === process.env.PLATFORM_ADMIN_EMAIL
   let isTableAdmin = false
   const { data: pa } = await supabase
