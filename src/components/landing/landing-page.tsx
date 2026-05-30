@@ -101,11 +101,13 @@ export function LandingPage({
   ctaImageUrl,
   scrollImages: _scrollImages,
   isAuthenticated = false,
+  demoEnabled = false,
 }: {
   faviconUrl?: string | null
   ctaImageUrl?: string | null
   scrollImages?: string[]
   isAuthenticated?: boolean
+  demoEnabled?: boolean
 }) {
   const logoSrc = faviconUrl ?? '/favicon.ico'
   const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
@@ -340,14 +342,16 @@ export function LandingPage({
             className="mt-8 flex flex-col sm:flex-row items-center gap-3"
           >
             <CTAButton href={startHref}>Start</CTAButton>
-            <Link href="/demo">
-              <Button
-                variant="outline"
-                className="h-11 px-6 text-sm border-white/15 bg-white/5 text-[#FAFAFA] hover:bg-white/10"
-              >
-                See demo
-              </Button>
-            </Link>
+            {demoEnabled && (
+              <Link href="/demo">
+                <Button
+                  variant="outline"
+                  className="h-11 px-6 text-sm border-white/15 bg-white/5 text-[#FAFAFA] hover:bg-white/10"
+                >
+                  See demo
+                </Button>
+              </Link>
+            )}
             <a href="#features">
               <Button
                 variant="ghost"

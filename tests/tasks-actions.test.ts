@@ -11,6 +11,12 @@ vi.mock('@/lib/supabase/server', () => ({
   getUser: vi.fn(),
 }))
 
+// RBAC permission gate is exercised elsewhere; keep it transparent here so these
+// task-CRUD unit tests stay focused on validation + happy paths.
+vi.mock('@/lib/rbac/server', () => ({
+  requirePermission: vi.fn().mockResolvedValue({ ok: true, error: null }),
+}))
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))

@@ -16,6 +16,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritable } from '@/lib/demo/guard'
+import { requirePermission } from '@/lib/rbac/server'
 import type { Database, OpportunityStatus } from '@/types/database'
 import {
   pipelineSchema,
@@ -348,6 +349,8 @@ export async function createOpportunity(
   if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('pipeline.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const parsed = opportunitySchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
   const data = parsed.data
@@ -421,6 +424,8 @@ export async function updateOpportunity(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('pipeline.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const supabase = await createClient()
 
   // Validate and persist custom fields (CF-07, Phase 71)
@@ -578,6 +583,8 @@ export async function deleteOpportunity(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('pipeline.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const supabase = await createClient()
 
   // SEED-036: snapshot before delete so workflows triggered by
@@ -636,6 +643,8 @@ export async function moveOpportunity(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('pipeline.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const supabase = await createClient()
 
   // Snapshot the current stage for the activity log

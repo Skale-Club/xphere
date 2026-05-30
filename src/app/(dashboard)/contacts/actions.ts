@@ -18,6 +18,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritable } from '@/lib/demo/guard'
+import { requirePermission } from '@/lib/rbac/server'
 import type { Database, ContactSource, ChannelProvider } from '@/types/database'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
@@ -454,6 +455,8 @@ export async function createContact(
   if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('contacts.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const parsed = contactSchema.safeParse(input)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid contact data' }
@@ -615,6 +618,8 @@ export async function updateContact(
 ): Promise<{ error?: string; merge_conflict?: boolean } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('contacts.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const parsed = contactSchema.safeParse(input)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid contact data' }
@@ -718,6 +723,8 @@ export async function deleteContact(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('contacts.manage')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const supabase = await createClient()
   const { error } = await supabase.from('contacts').delete().eq('id', id)
   if (error) return { error: error.message }
@@ -730,6 +737,8 @@ export async function deleteContacts(
   if (ids.length === 0) return { deleted: 0 }
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
+  const perm = await requirePermission('contacts.bulk')
+  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
   const supabase = await createClient()
   const { error, count } = await supabase
     .from('contacts')
