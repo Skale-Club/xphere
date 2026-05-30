@@ -54,9 +54,11 @@ interface SidebarProps {
   /** Optional org logo URL | replaces the default "O" mark when set. */
   logoUrl?: string | null
   isPlatformAdmin?: boolean
+  /** Public read-only demo session | hides settings/credential entry points. */
+  isDemo?: boolean
 }
 
-export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin }: SidebarProps) {
+export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin, isDemo }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle } = useSidebarState()
@@ -242,19 +244,23 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/settings/profile">
-                <UserCog className="h-4 w-4 mr-2" />
-                Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer">
-              <Link href="/settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {!isDemo && (
+              <>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/settings/profile">
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/settings">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
