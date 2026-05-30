@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { assertWritableOrThrow } from '@/lib/demo/guard'
 import type { Database, CrmEntityType } from '@/types/database'
 
 export type NoteRow = Database['public']['Tables']['notes']['Row']
@@ -49,6 +50,7 @@ export type NoteFilters = z.input<typeof noteFiltersSchema>
 export async function createNote(
   input: NoteCreateInput,
 ): Promise<ActionResult<NoteRow>> {
+  await assertWritableOrThrow()
   const user = await getUser()
   if (!user) return err('not_authenticated')
 

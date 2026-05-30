@@ -98,6 +98,7 @@ export default async function RootPage() {
         ctaImageUrl={landing.ctaImageUrl}
         scrollImages={landing.scrollImages}
         isAuthenticated={Boolean(user)}
+        demoEnabled={Boolean(process.env.DEMO_ORG_ID)}
       />
     </>
   )

@@ -19,6 +19,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { assertWritableOrThrow } from "@/lib/demo/guard";
 import { getDefinitions } from "@/app/(dashboard)/settings/custom-fields/actions";
 import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
 import type { CustomFieldType } from "@/types/database";
@@ -320,6 +321,7 @@ export async function getAccount(
 export async function createAccount(
   input: AccountInput,
 ): Promise<ActionResult<AccountRow>> {
+  await assertWritableOrThrow();
   const user = await getUser();
   if (!user) return errResult("not_authenticated");
 

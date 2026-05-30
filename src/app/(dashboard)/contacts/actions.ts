@@ -17,6 +17,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { assertWritable } from '@/lib/demo/guard'
 import { requirePermission } from '@/lib/rbac/server'
 import type { Database, ContactSource, ChannelProvider } from '@/types/database'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -450,6 +451,8 @@ export async function createContact(
   error?: string
   details?: unknown
 }> {
+  const denied = await assertWritable()
+  if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const perm = await requirePermission('contacts.manage')

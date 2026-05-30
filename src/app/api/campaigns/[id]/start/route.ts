@@ -6,6 +6,7 @@
 import { after } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { isDemoSession } from '@/lib/demo/guard'
 import { startCampaignBatch } from '@/lib/campaigns/engine'
 import { startWhatsAppCampaign } from '@/lib/campaigns/whatsapp-dispatcher'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
@@ -23,6 +24,9 @@ export async function POST(
 ): Promise<Response> {
   const user = await getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (await isDemoSession()) {
+    return Response.json({ error: 'Demo mode is read-only.' }, { status: 403 })
+  }
   const supabase = await createClient()
 
   // Get user's org | scope all campaign operations to it

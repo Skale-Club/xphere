@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, CampaignContactStatus } from '@/types/database'
 import { createOutboundCall } from '@/lib/campaigns/outbound'
+import { isDemoOrg } from '@/lib/demo/config'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
 
@@ -38,6 +39,13 @@ export async function startCampaignBatch(
 
   if (campaign.status !== 'in_progress') {
     console.log('[engine] Campaign not in_progress, skipping batch. status:', campaign.status)
+    return { fired: 0, errors: 0 }
+  }
+
+  // Demo safety invariant: the demo org never fires real outbound calls.
+  // This engine runs under the service role (bypasses RLS), so guard explicitly.
+  if (isDemoOrg(campaign.organization_id)) {
+    console.warn('[engine] Demo org campaign | outbound disabled:', campaignId)
     return { fired: 0, errors: 0 }
   }
 

@@ -18,6 +18,8 @@ import { DialpadAvailabilityProvider } from '@/components/phone/dialpad-availabi
 import { PwaInstallProvider } from '@/components/pwa/pwa-install-context'
 import { PwaInstallDialog } from '@/components/pwa/pwa-install-dialog'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { isDemoSession } from '@/lib/demo/guard'
+import { DemoBanner } from '@/components/demo/demo-banner'
 import { getMyPermissions } from '@/lib/rbac/server'
 import { getOrgSettings } from '@/lib/org/settings'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
@@ -82,6 +84,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
 
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
+  const isDemo = await isDemoSession()
 
   // RBAC: which nav items this user may see. null = unrestricted (Owner /
   // platform / unconfigured org). Fail open on error — RLS still guards data.
@@ -141,10 +144,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   brandName={branding.appName}
                   logoUrl={effectiveLogoUrl}
                   isPlatformAdmin={isPlatformAdmin}
+                  isDemo={isDemo}
                   navPermissions={navPermissions}
                 />
                 <div className="flex min-w-0 flex-1 h-dvh overflow-hidden">
                   <main className="flex flex-1 min-h-0 flex-col overflow-auto">
+                    {isDemo && <DemoBanner />}
                     <TopBar
                       activeOrgId={activeOrgId}
                       activeOrgName={activeOrgName}

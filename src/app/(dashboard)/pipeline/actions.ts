@@ -15,6 +15,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { assertWritable } from '@/lib/demo/guard'
 import { requirePermission } from '@/lib/rbac/server'
 import type { Database, OpportunityStatus } from '@/types/database'
 import {
@@ -344,6 +345,8 @@ export async function getOpportunity(
 export async function createOpportunity(
   input: OpportunityFormInput,
 ): Promise<{ id?: string; error?: string }> {
+  const denied = await assertWritable()
+  if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const perm = await requirePermission('pipeline.manage')

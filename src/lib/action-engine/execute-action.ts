@@ -39,6 +39,7 @@ import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { checkDnd, dndBlockedMessage } from '@/lib/dnd'
+import { isDemoOrg } from '@/lib/demo/config'
 import { log } from '@/lib/logger'
 
 type ActionType = Database['public']['Enums']['action_type']
@@ -85,6 +86,12 @@ export async function executeAction(
   ctx?: ActionContext
 ): Promise<string> {
   const startMs = Date.now()
+
+  // Demo safety invariant: the demo organization must never produce side effects
+  // (no outbound sends, no internal mutations), regardless of who triggers it.
+  if (isDemoOrg(ctx?.organizationId)) {
+    throw new Error('Demo organization is read-only: action execution is disabled.')
+  }
 
   // Log action execution start
   void log({
