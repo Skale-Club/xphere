@@ -2050,6 +2050,8 @@ export interface Database {
           whatsapp_opted_at: string | null
           /** Migration 1104: public URL of the contact's avatar in the 'avatars' storage bucket */
           avatar_url: string | null
+          /** Migration 1114: RBAC seal — user this contact is assigned to (NULL = unassigned) */
+          assigned_to: string | null
         }
         Insert: {
           id?: string
@@ -2079,6 +2081,7 @@ export interface Database {
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
+          assigned_to?: string | null
         }
         Update: {
           first_name?: string | null
@@ -2104,6 +2107,7 @@ export interface Database {
           whatsapp_opt_in?: boolean
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
+          assigned_to?: string | null
         }
         Relationships: [
           {
