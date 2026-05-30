@@ -17,6 +17,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { assertWritable } from '@/lib/demo/guard'
 import type { Database, ContactSource, ChannelProvider } from '@/types/database'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
@@ -449,6 +450,8 @@ export async function createContact(
   error?: string
   details?: unknown
 }> {
+  const denied = await assertWritable()
+  if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const parsed = contactSchema.safeParse(input)

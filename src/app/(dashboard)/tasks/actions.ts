@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { assertWritableOrThrow } from '@/lib/demo/guard'
 import type { Database, TaskPriority, TaskStatus, CrmEntityType } from '@/types/database'
 
 export type TaskRow = Database['public']['Tables']['tasks']['Row']
@@ -58,6 +59,7 @@ export type TaskFilters = z.infer<typeof taskFiltersSchema>
 export async function createTask(
   input: TaskCreateInput,
 ): Promise<ActionResult<TaskRow>> {
+  await assertWritableOrThrow()
   const user = await getUser()
   if (!user) return err('not_authenticated')
 

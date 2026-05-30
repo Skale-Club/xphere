@@ -37,3 +37,13 @@ export async function assertWritable(): Promise<DemoDenied | null> {
   }
   return null
 }
+
+/**
+ * Throwing variant for mutations whose return type can't carry an error field.
+ * Drop-in at the top of any server action: `await assertWritableOrThrow()`.
+ */
+export async function assertWritableOrThrow(): Promise<void> {
+  if (await isDemoSession()) {
+    throw new Error(DEMO_READONLY_MESSAGE)
+  }
+}

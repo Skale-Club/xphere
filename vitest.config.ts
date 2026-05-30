@@ -20,6 +20,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // `server-only` is a Next.js bundler marker with no Node entry point.
+      'server-only': path.resolve(__dirname, './tests/setup/server-only-stub.ts'),
     },
   },
 })
