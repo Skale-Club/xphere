@@ -26,6 +26,7 @@ import {
   Phone,
   Eye,
   EyeOff,
+  Pencil,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -59,6 +60,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
 import { DndBadge } from '@/components/contacts/dnd-badge'
+import { ContactDetailSheet } from '@/components/contacts/contact-detail-sheet'
 
 interface ChatHeaderProps {
   conversation: ConversationSummary
@@ -123,6 +125,8 @@ export function ChatHeader({
   dndChannels = [],
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
+  // When set, opens the contact editor popup for this contact (edit mode).
+  const [editContactId, setEditContactId] = useState<string | null>(null)
   const name = conversation.contactName || conversation.visitorName || conversation.visitorPhone || conversation.visitorEmail || 'Anonymous'
   const initial = name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
   const isOpen = conversation.status === 'open'
@@ -171,11 +175,25 @@ export function ChatHeader({
           />
         </div>
         <div className="flex min-w-0 flex-col">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="truncate text-[14px] font-semibold tracking-tight text-text-primary">
               {name}
             </span>
             <DndBadge dndEnabled={dndEnabled} dndChannels={dndChannels} />
+            {/* Mobile-only quick edit: desktop edits the contact inline in the
+                right info panel, but on mobile that panel is hard to reach, so
+                surface an explicit edit affordance next to the name. */}
+            {conversation.contactId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden h-6 w-6 shrink-0 text-text-tertiary"
+                onClick={() => setEditContactId(conversation.contactId ?? null)}
+                aria-label="Edit contact"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
           {subtitle && (
             <span className="truncate text-[11.5px] text-text-tertiary">
@@ -312,6 +330,14 @@ export function ChatHeader({
           </Tooltip>
         </TooltipProvider>
       </div>
+
+      <ContactDetailSheet
+        contactId={editContactId}
+        initialEditing
+        onOpenChange={(open) => {
+          if (!open) setEditContactId(null)
+        }}
+      />
 
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>

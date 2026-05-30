@@ -53,6 +53,12 @@ import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 interface ContactDetailSheetProps {
   contactId: string | null
   onOpenChange: (open: boolean) => void
+  /**
+   * Open the sheet directly in edit mode (skips the read-only view). Used by
+   * the chat header's "Edit contact" shortcut so mobile operators land on the
+   * editable form in a single tap.
+   */
+  initialEditing?: boolean
 }
 
 function relativeTime(iso: string | null): string {
@@ -68,7 +74,7 @@ function relativeTime(iso: string | null): string {
   return new Date(iso).toLocaleDateString()
 }
 
-export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailSheetProps) {
+export function ContactDetailSheet({ contactId, onOpenChange, initialEditing = false }: ContactDetailSheetProps) {
   const [contact, setContact] = React.useState<ContactDetail | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
@@ -81,6 +87,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
       setEditing(false)
       return
     }
+    setEditing(initialEditing)
     let cancelled = false
     setLoading(true)
     getContact(contactId).then((c) => {
@@ -91,7 +98,7 @@ export function ContactDetailSheet({ contactId, onOpenChange }: ContactDetailShe
     return () => {
       cancelled = true
     }
-  }, [contactId])
+  }, [contactId, initialEditing])
 
   async function handleDelete() {
     if (!contact) return
