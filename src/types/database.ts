@@ -639,6 +639,60 @@ export interface Database {
           }
         ]
       }
+      platform_admins: {
+        Row: { user_id: string; role: PlatformRole; created_at: string }
+        Insert: { user_id: string; role?: PlatformRole; created_at?: string }
+        Update: { user_id?: string; role?: PlatformRole; created_at?: string }
+      }
+      role_permissions: {
+        Row: {
+          id: string
+          organization_id: string
+          role: ConfigurableRole
+          permission_key: string
+          enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          role: ConfigurableRole
+          permission_key: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          role?: ConfigurableRole
+          permission_key?: string
+          enabled?: boolean
+          updated_at?: string
+        }
+      }
+      role_settings: {
+        Row: {
+          id: string
+          organization_id: string
+          role: ConfigurableRole
+          restrict_to_assigned: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          role: ConfigurableRole
+          restrict_to_assigned?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          role?: ConfigurableRole
+          restrict_to_assigned?: boolean
+          updated_at?: string
+        }
+      }
       org_invites: {
         Row: {
           id: string
