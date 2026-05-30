@@ -12,7 +12,38 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type UserRole = 'admin' | 'member'
+// Org roles. 'owner' tops an org; 'member' is the basic "User" tier.
+// (migration 1113 — RBAC foundation)
+export type UserRole = 'owner' | 'admin' | 'member'
+
+// Platform (Skale Club / super admin) roles — sit above every org (migration 1113)
+export type PlatformRole = 'platform_admin' | 'platform_member'
+
+// Roles whose permission sets are configurable in the Roles & Permissions panel
+export type ConfigurableRole = Extract<UserRole, 'admin' | 'member'>
+
+export interface PlatformAdminRow {
+  user_id: string
+  role: PlatformRole
+  created_at: string
+}
+
+export interface RolePermissionRow {
+  id: string
+  organization_id: string
+  role: ConfigurableRole
+  permission_key: string
+  enabled: boolean
+  updated_at: string
+}
+
+export interface RoleSettingsRow {
+  id: string
+  organization_id: string
+  role: ConfigurableRole
+  restrict_to_assigned: boolean
+  updated_at: string
+}
 
 // Template Organizations (migration 1108)
 export type OrgTemplateStatus = 'draft' | 'active' | 'archived'
