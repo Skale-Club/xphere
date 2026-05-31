@@ -362,8 +362,6 @@ export function ChatArea({
         disabledHint={
           noAvailableOutboundChannel
             ? 'Activate SMS, WhatsApp, or Email before sending a message.'
-            : !botAgentAvailable
-            ? `No AI agent is configured for ${channelLabel(conversation.channel)}. Manual replies are still available.`
             : isDndBlocked
             ? `DND active — outbound ${dndBlockedChannelLabel} blocked for this contact.`
             : isBotActive

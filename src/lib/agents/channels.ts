@@ -3,6 +3,7 @@
  */
 export const AGENT_CHANNELS = [
   'web_widget',
+  'sms',
   'whatsapp',
   'messenger',
   'instagram',
@@ -14,6 +15,7 @@ export type AgentChannel = (typeof AGENT_CHANNELS)[number]
 
 export const AGENT_CHANNEL_LABELS: Record<AgentChannel, string> = {
   web_widget: 'Web Widget',
+  sms: 'SMS',
   whatsapp: 'WhatsApp',
   messenger: 'Messenger',
   instagram: 'Instagram',

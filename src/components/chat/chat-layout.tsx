@@ -26,6 +26,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 
 import {
@@ -64,6 +65,12 @@ const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
 const INBOX_MAX_WIDTH = 420
 const CHAT_MIN_WIDTH = 420
+
+function agentSettingsHref(channel: string | null | undefined) {
+  const agentChannel = conversationChannelToAgentChannel(channel)
+  if (!agentChannel) return '/agents?settings=channels'
+  return `/agents?settings=channels&channel=${agentChannel}`
+}
 
 function clampInboxWidth(width: number, maxWidth: number) {
   return Math.min(Math.max(width, INBOX_MIN_WIDTH), maxWidth)
@@ -921,7 +928,7 @@ export function ChatLayout({
                     <span
                       className={cn(
                         'h-1.5 w-1.5 rounded-full shrink-0',
-                        botOn ? 'bg-warning animate-pulse' : 'bg-success',
+                        !botAgentAvailable ? 'bg-warning' : botOn ? 'bg-success animate-pulse' : 'bg-success',
                       )}
                       aria-hidden
                     />
@@ -939,7 +946,12 @@ export function ChatLayout({
                       {botOn ? 'Pause' : 'Resume bot'}
                     </button>
                   ) : (
-                    <span className="text-[11.5px] text-text-tertiary shrink-0">Bot disabled</span>
+                    <Link
+                      href={agentSettingsHref(selected.channel)}
+                      className="shrink-0 rounded-full border border-warning/30 bg-[var(--warning-muted)] px-2 py-0.5 text-[11px] font-medium text-warning transition-colors hover:border-warning/50 hover:bg-warning/15"
+                    >
+                      Bot disabled
+                    </Link>
                   )}
                 </div>
               )
