@@ -216,6 +216,24 @@ export async function ingestTwilioSms(
     }
   }
 
+  let botStatus = existing?.bot_status ?? 'active'
+  if (botStatus === 'active') {
+    const { data: defaultRow } = await supabase
+      .from('agent_channel_defaults')
+      .select('agent_id')
+      .eq('organization_id', orgId)
+      .eq('channel', 'sms')
+      .maybeSingle()
+
+    if (!defaultRow?.agent_id) {
+      botStatus = 'paused'
+      await supabase
+        .from('conversations')
+        .update({ bot_status: 'paused', updated_at: new Date().toISOString() })
+        .eq('id', conversationId)
+    }
+  }
+
   return {
     orgId,
     phoneNumberId,
@@ -224,7 +242,7 @@ export async function ingestTwilioSms(
     toNumber,
     messageText,
     messageSid,
-    botStatus: existing?.bot_status ?? 'active',
+    botStatus,
   }
 }
 

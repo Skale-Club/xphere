@@ -40,6 +40,7 @@ import {
   starConversation,
   setConversationPriority,
   assignConversation,
+  listAgentDefaultChannels,
   listOrgMembers,
   resolveContactStartChannels,
   createContactConversation,
@@ -57,6 +58,7 @@ import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
 import { cn } from '@/lib/utils'
+import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -225,6 +227,7 @@ export function ChatLayout({
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
+  const [agentDefaultChannels, setAgentDefaultChannels] = useState<Set<string> | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; label: string; e164: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
@@ -420,6 +423,15 @@ export function ChatLayout({
   // Fetch org members once for the assign dropdown
   useEffect(() => {
     listOrgMembers().then(setMembers).catch(() => setMembers([]))
+  }, [])
+
+  // Fetch channels that have an AI agent configured. Conversations on channels
+  // without a default agent can still be handled manually, but the bot cannot
+  // be resumed because there is nothing to invoke.
+  useEffect(() => {
+    listAgentDefaultChannels()
+      .then((channels) => setAgentDefaultChannels(new Set(channels)))
+      .catch(() => setAgentDefaultChannels(new Set()))
   }, [])
 
   // Fetch active Twilio numbers for the phone filter
@@ -700,9 +712,16 @@ export function ChatLayout({
 
   async function handleBotToggle(conversationId: string, currentStatus: string) {
     if (botTogglingId) return
+    const current = findVisibleConversation(conversationId)
+    const channel = current?.channel
+    const agentChannel = conversationChannelToAgentChannel(channel)
+    const hasAgent = agentChannel ? agentDefaultChannels?.has(agentChannel) !== false : false
+    if (currentStatus !== 'active' && !hasAgent) {
+      toast.error(`No AI agent is configured for ${channel ?? 'this channel'}.`)
+      return
+    }
     setBotTogglingId(conversationId)
     const optimistic = currentStatus === 'active' ? 'paused' : 'active'
-    const current = findVisibleConversation(conversationId)
     if (current) {
       upsertConversation({ ...current, botStatus: optimistic })
     }
@@ -794,6 +813,10 @@ export function ChatLayout({
       ? fetchedConversation
       : null)
 
+  const selectedBotAgentAvailable = selected
+    ? agentDefaultChannels?.has(conversationChannelToAgentChannel(selected.channel) ?? '') !== false
+    : false
+
   const visibleConversations = useMemo(() => {
     if (!selected) return conversations
     const alreadyVisible =
@@ -877,6 +900,7 @@ export function ChatLayout({
             infoPanelOpen={infoOpen}
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
             agentMap={agentMap}
+            botAgentAvailable={selectedBotAgentAvailable}
             emptyContactId={!selectedId ? initialContactId : null}
             isStartingConversation={isStartingConversation}
           />
@@ -887,7 +911,9 @@ export function ChatLayout({
           // which re-renders when viewport widens enough.
           <div className="hidden lg:flex h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px] flex-col">
             {selected && (() => {
-              const botOn = selected.botStatus === 'active'
+              const botAgentAvailable =
+                agentDefaultChannels?.has(conversationChannelToAgentChannel(selected.channel) ?? '') !== false
+              const botOn = botAgentAvailable && selected.botStatus === 'active'
               const toggling = botTogglingId === selected.id
               return (
                 <div className="shrink-0 border-l border-b border-border-subtle bg-bg-secondary/40 px-4 py-2 flex items-center justify-between gap-2">
@@ -900,17 +926,21 @@ export function ChatLayout({
                       aria-hidden
                     />
                     <span className="text-[11.5px] text-text-secondary truncate">
-                      {botOn ? 'Bot is replying' : 'Manual mode'}
+                      {!botAgentAvailable ? 'No AI agent configured' : botOn ? 'Bot is replying' : 'Manual mode'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleBotToggle(selected.id, selected.botStatus)}
-                    disabled={toggling}
-                    className="text-[11.5px] font-medium text-accent hover:text-accent/80 shrink-0 disabled:opacity-50"
-                  >
-                    {botOn ? 'Pause' : 'Resume bot'}
-                  </button>
+                  {botAgentAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => handleBotToggle(selected.id, selected.botStatus)}
+                      disabled={toggling}
+                      className="text-[11.5px] font-medium text-accent hover:text-accent/80 shrink-0 disabled:opacity-50"
+                    >
+                      {botOn ? 'Pause' : 'Resume bot'}
+                    </button>
+                  ) : (
+                    <span className="text-[11.5px] text-text-tertiary shrink-0">Bot disabled</span>
+                  )}
                 </div>
               )
             })()}
@@ -992,6 +1022,7 @@ export function ChatLayout({
               infoPanelOpen={false}
               onToggleInfoPanel={() => setMobileView('info')}
               agentMap={agentMap}
+              botAgentAvailable={selectedBotAgentAvailable}
               emptyContactId={!selectedId ? initialContactId : null}
               isStartingConversation={isStartingConversation}
             />

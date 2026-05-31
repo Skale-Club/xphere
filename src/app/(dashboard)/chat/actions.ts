@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { resolveLiveContactId } from '@/lib/contacts/server'
 import type { Database } from '@/types/database'
 import type {
@@ -18,6 +19,31 @@ export async function toggleBotStatus(
 
   const newStatus = currentStatus === 'active' ? 'paused' : 'active'
   const supabase = await createClient()
+  if (newStatus === 'active') {
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('channel')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    const channel = conversation?.channel as string | undefined
+    if (!channel) return { error: 'Conversation not found' }
+    const agentChannel = conversationChannelToAgentChannel(channel)
+    if (!agentChannel) {
+      return { error: `No AI agent is supported for ${channel}.` }
+    }
+
+    const { data: defaultAgent } = await supabase
+      .from('agent_channel_defaults')
+      .select('agent_id')
+      .eq('channel', agentChannel)
+      .maybeSingle()
+
+    if (!defaultAgent?.agent_id) {
+      return { error: `No AI agent is configured for ${channel}. Configure an agent before resuming the bot.` }
+    }
+  }
+
   const { error } = await supabase
     .from('conversations')
     .update({ bot_status: newStatus, updated_at: new Date().toISOString() })
@@ -44,6 +70,20 @@ export async function toggleBotStatus(
   }
 
   return { botStatus: newStatus }
+}
+
+export async function listAgentDefaultChannels(): Promise<string[]> {
+  const user = await getUser()
+  if (!user) return []
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('agent_channel_defaults')
+    .select('channel, agent_id')
+
+  return Array.from(
+    new Set((data ?? []).filter((row) => row.agent_id).map((row) => row.channel as string)),
+  )
 }
 
 /**
