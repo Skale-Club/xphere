@@ -31,6 +31,9 @@ export async function configureTwilioSmsWebhook(params: {
       body: new URLSearchParams({
         SmsUrl: smsUrl,
         SmsMethod: 'POST',
+        // A TwiML App on the number can override the direct SmsUrl handler.
+        // Clear it whenever Xphere owns inbound SMS routing for this number.
+        SmsApplicationSid: '',
       }).toString(),
       cache: 'no-store',
     })
