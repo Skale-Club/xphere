@@ -54,6 +54,13 @@ export interface NormalizeInboundInput {
    * dedup by provider message id (message_sid, evolution_message_id, meta_mid…).
    */
   idempotencyMetadata?: Record<string, unknown>
+  /**
+   * Upsert-only mode: find-or-create the conversation and return, WITHOUT the
+   * idempotency check or message insert. Used by handlers whose message write
+   * is bespoke (e.g. Meta downloads/re-hosts media against a pre-generated
+   * message id between the upsert and the insert). `message` is ignored.
+   */
+  skipMessage?: boolean
 }
 
 /** Existing conversation columns returned to the caller for downstream logic. */
@@ -85,7 +92,7 @@ const EXISTING_COLS = 'id, bot_status, contact_id, channel_metadata, last_inboun
 export async function normalizeInbound(
   input: NormalizeInboundInput,
 ): Promise<NormalizeInboundResult> {
-  const { supabase, orgId, channel, match, createPayload, updatePayload, message, idempotencyMetadata } = input
+  const { supabase, orgId, channel, match, createPayload, updatePayload, message, idempotencyMetadata, skipMessage } = input
 
   // 1. Find existing conversation by the channel's dedup key.
   let q = supabase
@@ -130,6 +137,11 @@ export async function normalizeInbound(
     }
     conversationId = (created as { id: string }).id
     isNew = true
+  }
+
+  // Upsert-only mode: caller owns the message write.
+  if (skipMessage) {
+    return { conversationId, isNew, existing, messageId: null, duplicate: false }
   }
 
   // 3. Idempotency guard — skip the insert if this provider message is known.

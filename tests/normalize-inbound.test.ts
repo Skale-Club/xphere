@@ -151,6 +151,26 @@ describe('normalizeInbound', () => {
     expect(sb.msgInsert).not.toHaveBeenCalled()
   })
 
+  it('skipMessage: upsert-only — creates/updates conversation but inserts no message', async () => {
+    const sbExisting = makeSupabase({ existing: { id: 'conv-x', bot_status: 'active', contact_id: null } })
+    const res = await normalizeInbound({
+      supabase: sbExisting,
+      orgId: 'org-1',
+      channel: 'messenger',
+      match: { by: 'metadata', keys: { sender_id: 's1', page_id: 'p1' } },
+      createPayload: {},
+      updatePayload: { last_message: 'x' },
+      message: baseMsg,
+      idempotencyMetadata: { meta_mid: 'm1' },
+      skipMessage: true,
+    })
+    expect(res).toMatchObject({ conversationId: 'conv-x', isNew: false, duplicate: false, messageId: null })
+    // @ts-expect-error test-only spy access
+    expect(sbExisting.convUpdate).toHaveBeenCalled()
+    // @ts-expect-error test-only spy access
+    expect(sbExisting.msgInsert).not.toHaveBeenCalled()
+  })
+
   it('conversation create failure: returns error, no message insert', async () => {
     const sb = makeSupabase({ existing: null, createErr: { message: 'insert boom' } })
     const res = await normalizeInbound({
