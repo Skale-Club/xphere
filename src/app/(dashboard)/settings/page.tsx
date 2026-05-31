@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
   BookOpen,
   Boxes,
+  CreditCard,
   Download,
   Mail,
   MapPin,
@@ -84,6 +85,13 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         title: 'Roles & Permissions',
         description:
           'Control what your Admins and Users can see and do, and restrict data visibility to assigned records.',
+      },
+      {
+        href: '/settings/billing',
+        icon: CreditCard,
+        title: 'Billing',
+        description:
+          'Subscription, payment method and invoices for your organization.',
       },
     ],
   },
