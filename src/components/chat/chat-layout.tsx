@@ -123,6 +123,40 @@ function messagePreview(message: ConversationMessage): string {
   return ''
 }
 
+async function readSendFailure(res: Response): Promise<string> {
+  const fallback = `Failed to send message (${res.status})`
+  try {
+    const data = await res.json() as { message?: unknown; error?: unknown }
+    const message = typeof data.message === 'string' ? data.message.trim() : ''
+    if (message) return message
+
+    const error = typeof data.error === 'string' ? data.error.trim() : ''
+    if (!error) return fallback
+
+    const friendly: Record<string, string> = {
+      channel_not_configured: 'This channel is not connected or is inactive.',
+      channel_not_sendable: 'This channel is not configured for outbound messages.',
+      email_no_recipient: 'This conversation has no recipient email address.',
+      email_send_failed: 'Email provider rejected the message.',
+      ghl_channel_not_configured: 'GHL is not connected for this location.',
+      ghl_send_failed: 'GHL rejected the message.',
+      meta_no_recipient: 'This conversation has no Meta recipient ID.',
+      meta_send_failed: 'Meta rejected the message.',
+      sms_media_not_supported: 'SMS attachments are not supported yet.',
+      sms_no_recipient: 'This conversation has no recipient phone number.',
+      sms_send_failed: 'Twilio rejected the SMS.',
+      token_revoked: 'The Meta token was revoked or expired. Reconnect the channel.',
+      wa_no_recipient: 'This WhatsApp conversation has no recipient phone number or chat ID.',
+      wa_not_configured: 'WhatsApp is not connected for this organization.',
+      wa_send_failed: 'WhatsApp rejected the message.',
+    }
+
+    return friendly[error] ?? error.replaceAll('_', ' ')
+  } catch {
+    return fallback
+  }
+}
+
 interface ChatLayoutProps {
   currentOrgId: string | null
   currentUserId: string | null
@@ -614,22 +648,25 @@ export function ChatLayout({
     }
     if (isCurrentThread) setMessages((prev) => [...prev, tempMsg])
     updateConversationPreview(tempMsg)
+    const previousMessages = isCurrentThread ? messages : []
     try {
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject }),
       })
-      if (!res.ok) throw new Error('Failed to send')
+      if (!res.ok) throw new Error(await readSendFailure(res))
       const data = await res.json().catch(() => null)
       if (data?.message) updateConversationPreview(data.message as ConversationMessage)
       if (!isCurrentThread) setSelectedId(targetId)
       await fetchMessages(targetId)
-    } catch {
+    } catch (err) {
       if (isCurrentThread) setMessages((prev) => prev.filter((m) => m.id !== tempId))
-      const latest = messages[messages.length - 1]
+      const latest = previousMessages[previousMessages.length - 1]
       if (latest?.conversationId === targetId) updateConversationPreview(latest)
-      toast.error('Failed to send message')
+      const message = err instanceof Error ? err.message : 'Failed to send message'
+      toast.error(message)
+      throw err
     }
   }
 

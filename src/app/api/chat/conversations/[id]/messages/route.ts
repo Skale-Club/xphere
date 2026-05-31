@@ -126,6 +126,15 @@ const SendMessageSchema = z.object({
   subject: z.string().optional(),
 })
 
+function sendError(
+  error: string,
+  message: string,
+  status: number,
+  extra?: Record<string, unknown>,
+): Response {
+  return Response.json({ error, message, ...extra }, { status })
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -187,31 +196,6 @@ export async function POST(
   if (operatorName) msgMetadata.sender_name = operatorName
   if (media?.length) msgMetadata.media = media
 
-  // SEED-039: stamp channel on each message so multi-channel threads can be
-  // filtered + rendered with per-message origin pills. We default to the
-  // selected outbound channel, falling back to the conversation's primary channel.
-  const { data: msg, error } = await supabase
-    .from('conversation_messages')
-    .insert({
-      conversation_id: id,
-      org_id: conv.org_id,
-      role,
-      content,
-      message_type: messageType,
-      channel: messageChannel,
-      ...(Object.keys(msgMetadata).length > 0 ? { metadata: msgMetadata } : {}),
-      ...(conv.channel === 'email'
-        ? { email_subject: emailSubject, email_to: conv.visitor_email }
-        : {}),
-    })
-    .select('id, conversation_id, role, content, created_at, metadata, channel')
-    .single()
-
-  if (error) {
-    console.error('[POST messages]', error)
-    return Response.json({ error: 'Failed to send message' }, { status: 500 })
-  }
-
   // Compute last_message | use media label when content is empty
   let lastMessageDisplay = content
   if (!content && media?.length) {
@@ -222,15 +206,13 @@ export async function POST(
     else lastMessageDisplay = `📎 ${first.filename ?? 'Arquivo'}`
   }
 
-  // Update last_message and last_message_at on parent conversation
-  await supabase
-    .from('conversations')
-    .update({ last_message: lastMessageDisplay, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
-    .eq('id', id)
-
   // --- Outbound channel routing ---
-  // DB insert and last_message update are complete for ALL channels at this point.
-  // Widget: no outbound call needed | SSE picks up the persisted message.
+  // Provider-backed channels must confirm first. Only then do we persist the
+  // assistant message as delivered; otherwise the UI would show a false sent
+  // bubble for a message that never left Xphere.
+  const deliveryMetadata: Record<string, unknown> = {}
+
+  // Widget / web: no outbound call needed | SSE picks up the persisted message.
   // Messenger / Instagram: call Meta Send API synchronously.
   // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
   if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
@@ -248,7 +230,11 @@ export async function POST(
       .maybeSingle()
 
     if (!ghlChannel) {
-      return Response.json({ error: 'ghl_channel_not_configured' }, { status: 400 })
+      return sendError(
+        'ghl_channel_not_configured',
+        'GHL is not connected for this location. Reconnect GHL before sending this message.',
+        400,
+      )
     }
 
     const apiKey = await decrypt(ghlChannel.encrypted_api_key)
@@ -257,7 +243,7 @@ export async function POST(
     const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
 
     try {
-      await sendGhlMessage(
+      const sent = await sendGhlMessage(
         {
           contactId,
           message: outboundContent,
@@ -266,9 +252,11 @@ export async function POST(
         },
         { apiKey, locationId }
       )
+      deliveryMetadata.ghl_message_id = sent.messageId
     } catch (err) {
       console.error('[POST messages] GHL send error:', err)
-      return Response.json({ error: 'ghl_send_failed' }, { status: 502 })
+      const message = err instanceof Error ? err.message : 'GHL rejected the message.'
+      return sendError('ghl_send_failed', message, 502)
     }
   }
 
@@ -285,7 +273,11 @@ export async function POST(
       .maybeSingle()
 
     if (!metaChannel) {
-      return Response.json({ error: 'channel_not_configured' }, { status: 400 })
+      return sendError(
+        'channel_not_configured',
+        `${conv.channel === 'instagram' ? 'Instagram' : 'Messenger'} is not connected or is inactive for this page.`,
+        400,
+      )
     }
 
     const pageToken = await decrypt(metaChannel.encrypted_page_access_token)
@@ -297,14 +289,28 @@ export async function POST(
         ? (metadata.igsid ?? '')
         : (metadata.sender_id ?? '')
 
+    if (!recipientId) {
+      return sendError(
+        'meta_no_recipient',
+        `This ${conv.channel === 'instagram' ? 'Instagram' : 'Messenger'} conversation has no recipient ID.`,
+        400,
+      )
+    }
+
     const result = await sendMetaMessage(pageToken, recipientId, content)
 
     if ('error' in result) {
       if (result.code === 190) {
-        return Response.json({ error: 'token_revoked', channel: conv.channel }, { status: 400 })
+        return sendError(
+          'token_revoked',
+          'The Meta page token was revoked or expired. Reconnect the channel before sending.',
+          400,
+          { channel: conv.channel },
+        )
       }
-      return Response.json({ error: 'meta_send_failed', message: result.error }, { status: 502 })
+      return sendError('meta_send_failed', result.error, 502)
     }
+    deliveryMetadata.meta_message_id = result.messageId
   }
 
   // Native Twilio SMS: send via the org's Twilio credentials. The recipient is
@@ -314,7 +320,18 @@ export async function POST(
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const to = conv.visitor_phone ?? metadata.to_number ?? ''
     if (!to) {
-      return Response.json({ error: 'sms_no_recipient' }, { status: 400 })
+      return sendError(
+        'sms_no_recipient',
+        'This conversation has no recipient phone number. Add a phone number before sending SMS.',
+        400,
+      )
+    }
+    if (media?.length && !content) {
+      return sendError(
+        'sms_media_not_supported',
+        'SMS attachments are not supported yet. Add text to send this as an SMS.',
+        400,
+      )
     }
     // Text-only for now (media via Twilio MMS is a separate follow-up).
     const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
@@ -335,7 +352,7 @@ export async function POST(
     } catch (err) {
       console.error('[POST messages] Twilio SMS send error:', err)
       const message = err instanceof Error ? err.message : 'sms_send_failed'
-      return Response.json({ error: 'sms_send_failed', message }, { status: 502 })
+      return sendError('sms_send_failed', message, 502)
     }
   }
 
@@ -343,7 +360,11 @@ export async function POST(
   if (conv.channel === 'email') {
     const to = conv.visitor_email ?? ''
     if (!to) {
-      return Response.json({ error: 'email_no_recipient' }, { status: 400 })
+      return sendError(
+        'email_no_recipient',
+        'This conversation has no recipient email address. Add an email before sending.',
+        400,
+      )
     }
     const safe = content
       .replace(/&/g, '&amp;')
@@ -352,8 +373,9 @@ export async function POST(
     const html = `<div style="white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">${safe}</div>`
     const res = await sendTenantEmail(conv.org_id, to, emailSubject, html)
     if (res.error) {
-      return Response.json({ error: 'email_send_failed', message: res.error }, { status: 502 })
+      return sendError('email_send_failed', res.error, 502)
     }
+    if (res.id) deliveryMetadata.email_message_id = res.id
   }
 
   // Native WhatsApp (Evolution or Meta Cloud). The route already persisted the
@@ -362,30 +384,81 @@ export async function POST(
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const to = conv.visitor_phone ?? metadata.to_number ?? metadata.sender_jid ?? ''
     if (!to) {
-      return Response.json({ error: 'wa_no_recipient' }, { status: 400 })
+      return sendError(
+        'wa_no_recipient',
+        'This WhatsApp conversation has no recipient phone number or chat ID.',
+        400,
+      )
     }
     if (metadata.provider === 'meta_cloud') {
       const account = await getActiveCloudAccount(conv.org_id)
       if (!account) {
-        return Response.json({ error: 'wa_not_configured' }, { status: 400 })
+        return sendError(
+          'wa_not_configured',
+          'WhatsApp Cloud is not connected for this organization.',
+          400,
+        )
       }
       const res = await sendCloudText({ account, to, body: content })
       if (!res.ok) {
-        return Response.json(
-          { error: 'wa_send_failed', message: res.error, outsideWindow: res.outsideWindow },
-          { status: 502 },
-        )
+        return sendError('wa_send_failed', res.error, 502, { outsideWindow: res.outsideWindow })
       }
+      deliveryMetadata.whatsapp_message_id = res.wamid
     } else {
       // Evolution Go (default). Omit conversationId so it does NOT persist again.
       const res = await sendWhatsappMessage({ orgId: conv.org_id, to, text: content })
       if (!res.ok) {
-        return Response.json({ error: 'wa_send_failed', message: res.error }, { status: 502 })
+        return sendError('wa_send_failed', res.error ?? 'WhatsApp send failed.', 502)
       }
+      if (res.messageIds.length) deliveryMetadata.whatsapp_message_ids = res.messageIds
     }
+  }
+
+  if (!['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp'].includes(conv.channel)) {
+    return sendError(
+      'channel_not_sendable',
+      `The ${conv.channel || 'selected'} channel is not configured for outbound messages.`,
+      400,
+    )
   }
   // --- End outbound channel routing ---
 
+  const finalMetadata = { ...msgMetadata, ...deliveryMetadata }
+
+  // SEED-039: stamp channel on each message so multi-channel threads can be
+  // filtered + rendered with per-message origin pills. We default to the
+  // selected outbound channel, falling back to the conversation's primary channel.
+  const { data: msg, error } = await supabase
+    .from('conversation_messages')
+    .insert({
+      conversation_id: id,
+      org_id: conv.org_id,
+      role,
+      content,
+      message_type: messageType,
+      channel: messageChannel,
+      ...(Object.keys(finalMetadata).length > 0 ? { metadata: finalMetadata } : {}),
+      ...(conv.channel === 'email'
+        ? { email_subject: emailSubject, email_to: conv.visitor_email }
+        : {}),
+    })
+    .select('id, conversation_id, role, content, created_at, metadata, channel')
+    .single()
+
+  if (error) {
+    console.error('[POST messages]', error)
+    return sendError(
+      'message_persist_failed',
+      'The provider accepted the message, but Xphere could not save it in the conversation history.',
+      500,
+    )
+  }
+
+  // Update last_message and last_message_at on parent conversation
+  await supabase
+    .from('conversations')
+    .update({ last_message: lastMessageDisplay, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
+    .eq('id', id)
 
   const message: ConversationMessage = {
     id: msg.id,

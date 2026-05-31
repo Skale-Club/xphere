@@ -13,13 +13,16 @@
 //   - Returns 200 with empty `<Response/>` TwiML on every other path | even malformed
 //     bodies, missing orgs, processing errors. This is mandatory: Twilio retries 4xx/5xx
 //     aggressively and a bad webhook can wedge an entire SMS conversation.
-//   - Async processing (conversation upsert + agent invocation + auto-reply) runs via
-//     `after()` so the 200 returns immediately and Twilio doesn't time out.
+//   - The inbound message is persisted before the 200 response. Slower
+//     automation/agent reply work runs fire-and-forget after that critical write.
 
-import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { resolveTwilioOrgByToNumber } from '@/lib/twilio/voice'
-import { processTwilioSms, type TwilioSmsPayload } from '@/lib/twilio/process-sms'
+import {
+  continueTwilioSmsAutomation,
+  ingestTwilioSms,
+  type TwilioSmsPayload,
+} from '@/lib/twilio/process-sms'
 
 export const runtime = 'nodejs'
 
@@ -168,7 +171,10 @@ export async function POST(request: Request): Promise<Response> {
       return new Response('Forbidden', { status: 403 })
     }
 
-    // 4. Schedule async processing | return TwiML 200 immediately
+    // 4. Persist the inbound message before the 200 response. Production
+    // self-hosting can lose post-response work if the critical DB write is
+    // deferred, so only the slower agent auto-reply path runs fire-and-forget
+    // after ingestion.
     const payload: TwilioSmsPayload = {
       From: from,
       To: to,
@@ -201,13 +207,12 @@ export async function POST(request: Request): Promise<Response> {
       _authToken: authToken,
     }
 
-    after(async () => {
-      try {
-        await processTwilioSms(payload, orgId, phoneNumberId)
-      } catch (err) {
-        console.error('[twilio/sms] processTwilioSms error:', err)
-      }
-    })
+    const ingested = await ingestTwilioSms(payload, orgId, phoneNumberId)
+    if (ingested) {
+      void continueTwilioSmsAutomation(ingested).catch((err) => {
+        console.error('[twilio/sms] continueTwilioSmsAutomation error:', err)
+      })
+    }
 
     return ackTwiml()
   } catch (err) {
