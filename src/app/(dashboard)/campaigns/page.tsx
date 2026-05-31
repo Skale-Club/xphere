@@ -3,12 +3,12 @@ import { Megaphone, Phone, MessageSquare, Mail, MessageCircle } from 'lucide-rea
 import { format } from 'date-fns'
 
 import { PageContainer } from '@/components/layout/page-header'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getCampaigns } from './actions'
 import { createClient } from '@/lib/supabase/server'
 import type { CampaignChannel } from '@/types/database'
 import { CampaignActions } from './_components/campaign-actions'
+import { NewCampaignDialog } from './_components/new-campaign-dialog'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -70,20 +70,41 @@ async function getProviderAvailability() {
   }
 }
 
+async function getAssistants() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('assistant_mappings')
+    .select('vapi_assistant_id, name')
+    .eq('is_active', true)
+    .order('name')
+  return (data ?? []).map((a) => ({
+    id: a.vapi_assistant_id,
+    name: a.name ?? a.vapi_assistant_id,
+  }))
+}
+
 export default async function CampaignsPage({ searchParams }: PageProps) {
   const sp = await searchParams
   const activeChannel = typeof sp.channel === 'string' ? sp.channel : 'all'
 
-  const [campaigns, availability] = await Promise.all([
+  const [campaigns, availability, assistants] = await Promise.all([
     getCampaigns(activeChannel),
     getProviderAvailability(),
+    getAssistants(),
   ])
 
   return (
     <PageContainer>
       {/* Page heading */}
-      <div>
+      <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Campaigns</h1>
+        <NewCampaignDialog
+          variant="primary"
+          assistants={assistants}
+          hasTwilio={availability.hasTwilio}
+          hasResend={availability.hasResend}
+          hasWhatsApp={availability.hasWhatsApp}
+        />
       </div>
 
       {/* Channel tabs */}
@@ -176,9 +197,12 @@ export default async function CampaignsPage({ searchParams }: PageProps) {
           <p className="text-sm text-muted-foreground mb-4">
             Create your first campaign to start reaching contacts at scale.
           </p>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/campaigns/new">New Campaign</Link>
-          </Button>
+          <NewCampaignDialog
+            assistants={assistants}
+            hasTwilio={availability.hasTwilio}
+            hasResend={availability.hasResend}
+            hasWhatsApp={availability.hasWhatsApp}
+          />
         </div>
       ) : (
         <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
