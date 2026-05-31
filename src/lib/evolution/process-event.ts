@@ -16,6 +16,7 @@
 //   - Update evolution_instances.status + phone_number.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
@@ -188,106 +189,94 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
     const fromPhone = jidToPhone(senderJid)
     const evolutionMessageId = m.key.id
 
-    // --- 1. Find-or-create conversation -----------------------------------
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id, bot_status, contact_id')
-      .eq('org_id', orgId)
-      .eq('channel', 'whatsapp')
-      .eq('visitor_phone', fromPhone)
-      .limit(1)
-      .maybeSingle()
-
+    // --- 1+2. Upsert conversation + insert inbound message via the shared
+    // inbound normalizer (dedup by org + channel='whatsapp' + visitor_phone;
+    // idempotent by evolution message id). Contact resolution runs lazily in
+    // createPayload, only when a brand-new conversation is created.
     const now = new Date().toISOString()
-    let conversationId: string
-
     // Build a display text for last_message (handles media-only messages)
     const lastMessageDisplay = messageText || formatEvolutionLastMessage(m.message)
 
-    if (existing) {
-      conversationId = existing.id
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: lastMessageDisplay,
-          last_message_at: now,
-          last_inbound_at: now,
-          updated_at: now,
-          evolution_instance_id: instance.id,
-        })
-        .eq('id', conversationId)
-    } else {
-      // Phase 108 D-03 lookup-first: channel identity → phone → insert.
-      let contactId: string | null = null
-      const channelProvider: ChannelProvider = 'evolution'
-      const externalId = m.key?.remoteJid ?? ''
+    const norm = await normalizeInbound({
+      supabase,
+      orgId,
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: fromPhone },
+      updatePayload: {
+        last_message: lastMessageDisplay,
+        last_message_at: now,
+        last_inbound_at: now,
+        updated_at: now,
+        evolution_instance_id: instance.id,
+      },
+      createPayload: async () => {
+        // Phase 108 D-03 lookup-first: channel identity → phone → insert.
+        let contactId: string | null = null
+        const channelProvider: ChannelProvider = 'evolution'
+        const externalId = m.key?.remoteJid ?? ''
 
-      const channelHit = externalId
-        ? await findByChannelIdentity(supabase, orgId, channelProvider, externalId)
-        : null
-      if (channelHit) {
-        contactId = channelHit.contact_id
-      } else {
-        const phoneNorm = normalisePhone(fromPhone)
-        const { data: contact } = phoneNorm
-          ? await supabase
-              .from('contacts')
-              .select('id')
-              .eq('org_id', orgId)
-              .eq('phone_e164', phoneNorm)
-              .neq('identity_status', 'archived_duplicate')
-              .limit(1)
-              .maybeSingle()
-          : { data: null }
-
-        if (contact?.id) {
-          contactId = contact.id
-          // D-03b: attach channel identity to existing phone-rooted contact.
-          if (externalId) {
-            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
-          }
+        const channelHit = externalId
+          ? await findByChannelIdentity(supabase, orgId, channelProvider, externalId)
+          : null
+        if (channelHit) {
+          contactId = channelHit.contact_id
         } else {
-          // D-04a (Phase 110-02): Evolution payloads carry no email field —
-          // pure phone+channel provider. No isBlockedEmail wiring needed here.
-          // If a future Evolution payload variant exposes email, gate with
-          // isBlockedEmail from '@/lib/contacts/blocked-emails' before write.
-          const { data: created, error: insErr } = await supabase
-            .from('contacts')
-            .insert({
-              org_id: orgId,
-              name: m.pushName ?? null,
-              phone: fromPhone,
-              source: 'whatsapp',
-            })
-            .select('id')
-            .single()
-          if (insErr?.code === '23505') {
-            // D-03: race lost — look up the winner via the canonical helper.
-            const winner = await findByPhone(supabase, orgId, fromPhone)
-            contactId = winner?.id ?? null
-            if (winner) {
-              console.log(
-                `[evolution/process] contact.unique_collision source=evolution org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
-              )
+          const phoneNorm = normalisePhone(fromPhone)
+          const { data: contact } = phoneNorm
+            ? await supabase
+                .from('contacts')
+                .select('id')
+                .eq('org_id', orgId)
+                .eq('phone_e164', phoneNorm)
+                .neq('identity_status', 'archived_duplicate')
+                .limit(1)
+                .maybeSingle()
+            : { data: null }
+
+          if (contact?.id) {
+            contactId = contact.id
+            // D-03b: attach channel identity to existing phone-rooted contact.
+            if (externalId) {
+              await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
             }
-          } else if (insErr) {
-            console.error('[evolution/webhook] insert contact error:', insErr.message)
-            contactId = null
           } else {
-            contactId = created?.id ?? null
-          }
-          if (contactId && externalId) {
-            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
+            // D-04a (Phase 110-02): Evolution payloads carry no email field —
+            // pure phone+channel provider. No isBlockedEmail wiring needed here.
+            // If a future Evolution payload variant exposes email, gate with
+            // isBlockedEmail from '@/lib/contacts/blocked-emails' before write.
+            const { data: created, error: insErr } = await supabase
+              .from('contacts')
+              .insert({
+                org_id: orgId,
+                name: m.pushName ?? null,
+                phone: fromPhone,
+                source: 'whatsapp',
+              })
+              .select('id')
+              .single()
+            if (insErr?.code === '23505') {
+              // D-03: race lost — look up the winner via the canonical helper.
+              const winner = await findByPhone(supabase, orgId, fromPhone)
+              contactId = winner?.id ?? null
+              if (winner) {
+                console.log(
+                  `[evolution/process] contact.unique_collision source=evolution org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
+                )
+              }
+            } else if (insErr) {
+              console.error('[evolution/webhook] insert contact error:', insErr.message)
+              contactId = null
+            } else {
+              contactId = created?.id ?? null
+            }
+            if (contactId && externalId) {
+              await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
+            }
           }
         }
-      }
 
-      const { data: convo, error: convErr } = await supabase
-        .from('conversations')
-        .insert({
-          org_id: orgId,
+        return {
           widget_token: '',
-          channel: 'whatsapp',
           channel_metadata: {
             sender_jid: senderJid,
             instance_name: instance.instance_name,
@@ -300,47 +289,32 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
           last_message: lastMessageDisplay,
           last_message_at: now,
           last_inbound_at: now,
-        })
-        .select('id')
-        .single()
-
-      if (convErr || !convo) {
-        console.error('[evolution/webhook] failed to create conversation:', convErr?.message)
-        continue
-      }
-      conversationId = convo.id
-    }
-
-    // --- 2. Idempotent message insert (by evolution message id) -----------
-    const { data: dup } = await supabase
-      .from('conversation_messages')
-      .select('id')
-      .eq('conversation_id', conversationId)
-      .eq('role', 'user')
-      .contains('metadata', { evolution_message_id: evolutionMessageId })
-      .limit(1)
-      .maybeSingle()
-
-    if (dup) {
-      continue
-    }
-
-    await supabase.from('conversation_messages').insert({
-      conversation_id: conversationId,
-      org_id: orgId,
-      role: 'user',
-      content: messageText,
-      message_type: messageType,
-      metadata: {
-        channel: 'whatsapp',
-        evolution_message_id: evolutionMessageId,
-        from: fromPhone,
-        instance_name: instance.instance_name,
+        }
       },
+      message: {
+        role: 'user',
+        content: messageText,
+        message_type: messageType,
+        metadata: {
+          channel: 'whatsapp',
+          evolution_message_id: evolutionMessageId,
+          from: fromPhone,
+          instance_name: instance.instance_name,
+        },
+      },
+      idempotencyMetadata: { evolution_message_id: evolutionMessageId },
     })
 
+    if (norm.error) {
+      console.error('[evolution/webhook] normalizeInbound failed:', norm.error)
+      continue
+    }
+    if (norm.duplicate) continue
+
+    const conversationId = norm.conversationId
+
     // --- 3. Bot status gate -----------------------------------------------
-    const botStatus = existing?.bot_status ?? 'active'
+    const botStatus = norm.existing?.bot_status ?? 'active'
     if (botStatus !== 'active') continue
 
     // Cannot auto-reply to media-only messages without text

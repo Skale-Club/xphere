@@ -168,6 +168,39 @@ describe('normalizeInbound', () => {
     expect(sb.msgInsert).not.toHaveBeenCalled()
   })
 
+  it('createPayload factory: invoked (awaited) only when creating a new conversation', async () => {
+    const factory = vi.fn().mockResolvedValue({ widget_token: '', visitor_phone: '+1', contact_id: 'ct-9' })
+    const sb = makeSupabase({ existing: null, createId: 'conv-new' })
+    const res = await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: factory,
+      updatePayload: {},
+      message: baseMsg,
+    })
+    expect(res.isNew).toBe(true)
+    expect(factory).toHaveBeenCalledTimes(1)
+    // @ts-expect-error test-only spy access
+    expect(sb.convInsert).toHaveBeenCalledWith(expect.objectContaining({ org_id: 'org-1', channel: 'whatsapp', contact_id: 'ct-9' }))
+  })
+
+  it('createPayload factory: NOT invoked when an existing conversation is matched', async () => {
+    const factory = vi.fn().mockResolvedValue({})
+    const sb = makeSupabase({ existing: { id: 'conv-x', bot_status: 'active', contact_id: 'c1' } })
+    await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: factory,
+      updatePayload: { last_message: 'x' },
+      message: baseMsg,
+    })
+    expect(factory).not.toHaveBeenCalled()
+  })
+
   it('message insert failure: returns error with null messageId', async () => {
     const sb = makeSupabase({ existing: { id: 'conv-x', bot_status: 'active', contact_id: null }, msgErr: { message: 'msg boom' } })
     const res = await normalizeInbound({

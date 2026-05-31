@@ -36,8 +36,13 @@ export interface NormalizeInboundInput {
   orgId: string
   channel: string
   match: ConversationMatch
-  /** `conversations` insert payload when creating. `org_id` + `channel` are merged in. */
-  createPayload: Record<string, unknown>
+  /**
+   * `conversations` insert payload used when creating. `org_id` + `channel` are
+   * merged in. May be a factory that is awaited ONLY on the create path — use
+   * this when building the payload is expensive (e.g. resolving a contact) so
+   * the work is skipped when an existing conversation is matched.
+   */
+  createPayload: Record<string, unknown> | (() => Promise<Record<string, unknown>>)
   /** `conversations` update payload applied when an existing row is matched. */
   updatePayload: Record<string, unknown>
   /** `conversation_messages` insert payload. `org_id` + `conversation_id` are merged in. */
@@ -107,9 +112,10 @@ export async function normalizeInbound(
     isNew = false
     await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
   } else {
+    const resolvedCreate = typeof createPayload === 'function' ? await createPayload() : createPayload
     const { data: created, error } = await supabase
       .from('conversations')
-      .insert({ org_id: orgId, channel, ...createPayload } as never)
+      .insert({ org_id: orgId, channel, ...resolvedCreate } as never)
       .select('id')
       .single()
     if (error || !created) {
