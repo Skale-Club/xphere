@@ -6,13 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ChannelDefaultsCard } from "@/components/agents/channel-defaults-card";
 import { AGENT_CHANNELS, type AgentChannel } from "@/lib/agents/channels";
 
@@ -54,23 +54,20 @@ export function AgentSettingsButton({
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetTrigger asChild>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
         <Button variant="secondary" size="sm" className="h-8">
           <Settings className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Settings</span>
         </Button>
-      </SheetTrigger>
-      <SheetContent
-        side="right"
-        className="w-full overflow-y-auto sm:max-w-2xl"
-      >
-        <SheetHeader className="pb-5 pr-8">
-          <SheetTitle>Agent settings</SheetTitle>
-          <SheetDescription>
+      </DialogTrigger>
+      <DialogContent className="max-h-[min(720px,calc(100vh-2rem))] w-[calc(100vw-2rem)] max-w-[760px] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle>Agent settings</DialogTitle>
+          <DialogDescription>
             Manage defaults that apply across channels.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <ChannelDefaultsCard
           defaults={defaults}
@@ -78,7 +75,7 @@ export function AgentSettingsButton({
           surface="plain"
           focusChannel={focusChannel}
         />
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
