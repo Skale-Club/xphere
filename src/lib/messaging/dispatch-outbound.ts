@@ -21,6 +21,7 @@ import { sendTenantEmail } from '@/lib/email/resend'
 import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
+import { sendTelegramReply } from '@/lib/telegram/send-message'
 
 type DbClient = Awaited<ReturnType<typeof createClient>>
 
@@ -217,6 +218,22 @@ export async function dispatchOutbound(
       if (!res.ok) {
         return { ok: false, status: 502, body: { error: 'wa_send_failed', message: res.error } }
       }
+    }
+  }
+
+  // Telegram: reply via the org's active bot. The recipient chat id is stored
+  // on the conversation (Phase 107 back-compat: it used to live in
+  // visitor_phone). conversationId is intentionally omitted so sendTelegramReply
+  // does NOT persist again — the caller already persisted the message row.
+  if (conv.channel === 'telegram') {
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
+    const chatId = metadata.telegram_chat_id ?? conv.visitor_phone ?? ''
+    if (!chatId) {
+      return { ok: false, status: 400, body: { error: 'telegram_no_recipient' } }
+    }
+    const res = await sendTelegramReply({ orgId: conv.org_id, chatId, text: content })
+    if (!res.ok) {
+      return { ok: false, status: 502, body: { error: 'telegram_send_failed', message: res.error } }
     }
   }
 
