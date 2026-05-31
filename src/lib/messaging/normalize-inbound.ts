@@ -117,7 +117,11 @@ export async function normalizeInbound(
   if (existing) {
     conversationId = existing.id
     isNew = false
-    await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
+    // Skip an empty update — some handlers (e.g. Telegram) don't touch the
+    // conversation during the upsert and bump last_message later themselves.
+    if (Object.keys(updatePayload).length > 0) {
+      await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
+    }
   } else {
     const resolvedCreate = typeof createPayload === 'function' ? await createPayload() : createPayload
     const { data: created, error } = await supabase

@@ -171,6 +171,22 @@ describe('normalizeInbound', () => {
     expect(sbExisting.msgInsert).not.toHaveBeenCalled()
   })
 
+  it('empty updatePayload: existing conversation is not touched during upsert', async () => {
+    const sb = makeSupabase({ existing: { id: 'conv-x', bot_status: 'active', contact_id: null } })
+    await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'telegram',
+      match: { by: 'visitor_phone', phone: '123' },
+      createPayload: {},
+      updatePayload: {},
+      message: baseMsg,
+      skipMessage: true,
+    })
+    // @ts-expect-error test-only spy access
+    expect(sb.convUpdate).not.toHaveBeenCalled()
+  })
+
   it('conversation create failure: returns error, no message insert', async () => {
     const sb = makeSupabase({ existing: null, createErr: { message: 'insert boom' } })
     const res = await normalizeInbound({
