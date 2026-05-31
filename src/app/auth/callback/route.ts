@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
+  // Behind Coolify/Traefik the standalone server binds to 0.0.0.0:3000, so the
+  // request origin can be the internal container address. Resolve the canonical
+  // public origin instead, or the post-login redirect lands on 0.0.0.0:3000.
+  const origin = resolveRequestOrigin(request)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
 

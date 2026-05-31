@@ -10,6 +10,7 @@ import { Turnstile } from '@marsidev/react-turnstile'
 import { unstable_rethrow } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/client'
+import { getSiteOrigin } from '@/lib/site-url'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -105,10 +106,7 @@ function PasswordInput({
 function GoogleButton({ onError }: { onError: (msg: string) => void }) {
   async function handleClick() {
     const supabase = createClient()
-    const origin =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL ?? ''
+    const origin = getSiteOrigin()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
@@ -396,10 +394,7 @@ function Step2SignUpForm({
   async function handleSubmit(values: SignUpPasswordValues) {
     onError(null)
     try {
-      const origin =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL ?? ''
+      const origin = getSiteOrigin()
       const result = await signUpWithEmail({
         email,
         password: values.password,
@@ -580,10 +575,7 @@ function ResetForm({
     onError(null)
     try {
       const supabase = createClient()
-      const origin =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL ?? ''
+      const origin = getSiteOrigin()
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
         redirectTo: `${origin}/auth/callback?next=/dashboard`,
       })
