@@ -20,6 +20,8 @@ interface Props {
   hasTwilio: boolean
   hasResend: boolean
   hasWhatsApp: boolean
+  /** When provided (e.g. rendered inside a dialog), Cancel closes the surface instead of navigating to /campaigns. */
+  onCancel?: () => void
 }
 
 interface VapiPhoneNumber {
@@ -60,7 +62,7 @@ const CHANNELS: Array<{
   },
 ]
 
-export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsApp }: Props) {
+export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsApp, onCancel }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
@@ -509,7 +511,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
             {submitting ? 'Creating...' : scheduleType === 'later' ? 'Schedule campaign' : 'Create as draft'}
           </Button>
         )}
-        <Button type="button" variant="ghost" onClick={() => router.push('/campaigns')}>
+        <Button type="button" variant="ghost" onClick={() => (onCancel ? onCancel() : router.push('/campaigns'))}>
           Cancel
         </Button>
       </div>

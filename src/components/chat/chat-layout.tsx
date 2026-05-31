@@ -26,6 +26,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 
 import {
@@ -40,6 +41,7 @@ import {
   starConversation,
   setConversationPriority,
   assignConversation,
+  listAgentDefaultChannels,
   listOrgMembers,
   resolveContactStartChannels,
   createContactConversation,
@@ -57,11 +59,18 @@ import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
 import { cn } from '@/lib/utils'
+import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
 const INBOX_MAX_WIDTH = 420
 const CHAT_MIN_WIDTH = 420
+
+function agentSettingsHref(channel: string | null | undefined) {
+  const agentChannel = conversationChannelToAgentChannel(channel)
+  if (!agentChannel) return '/agents?settings=channels'
+  return `/agents?settings=channels&channel=${agentChannel}`
+}
 
 function clampInboxWidth(width: number, maxWidth: number) {
   return Math.min(Math.max(width, INBOX_MIN_WIDTH), maxWidth)
@@ -104,6 +113,56 @@ function mapMessageRow(row: Record<string, unknown>): ConversationMessage {
     content: row.content as string,
     createdAt: row.created_at as string,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+    channel: (row.channel as string | null) ?? null,
+  }
+}
+
+function messagePreview(message: ConversationMessage): string {
+  const content = message.content?.trim()
+  if (content) return content
+
+  const media = message.metadata?.media
+  const first = Array.isArray(media) ? media[0] as { mime_type?: string; filename?: string } | undefined : undefined
+  const mimeType = first?.mime_type ?? ''
+  if (mimeType.startsWith('image/')) return 'Photo'
+  if (mimeType.startsWith('audio/')) return 'Audio'
+  if (mimeType.startsWith('video/')) return 'Video'
+  if (first) return first.filename ? `File: ${first.filename}` : 'File'
+
+  return ''
+}
+
+async function readSendFailure(res: Response): Promise<string> {
+  const fallback = `Failed to send message (${res.status})`
+  try {
+    const data = await res.json() as { message?: unknown; error?: unknown }
+    const message = typeof data.message === 'string' ? data.message.trim() : ''
+    if (message) return message
+
+    const error = typeof data.error === 'string' ? data.error.trim() : ''
+    if (!error) return fallback
+
+    const friendly: Record<string, string> = {
+      channel_not_configured: 'This channel is not connected or is inactive.',
+      channel_not_sendable: 'This channel is not configured for outbound messages.',
+      email_no_recipient: 'This conversation has no recipient email address.',
+      email_send_failed: 'Email provider rejected the message.',
+      ghl_channel_not_configured: 'GHL is not connected for this location.',
+      ghl_send_failed: 'GHL rejected the message.',
+      meta_no_recipient: 'This conversation has no Meta recipient ID.',
+      meta_send_failed: 'Meta rejected the message.',
+      sms_media_not_supported: 'SMS attachments are not supported yet.',
+      sms_no_recipient: 'This conversation has no recipient phone number.',
+      sms_send_failed: 'Twilio rejected the SMS.',
+      token_revoked: 'The Meta token was revoked or expired. Reconnect the channel.',
+      wa_no_recipient: 'This WhatsApp conversation has no recipient phone number or chat ID.',
+      wa_not_configured: 'WhatsApp is not connected for this organization.',
+      wa_send_failed: 'WhatsApp rejected the message.',
+    }
+
+    return friendly[error] ?? error.replaceAll('_', ' ')
+  } catch {
+    return fallback
   }
 }
 
@@ -175,6 +234,7 @@ export function ChatLayout({
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
+  const [agentDefaultChannels, setAgentDefaultChannels] = useState<Set<string> | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; label: string; e164: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
@@ -182,6 +242,34 @@ export function ChatLayout({
   const [inboxWidth, setInboxWidth] = useState(INBOX_DEFAULT_WIDTH)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedIdRef = useRef<string | null>(null)
+
+  const findVisibleConversation = useCallback(
+    (id: string): ConversationSummary | undefined => {
+      return conversations.find((c) => c.id === id) ?? pinned.find((c) => c.id === id)
+    },
+    [conversations, pinned],
+  )
+
+  const updateConversationPreview = useCallback((message: ConversationMessage) => {
+    const preview = messagePreview(message)
+    if (!preview) return
+
+    const applyPreview = (conversation: ConversationSummary): ConversationSummary => ({
+      ...conversation,
+      lastMessage: preview,
+      lastMessageAt: message.createdAt,
+      updatedAt: message.createdAt,
+      channel: message.channel ?? conversation.channel,
+    })
+
+    const current = findVisibleConversation(message.conversationId)
+    if (current) upsertConversation(applyPreview(current))
+
+    setFetchedConversation((prev) => {
+      if (!prev || prev.id !== message.conversationId) return prev
+      return applyPreview(prev)
+    })
+  }, [findVisibleConversation, upsertConversation])
 
   const getInboxMaxWidth = useCallback(() => {
     if (typeof window === 'undefined') return INBOX_MAX_WIDTH
@@ -344,6 +432,15 @@ export function ChatLayout({
     listOrgMembers().then(setMembers).catch(() => setMembers([]))
   }, [])
 
+  // Fetch channels that have an AI agent configured. Conversations on channels
+  // without a default agent can still be handled manually, but the bot cannot
+  // be resumed because there is nothing to invoke.
+  useEffect(() => {
+    listAgentDefaultChannels()
+      .then((channels) => setAgentDefaultChannels(new Set(channels)))
+      .catch(() => setAgentDefaultChannels(new Set()))
+  }, [])
+
   // Fetch active Twilio numbers for the phone filter
   useEffect(() => {
     const supabase = createClient()
@@ -389,6 +486,17 @@ export function ChatLayout({
         (payload) => {
           const updated = mapConversationRow(payload.new)
           upsertConversation(updated)
+          setFetchedConversation((prev) => {
+            if (!prev || prev.id !== updated.id) return prev
+            return {
+              ...prev,
+              ...updated,
+              channelAccountName: updated.channelAccountName ?? prev.channelAccountName,
+              contactName: updated.contactName ?? prev.contactName,
+              contactAvatarUrl: updated.contactAvatarUrl ?? prev.contactAvatarUrl,
+              contactVerified: updated.contactVerified || prev.contactVerified,
+            }
+          })
         },
       )
       .on(
@@ -439,6 +547,7 @@ export function ChatLayout({
             }
             return [...prev, newMsg]
           })
+          updateConversationPreview(newMsg)
         },
       )
       .subscribe()
@@ -557,18 +666,26 @@ export function ChatLayout({
       channel: opts?.channel ?? null,
     }
     if (isCurrentThread) setMessages((prev) => [...prev, tempMsg])
+    updateConversationPreview(tempMsg)
+    const previousMessages = isCurrentThread ? messages : []
     try {
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject }),
       })
-      if (!res.ok) throw new Error('Failed to send')
+      if (!res.ok) throw new Error(await readSendFailure(res))
+      const data = await res.json().catch(() => null)
+      if (data?.message) updateConversationPreview(data.message as ConversationMessage)
       if (!isCurrentThread) setSelectedId(targetId)
       await fetchMessages(targetId)
-    } catch {
+    } catch (err) {
       if (isCurrentThread) setMessages((prev) => prev.filter((m) => m.id !== tempId))
-      toast.error('Failed to send message')
+      const latest = previousMessages[previousMessages.length - 1]
+      if (latest?.conversationId === targetId) updateConversationPreview(latest)
+      const message = err instanceof Error ? err.message : 'Failed to send message'
+      toast.error(message)
+      throw err
     }
   }
 
@@ -602,9 +719,16 @@ export function ChatLayout({
 
   async function handleBotToggle(conversationId: string, currentStatus: string) {
     if (botTogglingId) return
+    const current = findVisibleConversation(conversationId)
+    const channel = current?.channel
+    const agentChannel = conversationChannelToAgentChannel(channel)
+    const hasAgent = agentChannel ? agentDefaultChannels?.has(agentChannel) !== false : false
+    if (currentStatus !== 'active' && !hasAgent) {
+      toast.error(`No AI agent is configured for ${channel ?? 'this channel'}.`)
+      return
+    }
     setBotTogglingId(conversationId)
     const optimistic = currentStatus === 'active' ? 'paused' : 'active'
-    const current = findVisibleConversation(conversationId)
     if (current) {
       upsertConversation({ ...current, botStatus: optimistic })
     }
@@ -696,6 +820,10 @@ export function ChatLayout({
       ? fetchedConversation
       : null)
 
+  const selectedBotAgentAvailable = selected
+    ? agentDefaultChannels?.has(conversationChannelToAgentChannel(selected.channel) ?? '') !== false
+    : false
+
   const visibleConversations = useMemo(() => {
     if (!selected) return conversations
     const alreadyVisible =
@@ -704,14 +832,6 @@ export function ChatLayout({
     if (alreadyVisible) return conversations
     return [selected, ...conversations].slice(0, pageSize)
   }, [conversations, pageSize, pinned, selected])
-
-  // Helper for optimistic mutations: lookup across both buckets.
-  const findVisibleConversation = useCallback(
-    (id: string): ConversationSummary | undefined => {
-      return conversations.find((c) => c.id === id) ?? pinned.find((c) => c.id === id)
-    },
-    [conversations, pinned],
-  )
 
   // ───────────────────────── Render ─────────────────────────
 
@@ -787,6 +907,7 @@ export function ChatLayout({
             infoPanelOpen={infoOpen}
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
             agentMap={agentMap}
+            botAgentAvailable={selectedBotAgentAvailable}
             emptyContactId={!selectedId ? initialContactId : null}
             isStartingConversation={isStartingConversation}
           />
@@ -797,7 +918,9 @@ export function ChatLayout({
           // which re-renders when viewport widens enough.
           <div className="hidden lg:flex h-full min-h-0 shrink-0 overflow-hidden lg:w-[300px] xl:w-[340px] flex-col">
             {selected && (() => {
-              const botOn = selected.botStatus === 'active'
+              const botAgentAvailable =
+                agentDefaultChannels?.has(conversationChannelToAgentChannel(selected.channel) ?? '') !== false
+              const botOn = botAgentAvailable && selected.botStatus === 'active'
               const toggling = botTogglingId === selected.id
               return (
                 <div className="shrink-0 border-l border-b border-border-subtle bg-bg-secondary/40 px-4 py-2 flex items-center justify-between gap-2">
@@ -805,22 +928,31 @@ export function ChatLayout({
                     <span
                       className={cn(
                         'h-1.5 w-1.5 rounded-full shrink-0',
-                        botOn ? 'bg-warning animate-pulse' : 'bg-success',
+                        !botAgentAvailable ? 'bg-warning' : botOn ? 'bg-success animate-pulse' : 'bg-success',
                       )}
                       aria-hidden
                     />
                     <span className="text-[11.5px] text-text-secondary truncate">
-                      {botOn ? 'Bot is replying' : 'Manual mode'}
+                      {!botAgentAvailable ? 'No AI agent configured' : botOn ? 'Bot is replying' : 'Manual mode'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleBotToggle(selected.id, selected.botStatus)}
-                    disabled={toggling}
-                    className="text-[11.5px] font-medium text-accent hover:text-accent/80 shrink-0 disabled:opacity-50"
-                  >
-                    {botOn ? 'Pause' : 'Resume bot'}
-                  </button>
+                  {botAgentAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => handleBotToggle(selected.id, selected.botStatus)}
+                      disabled={toggling}
+                      className="text-[11.5px] font-medium text-accent hover:text-accent/80 shrink-0 disabled:opacity-50"
+                    >
+                      {botOn ? 'Pause' : 'Resume bot'}
+                    </button>
+                  ) : (
+                    <Link
+                      href={agentSettingsHref(selected.channel)}
+                      className="shrink-0 rounded-full border border-warning/30 bg-[var(--warning-muted)] px-2 py-0.5 text-[11px] font-medium text-warning transition-colors hover:border-warning/50 hover:bg-warning/15"
+                    >
+                      Bot disabled
+                    </Link>
+                  )}
                 </div>
               )
             })()}
@@ -902,6 +1034,7 @@ export function ChatLayout({
               infoPanelOpen={false}
               onToggleInfoPanel={() => setMobileView('info')}
               agentMap={agentMap}
+              botAgentAvailable={selectedBotAgentAvailable}
               emptyContactId={!selectedId ? initialContactId : null}
               isStartingConversation={isStartingConversation}
             />

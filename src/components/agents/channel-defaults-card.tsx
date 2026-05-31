@@ -10,6 +10,7 @@ import {
   type AgentChannel,
 } from "@/lib/agents/channels";
 import { setChannelDefault } from "@/app/(dashboard)/agents/actions";
+import { cn } from "@/lib/utils";
 
 import {
   Card,
@@ -31,6 +32,7 @@ interface ChannelDefaultsCardProps {
   defaults: Record<AgentChannel, string | null>;
   agents: Array<{ id: string; name: string; slug: string }>;
   surface?: "card" | "plain";
+  focusChannel?: AgentChannel | null;
 }
 
 // Radix Select forbids `value=""` on items. We use a sentinel that the
@@ -41,6 +43,7 @@ export function ChannelDefaultsCard({
   defaults,
   agents,
   surface = "card",
+  focusChannel = null,
 }: ChannelDefaultsCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -55,7 +58,7 @@ export function ChannelDefaultsCard({
       }
       toast.success(
         next === null
-          ? `${AGENT_CHANNEL_LABELS[channel]} reset to Main Agent.`
+          ? `${AGENT_CHANNEL_LABELS[channel]} bot disabled.`
           : `${AGENT_CHANNEL_LABELS[channel]} default updated.`,
       );
       router.refresh();
@@ -67,8 +70,8 @@ export function ChannelDefaultsCard({
       <CardHeader className={surface === "plain" ? "px-0 pt-0" : undefined}>
         <CardTitle className="text-base">Channel Defaults</CardTitle>
         <CardDescription>
-          Pick the default agent for each channel. Channels with no default fall
-          back to the Main Agent.
+          Pick the default agent for each channel. Channels with no default keep
+          automatic replies disabled.
         </CardDescription>
       </CardHeader>
       <CardContent className={surface === "plain" ? "px-0 pb-0" : undefined}>
@@ -79,7 +82,10 @@ export function ChannelDefaultsCard({
             return (
               <div
                 key={ch}
-                className="flex min-w-0 flex-col gap-2 rounded-md border bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                className={cn(
+                  "flex min-w-0 flex-col gap-2 rounded-md border bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+                  focusChannel === ch && "border-warning/40 bg-[var(--warning-muted)]",
+                )}
               >
                 <Label
                   htmlFor={`channel-default-${ch}`}
@@ -100,7 +106,7 @@ export function ChannelDefaultsCard({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={DEFAULT_SENTINEL}>
-                      Main Agent (default)
+                      No default (bot disabled)
                     </SelectItem>
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id}>

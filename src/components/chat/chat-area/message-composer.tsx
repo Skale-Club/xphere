@@ -123,6 +123,7 @@ export function MessageComposer({
   const [value, setValue] = useState('')
   const [subject, setSubject] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const isEmail = (activeChannel ?? '') === 'email'
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
@@ -232,6 +233,10 @@ export function MessageComposer({
     }
   }, [])
 
+  useEffect(() => {
+    setSendError(null)
+  }, [activeChannel])
+
   // Auto-resize
   useEffect(() => {
     const el = ref.current
@@ -247,6 +252,7 @@ export function MessageComposer({
     if (!content || isSending || disabled) return
     const activeOption = availableChannels.find((ch) => ch.channel === activeChannel)
     setValue('')
+    setSendError(null)
     setIsSending(true)
     // SEED-040: tiny haptic confirmation on send (no-op on desktop / iOS).
     haptic(10)
@@ -256,6 +262,10 @@ export function MessageComposer({
         conversationId: activeOption?.conversationId,
         subject: isEmail ? subject.trim() || undefined : undefined,
       })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Message was not sent.'
+      setSendError(message)
+      setValue(content)
     } finally {
       setIsSending(false)
       ref.current?.focus()
@@ -271,6 +281,7 @@ export function MessageComposer({
 
   function handleChange(next: string) {
     setValue(next)
+    if (sendError) setSendError(null)
     if (!onTyping) return
     const now = Date.now()
     if (now - lastTypingRef.current > 500) {
@@ -374,6 +385,31 @@ export function MessageComposer({
             Outside the 24-hour customer service window — free text won&apos;t be delivered by
             Meta. Use a <strong>template</strong> to continue this conversation.
           </span>
+        </div>
+      )}
+
+      {disabledHint && (
+        <div className="mb-2 flex items-start justify-between gap-2 rounded-[8px] border border-warning/30 bg-[var(--warning-muted)] px-3 py-2 text-[11.5px] text-warning">
+          <div className="flex min-w-0 items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="leading-relaxed">{disabledHint}</span>
+          </div>
+          {onResumeManual && (
+            <button
+              type="button"
+              onClick={onResumeManual}
+              className="shrink-0 text-[11.5px] font-medium underline-offset-4 hover:underline"
+            >
+              Pause bot
+            </button>
+          )}
+        </div>
+      )}
+
+      {sendError && (
+        <div className="mb-2 flex items-start gap-2 rounded-[8px] border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] text-danger">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="leading-relaxed">Message not sent: {sendError}</span>
         </div>
       )}
 

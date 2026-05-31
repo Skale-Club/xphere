@@ -10,14 +10,42 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { toggleBotStatus } from '../src/app/(dashboard)/chat/actions'
 
 // ---- Supabase mock builder ----
-function buildMockSupabase(updateError: null | { message: string } = null) {
+function buildMockSupabase(
+  updateError: null | { message: string } = null,
+  opts: { conversationChannel?: string; defaultAgent?: { agent_id: string } | null } = {},
+) {
   const updateSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: updateError }),
   })
+  const conversationChannel = opts.conversationChannel ?? 'widget'
+  const defaultAgent = opts.defaultAgent === undefined ? { agent_id: 'agent-1' } : opts.defaultAgent
   return {
-    from: vi.fn(() => ({
-      update: updateSpy,
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'conversations') {
+        return {
+          update: updateSpy,
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { channel: conversationChannel }, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'agent_channel_defaults') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: defaultAgent, error: null }),
+            }),
+          }),
+        }
+      }
+      return {
+        update: updateSpy,
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }
+    }),
+    rpc: vi.fn().mockResolvedValue({ data: 'org-1', error: null }),
     _updateSpy: updateSpy,
   }
 }
@@ -43,6 +71,18 @@ describe('toggleBotStatus server action', () => {
 
     const result = await toggleBotStatus('conv-1', 'paused')
     expect(result).toEqual({ botStatus: 'active' })
+  })
+
+  it('does not resume bot when the channel has no default agent', async () => {
+    vi.mocked(getUser).mockResolvedValue({ id: 'user-1' } as Awaited<ReturnType<typeof getUser>>)
+    const mockSupabase = buildMockSupabase(null, { conversationChannel: 'sms', defaultAgent: null })
+    vi.mocked(createClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createClient>>)
+
+    const result = await toggleBotStatus('conv-1', 'paused')
+    expect(result).toEqual({
+      error: 'No AI agent is configured for sms. Configure an agent before resuming the bot.',
+    })
+    expect(mockSupabase._updateSpy).not.toHaveBeenCalled()
   })
 
   it('returns { error } when user is not authenticated', async () => {

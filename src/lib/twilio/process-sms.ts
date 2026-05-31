@@ -1,6 +1,7 @@
 // src/lib/twilio/process-sms.ts
 // Processes a validated inbound Twilio SMS webhook (SEED-005).
-// Called from /api/twilio/sms via after() | runs after 200 TwiML is returned.
+// Called from /api/twilio/sms. The inbound DB write runs before the 200 TwiML;
+// slower automation/agent reply work can run after that critical write.
 //
 // Pipeline:
 //   1. Upsert conversation by (org_id, channel='sms', visitor_phone=From).
@@ -10,7 +11,8 @@
 //   4. Persist the assistant reply as a conversation_message.
 //   5. Send the reply via the existing send_sms executor (Twilio Messages REST API).
 //
-// All errors are caught locally | this function never throws (after() context).
+// All errors are caught locally | route callers should still guard fire-and-forget
+// automation promises so webhook responses never fail after Twilio delivery.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
@@ -37,23 +39,55 @@ export type TwilioSmsPayload = {
   MediaContentType9?: string
   // Twilio auth token passed internally for media download | never stored
   _authToken?: string
+  // Trusted internal/reconciliation timestamp. Live Twilio webhooks omit this.
+  ReceivedAt?: string
 }
 
-export async function processTwilioSms(
+export type TwilioSmsIngestResult = {
+  orgId: string
+  phoneNumberId: string | null
+  conversationId: string
+  fromNumber: string
+  toNumber: string
+  messageText: string
+  messageSid: string
+  botStatus: string
+}
+
+export async function ingestTwilioSms(
   payload: TwilioSmsPayload,
   orgId: string,
   phoneNumberId: string | null = null,
-): Promise<void> {
+): Promise<TwilioSmsIngestResult | null> {
   const supabase = createServiceRoleClient()
 
   const messageText = (payload.Body ?? '').trim()
   const numMedia = parseInt(payload.NumMedia ?? '0', 10)
   const hasMedia = numMedia > 0
-  if (!messageText && !hasMedia) return
+  if (!messageText && !hasMedia) return null
 
   const fromNumber = payload.From
   const toNumber = payload.To
   const messageSid = payload.MessageSid
+  const receivedAt = payload.ReceivedAt ?? new Date().toISOString()
+
+  // Idempotency first. Reconciliation may process older pages repeatedly; a
+  // duplicate must not move a conversation's last_message backwards.
+  if (messageSid) {
+    const { data: existingMessage } = await supabase
+      .from('conversation_messages')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('role', 'user')
+      .contains('metadata', { message_sid: messageSid })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingMessage) {
+      console.log('[twilio/sms] Duplicate MessageSid | skipping message insert:', messageSid)
+      return null
+    }
+  }
 
   // --- 1. Upsert conversation (de-duplicate by org + channel + From) -----
   const { data: existing } = await supabase
@@ -65,7 +99,6 @@ export async function processTwilioSms(
     .limit(1)
     .maybeSingle()
 
-  const now = new Date().toISOString()
   let conversationId: string
 
   if (existing) {
@@ -74,9 +107,9 @@ export async function processTwilioSms(
       .from('conversations')
       .update({
         last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
-        updated_at: now,
+        last_message_at: receivedAt,
+        last_inbound_at: receivedAt,
+        updated_at: new Date().toISOString(),
         // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
         ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
       })
@@ -95,8 +128,8 @@ export async function processTwilioSms(
         },
         visitor_phone: fromNumber,
         last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
+        last_message_at: receivedAt,
+        last_inbound_at: receivedAt,
         phone_number_id: phoneNumberId,
       })
       .select('id')
@@ -104,25 +137,9 @@ export async function processTwilioSms(
 
     if (insertError || !created) {
       console.error('[twilio/sms] Failed to create conversation:', insertError?.message)
-      return
+      return null
     }
     conversationId = created.id
-  }
-
-  // --- 2. Insert inbound user message (idempotent by message_sid in metadata) ---
-  // Skip insert if a message with this exact MessageSid was already persisted.
-  const { data: dupCheck } = await supabase
-    .from('conversation_messages')
-    .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('role', 'user')
-    .contains('metadata', { message_sid: messageSid })
-    .limit(1)
-    .maybeSingle()
-
-  if (dupCheck) {
-    console.log('[twilio/sms] Duplicate MessageSid | skipping message insert:', messageSid)
-    return
   }
 
   const messageType = hasMedia && !messageText ? 'image' : hasMedia ? 'mixed' : 'text'
@@ -134,7 +151,9 @@ export async function processTwilioSms(
       org_id: orgId,
       role: 'user',
       content: messageText,
+      created_at: receivedAt,
       message_type: messageType,
+      channel: 'sms',
       metadata: { message_sid: messageSid, from_number: fromNumber },
     })
     .select('id')
@@ -142,7 +161,7 @@ export async function processTwilioSms(
 
   if (msgInsertError || !insertedMsg) {
     console.error('[twilio/sms] Failed to insert message:', msgInsertError?.message)
-    return
+    return null
   }
 
   // Fire inbound_sms_to_number workflow event. Emitter never throws; it runs
@@ -202,8 +221,49 @@ export async function processTwilioSms(
     }
   }
 
+  let botStatus = existing?.bot_status ?? 'active'
+  if (botStatus === 'active') {
+    const { data: defaultRow } = await supabase
+      .from('agent_channel_defaults')
+      .select('agent_id')
+      .eq('organization_id', orgId)
+      .eq('channel', 'sms')
+      .maybeSingle()
+
+    if (!defaultRow?.agent_id) {
+      botStatus = 'paused'
+      await supabase
+        .from('conversations')
+        .update({ bot_status: 'paused', updated_at: new Date().toISOString() })
+        .eq('id', conversationId)
+    }
+  }
+
+  return {
+    orgId,
+    phoneNumberId,
+    conversationId,
+    fromNumber,
+    toNumber,
+    messageText,
+    messageSid,
+    botStatus,
+  }
+}
+
+export async function continueTwilioSmsAutomation(result: TwilioSmsIngestResult): Promise<void> {
+  const supabase = createServiceRoleClient()
+  const {
+    orgId,
+    phoneNumberId,
+    conversationId,
+    fromNumber,
+    toNumber,
+    messageText,
+    botStatus,
+  } = result
+
   // --- 3. Bot status gate | skip AI if a human has taken over -----------
-  const botStatus = existing?.bot_status ?? 'active'
   if (botStatus !== 'active') {
     console.log('[twilio/sms] Bot paused for conversation:', conversationId)
     return
@@ -250,7 +310,7 @@ export async function processTwilioSms(
 
     try {
       await sendSms(
-        { to: fromNumber, body: chunk.text },
+        { to: fromNumber, body: chunk.text, phone_number_id: phoneNumberId ?? undefined },
         { organizationId: orgId, supabase }
       )
     } catch (err) {
@@ -264,7 +324,18 @@ export async function processTwilioSms(
       org_id: orgId,
       role: 'assistant',
       content: chunk.text,
+      channel: 'sms',
       metadata: { channel: 'sms', from_number: toNumber },
     })
   }
+}
+
+export async function processTwilioSms(
+  payload: TwilioSmsPayload,
+  orgId: string,
+  phoneNumberId: string | null = null,
+): Promise<void> {
+  const result = await ingestTwilioSms(payload, orgId, phoneNumberId)
+  if (!result) return
+  await continueTwilioSmsAutomation(result)
 }
