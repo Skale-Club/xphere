@@ -4,6 +4,7 @@
 // Pattern mirrors src/lib/meta/process-event.ts.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { decrypt } from '@/lib/crypto'
 import { sendGhlMessage, channelToGhlType } from './send-message'
 import { executeAction } from '@/lib/action-engine/execute-action'
@@ -79,82 +80,59 @@ export async function processGhlEvent(
     return
   }
 
-  // 3. De-duplicate conversation by (org + channel + contact_id + location_id)
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id, bot_status, last_inbound_at')
-    .eq('org_id', orgId)
-    .eq('channel', channel)
-    .eq('channel_metadata->>contact_id', contactId)
-    .eq('channel_metadata->>location_id', locationId)
-    .limit(1)
-    .maybeSingle()
-
+  // 3+4. De-duplicate + upsert conversation + insert the inbound message via
+  // the shared normalizer (dedup by org + channel + channel_metadata
+  // contact_id/location_id). GHL has no media or provider-message-id idempotency.
   const now = new Date().toISOString()
-  let conversationId: string
+  const visitorName = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || null
 
-  if (existing) {
-    conversationId = existing.id
-
-    await supabase
-      .from('conversations')
-      .update({
-        last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
-        updated_at: now,
-        // Update visitor name if we have it
-        ...(payload.firstName || payload.lastName
-          ? { visitor_name: [payload.firstName, payload.lastName].filter(Boolean).join(' ') }
-          : {}),
-        ...(payload.phone ? { visitor_phone: payload.phone } : {}),
-        ...(payload.email ? { visitor_email: payload.email } : {}),
-      })
-      .eq('id', conversationId)
-  } else {
-    const visitorName = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || null
-
-    const { data: created, error: insertError } = await supabase
-      .from('conversations')
-      .insert({
-        org_id: orgId,
-        widget_token: '',
-        channel,
-        channel_metadata: {
-          location_id: locationId,
-          contact_id: contactId,
-          ghl_conversation_id: ghlConversationId,
-          phone: payload.phone ?? '',
-          message_type: messageType,
-        },
-        last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
-        visitor_name: visitorName,
-        visitor_phone: payload.phone ?? null,
-        visitor_email: payload.email ?? null,
-      })
-      .select('id')
-      .single()
-
-    if (insertError || !created) {
-      console.error('[ghl/webhook] Failed to create conversation:', insertError?.message)
-      return
-    }
-
-    conversationId = created.id
-  }
-
-  // 4. Insert user message
-  await supabase.from('conversation_messages').insert({
-    conversation_id: conversationId,
-    org_id: orgId,
-    role: 'user',
-    content: messageText,
+  const norm = await normalizeInbound({
+    supabase,
+    orgId,
+    channel,
+    match: { by: 'metadata', keys: { contact_id: contactId, location_id: locationId } },
+    updatePayload: {
+      last_message: messageText,
+      last_message_at: now,
+      last_inbound_at: now,
+      updated_at: now,
+      // Update visitor name if we have it
+      ...(payload.firstName || payload.lastName
+        ? { visitor_name: [payload.firstName, payload.lastName].filter(Boolean).join(' ') }
+        : {}),
+      ...(payload.phone ? { visitor_phone: payload.phone } : {}),
+      ...(payload.email ? { visitor_email: payload.email } : {}),
+    },
+    createPayload: {
+      widget_token: '',
+      channel_metadata: {
+        location_id: locationId,
+        contact_id: contactId,
+        ghl_conversation_id: ghlConversationId,
+        phone: payload.phone ?? '',
+        message_type: messageType,
+      },
+      last_message: messageText,
+      last_message_at: now,
+      last_inbound_at: now,
+      visitor_name: visitorName,
+      visitor_phone: payload.phone ?? null,
+      visitor_email: payload.email ?? null,
+    },
+    message: {
+      role: 'user',
+      content: messageText,
+    },
   })
 
+  if (norm.error) {
+    console.error('[ghl/webhook] Failed to persist inbound message:', norm.error)
+    return
+  }
+  const conversationId = norm.conversationId
+
   // 5. Check bot_status | skip AI response if human has taken over
-  const botStatus = existing?.bot_status ?? 'active'
+  const botStatus = norm.existing?.bot_status ?? 'active'
   if (botStatus !== 'active') {
     console.log('[ghl/webhook] Bot paused for conversation:', conversationId, '| skipping AI response')
     return

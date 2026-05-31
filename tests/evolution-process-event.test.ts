@@ -27,6 +27,14 @@ vi.mock('@/lib/evolution/send-message', () => ({
   sendWhatsappMessage: vi.fn().mockResolvedValue({ ok: true, messageIds: ['evo-out-1'] }),
 }))
 
+// ---- Mock contact resolution helpers (real impls query tables the mock
+// doesn't model; without this the create path throws and silently bails) ----
+vi.mock('@/lib/contacts/server', () => ({
+  findByChannelIdentity: vi.fn().mockResolvedValue(null),
+  findByPhone: vi.fn().mockResolvedValue(null),
+  attachChannelIdentity: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { resolveEvolutionInstanceByName } from '@/lib/evolution/credentials'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
@@ -52,7 +60,12 @@ function buildMockSupabase(opts: MockOpts = {}) {
   const updateConversationSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   })
-  const insertMessageSpy = vi.fn().mockResolvedValue({ data: null, error: null })
+  // Chainable: normalizeInbound does `.insert(...).select('id').single()`.
+  const insertMessageSpy = vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({ data: { id: 'evo-msg-new' }, error: null }),
+    })),
+  }))
   const updateInstanceSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   })
@@ -73,6 +86,7 @@ function buildMockSupabase(opts: MockOpts = {}) {
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: opts.existingContact ?? null, error: null }),
         insert: insertContactSpy,

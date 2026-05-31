@@ -6,6 +6,7 @@
 import { after } from 'next/server'
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
@@ -173,127 +174,117 @@ export async function processTelegramUpdate(
       ? [from.first_name, from.last_name].filter(Boolean).join(' ').trim() || from.username || null
       : null
 
-    // ----- 3. Upsert conversation ---------------------------------------
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id, bot_status, contact_id')
-      .eq('org_id', orgId)
-      .eq('channel', 'telegram')
-      .eq('visitor_phone', chatId)
-      .limit(1)
-      .maybeSingle()
-
+    // ----- 3. Upsert conversation (shared normalizer, upsert-only) -------
+    // Telegram bumps last_message AFTER media detection below, so updatePayload
+    // is empty (no touch on existing) and skipMessage is set (the message write
+    // + media are bespoke). Contact resolution runs lazily on the create path.
     const now = new Date().toISOString()
-    let conversationId: string
 
-    if (existing) {
-      conversationId = existing.id
-    } else {
-      // Phase 108 D-03 lookup-first: channel identity → phone → insert.
-      // Pitfall 1: externalId is the raw chat_id string; do NOT normalise.
-      let contactId: string | null = null
-      const channelProvider: ChannelProvider = 'telegram'
-      const externalId = chatId
+    const norm = await normalizeInbound({
+      supabase,
+      orgId,
+      channel: 'telegram',
+      match: { by: 'visitor_phone', phone: chatId },
+      updatePayload: {},
+      createPayload: async () => {
+        // Phase 108 D-03 lookup-first: channel identity → phone → insert.
+        // Pitfall 1: externalId is the raw chat_id string; do NOT normalise.
+        let contactId: string | null = null
+        const channelProvider: ChannelProvider = 'telegram'
+        const externalId = chatId
 
-      const channelHit = externalId
-        ? await findByChannelIdentity(supabase, orgId, channelProvider, externalId)
-        : null
-      if (channelHit) {
-        contactId = channelHit.contact_id
-      } else {
-        // Phase 107 back-compat: chat_id was stored in visitor_phone, so the
-        // legacy phone fallback still uses it as the lookup key.
-        const phoneNorm = normalisePhone(chatId)
-        const { data: contact } = phoneNorm
-          ? await supabase
-              .from('contacts')
-              .select('id')
-              .eq('org_id', orgId)
-              .eq('phone_e164', phoneNorm)
-              .neq('identity_status', 'archived_duplicate')
-              .limit(1)
-              .maybeSingle()
-          : { data: null }
-
-        if (contact?.id) {
-          contactId = contact.id
-          // D-03b: attach channel identity to existing phone-rooted contact.
-          if (externalId) {
-            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
-          }
+        const channelHit = externalId
+          ? await findByChannelIdentity(supabase, orgId, channelProvider, externalId)
+          : null
+        if (channelHit) {
+          contactId = channelHit.contact_id
         } else {
-          // D-04a (Phase 110-02): Telegram updates carry no email field —
-          // pure phone/channel provider (chatId acts as both). No
-          // isBlockedEmail wiring needed here. If Telegram ever exposes user
-          // email via a future API, gate with isBlockedEmail before write.
-          const contactInsert: Record<string, unknown> = {
-            org_id: orgId,
-            name: visitorName,
-            phone: chatId,
-            // 'telegram' will be added to the ContactSource union in a future
-            // migration; cast keeps this forward-compatible without touching
-            // shared types files owned by other parallel agents.
-            source: 'telegram',
-          }
-          const { data: created, error: insErr } = await supabase
-            .from('contacts')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .insert(contactInsert as any)
-            .select('id')
-            .single()
-          if (insErr?.code === '23505') {
-            // D-03: race lost — look up the winner via findByPhone.
-            const winner = await findByPhone(supabase, orgId, chatId)
-            contactId = winner?.id ?? null
-            if (winner) {
-              console.log(
-                `[telegram/process] contact.unique_collision source=telegram org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
-              )
+          // Phase 107 back-compat: chat_id was stored in visitor_phone, so the
+          // legacy phone fallback still uses it as the lookup key.
+          const phoneNorm = normalisePhone(chatId)
+          const { data: contact } = phoneNorm
+            ? await supabase
+                .from('contacts')
+                .select('id')
+                .eq('org_id', orgId)
+                .eq('phone_e164', phoneNorm)
+                .neq('identity_status', 'archived_duplicate')
+                .limit(1)
+                .maybeSingle()
+            : { data: null }
+
+          if (contact?.id) {
+            contactId = contact.id
+            // D-03b: attach channel identity to existing phone-rooted contact.
+            if (externalId) {
+              await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
             }
-          } else if (insErr) {
-            console.error('[telegram/process] insert contact error:', insErr.message)
-            contactId = null
           } else {
-            contactId = created?.id ?? null
-          }
-          if (contactId && externalId) {
-            await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
+            // D-04a (Phase 110-02): Telegram updates carry no email field —
+            // pure phone/channel provider (chatId acts as both). No
+            // isBlockedEmail wiring needed here. If Telegram ever exposes user
+            // email via a future API, gate with isBlockedEmail before write.
+            const contactInsert: Record<string, unknown> = {
+              org_id: orgId,
+              name: visitorName,
+              phone: chatId,
+              // 'telegram' will be added to the ContactSource union in a future
+              // migration; cast keeps this forward-compatible without touching
+              // shared types files owned by other parallel agents.
+              source: 'telegram',
+            }
+            const { data: created, error: insErr } = await supabase
+              .from('contacts')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .insert(contactInsert as any)
+              .select('id')
+              .single()
+            if (insErr?.code === '23505') {
+              // D-03: race lost — look up the winner via findByPhone.
+              const winner = await findByPhone(supabase, orgId, chatId)
+              contactId = winner?.id ?? null
+              if (winner) {
+                console.log(
+                  `[telegram/process] contact.unique_collision source=telegram org_id=${orgId} contact_id=${winner.id} matched_via=phone`,
+                )
+              }
+            } else if (insErr) {
+              console.error('[telegram/process] insert contact error:', insErr.message)
+              contactId = null
+            } else {
+              contactId = created?.id ?? null
+            }
+            if (contactId && externalId) {
+              await attachChannelIdentity(supabase, orgId, contactId, channelProvider, externalId)
+            }
           }
         }
-      }
 
-      const channelMetadata: Record<string, unknown> = {
-        telegram_chat_id: chatId,
-        telegram_user_id: from?.id ?? null,
-        telegram_username: from?.username ?? null,
-      }
+        return {
+          widget_token: '',
+          channel_metadata: {
+            telegram_chat_id: chatId,
+            telegram_user_id: from?.id ?? null,
+            telegram_username: from?.username ?? null,
+          },
+          visitor_phone: chatId,
+          visitor_name: visitorName,
+          // TODO Phase 110: wrap with resolveLiveContactId
+          contact_id: contactId,
+          last_message_at: now,
+          last_inbound_at: now,
+        }
+      },
+      message: {},
+      skipMessage: true,
+    })
 
-      const insertPayload: Record<string, unknown> = {
-        org_id: orgId,
-        widget_token: '',
-        channel: 'telegram',
-        channel_metadata: channelMetadata,
-        visitor_phone: chatId,
-        visitor_name: visitorName,
-        // TODO Phase 110: wrap with resolveLiveContactId
-        contact_id: contactId,
-        last_message_at: now,
-        last_inbound_at: now,
-      }
-
-      const { data: convo, error: convErr } = await supabase
-        .from('conversations')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(insertPayload as any)
-        .select('id')
-        .single()
-
-      if (convErr || !convo) {
-        console.error('[telegram/process] create conversation failed:', convErr?.message)
-        return
-      }
-      conversationId = convo.id
+    if (norm.error) {
+      console.error('[telegram/process] create conversation failed:', norm.error)
+      return
     }
+    const conversationId = norm.conversationId
+    const existing = norm.existing
 
     // ----- 4. Idempotency by telegram_message_id ------------------------
     const { data: dup } = await supabase

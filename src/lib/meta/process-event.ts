@@ -9,6 +9,7 @@
 //   story-reply context captured in metadata.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
@@ -93,62 +94,51 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           continue
         }
 
-        // 2. De-duplicate conversation
+        // 2. De-duplicate + upsert conversation via the shared normalizer in
+        // upsert-only mode. Meta's message write is bespoke (media is downloaded
+        // and re-hosted against a pre-generated message id between this upsert
+        // and the insert), so normalizeInbound owns only the find-or-create +
+        // last_message bump here.
         const senderKey = channelType === 'instagram' ? 'igsid' : 'sender_id'
-
-        const { data: existing } = await supabase
-          .from('conversations')
-          .select('id, channel_metadata, last_inbound_at')
-          .eq('org_id', orgId)
-          .eq('channel', channelType)
-          .eq(`channel_metadata->>${senderKey}`, senderId)
-          .eq('channel_metadata->>page_id', pageId)
-          .limit(1)
-          .maybeSingle()
-
         const now = new Date().toISOString()
-        let conversationId: string
-        let existingChannelMetadata: Record<string, string> = {}
-
         // Placeholder last_message | will overwrite after media is processed
         const placeholderLast = messageText || '...'
+        const channelMetadata =
+          channelType === 'instagram'
+            ? { igsid: senderId, page_id: pageId }
+            : { sender_id: senderId, page_id: pageId }
 
-        if (existing) {
-          conversationId = existing.id
-          existingChannelMetadata = (existing.channel_metadata as Record<string, string>) ?? {}
-          await supabase
-            .from('conversations')
-            .update({
-              last_message: placeholderLast,
-              last_message_at: now,
-              updated_at: now,
-            })
-            .eq('id', conversationId)
-        } else {
-          const channelMetadata =
-            channelType === 'instagram'
-              ? { igsid: senderId, page_id: pageId }
-              : { sender_id: senderId, page_id: pageId }
+        const norm = await normalizeInbound({
+          supabase,
+          orgId,
+          channel: channelType,
+          match: { by: 'metadata', keys: { [senderKey]: senderId, page_id: pageId } },
+          updatePayload: {
+            last_message: placeholderLast,
+            last_message_at: now,
+            updated_at: now,
+          },
+          createPayload: {
+            widget_token: '',
+            channel_metadata: channelMetadata,
+            last_message: placeholderLast,
+            last_message_at: now,
+            last_inbound_at: now,
+          },
+          message: {},
+          skipMessage: true,
+        })
 
-          const { data: created, error: insertError } = await supabase
-            .from('conversations')
-            .insert({
-              org_id: orgId,
-              widget_token: '',
-              channel: channelType,
-              channel_metadata: channelMetadata,
-              last_message: placeholderLast,
-              last_message_at: now,
-              last_inbound_at: now,
-            })
-            .select('id')
-            .single()
+        if (norm.error) {
+          console.error('[meta/webhook] Failed to upsert conversation:', norm.error)
+          continue
+        }
 
-          if (insertError || !created) {
-            console.error('[meta/webhook] Failed to create conversation:', insertError?.message)
-            continue
-          }
-          conversationId = created.id
+        const conversationId = norm.conversationId
+        const existing = norm.existing
+        const existingChannelMetadata: Record<string, string> =
+          (norm.existing?.channel_metadata as Record<string, string>) ?? {}
+        if (norm.isNew) {
           void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: channelType })
         }
 

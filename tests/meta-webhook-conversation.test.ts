@@ -16,6 +16,11 @@ vi.mock('@/lib/crypto', () => ({
   decrypt: vi.fn().mockResolvedValue('plaintext-api-key'),
 }))
 
+// ---- Mock insertNotification (real impl builds a live client) ----
+vi.mock('@/lib/notifications/insert', () => ({
+  insertNotification: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 // ---- Supabase mock builder ----
@@ -61,7 +66,15 @@ function buildMockSupabase(existingConversation: { id: string; channel_metadata:
     }
 
     if (table === 'conversation_messages') {
-      return { insert: insertMessageSpy }
+      // select chain = the mid-idempotency dup check; insert = the message write.
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: insertMessageSpy,
+      }
     }
 
     if (table === 'tool_configs') {
