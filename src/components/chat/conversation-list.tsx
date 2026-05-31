@@ -300,7 +300,7 @@ export function ConversationList({
     if (!debouncedSearch.trim()) return conversations
     const q = debouncedSearch.toLowerCase()
     return conversations.filter((c) => {
-      const hay = [c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
+      const hay = [c.contactName, c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -312,7 +312,7 @@ export function ConversationList({
     if (!debouncedSearch.trim()) return pinned
     const q = debouncedSearch.toLowerCase()
     return pinned.filter((c) => {
-      const hay = [c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
+      const hay = [c.contactName, c.visitorName, c.visitorEmail, c.visitorPhone, c.lastMessage]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -788,6 +788,11 @@ const MemoConversationCard = memo(ConversationCardBase, (prev, next) => {
     a.botStatus === b.botStatus &&
     a.starred === b.starred &&
     a.assignedUserId === b.assignedUserId &&
-    a.visitorName === b.visitorName
+    a.visitorName === b.visitorName &&
+    a.visitorPhone === b.visitorPhone &&
+    a.visitorEmail === b.visitorEmail &&
+    a.contactName === b.contactName &&
+    a.contactAvatarUrl === b.contactAvatarUrl &&
+    a.contactVerified === b.contactVerified
   )
 })

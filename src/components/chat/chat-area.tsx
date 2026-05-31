@@ -44,7 +44,20 @@ const CHANNEL_LABEL: Record<string, string> = {
   email: 'Email',
   widget: 'Web',
   web: 'Web',
+  manual: 'Direct',
 }
+
+const DELIVERABLE_CHANNELS = new Set([
+  'sms',
+  'ghl_sms',
+  'whatsapp',
+  'ghl_whatsapp',
+  'instagram',
+  'messenger',
+  'email',
+  'widget',
+  'web',
+])
 
 const PRIORITY_CYCLE: Record<ConversationPriority, ConversationPriority> = {
   normal: 'high',
@@ -141,6 +154,7 @@ export function ChatArea({
   // SEED-039: operator-selected outbound channel for the composer.
   const [activeChannel, setActiveChannel] = useState<string | null>(null)
   const [contactChannels, setContactChannels] = useState<ComposerChannel[]>([])
+  const [contactChannelsLoaded, setContactChannelsLoaded] = useState(false)
   // Phase 1085 DND: track contact DND state to block composer.
   const [contactDnd, setContactDnd] = useState<{ enabled: boolean; channels: string[] }>({ enabled: false, channels: [] })
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
@@ -177,11 +191,19 @@ export function ChatArea({
   useEffect(() => {
     let cancelled = false
     setContactChannels([])
+    setContactChannelsLoaded(false)
     setContactDnd({ enabled: false, channels: [] })
-    if (!conversation?.contactId) return
+    if (!conversation?.contactId) {
+      setContactChannelsLoaded(true)
+      return
+    }
 
     getContact(conversation.contactId).then((contact) => {
-      if (cancelled || !contact) return
+      if (cancelled) return
+      if (!contact) {
+        setContactChannelsLoaded(true)
+        return
+      }
       const openChannels = contact.conversations
         .filter((c) => c.status === 'open' || c.status === 'pending' || c.status === 'waiting')
         .map((c) => ({
@@ -190,10 +212,13 @@ export function ChatArea({
           conversationId: c.id,
         }))
       setContactChannels(openChannels)
+      setContactChannelsLoaded(true)
       // Phase 1085 DND: surface contact DND state in the composer.
       if (contact.dnd_enabled) {
         setContactDnd({ enabled: true, channels: contact.dnd_channels ?? [] })
       }
+    }).catch(() => {
+      if (!cancelled) setContactChannelsLoaded(true)
     })
 
     return () => {
@@ -275,6 +300,11 @@ export function ChatArea({
   const dndBlockedChannelLabel = contactDnd.channels.includes('all')
     ? 'all channels'
     : contactDnd.channels.map((c) => DND_CHANNEL_LABELS[c] ?? c).join(', ')
+  const hasDeliverableChannel = composerChannelOptions.some((ch) =>
+    DELIVERABLE_CHANNELS.has(ch.channel),
+  )
+  const noAvailableOutboundChannel =
+    contactChannelsLoaded && !hasDeliverableChannel
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
@@ -311,6 +341,7 @@ export function ChatArea({
         isAgentThinking={isAgentThinking}
         agentMap={agentMap}
         primaryChannel={conversation.channel}
+        noAvailableChannel={noAvailableOutboundChannel}
       />
       <MessageBanner conversation={conversation} />
       {/* Phase 1085 DND: banner when this channel is blocked for the contact */}
@@ -324,16 +355,18 @@ export function ChatArea({
         onSendMessage={onSendMessage}
         onTyping={onTyping}
         channelLabel={channelLabel(activeChannel ?? conversation.channel)}
-        disabled={isBotActive || isDndBlocked}
+        disabled={isBotActive || isDndBlocked || noAvailableOutboundChannel}
         disabledHint={
-          isDndBlocked
+          noAvailableOutboundChannel
+            ? 'Activate SMS, WhatsApp, or Email before sending a message.'
+            : isDndBlocked
             ? `DND active — outbound ${dndBlockedChannelLabel} blocked for this contact.`
             : isBotActive
             ? 'Bot is active | pause it to send messages manually.'
             : undefined
         }
         onResumeManual={
-          isBotActive && !isDndBlocked
+          isBotActive && !isDndBlocked && !noAvailableOutboundChannel
             ? () => onBotStatusToggle(conversation.id, conversation.botStatus)
             : undefined
         }

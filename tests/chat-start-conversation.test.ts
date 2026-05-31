@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 type AnyObj = Record<string, unknown>
 let mockClient: AnyObj
 let lastInserts: Array<{ table: string; values: AnyObj }>
+let lastUpdates: Array<{ table: string; values: AnyObj }>
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockClient,
@@ -28,6 +29,7 @@ function makeClient(opts: {
   twilioNumber?: AnyObj | null
 }) {
   lastInserts = []
+  lastUpdates = []
   return {
     rpc: vi.fn().mockResolvedValue({ data: opts.orgId ?? 'org-1' }),
     from: vi.fn((table: string) => {
@@ -42,6 +44,10 @@ function makeClient(opts: {
         insert: vi.fn((values: AnyObj) => {
           isInsert = true
           lastInserts.push({ table, values })
+          return builder
+        }),
+        update: vi.fn((values: AnyObj) => {
+          lastUpdates.push({ table, values })
           return builder
         }),
         maybeSingle: vi.fn(() => Promise.resolve(resolve())),
@@ -85,8 +91,14 @@ describe('createContactConversation', () => {
     mockClient = makeClient({ existingConversation: CONV_ROW })
     const res = await createContactConversation('contact-1', 'sms')
     expect('conversation' in res).toBe(true)
-    if ('conversation' in res) expect(res.conversation.id).toBe('conv-1')
+    if ('conversation' in res) {
+      expect(res.conversation.id).toBe('conv-1')
+      expect(res.conversation.botStatus).toBe('paused')
+    }
     expect(lastInserts.length).toBe(0)
+    expect(lastUpdates.find((u) => u.table === 'conversations')?.values).toMatchObject({
+      bot_status: 'paused',
+    })
   })
 
   it('creates an SMS conversation with visitor_phone + to_number metadata', async () => {
@@ -103,6 +115,7 @@ describe('createContactConversation', () => {
     expect(convInsert?.values).toMatchObject({
       channel: 'sms',
       contact_id: 'contact-1',
+      bot_status: 'paused',
       visitor_phone: '+15551230000',
       channel_metadata: { to_number: '+15551230000' },
       phone_number_id: 'num-1',
@@ -127,6 +140,10 @@ describe('createContactConversation', () => {
     const res = await createContactConversation('contact-1', 'manual')
     expect('conversation' in res).toBe(true)
     const convInsert = lastInserts.find((i) => i.table === 'conversations')
-    expect(convInsert?.values).toMatchObject({ channel: 'manual', contact_id: 'contact-1' })
+    expect(convInsert?.values).toMatchObject({
+      channel: 'manual',
+      contact_id: 'contact-1',
+      bot_status: 'paused',
+    })
   })
 })
