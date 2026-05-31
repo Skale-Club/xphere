@@ -61,9 +61,20 @@ vi.mock('@/lib/twilio/send-sms', () => ({
   sendSms: vi.fn().mockResolvedValue('SMS sent. SID: SM_reply_1'),
 }))
 
+// The route resolves the org/credentials by the destination number, and the
+// processor emits a workflow event — mock both so the inbound pipeline runs
+// in isolation (these query tables the lightweight supabase mock doesn't model).
+vi.mock('@/lib/twilio/voice', () => ({
+  resolveTwilioOrgByToNumber: vi.fn(),
+}))
+vi.mock('@/lib/twilio/events', () => ({
+  emitInboundPhoneEvent: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendSms } from '@/lib/twilio/send-sms'
+import { resolveTwilioOrgByToNumber } from '@/lib/twilio/voice'
 
 // ---- Helpers ----
 
@@ -122,7 +133,13 @@ function buildMockSupabase(opts: MockOptions = {}) {
   const updateConversationSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   })
-  const insertMessageSpy = vi.fn().mockResolvedValue({ data: null, error: null })
+  // Chainable so both `.insert(...).select('id').single()` (user message) and
+  // bare `.insert(...)` (assistant reply) work against the mock.
+  const insertMessageSpy = vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({ data: { id: 'msg-new' }, error: null }),
+    })),
+  }))
 
   const integration =
     opts.integration === undefined
@@ -199,6 +216,11 @@ function buildMockSupabase(opts: MockOptions = {}) {
 describe('SMS-IN-01: HMAC-SHA1 signature validation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(resolveTwilioOrgByToNumber).mockResolvedValue({
+      orgId: 'org-1',
+      phoneNumberId: 'pn-1',
+      creds: { authToken: TEST_AUTH_TOKEN },
+    } as never)
   })
 
   it('returns 200 + empty TwiML when signature is valid', async () => {
@@ -253,6 +275,8 @@ describe('SMS-IN-01: HMAC-SHA1 signature validation', () => {
     const mockDb = buildMockSupabase({ integration: null })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(createServiceRoleClient).mockReturnValue(mockDb as any)
+    // The destination number resolves to no org.
+    vi.mocked(resolveTwilioOrgByToNumber).mockResolvedValue(null as never)
 
     const params = {
       From: '+15551112222',
@@ -294,6 +318,11 @@ describe('SMS-IN-01: HMAC-SHA1 signature validation', () => {
 describe('SMS-IN-02: Conversation upsert', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(resolveTwilioOrgByToNumber).mockResolvedValue({
+      orgId: 'org-1',
+      phoneNumberId: 'pn-1',
+      creds: { authToken: TEST_AUTH_TOKEN },
+    } as never)
   })
 
   it('creates a new conversation with channel="sms" and visitor_phone=From', async () => {
@@ -361,6 +390,11 @@ describe('SMS-IN-02: Conversation upsert', () => {
 describe('SMS-IN-03: Duplicate MessageSid deduplication', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(resolveTwilioOrgByToNumber).mockResolvedValue({
+      orgId: 'org-1',
+      phoneNumberId: 'pn-1',
+      creds: { authToken: TEST_AUTH_TOKEN },
+    } as never)
   })
 
   it('does not insert a second conversation_message when MessageSid already exists', async () => {
@@ -397,6 +431,11 @@ describe('SMS-IN-03: Duplicate MessageSid deduplication', () => {
 describe('SMS-IN-04: Agent invocation + send_sms reply', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(resolveTwilioOrgByToNumber).mockResolvedValue({
+      orgId: 'org-1',
+      phoneNumberId: 'pn-1',
+      creds: { authToken: TEST_AUTH_TOKEN },
+    } as never)
   })
 
   it('invokes runAgent with channel="sms" when agent_channel_defaults has an SMS agent', async () => {
