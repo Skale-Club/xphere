@@ -7,6 +7,7 @@ export const runtime = 'nodejs'
 
 import crypto from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 
 // Resend uses Svix for webhook delivery. We validate via the shared secret approach
 // using RESEND_WEBHOOK_SECRET (set in environment for inbound routes).
@@ -132,67 +133,44 @@ export async function POST(request: Request) {
       contactId = (newContactRaw as { id: string } | null)?.id ?? null
     }
 
-    // 3. Find or create conversation thread (channel='email', contact_id)
-    let conversationId: string
-
-    const { data: existingConversationRaw } = await db
-      .from('conversations')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('channel', 'email')
-      .eq('contact_id', contactId)
-      .eq('status', 'open')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    const existingConversation = existingConversationRaw as { id: string } | null
-
-    if (existingConversation) {
-      conversationId = existingConversation.id
-    } else {
-      // Create a new email conversation
-      const { data: newConversationRaw } = await db
-        .from('conversations')
-        .insert({
-          org_id: orgId,
-          widget_token: crypto.randomUUID(), // required field
-          channel: 'email',
-          contact_id: contactId,
-          visitor_email: fromEmail,
-          status: 'open',
-          last_active_at: new Date().toISOString(),
-          last_message_at: new Date().toISOString(),
-          last_message: subject,
-          channel_metadata: { inbound_address: toNormalized },
-        })
-        .select('id')
-        .single()
-
-      const newConversation = newConversationRaw as { id: string } | null
-
-      if (!newConversation) {
-        console.error('[resend/inbound] Failed to create conversation for org', orgId)
-        return Response.json({ ok: true })
-      }
-
-      conversationId = newConversation.id
-    }
-
-    // 4. Insert conversation message with email fields
-    await db.from('conversation_messages').insert({
-      org_id: orgId,
-      conversation_id: conversationId,
-      role: 'user',
-      content: html,
+    // 3+4. Find-or-create the email thread + insert the inbound message via the
+    // shared normalizer (dedup by org + channel='email' + contact_id, newest
+    // open thread). last_message is bumped in step 5 below, so updatePayload is
+    // empty (no touch on the existing thread here).
+    const norm = await normalizeInbound({
+      supabase,
+      orgId,
       channel: 'email',
-      message_type: 'email',
-      email_subject: subject,
-      email_from: from,
-      email_to: to,
-      email_message_id: messageId,
-      email_delivery_status: 'delivered',
+      match: { by: 'contact_open', contactId: contactId ?? '' },
+      updatePayload: {},
+      createPayload: {
+        widget_token: crypto.randomUUID(), // required field
+        contact_id: contactId,
+        visitor_email: fromEmail,
+        status: 'open',
+        last_active_at: new Date().toISOString(),
+        last_message_at: new Date().toISOString(),
+        last_message: subject,
+        channel_metadata: { inbound_address: toNormalized },
+      },
+      message: {
+        role: 'user',
+        content: html,
+        channel: 'email',
+        message_type: 'email',
+        email_subject: subject,
+        email_from: from,
+        email_to: to,
+        email_message_id: messageId,
+        email_delivery_status: 'delivered',
+      },
     })
+
+    if (norm.error) {
+      console.error('[resend/inbound] Failed to persist inbound email for org', orgId, norm.error)
+      return Response.json({ ok: true })
+    }
+    const conversationId = norm.conversationId
 
     // 5. Update conversation last_message
     await db
