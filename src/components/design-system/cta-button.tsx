@@ -55,18 +55,10 @@ export function CTAButton({
   size = 'lg',
   ...rest
 }: CTAButtonProps) {
-  const button = (
-    <Button
-      size={size}
-      type={'type' in rest ? rest.type : undefined}
-      onClick={'onClick' in rest ? rest.onClick : undefined}
-      className={cn(
-        'px-8 gap-0 btn-cta group',
-        'shadow-lg shadow-indigo-500/40 hover:shadow-indigo-500/60',
-        'transition-shadow duration-300',
-        className,
-      )}
-    >
+  const isLink = 'href' in rest && !!rest.href
+
+  const inner = (
+    <>
       {children}
       <span
         className={cn(
@@ -79,11 +71,23 @@ export function CTAButton({
       >
         <Icon className="h-4 w-4 shrink-0" />
       </span>
-    </Button>
+    </>
   )
 
-  if ('href' in rest && rest.href) {
-    return <Link href={rest.href}>{button}</Link>
-  }
-  return button
+  return (
+    <Button
+      asChild={isLink}
+      size={size}
+      type={!isLink && 'type' in rest ? rest.type : undefined}
+      onClick={!isLink && 'onClick' in rest ? rest.onClick : undefined}
+      className={cn(
+        'px-8 gap-0 btn-cta group',
+        'shadow-lg shadow-indigo-500/40 hover:shadow-indigo-500/60',
+        'transition-shadow duration-300',
+        className,
+      )}
+    >
+      {isLink ? <Link href={rest.href}>{inner}</Link> : inner}
+    </Button>
+  )
 }
