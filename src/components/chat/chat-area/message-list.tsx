@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronDown, Info, Mail } from 'lucide-react'
+import { ChevronDown, Info, Mail, RadioTower } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -37,6 +37,8 @@ interface MessageListProps {
   agentMap?: Record<string, string>
   /** SEED-039: primary channel of the conversation for per-message badge fallback. */
   primaryChannel?: string
+  /** When true, the empty center state explains that no outbound transport exists. */
+  noAvailableChannel?: boolean
 }
 
 function formatTime(iso: string): string {
@@ -70,6 +72,7 @@ export function MessageList({
   isTyping = false,
   isAgentThinking = false,
   agentMap,
+  noAvailableChannel = false,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -123,6 +126,18 @@ export function MessageList({
         <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8">
           {isLoading ? (
             <LoadingShimmer />
+          ) : messages.length === 0 && noAvailableChannel ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/25">
+                <RadioTower className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-[13px] font-medium text-text-primary">
+                No active channel for this contact
+              </p>
+              <p className="mt-1 max-w-sm text-[12px] leading-relaxed text-text-secondary">
+                Activate SMS, WhatsApp, or Email before starting this conversation.
+              </p>
+            </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-12 w-12 rounded-full bg-bg-tertiary flex items-center justify-center ring-1 ring-border-subtle text-text-tertiary">

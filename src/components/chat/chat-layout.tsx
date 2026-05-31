@@ -25,7 +25,7 @@
  * optimistic state with the canonical DB.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -43,6 +43,7 @@ import {
   listOrgMembers,
   resolveContactStartChannels,
   createContactConversation,
+  prepareContactConversationForOpen,
   type OrgMember,
   type StartChannel,
 } from '@/app/(dashboard)/chat/actions'
@@ -253,6 +254,11 @@ export function ChatLayout({
       setFetchedConversation((prev) => (prev ? null : prev))
       return
     }
+    if (initialContactId && initialConversationId === selectedId) {
+      // The contact-open preparation effect below owns this fetch/update so it
+      // cannot race with a stale detail response that still says bot active.
+      return
+    }
     if (fetchedConversation?.id === selectedId) return
     let cancelled = false
     fetch(`/api/chat/conversations/${selectedId}`)
@@ -265,7 +271,28 @@ export function ChatLayout({
     return () => {
       cancelled = true
     }
-  }, [selectedId, conversations, pinned, fetchedConversation])
+  }, [selectedId, conversations, pinned, fetchedConversation, initialContactId, initialConversationId])
+
+  // Arriving via /chat?contact=ID with an existing conversation selected by
+  // the server is still an operator-initiated open. Hydrate the contact fields
+  // and force manual mode so the composer is usable immediately.
+  useEffect(() => {
+    if (!initialContactId || !initialConversationId) return
+
+    let cancelled = false
+    prepareContactConversationForOpen(initialConversationId, initialContactId)
+      .then((result) => {
+        if (cancelled || !('conversation' in result)) return
+        setFetchedConversation(result.conversation)
+        setSelectedId(result.conversation.id)
+        upsertConversation(result.conversation)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [initialContactId, initialConversationId, upsertConversation])
 
   // Arriving via /chat?contact=ID for a contact with NO existing conversation:
   // resolve the best real channel (SMS if phone+Twilio, else fall back to a
@@ -669,6 +696,15 @@ export function ChatLayout({
       ? fetchedConversation
       : null)
 
+  const visibleConversations = useMemo(() => {
+    if (!selected) return conversations
+    const alreadyVisible =
+      conversations.some((c) => c.id === selected.id) ||
+      pinned.some((c) => c.id === selected.id)
+    if (alreadyVisible) return conversations
+    return [selected, ...conversations].slice(0, pageSize)
+  }, [conversations, pageSize, pinned, selected])
+
   // Helper for optimistic mutations: lookup across both buckets.
   const findVisibleConversation = useCallback(
     (id: string): ConversationSummary | undefined => {
@@ -686,7 +722,7 @@ export function ChatLayout({
       <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
         <div className="h-full min-h-0 shrink-0 overflow-hidden" style={{ width: inboxWidth }}>
           <ConversationList
-            conversations={conversations}
+            conversations={visibleConversations}
             pinned={pinned}
             selectedId={selectedId}
             currentUserId={currentUserId}
@@ -807,7 +843,7 @@ export function ChatLayout({
         {mobileView === 'list' && (
           <div className="h-full min-h-0 w-full">
             <ConversationList
-              conversations={conversations}
+              conversations={visibleConversations}
               pinned={pinned}
               selectedId={selectedId}
               currentUserId={currentUserId}

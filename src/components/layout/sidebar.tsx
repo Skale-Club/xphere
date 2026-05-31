@@ -128,7 +128,7 @@ function SidebarBody({
           href="/"
           onClick={onNavigate}
           className={cn(
-            'group/logo flex items-center gap-2 px-1.5 py-1 rounded-[8px] motion-fast',
+            'group/logo flex items-center gap-2 px-1.5 py-1 rounded-[8px] transition-colors duration-100 ease-out',
             collapsed && 'hidden',
           )}
         >
@@ -164,7 +164,7 @@ function SidebarBody({
           <Link
             href="/"
             onClick={onNavigate}
-            className="group/logo flex items-center justify-center rounded-[8px] py-1 motion-fast"
+            className="group/logo flex items-center justify-center rounded-[8px] py-1 transition-colors duration-100 ease-out"
           >
             <div className="relative h-6 w-6 transition-[filter] duration-200 group-hover/logo:drop-shadow-[0_0_8px_rgba(79,57,246,0.6)]">
               <XphereOrb size={24} />
@@ -211,7 +211,7 @@ function SidebarBody({
                     onClick={onNavigate}
                     className={cn(
                       'relative flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-medium',
-                      'motion-fast',
+                      'transition-colors duration-100 ease-out',
                       isActive
                         ? 'bg-accent-muted text-text-primary'
                         : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
@@ -253,7 +253,7 @@ function SidebarBody({
             <button
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-1.5 text-left',
-                'hover:bg-bg-tertiary motion-fast',
+                'hover:bg-bg-tertiary transition-colors duration-100 ease-out',
               )}
             >
               <Avatar className="h-6 w-6 shrink-0">

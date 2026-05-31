@@ -282,9 +282,24 @@ const START_CHANNEL_LABEL: Record<StartChannel, string> = {
 
 /** Columns selected when returning a ConversationSummary to the client. */
 const CONVERSATION_SUMMARY_COLUMNS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) )'
 
 function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
+  const contact = row.contacts as {
+    first_name?: string | null
+    last_name?: string | null
+    name?: string | null
+    avatar_url?: string | null
+    contact_verifications?: Array<{ id: string }> | null
+  } | null
+  const contactName =
+    [contact?.first_name?.trim(), contact?.last_name?.trim()].filter(Boolean).join(' ') ||
+    contact?.name?.trim() ||
+    null
+  const contactVerified =
+    Array.isArray(contact?.contact_verifications) &&
+    contact!.contact_verifications!.length > 0
+
   return {
     id: row.id as string,
     status: ((row.status as string) ?? 'open') as ConversationStatus,
@@ -300,6 +315,9 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     botStatus: (row.bot_status as string) ?? 'active',
     channelAccountName: null,
     contactId: (row.contact_id as string | null) ?? null,
+    contactName,
+    contactAvatarUrl: contact?.avatar_url?.trim() || null,
+    contactVerified,
     pinned: Boolean(row.pinned),
     starred: Boolean(row.starred),
     priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
@@ -441,7 +459,27 @@ export async function createContactConversation(
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
-  if (existing) return { conversation: mapConversationRow(existing) }
+  const existingRow = existing as Record<string, unknown> | null
+  if (existingRow) {
+    const preparedUpdatedAt = new Date().toISOString()
+    const prepared =
+      existingRow.bot_status === 'paused'
+        ? existingRow
+        : {
+            ...existingRow,
+            bot_status: 'paused',
+            updated_at: preparedUpdatedAt,
+          }
+
+    if (existingRow.bot_status !== 'paused') {
+      await supabase
+        .from('conversations')
+        .update({ bot_status: 'paused', updated_at: preparedUpdatedAt })
+        .eq('id', existingRow.id as string)
+    }
+
+    return { conversation: mapConversationRow(prepared) }
+  }
 
   const insert: Database['public']['Tables']['conversations']['Insert'] = {
     org_id: orgId as string,
@@ -449,6 +487,7 @@ export async function createContactConversation(
     contact_id: liveContactId,
     channel,
     status: 'open',
+    bot_status: 'paused',
   }
 
   if (channel === 'sms' || channel === 'whatsapp') {
@@ -495,10 +534,48 @@ export async function createContactConversation(
     .select(CONVERSATION_SUMMARY_COLUMNS)
     .single()
 
-  if (error || !created) {
+  const createdRow = created as Record<string, unknown> | null
+  if (error || !createdRow) {
     // eslint-disable-next-line no-console
     console.error('[chat:create-conversation]', error)
     return { error: error?.message ?? 'Failed to create conversation.' }
   }
-  return { conversation: mapConversationRow(created) }
+  return { conversation: mapConversationRow(createdRow) }
+}
+
+/**
+ * Opening /chat?contact=... is an operator-initiated workflow. Ensure the
+ * selected thread is linked to the live contact and in manual mode so the
+ * operator can send the first outbound message immediately.
+ */
+export async function prepareContactConversationForOpen(
+  conversationId: string,
+  contactId: string,
+): Promise<{ conversation: ConversationSummary } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  if (!conversationId || !contactId) return { error: 'Missing conversation or contact.' }
+
+  const supabase = await createClient()
+  const liveContactId = await resolveLiveContactId(contactId)
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .update({
+      contact_id: liveContactId,
+      bot_status: 'paused',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', conversationId)
+    .select(CONVERSATION_SUMMARY_COLUMNS)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[chat:prepare-contact-conversation]', error)
+    return { error: error.message }
+  }
+  const row = data as Record<string, unknown> | null
+  if (!row) return { error: 'Conversation not found.' }
+
+  return { conversation: mapConversationRow(row) }
 }
