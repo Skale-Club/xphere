@@ -253,8 +253,13 @@ export async function searchContactsForLink(query: string): Promise<Array<{
 /** Channels we can start a conversation on. 'manual' is the placeholder fallback. */
 export type StartChannel = 'sms' | 'email' | 'whatsapp'
 
-/** Channels with end-to-end create + deliver support wired today. */
-export const IMPLEMENTED_START_CHANNELS: StartChannel[] = ['sms', 'email', 'whatsapp']
+// Channels with end-to-end create + deliver support wired today.
+// NOTE: must NOT be `export`ed — this file carries the `'use server'` directive,
+// and a Server Actions module may only export async functions. A non-async
+// export (this array) is tolerated by `next build` (Turbopack) but rejected by
+// the production server at runtime, making every action in this file 500 with
+// "An error occurred in the Server Components render". Keep it module-internal.
+const IMPLEMENTED_START_CHANNELS: StartChannel[] = ['sms', 'email', 'whatsapp']
 
 export interface StartChannelOption {
   channel: StartChannel
