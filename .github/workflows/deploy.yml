@@ -1,0 +1,51 @@
+name: Deploy to Coolify
+
+# Auto-deploy: every push to `main` pings the Coolify deploy API, which then
+# pulls the new commit and rebuilds/runs the app (Coolify still does the actual
+# Docker build + run — this workflow is only the trigger). Makes production
+# deploys hands-off; watch progress in the Actions tab.
+#
+# Coolify's native GitHub-App auto-deploy toggle is not exposed by the v4.1.1
+# public API, so this thin trigger is how we wire push -> deploy from code.
+# If native "Automatic Deployment" is ever enabled in the Coolify UI, DISABLE
+# this workflow to avoid double deploys.
+#
+# Secret required: COOLIFY_TOKEN (Coolify API token). If that token is rotated,
+# update the repo secret or this stops working.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Never run two deploys at once; let an in-flight one finish.
+concurrency:
+  group: coolify-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Must be the HTTPS domain, NOT http://<ip>:8000 — the Hetzner firewall
+      # closes 8000 to the public, so GitHub-hosted runners can only reach
+      # Coolify on 443 via the domain.
+      COOLIFY_BASE: https://coolify.skale.club
+      APP_UUID: c70jg4t9o88x985dctsl57qy
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "::error::COOLIFY_TOKEN secret is not set"; exit 1
+          fi
+          echo "Triggering deploy for app ${APP_UUID}…"
+          curl --fail-with-body -sS --retry 3 --retry-all-errors \
+            "${COOLIFY_BASE}/api/v1/deploy?uuid=${APP_UUID}" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo
+          echo "Deploy queued on Coolify. Track build progress in the Coolify dashboard."

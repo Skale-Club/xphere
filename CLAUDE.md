@@ -117,9 +117,18 @@ When you need to author a workflow (manually, via Copilot, or from a Claude Code
 
 - Self-hosted **Coolify** (Hetzner box, shared Docker host) builds and runs the
   Next.js app from the `Dockerfile` (standalone output). Production: `xphere.app`.
+  Coolify app uuid `c70jg4t9o88x985dctsl57qy` (project `skale-apps`/`production`),
+  GitHub App source, branch `main`.
+- **Auto-deploy:** every push to `main` triggers `.github/workflows/deploy.yml`,
+  which pings the Coolify deploy API (`/api/v1/deploy?uuid=…`); Coolify then
+  pulls the commit and rebuilds/runs. Coolify still does the actual build/run —
+  the workflow is only the push→deploy trigger (the native auto-deploy toggle
+  isn't exposed by the Coolify v4.1.1 API). Requires repo secret `COOLIFY_TOKEN`;
+  if that token is rotated, update the secret. Don't also enable Coolify's UI
+  "Automatic Deployment" or pushes will deploy twice.
 - Supabase handles background Edge Functions and database-backed jobs
-- GitHub Actions is reserved for low-risk scheduled automation
-  (cron-tick, keepalive, etc.) — domain-stable, not host-coupled.
+- Other GitHub Actions are low-risk scheduled automation (cron-tick, keepalive,
+  etc.) — domain-stable.
 
 ## Sensitive Paths
 
