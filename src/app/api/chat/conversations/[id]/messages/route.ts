@@ -3,14 +3,7 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 import type { ConversationMessage } from '@/types/chat'
-import { decrypt } from '@/lib/crypto'
-import { sendMetaMessage } from '@/lib/meta/send-message'
-import { sendGhlMessage, channelToGhlType } from '@/lib/ghl/send-message'
-import { sendSms } from '@/lib/twilio/send-sms'
-import { sendTenantEmail } from '@/lib/email/resend'
-import { sendWhatsappMessage } from '@/lib/evolution/send-message'
-import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
-import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
+import { dispatchOutbound } from '@/lib/messaging/dispatch-outbound'
 
 export const runtime = 'nodejs'
 
@@ -229,160 +222,26 @@ export async function POST(
     .eq('id', id)
 
   // --- Outbound channel routing ---
-  // DB insert and last_message update are complete for ALL channels at this point.
-  // Widget: no outbound call needed | SSE picks up the persisted message.
-  // Messenger / Instagram: call Meta Send API synchronously.
-  // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
-  if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
-    const metadata = conv.channel_metadata as Record<string, string>
-    const locationId = metadata.location_id
-    const contactId = metadata.contact_id
-    const ghlConversationId = metadata.ghl_conversation_id
-
-    const { data: ghlChannel } = await supabase
-      .from('ghl_channels')
-      .select('encrypted_api_key')
-      .eq('org_id', conv.org_id)
-      .eq('location_id', locationId)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (!ghlChannel) {
-      return Response.json({ error: 'ghl_channel_not_configured' }, { status: 400 })
-    }
-
-    const apiKey = await decrypt(ghlChannel.encrypted_api_key)
-
-    // Build the outbound message | optionally prefix with operator name
-    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
-
-    try {
-      await sendGhlMessage(
-        {
-          contactId,
-          message: outboundContent,
-          type: channelToGhlType(conv.channel),
-          conversationId: ghlConversationId || undefined,
-        },
-        { apiKey, locationId }
-      )
-    } catch (err) {
-      console.error('[POST messages] GHL send error:', err)
-      return Response.json({ error: 'ghl_send_failed' }, { status: 502 })
-    }
-  }
-
-  if (conv.channel === 'messenger' || conv.channel === 'instagram') {
-    const metadata = conv.channel_metadata as Record<string, string>
-    const pageId = metadata.page_id
-
-    const { data: metaChannel } = await supabase
-      .from('meta_channels')
-      .select('encrypted_page_access_token')
-      .eq('page_id', pageId)
-      .eq('channel_type', conv.channel)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (!metaChannel) {
-      return Response.json({ error: 'channel_not_configured' }, { status: 400 })
-    }
-
-    const pageToken = await decrypt(metaChannel.encrypted_page_access_token)
-
-    // messenger → sender_id, instagram → igsid (per process-event.ts lines 93-96)
-    // NOTE: Migration 020 SQL comment says "psid" | this is WRONG. Use sender_id.
-    const recipientId =
-      conv.channel === 'instagram'
-        ? (metadata.igsid ?? '')
-        : (metadata.sender_id ?? '')
-
-    const result = await sendMetaMessage(pageToken, recipientId, content)
-
-    if ('error' in result) {
-      if (result.code === 190) {
-        return Response.json({ error: 'token_revoked', channel: conv.channel }, { status: 400 })
-      }
-      return Response.json({ error: 'meta_send_failed', message: result.error }, { status: 502 })
-    }
-  }
-
-  // Native Twilio SMS: send via the org's Twilio credentials. The recipient is
-  // the conversation's visitor phone (set when the thread was created/opened
-  // for the contact) or the stored to_number.
-  if (conv.channel === 'sms') {
-    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
-    const to = conv.visitor_phone ?? metadata.to_number ?? ''
-    if (!to) {
-      return Response.json({ error: 'sms_no_recipient' }, { status: 400 })
-    }
-    // Text-only for now (media via Twilio MMS is a separate follow-up).
-    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
-    try {
-      await sendSms(
-        {
-          to,
-          body: outboundContent,
-          phone_number_id: conv.phone_number_id ?? undefined,
-        },
-        {
-          organizationId: conv.org_id,
-          supabase,
-          contactId: conv.contact_id ?? undefined,
-          conversationId: id,
-        },
-      )
-    } catch (err) {
-      console.error('[POST messages] Twilio SMS send error:', err)
-      const message = err instanceof Error ? err.message : 'sms_send_failed'
-      return Response.json({ error: 'sms_send_failed', message }, { status: 502 })
-    }
-  }
-
-  // Email: send via the org's Resend (tenant) integration.
-  if (conv.channel === 'email') {
-    const to = conv.visitor_email ?? ''
-    if (!to) {
-      return Response.json({ error: 'email_no_recipient' }, { status: 400 })
-    }
-    const safe = content
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    const html = `<div style="white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">${safe}</div>`
-    const res = await sendTenantEmail(conv.org_id, to, emailSubject, html)
-    if (res.error) {
-      return Response.json({ error: 'email_send_failed', message: res.error }, { status: 502 })
-    }
-  }
-
-  // Native WhatsApp (Evolution or Meta Cloud). The route already persisted the
-  // message row above, so we use the low-level senders (no extra persistence).
-  if (conv.channel === 'whatsapp') {
-    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
-    const to = conv.visitor_phone ?? metadata.to_number ?? metadata.sender_jid ?? ''
-    if (!to) {
-      return Response.json({ error: 'wa_no_recipient' }, { status: 400 })
-    }
-    if (metadata.provider === 'meta_cloud') {
-      const account = await getActiveCloudAccount(conv.org_id)
-      if (!account) {
-        return Response.json({ error: 'wa_not_configured' }, { status: 400 })
-      }
-      const res = await sendCloudText({ account, to, body: content })
-      if (!res.ok) {
-        return Response.json(
-          { error: 'wa_send_failed', message: res.error, outsideWindow: res.outsideWindow },
-          { status: 502 },
-        )
-      }
-    } else {
-      // Evolution Go (default). Omit conversationId so it does NOT persist again.
-      const res = await sendWhatsappMessage({ orgId: conv.org_id, to, text: content })
-      if (!res.ok) {
-        return Response.json({ error: 'wa_send_failed', message: res.error }, { status: 502 })
-      }
-    }
+  // DB insert and last_message update are complete for ALL channels at this
+  // point. The channel→provider dispatch lives in one shared place
+  // (dispatchOutbound) so action-engine executors and campaign dispatchers can
+  // route through the same entry point. Widget/telegram/manychat/voice have no
+  // provider branch and resolve ok (message persisted, nothing pushed).
+  const dispatch = await dispatchOutbound(
+    {
+      id: conv.id,
+      org_id: conv.org_id,
+      channel: conv.channel,
+      channel_metadata: conv.channel_metadata,
+      visitor_phone: conv.visitor_phone,
+      visitor_email: conv.visitor_email,
+      phone_number_id: conv.phone_number_id,
+      contact_id: conv.contact_id,
+    },
+    { content, operatorName, emailSubject, supabase },
+  )
+  if (!dispatch.ok) {
+    return Response.json(dispatch.body, { status: dispatch.status })
   }
   // --- End outbound channel routing ---
 
