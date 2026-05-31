@@ -69,7 +69,7 @@ export async function dispatchOutbound(
 
   // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
   if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
-    const metadata = conv.channel_metadata as Record<string, string>
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const locationId = metadata.location_id
     const contactId = metadata.contact_id
     const ghlConversationId = metadata.ghl_conversation_id
@@ -108,7 +108,7 @@ export async function dispatchOutbound(
   }
 
   if (conv.channel === 'messenger' || conv.channel === 'instagram') {
-    const metadata = conv.channel_metadata as Record<string, string>
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const pageId = metadata.page_id
 
     const { data: metaChannel } = await supabase

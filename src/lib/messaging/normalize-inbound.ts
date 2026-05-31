@@ -149,7 +149,11 @@ export async function normalizeInbound(
   }
 
   // 3. Idempotency guard — skip the insert if this provider message is known.
-  if (idempotencyMetadata) {
+  // Only run when every key has a usable (truthy) value: an undefined provider
+  // id would serialize to `{}` and `.contains('metadata', {})` matches ANY
+  // prior user message, which would silently drop every inbound. When the id
+  // is missing we prefer inserting (no dedup) over dropping.
+  if (idempotencyMetadata && Object.values(idempotencyMetadata).every((v) => v != null && v !== '')) {
     const { data: dup } = await supabase
       .from('conversation_messages')
       .select('id')

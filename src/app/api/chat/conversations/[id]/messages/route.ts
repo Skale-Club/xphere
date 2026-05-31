@@ -225,8 +225,8 @@ export async function POST(
   // DB insert and last_message update are complete for ALL channels at this
   // point. The channel→provider dispatch lives in one shared place
   // (dispatchOutbound) so action-engine executors and campaign dispatchers can
-  // route through the same entry point. Widget/telegram/manychat/voice have no
-  // provider branch and resolve ok (message persisted, nothing pushed).
+  // route through the same entry point. Widget/manychat/voice have no provider
+  // branch and resolve ok (message persisted, nothing pushed).
   const dispatch = await dispatchOutbound(
     {
       id: conv.id,

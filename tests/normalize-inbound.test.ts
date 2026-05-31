@@ -187,6 +187,25 @@ describe('normalizeInbound', () => {
     expect(sb.convUpdate).not.toHaveBeenCalled()
   })
 
+  it('idempotency guard: a missing (undefined) provider id skips dedup and still inserts the message', async () => {
+    // dup row is present, but the guard must skip the dedup check because the
+    // provider id is undefined (avoids the .contains({}) match-all that would
+    // silently drop every inbound).
+    const sb = makeSupabase({ existing: { id: 'conv-x', bot_status: 'active', contact_id: null }, dup: { id: 'would-dup' } })
+    const res = await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'sms',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: {},
+      updatePayload: { last_message: 'x' },
+      message: baseMsg,
+      idempotencyMetadata: { message_sid: undefined },
+    })
+    expect(res.duplicate).toBe(false)
+    expect(res.messageId).toBe('msg-1')
+  })
+
   it('conversation create failure: returns error, no message insert', async () => {
     const sb = makeSupabase({ existing: null, createErr: { message: 'insert boom' } })
     const res = await normalizeInbound({

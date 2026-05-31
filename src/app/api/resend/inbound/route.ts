@@ -133,6 +133,13 @@ export async function POST(request: Request) {
       contactId = (newContactRaw as { id: string } | null)?.id ?? null
     }
 
+    // Without a resolved contact we can't dedup the thread by contact_id, and
+    // passing '' to a uuid column would error. Skip gracefully (still 200).
+    if (!contactId) {
+      console.warn('[resend/inbound] No contact resolved for', fromEmail, '| skipping')
+      return Response.json({ ok: true })
+    }
+
     // 3+4. Find-or-create the email thread + insert the inbound message via the
     // shared normalizer (dedup by org + channel='email' + contact_id, newest
     // open thread). last_message is bumped in step 5 below, so updatePayload is
@@ -141,7 +148,7 @@ export async function POST(request: Request) {
       supabase,
       orgId,
       channel: 'email',
-      match: { by: 'contact_open', contactId: contactId ?? '' },
+      match: { by: 'contact_open', contactId },
       updatePayload: {},
       createPayload: {
         widget_token: crypto.randomUUID(), // required field
