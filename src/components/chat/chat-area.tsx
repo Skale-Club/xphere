@@ -72,6 +72,8 @@ interface ChatAreaProps {
       channel?: string
       /** SEED-039: send through another open conversation for the same contact. */
       conversationId?: string
+      /** Email channel: subject line for the outbound email. */
+      subject?: string
     },
   ) => Promise<void>
   onTyping?: () => void
@@ -102,6 +104,8 @@ interface ChatAreaProps {
    * Used when arriving via /chat?contact=ID for a contact with no thread.
    */
   emptyContactId?: string | null
+  /** True while a conversation is being auto-created for the contact. */
+  isStartingConversation?: boolean
 }
 
 export function ChatArea({
@@ -129,6 +133,7 @@ export function ChatArea({
   agentMap,
   composerChannels,
   emptyContactId,
+  isStartingConversation = false,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   // SEED-039: per-thread channel filter (client-side, no refetch).
@@ -213,7 +218,14 @@ export function ChatArea({
   if (!conversation) {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-bg-primary px-6">
-        {emptyContactId ? (
+        {isStartingConversation ? (
+          <EmptyState
+            icon={MessageSquare}
+            title="Starting conversation…"
+            description="Setting up the inbox for this contact."
+            className="max-w-md"
+          />
+        ) : emptyContactId ? (
           <EmptyState
             icon={MessageSquare}
             title="No conversations yet"

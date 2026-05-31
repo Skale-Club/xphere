@@ -6,6 +6,11 @@ import type { ConversationMessage } from '@/types/chat'
 import { decrypt } from '@/lib/crypto'
 import { sendMetaMessage } from '@/lib/meta/send-message'
 import { sendGhlMessage, channelToGhlType } from '@/lib/ghl/send-message'
+import { sendSms } from '@/lib/twilio/send-sms'
+import { sendTenantEmail } from '@/lib/email/resend'
+import { sendWhatsappMessage } from '@/lib/evolution/send-message'
+import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
+import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 
 export const runtime = 'nodejs'
 
@@ -117,6 +122,8 @@ const SendMessageSchema = z.object({
   operator_prefix: z.boolean().optional().default(false),
   /** Optional media attachments (uploaded via /api/chat/upload beforehand). */
   media: z.array(MediaItemSchema).optional(),
+  /** Email channel: subject line for the outbound email. */
+  subject: z.string().optional(),
 })
 
 export async function POST(
@@ -132,7 +139,7 @@ export async function POST(
   // Verify conversation belongs to org via RLS
   const { data: conv } = await supabase
     .from('conversations')
-    .select('id, org_id, channel, channel_metadata, assigned_user_id')
+    .select('id, org_id, channel, channel_metadata, assigned_user_id, visitor_phone, visitor_email, phone_number_id, contact_id')
     .eq('id', id)
     .single()
 
@@ -150,6 +157,8 @@ export async function POST(
 
   const { content, role, operator_prefix, media } = parsed.data
   const messageChannel = parsed.data.channel ?? conv.channel ?? null
+  // Email subject: operator-provided, else a sensible default.
+  const emailSubject = parsed.data.subject?.trim() || 'New message'
 
   // Require either content or media
   if (!content && (!media || media.length === 0)) {
@@ -191,6 +200,9 @@ export async function POST(
       message_type: messageType,
       channel: messageChannel,
       ...(Object.keys(msgMetadata).length > 0 ? { metadata: msgMetadata } : {}),
+      ...(conv.channel === 'email'
+        ? { email_subject: emailSubject, email_to: conv.visitor_email }
+        : {}),
     })
     .select('id, conversation_id, role, content, created_at, metadata, channel')
     .single()
@@ -292,6 +304,84 @@ export async function POST(
         return Response.json({ error: 'token_revoked', channel: conv.channel }, { status: 400 })
       }
       return Response.json({ error: 'meta_send_failed', message: result.error }, { status: 502 })
+    }
+  }
+
+  // Native Twilio SMS: send via the org's Twilio credentials. The recipient is
+  // the conversation's visitor phone (set when the thread was created/opened
+  // for the contact) or the stored to_number.
+  if (conv.channel === 'sms') {
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
+    const to = conv.visitor_phone ?? metadata.to_number ?? ''
+    if (!to) {
+      return Response.json({ error: 'sms_no_recipient' }, { status: 400 })
+    }
+    // Text-only for now (media via Twilio MMS is a separate follow-up).
+    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
+    try {
+      await sendSms(
+        {
+          to,
+          body: outboundContent,
+          phone_number_id: conv.phone_number_id ?? undefined,
+        },
+        {
+          organizationId: conv.org_id,
+          supabase,
+          contactId: conv.contact_id ?? undefined,
+          conversationId: id,
+        },
+      )
+    } catch (err) {
+      console.error('[POST messages] Twilio SMS send error:', err)
+      const message = err instanceof Error ? err.message : 'sms_send_failed'
+      return Response.json({ error: 'sms_send_failed', message }, { status: 502 })
+    }
+  }
+
+  // Email: send via the org's Resend (tenant) integration.
+  if (conv.channel === 'email') {
+    const to = conv.visitor_email ?? ''
+    if (!to) {
+      return Response.json({ error: 'email_no_recipient' }, { status: 400 })
+    }
+    const safe = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    const html = `<div style="white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">${safe}</div>`
+    const res = await sendTenantEmail(conv.org_id, to, emailSubject, html)
+    if (res.error) {
+      return Response.json({ error: 'email_send_failed', message: res.error }, { status: 502 })
+    }
+  }
+
+  // Native WhatsApp (Evolution or Meta Cloud). The route already persisted the
+  // message row above, so we use the low-level senders (no extra persistence).
+  if (conv.channel === 'whatsapp') {
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
+    const to = conv.visitor_phone ?? metadata.to_number ?? metadata.sender_jid ?? ''
+    if (!to) {
+      return Response.json({ error: 'wa_no_recipient' }, { status: 400 })
+    }
+    if (metadata.provider === 'meta_cloud') {
+      const account = await getActiveCloudAccount(conv.org_id)
+      if (!account) {
+        return Response.json({ error: 'wa_not_configured' }, { status: 400 })
+      }
+      const res = await sendCloudText({ account, to, body: content })
+      if (!res.ok) {
+        return Response.json(
+          { error: 'wa_send_failed', message: res.error, outsideWindow: res.outsideWindow },
+          { status: 502 },
+        )
+      }
+    } else {
+      // Evolution Go (default). Omit conversationId so it does NOT persist again.
+      const res = await sendWhatsappMessage({ orgId: conv.org_id, to, text: content })
+      if (!res.ok) {
+        return Response.json({ error: 'wa_send_failed', message: res.error }, { status: 502 })
+      }
     }
   }
   // --- End outbound channel routing ---

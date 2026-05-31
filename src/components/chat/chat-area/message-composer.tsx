@@ -52,7 +52,7 @@ export type ComposerChannel = {
 interface MessageComposerProps {
   onSendMessage: (
     content: string,
-    opts?: { channel?: string; conversationId?: string },
+    opts?: { channel?: string; conversationId?: string; subject?: string },
   ) => Promise<void>
   /** Optional | fired (debounced ~500ms) while the user is typing. */
   onTyping?: () => void
@@ -121,7 +121,9 @@ export function MessageComposer({
   onSendTemplate,
 }: MessageComposerProps) {
   const [value, setValue] = useState('')
+  const [subject, setSubject] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const isEmail = (activeChannel ?? '') === 'email'
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
   const [recording, setRecording] = useState(false)
@@ -252,6 +254,7 @@ export function MessageComposer({
       await onSendMessage(content, {
         channel: activeOption?.channel ?? activeChannel,
         conversationId: activeOption?.conversationId,
+        subject: isEmail ? subject.trim() || undefined : undefined,
       })
     } finally {
       setIsSending(false)
@@ -371,6 +374,22 @@ export function MessageComposer({
             Outside the 24-hour customer service window — free text won&apos;t be delivered by
             Meta. Use a <strong>template</strong> to continue this conversation.
           </span>
+        </div>
+      )}
+
+      {isEmail && (
+        <div className="mb-2 flex items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+            Subject
+          </span>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            disabled={isDisabled}
+            placeholder="Email subject…"
+            className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-tertiary"
+          />
         </div>
       )}
 

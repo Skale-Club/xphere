@@ -41,7 +41,10 @@ import {
   setConversationPriority,
   assignConversation,
   listOrgMembers,
+  resolveContactStartChannels,
+  createContactConversation,
   type OrgMember,
+  type StartChannel,
 } from '@/app/(dashboard)/chat/actions'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -164,6 +167,9 @@ export function ChatLayout({
   // area would fall back to the "pick a conversation" empty state.
   const [fetchedConversation, setFetchedConversation] =
     useState<ConversationSummary | null>(null)
+  // True while auto-creating a conversation for a contact that has none yet.
+  const [isStartingConversation, setIsStartingConversation] = useState(false)
+  const startAttemptedRef = useRef(false)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
@@ -260,6 +266,51 @@ export function ChatLayout({
       cancelled = true
     }
   }, [selectedId, conversations, pinned, fetchedConversation])
+
+  // Arriving via /chat?contact=ID for a contact with NO existing conversation:
+  // resolve the best real channel (SMS if phone+Twilio, else fall back to a
+  // 'manual'/"Direct" placeholder) and create+open it so the operator can chat.
+  useEffect(() => {
+    if (!initialContactId || initialConversationId || selectedId) return
+    if (startAttemptedRef.current) return
+    startAttemptedRef.current = true
+
+    let cancelled = false
+    setIsStartingConversation(true)
+    ;(async () => {
+      try {
+        const res = await resolveContactStartChannels(initialContactId)
+        let channel: StartChannel | 'manual' = 'manual'
+        if ('options' in res) {
+          // Highest-priority available real channel (options are pre-ordered).
+          const available = res.options.find((o) => o.available)
+          if (available) channel = available.channel
+        }
+        let created = await createContactConversation(initialContactId, channel)
+        // If the real channel couldn't be created (e.g. integration/schema not
+        // ready), still give the operator an inbox via the 'manual' placeholder.
+        if (!('conversation' in created) && channel !== 'manual') {
+          created = await createContactConversation(initialContactId, 'manual')
+        }
+        if (cancelled) return
+        if ('conversation' in created) {
+          setFetchedConversation(created.conversation)
+          setSelectedId(created.conversation.id)
+          refreshConversations()
+        } else {
+          toast.error(created.error || 'Could not start a conversation')
+        }
+      } catch {
+        if (!cancelled) toast.error('Could not start a conversation')
+      } finally {
+        if (!cancelled) setIsStartingConversation(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [initialContactId, initialConversationId, selectedId, refreshConversations])
 
   // Fetch org members once for the assign dropdown
   useEffect(() => {
@@ -464,7 +515,7 @@ export function ChatLayout({
 
   async function handleSendMessage(
     content: string,
-    opts?: { channel?: string; conversationId?: string },
+    opts?: { channel?: string; conversationId?: string; subject?: string },
   ) {
     if (!selectedId) return
     const targetId = opts?.conversationId ?? selectedId
@@ -483,7 +534,7 @@ export function ChatLayout({
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel }),
+        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject }),
       })
       if (!res.ok) throw new Error('Failed to send')
       if (!isCurrentThread) setSelectedId(targetId)
@@ -701,6 +752,7 @@ export function ChatLayout({
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
             agentMap={agentMap}
             emptyContactId={!selectedId ? initialContactId : null}
+            isStartingConversation={isStartingConversation}
           />
         </div>
         {infoOpen && (
@@ -815,6 +867,7 @@ export function ChatLayout({
               onToggleInfoPanel={() => setMobileView('info')}
               agentMap={agentMap}
               emptyContactId={!selectedId ? initialContactId : null}
+              isStartingConversation={isStartingConversation}
             />
           </div>
         )}
