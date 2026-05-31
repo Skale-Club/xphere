@@ -63,31 +63,49 @@ interface SidebarProps {
   navPermissions?: string[] | null
 }
 
-export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, isPlatformAdmin, isDemo, navPermissions }: SidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { collapsed, toggle } = useSidebarState()
+/**
+ * Inner brand + nav + user-menu markup, shared by every rendering of the
+ * sidebar (desktop in-flow column, the mobile icon rail, and the mobile
+ * slide-in overlay). Keeping it in one place means the three surfaces never
+ * drift apart.
+ */
+interface SidebarBodyProps {
+  collapsed: boolean
+  /** Header panel button — collapse/expand in place, or open/close the overlay. */
+  onToggle: () => void
+  /** Show the Ctrl+B hint on the panel button (desktop only). */
+  showShortcut?: boolean
+  /** Called after a nav link is followed — used to dismiss the mobile overlay. */
+  onNavigate?: () => void
+  user: User
+  displayName: string
+  email: string
+  initials: string
+  brandName?: string
+  isPlatformAdmin?: boolean
+  isDemo?: boolean
+  navPermissions?: string[] | null
+  pathname: string
+  onSignOut: () => void
+}
 
-  const displayName = truncate((user.user_metadata?.full_name as string | undefined) ?? user.email ?? '', 24)
-  const email = user.email ?? ''
-  const initials = getInitials(user)
-
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
+function SidebarBody({
+  collapsed,
+  onToggle,
+  showShortcut = false,
+  onNavigate,
+  displayName,
+  email,
+  initials,
+  brandName,
+  isPlatformAdmin,
+  isDemo,
+  navPermissions,
+  pathname,
+  onSignOut,
+}: SidebarBodyProps) {
   return (
-    <aside
-      data-collapsed={collapsed}
-      className={cn(
-        'group/sidebar relative flex h-dvh shrink-0 flex-col',
-        'border-r border-border-subtle bg-bg-secondary',
-        'transition-[width] duration-300 ease-spring',
-        collapsed ? 'w-[48px]' : 'w-[186px]',
-      )}
-    >
+    <>
       {/* Header | brand + collapse */}
       <div className="flex h-14 items-center justify-between px-3">
         {collapsed && (
@@ -96,18 +114,19 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={toggle}
+                onClick={onToggle}
                 aria-label="Expand sidebar"
                 className="w-full text-text-tertiary hover:text-text-primary"
               >
                 <PanelLeftOpen className="h-[15px] w-[15px]" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" kbd="Ctrl+B">Expand</TooltipContent>
+            <TooltipContent side="right" kbd={showShortcut ? 'Ctrl+B' : undefined}>Expand</TooltipContent>
           </Tooltip>
         )}
         <Link
           href="/"
+          onClick={onNavigate}
           className={cn(
             'group/logo flex items-center gap-2 px-1.5 py-1 rounded-[8px] motion-fast',
             collapsed && 'hidden',
@@ -128,14 +147,14 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={toggle}
+                onClick={onToggle}
                 aria-label="Collapse sidebar"
                 className="text-text-tertiary hover:text-text-primary"
               >
                 <PanelLeftClose className="h-[15px] w-[15px]" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" kbd="Ctrl+B">Collapse</TooltipContent>
+            <TooltipContent side="right" kbd={showShortcut ? 'Ctrl+B' : undefined}>Collapse</TooltipContent>
           </Tooltip>
         )}
       </div>
@@ -144,6 +163,7 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
         <div className="px-2 pb-1">
           <Link
             href="/"
+            onClick={onNavigate}
             className="group/logo flex items-center justify-center rounded-[8px] py-1 motion-fast"
           >
             <div className="relative h-6 w-6 transition-[filter] duration-200 group-hover/logo:drop-shadow-[0_0_8px_rgba(79,57,246,0.6)]">
@@ -188,6 +208,7 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
                 const link = (
                   <Link
                     href={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       'relative flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-medium',
                       'motion-fast',
@@ -259,13 +280,13 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
             {!isDemo && (
               <>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings/profile">
+                  <Link href="/settings/profile" onClick={onNavigate}>
                     <UserCog className="h-4 w-4 mr-2" />
                     Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings">
+                  <Link href="/settings" onClick={onNavigate}>
                     <Settings className="h-4 w-4 mr-2" />
                     Settings
                   </Link>
@@ -273,14 +294,136 @@ export function Sidebar({ user, activeOrgId, activeOrgName, brandName, logoUrl, 
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+            <DropdownMenuItem onClick={onSignOut} className="cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </aside>
+    </>
+  )
+}
+
+export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isDemo, navPermissions }: SidebarProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebarState()
+
+  const displayName = truncate((user.user_metadata?.full_name as string | undefined) ?? user.email ?? '', 24)
+  const email = user.email ?? ''
+  const initials = getInitials(user)
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  const closeOverlay = React.useCallback(() => setMobileOpen(false), [setMobileOpen])
+
+  // Dismiss the overlay whenever the route changes (covers programmatic nav).
+  React.useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname, setMobileOpen])
+
+  // Close on Escape and lock body scroll while the overlay is open.
+  React.useEffect(() => {
+    if (!mobileOpen) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMobileOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [mobileOpen, setMobileOpen])
+
+  // Auto-dismiss if the viewport grows to desktop where the overlay never shows.
+  React.useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)')
+    function onChange() {
+      if (mql.matches) setMobileOpen(false)
+    }
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [setMobileOpen])
+
+  const bodyProps = {
+    user,
+    displayName,
+    email,
+    initials,
+    brandName,
+    isPlatformAdmin,
+    isDemo,
+    navPermissions,
+    pathname,
+    onSignOut: handleSignOut,
+  }
+
+  return (
+    <>
+      {/* Desktop | in-flow collapsible column (lg and up) */}
+      <aside
+        data-collapsed={collapsed}
+        className={cn(
+          'group/sidebar relative hidden h-dvh shrink-0 flex-col lg:flex',
+          'border-r border-border-subtle bg-bg-secondary',
+          'transition-[width] duration-300 ease-spring',
+          collapsed ? 'w-[48px]' : 'w-[186px]',
+        )}
+      >
+        <SidebarBody {...bodyProps} collapsed={collapsed} onToggle={toggle} showShortcut />
+      </aside>
+
+      {/* Tablet / phone | in-flow 48px icon rail. The expand button opens the
+          full sidebar as an overlay rather than widening in place. */}
+      <aside
+        className={cn(
+          'group/sidebar relative flex h-dvh w-[48px] shrink-0 flex-col lg:hidden',
+          'border-r border-border-subtle bg-bg-secondary',
+        )}
+      >
+        <SidebarBody
+          {...bodyProps}
+          collapsed
+          onToggle={() => setMobileOpen(true)}
+        />
+      </aside>
+
+      {/* Tablet / phone | slide-in overlay with the expanded sidebar + backdrop */}
+      <div className="lg:hidden" aria-hidden={!mobileOpen}>
+        {/* Backdrop */}
+        <div
+          onClick={closeOverlay}
+          className={cn(
+            'fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px]',
+            'transition-opacity duration-300',
+            mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+          )}
+        />
+        {/* Drawer */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 flex h-dvh w-[240px] flex-col',
+            'border-r border-border-subtle bg-bg-secondary shadow-2xl shadow-black/40',
+            'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
+          <SidebarBody
+            {...bodyProps}
+            collapsed={false}
+            onToggle={closeOverlay}
+            onNavigate={closeOverlay}
+          />
+        </aside>
+      </div>
+    </>
   )
 }
 
