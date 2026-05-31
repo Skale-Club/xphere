@@ -104,7 +104,23 @@ function mapMessageRow(row: Record<string, unknown>): ConversationMessage {
     content: row.content as string,
     createdAt: row.created_at as string,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+    channel: (row.channel as string | null) ?? null,
   }
+}
+
+function messagePreview(message: ConversationMessage): string {
+  const content = message.content?.trim()
+  if (content) return content
+
+  const media = message.metadata?.media
+  const first = Array.isArray(media) ? media[0] as { mime_type?: string; filename?: string } | undefined : undefined
+  const mimeType = first?.mime_type ?? ''
+  if (mimeType.startsWith('image/')) return 'Photo'
+  if (mimeType.startsWith('audio/')) return 'Audio'
+  if (mimeType.startsWith('video/')) return 'Video'
+  if (first) return first.filename ? `File: ${first.filename}` : 'File'
+
+  return ''
 }
 
 interface ChatLayoutProps {
@@ -182,6 +198,34 @@ export function ChatLayout({
   const [inboxWidth, setInboxWidth] = useState(INBOX_DEFAULT_WIDTH)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedIdRef = useRef<string | null>(null)
+
+  const findVisibleConversation = useCallback(
+    (id: string): ConversationSummary | undefined => {
+      return conversations.find((c) => c.id === id) ?? pinned.find((c) => c.id === id)
+    },
+    [conversations, pinned],
+  )
+
+  const updateConversationPreview = useCallback((message: ConversationMessage) => {
+    const preview = messagePreview(message)
+    if (!preview) return
+
+    const applyPreview = (conversation: ConversationSummary): ConversationSummary => ({
+      ...conversation,
+      lastMessage: preview,
+      lastMessageAt: message.createdAt,
+      updatedAt: message.createdAt,
+      channel: message.channel ?? conversation.channel,
+    })
+
+    const current = findVisibleConversation(message.conversationId)
+    if (current) upsertConversation(applyPreview(current))
+
+    setFetchedConversation((prev) => {
+      if (!prev || prev.id !== message.conversationId) return prev
+      return applyPreview(prev)
+    })
+  }, [findVisibleConversation, upsertConversation])
 
   const getInboxMaxWidth = useCallback(() => {
     if (typeof window === 'undefined') return INBOX_MAX_WIDTH
@@ -389,6 +433,17 @@ export function ChatLayout({
         (payload) => {
           const updated = mapConversationRow(payload.new)
           upsertConversation(updated)
+          setFetchedConversation((prev) => {
+            if (!prev || prev.id !== updated.id) return prev
+            return {
+              ...prev,
+              ...updated,
+              channelAccountName: updated.channelAccountName ?? prev.channelAccountName,
+              contactName: updated.contactName ?? prev.contactName,
+              contactAvatarUrl: updated.contactAvatarUrl ?? prev.contactAvatarUrl,
+              contactVerified: updated.contactVerified || prev.contactVerified,
+            }
+          })
         },
       )
       .on(
@@ -439,6 +494,7 @@ export function ChatLayout({
             }
             return [...prev, newMsg]
           })
+          updateConversationPreview(newMsg)
         },
       )
       .subscribe()
@@ -557,6 +613,7 @@ export function ChatLayout({
       channel: opts?.channel ?? null,
     }
     if (isCurrentThread) setMessages((prev) => [...prev, tempMsg])
+    updateConversationPreview(tempMsg)
     try {
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
@@ -564,10 +621,14 @@ export function ChatLayout({
         body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject }),
       })
       if (!res.ok) throw new Error('Failed to send')
+      const data = await res.json().catch(() => null)
+      if (data?.message) updateConversationPreview(data.message as ConversationMessage)
       if (!isCurrentThread) setSelectedId(targetId)
       await fetchMessages(targetId)
     } catch {
       if (isCurrentThread) setMessages((prev) => prev.filter((m) => m.id !== tempId))
+      const latest = messages[messages.length - 1]
+      if (latest?.conversationId === targetId) updateConversationPreview(latest)
       toast.error('Failed to send message')
     }
   }
@@ -704,14 +765,6 @@ export function ChatLayout({
     if (alreadyVisible) return conversations
     return [selected, ...conversations].slice(0, pageSize)
   }, [conversations, pageSize, pinned, selected])
-
-  // Helper for optimistic mutations: lookup across both buckets.
-  const findVisibleConversation = useCallback(
-    (id: string): ConversationSummary | undefined => {
-      return conversations.find((c) => c.id === id) ?? pinned.find((c) => c.id === id)
-    },
-    [conversations, pinned],
-  )
 
   // ───────────────────────── Render ─────────────────────────
 

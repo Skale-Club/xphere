@@ -122,7 +122,10 @@ function buildMockSupabase(opts: MockOptions = {}) {
   const updateConversationSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   })
-  const insertMessageSpy = vi.fn().mockResolvedValue({ data: null, error: null })
+  const insertMessageSpy = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: { id: 'msg-new' }, error: null }),
+  })
 
   const integration =
     opts.integration === undefined
@@ -136,6 +139,52 @@ function buildMockSupabase(opts: MockOptions = {}) {
         eq: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: integration, error: null }),
+      }
+    }
+
+    if (table === 'twilio_phone_numbers') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: integration
+            ? {
+                id: 'phone-number-1',
+                organization_id: integration.organization_id,
+                e164: '+15553334444',
+                is_active: true,
+                capability_sms: true,
+              }
+            : null,
+          error: null,
+        }),
+      }
+    }
+
+    if (table === 'contacts') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }
+    }
+
+    if (table === 'workflows') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }
+    }
+
+    if (table === 'event_dispatches') {
+      return {
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: 'dispatch-1' }, error: null }),
+        }),
       }
     }
 

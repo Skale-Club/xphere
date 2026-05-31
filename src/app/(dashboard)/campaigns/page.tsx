@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Megaphone, Plus, Phone, MessageSquare, Mail, MessageCircle } from 'lucide-react'
+import { Megaphone, Phone, MessageSquare, Mail, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { PageContainer } from '@/components/layout/page-header'
@@ -82,19 +82,8 @@ export default async function CampaignsPage({ searchParams }: PageProps) {
   return (
     <PageContainer>
       {/* Page heading */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Campaigns</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Reach your contacts at scale across calls, SMS, email, and more.
-          </p>
-        </div>
-        <Button asChild size="sm">
-          <Link href="/campaigns/new">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Campaign
-          </Link>
-        </Button>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Campaigns</h1>
       </div>
 
       {/* Channel tabs */}

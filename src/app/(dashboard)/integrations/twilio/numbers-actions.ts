@@ -24,6 +24,7 @@ import {
   type TwilioIncomingListResponse,
   type TwilioRemoteNumber,
 } from '@/lib/phone-numbers/import'
+import { configureTwilioSmsWebhook } from '@/lib/twilio/configure-number'
 
 export type TwilioPhoneNumberRow =
   Database['public']['Tables']['twilio_phone_numbers']['Row']
@@ -175,6 +176,55 @@ interface TwilioCredBlob {
   auth_token?: string
 }
 
+async function getTwilioCredBlob(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<{ blob?: TwilioCredBlob; error?: string }> {
+  const { data: integrationRow } = await supabase
+    .from('integrations')
+    .select('encrypted_api_key')
+    .eq('organization_id', orgId)
+    .eq('provider', 'twilio')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (!integrationRow) {
+    return { error: 'Twilio is not connected for this org. Connect it first.' }
+  }
+
+  try {
+    const blob = JSON.parse(await decrypt(integrationRow.encrypted_api_key)) as TwilioCredBlob
+    if (!blob.account_sid || !blob.auth_token) {
+      return { error: 'Account SID or Auth Token missing. Reconnect Twilio.' }
+    }
+    return { blob }
+  } catch {
+    return { error: 'Failed to decrypt Twilio credentials.' }
+  }
+}
+
+async function syncSmsWebhookIfPossible(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  orgId: string
+  phoneSid: string | null
+  capabilitySms: boolean
+}): Promise<{ error?: string }> {
+  if (!params.capabilitySms || !params.phoneSid) return {}
+
+  const { blob, error } = await getTwilioCredBlob(params.supabase, params.orgId)
+  if (error || !blob?.account_sid || !blob.auth_token) return { error }
+
+  const result = await configureTwilioSmsWebhook({
+    accountSid: blob.account_sid,
+    authToken: blob.auth_token,
+    phoneSid: params.phoneSid,
+  })
+
+  if (!result.ok) return { error: result.error }
+  return {}
+}
+
 /**
  * Fetch the org's IncomingPhoneNumbers directly from Twilio, marked with
  * `alreadyImported=true` when the same SID/E.164 is already stored locally.
@@ -192,27 +242,8 @@ export async function listIncomingTwilioNumbers(): Promise<{
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No active organization.' }
 
-  const { data: integrationRow } = await supabase
-    .from('integrations')
-    .select('encrypted_api_key')
-    .eq('organization_id', orgId)
-    .eq('provider', 'twilio')
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle()
-  if (!integrationRow) {
-    return { error: 'Twilio is not connected for this org. Connect it first.' }
-  }
-
-  let blob: TwilioCredBlob
-  try {
-    blob = JSON.parse(await decrypt(integrationRow.encrypted_api_key)) as TwilioCredBlob
-  } catch {
-    return { error: 'Failed to decrypt Twilio credentials.' }
-  }
-  if (!blob.account_sid || !blob.auth_token) {
-    return { error: 'Account SID or Auth Token missing. Reconnect Twilio.' }
-  }
+  const { blob, error: credsError } = await getTwilioCredBlob(supabase, orgId as string)
+  if (credsError || !blob?.account_sid || !blob.auth_token) return { error: credsError }
 
   // Pull the existing local rows so we can flag duplicates without a second
   // round-trip from the client.
@@ -329,6 +360,16 @@ export async function createTwilioNumber(
     return { error: error.message }
   }
 
+  const sync = await syncSmsWebhookIfPossible({
+    supabase,
+    orgId: orgId as string,
+    phoneSid: data.phone_sid,
+    capabilitySms: data.capability_sms,
+  })
+  if (sync.error) {
+    return { data, error: `Number saved, but SMS webhook sync failed: ${sync.error}` }
+  }
+
   revalidateAll()
   return { data }
 }
@@ -383,6 +424,16 @@ export async function updateTwilioNumber(
     .single()
 
   if (error) return { error: error.message }
+
+  const sync = await syncSmsWebhookIfPossible({
+    supabase,
+    orgId: data.organization_id,
+    phoneSid: data.phone_sid,
+    capabilitySms: data.capability_sms,
+  })
+  if (sync.error) {
+    return { data, error: `Number saved, but SMS webhook sync failed: ${sync.error}` }
+  }
 
   revalidateAll()
   return { data }

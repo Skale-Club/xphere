@@ -135,6 +135,7 @@ export async function processTwilioSms(
       role: 'user',
       content: messageText,
       message_type: messageType,
+      channel: 'sms',
       metadata: { message_sid: messageSid, from_number: fromNumber },
     })
     .select('id')
@@ -264,6 +265,7 @@ export async function processTwilioSms(
       org_id: orgId,
       role: 'assistant',
       content: chunk.text,
+      channel: 'sms',
       metadata: { channel: 'sms', from_number: toNumber },
     })
   }
