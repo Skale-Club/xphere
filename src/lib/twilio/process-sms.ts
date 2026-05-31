@@ -39,6 +39,8 @@ export type TwilioSmsPayload = {
   MediaContentType9?: string
   // Twilio auth token passed internally for media download | never stored
   _authToken?: string
+  // Trusted internal/reconciliation timestamp. Live Twilio webhooks omit this.
+  ReceivedAt?: string
 }
 
 export type TwilioSmsIngestResult = {
@@ -67,6 +69,25 @@ export async function ingestTwilioSms(
   const fromNumber = payload.From
   const toNumber = payload.To
   const messageSid = payload.MessageSid
+  const receivedAt = payload.ReceivedAt ?? new Date().toISOString()
+
+  // Idempotency first. Reconciliation may process older pages repeatedly; a
+  // duplicate must not move a conversation's last_message backwards.
+  if (messageSid) {
+    const { data: existingMessage } = await supabase
+      .from('conversation_messages')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('role', 'user')
+      .contains('metadata', { message_sid: messageSid })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingMessage) {
+      console.log('[twilio/sms] Duplicate MessageSid | skipping message insert:', messageSid)
+      return null
+    }
+  }
 
   // --- 1. Upsert conversation (de-duplicate by org + channel + From) -----
   const { data: existing } = await supabase
@@ -78,7 +99,6 @@ export async function ingestTwilioSms(
     .limit(1)
     .maybeSingle()
 
-  const now = new Date().toISOString()
   let conversationId: string
 
   if (existing) {
@@ -87,9 +107,9 @@ export async function ingestTwilioSms(
       .from('conversations')
       .update({
         last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
-        updated_at: now,
+        last_message_at: receivedAt,
+        last_inbound_at: receivedAt,
+        updated_at: new Date().toISOString(),
         // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
         ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
       })
@@ -108,8 +128,8 @@ export async function ingestTwilioSms(
         },
         visitor_phone: fromNumber,
         last_message: messageText,
-        last_message_at: now,
-        last_inbound_at: now,
+        last_message_at: receivedAt,
+        last_inbound_at: receivedAt,
         phone_number_id: phoneNumberId,
       })
       .select('id')
@@ -122,22 +142,6 @@ export async function ingestTwilioSms(
     conversationId = created.id
   }
 
-  // --- 2. Insert inbound user message (idempotent by message_sid in metadata) ---
-  // Skip insert if a message with this exact MessageSid was already persisted.
-  const { data: dupCheck } = await supabase
-    .from('conversation_messages')
-    .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('role', 'user')
-    .contains('metadata', { message_sid: messageSid })
-    .limit(1)
-    .maybeSingle()
-
-  if (dupCheck) {
-    console.log('[twilio/sms] Duplicate MessageSid | skipping message insert:', messageSid)
-    return null
-  }
-
   const messageType = hasMedia && !messageText ? 'image' : hasMedia ? 'mixed' : 'text'
 
   const { data: insertedMsg, error: msgInsertError } = await supabase
@@ -147,6 +151,7 @@ export async function ingestTwilioSms(
       org_id: orgId,
       role: 'user',
       content: messageText,
+      created_at: receivedAt,
       message_type: messageType,
       channel: 'sms',
       metadata: { message_sid: messageSid, from_number: fromNumber },

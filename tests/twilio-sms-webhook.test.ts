@@ -434,8 +434,8 @@ describe('SMS-IN-03: Duplicate MessageSid deduplication', () => {
 
     await flushAfterCallbacks()
 
-    // Conversation update should still happen (last_inbound_at refresh)
-    expect(mockDb.updateConversationSpy).toHaveBeenCalled()
+    // Duplicate retries must not move the conversation preview backwards.
+    expect(mockDb.updateConversationSpy).not.toHaveBeenCalled()
     // But NO new message insert
     expect(mockDb.insertMessageSpy).not.toHaveBeenCalled()
     // And no agent run
