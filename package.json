@@ -10,7 +10,7 @@
     "prebuild": "npm run build:favicon",
     "build": "npm run build:widget && npm run build:reviews-widget && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx scripts/load-workflow-seeds.ts",

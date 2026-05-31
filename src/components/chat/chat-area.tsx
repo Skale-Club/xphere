@@ -109,6 +109,8 @@ interface ChatAreaProps {
   infoPanelOpen: boolean
   onToggleInfoPanel: () => void
   agentMap?: Record<string, string>
+  /** False when this channel has no default AI agent configured. */
+  botAgentAvailable?: boolean
   /** SEED-039: channels this contact can be reached on (for composer Select). */
   composerChannels?: ComposerChannel[]
   /**
@@ -144,6 +146,7 @@ export function ChatArea({
   infoPanelOpen,
   onToggleInfoPanel,
   agentMap,
+  botAgentAvailable = true,
   composerChannels,
   emptyContactId,
   isStartingConversation = false,
@@ -282,7 +285,7 @@ export function ChatArea({
     return true
   })
 
-  const isBotActive = conversation.botStatus === 'active'
+  const isBotActive = botAgentAvailable && conversation.botStatus === 'active'
 
   // Phase 1085 DND: determine if the active channel is DND-blocked.
   const activeChannelForDnd = activeChannel ?? conversation.channel

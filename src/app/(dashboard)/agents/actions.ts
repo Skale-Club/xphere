@@ -61,14 +61,15 @@ export async function getActiveAgents(): Promise<
 }
 
 /**
- * Returns the 6 channels with their currently-assigned agent_id.
- * Channels without an explicit default return null (runtime falls back to Main Agent).
+ * Returns the channels with their currently-assigned agent_id.
+ * Channels without an explicit default return null and do not auto-reply.
  */
 export async function getChannelDefaults(): Promise<
   Record<AgentChannel, string | null>
 > {
   const empty: Record<AgentChannel, string | null> = {
     web_widget: null,
+    sms: null,
     whatsapp: null,
     messenger: null,
     instagram: null,
@@ -91,8 +92,8 @@ export async function getChannelDefaults(): Promise<
 
 /**
  * UPSERTs `agent_channel_defaults(org_id, channel, agent_id)` when agentId is provided,
- * or DELETEs the row when agentId is null (clears the default; runtime falls back to
- * the seeded Main Agent).
+ * or DELETEs the row when agentId is null (clears the default and disables
+ * automatic replies for that channel).
  */
 export async function setChannelDefault(
   channel: AgentChannel,

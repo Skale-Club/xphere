@@ -1,0 +1,34 @@
+name: Twilio SMS Reconcile
+
+# Safety net for inbound SMS webhooks. Twilio is the source of truth for
+# received messages; this job backfills any recent inbound MessageSid that did
+# not land in conversation_messages because of a transient webhook/app failure.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: twilio-sms-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Reconcile inbound Twilio SMS
+        run: |
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/twilio-sms-reconcile?lookbackMinutes=180&maxPagesPerNumber=5")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "Twilio SMS reconcile failed with status $STATUS" >&2
+            exit 1
+          fi

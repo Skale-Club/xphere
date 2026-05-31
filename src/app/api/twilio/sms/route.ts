@@ -13,13 +13,16 @@
 //   - Returns 200 with empty `<Response/>` TwiML on every other path | even malformed
 //     bodies, missing orgs, processing errors. This is mandatory: Twilio retries 4xx/5xx
 //     aggressively and a bad webhook can wedge an entire SMS conversation.
-//   - Async processing (conversation upsert + agent invocation + auto-reply) runs via
-//     `after()` so the 200 returns immediately and Twilio doesn't time out.
+//   - The inbound message is persisted before the 200 response. Slower
+//     automation/agent reply work runs fire-and-forget after that critical write.
 
-import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { resolveTwilioOrgByToNumber } from '@/lib/twilio/voice'
-import { processTwilioSms, type TwilioSmsPayload } from '@/lib/twilio/process-sms'
+import {
+  continueTwilioSmsAutomation,
+  ingestTwilioSms,
+  type TwilioSmsPayload,
+} from '@/lib/twilio/process-sms'
 
 export const runtime = 'nodejs'
 
@@ -99,20 +102,28 @@ export function verifyTwilioSignature(
  * https://xphere.app | but we read the host dynamically to keep
  * preview/staging working.
  */
-function resolveRequestUrl(request: Request): string {
-  const explicit = process.env.TWILIO_WEBHOOK_BASE_URL
+function resolveRequestUrlCandidates(request: Request): string[] {
   const url = new URL(request.url)
-  if (explicit) {
-    // Re-attach the path + query from the incoming request to the configured base
-    const base = explicit.replace(/\/$/, '')
-    return `${base}${url.pathname}${url.search}`
+  const candidates: string[] = []
+
+  const addBase = (base: string | undefined | null) => {
+    if (!base) return
+    candidates.push(`${base.replace(/\/$/, '')}${url.pathname}${url.search}`)
   }
+
+  addBase(process.env.TWILIO_WEBHOOK_BASE_URL)
+
   const fwdProto = request.headers.get('x-forwarded-proto')
   const fwdHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
   if (fwdProto && fwdHost) {
-    return `${fwdProto}://${fwdHost}${url.pathname}${url.search}`
+    candidates.push(`${fwdProto}://${fwdHost}${url.pathname}${url.search}`)
   }
-  return request.url
+  candidates.push(request.url)
+  addBase(process.env.XPHERE_PUBLIC_ORIGIN)
+  addBase(process.env.NEXT_PUBLIC_SITE_URL)
+  addBase('https://xphere.app')
+
+  return Array.from(new Set(candidates))
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -130,7 +141,7 @@ export async function POST(request: Request): Promise<Response> {
     const from = params.get('From') ?? ''
     const to = params.get('To') ?? ''
     const body = params.get('Body') ?? ''
-    const messageSid = params.get('MessageSid') ?? ''
+    const messageSid = params.get('MessageSid') ?? params.get('SmsSid') ?? ''
 
     if (!to) {
       // No To number | cannot route to an org. Ack and drop.
@@ -150,16 +161,20 @@ export async function POST(request: Request): Promise<Response> {
     const authToken = resolved.creds.authToken
 
     // 3. Validate the signature against the org's auth_token
-    const requestUrl = resolveRequestUrl(request)
     const receivedSignature = request.headers.get('x-twilio-signature')
 
-    const isValid = verifyTwilioSignature(authToken, requestUrl, params, receivedSignature)
+    const isValid = resolveRequestUrlCandidates(request).some((requestUrl) =>
+      verifyTwilioSignature(authToken, requestUrl, params, receivedSignature)
+    )
     if (!isValid) {
       console.warn('[twilio/sms] Invalid X-Twilio-Signature for org:', orgId)
       return new Response('Forbidden', { status: 403 })
     }
 
-    // 4. Schedule async processing | return TwiML 200 immediately
+    // 4. Persist the inbound message before the 200 response. Production
+    // self-hosting can lose post-response work if the critical DB write is
+    // deferred, so only the slower agent auto-reply path runs fire-and-forget
+    // after ingestion.
     const payload: TwilioSmsPayload = {
       From: from,
       To: to,
@@ -192,13 +207,12 @@ export async function POST(request: Request): Promise<Response> {
       _authToken: authToken,
     }
 
-    after(async () => {
-      try {
-        await processTwilioSms(payload, orgId, phoneNumberId)
-      } catch (err) {
-        console.error('[twilio/sms] processTwilioSms error:', err)
-      }
-    })
+    const ingested = await ingestTwilioSms(payload, orgId, phoneNumberId)
+    if (ingested) {
+      void continueTwilioSmsAutomation(ingested).catch((err) => {
+        console.error('[twilio/sms] continueTwilioSmsAutomation error:', err)
+      })
+    }
 
     return ackTwiml()
   } catch (err) {

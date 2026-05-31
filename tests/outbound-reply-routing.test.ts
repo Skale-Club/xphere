@@ -181,14 +181,29 @@ describe('POST /api/chat/conversations/[id]/messages — outbound reply routing'
     expect(vi.mocked(sendMetaMessage)).not.toHaveBeenCalled()
   })
 
-  it('DB insert fails → 500, sendMetaMessage NOT called', async () => {
+  it('widget DB insert fails -> 500, sendMetaMessage NOT called', async () => {
     const mockSupabase = buildMockSupabase({
-      conv: MESSENGER_CONV,
+      conv: WIDGET_CONV,
       msgInsertError: { message: 'DB error' },
     })
     const res = await callRoute('conv-1', { content: 'hello', role: 'assistant' }, mockSupabase)
     expect(res.status).toBe(500)
     expect(vi.mocked(sendMetaMessage)).not.toHaveBeenCalled()
+  })
+
+  it('messenger DB insert fails after Meta accepts the message', async () => {
+    vi.mocked(sendMetaMessage).mockResolvedValue({ messageId: 'mid-1' })
+    const mockSupabase = buildMockSupabase({
+      conv: MESSENGER_CONV,
+      metaChannel: META_CHANNEL,
+      msgInsertError: { message: 'DB error' },
+    })
+    const res = await callRoute('conv-1', { content: 'hello', role: 'assistant' }, mockSupabase)
+    expect(res.status).toBe(500)
+    expect(vi.mocked(sendMetaMessage)).toHaveBeenCalledWith('decrypted-page-token', 'psid-321', 'hello')
+    const body = await res.json() as { error: string; message: string }
+    expect(body.error).toBe('message_persist_failed')
+    expect(body.message).toContain('could not save')
   })
 })
 
