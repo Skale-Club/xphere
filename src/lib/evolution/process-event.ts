@@ -18,7 +18,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
-import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
+import { findByPhone, findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { sendWhatsappMessage } from './send-message'
 import { resolveEvolutionInstanceByName } from './credentials'
@@ -220,6 +220,8 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
           : null
         if (channelHit) {
           contactId = channelHit.contact_id
+          // Backfill the phone if this contact was created without one.
+          await backfillContactPhone(supabase, orgId, contactId, fromPhone)
         } else {
           const phoneNorm = normalisePhone(fromPhone)
           const { data: contact } = phoneNorm

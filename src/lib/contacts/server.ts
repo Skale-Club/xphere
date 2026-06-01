@@ -220,6 +220,29 @@ export async function attachChannelIdentity(
 }
 
 /**
+ * Fill `contacts.phone` from a channel-derived number when the contact has none.
+ * Used by WhatsApp ingestion (Zernio/Evolution) so a contact reached only via a
+ * channel still surfaces its phone in the CRM list and chat panel. Only touches
+ * rows where phone IS NULL — never overwrites an operator-entered number.
+ * `phone_e164` is a generated column, so setting `phone` is enough.
+ */
+export async function backfillContactPhone(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  contactId: string,
+  phone: string | null | undefined,
+): Promise<void> {
+  const normalized = normalisePhone(phone)
+  if (!normalized || !contactId) return
+  await supabase
+    .from('contacts')
+    .update({ phone: normalized })
+    .eq('id', contactId)
+    .eq('org_id', orgId)
+    .is('phone', null)
+}
+
+/**
  * Phase 110 (CID-14): returns true if at least one row exists in
  * `contact_verifications` for the given contact. Used by `getContact` to
  * derive the `is_verified` boolean for the IdentityStatusBadge sub-state.

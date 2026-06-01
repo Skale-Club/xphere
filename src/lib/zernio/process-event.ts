@@ -11,7 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
-import { findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
+import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { sendZernioDm } from './send-dm'
 import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
@@ -143,7 +143,10 @@ async function resolveOrCreateChannelContact({
     identityKey(platform, accountId, participantId),
   ].filter((v): v is string => Boolean(v))
 
-  const normalizedPhone = normalisePhone(phoneNumber)
+  // For WhatsApp the participant id IS the phone number, so fall back to it when
+  // the payload omits sender.phoneNumber.
+  const effectivePhone = phoneNumber ?? (platform === 'whatsapp' ? participantId : null)
+  const normalizedPhone = normalisePhone(effectivePhone)
   const phoneHit = normalizedPhone
     ? await supabase
         .from('contacts')
@@ -170,6 +173,9 @@ async function resolveOrCreateChannelContact({
         }
         return phoneHit.data.id
       }
+      // Backfill the phone on contacts that were created without one (the
+      // WhatsApp number is known from the participant id).
+      await backfillContactPhone(supabase, orgId, channelHit.contact_id, effectivePhone)
       return channelHit.contact_id
     }
   }
