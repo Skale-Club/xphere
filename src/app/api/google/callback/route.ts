@@ -120,6 +120,7 @@ export async function GET(request: NextRequest): Promise<Response> {
             google_email: googleEmail,
           },
           is_active: true,
+          health_status: 'connected', // mark ready for workflow builder
         },
         { onConflict: 'organization_id,provider' } // D-06: enforced unique constraint
       )

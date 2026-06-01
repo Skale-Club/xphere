@@ -36,6 +36,7 @@ export async function getActiveIntegrations(): Promise<IntegrationKey[]> {
         if (provider === 'twilio') active.add('twilio')
         if (provider === 'gohighlevel') active.add('ghl')
         if (provider === 'resend') active.add('resend')
+        if (provider === 'google_contacts') active.add('google_contacts')
       }
     } catch {
       /* table missing → ignore */

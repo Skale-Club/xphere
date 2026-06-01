@@ -19,6 +19,10 @@ import {
   TrendUp,
   BookOpen,
   FlowArrow,
+  AddressBook,
+  MagnifyingGlass,
+  PencilSimple,
+  Trash,
 } from '@phosphor-icons/react'
 
 export type IntegrationKey =
@@ -31,6 +35,7 @@ export type IntegrationKey =
   | 'twilio'
   | 'resend'
   | 'evolution'
+  | 'google_contacts'
 
 type IconComponent = ComponentType<{ className?: string }>
 
@@ -194,6 +199,40 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Trigger another workflow',
     icon: FlowArrow,
     iconClass: 'bg-purple-500/15 text-purple-300',
+  },
+
+  // ── Google Contacts ──
+  {
+    key: 'google_contacts_create',
+    label: 'Create Google contact',
+    description: 'Create a contact in the connected Google account',
+    icon: AddressBook,
+    iconClass: 'bg-blue-500/15 text-blue-300',
+    requiresIntegration: 'google_contacts',
+  },
+  {
+    key: 'google_contacts_update',
+    label: 'Update Google contact',
+    description: 'Update an existing contact in Google by email',
+    icon: PencilSimple,
+    iconClass: 'bg-blue-500/15 text-blue-300',
+    requiresIntegration: 'google_contacts',
+  },
+  {
+    key: 'google_contacts_find',
+    label: 'Find Google contact',
+    description: 'Search a Google contact by email or phone',
+    icon: MagnifyingGlass,
+    iconClass: 'bg-blue-500/15 text-blue-300',
+    requiresIntegration: 'google_contacts',
+  },
+  {
+    key: 'google_contacts_delete',
+    label: 'Delete Google contact',
+    description: 'Delete a contact from Google by email',
+    icon: Trash,
+    iconClass: 'bg-red-500/15 text-red-300',
+    requiresIntegration: 'google_contacts',
   },
 ]
 

@@ -413,6 +413,59 @@ export const NODES: NodeSpec[] = [
     kind: 'action',
     description: 'Create a contact in the connected Google account.',
     integration_required: ['google_contacts'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        name:    { type: 'string', description: 'Full name (e.g. "João Silva")' },
+        email:   { type: 'string', description: 'Email address' },
+        phone:   { type: 'string', description: 'Phone number' },
+        company: { type: 'string', description: 'Company / organization name' },
+        notes:   { type: 'string', description: 'Free-text notes / biography' },
+      },
+    },
+  },
+  {
+    type: 'google_contacts_update',
+    kind: 'action',
+    description: 'Update an existing Google contact located by email.',
+    integration_required: ['google_contacts'],
+    params_schema: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email:   { type: 'string', description: 'Email used to find the contact (required)' },
+        name:    { type: 'string', description: 'New full name' },
+        phone:   { type: 'string', description: 'New phone number' },
+        company: { type: 'string', description: 'New company / organization name' },
+        notes:   { type: 'string', description: 'New free-text notes' },
+      },
+    },
+  },
+  {
+    type: 'google_contacts_find',
+    kind: 'action',
+    description: 'Search a Google contact by email or phone. Returns name, email and phone of the first match.',
+    integration_required: ['google_contacts'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: 'Email to search for' },
+        phone: { type: 'string', description: 'Phone to search for (used when email is absent)' },
+      },
+    },
+  },
+  {
+    type: 'google_contacts_delete',
+    kind: 'action',
+    description: 'Delete a Google contact located by email.',
+    integration_required: ['google_contacts'],
+    params_schema: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email: { type: 'string', description: 'Email used to find and delete the contact' },
+      },
+    },
   },
 
   // ─── Action | platform tasks & notes
