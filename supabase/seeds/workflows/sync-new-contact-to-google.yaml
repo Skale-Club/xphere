@@ -1,0 +1,29 @@
+# Platform-default workflow — ships to every org (activates only where
+# Google Contacts is connected; the action no-ops otherwise).
+#
+# When a new contact is created in the platform, mirror it into the connected
+# Google account via the People API. Field mapping is handled by the
+# google_contacts_create action (name → given/family, email, phone, company,
+# notes).
+
+name: Sync new contacts to Google
+description: |
+  Platform-default. When a contact is created in the CRM, automatically create
+  the matching contact in the connected Google Contacts account.
+trigger:
+  type: event
+  event: contact.created
+
+nodes:
+  - id: sync_google
+    kind: google_contacts_create
+    integration: google_contacts
+    name: "{{contact.name}}"
+    email: "{{contact.email}}"
+    phone: "{{contact.phone}}"
+    company: "{{contact.company}}"
+    notes: "{{contact.notes}}"
+
+edges:
+  - from: trigger
+    to: sync_google

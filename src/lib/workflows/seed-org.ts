@@ -34,11 +34,16 @@ export async function seedOrgWorkflows(orgId: string): Promise<void> {
     const slug = filename.replace(/\.ya?ml$/i, '')
     const definition = parseYaml(readFileSync(path, 'utf8')) as WorkflowDefinition
 
-    const triggerType =
-      definition.trigger?.type === 'event' && definition.trigger?.event
-        ? 'event'
-        : definition.trigger?.type ?? 'manual'
+    const isEvent = definition.trigger?.type === 'event' && Boolean(definition.trigger?.event)
+    const triggerType = isEvent ? 'event' : definition.trigger?.type ?? 'manual'
     const kind: 'tool' | 'flow' = triggerType === 'tool_call' ? 'tool' : 'flow'
+
+    // For event triggers the dispatcher matches on trigger_config @> { event }.
+    // The event name lives at trigger.event (not trigger.config), so fold it in.
+    const triggerConfig: Record<string, unknown> = {
+      ...(definition.trigger?.config ?? {}),
+      ...(isEvent ? { event: definition.trigger!.event } : {}),
+    }
 
     const flowDefinition = yamlToFlow(definition, { slug })
 
@@ -96,7 +101,7 @@ export async function seedOrgWorkflows(orgId: string): Promise<void> {
         is_active: true,
         kind,
         trigger_type: triggerType as 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url',
-        trigger_config: (definition.trigger?.config ?? {}) as Record<string, unknown>,
+        trigger_config: triggerConfig,
       })
       .select('id')
       .single()
