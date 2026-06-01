@@ -269,40 +269,39 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
               }
             />
 
-            {/* Advanced (collapsed by default) */}
-            <button
-              type="button"
-              onClick={() => setAdvancedOpen((v) => !v)}
-              className="flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary"
-            >
-              {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              Advanced
-            </button>
-            {advancedOpen && (
-              <div className="space-y-3 pt-1 pl-2 border-l border-border-subtle">
-                {/* Raw JSON is shown only for actions without dedicated fields —
-                    otherwise the form above is the single source of truth. */}
-                {!ACTION_TYPES_WITH_FIELDS.has(flow.action_type) && (
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] text-text-tertiary">Config (raw JSON)</Label>
-                    <Textarea
-                      value={JSON.stringify(flow.config ?? {}, null, 2)}
-                      onChange={(e) => {
-                        try {
-                          updateNodeData(node.id, { config: JSON.parse(e.target.value) })
-                        } catch {
-                          /* ignore parse errors while typing */
-                        }
-                      }}
-                      rows={6}
-                      className="text-xs font-mono resize-none"
-                    />
+            {/* Advanced (raw JSON) is shown ONLY for actions without dedicated
+                fields — there it's the only editor. Actions with fields (Google
+                Contacts, send_email, …) have no Advanced section at all. */}
+            {!ACTION_TYPES_WITH_FIELDS.has(flow.action_type) && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen((v) => !v)}
+                  className="flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary"
+                >
+                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  Advanced
+                </button>
+                {advancedOpen && (
+                  <div className="space-y-3 pt-1 pl-2 border-l border-border-subtle">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-text-tertiary">Config (raw JSON)</Label>
+                      <Textarea
+                        value={JSON.stringify(flow.config ?? {}, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            updateNodeData(node.id, { config: JSON.parse(e.target.value) })
+                          } catch {
+                            /* ignore parse errors while typing */
+                          }
+                        }}
+                        rows={6}
+                        className="text-xs font-mono resize-none"
+                      />
+                    </div>
                   </div>
                 )}
-                {/* Credential ref is intentionally NOT exposed — it auto-resolves to the
-                    org's active integration for the action's provider. Power users can still
-                    pin a specific credential via the workflow YAML (credential_ref). */}
-              </div>
+              </>
             )}
           </>
         )}
