@@ -1,12 +1,19 @@
 // src/lib/google-contacts/oauth.ts
 // Google OAuth 2.0 utilities | mirrors src/lib/meta/oauth.ts pattern
 
+import { getSiteOrigin } from '@/lib/site-url'
+
 export const GOOGLE_CALLBACK_PATH = '/api/google/callback'
-export const GOOGLE_CALLBACK_URI = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xphere.app'}${GOOGLE_CALLBACK_PATH}`
+// Build the callback against the canonical site origin (NEXT_PUBLIC_SITE_URL).
+// Previously used NEXT_PUBLIC_APP_URL, which is not set in prod and bakes into
+// the image as an empty string — diverging from the callback route's origin.
+export const GOOGLE_CALLBACK_URI = `${getSiteOrigin()}${GOOGLE_CALLBACK_PATH}`
 export const GOOGLE_OAUTH_STATE_COOKIE = 'google_oauth_state'
 export const GOOGLE_OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10
 
-export const GOOGLE_OAUTH_SCOPE = 'https://www.googleapis.com/auth/contacts'
+// `openid email` is required so the userinfo endpoint returns the account email
+// (used as the display key_hint). The contacts scope alone does not grant it.
+export const GOOGLE_OAUTH_SCOPE = 'openid email https://www.googleapis.com/auth/contacts'
 
 export type GoogleTokenResponse = {
   access_token: string
@@ -68,16 +75,24 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
   return response.json() as Promise<GoogleTokenResponse>
 }
 
-export async function fetchGoogleUserEmail(accessToken: string): Promise<string> {
-  const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store',
-  })
+// Non-fatal: the email is only a display hint. A userinfo hiccup (e.g. missing
+// scope on an old grant) must never block the connection — return null instead.
+export async function fetchGoogleUserEmail(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Google user info: status ${response.status}`)
+    if (!response.ok) {
+      console.warn(`[google-callback] userinfo fetch failed: status ${response.status} | proceeding without email`)
+      return null
+    }
+
+    const data = (await response.json()) as { email?: string }
+    return data.email ?? null
+  } catch (err) {
+    console.warn('[google-callback] userinfo fetch threw | proceeding without email:', err)
+    return null
   }
-
-  const data = (await response.json()) as { email: string }
-  return data.email
 }

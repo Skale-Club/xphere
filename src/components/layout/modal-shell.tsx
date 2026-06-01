@@ -52,7 +52,7 @@ export function ModalShell({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100vw-4rem)] sm:w-[calc(100vw-6rem)] max-w-3xl max-h-[calc(100vh-6rem)] overflow-y-auto p-0">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-[70vw] h-[70vh] max-h-[70vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
           {description ? (

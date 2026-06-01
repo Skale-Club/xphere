@@ -7,9 +7,13 @@ import {
   exchangeCodeForTokens,
   fetchGoogleUserEmail,
 } from '@/lib/google-contacts/oauth'
+import { resolveRequestOrigin } from '@/lib/site-url'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
+
+// Last-resort origin if even resolveRequestOrigin yields something unusable.
+const CANONICAL_FALLBACK = 'https://xphere.app'
 
 const STATE_COOKIE_CLEAR_OPTIONS = {
   httpOnly: true,
@@ -19,13 +23,19 @@ const STATE_COOKIE_CLEAR_OPTIONS = {
   maxAge: 0,
 }
 
-// Behind Coolify's reverse proxy, request.url resolves to the internal
-// origin (http://0.0.0.0:3000), which leaks into user-facing redirects.
-// Always build redirects against the canonical public origin instead.
-const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
-
-function buildRedirect(_request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, APP_ORIGIN))
+// Behind Coolify's reverse proxy, request.url resolves to the internal origin
+// (http://0.0.0.0:3000), which leaks into user-facing redirects. Resolve the
+// canonical public origin (NEXT_PUBLIC_SITE_URL → forwarded host → request).
+// Guard against a malformed origin so building a redirect can never throw a 500.
+function buildRedirect(origin: string, path: string) {
+  let base = origin
+  try {
+    // eslint-disable-next-line no-new
+    new URL('/', base)
+  } catch {
+    base = CANONICAL_FALLBACK
+  }
+  return NextResponse.redirect(new URL(path, base))
 }
 
 async function clearStateCookie() {
@@ -34,39 +44,53 @@ async function clearStateCookie() {
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
-  const user = await getUser()
-
-  if (!user) {
-    return buildRedirect(request, '/')
-  }
-
-  const url = new URL(request.url)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
-
-  const jar = await cookies()
-  const storedState = jar.get(GOOGLE_OAUTH_STATE_COOKIE)?.value
-
-  await clearStateCookie()
-
-  if (!code) {
-    return buildRedirect(request, '/integrations/google-contacts?error=missing_code')
-  }
-
-  if (!state || !storedState || state !== storedState) {
-    return buildRedirect(request, '/integrations/google-contacts?error=csrf')
-  }
-
-  // D-09: always resolve org from session | never trust request params
-  const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-
-  if (!orgId) {
-    return buildRedirect(request, '/integrations/google-contacts?error=no_org')
+  // Resolve up front so the outer catch can always build a safe redirect.
+  let origin = CANONICAL_FALLBACK
+  try {
+    origin = resolveRequestOrigin(request)
+  } catch {
+    /* keep canonical fallback */
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code)
+    const user = await getUser()
+
+    if (!user) {
+      return buildRedirect(origin, '/')
+    }
+
+    const url = new URL(request.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+
+    const jar = await cookies()
+    const storedState = jar.get(GOOGLE_OAUTH_STATE_COOKIE)?.value
+
+    await clearStateCookie()
+
+    if (!code) {
+      return buildRedirect(origin, '/integrations/google-contacts?error=missing_code')
+    }
+
+    if (!state || !storedState || state !== storedState) {
+      return buildRedirect(origin, '/integrations/google-contacts?error=csrf')
+    }
+
+    // D-09: always resolve org from session | never trust request params
+    const supabase = await createClient()
+    const { data: orgId } = await supabase.rpc('get_current_org_id')
+
+    if (!orgId) {
+      return buildRedirect(origin, '/integrations/google-contacts?error=no_org')
+    }
+
+    let tokens
+    try {
+      tokens = await exchangeCodeForTokens(code)
+    } catch (err) {
+      console.error('[google-callback] token_exchange failed:', err)
+      return buildRedirect(origin, '/integrations/google-contacts?error=token_exchange')
+    }
 
     // Pitfall 2: refresh_token may be absent on reconnect (Google only issues on first grant).
     // Log a warning but do not fail | the row will be upserted with whatever tokens are present.
@@ -74,6 +98,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       console.warn('[google-callback] refresh_token absent | this may be a reconnect. Proceeding with available tokens.')
     }
 
+    // Non-fatal: returns null if userinfo is unavailable (see fetchGoogleUserEmail).
     const googleEmail = await fetchGoogleUserEmail(tokens.access_token)
 
     // D-02: encrypt only the token blob | encrypt() takes a STRING, not an object
@@ -89,7 +114,7 @@ export async function GET(request: NextRequest): Promise<Response> {
           provider: 'google_contacts', // D-05
           name: 'Google Contacts',
           encrypted_api_key: encryptedBlob,  // D-02: { access_token, refresh_token } encrypted
-          key_hint: googleEmail,             // D-04: unencrypted email for display
+          key_hint: googleEmail,             // D-04: unencrypted email for display (may be null)
           config: {                          // D-03: non-sensitive metadata in JSONB
             token_expiry: tokenExpiry,
             google_email: googleEmail,
@@ -100,16 +125,15 @@ export async function GET(request: NextRequest): Promise<Response> {
       )
 
     if (upsertError) {
-      throw new Error(upsertError.message)
+      console.error('[google-callback] integrations upsert failed:', upsertError.message)
+      return buildRedirect(origin, '/integrations/google-contacts?error=db')
     }
 
     // D-07: redirect to integrations page with success indicator
-    return buildRedirect(request, '/integrations/google-contacts?connected=true')
+    return buildRedirect(origin, '/integrations/google-contacts?connected=true')
   } catch (err) {
-    // Surface the real cause in Coolify logs — common post-migration causes:
-    // missing GOOGLE_CLIENT_ID/SECRET, or a redirect_uri not registered in
-    // Google Cloud Console for the current host.
-    console.error('[google-callback] oauth_exchange failed:', err)
-    return buildRedirect(request, '/integrations/google-contacts?error=oauth_exchange')
+    // Outer guard: any unexpected throw must redirect, never surface a raw 500.
+    console.error('[google-callback] internal error:', err)
+    return buildRedirect(origin, '/integrations/google-contacts?error=internal')
   }
 }

@@ -21,7 +21,7 @@ interface ImageLightboxProps {
 export function ImageLightbox({ src, open, onClose }: ImageLightboxProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="max-w-[90vw] max-h-[90vh] p-2 flex flex-col items-center gap-2 bg-black/90 border-none">
+      <DialogContent className="w-fit max-w-[90vw] max-h-[90vh] p-2 flex flex-col items-center gap-2 bg-black/90 border-none">
         <DialogTitle className="sr-only">Image preview</DialogTitle>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

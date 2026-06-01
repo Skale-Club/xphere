@@ -27,13 +27,17 @@ FROM base AS builder
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+# NEXT_PUBLIC_APP_URL is intentionally NOT declared: Coolify doesn't set it, so
+# `ENV X=$X` would bake an empty string into the image. `??`-based fallbacks
+# (e.g. `process.env.NEXT_PUBLIC_APP_URL ?? '…'`) only trigger on undefined, so
+# an empty string would slip through and break URL building. Leaving it unset
+# keeps it undefined and lets those fallbacks resolve. Origins resolve from
+# NEXT_PUBLIC_SITE_URL instead (see src/lib/site-url.ts).
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY \
     NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 COPY --from=deps /app/node_modules ./node_modules
