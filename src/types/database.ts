@@ -6235,6 +6235,44 @@ export interface Database {
         Args: Record<string, never>
         Returns: string | null
       }
+      inbox_entries: {
+        Args: {
+          p_user: string
+          p_status?: string | null
+          p_assigned?: string | null
+          p_channels?: string[] | null
+          p_starred?: boolean
+          p_verified?: boolean
+          p_priority?: string | null
+          p_bot_status?: string | null
+          p_phone_number_id?: string | null
+          p_pinned?: boolean | null
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Array<{
+          representative_conversation_id: string
+          contact_id: string | null
+          channels: string[] | null
+          pinned: boolean
+          activity_at: string | null
+        }>
+      }
+      inbox_entries_count: {
+        Args: {
+          p_user: string
+          p_status?: string | null
+          p_assigned?: string | null
+          p_channels?: string[] | null
+          p_starred?: boolean
+          p_verified?: boolean
+          p_priority?: string | null
+          p_bot_status?: string | null
+          p_phone_number_id?: string | null
+          p_pinned?: boolean | null
+        }
+        Returns: number
+      }
       merge_contacts: {
         Args: {
           survivor_id: string

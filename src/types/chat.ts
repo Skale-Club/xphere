@@ -72,6 +72,8 @@ export interface ConversationSummary {
   phoneNumberLabel?: string | null
   /** WhatsApp Cloud | timestamp of the last inbound from this contact (used to detect 24h window expiry). */
   lastInboundAt?: string | null
+  /** Contact-centric inbox | distinct channels this contact has open threads on (for multi-channel rows). */
+  channels?: string[]
 }
 
 export interface ConversationMessage {

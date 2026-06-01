@@ -112,142 +112,95 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = await createClient()
 
-  // ─────────── Verified-only filter ───────────
-  // PostgREST can't easily push an EXISTS over an embedded resource into the
-  // top-level WHERE, so we resolve the set of verified contact ids first and
-  // narrow both queries with `.in('contact_id', …)`. Empty set → empty inbox.
-  let verifiedContactIds: string[] | null = null
-  if (verifiedOnly) {
-    const { data: verifiedRows, error: verifiedErr } = await supabase
-      .from('contact_verifications')
-      .select('contact_id')
-    if (verifiedErr) {
-      console.error('[GET /api/chat/conversations] verified-prefetch', verifiedErr)
-      return Response.json(
-        { error: 'Failed to load conversations', detail: verifiedErr.message },
-        { status: 500 },
-      )
-    }
-    verifiedContactIds = Array.from(
-      new Set((verifiedRows ?? []).map((r) => r.contact_id as string).filter(Boolean)),
+  // ─────────── Contact-centric inbox via RPC ───────────
+  // inbox_entries returns ONE representative conversation per contact (anonymous
+  // conversations are their own entry), with the contact's channel set + pinned
+  // flag, ordered by activity. We then hydrate the representative ids with the
+  // full SELECT_COLS embeds (contact/phone/verifications) so the response shape
+  // is unchanged — only the grouping moves into SQL.
+  const rpcArgs = {
+    p_user: userId,
+    p_status: status,
+    p_assigned: assigned === 'me' ? 'me' : null,
+    p_channels: channels.length > 0 ? channels : null,
+    p_starred: starred,
+    p_verified: verifiedOnly,
+    p_priority: priority && VALID_PRIORITIES.has(priority) ? priority : null,
+    p_bot_status: botStatus && VALID_BOT_STATUSES.has(botStatus) ? botStatus : null,
+    p_phone_number_id: phoneNumberId,
+  }
+
+  type EntryRow = {
+    representative_conversation_id: string
+    contact_id: string | null
+    channels: string[] | null
+    pinned: boolean
+  }
+
+  const [pinnedEntriesRes, pageEntriesRes, countRes] = await Promise.all([
+    supabase.rpc('inbox_entries', { ...rpcArgs, p_pinned: true, p_limit: 1000, p_offset: 0 }),
+    supabase.rpc('inbox_entries', {
+      ...rpcArgs,
+      p_pinned: false,
+      p_limit: pageSize,
+      p_offset: (page - 1) * pageSize,
+    }),
+    supabase.rpc('inbox_entries_count', { ...rpcArgs, p_pinned: false }),
+  ])
+
+  const entriesErr = pinnedEntriesRes.error ?? pageEntriesRes.error ?? countRes.error
+  if (entriesErr) {
+    console.error('[GET /api/chat/conversations] inbox_entries', entriesErr)
+    return Response.json(
+      { error: 'Failed to load conversations', detail: entriesErr.message },
+      { status: 500 },
     )
-    if (verifiedContactIds.length === 0) {
-      return Response.json({
-        conversations: [],
-        pinned: [],
-        page,
-        pageSize,
-        totalCount: 0,
-        totalPages: 0,
-      })
-    }
   }
 
-  // ─────────── Pinned (always full, no pagination) ───────────
-  function applyFilters<T>(query: T): T {
-    let q = query as never as FilterableQuery
-    if (status) q = q.eq('status', status)
-    else q = q.neq('status', 'closed')
-    if (assigned === 'me') q = q.eq('assigned_user_id', userId)
-    if (channels.length === 1) q = q.eq('channel', channels[0])
-    else if (channels.length > 1) q = q.in('channel', channels)
-    if (starred) q = q.eq('starred', true)
-    if (verifiedContactIds) q = q.in('contact_id', verifiedContactIds)
-    if (priority && VALID_PRIORITIES.has(priority)) q = q.eq('priority', priority)
-    if (botStatus && VALID_BOT_STATUSES.has(botStatus)) q = q.eq('bot_status', botStatus)
-    if (phoneNumberId) q = q.eq('phone_number_id', phoneNumberId)
-    return q as never as T
-  }
-
-  const pinnedWithMessagesQuery = applyFilters(
-    supabase
-      .from('conversations')
-      .select(SELECT_COLS)
-      .eq('pinned', true)
-      .not('last_message_at', 'is', null)
-      .order('last_message_at', { ascending: false })
-      .order('created_at', { ascending: false }),
-  )
-  const pinnedWithoutMessagesQuery = applyFilters(
-    supabase
-      .from('conversations')
-      .select(SELECT_COLS)
-      .eq('pinned', true)
-      .is('last_message_at', null)
-      .order('updated_at', { ascending: false })
-      .order('created_at', { ascending: false }),
-  )
-  const [
-    { data: pinnedWithMessages, error: pinnedWithMessagesErr },
-    { data: pinnedWithoutMessages, error: pinnedWithoutMessagesErr },
-  ] = await Promise.all([pinnedWithMessagesQuery, pinnedWithoutMessagesQuery])
-  const pinnedErr = pinnedWithMessagesErr ?? pinnedWithoutMessagesErr
-  if (pinnedErr) {
-    console.error('[GET /api/chat/conversations] pinned', pinnedErr)
-    return Response.json({ error: 'Failed to load conversations', detail: pinnedErr.message }, { status: 500 })
-  }
-  const pinnedRows = [
-    ...((pinnedWithMessages ?? []) as Record<string, unknown>[]),
-    ...((pinnedWithoutMessages ?? []) as Record<string, unknown>[]),
-  ].sort(compareActivityDesc)
-
-  // ─────────── Unpinned page (range + exact count) ───────────
-  const from = (page - 1) * pageSize
-  const to = from + pageSize - 1
-
-  const countQuery = applyFilters(
-    supabase
-      .from('conversations')
-      .select('id', { count: 'exact', head: true })
-      .eq('pinned', false),
-  )
-
-  const { count, error: countErr } = await countQuery
-  if (countErr) {
-    console.error('[GET /api/chat/conversations] count', countErr)
-    return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
-  }
-
-  const totalCount = count ?? 0
+  const pinnedEntries = (pinnedEntriesRes.data ?? []) as EntryRow[]
+  const pageEntries = (pageEntriesRes.data ?? []) as EntryRow[]
+  const totalCount = Number(countRes.data ?? 0)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-  let pageRows: Record<string, unknown>[] = []
 
-  if (totalCount > 0 && from < totalCount) {
-    const candidateTo = Math.min(to, totalCount - 1)
-    const withMessagesQuery = applyFilters(
-      supabase
-        .from('conversations')
-        .select(SELECT_COLS)
-        .eq('pinned', false)
-        .not('last_message_at', 'is', null)
-        .order('last_message_at', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(0, candidateTo),
-    )
-    const withoutMessagesQuery = applyFilters(
-      supabase
-        .from('conversations')
-        .select(SELECT_COLS)
-        .eq('pinned', false)
-        .is('last_message_at', null)
-        .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(0, candidateTo),
-    )
-    const [
-      { data: withMessages, error: withMessagesErr },
-      { data: withoutMessages, error: withoutMessagesErr },
-    ] = await Promise.all([withMessagesQuery, withoutMessagesQuery])
-    const pageErr = withMessagesErr ?? withoutMessagesErr
-    if (pageErr) {
-      console.error('[GET /api/chat/conversations] page', pageErr)
+  // Channel set + order index per representative conversation id.
+  const channelsById = new Map<string, string[]>()
+  for (const e of [...pinnedEntries, ...pageEntries]) {
+    channelsById.set(e.representative_conversation_id, e.channels ?? [])
+  }
+
+  // Hydrate representative ids with the full embeds in a single query.
+  const repIds = [
+    ...pinnedEntries.map((e) => e.representative_conversation_id),
+    ...pageEntries.map((e) => e.representative_conversation_id),
+  ]
+  const rowsById = new Map<string, Record<string, unknown>>()
+  if (repIds.length > 0) {
+    const { data: hydrated, error: hydrateErr } = await supabase
+      .from('conversations')
+      .select(SELECT_COLS)
+      .in('id', repIds)
+    if (hydrateErr) {
+      console.error('[GET /api/chat/conversations] hydrate', hydrateErr)
       return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
     }
-    pageRows = [
-      ...((withMessages ?? []) as Record<string, unknown>[]),
-      ...((withoutMessages ?? []) as Record<string, unknown>[]),
-    ].sort(compareActivityDesc).slice(from, to + 1)
+    for (const r of (hydrated ?? []) as Record<string, unknown>[]) {
+      rowsById.set(r.id as string, r)
+    }
   }
+
+  // Preserve RPC ordering (activity desc); attach the contact's channel set.
+  const mapEntries = (entries: EntryRow[]): Record<string, unknown>[] => {
+    const out: Record<string, unknown>[] = []
+    for (const e of entries) {
+      const row = rowsById.get(e.representative_conversation_id)
+      if (!row) continue
+      out.push({ ...row, __channels: channelsById.get(e.representative_conversation_id) ?? [] })
+    }
+    return out
+  }
+
+  const pinnedRows = mapEntries(pinnedEntries)
+  const pageRows = mapEntries(pageEntries)
 
   // ─────────── Secondary: resolve page_name for Meta conversations ───────────
   const allRows = [...pinnedRows, ...pageRows]
@@ -320,6 +273,7 @@ export async function GET(request: Request): Promise<Response> {
       phoneNumberId: (row.phone_number_id as string | null) ?? null,
       phoneNumberLabel,
       lastInboundAt: (row.last_inbound_at as string | null) ?? null,
+      channels: (row.__channels as string[] | undefined) ?? [row.channel as string],
     }
   }
 
