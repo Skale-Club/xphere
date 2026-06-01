@@ -257,7 +257,8 @@ export function FilterPanel({
 
           {/* Channels */}
           <Section title="Channels">
-            <div className="flex flex-wrap gap-1.5">
+            {/* Single row — all channels fit on one line (no wrap). */}
+            <div className="flex flex-nowrap items-center gap-1">
               {CHANNELS.map((channel) => {
                 const active = selectedChannels.has(channel.value)
                 return (
@@ -269,7 +270,7 @@ export function FilterPanel({
                     aria-pressed={active}
                     onClick={() => toggleChannel(channel.value)}
                     className={cn(
-                      'relative flex h-8 w-8 items-center justify-center rounded-[7px] transition-all',
+                      'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] transition-all',
                       active
                         ? 'opacity-100'
                         : 'opacity-40 hover:opacity-100',
@@ -278,9 +279,9 @@ export function FilterPanel({
                     <ChannelBadge
                       channel={channel.value}
                       showLabel={false}
-                      size="md"
+                      size="sm"
                       className={cn(
-                        '!h-8 !w-8 ring-0',
+                        '!h-7 !w-7 ring-0',
                         active && channelSelectedBg[channel.value],
                       )}
                     />
