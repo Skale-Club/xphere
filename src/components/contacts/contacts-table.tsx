@@ -69,6 +69,13 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ContactListRow } from "@/app/(dashboard)/contacts/actions";
 
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
@@ -816,6 +823,12 @@ function ContactsFilterPopover({
   setParam: (key: string, value: string | null) => void;
   onClear: () => void;
 }) {
+  // currentTag may be stored as a tag id, name or slug — resolve back to the
+  // canonical tag id so the <Select> shows the right item.
+  const selectedTagId = allTags.find(
+    (t) =>
+      currentTag === t.id || currentTag === t.name || currentTag === t.slug,
+  )?.id;
   return (
     <FilterPopover activeCount={activeCount} className="w-[360px]">
       <FilterPopoverHeader
@@ -823,7 +836,7 @@ function ContactsFilterPopover({
         showClear={activeCount > 0}
         onClear={onClear}
       />
-      <div className="space-y-4 p-4">
+      <div className="max-h-[min(68vh,520px)] space-y-4 overflow-y-auto p-4">
         <FilterSection title="Channels">
           <FilterPill
             active={!currentChannel}
@@ -858,52 +871,50 @@ function ContactsFilterPopover({
         </FilterSection>
 
         <FilterSection title="Source">
-          <FilterPill
-            active={!currentSource}
-            onClick={() => setParam("source", null)}
+          <Select
+            value={currentSource ?? "all"}
+            onValueChange={(v) => setParam("source", v === "all" ? null : v)}
           >
-            All sources
-          </FilterPill>
-          {CONTACT_SOURCES.map((source) => (
-            <FilterPill
-              key={source}
-              active={currentSource === source}
-              onClick={() => setParam("source", source)}
-            >
-              {sourceLabel(source)}
-            </FilterPill>
-          ))}
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="All sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              {CONTACT_SOURCES.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {sourceLabel(source)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FilterSection>
 
         <FilterSection title="Tags">
-          <TagChip
-            label="All tags"
-            active={!currentTag}
-            onClick={() => setParam("tag", null)}
-          />
           {allTags.length > 0 ? (
-            allTags.map((tag) => (
-              <TagChip
-                key={tag.id}
-                label={tag.name}
-                color={tag.color}
-                active={
-                  currentTag === tag.id ||
-                  currentTag === tag.name ||
-                  currentTag === tag.slug
-                }
-                onClick={() =>
-                  setParam(
-                    "tag",
-                    currentTag === tag.id ||
-                      currentTag === tag.name ||
-                      currentTag === tag.slug
-                      ? null
-                      : tag.id,
-                  )
-                }
-              />
-            ))
+            <Select
+              value={selectedTagId ?? "all"}
+              onValueChange={(v) => setParam("tag", v === "all" ? null : v)}
+            >
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue placeholder="All tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tags</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag.id} value={tag.id}>
+                    <span className="flex items-center gap-1.5">
+                      {tag.color && (
+                        <span
+                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                      )}
+                      {tag.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <span className="text-xs text-text-tertiary">No tags yet</span>
           )}
@@ -972,49 +983,6 @@ function ConflictsChip({
     >
       <span>Conflicts: {count}</span>
       {!disabled && active && <X className="h-3 w-3" />}
-    </button>
-  );
-}
-
-function TagChip({
-  label,
-  color,
-  active,
-  onClick,
-}: {
-  label: string;
-  color?: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  const style =
-    active && color
-      ? { backgroundColor: `${color}33`, borderColor: color, color }
-      : color
-        ? { backgroundColor: `${color}15`, borderColor: `${color}44`, color }
-        : undefined;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium transition-colors duration-150",
-        !color &&
-          (active
-            ? "border-accent bg-accent text-accent-foreground"
-            : "border-border-subtle bg-bg-secondary text-text-secondary hover:border-border-strong hover:text-text-primary"),
-      )}
-      style={style}
-    >
-      {color && (
-        <span
-          className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: color }}
-        />
-      )}
-      {label}
-      {active && label !== "All tags" && <X className="h-3 w-3" />}
     </button>
   );
 }
