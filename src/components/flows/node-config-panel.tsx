@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useState, type ButtonHTMLAttributes } from 'react'
-import { Check, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
+import { Braces, Check, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -75,6 +75,11 @@ import {
   groupedTriggers,
   type IntegrationKey,
 } from '@/lib/flows/node-metadata'
+import {
+  appendVariableToken,
+  variablesForTrigger,
+  type VariableGroup,
+} from '@/lib/flows/variables'
 import { cn } from '@/lib/utils'
 
 const NODE_TYPE_LABEL: Record<string, string> = {
@@ -288,15 +293,9 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                     />
                   </div>
                 )}
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] text-text-tertiary">Credential ref</Label>
-                  <Input
-                    value={flow.credential_ref ?? ''}
-                    onChange={(e) => updateNodeData(node.id, { credential_ref: e.target.value })}
-                    placeholder="auto-resolved by default"
-                    className="h-8 text-xs"
-                  />
-                </div>
+                {/* Credential ref is intentionally NOT exposed — it auto-resolves to the
+                    org's active integration for the action's provider. Power users can still
+                    pin a specific credential via the workflow YAML (credential_ref). */}
               </div>
             )}
           </>
