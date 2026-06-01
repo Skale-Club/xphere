@@ -39,6 +39,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   google_calendar: 'Google Calendar',
   telegram: 'Telegram',
   resend: 'Resend',
+  zernio: 'Zernio',
 }
 
 const integrationSchema = z.object({

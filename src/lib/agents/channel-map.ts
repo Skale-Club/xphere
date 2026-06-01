@@ -16,6 +16,7 @@ export function conversationChannelToAgentChannel(channel: string | null | undef
     case 'instagram':
     case 'manychat':
     case 'telegram':
+    case 'zernio':
       return channel
     default:
       return null

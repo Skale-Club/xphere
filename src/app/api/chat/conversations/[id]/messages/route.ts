@@ -11,6 +11,8 @@ import { sendTenantEmail } from '@/lib/email/resend'
 import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
+import { sendZernioDm } from '@/lib/zernio/send-dm'
+import { getProviderKey } from '@/lib/integrations/get-provider-key'
 
 export const runtime = 'nodejs'
 
@@ -410,7 +412,39 @@ export async function POST(
     }
   }
 
-  if (!['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp'].includes(conv.channel)) {
+  // Zernio unified social inbox (Instagram, Facebook, LinkedIn, TikTok, etc.)
+  if (conv.channel === 'zernio') {
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
+    const zernioConversationId = metadata.zernio_conversation_id ?? ''
+
+    if (!zernioConversationId) {
+      return sendError(
+        'zernio_no_conversation_id',
+        'This Zernio conversation has no conversation ID. The channel may not have been set up correctly.',
+        400,
+      )
+    }
+
+    const apiKey = await getProviderKey('zernio', conv.org_id, supabase)
+    if (!apiKey) {
+      return sendError(
+        'zernio_not_configured',
+        'Zernio is not connected for this organization. Add a Zernio API key in Integrations.',
+        400,
+      )
+    }
+
+    try {
+      const { messageId } = await sendZernioDm(zernioConversationId, content, apiKey)
+      if (messageId) deliveryMetadata.zernio_message_id = messageId
+    } catch (err) {
+      console.error('[POST messages] Zernio send error:', err)
+      const message = err instanceof Error ? err.message : 'Zernio rejected the message.'
+      return sendError('zernio_send_failed', message, 502)
+    }
+  }
+
+  if (!['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp', 'zernio'].includes(conv.channel)) {
     return sendError(
       'channel_not_sendable',
       `The ${conv.channel || 'selected'} channel is not configured for outbound messages.`,

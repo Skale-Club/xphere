@@ -70,6 +70,9 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
       // not as its own row. The registry entry is kept so workflow specs and
       // active-integration detection still resolve it.
       if (def.id === 'whatsapp_cloud') continue
+      // 'meta' is superseded by Zernio for Instagram/Facebook inbox.
+      // Existing data is preserved; new connections are disabled.
+      if (def.id === 'meta') continue
       out[def.category] ??= []
       out[def.category].push(def)
     }
