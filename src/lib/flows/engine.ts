@@ -9,6 +9,7 @@ import type { GhlCredentials } from '@/lib/ghl/client'
 import { insertNotification } from '@/lib/notifications/insert'
 import { createWait, durationToMs, resolveRunContactId } from './wait'
 import { executeAgentNode } from './execute-agent-node'
+import { getProviderKey } from '@/lib/integrations/get-provider-key'
 
 const MAX_STEPS = 100
 
@@ -748,10 +749,18 @@ async function executeFlowNode(
       case 'booking_get':
         return executeBookingGet(resolvedConfig, ctx)
       default: {
-        const credentials = await resolveGhlCredentials(ctx.orgId, ctx.supabase)
+        // Most actions resolve their own provider credential via ctx (org-scoped).
+        // The legacy ones that consume the `credentials` arg need the RIGHT provider:
+        // ManyChat actions use the ManyChat key, everything else falls back to GHL.
+        const actionType = data.action_type as string
+        const isManychat = actionType.startsWith('manychat')
+        const credentials = isManychat
+          ? { apiKey: (await getProviderKey('manychat', ctx.orgId, ctx.supabase)) ?? '', locationId: '' }
+          : await resolveGhlCredentials(ctx.orgId, ctx.supabase)
         const actionCtx: ActionContext = {
           organizationId: ctx.orgId,
           supabase: ctx.supabase,
+          ...(isManychat ? { integrationProvider: 'manychat' as const } : {}),
         }
         const result = await executeAction(
           data.action_type as Database['public']['Enums']['action_type'],
