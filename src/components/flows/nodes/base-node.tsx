@@ -121,6 +121,10 @@ function BaseNodeImpl({
   const inlineBorder = STATE_BORDER_STYLE[state]
   // When `selected` is true the primary ring takes over visually; we still
   // want incomplete/error feedback though, hence the state badge stays.
+  // In the default state the card border adopts the node-type colour so the
+  // card reads as part of that node family (matching the icon tile + handles).
+  const defaultColorBorder =
+    !selected && state === 'default' ? { borderColor: color } : undefined
 
   return (
     <div className={cn(isDisabled && 'opacity-60')}>
@@ -129,7 +133,7 @@ function BaseNodeImpl({
           'rounded-lg border bg-card shadow-sm min-w-[200px] transition-all',
           selected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
         )}
-        style={!selected && inlineBorder ? inlineBorder : undefined}
+        style={!selected ? inlineBorder ?? defaultColorBorder : undefined}
       >
         <div className="flex items-center gap-2 px-3 py-2">
           <div className="relative">

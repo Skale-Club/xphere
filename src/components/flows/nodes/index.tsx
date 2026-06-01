@@ -63,7 +63,10 @@ function TriggerNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
       logo={visual?.logo}
       title={title}
       subtitle={subtitle}
-      color={visual?.color ?? FALLBACK_TRIGGER_COLOR}
+      // Node-type colour (not the brand colour): the tile, card border and
+      // handles all share the trigger family colour; the brand logo carries
+      // brand identity on its own.
+      color={FALLBACK_TRIGGER_COLOR}
       selected={selected}
       hasInput={false}
     />
@@ -114,7 +117,10 @@ function ActionNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
       logo={visual?.logo}
       title={title}
       subtitle={subtitle}
-      color={visual?.color ?? FALLBACK_ACTION_COLOR}
+      // Node-type colour (not the brand colour): tile, card border and handles
+      // all share the action family colour; the brand logo carries brand
+      // identity on its own.
+      color={FALLBACK_ACTION_COLOR}
       selected={selected}
       state={state}
     />
