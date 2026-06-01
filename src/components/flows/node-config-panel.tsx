@@ -269,21 +269,25 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
             </button>
             {advancedOpen && (
               <div className="space-y-3 pt-1 pl-2 border-l border-border-subtle">
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] text-text-tertiary">Config (raw JSON)</Label>
-                  <Textarea
-                    value={JSON.stringify(flow.config ?? {}, null, 2)}
-                    onChange={(e) => {
-                      try {
-                        updateNodeData(node.id, { config: JSON.parse(e.target.value) })
-                      } catch {
-                        /* ignore parse errors while typing */
-                      }
-                    }}
-                    rows={6}
-                    className="text-xs font-mono resize-none"
-                  />
-                </div>
+                {/* Raw JSON is shown only for actions without dedicated fields —
+                    otherwise the form above is the single source of truth. */}
+                {!ACTION_TYPES_WITH_FIELDS.has(flow.action_type) && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-text-tertiary">Config (raw JSON)</Label>
+                    <Textarea
+                      value={JSON.stringify(flow.config ?? {}, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          updateNodeData(node.id, { config: JSON.parse(e.target.value) })
+                        } catch {
+                          /* ignore parse errors while typing */
+                        }
+                      }}
+                      rows={6}
+                      className="text-xs font-mono resize-none"
+                    />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label className="text-[11px] text-text-tertiary">Credential ref</Label>
                   <Input
@@ -670,6 +674,26 @@ function DurationField({
     </div>
   )
 }
+
+// Action types that render dedicated form fields in ActionConfigFields. For
+// these the raw-JSON editor is redundant (the form owns the config), so it is
+// hidden. Unmapped actions fall through to the raw JSON, which is then their
+// only editor. Keep this in sync with the switch in ActionConfigFields.
+const ACTION_TYPES_WITH_FIELDS = new Set<string>([
+  'send_whatsapp',
+  'send_email',
+  'http_request',
+  'create_contact',
+  'create_task',
+  'create_note',
+  'update_pipeline_stage',
+  'query_knowledge',
+  'execute_flow',
+  'google_contacts_create',
+  'google_contacts_update',
+  'google_contacts_find',
+  'google_contacts_delete',
+])
 
 interface ActionConfigFieldsProps {
   actionType: string
