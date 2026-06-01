@@ -350,6 +350,12 @@ export function ChatLayout({
       setMessages([])
       return
     }
+    // Clear the previous conversation's messages before fetching so that
+    // MessageList sees an empty array on mount and correctly detects the
+    // first batch as an "initial load" (scroll to bottom), not a "prepend"
+    // (scroll restoration). Without this, switching from a longer to a
+    // shorter conversation could leave the view stuck mid-thread.
+    setMessages([])
     fetchMessages(selectedId)
   }, [selectedId, fetchMessages])
 

@@ -99,6 +99,19 @@ export function MessageList({
     return (scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null) ?? null
   }
 
+  // After the initial fetch completes (isLoading false → messages rendered),
+  // re-apply scroll-to-bottom via RAF so images that loaded after the
+  // synchronous useLayoutEffect also get accounted for.
+  useEffect(() => {
+    if (isLoading) return
+    const viewport = getViewport()
+    if (!viewport) return
+    const id = requestAnimationFrame(() => {
+      viewport.scrollTop = viewport.scrollHeight
+    })
+    return () => cancelAnimationFrame(id)
+  }, [isLoading])
+
   // Track "is the user near the bottom?" via scroll position on the viewport.
   useEffect(() => {
     const viewport = scrollRef.current?.querySelector(
@@ -135,7 +148,15 @@ export function MessageList({
           prevScrollHeightRef.current = 0
         }
       } else if (isInitialLoad) {
-        endRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
+        // Use scrollTop = scrollHeight directly — more reliable than
+        // scrollIntoView when images in the thread haven't loaded yet
+        // (images increase scrollHeight after paint, pushing content up).
+        const viewport = getViewport()
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight
+        } else {
+          endRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
+        }
       } else if (lastId !== lastMessageIdRef.current) {
         // New message appended at the end
         if (atBottom) {
