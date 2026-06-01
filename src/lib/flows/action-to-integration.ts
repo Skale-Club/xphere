@@ -24,6 +24,10 @@ export const ACTION_TO_INTEGRATION: Record<string, string> = {
   send_whatsapp: 'whatsapp',
   send_whatsapp_message: 'whatsapp',
   send_whatsapp_mention_all: 'whatsapp',
+  send_whatsapp_template: 'whatsapp_cloud',
+
+  // Resend transactional email
+  send_email: 'resend',
 
   // GoHighLevel CRM
   create_contact: 'gohighlevel',
