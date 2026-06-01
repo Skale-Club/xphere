@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronDown, Info, Mail, RadioTower } from 'lucide-react'
+import { ChevronDown, Info, Loader2, Mail, RadioTower } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -41,6 +41,12 @@ interface MessageListProps {
   noAvailableChannel?: boolean
   /** First letter to show in visitor message avatars (contact name or phone). */
   visitorInitial?: string
+  /** Pagination: callback to fetch older messages. */
+  onLoadMore?: () => void
+  /** Pagination: true when there are older messages available. */
+  hasMore?: boolean
+  /** Pagination: true while older messages are being fetched. */
+  isLoadingMore?: boolean
 }
 
 function formatTime(iso: string): string {
@@ -76,13 +82,22 @@ export function MessageList({
   agentMap,
   noAvailableChannel = false,
   visitorInitial = '?',
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const [hasNew, setHasNew] = useState(false)
   const [atBottom, setAtBottom] = useState(true)
   const lastMessageIdRef = useRef<string | null>(null)
+  const firstMessageIdRef = useRef<string | null>(null)
   const prevCountRef = useRef(0)
+  const prevScrollHeightRef = useRef(0)
+
+  function getViewport(): HTMLElement | null {
+    return (scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null) ?? null
+  }
 
   // Track "is the user near the bottom?" via scroll position on the viewport.
   useEffect(() => {
@@ -101,21 +116,38 @@ export function MessageList({
     return () => viewport.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Auto-scroll when messages array changes | but only if the user is already
-  // at the bottom. Otherwise surface the "new messages" pill.
+  // Auto-scroll / scroll-restoration when messages array changes.
   useLayoutEffect(() => {
     const grew = messages.length > prevCountRef.current
+    const firstId = messages[0]?.id ?? null
     const lastId = messages[messages.length - 1]?.id ?? null
-    const newLast = lastId !== lastMessageIdRef.current
-    if (grew && newLast) {
-      if (atBottom) {
-        const isInitialLoad = prevCountRef.current === 0
-        endRef.current?.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth', block: 'end' })
-      } else {
-        setHasNew(true)
+
+    if (grew) {
+      const isPrepend = firstId !== firstMessageIdRef.current && firstMessageIdRef.current !== null
+      const isInitialLoad = prevCountRef.current === 0
+
+      if (isPrepend) {
+        // Older messages were prepended — restore scroll position so the
+        // previously-visible content stays in view.
+        const viewport = getViewport()
+        if (viewport && prevScrollHeightRef.current > 0) {
+          viewport.scrollTop += viewport.scrollHeight - prevScrollHeightRef.current
+          prevScrollHeightRef.current = 0
+        }
+      } else if (isInitialLoad) {
+        endRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
+      } else if (lastId !== lastMessageIdRef.current) {
+        // New message appended at the end
+        if (atBottom) {
+          endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        } else {
+          setHasNew(true)
+        }
       }
     }
+
     prevCountRef.current = messages.length
+    firstMessageIdRef.current = firstId
     lastMessageIdRef.current = lastId
   }, [messages, atBottom])
 
@@ -128,6 +160,24 @@ export function MessageList({
     <div className="relative flex-1 min-h-0">
       <ScrollArea ref={scrollRef} className="h-full">
         <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8">
+          {(hasMore || isLoadingMore) && !isLoading && (
+            <div className="flex justify-center pb-4 pt-2">
+              {isLoadingMore ? (
+                <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    prevScrollHeightRef.current = getViewport()?.scrollHeight ?? 0
+                    onLoadMore?.()
+                  }}
+                  className="text-[12px] text-text-secondary hover:text-text-primary transition-colors underline-offset-2 hover:underline"
+                >
+                  Carregar mensagens anteriores
+                </button>
+              )}
+            </div>
+          )}
           {isLoading ? (
             <LoadingShimmer />
           ) : messages.length === 0 && noAvailableChannel ? (

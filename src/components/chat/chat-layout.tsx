@@ -232,6 +232,8 @@ export function ChatLayout({
   const startAttemptedRef = useRef(false)
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
   const [agentDefaultChannels, setAgentDefaultChannels] = useState<Set<string> | null>(null)
@@ -304,12 +306,15 @@ export function ChatLayout({
 
   const fetchMessages = useCallback(async (id: string) => {
     setIsMessagesLoading(true)
+    setHasMoreMessages(false)
+    setIsLoadingMoreMessages(false)
     try {
       const res = await fetch(`/api/chat/conversations/${id}/messages?includeInternal=true`)
       if (!res.ok) return
       const data = await res.json()
       if (selectedIdRef.current === id) {
         setMessages(data.messages ?? [])
+        setHasMoreMessages(data.hasMore ?? false)
       }
     } catch {
       // ignore
@@ -317,6 +322,28 @@ export function ChatLayout({
       setIsMessagesLoading(false)
     }
   }, [])
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedId || isLoadingMoreMessages || !hasMoreMessages) return
+    const cursor = messages[0]?.id
+    if (!cursor) return
+    setIsLoadingMoreMessages(true)
+    try {
+      const res = await fetch(
+        `/api/chat/conversations/${selectedId}/messages?includeInternal=true&before=${cursor}`,
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      if (selectedIdRef.current === selectedId) {
+        setMessages((prev) => [...(data.messages ?? []), ...prev])
+        setHasMoreMessages(data.hasMore ?? false)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMoreMessages(false)
+    }
+  }, [selectedId, messages, isLoadingMoreMessages, hasMoreMessages])
 
   useEffect(() => {
     if (!selectedId) {
@@ -916,6 +943,9 @@ export function ChatLayout({
             botAgentAvailable={selectedBotAgentAvailable}
             emptyContactId={!selectedId ? initialContactId : null}
             isStartingConversation={isStartingConversation}
+            onLoadMore={loadMoreMessages}
+            hasMore={hasMoreMessages}
+            isLoadingMore={isLoadingMoreMessages}
           />
         </div>
         {infoOpen && (
@@ -1043,6 +1073,9 @@ export function ChatLayout({
               botAgentAvailable={selectedBotAgentAvailable}
               emptyContactId={!selectedId ? initialContactId : null}
               isStartingConversation={isStartingConversation}
+              onLoadMore={loadMoreMessages}
+              hasMore={hasMoreMessages}
+              isLoadingMore={isLoadingMoreMessages}
             />
           </div>
         )}

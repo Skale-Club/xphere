@@ -121,6 +121,12 @@ interface ChatAreaProps {
   emptyContactId?: string | null
   /** True while a conversation is being auto-created for the contact. */
   isStartingConversation?: boolean
+  /** Pagination: callback to load older messages. */
+  onLoadMore?: () => void
+  /** Pagination: true when there are older messages to load. */
+  hasMore?: boolean
+  /** Pagination: true while older messages are being fetched. */
+  isLoadingMore?: boolean
 }
 
 export function ChatArea({
@@ -150,6 +156,9 @@ export function ChatArea({
   composerChannels,
   emptyContactId,
   isStartingConversation = false,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   // SEED-039: per-thread channel filter (client-side, no refetch).
@@ -346,6 +355,9 @@ export function ChatArea({
         agentMap={agentMap}
         primaryChannel={conversation.channel}
         noAvailableChannel={noAvailableOutboundChannel}
+        onLoadMore={onLoadMore}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
         visitorInitial={
           (conversation.contactName || conversation.visitorName || conversation.visitorPhone || '')
             .replace(/[^a-zA-Z0-9]/g, '')
