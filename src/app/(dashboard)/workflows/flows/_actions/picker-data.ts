@@ -10,6 +10,7 @@ import {
   listOrgMembersForSelect,
 } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
 import { getDefaultPipeline, getStages } from '@/app/(dashboard)/pipeline/actions'
+import { createClient } from '@/lib/supabase/server'
 
 export interface FlowPickerOption {
   value: string
@@ -21,14 +22,20 @@ export interface FlowPickerData {
   stages: FlowPickerOption[]
   members: FlowPickerOption[]
   numbers: FlowPickerOption[]
+  flows: FlowPickerOption[]
 }
 
 export async function getFlowPickerData(): Promise<FlowPickerData> {
-  const [templates, numbers, members, pipeline] = await Promise.all([
+  const supabase = await createClient()
+  const [templates, numbers, members, pipeline, workflowsRes] = await Promise.all([
     listApprovedTemplates(),
     listTwilioNumbers(),
     listOrgMembersForSelect(),
     getDefaultPipeline(),
+    supabase
+      .from('workflows')
+      .select('id, name, tool_name, is_active')
+      .order('name', { ascending: true }),
   ])
   const stages = pipeline ? await getStages(pipeline.id) : []
 
@@ -41,6 +48,10 @@ export async function getFlowPickerData(): Promise<FlowPickerData> {
     numbers: numbers.map((n) => ({
       value: n.id,
       label: n.inbox_label || n.friendly_name || n.e164 || n.id,
+    })),
+    flows: (workflowsRes.data ?? []).map((w) => ({
+      value: w.id,
+      label: (w.name as string) || (w.tool_name as string) || w.id,
     })),
   }
 }

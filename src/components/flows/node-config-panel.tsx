@@ -146,7 +146,7 @@ interface AgentOption {
 
 type FlowPickerData = import('@/app/(dashboard)/workflows/flows/_actions/picker-data').FlowPickerData
 
-const EMPTY_PICKER_DATA: FlowPickerData = { templates: [], stages: [], members: [], numbers: [] }
+const EMPTY_PICKER_DATA: FlowPickerData = { templates: [], stages: [], members: [], numbers: [], flows: [] }
 
 interface NodeConfigPanelProps {
   activeIntegrations: IntegrationKey[]
@@ -1461,13 +1461,13 @@ function ActionConfigFields({ actionType, config, onChange, variables, pickerDat
 
     case 'execute_flow':
       return (
-        <VarField
-          label="Flow ID"
+        <PickerOrCustomField
+          label="Flow"
           value={get('flow_id')}
           onChange={(v) => onChange({ flow_id: v })}
-          placeholder="flow_xxx"
+          options={pickerData.flows}
           variables={variables}
-          mono
+          placeholder="Workflow ID or {{variable}}"
         />
       )
 

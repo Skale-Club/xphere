@@ -384,6 +384,46 @@ async function resolveGhlCredentials(
   return { apiKey, locationId: integration.location_id ?? '' }
 }
 
+// Runs another workflow as a sub-step. Loads the target's current version
+// definition and executes it synchronously (bounded). A depth counter on the
+// run state prevents flow → flow → … runaway recursion.
+async function executeSubFlow(
+  config: Record<string, unknown>,
+  ctx: FlowExecutorContext,
+): Promise<Record<string, unknown>> {
+  const targetId = String(config.flow_id ?? '').trim()
+  if (!targetId) return { ok: false, error: 'execute_flow: no flow selected' }
+
+  const depth = Number((ctx.state as Record<string, unknown>)._flow_depth ?? 0)
+  if (depth >= 3) {
+    return { ok: false, _skipped: true, error: 'execute_flow: max nesting depth reached' }
+  }
+
+  const { data: wf } = await ctx.supabase
+    .from('workflows')
+    .select('current_version_id')
+    .eq('id', targetId)
+    .maybeSingle()
+  if (!wf?.current_version_id) return { ok: false, error: 'execute_flow: target workflow not found' }
+
+  const { data: version } = await ctx.supabase
+    .from('workflow_versions')
+    .select('definition')
+    .eq('id', wf.current_version_id)
+    .maybeSingle()
+  if (!version?.definition) return { ok: false, error: 'execute_flow: target has no definition' }
+
+  const { runFlowSync } = await import('@/lib/workflows/run-flow-sync')
+  const res = await runFlowSync({
+    workflowId: targetId,
+    definition: version.definition,
+    triggerInput: { ...(ctx.state as Record<string, unknown>), _flow_depth: depth + 1 },
+    context: { orgId: ctx.orgId },
+    timeoutMs: 30_000,
+  })
+  return { ok: res.ok, result: res.result ?? null, sub_run_id: res.run_id ?? null, error: res.error ?? null }
+}
+
 async function executeHttpRequest(
   config: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -687,6 +727,8 @@ async function executeFlowNode(
 
   if (data.kind === 'action') {
     switch (data.action_type) {
+      case 'execute_flow':
+        return executeSubFlow(resolvedConfig, ctx)
       case 'http_request':
         return executeHttpRequest(resolvedConfig)
       case 'log':
