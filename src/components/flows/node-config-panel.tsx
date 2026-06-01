@@ -100,6 +100,10 @@ const DURATION_UNITS = [
 
 type DurationUnit = (typeof DURATION_UNITS)[number]['value']
 
+// Sensible per-unit caps so people can't enter 25h / 61min — they should pick the
+// next unit up. The boundary value is allowed (24h, 60min) so "24h before" works.
+const UNIT_MAX: Record<DurationUnit, number> = { m: 60, h: 24, d: 31, w: 52 }
+
 function parseDurationValue(value: string | undefined, fallback: string): {
   amount: string
   unit: DurationUnit
@@ -120,7 +124,8 @@ function parseDurationValue(value: string | undefined, fallback: string): {
 }
 
 function toDurationValue(amount: string, unit: DurationUnit): string {
-  const safeAmount = Math.max(1, Number(amount) || 1)
+  const max = UNIT_MAX[unit] ?? Infinity
+  const safeAmount = Math.min(max, Math.max(1, Number(amount) || 1))
   return `${safeAmount}${unit}`
 }
 
@@ -725,6 +730,7 @@ function DurationField({
         <Input
           type="number"
           min={1}
+          max={UNIT_MAX[parsed.unit]}
           step={1}
           value={parsed.amount}
           onChange={(e) => onChange(toDurationValue(e.target.value, parsed.unit))}
@@ -776,7 +782,8 @@ function OffsetField({
       <div className="grid grid-cols-[1fr_110px_110px] gap-2">
         <Input
           type="number"
-          min={0}
+          min={1}
+          max={UNIT_MAX[parsed.unit]}
           step={1}
           value={parsed.amount}
           onChange={(e) => write(e.target.value, parsed.unit, direction)}
