@@ -81,21 +81,25 @@ function NodeIconTile({
 
   return (
     <div
-      className="h-9 w-9 rounded-[8px] flex items-center justify-center shrink-0 text-white overflow-hidden"
+      className="h-9 w-9 rounded-[8px] flex items-center justify-center shrink-0 overflow-hidden"
       style={{ backgroundColor: color }}
     >
       {showLogo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logo}
-          alt=""
-          width={22}
-          height={22}
-          className="object-contain"
-          onError={() => setLogoFailed(true)}
-        />
+        /* White inner layer so the brand logo never sits directly on the
+           coloured tile — keeps logos legible regardless of tile colour. */
+        <div className="h-[28px] w-[28px] rounded-[5px] bg-white flex items-center justify-center overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logo}
+            alt=""
+            width={20}
+            height={20}
+            className="object-contain"
+            onError={() => setLogoFailed(true)}
+          />
+        </div>
       ) : (
-        icon
+        <span className="text-white">{icon}</span>
       )}
     </div>
   )

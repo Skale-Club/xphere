@@ -2,6 +2,49 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
+
+// ── Inline icon badge — coloured bg + white inner layer for brand logos ────────
+
+function NodeIconBadge({
+  icon: Icon,
+  iconClass,
+  logo,
+  size = 'sm',
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  iconClass: string
+  logo?: string
+  size?: 'sm' | 'xs'
+}) {
+  const [logoFailed, setLogoFailed] = useState(false)
+  const showLogo = !!logo && !logoFailed
+
+  const outerSize = size === 'sm' ? 'h-5 w-5' : 'h-4 w-4'
+  const outerRadius = size === 'sm' ? 'rounded-[5px]' : 'rounded-[4px]'
+  const innerSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-3 w-3'
+  const imgSize = size === 'sm' ? 10 : 8
+  const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-2.5 w-2.5'
+
+  return (
+    <span className={`inline-flex ${outerSize} items-center justify-center ${outerRadius} ${iconClass}`}>
+      {showLogo ? (
+        <span className={`inline-flex ${innerSize} items-center justify-center rounded-[3px] bg-white overflow-hidden`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logo}
+            alt=""
+            width={imgSize}
+            height={imgSize}
+            className="object-contain"
+            onError={() => setLogoFailed(true)}
+          />
+        </span>
+      ) : (
+        <Icon className={iconSize} />
+      )}
+    </span>
+  )
+}
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -161,19 +204,14 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                     </div>
                   )}
                   {/* Always include the currently selected event so user can change away */}
-                  {filterTriggers(activeSet).map((m) => {
-                    const Icon = m.icon
-                    return (
-                      <SelectItem key={m.key} value={m.key} className="text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-[5px]', m.iconClass)}>
-                            <Icon className="h-3 w-3" />
-                          </span>
-                          <span>{m.label}</span>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
+                  {filterTriggers(activeSet).map((m) => (
+                    <SelectItem key={m.key} value={m.key} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
+                        <span>{m.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                   {/* Fallback: if currently selected isn't in the filtered list, surface it */}
                   {!filterTriggers(activeSet).some((m) => m.key === flow.event_type) &&
                     getTriggerMetadata(flow.event_type) && (
@@ -218,19 +256,14 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                   <SelectedActionLabel value={flow.action_type} />
                 </SelectTrigger>
                 <SelectContent>
-                  {filterActions(activeSet).map((m) => {
-                    const Icon = m.icon
-                    return (
-                      <SelectItem key={m.key} value={m.key} className="text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-[5px]', m.iconClass)}>
-                            <Icon className="h-3 w-3" />
-                          </span>
-                          <span>{m.label}</span>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
+                  {filterActions(activeSet).map((m) => (
+                    <SelectItem key={m.key} value={m.key} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
+                        <span>{m.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                   {!filterActions(activeSet).some((m) => m.key === flow.action_type) &&
                     getActionMetadata(flow.action_type) && (
                     <SelectItem value={flow.action_type} className="text-xs opacity-70">
@@ -426,12 +459,9 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
 function SelectedTriggerLabel({ value }: { value: string }) {
   const meta = getTriggerMetadata(value)
   if (!meta) return <SelectValue placeholder="Choose a trigger" />
-  const Icon = meta.icon
   return (
     <span className="flex items-center gap-2">
-      <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-[5px]', meta.iconClass)}>
-        <Icon className="h-3 w-3" />
-      </span>
+      <NodeIconBadge icon={meta.icon} iconClass={meta.iconClass} logo={meta.logo} />
       <span className="truncate">{meta.label}</span>
     </span>
   )
@@ -440,12 +470,9 @@ function SelectedTriggerLabel({ value }: { value: string }) {
 function SelectedActionLabel({ value }: { value: string }) {
   const meta = getActionMetadata(value)
   if (!meta) return <SelectValue placeholder="Choose an action" />
-  const Icon = meta.icon
   return (
     <span className="flex items-center gap-2">
-      <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-[5px]', meta.iconClass)}>
-        <Icon className="h-3 w-3" />
-      </span>
+      <NodeIconBadge icon={meta.icon} iconClass={meta.iconClass} logo={meta.logo} />
       <span className="truncate">{meta.label}</span>
     </span>
   )

@@ -45,6 +45,9 @@ export interface TriggerMetadata {
   description: string
   icon: IconComponent
   iconClass: string
+  /** Path to brand logo in /public/logos/ — rendered with a white inner layer.
+   *  Falls back to `icon` if the image fails to load. */
+  logo?: string
   requiresIntegration?: IntegrationKey
 }
 
@@ -54,6 +57,9 @@ export interface ActionMetadata {
   description: string
   icon: IconComponent
   iconClass: string
+  /** Path to brand logo in /public/logos/ — rendered with a white inner layer.
+   *  Falls back to `icon` if the image fails to load. */
+  logo?: string
   requiresIntegration?: IntegrationKey
 }
 
@@ -85,6 +91,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     description: 'After a Vapi AI call ends',
     icon: PhoneCall,
     iconClass: 'bg-indigo-500/15 text-indigo-300',
+    logo: '/logos/vapi.svg',
     requiresIntegration: 'vapi',
   },
   {
@@ -93,6 +100,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     description: 'New ManyChat conversation event',
     icon: ChatTeardropDots,
     iconClass: 'bg-blue-500/15 text-blue-300',
+    logo: '/logos/manychat.svg',
     requiresIntegration: 'manychat',
   },
   {
@@ -101,6 +109,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     description: 'New Meta channel message',
     icon: Camera,
     iconClass: 'bg-pink-500/15 text-pink-300',
+    logo: '/logos/meta.svg',
     requiresIntegration: 'meta',
   },
   {
@@ -140,6 +149,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Send a WhatsApp message via Evolution / Z-API / W-API',
     icon: ChatCircle,
     iconClass: 'bg-emerald-500/15 text-emerald-300',
+    logo: '/logos/whatsapp.svg',
     requiresIntegration: 'whatsapp',
   },
   {
@@ -148,6 +158,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Send a Meta-approved template via the official Cloud API',
     icon: ChatCircle,
     iconClass: 'bg-emerald-600/15 text-emerald-300',
+    logo: '/logos/whatsapp.svg',
     requiresIntegration: 'whatsapp_cloud',
   },
   {
@@ -156,6 +167,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Send a transactional email',
     icon: EnvelopeSimple,
     iconClass: 'bg-blue-500/15 text-blue-300',
+    logo: '/logos/resend.svg',
     requiresIntegration: 'resend',
   },
   {
@@ -164,6 +176,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Create a new CRM contact',
     icon: UserPlus,
     iconClass: 'bg-rose-500/15 text-rose-300',
+    logo: '/logos/gohighlevel.svg',
   },
   {
     key: 'create_task',
@@ -208,6 +221,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Create a contact in the connected Google account',
     icon: AddressBook,
     iconClass: 'bg-blue-500/15 text-blue-300',
+    logo: '/logos/google-contacts.svg',
     requiresIntegration: 'google_contacts',
   },
   {
@@ -216,6 +230,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Update an existing contact in Google by email',
     icon: PencilSimple,
     iconClass: 'bg-blue-500/15 text-blue-300',
+    logo: '/logos/google-contacts.svg',
     requiresIntegration: 'google_contacts',
   },
   {
@@ -224,6 +239,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Search a Google contact by email or phone',
     icon: MagnifyingGlass,
     iconClass: 'bg-blue-500/15 text-blue-300',
+    logo: '/logos/google-contacts.svg',
     requiresIntegration: 'google_contacts',
   },
   {
@@ -232,6 +248,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Delete a contact from Google by email',
     icon: Trash,
     iconClass: 'bg-red-500/15 text-red-300',
+    logo: '/logos/google-contacts.svg',
     requiresIntegration: 'google_contacts',
   },
 ]
