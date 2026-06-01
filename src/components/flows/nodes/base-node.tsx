@@ -131,9 +131,15 @@ function BaseNodeImpl({
       <div
         className={cn(
           'rounded-lg border bg-card shadow-sm min-w-[200px] transition-all',
-          selected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
+          !selected && 'border-border',
         )}
-        style={!selected ? inlineBorder ?? defaultColorBorder : undefined}
+        style={
+          selected
+            ? // Selected: border + glow ring in the node's OWN colour (not a flat
+              // purple), and a touch more prominent so the focus reads clearly.
+              { borderColor: color, boxShadow: `0 0 0 3px ${color}66` }
+            : inlineBorder ?? defaultColorBorder
+        }
       >
         <div className="flex items-center gap-2 px-3 py-2">
           <div className="relative">
