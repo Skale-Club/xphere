@@ -51,6 +51,37 @@ function ChannelDivider({ channel }: { channel: Channel }) {
   )
 }
 
+function startOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+/** "Hoje" / "Ontem" / "1 de junho" (+ ano se for outro ano). */
+function formatDayLabel(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const today = startOfDayMs(new Date())
+  const that = startOfDayMs(d)
+  const dayMs = 86_400_000
+  if (that === today) return 'Hoje'
+  if (that === today - dayMs) return 'Ontem'
+  return d.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}),
+  })
+}
+
+/** Centered date pill marking the start of a new calendar day in the timeline. */
+function DateDivider({ label }: { label: string }) {
+  return (
+    <div className="my-3 flex justify-center animate-bubble-in">
+      <span className="rounded-full bg-bg-tertiary/70 px-3 py-1 text-[11px] font-medium capitalize text-text-secondary ring-1 ring-border-subtle backdrop-blur">
+        {label}
+      </span>
+    </div>
+  )
+}
+
 interface MessageListProps {
   messages: ConversationMessage[]
   isLoading: boolean
@@ -233,6 +264,28 @@ export function MessageList({
     return out
   })()
 
+  // Day separators: label the first message and every message that starts a new
+  // calendar day, so long threads stay readable across days.
+  const dayDividers: (string | null)[] = (() => {
+    const out: (string | null)[] = []
+    let lastDay: number | null = null
+    for (const m of messages) {
+      const t = new Date(m.createdAt).getTime()
+      if (isNaN(t)) {
+        out.push(null)
+        continue
+      }
+      const day = startOfDayMs(new Date(t))
+      if (lastDay === null || day !== lastDay) {
+        out.push(formatDayLabel(m.createdAt))
+        lastDay = day
+      } else {
+        out.push(null)
+      }
+    }
+    return out
+  })()
+
   return (
     <div className="relative flex-1 min-h-0">
       <ScrollArea ref={scrollRef} className="h-full">
@@ -284,34 +337,38 @@ export function MessageList({
               {messages.map((message, i) => {
                 const prev = i > 0 ? messages[i - 1] : null
                 const sameSender = prev && prev.role === message.role && !isSystemMessage(prev) && !isSystemMessage(message)
+                const dateDivider = dayDividers[i] ? <DateDivider label={dayDividers[i]!} /> : null
 
                 if (isSystemMessage(message)) {
                   return (
-                    <div
-                      key={message.id}
-                      className="my-2 flex justify-center animate-bubble-in"
-                    >
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-tertiary/60 px-2.5 py-1 text-[11px] text-text-tertiary ring-1 ring-border-subtle">
-                        <Info className="h-3 w-3" />
-                        {message.content}
-                      </span>
-                    </div>
+                    <Fragment key={message.id}>
+                      {dateDivider}
+                      <div className="my-2 flex justify-center animate-bubble-in">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-tertiary/60 px-2.5 py-1 text-[11px] text-text-tertiary ring-1 ring-border-subtle">
+                          <Info className="h-3 w-3" />
+                          {message.content}
+                        </span>
+                      </div>
+                    </Fragment>
                   )
                 }
 
                 const debugStyle = getDebugStyle(message)
                 if (debugStyle) {
                   return (
-                    <div key={message.id} className={cn('my-1 flex justify-center animate-bubble-in')}>
-                      <div
-                        className={cn(
-                          'max-w-[85%] rounded-[8px] border px-3 py-2 text-[11.5px] font-mono leading-relaxed',
-                          debugStyle,
-                        )}
-                      >
-                        {message.content}
+                    <Fragment key={message.id}>
+                      {dateDivider}
+                      <div className={cn('my-1 flex justify-center animate-bubble-in')}>
+                        <div
+                          className={cn(
+                            'max-w-[85%] rounded-[8px] border px-3 py-2 text-[11.5px] font-mono leading-relaxed',
+                            debugStyle,
+                          )}
+                        >
+                          {message.content}
+                        </div>
                       </div>
-                    </div>
+                    </Fragment>
                   )
                 }
 
@@ -324,6 +381,7 @@ export function MessageList({
                 if (isVisitor) {
                   return (
                     <Fragment key={message.id}>
+                      {dateDivider}
                       {channelDividers[i] && <ChannelDivider channel={channelDividers[i]!} />}
                       <div
                         className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
@@ -368,6 +426,7 @@ export function MessageList({
                 // Bot/admin/assistant | right-aligned bubble
                 return (
                   <Fragment key={message.id}>
+                    {dateDivider}
                     {channelDividers[i] && <ChannelDivider channel={channelDividers[i]!} />}
                     <div
                       className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
