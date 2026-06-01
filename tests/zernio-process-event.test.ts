@@ -7,6 +7,7 @@ const runAgentMock = vi.fn()
 const sendZernioDmMock = vi.fn()
 const sendZernioCommentReplyMock = vi.fn()
 const getProviderKeyMock = vi.fn()
+const storeMediaFromUrlMock = vi.fn()
 
 vi.mock('@/lib/messaging/normalize-inbound', () => ({
   normalizeInbound: normalizeInboundMock,
@@ -19,6 +20,10 @@ vi.mock('@/lib/contacts/server', () => ({
 
 vi.mock('@/lib/agent-runtime/run-agent', () => ({
   runAgent: runAgentMock,
+}))
+
+vi.mock('@/lib/chat/store-media', () => ({
+  storeMediaFromUrl: storeMediaFromUrlMock,
 }))
 
 vi.mock('@/lib/zernio/send-dm', () => ({
@@ -48,6 +53,7 @@ function chainSingle(data: unknown, error: unknown = null) {
 function makeSupabase({
   duplicateEvent = false,
   agentDefault = null as { agent_id: string } | null,
+  phoneHit = null as { id: string } | null,
 } = {}) {
   const eventInsert = vi.fn().mockResolvedValue({
     data: null,
@@ -56,11 +62,18 @@ function makeSupabase({
   const contactInsert = vi.fn(() => chainSingle({ id: 'contact-1' }))
   const contactDeleteEq = vi.fn().mockResolvedValue({ data: null, error: null })
   const contactDelete = vi.fn(() => ({ eq: contactDeleteEq }))
+  const contactLookup = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: phoneHit, error: null }),
+  }
   const agentMaybeSingle = vi.fn().mockResolvedValue({ data: agentDefault, error: null })
+  const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
 
   const from = vi.fn((table: string) => {
     if (table === 'zernio_webhook_events') return { insert: eventInsert }
-    if (table === 'contacts') return { insert: contactInsert, delete: contactDelete }
+    if (table === 'contacts') return { ...contactLookup, insert: contactInsert, delete: contactDelete }
     if (table === 'agent_channel_defaults') {
       return {
         select: vi.fn().mockReturnThis(),
@@ -76,7 +89,7 @@ function makeSupabase({
     }
   })
 
-  return { from, eventInsert, contactInsert }
+  return { from, rpc, eventInsert, contactInsert }
 }
 
 const messagePayload = {
@@ -121,6 +134,7 @@ describe('processZernioEvent', () => {
     sendZernioDmMock.mockResolvedValue({ messageId: 'out-1' })
     sendZernioCommentReplyMock.mockResolvedValue({ commentId: 'comment-reply-1' })
     getProviderKeyMock.mockResolvedValue('ze_key')
+    storeMediaFromUrlMock.mockResolvedValue(null)
   })
 
   it('maps message.received into contact identity + zernio conversation metadata', async () => {
@@ -169,6 +183,118 @@ describe('processZernioEvent', () => {
     await processZernioEvent(messagePayload, 'org-1')
 
     expect(normalizeInboundMock).not.toHaveBeenCalled()
+  })
+
+  it('atomically merges a channel-only Zernio contact into a phone-matched CRM contact', async () => {
+    const db = makeSupabase({ phoneHit: { id: 'crm-contact-1' } })
+    createServiceRoleClientMock.mockReturnValue(db)
+    findByChannelIdentityMock.mockResolvedValueOnce({
+      contact_id: 'channel-contact-1',
+      identity_status: 'channel_only',
+    })
+
+    const payload = {
+      ...messagePayload,
+      account: { id: 'acct-1', platform: 'whatsapp', username: '+1 508-801-8190' },
+      conversation: {
+        ...messagePayload.conversation,
+        contactId: 'ze-contact-1',
+        participantId: '5517981259735',
+        participantUsername: '+5517981259735',
+      },
+      message: {
+        ...messagePayload.message,
+        platform: 'whatsapp',
+        sender: {
+          id: '5517981259735',
+          name: 'Ellen Laurino',
+          phoneNumber: '+5517981259735',
+          contactId: 'ze-contact-1',
+        },
+      },
+    } as const
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(payload, 'org-1')
+
+    expect(db.rpc).toHaveBeenCalledWith('merge_zernio_channel_only_contact', {
+      p_org_id: 'org-1',
+      p_duplicate_contact_id: 'channel-contact-1',
+      p_survivor_contact_id: 'crm-contact-1',
+      p_zernio_external_ids: [
+        'whatsapp:acct-1:contact:ze-contact-1',
+        'whatsapp:acct-1:+5517981259735',
+      ],
+    })
+    expect(normalizeInboundMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createPayload: expect.objectContaining({ contact_id: 'crm-contact-1' }),
+        updatePayload: expect.objectContaining({ contact_id: 'crm-contact-1' }),
+      }),
+    )
+  })
+
+  it('re-hosts Zernio media when an authenticated attachment URL is received', async () => {
+    storeMediaFromUrlMock.mockResolvedValue({
+      publicUrl: 'https://xphere.app/storage/audio.ogg',
+      size: 42,
+      filename: 'audio.ogg',
+    })
+    const db = makeSupabase()
+    createServiceRoleClientMock.mockReturnValue(db)
+    const payload = {
+      ...messagePayload,
+      account: { id: 'acct-1', platform: 'whatsapp', username: '+1 508-801-8190' },
+      message: {
+        ...messagePayload.message,
+        platform: 'whatsapp',
+        text: null,
+        attachments: [
+          {
+            type: 'audio',
+            url: 'https://zernio.com/api/v1/whatsapp/media/media-1?accountId=acct-1',
+            payload: { id: 'media-1', mimeType: 'audio/ogg; codecs=opus' },
+          },
+        ],
+        sender: {
+          id: '5517981259735',
+          name: 'Ellen Laurino',
+          phoneNumber: '+5517981259735',
+          contactId: 'ze-contact-1',
+        },
+      },
+    } as const
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(payload, 'org-1')
+
+    expect(storeMediaFromUrlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://zernio.com/api/v1/whatsapp/media/media-1?accountId=acct-1',
+        mimeType: 'audio/ogg; codecs=opus',
+        authHeaders: { Authorization: 'Bearer ze_key' },
+        orgId: 'org-1',
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        idx: 0,
+      }),
+    )
+    expect(normalizeInboundMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.objectContaining({
+          message_type: 'audio',
+          metadata: expect.objectContaining({
+            media: [
+              expect.objectContaining({
+                url: 'https://xphere.app/storage/audio.ogg',
+                original_url: 'https://zernio.com/api/v1/whatsapp/media/media-1?accountId=acct-1',
+                mime_type: 'audio/ogg; codecs=opus',
+              }),
+            ],
+          }),
+        }),
+      }),
+    )
   })
 
   it('runs the zernio agent and sends a DM reply when a channel default exists', async () => {

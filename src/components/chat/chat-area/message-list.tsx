@@ -17,14 +17,39 @@
  *     "New messages" pill anchored bottom-right that scrolls back when clicked.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown, Info, Loader2, Mail, RadioTower } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { cn } from '@/lib/utils'
 import { MediaBlock } from './media-block'
+
+// Map a raw message/conversation channel to the design-system badge channel.
+const MSG_BADGE_CHANNEL: Record<string, Channel> = {
+  whatsapp: 'whatsapp', ghl_whatsapp: 'whatsapp', zernio_whatsapp: 'whatsapp',
+  instagram: 'instagram', zernio_instagram: 'instagram',
+  messenger: 'messenger', zernio_facebook: 'messenger',
+  sms: 'sms', ghl_sms: 'sms',
+  voice: 'voice', email: 'email', widget: 'web', web: 'web', manual: 'direct',
+}
+
+function toBadgeChannel(channel: string): Channel {
+  return MSG_BADGE_CHANNEL[channel] ?? 'unknown'
+}
+
+/** Centered divider marking the start of a new channel group in the timeline. */
+function ChannelDivider({ channel }: { channel: Channel }) {
+  return (
+    <div className="my-4 flex items-center gap-3 px-2 animate-bubble-in">
+      <div className="h-px flex-1 bg-border-subtle" />
+      <ChannelBadge channel={channel} size="sm" />
+      <div className="h-px flex-1 bg-border-subtle" />
+    </div>
+  )
+}
 
 interface MessageListProps {
   messages: ConversationMessage[]
@@ -80,6 +105,7 @@ export function MessageList({
   isTyping = false,
   isAgentThinking = false,
   agentMap,
+  primaryChannel,
   noAvailableChannel = false,
   visitorInitial = '?',
   onLoadMore,
@@ -177,6 +203,36 @@ export function MessageList({
     setHasNew(false)
   }
 
+  // Multichannel: precompute which messages start a new channel group so the
+  // timeline can render a divider when the channel changes (e.g. SMS → Email).
+  // System/debug rows don't carry a channel and never trigger a divider.
+  const channelDividers: (Channel | null)[] = (() => {
+    const out: (Channel | null)[] = []
+    let last: string | null = null
+    let seenFirst = false
+    for (const m of messages) {
+      const ch =
+        isSystemMessage(m) || getDebugStyle(m)
+          ? null
+          : ((m.channel as string | null) ?? primaryChannel ?? null)
+      if (ch == null) {
+        out.push(null)
+        continue
+      }
+      if (!seenFirst) {
+        seenFirst = true
+        last = ch
+        out.push(null)
+      } else if (ch !== last) {
+        last = ch
+        out.push(toBadgeChannel(ch))
+      } else {
+        out.push(null)
+      }
+    }
+    return out
+  })()
+
   return (
     <div className="relative flex-1 min-h-0">
       <ScrollArea ref={scrollRef} className="h-full">
@@ -267,10 +323,11 @@ export function MessageList({
 
                 if (isVisitor) {
                   return (
-                    <div
-                      key={message.id}
-                      className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
-                    >
+                    <Fragment key={message.id}>
+                      {channelDividers[i] && <ChannelDivider channel={channelDividers[i]!} />}
+                      <div
+                        className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
+                      >
                       {/* avatar + bubble — centered */}
                       <div className="flex items-center gap-2">
                         {!sameSender ? (
@@ -303,16 +360,18 @@ export function MessageList({
                       <span className="mt-0.5 pl-9 block text-[10.5px] tabular-nums text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100">
                         {formatTime(message.createdAt)}
                       </span>
-                    </div>
+                      </div>
+                    </Fragment>
                   )
                 }
 
                 // Bot/admin/assistant | right-aligned bubble
                 return (
-                  <div
-                    key={message.id}
-                    className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
-                  >
+                  <Fragment key={message.id}>
+                    {channelDividers[i] && <ChannelDivider channel={channelDividers[i]!} />}
+                    <div
+                      className={cn('w-full group animate-bubble-in', sameSender ? 'mt-0.5' : 'mt-3')}
+                    >
                     {/* bubble + avatar — centered */}
                     <div className="flex items-center justify-end gap-2">
                       <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
@@ -351,6 +410,7 @@ export function MessageList({
                       </span>
                     </div>
                   </div>
+                  </Fragment>
                 )
               })}
 

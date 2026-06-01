@@ -6,7 +6,12 @@ export const runtime = 'nodejs'
 function isAllowedZernioMediaUrl(raw: string): boolean {
   try {
     const url = new URL(raw)
-    return url.protocol === 'https:' && url.hostname === 'zernio.com' && url.pathname.startsWith('/api/v1/')
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'zernio.com' &&
+      /^\/api\/v1\/[a-z0-9_-]+\/media\/[^/]+$/i.test(url.pathname) &&
+      Boolean(url.searchParams.get('accountId'))
+    )
   } catch {
     return false
   }
@@ -28,6 +33,24 @@ export async function GET(request: Request): Promise<Response> {
 
   const apiKey = await getProviderKey('zernio', orgId, supabase)
   if (!apiKey) return Response.json({ error: 'Zernio is not connected' }, { status: 400 })
+
+  const { data: linkedMessage, error: mediaLookupError } = await supabase
+    .from('conversation_messages')
+    .select('id')
+    .eq('org_id', orgId)
+    .contains('metadata', {
+      media: [{ provider: 'zernio', original_url: mediaUrl }],
+    } as never)
+    .limit(1)
+    .maybeSingle()
+
+  if (mediaLookupError) {
+    console.error('[zernio/media] media lookup failed:', mediaLookupError.message)
+    return Response.json({ error: 'Could not verify Zernio media' }, { status: 500 })
+  }
+  if (!linkedMessage) {
+    return Response.json({ error: 'Zernio media not found' }, { status: 404 })
+  }
 
   const upstream = await fetch(mediaUrl, {
     headers: { Authorization: `Bearer ${apiKey}` },

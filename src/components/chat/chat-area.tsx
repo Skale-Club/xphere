@@ -46,15 +46,15 @@ const CHANNEL_LABEL: Record<string, string> = {
   widget: 'Web',
   web: 'Web',
   manual: 'Direct',
-  zernio_instagram: 'Instagram',
-  zernio_facebook: 'Facebook',
-  zernio_whatsapp: 'WhatsApp',
-  zernio_telegram: 'Telegram',
-  zernio_linkedin: 'LinkedIn',
-  zernio_tiktok: 'TikTok',
-  zernio_twitter: 'X',
-  zernio_threads: 'Threads',
-  zernio_youtube: 'YouTube',
+  zernio_instagram: 'Instagram (Zernio)',
+  zernio_facebook: 'Facebook (Zernio)',
+  zernio_whatsapp: 'WhatsApp (Zernio)',
+  zernio_telegram: 'Telegram (Zernio)',
+  zernio_linkedin: 'LinkedIn (Zernio)',
+  zernio_tiktok: 'TikTok (Zernio)',
+  zernio_twitter: 'X (Zernio)',
+  zernio_threads: 'Threads (Zernio)',
+  zernio_youtube: 'YouTube (Zernio)',
 }
 
 const DELIVERABLE_CHANNELS = new Set([
@@ -299,8 +299,23 @@ export function ChatArea({
     add(conversation.channel, channelLabel(conversation.channel), conversation.id)
     for (const ch of composerChannels ?? []) add(ch.channel, ch.label, ch.conversationId)
     for (const ch of contactChannels) add(ch.channel, ch.label, ch.conversationId)
+
+    // Collapse provider-prefixed channels to the human channel so a native
+    // start-channel doesn't duplicate the thread's own channel (e.g. a
+    // zernio_whatsapp thread must not also list a native "WhatsApp" option).
+    const coarse = (channel: string): string => {
+      if (channel === 'ghl_whatsapp' || channel === 'zernio_whatsapp') return 'whatsapp'
+      if (channel === 'ghl_sms') return 'sms'
+      if (channel.startsWith('zernio_')) return channel.slice('zernio_'.length)
+      return channel
+    }
+    const presentCoarse = new Set(Array.from(byChannel.keys()).map(coarse))
     // Native reachable+connected channels target the current thread.
-    for (const ch of startChannels) add(ch.channel, ch.label, ch.conversationId)
+    for (const ch of startChannels) {
+      if (presentCoarse.has(coarse(ch.channel))) continue
+      presentCoarse.add(coarse(ch.channel))
+      add(ch.channel, ch.label, ch.conversationId)
+    }
 
     return Array.from(byChannel.values())
   }, [composerChannels, contactChannels, startChannels, conversation])

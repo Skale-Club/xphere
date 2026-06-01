@@ -9,6 +9,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { sendZernioDm } from './send-dm'
@@ -157,27 +158,16 @@ async function resolveOrCreateChannelContact({
     const channelHit = await findByChannelIdentity(supabase, orgId, 'zernio', externalId)
     if (channelHit) {
       if (phoneHit.data?.id && phoneHit.data.id !== channelHit.contact_id && channelHit.identity_status === 'channel_only') {
-        await supabase
-          .from('contacts')
-          .update({
-            identity_status: 'archived_duplicate',
-            merged_into_contact_id: phoneHit.data.id,
-          })
-          .eq('id', channelHit.contact_id)
-        await supabase
-          .from('contact_channel_identities')
-          .delete()
-          .eq('org_id', orgId)
-          .eq('provider', 'zernio')
-          .eq('contact_id', channelHit.contact_id)
-        for (const key of identityKeys) {
-          await attachChannelIdentity(supabase, orgId, phoneHit.data.id, 'zernio', key)
+        const { error: mergeError } = await supabase.rpc('merge_zernio_channel_only_contact' as never, {
+          p_org_id: orgId,
+          p_duplicate_contact_id: channelHit.contact_id,
+          p_survivor_contact_id: phoneHit.data.id,
+          p_zernio_external_ids: identityKeys,
+        } as never)
+        if (mergeError) {
+          console.error('[zernio/process] merge channel-only contact failed:', mergeError.message)
+          return channelHit.contact_id
         }
-        await supabase
-          .from('conversations')
-          .update({ contact_id: phoneHit.data.id })
-          .eq('org_id', orgId)
-          .eq('contact_id', channelHit.contact_id)
         return phoneHit.data.id
       }
       return channelHit.contact_id
@@ -292,17 +282,39 @@ async function processMessageReceived(
   const fallback = mediaLabel(msg.attachments)
   const displayText = messageText || fallback
   const sentAt = msg.sentAt || payload.timestamp || new Date().toISOString()
-  const media = msg.attachments.map((attachment) => ({
-    url: proxiedZernioMediaUrl(attachment.url),
-    original_url: attachment.url,
-    mime_type: mimeTypeForZernioAttachment(attachment),
-    filename:
-      typeof attachment.payload?.filename === 'string'
-        ? attachment.payload.filename
-        : `${attachment.type}-${attachment.payload?.id ?? zernioMessageId}`,
-    provider: 'zernio',
-    zernio_media_id: typeof attachment.payload?.id === 'string' ? attachment.payload.id : undefined,
-  }))
+
+  // Re-host Zernio media in our chat-media bucket so it survives Zernio URL
+  // expiry and never needs the org API key at view time. Falls back to the
+  // authenticated proxy URL when ingestion fails (network/storage hiccup).
+  const zernioMediaKey =
+    msg.attachments.length > 0 ? await getProviderKey('zernio', orgId, supabase) : null
+  const media: Array<Record<string, unknown>> = []
+  for (let i = 0; i < msg.attachments.length; i++) {
+    const attachment = msg.attachments[i]
+    const mimeType = mimeTypeForZernioAttachment(attachment)
+    const stored = zernioMediaKey
+      ? await storeMediaFromUrl({
+          url: attachment.url,
+          mimeType,
+          authHeaders: { Authorization: `Bearer ${zernioMediaKey}` },
+          orgId,
+          conversationId: zernioConversationId,
+          messageId: zernioMessageId,
+          idx: i,
+        })
+      : null
+    media.push({
+      url: stored?.publicUrl ?? proxiedZernioMediaUrl(attachment.url),
+      original_url: attachment.url,
+      mime_type: mimeType,
+      filename:
+        typeof attachment.payload?.filename === 'string'
+          ? attachment.payload.filename
+          : `${attachment.type}-${attachment.payload?.id ?? zernioMessageId}`,
+      provider: 'zernio',
+      zernio_media_id: typeof attachment.payload?.id === 'string' ? attachment.payload.id : undefined,
+    })
+  }
   const updatePayload: Record<string, unknown> = {
     last_message: displayText,
     last_message_at: sentAt,
