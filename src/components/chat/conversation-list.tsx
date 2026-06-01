@@ -60,7 +60,6 @@ import {
 import { cn } from '@/lib/utils'
 import { FilterPanel, type AdvancedFilters, EMPTY_FILTERS, countActiveFilters } from './filter-panel'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
-import { ContactDetailSheet } from '@/components/contacts/contact-detail-sheet'
 
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -523,7 +522,6 @@ function ConversationCardBase({
   onDelete,
 }: ConversationCardProps) {
   const [showDelete, setShowDelete] = useState(false)
-  const [contactSheetId, setContactSheetId] = useState<string | null>(null)
   const name = displayNameOf(conversation)
   const initial = initialOf(name)
   const channel = (CHANNEL_MAP[conversation.channel] ?? 'unknown') as Channel
@@ -632,19 +630,11 @@ function ConversationCardBase({
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setContactSheetId(conversation.contactId ?? null)
-                    }}
-                    className="inline-flex shrink-0 cursor-pointer"
-                    aria-label="Contact linked"
-                  >
+                  <span className="inline-flex shrink-0" aria-label="Contact linked">
                     <User className="h-3 w-3 shrink-0 text-accent" fill="currentColor" />
-                  </button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Contact linked — click to edit</TooltipContent>
+                <TooltipContent side="bottom">Contact linked</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
@@ -739,13 +729,6 @@ function ConversationCardBase({
           </TooltipProvider>
         )}
       </div>
-
-      <ContactDetailSheet
-        contactId={contactSheetId}
-        onOpenChange={(open) => {
-          if (!open) setContactSheetId(null)
-        }}
-      />
 
       {/* Hover-only quick actions (right side) */}
 
