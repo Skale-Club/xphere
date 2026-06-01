@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
-  AGENT_CHANNELS,
+  PUBLIC_AGENT_CHANNELS,
   AGENT_CHANNEL_LABELS,
   type AgentChannel,
 } from "@/lib/agents/channels";
@@ -76,7 +76,7 @@ export function ChannelDefaultsCard({
       </CardHeader>
       <CardContent className={surface === "plain" ? "px-0 pb-0" : undefined}>
         <div className="grid gap-3 sm:grid-cols-2">
-          {AGENT_CHANNELS.map((ch) => {
+          {PUBLIC_AGENT_CHANNELS.map((ch) => {
             const currentId = defaults[ch];
             const selectValue = currentId ?? DEFAULT_SENTINEL;
             return (

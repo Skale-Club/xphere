@@ -124,11 +124,18 @@ function toDurationValue(amount: string, unit: DurationUnit): string {
   return `${safeAmount}${unit}`
 }
 
-interface NodeConfigPanelProps {
-  activeIntegrations: IntegrationKey[]
+interface AgentOption {
+  id: string
+  name: string
+  slug: string
 }
 
-export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
+interface NodeConfigPanelProps {
+  activeIntegrations: IntegrationKey[]
+  agents?: AgentOption[]
+}
+
+export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigPanelProps) {
   const selectedNodeId = useFlowStore((s) => s.selectedNodeId)
   const node = useFlowStore((s) =>
     selectedNodeId ? s.nodes.find((n) => n.id === selectedNodeId) ?? null : null,
@@ -397,23 +404,57 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
         {flow.kind === 'agent' && (
           <>
             <div className="space-y-1.5">
-              <Label className="text-[11px] text-text-tertiary">Agent ID (optional)</Label>
-              <Input
-                value={flow.agent_id ?? ''}
-                onChange={(e) => updateNodeData(node.id, { agent_id: e.target.value })}
-                placeholder="agent_xxx"
-                className="h-8 text-xs"
-              />
+              <Label className="text-[11px] text-text-tertiary">Agent</Label>
+              <Select
+                value={flow.agent_id ?? '__default__'}
+                onValueChange={(v) =>
+                  updateNodeData(node.id, { agent_id: v === '__default__' ? '' : v })
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select an agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Default agent</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {agents.length === 0 && (
+                <p className="text-[10.5px] text-text-tertiary">
+                  No active agents yet — create one under Agents.
+                </p>
+              )}
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px] text-text-tertiary">System prompt</Label>
+              <Label className="text-[11px] text-text-tertiary">Input</Label>
+              <Textarea
+                value={flow.input ?? ''}
+                onChange={(e) => updateNodeData(node.id, { input: e.target.value })}
+                rows={3}
+                placeholder="What the agent should process, e.g. {{trigger.payload.message}}"
+                className="text-xs resize-none"
+              />
+              <p className="text-[10.5px] text-text-tertiary">
+                The message/objective the agent receives. Supports {`{{variables}}`} from the trigger and prior steps.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-text-tertiary">Instructions (optional)</Label>
               <Textarea
                 value={flow.system_prompt}
                 onChange={(e) => updateNodeData(node.id, { system_prompt: e.target.value })}
-                rows={4}
+                rows={3}
+                placeholder="Extra guidance for this step (added to the agent's own prompt)."
                 className="text-xs resize-none"
               />
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-[11px] text-text-tertiary">Max steps</Label>
               <Input
@@ -425,6 +466,11 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                 className="h-8 text-xs"
               />
             </div>
+
+            <p className="text-[10.5px] text-text-tertiary border-t border-border-subtle pt-2">
+              Output available downstream as{' '}
+              <code className="text-accent">{`{{steps.${node.id}.output.agent_response}}`}</code>
+            </p>
           </>
         )}
 

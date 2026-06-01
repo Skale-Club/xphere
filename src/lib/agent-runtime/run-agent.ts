@@ -336,8 +336,11 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 5: allowed_channels check (D-34-12) | denied, no invocation row
-  if (!resolvedAgent.allowedChannels.includes(channel)) {
+  // Step 5: allowed_channels check (D-34-12) | denied, no invocation row.
+  // The 'workflow' channel is server-initiated (a flow agent node), not a public
+  // channel — bypass the gate so any active agent can run inside a workflow
+  // without the operator having to opt the agent into a channel.
+  if (channel !== 'workflow' && !resolvedAgent.allowedChannels.includes(channel)) {
     console.warn(
       JSON.stringify({
         event: 'channel_denied',
@@ -409,6 +412,10 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     const kbContext = await queryKnowledge(userMessage, orgId, kbClient)
     if (kbContext && kbContext !== FALLBACK_KB_RESPONSE) {
       systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
+    }
+    // Per-invocation extra instructions (workflow agent node passes its own prompt).
+    if (opts.extraInstructions?.trim()) {
+      systemPrompt = `${systemPrompt}\n\n${opts.extraInstructions.trim()}`
     }
   } catch {
     // KB failure is non-fatal | continue without context (matches stream.ts behavior)
@@ -744,7 +751,9 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         system: systemPrompt,
         messages,
         tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
-        stopWhen: stepCountIs(MAX_LLM_CALLS_PER_TURN),
+        stopWhen: stepCountIs(
+          opts.maxSteps ? Math.min(50, Math.max(1, opts.maxSteps)) : MAX_LLM_CALLS_PER_TURN,
+        ),
         abortSignal: controller.signal,
         ...(resolvedAgent.temperature !== undefined
           ? { temperature: resolvedAgent.temperature }

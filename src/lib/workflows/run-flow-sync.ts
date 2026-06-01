@@ -20,6 +20,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { executeAction, type ActionContext } from '@/lib/action-engine/execute-action'
+import { executeAgentNode } from '@/lib/flows/execute-agent-node'
 import type { Database } from '@/types/database'
 
 type ActionType = Database['public']['Enums']['action_type']
@@ -327,8 +328,27 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
     }
 
     if (node.kind === 'agent') {
-      lastOutput = { _stub: true, _note: 'Agent nodes are not invokable from agent-tool flows yet.' }
-      ;(scope as Record<string, unknown>)[node.id] = lastOutput
+      // Recursion guard: when this flow is itself running as an agent tool
+      // (context.agentId set), executing another agent node could loop
+      // agent → flow → agent → … indefinitely. Skip in that case. Event-
+      // triggered flows (no agentId) run the agent normally.
+      if (params.context.agentId) {
+        lastOutput = { _skipped: true, _note: 'Agent node skipped inside an agent-tool flow (recursion guard).' }
+        ;(scope as Record<string, unknown>)[node.id] = { output: lastOutput }
+      } else {
+        const cfg = node.config as Record<string, unknown>
+        const userMessage = interpolateValue(String(cfg.input ?? ''), scope) as string
+        const maxStepsRaw = Number(cfg.max_steps)
+        const out = await executeAgentNode({
+          orgId: params.context.orgId,
+          agentId: typeof cfg.agent_id === 'string' ? cfg.agent_id : undefined,
+          userMessage,
+          instructions: typeof cfg.system_prompt === 'string' ? cfg.system_prompt : undefined,
+          maxSteps: Number.isFinite(maxStepsRaw) ? maxStepsRaw : undefined,
+        })
+        lastOutput = out
+        ;(scope as Record<string, unknown>)[node.id] = { output: out }
+      }
       const nextEdge = graph.edges.find((e) => e.from === node.id)
       cursorId = nextEdge?.to
       continue

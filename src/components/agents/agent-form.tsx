@@ -41,7 +41,7 @@ import { agentSchema, type AgentFormInput, type AgentFormOutput } from '@/lib/ag
 import { slugify } from '@/lib/agents/slug'
 import { AVAILABLE_MODELS, DEFAULT_MODEL } from '@/lib/agents/models'
 import {
-  AGENT_CHANNELS,
+  PUBLIC_AGENT_CHANNELS,
   AGENT_CHANNEL_LABELS,
   type AgentChannel,
 } from '@/lib/agents/channels'
@@ -479,7 +479,7 @@ export function AgentForm({
             <div>
               <Label className="mb-2 block">Allowed channels</Label>
               <div className="flex flex-wrap gap-2">
-                {AGENT_CHANNELS.map((ch) => {
+                {PUBLIC_AGENT_CHANNELS.map((ch) => {
                   const checked = allowedChannels.includes(ch)
                   return (
                     <label

@@ -27,12 +27,19 @@ import { saveWorkflowDefinition } from '@/app/(dashboard)/workflows/flows/_actio
 import { autoLayoutNodes } from '@/lib/flows/auto-layout'
 import { toast } from 'sonner'
 
+export interface AgentOption {
+  id: string
+  name: string
+  slug: string
+}
+
 interface FlowCanvasProps {
   workflowId: string
   workflowName: string
   isActive: boolean
   initialDefinition: FlowDefinition
   activeIntegrations: IntegrationKey[]
+  agents?: AgentOption[]
 }
 
 // SEED-043 Phase 5 — proximity threshold for "drop on edge = insert" behaviour.
@@ -58,7 +65,7 @@ const edgeTypes = {
   deletable: DeletableEdge,
 }
 
-function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations }: FlowCanvasProps) {
+function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations, agents = [] }: FlowCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
@@ -287,7 +294,7 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
         </div>
       </div>
 
-      <NodeConfigPanel activeIntegrations={activeIntegrations} />
+      <NodeConfigPanel activeIntegrations={activeIntegrations} agents={agents} />
     </div>
   )
 }

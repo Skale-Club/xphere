@@ -76,6 +76,7 @@ export async function getChannelDefaults(): Promise<
     manychat: null,
     telegram: null,
     zernio: null,
+    workflow: null,
   }
   const user = await getUser()
   if (!user) return empty

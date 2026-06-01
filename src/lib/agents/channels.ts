@@ -1,7 +1,8 @@
 /**
  * Mirrors the public.agent_channel enum (migration 034).
  */
-export const AGENT_CHANNELS = [
+// User-facing chat channels (shown in pickers: allowed channels, channel defaults).
+export const PUBLIC_AGENT_CHANNELS = [
   'web_widget',
   'sms',
   'whatsapp',
@@ -12,7 +13,12 @@ export const AGENT_CHANNELS = [
   'zernio',
 ] as const
 
+// Full channel domain. 'workflow' is server-initiated (a flow agent node), NOT a
+// public channel — it's part of the type but excluded from UI pickers.
+export const AGENT_CHANNELS = [...PUBLIC_AGENT_CHANNELS, 'workflow'] as const
+
 export type AgentChannel = (typeof AGENT_CHANNELS)[number]
+export type PublicAgentChannel = (typeof PUBLIC_AGENT_CHANNELS)[number]
 
 export const AGENT_CHANNEL_LABELS: Record<AgentChannel, string> = {
   web_widget: 'Web Widget',
@@ -23,4 +29,5 @@ export const AGENT_CHANNEL_LABELS: Record<AgentChannel, string> = {
   manychat: 'ManyChat',
   telegram: 'Telegram',
   zernio: 'Zernio',
+  workflow: 'Workflow',
 }

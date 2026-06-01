@@ -200,6 +200,7 @@ function buildNodeData(type: FlowNodeType, label: string, config: Record<string,
       return {
         kind: 'agent',
         agent_id: config.agent_id as string | undefined,
+        input: (config.input as string) ?? '',
         system_prompt: (config.system_prompt as string) ?? '',
         max_steps: (config.max_steps as number) ?? 10,
         label,

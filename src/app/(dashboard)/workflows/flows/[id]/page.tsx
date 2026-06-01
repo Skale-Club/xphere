@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getUser } from '@/lib/supabase/server'
 import { getWorkflow } from '../_actions/workflows'
 import { getActiveIntegrations } from '@/lib/flows/active-integrations'
+import { getActiveAgents } from '@/app/(dashboard)/agents/actions'
 import { FlowCanvas } from '@/components/flows/flow-canvas'
 import { DesktopOnly } from '@/components/layout/desktop-only'
 
@@ -14,9 +15,10 @@ export default async function FlowEditorPage({
   if (!user) redirect('/')
 
   const { id } = await params
-  const [result, activeIntegrations] = await Promise.all([
+  const [result, activeIntegrations, agents] = await Promise.all([
     getWorkflow(id),
     getActiveIntegrations(),
+    getActiveAgents(),
   ])
   if (!result.ok) notFound()
 
@@ -29,6 +31,7 @@ export default async function FlowEditorPage({
           isActive={result.data.is_active ?? false}
           initialDefinition={result.data.definition}
           activeIntegrations={activeIntegrations}
+          agents={agents}
         />
       </div>
     </DesktopOnly>

@@ -123,7 +123,7 @@ export type ConversationChannel =
 export type MetaChannelType = 'messenger' | 'instagram'
 
 // v2.0 (Phase 33) | agent runtime enums
-export type AgentChannel = 'web_widget' | 'whatsapp' | 'messenger' | 'instagram' | 'manychat' | 'telegram' | 'sms' | 'zernio'
+export type AgentChannel = 'web_widget' | 'whatsapp' | 'messenger' | 'instagram' | 'manychat' | 'telegram' | 'sms' | 'zernio' | 'workflow'
 export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' | 'denied' | 'running'
 export type AgentInvocationMode = 'production' | 'playground'
 

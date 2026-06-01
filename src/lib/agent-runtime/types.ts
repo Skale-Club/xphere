@@ -57,6 +57,10 @@ export type AgentRunOptions = {
   historyWindow?: Array<{ role: 'user' | 'assistant'; content: string }>
   mode?: 'production' | 'playground'
   stream?: boolean                // When true, runAgent returns ReadableStream<Uint8Array> (D-35-01/D-35-09)
+  /** Per-call LLM step cap (overrides AGENT_MAX_LLM_CALLS_PER_TURN). Used by the workflow agent node. */
+  maxSteps?: number
+  /** Extra instructions appended to the system prompt for this invocation only (workflow agent node). */
+  extraInstructions?: string
   // Internal fields set by Phase 38 recursive delegation (not for external callers):
   _depth?: number
   parentInvocationId?: string

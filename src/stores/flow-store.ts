@@ -70,7 +70,7 @@ function defaultNodeData(type: FlowNodeType): FlowNodeData {
     case 'wait':
       return { kind: 'wait', mode: 'sleep', duration: '1h', label: 'Wait' }
     case 'agent':
-      return { kind: 'agent', system_prompt: '', max_steps: 10, label: 'Agent' }
+      return { kind: 'agent', input: '', system_prompt: '', max_steps: 10, label: 'Agent' }
     case 'end':
       return { kind: 'end', label: 'End' }
   }
