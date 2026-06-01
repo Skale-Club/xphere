@@ -305,6 +305,11 @@ export async function testIntegrationConnection(
       return testResendApiKey(apiKey)
     }
 
+    if (provider === 'zernio') {
+      const { testZernioApiKey } = await import('@/lib/zernio/client')
+      return testZernioApiKey(apiKey)
+    }
+
     // No test path defined | assume callers will handle the unconfigured case.
     return { ok: false, error: `No test endpoint defined for ${provider}` }
   } catch (err) {
