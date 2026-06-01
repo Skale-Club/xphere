@@ -14,9 +14,12 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# Single source of truth for deploys (deploy.yml was removed to stop the
+# double Coolify trigger). A newer push cancels an in-flight build so stale
+# deploys never queue.
 concurrency:
   group: build-deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
