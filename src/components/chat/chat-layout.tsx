@@ -704,7 +704,13 @@ export function ChatLayout({
     if (!selectedId) return
     const targetId = opts?.conversationId ?? selectedId
     const isCurrentThread = targetId === selectedId
-    const tempId = `temp-${crypto.randomUUID()}`
+    // crypto.randomUUID is only available in secure contexts (HTTPS). Fall back
+    // to a time+random string so the optimistic bubble works everywhere.
+    const tempId = `temp-${
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    }`
     const tempMsg: ConversationMessage = {
       id: tempId,
       conversationId: targetId,

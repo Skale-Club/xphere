@@ -368,8 +368,13 @@ export function MessageComposer({
           <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Channel</span>
           {showChannelSelect && activeOption ? (
             <Select value={activeOption.channel} onValueChange={(next) => onActiveChannelChange?.(next)}>
-              <SelectTrigger className="h-7 w-auto min-w-[112px] gap-2 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0">
-                <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" />
+              {/* Trigger: icon-only badge (no colored bg) + plain label text so
+                  the pill color doesn't bleed into the button background. */}
+              <SelectTrigger className="h-7 w-auto min-w-0 gap-1.5 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0">
+                <span className="inline-flex items-center gap-1.5">
+                  <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent" />
+                  <span className="text-[11.5px] text-text-primary">{activeOption.label}</span>
+                </span>
               </SelectTrigger>
               <SelectContent align="start" className="min-w-[150px]">
                 {availableChannels.map((ch) => (
@@ -383,7 +388,10 @@ export function MessageComposer({
               </SelectContent>
             </Select>
           ) : activeOption ? (
-            <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" />
+            <span className="inline-flex items-center gap-1.5">
+              <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent" />
+              <span className="text-[11.5px] text-text-secondary">{activeOption.label}</span>
+            </span>
           ) : channelLabel ? (
             <span className="text-[11.5px] text-text-secondary">{channelLabel}</span>
           ) : null}
