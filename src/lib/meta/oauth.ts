@@ -1,6 +1,6 @@
 export const META_GRAPH_VERSION = 'v21.0'
 export const META_CALLBACK_PATH = '/api/meta/callback'
-export const META_CALLBACK_URI = `https://xphere.app${META_CALLBACK_PATH}`
+export const META_CALLBACK_URI = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'}${META_CALLBACK_PATH}`
 export const META_OAUTH_STATE_COOKIE = 'meta_oauth_state'
 export const META_OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10
 
