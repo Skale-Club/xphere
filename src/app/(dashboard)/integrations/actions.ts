@@ -351,7 +351,7 @@ export async function saveIntegrationCredentials(
   // Find an existing row for this provider/org
   const { data: existing } = await supabase
     .from('integrations')
-    .select('id, config')
+    .select('id, config, encrypted_api_key')
     .eq('organization_id', orgId)
     .eq('provider', provider as Provider)
     .limit(1)
@@ -407,31 +407,61 @@ export async function saveIntegrationCredentials(
     revalidatePath('/settings/email')
   }
 
-  if (provider === 'zernio' && apiKey) {
+  if (provider === 'zernio') {
+    let webhookApiKey = apiKey
+    if (!webhookApiKey && existing?.encrypted_api_key) {
+      try {
+        webhookApiKey = await decrypt(existing.encrypted_api_key)
+      } catch {
+        return { ok: false, error: 'Could not read the saved Zernio API key. Re-enter it and save again.' }
+      }
+    }
+
+    if (!webhookApiKey) {
+      return { ok: false, error: 'Zernio API key is required to register the webhook.' }
+    }
+
     try {
-      const { randomBytes } = await import('node:crypto')
-      const webhookToken = existingConfig.webhook_token || crypto.randomUUID()
+      const { randomBytes, randomUUID } = await import('node:crypto')
+      const webhookToken = existingConfig.webhook_token || randomUUID()
       const webhookSecret = existingConfig.webhook_secret || randomBytes(32).toString('hex')
       const existingWebhookId = existingConfig.webhook_id || undefined
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
-      const webhookUrl = `${appUrl}/api/zernio/webhook?t=${webhookToken}`
+      const webhookUrl = `https://xphere.app/api/zernio/webhook?t=${webhookToken}`
 
       const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
-      const { webhookId } = await registerZernioWebhook(apiKey, webhookUrl, webhookSecret, existingWebhookId)
+      const { webhookId } = await registerZernioWebhook(webhookApiKey, webhookUrl, webhookSecret, existingWebhookId)
 
-      await supabase
+      const { error } = await supabase
         .from('integrations')
         .update({
-          config: { ...savedConfig, webhook_token: webhookToken, webhook_secret: webhookSecret, webhook_id: webhookId },
+          config: {
+            ...savedConfig,
+            webhook_token: webhookToken,
+            webhook_secret: webhookSecret,
+            webhook_id: webhookId,
+            webhook_url: webhookUrl,
+          },
           health_status: 'connected',
           is_active: true,
         })
         .eq('organization_id', orgId)
         .eq('provider', 'zernio' as Provider)
+      if (error) return { ok: false, error: error.message }
     } catch (err) {
-      // Don't fail the save if webhook registration fails — integration stays saved,
-      // operator can re-save to retry.
       console.error('[saveIntegrationCredentials] Zernio webhook registration failed:', err)
+      // Surface failure to the UI so "Active" only means credentials plus webhook.
+      await supabase
+        .from('integrations')
+        .update({
+          config: savedConfig,
+          health_status: 'degraded',
+          is_active: false,
+        })
+        .eq('organization_id', orgId)
+        .eq('provider', 'zernio' as Provider)
+
+      const message = err instanceof Error ? err.message : 'Unknown error.'
+      return { ok: false, error: `Zernio API key saved, but webhook registration failed: ${message}` }
     }
   }
 

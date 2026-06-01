@@ -88,4 +88,14 @@ describe('Zernio REST client contracts', () => {
       }),
     )
   })
+
+  it('fails webhook registration when Zernio does not return an id', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, webhook: {} }), { status: 200 }),
+    )
+
+    await expect(
+      registerZernioWebhook('ze_key', 'https://xphere.app/api/zernio/webhook?t=tok', 'secret'),
+    ).rejects.toThrow('Zernio did not return a webhook id.')
+  })
 })

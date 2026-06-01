@@ -42,5 +42,10 @@ export async function registerZernioWebhook(
     apiKey,
   )
 
-  return { webhookId: data.webhook?._id ?? data.webhook?.id ?? existingWebhookId ?? '' }
+  const webhookId = data.webhook?._id ?? data.webhook?.id ?? existingWebhookId
+  if (!webhookId) {
+    throw new Error('Zernio did not return a webhook id.')
+  }
+
+  return { webhookId }
 }
