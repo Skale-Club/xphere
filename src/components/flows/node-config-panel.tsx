@@ -136,12 +136,17 @@ interface AgentOption {
   slug: string
 }
 
+type FlowPickerData = import('@/app/(dashboard)/workflows/flows/_actions/picker-data').FlowPickerData
+
+const EMPTY_PICKER_DATA: FlowPickerData = { templates: [], stages: [], members: [], numbers: [] }
+
 interface NodeConfigPanelProps {
   activeIntegrations: IntegrationKey[]
   agents?: AgentOption[]
+  pickerData?: FlowPickerData
 }
 
-export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigPanelProps) {
+export function NodeConfigPanel({ activeIntegrations, agents = [], pickerData = EMPTY_PICKER_DATA }: NodeConfigPanelProps) {
   const selectedNodeId = useFlowStore((s) => s.selectedNodeId)
   const node = useFlowStore((s) =>
     selectedNodeId ? s.nodes.find((n) => n.id === selectedNodeId) ?? null : null,
@@ -276,6 +281,7 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
               actionType={flow.action_type}
               config={flow.config ?? {}}
               variables={variablesForTrigger(triggerEventType)}
+              pickerData={pickerData}
               onChange={(patch) =>
                 updateNodeData(node.id, { config: { ...(flow.config ?? {}), ...patch } })
               }
@@ -948,6 +954,58 @@ interface ActionConfigFieldsProps {
   onChange: (patch: Record<string, unknown>) => void
   /** Dynamic fields available at this node, derived from the flow's trigger. */
   variables: VariableGroup[]
+  /** Option lists for name-pickers (templates, stages, users, numbers). */
+  pickerData: FlowPickerData
+}
+
+// A dropdown of named options with a "Custom…" escape hatch that reveals a
+// variable-aware text field — so an ID can be picked by name OR set to a
+// {{variable}}. Used for template / stage / user / phone-number fields.
+function PickerOrCustomField({
+  label,
+  value,
+  onChange,
+  options,
+  variables,
+  placeholder,
+  optional = false,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: FlowPickerData['templates']
+  variables: VariableGroup[]
+  placeholder?: string
+  optional?: boolean
+}) {
+  const matched = options.find((o) => o.value === value)
+  const sel = value === '' ? '' : matched ? value : '__custom__'
+  const noneVal = '__none__'
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] text-text-tertiary">{label}</Label>
+      <Select
+        value={sel || (optional ? noneVal : undefined)}
+        onValueChange={(v) => {
+          if (v === noneVal) onChange('')
+          else if (v === '__custom__') onChange(matched ? '' : value)
+          else onChange(v)
+        }}
+      >
+        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select…" /></SelectTrigger>
+        <SelectContent>
+          {optional && <SelectItem value={noneVal} className="text-xs">— None —</SelectItem>}
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+          ))}
+          <SelectItem value="__custom__" className="text-xs">Custom / variable…</SelectItem>
+        </SelectContent>
+      </Select>
+      {sel === '__custom__' && (
+        <VarField label="" value={value} onChange={onChange} placeholder={placeholder} variables={variables} mono />
+      )}
+    </div>
+  )
 }
 
 // Shared "link to a record" controls for create_task / create_note: entity type
@@ -993,7 +1051,7 @@ function EntityLinkFields({
   )
 }
 
-function ActionConfigFields({ actionType, config, onChange, variables }: ActionConfigFieldsProps) {
+function ActionConfigFields({ actionType, config, onChange, variables, pickerData }: ActionConfigFieldsProps) {
   const get = (key: string) => (config[key] as string | undefined) ?? ''
 
   switch (actionType) {
@@ -1046,6 +1104,15 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
             placeholder="Hi {{contact.first_name}}, …"
             variables={variables}
           />
+          <PickerOrCustomField
+            label="From number (optional)"
+            value={get('phone_number_id')}
+            onChange={(v) => onChange({ phone_number_id: v })}
+            options={pickerData.numbers}
+            variables={variables}
+            placeholder="{{phone.id}}"
+            optional
+          />
         </>
       )
 
@@ -1062,13 +1129,13 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
             placeholder="+14155551234 or {{contact.phone}}"
             variables={variables}
           />
-          <VarField
-            label="Template ID"
+          <PickerOrCustomField
+            label="Template"
             value={get('template_id')}
             onChange={(v) => onChange({ template_id: v })}
-            placeholder="Approved template UUID"
+            options={pickerData.templates}
             variables={variables}
-            mono
+            placeholder="Approved template UUID or {{variable}}"
           />
           <VarTextareaField
             label="Body values (one per line)"
@@ -1235,7 +1302,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
       return (
         <>
           <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
-          <VarField label="Stage" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} placeholder="Qualified" variables={variables} />
+          <PickerOrCustomField label="Stage" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} options={pickerData.stages} variables={variables} placeholder="Stage name" />
         </>
       )
 
@@ -1264,7 +1331,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
       return (
         <>
           <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
-          <VarField label="User ID" value={get('user_id')} onChange={(v) => onChange({ user_id: v })} placeholder="User UUID" variables={variables} mono />
+          <PickerOrCustomField label="Owner" value={get('user_id')} onChange={(v) => onChange({ user_id: v })} options={pickerData.members} variables={variables} placeholder="User UUID" />
         </>
       )
 
@@ -1275,6 +1342,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
           <VarField label="Title" value={get('title')} onChange={(v) => onChange({ title: v })} placeholder="Optional new title" variables={variables} />
           <VarField label="Value" value={get('value')} onChange={(v) => onChange({ value: v })} placeholder="1000" variables={variables} />
           <VarField label="Expected close date" value={get('expected_close_date')} onChange={(v) => onChange({ expected_close_date: v })} placeholder="YYYY-MM-DD" variables={variables} />
+          <PickerOrCustomField label="Owner (optional)" value={get('assigned_to')} onChange={(v) => onChange({ assigned_to: v })} options={pickerData.members} variables={variables} placeholder="User UUID" optional />
           <div className="space-y-1.5">
             <Label className="text-[11px] text-text-tertiary">Status</Label>
             <Select value={get('status') || 'open'} onValueChange={(v) => onChange({ status: v })}>
@@ -1293,7 +1361,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
       return (
         <>
           <VarField label="Title" value={get('title')} onChange={(v) => onChange({ title: v })} placeholder="New deal — {{contact.name}}" variables={variables} />
-          <VarField label="Stage" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} placeholder="Qualified (default pipeline if blank)" variables={variables} />
+          <PickerOrCustomField label="Stage (optional)" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} options={pickerData.stages} variables={variables} placeholder="Default pipeline if blank" optional />
           <VarField label="Contact ID" value={get('contact_id')} onChange={(v) => onChange({ contact_id: v })} placeholder="{{contact.id}}" variables={variables} mono />
           <VarField label="Contact phone" value={get('contact_phone')} onChange={(v) => onChange({ contact_phone: v })} placeholder="{{contact.phone}}" variables={variables} />
           <VarField label="Value" value={get('value')} onChange={(v) => onChange({ value: v })} placeholder="1000" variables={variables} />

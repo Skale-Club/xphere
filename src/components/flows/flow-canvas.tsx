@@ -40,6 +40,7 @@ interface FlowCanvasProps {
   initialDefinition: FlowDefinition
   activeIntegrations: IntegrationKey[]
   agents?: AgentOption[]
+  pickerData?: import('@/app/(dashboard)/workflows/flows/_actions/picker-data').FlowPickerData
 }
 
 // SEED-043 Phase 5 — proximity threshold for "drop on edge = insert" behaviour.
@@ -65,7 +66,7 @@ const edgeTypes = {
   deletable: DeletableEdge,
 }
 
-function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations, agents = [] }: FlowCanvasProps) {
+function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations, agents = [], pickerData }: FlowCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
@@ -294,7 +295,7 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
         </div>
       </div>
 
-      <NodeConfigPanel activeIntegrations={activeIntegrations} agents={agents} />
+      <NodeConfigPanel activeIntegrations={activeIntegrations} agents={agents} pickerData={pickerData} />
     </div>
   )
 }
