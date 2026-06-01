@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Check, Loader2, Upload } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { DEFAULT_ACCENT } from '@/lib/branding'
+import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
 import { updateWorkspaceBranding, updateDailyCostCap } from '@/app/(dashboard)/settings/workspace/actions'
 
 interface OrgBrandingShape {
@@ -53,11 +53,16 @@ function formatAgo(ms: number): string {
 
 export function WorkspaceBrandingForm({ org }: Props) {
   const router = useRouter()
-  const [logoUrl, setLogoUrl] = React.useState(org.logo_url ?? '')
-  const [accent, setAccent] = React.useState(org.accent_color ?? DEFAULT_ACCENT)
-  const [accentInput, setAccentInput] = React.useState(org.accent_color ?? DEFAULT_ACCENT)
-  const [capInput, setCapInput] = React.useState(org.daily_cost_cap_usd != null ? String(org.daily_cost_cap_usd) : '')
-  const [savingCap, setSavingCap] = React.useState(false)
+  // Baseline = last-saved values; dirty is computed against it so the page
+  // save bar disappears right after a successful save.
+  const [baseline, setBaseline] = React.useState({
+    logo: org.logo_url ?? '',
+    accent: org.accent_color ?? DEFAULT_ACCENT,
+    cap: org.daily_cost_cap_usd != null ? String(org.daily_cost_cap_usd) : '',
+  })
+  const [logoUrl, setLogoUrl] = React.useState(baseline.logo)
+  const [accentInput, setAccentInput] = React.useState(baseline.accent)
+  const [capInput, setCapInput] = React.useState(baseline.cap)
   const [saving, setSaving] = React.useState(false)
   const [savedAt, setSavedAt] = React.useState<number | null>(null)
   const [, force] = React.useReducer((x: number) => x + 1, 0)
@@ -69,40 +74,73 @@ export function WorkspaceBrandingForm({ org }: Props) {
     return () => window.clearInterval(id)
   }, [savedAt])
 
-  // Dirty detection.
+  // Dirty detection across all three controls on this card group.
   const dirty =
-    (logoUrl || '') !== (org.logo_url ?? '') ||
-    accent !== (org.accent_color ?? DEFAULT_ACCENT)
+    logoUrl !== baseline.logo ||
+    accentInput !== baseline.accent ||
+    capInput.trim() !== baseline.cap
 
-  async function handleSave(e?: React.FormEvent) {
-    e?.preventDefault()
-    if (!HEX_RE.test(accentInput)) {
+  async function handleSave(): Promise<boolean> {
+    const brandingDirty =
+      logoUrl !== baseline.logo || accentInput !== baseline.accent
+    const capDirty = capInput.trim() !== baseline.cap
+
+    if (brandingDirty && !HEX_RE.test(accentInput)) {
       toast.error('Accent color must be a 6-digit hex like #6366F1')
-      return
+      return false
     }
+
     setSaving(true)
-    const result = await updateWorkspaceBranding({
-      logo_url: logoUrl.trim() || null,
-      accent_color: accentInput,
-    })
-    setSaving(false)
-    if (!result.ok) {
-      toast.error(result.error ?? 'Failed to save')
-      return
+    try {
+      if (brandingDirty) {
+        const result = await updateWorkspaceBranding({
+          logo_url: logoUrl.trim() || null,
+          accent_color: accentInput,
+        })
+        if (!result.ok) {
+          toast.error(result.error ?? 'Failed to save')
+          return false
+        }
+      }
+      if (capDirty) {
+        const val = capInput.trim() === '' ? null : parseFloat(capInput)
+        const result = await updateDailyCostCap({ daily_cost_cap_usd: val })
+        if (!result.ok) {
+          toast.error(result.error ?? 'Failed to save cost cap')
+          return false
+        }
+      }
+    } finally {
+      setSaving(false)
     }
-    setAccent(accentInput)
+
+    setBaseline({ logo: logoUrl, accent: accentInput, cap: capInput.trim() })
     setSavedAt(Date.now())
-    toast.success('Branding saved', {
+    toast.success('Workspace settings saved', {
       description: 'Your workspace looks fresh.',
     })
     // Refresh server components so the sidebar/branding apply instantly.
     router.refresh()
+    return true
   }
+
+  function handleReset() {
+    setLogoUrl(baseline.logo)
+    setAccentInput(baseline.accent)
+    setCapInput(baseline.cap)
+  }
+
+  useWorkspaceSaveSection({
+    id: 'workspace-branding',
+    dirty,
+    save: handleSave,
+    reset: handleReset,
+  })
 
   const savedLabel = savedAt ? `Saved ${formatAgo(Date.now() - savedAt)}` : null
 
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <div className="space-y-4">
       {/* Logo */}
       <Card>
         <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -210,37 +248,9 @@ export function WorkspaceBrandingForm({ org }: Props) {
               placeholder="Platform default"
               className="max-w-[160px]"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={savingCap}
-              onClick={async () => {
-                setSavingCap(true)
-                const val = capInput.trim() === '' ? null : parseFloat(capInput)
-                const result = await updateDailyCostCap({ daily_cost_cap_usd: val })
-                setSavingCap(false)
-                if (!result.ok) { toast.error(result.error ?? 'Failed to save'); return }
-                toast.success('Cost cap saved')
-              }}
-            >
-              {savingCap ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save cap'}
-            </Button>
           </div>
         </CardContent>
       </Card>
-
-      <div className="flex items-center justify-end gap-3">
-        {savedLabel && (
-          <span className="text-[12px] text-text-tertiary">
-            <Check className="inline h-3 w-3 text-success mr-1" /> {savedLabel}
-          </span>
-        )}
-        <Button type="submit" disabled={!dirty || saving}>
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Save changes
-        </Button>
-      </div>
-    </form>
+    </div>
   )
 }

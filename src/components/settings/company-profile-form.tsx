@@ -2,13 +2,13 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Building2, Loader2, Check } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CurrencySelect } from '@/components/pipeline/currency-select'
+import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
 import {
   updateCompanyProfile,
   updateDefaultCurrency,
@@ -69,6 +69,9 @@ const COUNTRIES: { code: string; name: string }[] = [
 ]
 
 export function CompanyProfileForm({ initial }: Props) {
+  // Baseline = last-saved values. Dirty is computed against this so the page
+  // save bar hides again right after a successful save (no router.refresh).
+  const [baseline, setBaseline] = React.useState<CompanyProfileShape>(initial)
   const [legalName, setLegalName] = React.useState(initial.legal_name ?? '')
   const [taxId, setTaxId] = React.useState(initial.tax_id ?? '')
   const [line1, setLine1] = React.useState(initial.address_line1 ?? '')
@@ -79,56 +82,81 @@ export function CompanyProfileForm({ initial }: Props) {
   const [country, setCountry] = React.useState(initial.address_country ?? '')
   const [timezone, setTimezone] = React.useState(initial.timezone ?? 'UTC')
   const [currency, setCurrency] = React.useState(initial.default_currency ?? 'USD')
-  const [saving, setSaving] = React.useState(false)
 
   const dirty =
-    legalName !== (initial.legal_name ?? '') ||
-    taxId !== (initial.tax_id ?? '') ||
-    line1 !== (initial.address_line1 ?? '') ||
-    line2 !== (initial.address_line2 ?? '') ||
-    city !== (initial.address_city ?? '') ||
-    state !== (initial.address_state ?? '') ||
-    postal !== (initial.address_postal_code ?? '') ||
-    country !== (initial.address_country ?? '') ||
-    timezone !== (initial.timezone ?? 'UTC') ||
-    currency !== (initial.default_currency ?? 'USD')
+    legalName !== (baseline.legal_name ?? '') ||
+    taxId !== (baseline.tax_id ?? '') ||
+    line1 !== (baseline.address_line1 ?? '') ||
+    line2 !== (baseline.address_line2 ?? '') ||
+    city !== (baseline.address_city ?? '') ||
+    state !== (baseline.address_state ?? '') ||
+    postal !== (baseline.address_postal_code ?? '') ||
+    country !== (baseline.address_country ?? '') ||
+    timezone !== (baseline.timezone ?? 'UTC') ||
+    currency !== (baseline.default_currency ?? 'USD')
 
-  async function handleSave(e?: React.FormEvent) {
-    e?.preventDefault()
-    setSaving(true)
-    try {
-      const res = await updateCompanyProfile({
-        legal_name: legalName,
-        tax_id: taxId,
-        address_line1: line1,
-        address_line2: line2,
-        address_city: city,
-        address_state: state,
-        address_postal_code: postal,
-        address_country: country,
-        timezone,
-      })
-      if (!res.ok) {
-        toast.error(res.error ?? 'Failed to save company profile')
-        return
-      }
-      // Currency lives on its own action; only call when it changed.
-      if (currency !== (initial.default_currency ?? 'USD')) {
-        const cur = await updateDefaultCurrency(currency)
-        if (!cur.ok) {
-          toast.error(cur.error ?? 'Failed to save currency')
-          return
-        }
-      }
-      toast.success('Company profile saved')
-    } finally {
-      setSaving(false)
+  async function handleSave(): Promise<boolean> {
+    const res = await updateCompanyProfile({
+      legal_name: legalName,
+      tax_id: taxId,
+      address_line1: line1,
+      address_line2: line2,
+      address_city: city,
+      address_state: state,
+      address_postal_code: postal,
+      address_country: country,
+      timezone,
+    })
+    if (!res.ok) {
+      toast.error(res.error ?? 'Failed to save company profile')
+      return false
     }
+    // Currency lives on its own action; only call when it changed.
+    if (currency !== (baseline.default_currency ?? 'USD')) {
+      const cur = await updateDefaultCurrency(currency)
+      if (!cur.ok) {
+        toast.error(cur.error ?? 'Failed to save currency')
+        return false
+      }
+    }
+    setBaseline({
+      legal_name: legalName,
+      tax_id: taxId,
+      address_line1: line1,
+      address_line2: line2,
+      address_city: city,
+      address_state: state,
+      address_postal_code: postal,
+      address_country: country,
+      timezone,
+      default_currency: currency,
+    })
+    toast.success('Company profile saved')
+    return true
   }
 
+  function handleReset() {
+    setLegalName(baseline.legal_name ?? '')
+    setTaxId(baseline.tax_id ?? '')
+    setLine1(baseline.address_line1 ?? '')
+    setLine2(baseline.address_line2 ?? '')
+    setCity(baseline.address_city ?? '')
+    setState(baseline.address_state ?? '')
+    setPostal(baseline.address_postal_code ?? '')
+    setCountry(baseline.address_country ?? '')
+    setTimezone(baseline.timezone ?? 'UTC')
+    setCurrency(baseline.default_currency ?? 'USD')
+  }
+
+  useWorkspaceSaveSection({
+    id: 'company-profile',
+    dirty,
+    save: handleSave,
+    reset: handleReset,
+  })
+
   return (
-    <form onSubmit={handleSave}>
-      <Card>
+    <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-text-tertiary" />
@@ -190,16 +218,8 @@ export function CompanyProfileForm({ initial }: Props) {
               <CurrencySelect value={currency} onChange={setCurrency} className="w-full" />
             </Field>
           </div>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={!dirty || saving}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              Save company profile
-            </Button>
-          </div>
         </CardContent>
       </Card>
-    </form>
   )
 }
 
