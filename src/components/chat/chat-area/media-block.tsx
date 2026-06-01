@@ -52,10 +52,10 @@ export function MediaBlock({ attachment }: MediaBlockProps) {
     )
   }
 
-  // AUDIO
+  // AUDIO — full-width player, no max-w constraint
   if (mime_type.startsWith('audio/')) {
     return (
-      <div className="mb-1.5">
+      <div className="mb-1.5 w-full">
         <AudioPlayer src={url} duration={duration} />
       </div>
     )
