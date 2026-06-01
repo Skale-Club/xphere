@@ -6,6 +6,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SyncTemplatesButton } from './sync-templates-button'
+import { CreateTemplateButton } from './create-template-button'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface TemplateRow {
@@ -80,7 +81,10 @@ export default async function WhatsAppTemplatesPage() {
             )}
           </p>
         </div>
-        <SyncTemplatesButton />
+        <div className="flex items-center gap-2">
+          <CreateTemplateButton />
+          <SyncTemplatesButton />
+        </div>
       </div>
 
       {templates && templates.length > 0 ? (

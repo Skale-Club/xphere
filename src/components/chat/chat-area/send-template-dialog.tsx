@@ -11,7 +11,8 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, Plus, Send } from 'lucide-react'
+import { TemplateComposerDialog } from '@/components/integrations/whatsapp/template-composer-dialog'
 
 import {
   Dialog,
@@ -47,7 +48,16 @@ export function SendTemplateDialog({
   const [selectedId, setSelectedId] = useState('')
   const [bodyValues, setBodyValues] = useState<string[]>([])
   const [headerValues, setHeaderValues] = useState<string[]>([])
+  const [composerOpen, setComposerOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+
+  function reloadTemplates() {
+    setLoading(true)
+    listApprovedTemplates()
+      .then((data) => setTemplates(data))
+      .catch(() => setTemplates([]))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
     if (!open) return
@@ -210,16 +220,34 @@ export function SendTemplateDialog({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
+          <Button
+            variant="ghost"
+            onClick={() => setComposerOpen(true)}
+            disabled={pending}
+            className="gap-1.5 text-[12.5px] text-accent"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Create new template
           </Button>
-          <Button onClick={handleSend} disabled={!canSend || pending} className="gap-1.5">
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Send
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button onClick={handleSend} disabled={!canSend || pending} className="gap-1.5">
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Send
+            </Button>
+          </div>
         </div>
       </DialogContent>
+
+      {/* New template lands as PENDING — reload the approved list once Meta approves + sync. */}
+      <TemplateComposerDialog
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        onCreated={reloadTemplates}
+      />
     </Dialog>
   )
 }

@@ -117,6 +117,115 @@ export async function syncTemplates(orgId: string): Promise<SyncResult | SyncErr
   }
 }
 
+// ─────────────────────────── Create template ───────────────────────────
+
+export interface CreateTemplateInput {
+  name: string
+  language: string
+  category: 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
+  headerText?: string | null
+  bodyText: string
+  /** One example value per {{n}} placeholder in bodyText, in order. */
+  bodyExamples?: string[]
+  footerText?: string | null
+  buttons?: Array<{ type: 'URL' | 'QUICK_REPLY'; text: string; url?: string }>
+}
+
+interface CreateResult {
+  ok: true
+  metaTemplateId: string
+  status: string
+}
+
+/**
+ * Create a message template on Meta and cache it locally (status usually
+ * PENDING until Meta reviews). Body variables ({{1}}, {{2}}…) require an
+ * `example.body_text` array or Meta rejects the create call.
+ */
+export async function createCloudTemplate(
+  orgId: string,
+  input: CreateTemplateInput,
+): Promise<CreateResult | SyncErr> {
+  const account = await getActiveCloudAccount(orgId)
+  if (!account) {
+    return { ok: false, error: 'No active WhatsApp Cloud account for this org' }
+  }
+
+  const bodyVarCount = (input.bodyText.match(/\{\{\d+\}\}/g) ?? []).length
+  if (bodyVarCount > 0 && (input.bodyExamples ?? []).filter((v) => v.trim()).length < bodyVarCount) {
+    return { ok: false, error: `Provide an example value for each of the ${bodyVarCount} body variable(s).` }
+  }
+
+  // Build Meta components payload.
+  const components: MetaTemplateComponent[] = []
+  if (input.headerText?.trim()) {
+    components.push({ type: 'HEADER', format: 'TEXT', text: input.headerText.trim() })
+  }
+  const bodyComponent: MetaTemplateComponent = { type: 'BODY', text: input.bodyText }
+  if (bodyVarCount > 0) {
+    bodyComponent.example = { body_text: [input.bodyExamples!.slice(0, bodyVarCount)] }
+  }
+  components.push(bodyComponent)
+  if (input.footerText?.trim()) {
+    components.push({ type: 'FOOTER', text: input.footerText.trim() })
+  }
+  if (input.buttons && input.buttons.length > 0) {
+    components.push({
+      type: 'BUTTONS',
+      buttons: input.buttons.map((b) =>
+        b.type === 'URL'
+          ? { type: 'URL' as const, text: b.text, url: b.url ?? '' }
+          : { type: 'QUICK_REPLY' as const, text: b.text },
+      ),
+    })
+  }
+
+  try {
+    const res = await metaFetch<{ id: string; status?: string; category?: string }>(
+      account,
+      `/${account.wabaId}/message_templates`,
+      {
+        method: 'POST',
+        body: {
+          name: input.name,
+          language: input.language,
+          category: input.category,
+          components,
+        },
+      },
+    )
+
+    const status = (res.status as MetaTemplate['status']) ?? 'PENDING'
+    const supabase = createServiceRoleClient()
+    const now = new Date().toISOString()
+
+    // Cache locally so it shows in the templates list immediately (PENDING).
+    await supabase.from('whatsapp_templates').upsert(
+      {
+        org_id: account.orgId,
+        cloud_account_id: account.id,
+        meta_template_id: res.id,
+        name: input.name,
+        language: input.language,
+        category: input.category,
+        status,
+        components: components as unknown as Json,
+        body_variable_count: bodyVarCount,
+        header_variable_count: input.headerText?.trim()
+          ? (input.headerText.match(/\{\{\d+\}\}/g) ?? []).length
+          : 0,
+        synced_at: now,
+      },
+      { onConflict: 'cloud_account_id,name,language' },
+    )
+
+    return { ok: true, metaTemplateId: res.id, status }
+  } catch (err) {
+    if (err instanceof MetaApiException) return { ok: false, error: err.metaError.message }
+    return { ok: false, error: err instanceof Error ? err.message : 'Create failed' }
+  }
+}
+
 /**
  * Count `{{n}}` placeholders inside the text body of a specific component
  * type. Buttons and headers with media don't have `{{n}}` placeholders.

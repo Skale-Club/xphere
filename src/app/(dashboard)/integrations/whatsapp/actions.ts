@@ -14,7 +14,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { encrypt, decrypt } from '@/lib/crypto'
 import { verifyCredentials } from '@/lib/whatsapp/cloud/verify-credentials'
 import { subscribeApp, unsubscribeApp } from '@/lib/whatsapp/cloud/subscribe-webhook'
-import { syncTemplates } from '@/lib/whatsapp/cloud/templates'
+import { syncTemplates, createCloudTemplate, type CreateTemplateInput } from '@/lib/whatsapp/cloud/templates'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 
 export interface CloudAccountSummary {
@@ -213,6 +213,27 @@ export async function syncCloudTemplates(): Promise<
   if (!result.ok) return { ok: false, error: result.error }
   revalidatePath('/integrations/whatsapp/templates')
   return { ok: true, inserted: result.inserted, updated: result.updated, deleted: result.deleted }
+}
+
+// ── Create template (submit to Meta for approval) ──────────────────────────
+
+export async function createCloudTemplateAction(
+  input: CreateTemplateInput,
+): Promise<{ ok: true; status: string } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active organization' }
+
+  const name = input.name?.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+  if (!name) return { ok: false, error: 'Template name is required.' }
+  if (!input.bodyText?.trim()) return { ok: false, error: 'Body text is required.' }
+
+  const result = await createCloudTemplate(orgId, { ...input, name })
+  if (!result.ok) return { ok: false, error: result.error }
+  revalidatePath('/integrations/whatsapp/templates')
+  return { ok: true, status: result.status }
 }
 
 // ── List approved templates (for campaign wizard) ──────────────────────────
