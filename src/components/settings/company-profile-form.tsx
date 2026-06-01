@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CurrencySelect } from '@/components/pipeline/currency-select'
+import { TimezoneSelect } from '@/components/settings/timezone-select'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
 import {
   updateCompanyProfile,
@@ -30,19 +31,6 @@ export interface CompanyProfileShape {
 interface Props {
   initial: CompanyProfileShape
 }
-
-// IANA timezone list from the runtime when available; small fallback otherwise.
-const TIMEZONES: string[] = (() => {
-  const intl = Intl as { supportedValuesOf?: (k: string) => string[] }
-  if (typeof intl.supportedValuesOf === 'function') {
-    try {
-      return intl.supportedValuesOf('timeZone')
-    } catch {
-      /* fall through */
-    }
-  }
-  return ['UTC', 'America/Sao_Paulo', 'America/New_York', 'Europe/London', 'Europe/Lisbon']
-})()
 
 // Curated country list (ISO-3166-1 alpha-2). Expand as needed.
 const COUNTRIES: { code: string; name: string }[] = [
@@ -208,11 +196,7 @@ export function CompanyProfileForm({ initial }: Props) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Timezone" htmlFor="timezone">
-              <NativeSelect id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-                {TIMEZONES.map((tz) => (
-                  <option key={tz} value={tz}>{tz}</option>
-                ))}
-              </NativeSelect>
+              <TimezoneSelect id="timezone" value={timezone} onChange={setTimezone} />
             </Field>
             <Field label="Default currency" htmlFor="currency">
               <CurrencySelect value={currency} onChange={setCurrency} className="w-full" />
