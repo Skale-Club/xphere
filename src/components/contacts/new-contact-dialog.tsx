@@ -62,7 +62,7 @@ export function NewContactDialog({
         <DialogHeader>
           <DialogTitle>New contact</DialogTitle>
           <DialogDescription>
-            Add a person to your CRM. You can edit them anytime.
+            Add a person to Xphere. You can edit them anytime.
           </DialogDescription>
         </DialogHeader>
         <ContactForm

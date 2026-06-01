@@ -8,7 +8,7 @@
 
 name: Sync new contacts to Google
 description: |
-  Platform-default. When a contact is created in the CRM, automatically create
+  Platform-default. When a contact is created in Xphere, automatically create
   the matching contact in the connected Google Contacts account.
 trigger:
   type: event

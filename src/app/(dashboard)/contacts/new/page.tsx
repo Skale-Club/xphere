@@ -38,7 +38,7 @@ export default async function NewContactPage({ searchParams }: NewContactPagePro
       <PageHeader
         eyebrow="Contacts"
         title="New contact"
-        description="Add a person to your CRM. You can edit them anytime."
+        description="Add a person to Xphere. You can edit them anytime."
       />
 
       <Card className="mt-6">

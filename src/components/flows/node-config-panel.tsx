@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { forwardRef, useState, type ButtonHTMLAttributes } from 'react'
 import { Check, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
 import {
   Command,
@@ -428,15 +428,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
 
 // ── Shared picker button ──────────────────────────────────────────────────────
 
-function PickerTriggerButton({
-  open,
-  icon,
-  iconClass,
-  logo,
-  label,
-  subtitle,
-  placeholder,
-}: {
+interface PickerTriggerButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   open: boolean
   icon?: React.ComponentType<{ className?: string }>
   iconClass?: string
@@ -444,27 +436,39 @@ function PickerTriggerButton({
   label?: string
   subtitle?: string
   placeholder: string
-}) {
-  return (
-    <button
-      type="button"
-      role="combobox"
-      aria-expanded={open}
-      className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs hover:bg-accent/30 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-colors"
-    >
-      {icon && iconClass ? (
-        <NodeIconBadge icon={icon} iconClass={iconClass} logo={logo} />
-      ) : null}
-      <span className={cn('flex-1 truncate text-left', !label && 'text-muted-foreground')}>
-        {label ?? placeholder}
-      </span>
-      {subtitle && (
-        <span className="shrink-0 text-[10px] text-muted-foreground">{subtitle}</span>
-      )}
-      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-    </button>
-  )
 }
+
+// forwardRef + prop spread are REQUIRED: PopoverTrigger uses `asChild` (Radix
+// Slot), which clones this element and injects onClick/ref/aria. Without
+// forwarding them to the underlying <button>, the popover never opens.
+const PickerTriggerButton = forwardRef<HTMLButtonElement, PickerTriggerButtonProps>(
+  function PickerTriggerButton(
+    { open, icon, iconClass, logo, label, subtitle, placeholder, ...rest },
+    ref,
+  ) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        role="combobox"
+        aria-expanded={open}
+        {...rest}
+        className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs hover:bg-accent/30 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-colors"
+      >
+        {icon && iconClass ? (
+          <NodeIconBadge icon={icon} iconClass={iconClass} logo={logo} />
+        ) : null}
+        <span className={cn('flex-1 truncate text-left', !label && 'text-muted-foreground')}>
+          {label ?? placeholder}
+        </span>
+        {subtitle && (
+          <span className="shrink-0 text-[10px] text-muted-foreground">{subtitle}</span>
+        )}
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      </button>
+    )
+  },
+)
 
 // ── TriggerPicker ─────────────────────────────────────────────────────────────
 

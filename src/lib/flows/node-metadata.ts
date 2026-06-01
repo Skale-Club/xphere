@@ -116,7 +116,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
   {
     key: 'contact.created',
     label: 'Contact created',
-    description: 'A new contact was added to the CRM',
+    description: 'A new contact was added to Xphere',
     icon: UserPlus,
     iconClass: 'bg-rose-500/15 text-rose-300',
     group: 'General',
@@ -157,7 +157,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
 ]
 
 export const ACTION_METADATA: ActionMetadata[] = [
-  // ── CRM ──
+  // ── Xphere ──
   {
     key: 'create_contact',
     label: 'Create contact',
@@ -166,25 +166,25 @@ export const ACTION_METADATA: ActionMetadata[] = [
     iconClass: 'bg-rose-500/15 text-rose-300',
     logo: '/logos/gohighlevel.svg',
     subtitle: 'GoHighLevel',
-    group: 'CRM',
+    group: 'Xphere',
   },
   {
     key: 'create_task',
     label: 'Create task',
-    description: 'Create a task in the CRM',
+    description: 'Create a task in Xphere',
     icon: ClipboardText,
     iconClass: 'bg-amber-500/15 text-amber-300',
-    subtitle: 'CRM',
-    group: 'CRM',
+    subtitle: 'Xphere',
+    group: 'Xphere',
   },
   {
     key: 'create_note',
     label: 'Create note',
-    description: 'Create a note in the CRM',
+    description: 'Create a note in Xphere',
     icon: Note,
     iconClass: 'bg-yellow-500/15 text-yellow-300',
-    subtitle: 'CRM',
-    group: 'CRM',
+    subtitle: 'Xphere',
+    group: 'Xphere',
   },
   {
     key: 'update_pipeline_stage',
@@ -192,8 +192,8 @@ export const ACTION_METADATA: ActionMetadata[] = [
     description: 'Move an opportunity to a new pipeline stage',
     icon: TrendUp,
     iconClass: 'bg-indigo-500/15 text-indigo-300',
-    subtitle: 'CRM',
-    group: 'CRM',
+    subtitle: 'Xphere',
+    group: 'Xphere',
   },
 
   // ── Google Contacts ──

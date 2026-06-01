@@ -118,7 +118,7 @@ export function NewCompanyDialog({ trigger }: NewCompanyDialogProps = {}) {
             New company
           </DialogTitle>
           <DialogDescription>
-            Add an organization to your CRM and link contacts or deals later.
+            Add an organization to Xphere and link contacts or deals later.
           </DialogDescription>
         </DialogHeader>
 

@@ -25,7 +25,7 @@ export function AccountDetailHeader({ account }: Props) {
           {/* Eyebrow breadcrumb */}
           <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
             <Building2 className="h-3.5 w-3.5 text-accent" />
-            <span>CRM / Companies</span>
+            <span>Xphere / Companies</span>
           </div>
 
           {/* Company name */}

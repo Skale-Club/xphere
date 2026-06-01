@@ -392,7 +392,7 @@ export const NODES: NodeSpec[] = [
     ],
   },
 
-  // ─── Action | CRM
+  // ─── Action | Xphere
   {
     type: 'create_contact',
     kind: 'action',
@@ -472,7 +472,7 @@ export const NODES: NodeSpec[] = [
   {
     type: 'create_task',
     kind: 'action',
-    description: 'Creates a task in the CRM. Tasks can be linked to a contact, account, or opportunity.',
+    description: 'Creates a task in Xphere. Tasks can be linked to a contact, account, or opportunity.',
     params_schema: {
       type: 'object',
       properties: {
@@ -489,7 +489,7 @@ export const NODES: NodeSpec[] = [
   {
     type: 'create_note',
     kind: 'action',
-    description: 'Creates a note in the CRM. Notes can be linked to a contact, account, or opportunity.',
+    description: 'Creates a note in Xphere. Notes can be linked to a contact, account, or opportunity.',
     params_schema: {
       type: 'object',
       properties: {
@@ -674,7 +674,7 @@ export const NODES: NodeSpec[] = [
 export const VARIABLE_NAMESPACES = {
   trigger: 'Fields populated by the trigger that started this run.',
   input: 'Free-form payload passed to the trigger (tool-call args, webhook body, etc.).',
-  contact: 'Contact CRM fields when the trigger has a linked contact.',
+  contact: 'Contact fields when the trigger has a linked contact.',
   meeting: 'Booking fields when the trigger is a calendar event (SEED-027).',
   opportunity: 'Opportunity fields when the trigger is a pipeline event (SEED-036).',
   stage: 'Pipeline stage fields (with stage.from / stage.to on stage_changed).',
