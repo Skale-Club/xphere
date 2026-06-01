@@ -14,8 +14,9 @@ name: Deploy to Coolify
 # update the repo secret or this stops working.
 
 on:
-  push:
-    branches: [main]
+  # Disabled: build-deploy.yml now handles the full build→push→deploy pipeline.
+  # Re-enable here if you want Coolify to build from source instead of pulling
+  # a prebuilt image from GHCR.
   workflow_dispatch: {}
 
 # Never run two deploys at once; let an in-flight one finish.
