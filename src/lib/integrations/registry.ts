@@ -93,6 +93,7 @@ import { WhatsAppPanel } from '@/components/integrations/panels/whatsapp-panel'
 import { WhatsAppCloudPanel } from '@/components/integrations/panels/whatsapp-cloud-panel'
 import { TwilioPanel } from '@/components/integrations/panels/twilio-panel'
 import { OpenRouterPanel } from '@/components/integrations/panels/openrouter-panel'
+import { GoogleContactsOAuthPanel } from '@/components/integrations/google-contacts-oauth-panel'
 
 export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   // ── Messaging ─────────────────────────────────────────────────────────────
@@ -174,7 +175,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
         type: 'password',
         required: true,
         placeholder: 'ze_...',
-        hint: 'Encontre em Zernio → Settings → API Keys.',
+        hint: 'Find it in Zernio → Settings → API Keys.',
       },
     ],
   },
@@ -291,10 +292,10 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: 'Create, update and sync contacts via Google People API.',
     category: 'crm',
     logo: { path: '/logos/google-contacts.svg', letter: 'G', color: 'bg-sky-600' },
-    panelType: 'oauth',
+    panelType: 'custom',
+    CustomPanel: GoogleContactsOAuthPanel,
     canActivate: true,
     testable: false,
-    oauthHref: '/integrations/google-contacts',
   },
 
   // ── AI ────────────────────────────────────────────────────────────────────

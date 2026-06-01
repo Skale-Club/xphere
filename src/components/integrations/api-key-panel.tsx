@@ -62,21 +62,21 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
 
   async function handleTest() {
     setTestState('testing')
-    setTestMessage('Testando conexão…')
+    setTestMessage('Testing connection…')
     // For edits where the key hasn't been touched, we can't test without
     // re-entering the key. The UI nudges the user accordingly.
     if (!fields.api_key && existing) {
       setTestState('fail')
-      setTestMessage('Informe novamente a API Key para testar.')
+      setTestMessage('Re-enter the API key to test.')
       return
     }
     const res = await testIntegrationConnection(definition.id, fields)
     if (res.ok) {
       setTestState('pass')
-      setTestMessage('Conexão bem-sucedida.')
+      setTestMessage('Connection successful.')
     } else {
       setTestState('fail')
-      setTestMessage(res.error ?? 'Falha no teste.')
+      setTestMessage(res.error ?? 'Test failed.')
     }
   }
 
@@ -85,10 +85,10 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
     try {
       const res = await saveIntegrationCredentials(definition.id, fields)
       if (!res.ok) {
-        toast.error(res.error ?? 'Falha ao salvar.')
+        toast.error(res.error ?? 'Failed to save.')
         return
       }
-      toast.success(`${definition.name} salvo.`)
+      toast.success(`${definition.name} saved.`)
       router.refresh()
       onClose()
     } finally {
@@ -105,9 +105,9 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
       const res = await toggleIntegrationActive(definition.id, next)
       if (!res.ok) {
         setIsActive(previous)
-        toast.error(res.error ?? 'Falha ao atualizar.')
+        toast.error(res.error ?? 'Failed to update.')
       } else {
-        toast.success(next ? 'Integração ativada.' : 'Integração desativada.')
+        toast.success(next ? 'Integration activated.' : 'Integration deactivated.')
         router.refresh()
       }
     } finally {
@@ -132,7 +132,7 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
           >
-            <ExternalLink className="h-3 w-3" /> Documentação
+            <ExternalLink className="h-3 w-3" /> Documentation
           </a>
         )}
       </SheetHeader>
@@ -178,7 +178,7 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
                     type="button"
                     onClick={() => setShowField((p) => ({ ...p, [field.key]: !visible }))}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-                    aria-label={visible ? 'Ocultar' : 'Mostrar'}
+                    aria-label={visible ? 'Hide' : 'Show'}
                   >
                     {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -214,11 +214,11 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
         {definition.canActivate && existing && (
           <div className="flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[13px] font-medium text-text-primary">Ativo</p>
+              <p className="text-[13px] font-medium text-text-primary">Active</p>
               <p className="text-[11px] text-text-tertiary">
                 {isActive
-                  ? 'Disponível para workflows e agentes.'
-                  : 'Salvo, mas inativo até ser habilitado.'}
+                  ? 'Available to workflows and agents.'
+                  : 'Saved but not used until enabled.'}
               </p>
             </div>
             <Switch
@@ -239,11 +239,11 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
             >
               {testState === 'testing' ? (
                 <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Testando…
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Testing…
                 </>
               ) : (
                 <>
-                  <Zap className="mr-1 h-3.5 w-3.5" /> Testar
+                  <Zap className="mr-1 h-3.5 w-3.5" /> Test
                 </>
               )}
             </Button>
@@ -255,11 +255,11 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
           >
             {isSaving ? (
               <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Salvando…
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Saving…
               </>
             ) : (
               <>
-                <Save className="mr-1 h-3.5 w-3.5" /> Salvar
+                <Save className="mr-1 h-3.5 w-3.5" /> Save
               </>
             )}
           </Button>
@@ -267,7 +267,7 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
 
         {definition.testable && testState !== 'pass' && !existing && (
           <p className="text-center text-[11px] text-text-tertiary">
-            Teste as credenciais antes de salvar.
+            Test the credentials before saving.
           </p>
         )}
       </div>
