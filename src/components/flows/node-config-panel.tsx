@@ -105,6 +105,14 @@ type DurationUnit = (typeof DURATION_UNITS)[number]['value']
 // next unit up. The boundary value is allowed (24h, 60min) so "24h before" works.
 const UNIT_MAX: Record<DurationUnit, number> = { m: 60, h: 24, d: 31, w: 52 }
 
+// Friendly cron presets so the schedule isn't a raw cron string by default.
+const CRON_PRESETS = [
+  { value: '0 * * * *', label: 'Every hour' },
+  { value: '0 9 * * *', label: 'Every day at 9 AM' },
+  { value: '0 9 * * 1', label: 'Every Monday at 9 AM' },
+  { value: '0 9 1 * *', label: 'Monthly (1st at 9 AM)' },
+] as const
+
 function parseDurationValue(value: string | undefined, fallback: string): {
   amount: string
   unit: DurationUnit
@@ -243,20 +251,45 @@ export function NodeConfigPanel({ activeIntegrations, agents = [], pickerData = 
                 </p>
               )}
             </div>
-            {flow.event_type === 'cron' && (
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-text-tertiary">Cron schedule</Label>
-                <Input
-                  value={flow.schedule_cron ?? ''}
-                  onChange={(e) => updateNodeData(node.id, { schedule_cron: e.target.value })}
-                  placeholder="0 9 * * 1"
-                  className="h-8 text-xs font-mono"
-                />
-                <p className="text-[10.5px] text-text-tertiary">
-                  e.g. <code>0 9 * * 1</code> | every Monday at 9 AM
-                </p>
-              </div>
-            )}
+            {flow.event_type === 'cron' && (() => {
+              const cron = flow.schedule_cron ?? ''
+              const preset = CRON_PRESETS.find((p) => p.value === cron)
+              const sel = cron === '' ? '' : preset ? cron : '__custom__'
+              return (
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-text-tertiary">Schedule</Label>
+                  <Select
+                    value={sel || undefined}
+                    onValueChange={(v) =>
+                      updateNodeData(node.id, {
+                        schedule_cron: v === '__custom__' ? (preset ? '' : cron) : v,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="How often?" /></SelectTrigger>
+                    <SelectContent>
+                      {CRON_PRESETS.map((p) => (
+                        <SelectItem key={p.value} value={p.value} className="text-xs">{p.label}</SelectItem>
+                      ))}
+                      <SelectItem value="__custom__" className="text-xs">Custom cron…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {sel === '__custom__' && (
+                    <>
+                      <Input
+                        value={cron}
+                        onChange={(e) => updateNodeData(node.id, { schedule_cron: e.target.value })}
+                        placeholder="0 9 * * 1"
+                        className="h-8 text-xs font-mono"
+                      />
+                      <p className="text-[10.5px] text-text-tertiary">
+                        Cron format: <code>min hour day month weekday</code> — e.g. <code>0 9 * * 1</code> = Mon 9 AM.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
 
