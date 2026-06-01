@@ -1,7 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 // ── Inline icon badge — coloured bg + white inner layer for brand logos ────────
 
@@ -58,6 +71,8 @@ import {
   filterTriggers,
   getActionMetadata,
   getTriggerMetadata,
+  groupedActions,
+  groupedTriggers,
   type IntegrationKey,
 } from '@/lib/flows/node-metadata'
 import { cn } from '@/lib/utils'
@@ -190,37 +205,11 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
           <>
             <div className="space-y-1.5">
               <Label className="text-[11px] text-text-tertiary">Event</Label>
-              <Select
+              <TriggerPicker
                 value={flow.event_type}
-                onValueChange={(v) => updateNodeData(node.id, { event_type: v })}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectedTriggerLabel value={flow.event_type} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filterTriggers(activeSet).length === 0 && (
-                    <div className="px-2 py-1.5 text-[11px] text-text-tertiary">
-                      No triggers available | connect an integration first.
-                    </div>
-                  )}
-                  {/* Always include the currently selected event so user can change away */}
-                  {filterTriggers(activeSet).map((m) => (
-                    <SelectItem key={m.key} value={m.key} className="text-xs">
-                      <div className="flex items-center gap-2">
-                        <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
-                        <span>{m.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                  {/* Fallback: if currently selected isn't in the filtered list, surface it */}
-                  {!filterTriggers(activeSet).some((m) => m.key === flow.event_type) &&
-                    getTriggerMetadata(flow.event_type) && (
-                    <SelectItem value={flow.event_type} className="text-xs opacity-70">
-                      <span>{getTriggerMetadata(flow.event_type)!.label} · disconnected</span>
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                activeSet={activeSet}
+                onChange={(v) => updateNodeData(node.id, { event_type: v })}
+              />
               {getTriggerMetadata(flow.event_type)?.description && (
                 <p className="text-[10.5px] text-text-tertiary">
                   {getTriggerMetadata(flow.event_type)!.description}
@@ -248,30 +237,11 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
           <>
             <div className="space-y-1.5">
               <Label className="text-[11px] text-text-tertiary">Action</Label>
-              <Select
+              <ActionPicker
                 value={flow.action_type}
-                onValueChange={(v) => updateNodeData(node.id, { action_type: v, config: {} })}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectedActionLabel value={flow.action_type} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filterActions(activeSet).map((m) => (
-                    <SelectItem key={m.key} value={m.key} className="text-xs">
-                      <div className="flex items-center gap-2">
-                        <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
-                        <span>{m.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                  {!filterActions(activeSet).some((m) => m.key === flow.action_type) &&
-                    getActionMetadata(flow.action_type) && (
-                    <SelectItem value={flow.action_type} className="text-xs opacity-70">
-                      <span>{getActionMetadata(flow.action_type)!.label} · disconnected</span>
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                activeSet={activeSet}
+                onChange={(v) => updateNodeData(node.id, { action_type: v, config: {} })}
+              />
               {getActionMetadata(flow.action_type)?.description && (
                 <p className="text-[10.5px] text-text-tertiary">
                   {getActionMetadata(flow.action_type)!.description}
@@ -456,25 +426,199 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
   )
 }
 
-function SelectedTriggerLabel({ value }: { value: string }) {
-  const meta = getTriggerMetadata(value)
-  if (!meta) return <SelectValue placeholder="Choose a trigger" />
+// ── Shared picker button ──────────────────────────────────────────────────────
+
+function PickerTriggerButton({
+  open,
+  icon,
+  iconClass,
+  logo,
+  label,
+  subtitle,
+  placeholder,
+}: {
+  open: boolean
+  icon?: React.ComponentType<{ className?: string }>
+  iconClass?: string
+  logo?: string
+  label?: string
+  subtitle?: string
+  placeholder: string
+}) {
   return (
-    <span className="flex items-center gap-2">
-      <NodeIconBadge icon={meta.icon} iconClass={meta.iconClass} logo={meta.logo} />
-      <span className="truncate">{meta.label}</span>
-    </span>
+    <button
+      type="button"
+      role="combobox"
+      aria-expanded={open}
+      className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs hover:bg-accent/30 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-colors"
+    >
+      {icon && iconClass ? (
+        <NodeIconBadge icon={icon} iconClass={iconClass} logo={logo} />
+      ) : null}
+      <span className={cn('flex-1 truncate text-left', !label && 'text-muted-foreground')}>
+        {label ?? placeholder}
+      </span>
+      {subtitle && (
+        <span className="shrink-0 text-[10px] text-muted-foreground">{subtitle}</span>
+      )}
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+    </button>
   )
 }
 
-function SelectedActionLabel({ value }: { value: string }) {
-  const meta = getActionMetadata(value)
-  if (!meta) return <SelectValue placeholder="Choose an action" />
+// ── TriggerPicker ─────────────────────────────────────────────────────────────
+
+function TriggerPicker({
+  value,
+  activeSet,
+  onChange,
+}: {
+  value: string
+  activeSet: Set<IntegrationKey>
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = getTriggerMetadata(value)
+  const groups = groupedTriggers(activeSet)
+  const isDisconnected = !!value && !filterTriggers(activeSet).some((m) => m.key === value)
+
   return (
-    <span className="flex items-center gap-2">
-      <NodeIconBadge icon={meta.icon} iconClass={meta.iconClass} logo={meta.logo} />
-      <span className="truncate">{meta.label}</span>
-    </span>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <PickerTriggerButton
+          open={open}
+          icon={selected?.icon}
+          iconClass={selected?.iconClass}
+          logo={selected?.logo}
+          label={isDisconnected ? `${selected?.label ?? value} · disconnected` : selected?.label}
+          subtitle={selected?.subtitle}
+          placeholder="Choose a trigger…"
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start" side="bottom">
+        <Command>
+          <CommandInput placeholder="Search triggers…" className="h-8 text-xs" />
+          <CommandList className="max-h-72">
+            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+              No trigger found.
+            </CommandEmpty>
+            {groups.length === 0 && (
+              <div className="px-3 py-3 text-[11px] text-muted-foreground">
+                No triggers available — connect an integration first.
+              </div>
+            )}
+            {groups.map((g) => (
+              <CommandGroup key={g.label} heading={g.label}>
+                {g.items.map((m) => (
+                  <CommandItem
+                    key={m.key}
+                    value={`${m.label} ${m.subtitle ?? ''} ${g.label}`}
+                    onSelect={() => { onChange(m.key); setOpen(false) }}
+                    className="flex items-center gap-2 text-xs py-1.5"
+                  >
+                    <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
+                    <span className="flex-1 truncate">{m.label}</span>
+                    {m.subtitle && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">{m.subtitle}</span>
+                    )}
+                    {value === m.key && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+            {/* Disconnected fallback — shows if current value isn't in the active list */}
+            {isDisconnected && selected && (
+              <CommandGroup heading="Disconnected">
+                <CommandItem
+                  value={value}
+                  onSelect={() => { onChange(value); setOpen(false) }}
+                  className="flex items-center gap-2 text-xs py-1.5 opacity-60"
+                >
+                  <NodeIconBadge icon={selected.icon} iconClass={selected.iconClass} logo={selected.logo} />
+                  <span className="flex-1 truncate">{selected.label}</span>
+                  <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                </CommandItem>
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ── ActionPicker ──────────────────────────────────────────────────────────────
+
+function ActionPicker({
+  value,
+  activeSet,
+  onChange,
+}: {
+  value: string
+  activeSet: Set<IntegrationKey>
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = getActionMetadata(value)
+  const groups = groupedActions(activeSet)
+  const isDisconnected = !!value && !filterActions(activeSet).some((m) => m.key === value)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <PickerTriggerButton
+          open={open}
+          icon={selected?.icon}
+          iconClass={selected?.iconClass}
+          logo={selected?.logo}
+          label={isDisconnected ? `${selected?.label ?? value} · disconnected` : selected?.label}
+          subtitle={selected?.subtitle}
+          placeholder="Choose an action…"
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start" side="bottom">
+        <Command>
+          <CommandInput placeholder="Search actions…" className="h-8 text-xs" />
+          <CommandList className="max-h-72">
+            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+              No action found.
+            </CommandEmpty>
+            {groups.map((g) => (
+              <CommandGroup key={g.label} heading={g.label}>
+                {g.items.map((m) => (
+                  <CommandItem
+                    key={m.key}
+                    value={`${m.label} ${m.subtitle ?? ''} ${g.label}`}
+                    onSelect={() => { onChange(m.key); setOpen(false) }}
+                    className="flex items-center gap-2 text-xs py-1.5"
+                  >
+                    <NodeIconBadge icon={m.icon} iconClass={m.iconClass} logo={m.logo} />
+                    <span className="flex-1 truncate">{m.label}</span>
+                    {m.subtitle && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">{m.subtitle}</span>
+                    )}
+                    {value === m.key && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+            {isDisconnected && selected && (
+              <CommandGroup heading="Disconnected">
+                <CommandItem
+                  value={value}
+                  onSelect={() => { onChange(value); setOpen(false) }}
+                  className="flex items-center gap-2 text-xs py-1.5 opacity-60"
+                >
+                  <NodeIconBadge icon={selected.icon} iconClass={selected.iconClass} logo={selected.logo} />
+                  <span className="flex-1 truncate">{selected.label}</span>
+                  <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                </CommandItem>
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
