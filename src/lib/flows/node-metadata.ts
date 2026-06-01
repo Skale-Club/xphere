@@ -52,7 +52,9 @@ export interface TriggerMetadata {
   subtitle?: string
   /** Group heading in the picker dropdown. */
   group: string
-  requiresIntegration?: IntegrationKey
+  /** One key, or several when the node works with any of multiple integrations
+   *  (e.g. send_sms works via Twilio OR GoHighLevel). */
+  requiresIntegration?: IntegrationKey | IntegrationKey[]
 }
 
 export interface ActionMetadata {
@@ -68,7 +70,9 @@ export interface ActionMetadata {
   subtitle?: string
   /** Group heading in the picker dropdown. */
   group: string
-  requiresIntegration?: IntegrationKey
+  /** One key, or several when the node works with any of multiple integrations
+   *  (e.g. send_sms works via Twilio OR GoHighLevel). */
+  requiresIntegration?: IntegrationKey | IntegrationKey[]
 }
 
 export const TRIGGER_METADATA: TriggerMetadata[] = [
@@ -247,6 +251,17 @@ export const ACTION_METADATA: ActionMetadata[] = [
 
   // ── Communication ──
   {
+    key: 'send_sms',
+    label: 'Send SMS',
+    description: 'Send an SMS via Twilio or GoHighLevel',
+    icon: ChatCircle,
+    iconClass: 'bg-rose-500/15 text-rose-300',
+    logo: '/logos/twilio.svg',
+    subtitle: 'SMS',
+    group: 'SMS',
+    requiresIntegration: ['twilio', 'ghl'],
+  },
+  {
     key: 'send_whatsapp',
     label: 'Send message',
     description: 'Send a WhatsApp message via Evolution / Z-API / W-API',
@@ -321,12 +336,20 @@ export function getActionMetadata(key: string): ActionMetadata | undefined {
   return ACTION_METADATA.find((m) => m.key === key)
 }
 
+function meetsIntegration(
+  req: IntegrationKey | IntegrationKey[] | undefined,
+  active: Set<IntegrationKey>,
+): boolean {
+  if (!req) return true
+  return Array.isArray(req) ? req.some((k) => active.has(k)) : active.has(req)
+}
+
 export function filterTriggers(active: Set<IntegrationKey>): TriggerMetadata[] {
-  return TRIGGER_METADATA.filter((m) => !m.requiresIntegration || active.has(m.requiresIntegration))
+  return TRIGGER_METADATA.filter((m) => meetsIntegration(m.requiresIntegration, active))
 }
 
 export function filterActions(active: Set<IntegrationKey>): ActionMetadata[] {
-  return ACTION_METADATA.filter((m) => !m.requiresIntegration || active.has(m.requiresIntegration))
+  return ACTION_METADATA.filter((m) => meetsIntegration(m.requiresIntegration, active))
 }
 
 export interface MetadataGroup<T> {
