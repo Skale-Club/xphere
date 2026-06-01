@@ -27,13 +27,19 @@ export default async function ChatPage({
   let initialConversationId: string | null = params.conversation ?? null
   const initialContactId: string | null = params.contact ?? null
   if (!initialConversationId && initialContactId) {
-    const { data: convRow } = await supabase
+    const { data: convRows } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, created_at, updated_at, last_message_at')
       .eq('contact_id', initialContactId)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle()
+      .neq('status', 'closed')
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(20)
+    const convRow = (convRows ?? []).sort((a, b) => {
+      const ta = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime()
+      const tb = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime()
+      return tb - ta
+    })[0]
     initialConversationId = (convRow?.id as string | undefined) ?? null
   }
 

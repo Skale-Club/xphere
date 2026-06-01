@@ -235,7 +235,6 @@ export async function linkContactToConversation(
     .eq('id', conversationId)
 
   if (error) {
-    // eslint-disable-next-line no-console
     console.error('[chat:link-contact]', error)
     return { error: error.message }
   }
@@ -276,7 +275,6 @@ export async function searchContactsForLink(query: string): Promise<Array<{
 
   const { data, error } = await builder
   if (error) {
-    // eslint-disable-next-line no-console
     console.error('[chat:search-contacts]', error)
     return []
   }
@@ -491,14 +489,22 @@ export async function createContactConversation(
   const liveContactId = await resolveLiveContactId(contactId)
 
   // Idempotency: reuse an existing conversation on the same channel.
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from('conversations')
     .select(CONVERSATION_SUMMARY_COLUMNS)
     .eq('contact_id', liveContactId)
     .eq('channel', channel)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle()
+    .neq('status', 'closed')
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(20)
+  const existing = ((existingRows ?? []) as Record<string, unknown>[]).sort((a, b) => {
+    const aTime = (a.last_message_at ?? a.updated_at ?? a.created_at) as string | number | Date
+    const bTime = (b.last_message_at ?? b.updated_at ?? b.created_at) as string | number | Date
+    const ta = new Date(aTime).getTime()
+    const tb = new Date(bTime).getTime()
+    return tb - ta
+  })[0] ?? null
   const existingRow = existing as Record<string, unknown> | null
   if (existingRow) {
     const preparedUpdatedAt = new Date().toISOString()
@@ -576,7 +582,6 @@ export async function createContactConversation(
 
   const createdRow = created as Record<string, unknown> | null
   if (error || !createdRow) {
-    // eslint-disable-next-line no-console
     console.error('[chat:create-conversation]', error)
     return { error: error?.message ?? 'Failed to create conversation.' }
   }

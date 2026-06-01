@@ -215,6 +215,8 @@ export interface ContactDetail extends ContactRow {
     channel: string
     last_message: string | null
     last_message_at: string | null
+    created_at?: string
+    updated_at?: string
     status: string
   }>
   call_logs: Array<{
@@ -299,9 +301,10 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
       .eq('contact_id', id),
     supabase
       .from('conversations')
-      .select('id, channel, last_message, last_message_at, status')
+      .select('id, channel, last_message, last_message_at, created_at, updated_at, status')
       .eq('contact_id', id)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(20),
     supabase
       .from('call_logs')
@@ -413,7 +416,11 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     ...(contact as ContactRow),
     tagIds,
     tagEntities,
-    conversations: convs ?? [],
+    conversations: (convs ?? []).sort((a, b) => {
+      const ta = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime()
+      const tb = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime()
+      return tb - ta
+    }),
     call_logs: (calls ?? []) as ContactDetail['call_logs'],
     opportunities: ((opps ?? []) as unknown as ContactDetail['opportunities']),
     tasks: (tasks ?? []) as ContactDetail['tasks'],

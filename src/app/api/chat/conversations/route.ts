@@ -54,9 +54,29 @@ const VALID_STATUSES = new Set<ConversationStatus>([
 const VALID_PRIORITIES = new Set(['normal', 'high', 'urgent'])
 const VALID_BOT_STATUSES = new Set(['active', 'paused'])
 
+interface FilterableQuery {
+  eq(column: string, value: unknown): FilterableQuery
+  neq(column: string, value: unknown): FilterableQuery
+  in(column: string, values: unknown[]): FilterableQuery
+}
+
 function clampInt(value: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback
   return Math.max(min, Math.min(max, Math.floor(value)))
+}
+
+function activityMillis(row: Record<string, unknown>): number {
+  const value = (row.last_message_at ?? row.updated_at ?? row.created_at) as string | null | undefined
+  const time = value ? new Date(value).getTime() : 0
+  return Number.isFinite(time) ? time : 0
+}
+
+function compareActivityDesc(a: Record<string, unknown>, b: Record<string, unknown>): number {
+  const diff = activityMillis(b) - activityMillis(a)
+  if (diff !== 0) return diff
+  const aCreated = new Date((a.created_at as string | null | undefined) ?? 0).getTime()
+  const bCreated = new Date((b.created_at as string | null | undefined) ?? 0).getTime()
+  return bCreated - aCreated
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -64,6 +84,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const userId = user.id
 
   const url = new URL(request.url)
   const page = clampInt(Number(url.searchParams.get('page') ?? 1), 1, 100_000, 1)
@@ -73,7 +94,10 @@ export async function GET(request: Request): Promise<Response> {
     MAX_PAGE_SIZE,
     DEFAULT_PAGE_SIZE,
   )
-  const status = url.searchParams.get('status')
+  const statusParam = url.searchParams.get('status')
+  const status = statusParam && VALID_STATUSES.has(statusParam as ConversationStatus)
+    ? (statusParam as ConversationStatus)
+    : null
   const assigned = url.searchParams.get('assigned')
   const channelParam = url.searchParams.get('channel')
   const starred = url.searchParams.get('starred') === '1'
@@ -120,65 +144,110 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // ─────────── Pinned (always full, no pagination) ───────────
-  let pinnedQuery = supabase
-    .from('conversations')
-    .select(SELECT_COLS)
-    .eq('pinned', true)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
+  function applyFilters<T>(query: T): T {
+    let q = query as never as FilterableQuery
+    if (status) q = q.eq('status', status)
+    else q = q.neq('status', 'closed')
+    if (assigned === 'me') q = q.eq('assigned_user_id', userId)
+    if (channels.length === 1) q = q.eq('channel', channels[0])
+    else if (channels.length > 1) q = q.in('channel', channels)
+    if (starred) q = q.eq('starred', true)
+    if (verifiedContactIds) q = q.in('contact_id', verifiedContactIds)
+    if (priority && VALID_PRIORITIES.has(priority)) q = q.eq('priority', priority)
+    if (botStatus && VALID_BOT_STATUSES.has(botStatus)) q = q.eq('bot_status', botStatus)
+    if (phoneNumberId) q = q.eq('phone_number_id', phoneNumberId)
+    return q as never as T
+  }
 
-  // Archived (status='closed') conversations are hidden from the default inbox
-  // and only surface when the caller explicitly filters by status.
-  if (status) pinnedQuery = pinnedQuery.eq('status', status)
-  else pinnedQuery = pinnedQuery.neq('status', 'closed')
-  if (assigned === 'me') pinnedQuery = pinnedQuery.eq('assigned_user_id', user.id)
-  if (channels.length === 1) pinnedQuery = pinnedQuery.eq('channel', channels[0])
-  else if (channels.length > 1) pinnedQuery = pinnedQuery.in('channel', channels)
-  if (starred) pinnedQuery = pinnedQuery.eq('starred', true)
-  if (verifiedContactIds) pinnedQuery = pinnedQuery.in('contact_id', verifiedContactIds)
-  if (priority && VALID_PRIORITIES.has(priority)) pinnedQuery = pinnedQuery.eq('priority', priority)
-  if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pinnedQuery = pinnedQuery.eq('bot_status', botStatus)
-  if (phoneNumberId) pinnedQuery = pinnedQuery.eq('phone_number_id', phoneNumberId)
-
-  const { data: pinnedData, error: pinnedErr } = await pinnedQuery
+  const pinnedWithMessagesQuery = applyFilters(
+    supabase
+      .from('conversations')
+      .select(SELECT_COLS)
+      .eq('pinned', true)
+      .not('last_message_at', 'is', null)
+      .order('last_message_at', { ascending: false })
+      .order('created_at', { ascending: false }),
+  )
+  const pinnedWithoutMessagesQuery = applyFilters(
+    supabase
+      .from('conversations')
+      .select(SELECT_COLS)
+      .eq('pinned', true)
+      .is('last_message_at', null)
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false }),
+  )
+  const [
+    { data: pinnedWithMessages, error: pinnedWithMessagesErr },
+    { data: pinnedWithoutMessages, error: pinnedWithoutMessagesErr },
+  ] = await Promise.all([pinnedWithMessagesQuery, pinnedWithoutMessagesQuery])
+  const pinnedErr = pinnedWithMessagesErr ?? pinnedWithoutMessagesErr
   if (pinnedErr) {
     console.error('[GET /api/chat/conversations] pinned', pinnedErr)
     return Response.json({ error: 'Failed to load conversations', detail: pinnedErr.message }, { status: 500 })
   }
-  const pinnedRows = (pinnedData ?? []) as Record<string, unknown>[]
+  const pinnedRows = [
+    ...((pinnedWithMessages ?? []) as Record<string, unknown>[]),
+    ...((pinnedWithoutMessages ?? []) as Record<string, unknown>[]),
+  ].sort(compareActivityDesc)
 
   // ─────────── Unpinned page (range + exact count) ───────────
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  let pageQuery = supabase
-    .from('conversations')
-    .select(SELECT_COLS, { count: 'exact' })
-    .eq('pinned', false)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .range(from, to)
+  const countQuery = applyFilters(
+    supabase
+      .from('conversations')
+      .select('id', { count: 'exact', head: true })
+      .eq('pinned', false),
+  )
 
-  if (status) pageQuery = pageQuery.eq('status', status)
-  else pageQuery = pageQuery.neq('status', 'closed')
-  if (assigned === 'me') pageQuery = pageQuery.eq('assigned_user_id', user.id)
-  if (channels.length === 1) pageQuery = pageQuery.eq('channel', channels[0])
-  else if (channels.length > 1) pageQuery = pageQuery.in('channel', channels)
-  if (starred) pageQuery = pageQuery.eq('starred', true)
-  if (verifiedContactIds) pageQuery = pageQuery.in('contact_id', verifiedContactIds)
-  if (priority && VALID_PRIORITIES.has(priority)) pageQuery = pageQuery.eq('priority', priority)
-  if (botStatus && VALID_BOT_STATUSES.has(botStatus)) pageQuery = pageQuery.eq('bot_status', botStatus)
-  if (phoneNumberId) pageQuery = pageQuery.eq('phone_number_id', phoneNumberId)
-
-  const { data: pageData, error: pageErr, count } = await pageQuery
-  if (pageErr) {
-    console.error('[GET /api/chat/conversations] page', pageErr)
+  const { count, error: countErr } = await countQuery
+  if (countErr) {
+    console.error('[GET /api/chat/conversations] count', countErr)
     return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
   }
 
-  const pageRows = (pageData ?? []) as Record<string, unknown>[]
   const totalCount = count ?? 0
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  let pageRows: Record<string, unknown>[] = []
+
+  if (totalCount > 0 && from < totalCount) {
+    const candidateTo = Math.min(to, totalCount - 1)
+    const withMessagesQuery = applyFilters(
+      supabase
+        .from('conversations')
+        .select(SELECT_COLS)
+        .eq('pinned', false)
+        .not('last_message_at', 'is', null)
+        .order('last_message_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(0, candidateTo),
+    )
+    const withoutMessagesQuery = applyFilters(
+      supabase
+        .from('conversations')
+        .select(SELECT_COLS)
+        .eq('pinned', false)
+        .is('last_message_at', null)
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(0, candidateTo),
+    )
+    const [
+      { data: withMessages, error: withMessagesErr },
+      { data: withoutMessages, error: withoutMessagesErr },
+    ] = await Promise.all([withMessagesQuery, withoutMessagesQuery])
+    const pageErr = withMessagesErr ?? withoutMessagesErr
+    if (pageErr) {
+      console.error('[GET /api/chat/conversations] page', pageErr)
+      return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
+    }
+    pageRows = [
+      ...((withMessages ?? []) as Record<string, unknown>[]),
+      ...((withoutMessages ?? []) as Record<string, unknown>[]),
+    ].sort(compareActivityDesc).slice(from, to + 1)
+  }
 
   // ─────────── Secondary: resolve page_name for Meta conversations ───────────
   const allRows = [...pinnedRows, ...pageRows]

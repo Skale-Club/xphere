@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest'
  *   2. Computes hasMore from page + totalPages.
  *   3. Appends page-2 onto page-1 (no overwrite, dedupe by id).
  *   4. Filter changes reset to page 1.
- *   5. Comparator (pinned-first, then last_message_at desc) is stable for
+ *   5. Comparator (pinned-first, then last_message_at ?? updated_at ?? created_at desc) is stable for
  *      realtime prepend/upsert reconciliation.
  *
  * The hook is exercised indirectly: we replicate its URL/comparator helpers
@@ -239,5 +239,21 @@ describe('usePaginatedConversations / sort comparator', () => {
     ]
     items.sort(compareConversations)
     expect(items.map((i) => i.id)).toEqual(['b', 'a'])
+  })
+
+  it('PAG-44: a new empty conversation sorts above an old messaged conversation', () => {
+    const items = [
+      makeConv('old-message', {
+        lastMessageAt: '2026-04-01T00:00:00Z',
+        updatedAt: '2026-06-01T00:00:00Z',
+      }),
+      makeConv('new-empty', {
+        lastMessageAt: null,
+        updatedAt: '2026-06-01T12:00:00Z',
+        lastMessage: null,
+      }),
+    ]
+    items.sort(compareConversations)
+    expect(items.map((i) => i.id)).toEqual(['new-empty', 'old-message'])
   })
 })

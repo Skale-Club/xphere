@@ -102,7 +102,7 @@ function buildUrl(filters: ConversationFilters, page: number, pageSize: number):
 }
 
 /**
- * Sort comparator matching the server: last_message_at desc.
+ * Sort comparator matching the server: last_message_at ?? updated_at ?? created_at desc.
  * Used after prepend/upsert to keep the list coherent on the current page.
  */
 function compareConversations(a: ConversationSummary, b: ConversationSummary): number {
