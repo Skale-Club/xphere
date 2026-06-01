@@ -793,6 +793,100 @@ function ActionConfigFields({ actionType, config, onChange }: ActionConfigFields
         </>
       )
 
+    case 'google_contacts_create':
+    case 'google_contacts_update': {
+      const isUpdate = actionType === 'google_contacts_update'
+      return (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">
+              Email{isUpdate ? ' (used to find the contact)' : ''}
+            </Label>
+            <Input
+              value={get('email')}
+              onChange={(e) => onChange({ email: e.target.value })}
+              placeholder="{{contact.email}}"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Name</Label>
+            <Input
+              value={get('name')}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="{{contact.name}}"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Phone</Label>
+            <Input
+              value={get('phone')}
+              onChange={(e) => onChange({ phone: e.target.value })}
+              placeholder="{{contact.phone}}"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Company</Label>
+            <Input
+              value={get('company')}
+              onChange={(e) => onChange({ company: e.target.value })}
+              placeholder="{{contact.company}}"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Notes</Label>
+            <Textarea
+              value={get('notes')}
+              onChange={(e) => onChange({ notes: e.target.value })}
+              rows={2}
+              className="text-xs resize-none"
+              placeholder="{{contact.notes}}"
+            />
+          </div>
+        </>
+      )
+    }
+
+    case 'google_contacts_find':
+      return (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Email</Label>
+            <Input
+              value={get('email')}
+              onChange={(e) => onChange({ email: e.target.value })}
+              placeholder="{{contact.email}}"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Phone (used if email is empty)</Label>
+            <Input
+              value={get('phone')}
+              onChange={(e) => onChange({ phone: e.target.value })}
+              placeholder="{{contact.phone}}"
+              className="h-8 text-xs"
+            />
+          </div>
+        </>
+      )
+
+    case 'google_contacts_delete':
+      return (
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-text-tertiary">Email (used to find the contact)</Label>
+          <Input
+            value={get('email')}
+            onChange={(e) => onChange({ email: e.target.value })}
+            placeholder="{{contact.email}}"
+            className="h-8 text-xs"
+          />
+        </div>
+      )
+
     case 'update_pipeline_stage':
       return (
         <div className="space-y-1.5">
