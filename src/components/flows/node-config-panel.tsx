@@ -333,29 +333,59 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
                   />
                 )}
 
-                {waitMode === 'until' && (
-                  <div className="space-y-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] text-text-tertiary">Anchor time</Label>
-                      <Input
-                        value={flow.until ?? ''}
-                        placeholder="{{meeting.starts_at}}"
-                        onChange={(e) => updateNodeData(node.id, { until: e.target.value })}
-                        className="h-8 text-xs font-mono"
+                {waitMode === 'until' && (() => {
+                  // Offer the date/time variables in scope as a dropdown so the
+                  // operator picks "Starts at" instead of typing {{meeting.starts_at}}.
+                  const dateVars = variablesForTrigger(triggerEventType)
+                    .flatMap((g) => g.items.map((it) => ({ ...it, group: g.label })))
+                    .filter((it) => /(_at$|date|time)/i.test(it.token))
+                  const until = flow.until ?? ''
+                  const matched = dateVars.find((d) => `{{${d.token}}}` === until)
+                  const selectValue = until === '' ? '' : matched ? `{{${matched.token}}}` : '__custom__'
+                  return (
+                    <div className="space-y-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] text-text-tertiary">Anchor time</Label>
+                        <Select
+                          value={selectValue || undefined}
+                          onValueChange={(v) =>
+                            updateNodeData(node.id, { until: v === '__custom__' ? (matched ? '' : until) : v })
+                          }
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Choose a date/time" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dateVars.map((d) => (
+                              <SelectItem key={d.token} value={`{{${d.token}}}`} className="text-xs">
+                                {d.group} · {d.label}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="__custom__" className="text-xs">Custom…</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {selectValue === '__custom__' && (
+                          <Input
+                            value={until}
+                            placeholder="ISO date or {{variable}}"
+                            onChange={(e) => updateNodeData(node.id, { until: e.target.value })}
+                            className="h-8 text-xs font-mono"
+                          />
+                        )}
+                      </div>
+                      <OffsetField
+                        label="Offset"
+                        value={flow.offset}
+                        fallback="-24h"
+                        onChange={(offset) => updateNodeData(node.id, { offset })}
                       />
+                      <p className="text-[10.5px] leading-snug text-text-tertiary">
+                        Resumes at the chosen time shifted by the offset. For a “24h before the meeting”
+                        reminder, pick <strong>Starts at</strong> and offset 24 hours <strong>before</strong>.
+                      </p>
                     </div>
-                    <OffsetField
-                      label="Offset"
-                      value={flow.offset}
-                      fallback="-24h"
-                      onChange={(offset) => updateNodeData(node.id, { offset })}
-                    />
-                    <p className="text-[10.5px] leading-snug text-text-tertiary">
-                      Resumes at the anchor time shifted by the offset. For a “24h before the meeting”
-                      reminder, use anchor <code>{'{{meeting.starts_at}}'}</code> and offset 24 hours <strong>before</strong>.
-                    </p>
-                  </div>
-                )}
+                  )
+                })()}
 
                 {waitMode === 'event' && (
                   <div className="space-y-2">
