@@ -109,7 +109,8 @@ export function MessageList({
     const newLast = lastId !== lastMessageIdRef.current
     if (grew && newLast) {
       if (atBottom) {
-        endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        const isInitialLoad = prevCountRef.current === 0
+        endRef.current?.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth', block: 'end' })
       } else {
         setHasNew(true)
       }

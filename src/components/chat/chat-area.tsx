@@ -338,6 +338,7 @@ export function ChatArea({
       />
 
       <MessageList
+        key={conversation.id}
         messages={visibleMessages}
         isLoading={isLoading}
         isTyping={isTyping}
