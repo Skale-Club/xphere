@@ -993,7 +993,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
   const get = (key: string) => (config[key] as string | undefined) ?? ''
 
   switch (actionType) {
-    case 'send_whatsapp':
+    case 'send_whatsapp_message':
     case 'send_email':
       return (
         <>
@@ -1227,15 +1227,119 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
         />
       )
 
-    case 'update_pipeline_stage':
+    case 'pipeline_move_opportunity':
       return (
-        <VarField
-          label="Stage"
-          value={get('stage')}
-          onChange={(v) => onChange({ stage: v })}
-          placeholder="qualified | proposal | won | lost"
-          variables={variables}
-        />
+        <>
+          <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+          <VarField label="Stage" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} placeholder="Qualified" variables={variables} />
+        </>
+      )
+
+    case 'pipeline_mark_won':
+      return (
+        <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+      )
+
+    case 'pipeline_mark_lost':
+      return (
+        <>
+          <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+          <VarTextareaField label="Reason (optional)" value={get('reason')} onChange={(v) => onChange({ reason: v })} rows={2} placeholder="Why was it lost?" variables={variables} />
+        </>
+      )
+
+    case 'pipeline_add_note':
+      return (
+        <>
+          <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+          <VarTextareaField label="Note" value={get('content')} onChange={(v) => onChange({ content: v })} rows={3} placeholder="Note to append…" variables={variables} />
+        </>
+      )
+
+    case 'pipeline_assign_user':
+      return (
+        <>
+          <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+          <VarField label="User ID" value={get('user_id')} onChange={(v) => onChange({ user_id: v })} placeholder="User UUID" variables={variables} mono />
+        </>
+      )
+
+    case 'pipeline_update_opportunity':
+      return (
+        <>
+          <VarField label="Opportunity ID" value={get('opportunity_id')} onChange={(v) => onChange({ opportunity_id: v })} placeholder="{{opportunity.id}}" variables={variables} mono />
+          <VarField label="Title" value={get('title')} onChange={(v) => onChange({ title: v })} placeholder="Optional new title" variables={variables} />
+          <VarField label="Value" value={get('value')} onChange={(v) => onChange({ value: v })} placeholder="1000" variables={variables} />
+          <VarField label="Expected close date" value={get('expected_close_date')} onChange={(v) => onChange({ expected_close_date: v })} placeholder="YYYY-MM-DD" variables={variables} />
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Status</Label>
+            <Select value={get('status') || 'open'} onValueChange={(v) => onChange({ status: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['open', 'won', 'lost'].map((s) => (
+                  <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )
+
+    case 'pipeline_create_opportunity':
+      return (
+        <>
+          <VarField label="Title" value={get('title')} onChange={(v) => onChange({ title: v })} placeholder="New deal — {{contact.name}}" variables={variables} />
+          <VarField label="Stage" value={get('stage_name')} onChange={(v) => onChange({ stage_name: v })} placeholder="Qualified (default pipeline if blank)" variables={variables} />
+          <VarField label="Contact ID" value={get('contact_id')} onChange={(v) => onChange({ contact_id: v })} placeholder="{{contact.id}}" variables={variables} mono />
+          <VarField label="Contact phone" value={get('contact_phone')} onChange={(v) => onChange({ contact_phone: v })} placeholder="{{contact.phone}}" variables={variables} />
+          <VarField label="Value" value={get('value')} onChange={(v) => onChange({ value: v })} placeholder="1000" variables={variables} />
+        </>
+      )
+
+    case 'manychat_send_message':
+      return (
+        <>
+          <VarField label="Subscriber ID" value={get('subscriber_id')} onChange={(v) => onChange({ subscriber_id: v })} placeholder="{{contact.id}}" variables={variables} mono />
+          <VarTextareaField label="Message" value={get('message')} onChange={(v) => onChange({ message: v })} rows={3} placeholder="Hi {{contact.first_name}}…" variables={variables} />
+        </>
+      )
+
+    case 'send_telegram_notification':
+      return (
+        <>
+          <VarTextareaField label="Message" value={get('text')} onChange={(v) => onChange({ text: v })} rows={3} placeholder="Alert: {{contact.name}} just booked" variables={variables} />
+          <VarField label="Chat ID (optional)" value={get('chat_id')} onChange={(v) => onChange({ chat_id: v })} placeholder="Falls back to the bot's configured chats" variables={variables} mono />
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Format</Label>
+            <Select value={get('parse_mode') || 'HTML'} onValueChange={(v) => onChange({ parse_mode: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['HTML', 'Markdown', 'plain'].map((m) => (
+                  <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )
+
+    case 'custom_webhook':
+      return (
+        <>
+          <VarField label="URL" value={get('url')} onChange={(v) => onChange({ url: v })} placeholder="https://api.example.com/hook" variables={variables} />
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Method</Label>
+            <Select value={get('method') || 'POST'} onValueChange={(v) => onChange({ method: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
+                  <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <VarTextareaField label="Body" value={get('body')} onChange={(v) => onChange({ body: v })} rows={3} placeholder='{"name": "{{contact.name}}"}' variables={variables} />
+        </>
       )
 
     case 'knowledge_base':
