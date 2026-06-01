@@ -72,6 +72,10 @@ const CHANNEL_MAP: Record<string, Channel> = {
   widget: 'web',
   web: 'web',
   manual: 'direct',
+  // Zernio per-platform channels → closest badge (others fall back to 'unknown').
+  zernio_instagram: 'instagram',
+  zernio_facebook: 'messenger',
+  zernio_whatsapp: 'whatsapp',
 }
 
 // Reverse: design-system label → raw DB value for /api filter param

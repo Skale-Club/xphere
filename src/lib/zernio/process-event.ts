@@ -13,7 +13,9 @@ import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { sendZernioDm } from './send-dm'
 import { sendZernioCommentReply } from './send-comment-reply'
+import { zernioChannel } from './channel'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import type {
   ZernioCommentReceivedPayload,
   ZernioMessageReceivedPayload,
@@ -163,6 +165,7 @@ async function processMessageReceived(
     payload.conversation.participantUsername ??
     null
   const messageText = msg.text ?? ''
+  const channel = zernioChannel(platform)
   const now = new Date().toISOString()
 
   if (!zernioConversationId || !zernioAccountId || !participantId) {
@@ -185,7 +188,7 @@ async function processMessageReceived(
   const norm = await normalizeInbound({
     supabase,
     orgId,
-    channel: 'zernio',
+    channel,
     match: { by: 'metadata', keys: { zernio_conversation_id: zernioConversationId } },
     updatePayload: {
       last_message: displayText,
@@ -216,7 +219,7 @@ async function processMessageReceived(
       role: 'user',
       content: messageText,
       message_type: msg.attachments.length ? (messageText ? 'mixed' : 'document') : 'text',
-      channel: 'zernio',
+      channel,
       metadata: {
         zernio_event_id: payload.id,
         zernio_message_id: zernioMessageId,
@@ -239,6 +242,7 @@ async function processMessageReceived(
   await maybeRunAgentAndReply({
     supabase,
     orgId,
+    channel,
     conversationId: norm.conversationId,
     existingBotStatus: norm.existing?.bot_status ?? null,
     userMessage: messageText,
@@ -259,6 +263,7 @@ async function processCommentReceived(
   const participantId = comment.author.id
   const senderName = comment.author.name ?? comment.author.username ?? null
   const postId = payload.post.id ?? comment.postId ?? comment.platformPostId
+  const channel = zernioChannel(platform)
   const now = new Date().toISOString()
 
   if (!zernioAccountId || !participantId || !postId || !comment.id) {
@@ -278,7 +283,7 @@ async function processCommentReceived(
   const norm = await normalizeInbound({
     supabase,
     orgId,
-    channel: 'zernio',
+    channel,
     match: { by: 'metadata', keys: { zernio_comment_id: comment.id } },
     updatePayload: {
       last_message: comment.text,
@@ -311,7 +316,7 @@ async function processCommentReceived(
       role: 'user',
       content: comment.text,
       message_type: 'text',
-      channel: 'zernio',
+      channel,
       metadata: {
         zernio_event_id: payload.id,
         zernio_comment_id: comment.id,
@@ -336,6 +341,7 @@ async function processCommentReceived(
   await maybeRunAgentAndReply({
     supabase,
     orgId,
+    channel,
     conversationId: norm.conversationId,
     existingBotStatus: norm.existing?.bot_status ?? null,
     userMessage: comment.text,
@@ -354,6 +360,7 @@ async function processCommentReceived(
 async function maybeRunAgentAndReply({
   supabase,
   orgId,
+  channel,
   conversationId,
   existingBotStatus,
   userMessage,
@@ -361,6 +368,7 @@ async function maybeRunAgentAndReply({
 }: {
   supabase: ReturnType<typeof createServiceRoleClient>
   orgId: string
+  channel: string
   conversationId: string
   existingBotStatus: string | null
   userMessage: string
@@ -370,11 +378,16 @@ async function maybeRunAgentAndReply({
   if (botStatus !== 'active') return
   if (!userMessage) return
 
+  // Map the Zernio platform channel (e.g. zernio_instagram) to the agent channel
+  // (instagram). Platforms without an agent channel get no auto-reply.
+  const agentChannel = conversationChannelToAgentChannel(channel)
+  if (!agentChannel) return
+
   const { data: defaultRow } = await supabase
     .from('agent_channel_defaults')
     .select('agent_id')
     .eq('organization_id', orgId)
-    .eq('channel', 'zernio')
+    .eq('channel', agentChannel)
     .maybeSingle()
 
   if (!defaultRow?.agent_id) return
@@ -389,7 +402,7 @@ async function maybeRunAgentAndReply({
     const result = await runAgent({
       orgId,
       agentId: defaultRow.agent_id,
-      channel: 'zernio',
+      channel: agentChannel,
       userMessage,
       conversationId,
       stream: false,

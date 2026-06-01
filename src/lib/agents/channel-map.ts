@@ -16,8 +16,16 @@ export function conversationChannelToAgentChannel(channel: string | null | undef
     case 'instagram':
     case 'manychat':
     case 'telegram':
-    case 'zernio':
       return channel
+    // Zernio per-platform channels map to their underlying agent channel.
+    case 'zernio_instagram':
+      return 'instagram'
+    case 'zernio_facebook':
+      return 'messenger'
+    case 'zernio_whatsapp':
+      return 'whatsapp'
+    case 'zernio_telegram':
+      return 'telegram'
     default:
       return null
   }

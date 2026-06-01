@@ -1,8 +1,18 @@
-import { Globe } from 'lucide-react'
+import { Globe, MessageCircle, Send } from 'lucide-react'
+import { zernioPlatform } from '@/lib/zernio/channel'
 
 type ChannelIconProps = {
   channel: string
   className?: string
+}
+
+// Resolve a channel value to a logical platform for icon/label lookup.
+// Handles native channels (instagram/messenger) and Zernio per-platform channels
+// (zernio_instagram → instagram, zernio_facebook → facebook/messenger, …).
+function resolvePlatform(channel: string): string {
+  const zp = zernioPlatform(channel)
+  if (zp) return zp === 'facebook' ? 'messenger' : zp
+  return channel
 }
 
 function InstagramIcon({ className }: { className?: string }) {
@@ -41,8 +51,11 @@ function MessengerIcon({ className }: { className?: string }) {
 }
 
 export function ChannelIcon({ channel, className = 'h-4 w-4' }: ChannelIconProps) {
-  if (channel === 'instagram') return <InstagramIcon className={className} />
-  if (channel === 'messenger') return <MessengerIcon className={className} />
+  const platform = resolvePlatform(channel)
+  if (platform === 'instagram') return <InstagramIcon className={className} />
+  if (platform === 'messenger') return <MessengerIcon className={className} />
+  if (platform === 'whatsapp') return <MessageCircle className={className} />
+  if (platform === 'telegram') return <Send className={className} />
   return <Globe className={className} />
 }
 
@@ -50,7 +63,24 @@ export function ChannelIcon({ channel, className = 'h-4 w-4' }: ChannelIconProps
  * Pure helper | maps a channel value to a display label.
  * Used in tests and in the header UI.
  */
+const PLATFORM_LABEL: Record<string, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  messenger: 'Messenger',
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  linkedin: 'LinkedIn',
+  tiktok: 'TikTok',
+  twitter: 'X',
+  threads: 'Threads',
+  youtube: 'YouTube',
+}
+
 export function channelLabel(channel: string): string {
+  // Zernio per-platform channels: label by the platform (Facebook keeps its
+  // own name rather than collapsing into "Messenger").
+  const zp = zernioPlatform(channel)
+  if (zp) return PLATFORM_LABEL[zp] ?? 'Zernio'
   if (channel === 'instagram') return 'Instagram'
   if (channel === 'messenger') return 'Messenger'
   return 'Website Chat'

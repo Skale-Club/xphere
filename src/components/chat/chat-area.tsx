@@ -45,6 +45,15 @@ const CHANNEL_LABEL: Record<string, string> = {
   widget: 'Web',
   web: 'Web',
   manual: 'Direct',
+  zernio_instagram: 'Instagram',
+  zernio_facebook: 'Facebook',
+  zernio_whatsapp: 'WhatsApp',
+  zernio_telegram: 'Telegram',
+  zernio_linkedin: 'LinkedIn',
+  zernio_tiktok: 'TikTok',
+  zernio_twitter: 'X',
+  zernio_threads: 'Threads',
+  zernio_youtube: 'YouTube',
 }
 
 const DELIVERABLE_CHANNELS = new Set([
@@ -57,6 +66,17 @@ const DELIVERABLE_CHANNELS = new Set([
   'email',
   'widget',
   'web',
+  // Zernio per-platform channels are replyable on their own thread.
+  'zernio',
+  'zernio_instagram',
+  'zernio_facebook',
+  'zernio_whatsapp',
+  'zernio_telegram',
+  'zernio_linkedin',
+  'zernio_tiktok',
+  'zernio_twitter',
+  'zernio_threads',
+  'zernio_youtube',
 ])
 
 const PRIORITY_CYCLE: Record<ConversationPriority, ConversationPriority> = {

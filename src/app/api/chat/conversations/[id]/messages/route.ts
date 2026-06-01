@@ -13,6 +13,7 @@ import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 import { sendZernioDm } from '@/lib/zernio/send-dm'
 import { sendZernioCommentReply } from '@/lib/zernio/send-comment-reply'
+import { isZernioChannel } from '@/lib/zernio/channel'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 
 export const runtime = 'nodejs'
@@ -414,7 +415,7 @@ export async function POST(
   }
 
   // Zernio unified social inbox (Instagram, Facebook, LinkedIn, TikTok, etc.)
-  if (conv.channel === 'zernio') {
+  if (isZernioChannel(conv.channel)) {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const zernioAccountId = metadata.account_id ?? ''
 
@@ -475,7 +476,7 @@ export async function POST(
     }
   }
 
-  if (!['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp', 'zernio'].includes(conv.channel)) {
+  if (!isZernioChannel(conv.channel) && !['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp'].includes(conv.channel)) {
     return sendError(
       'channel_not_sendable',
       `The ${conv.channel || 'selected'} channel is not configured for outbound messages.`,
