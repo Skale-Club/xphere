@@ -62,6 +62,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -945,6 +946,49 @@ interface ActionConfigFieldsProps {
   variables: VariableGroup[]
 }
 
+// Shared "link to a record" controls for create_task / create_note: entity type
+// (enum) + entity id (variable-aware). The id is usually a {{variable}} from the
+// trigger (e.g. {{contact.id}}, {{opportunity.id}}).
+function EntityLinkFields({
+  get,
+  onChange,
+  variables,
+}: {
+  get: (key: string) => string
+  onChange: (patch: Record<string, unknown>) => void
+  variables: VariableGroup[]
+}) {
+  return (
+    <>
+      <div className="space-y-1.5">
+        <Label className="text-[11px] text-text-tertiary">Link to (optional)</Label>
+        <Select
+          value={get('entity_type') || '__none__'}
+          onValueChange={(v) => onChange({ entity_type: v === '__none__' ? '' : v })}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__" className="text-xs">Nothing</SelectItem>
+            <SelectItem value="contact" className="text-xs">Contact</SelectItem>
+            <SelectItem value="account" className="text-xs">Account</SelectItem>
+            <SelectItem value="opportunity" className="text-xs">Opportunity</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {get('entity_type') && (
+        <VarField
+          label="Record ID"
+          value={get('entity_id')}
+          onChange={(v) => onChange({ entity_id: v })}
+          placeholder="{{contact.id}}"
+          variables={variables}
+          mono
+        />
+      )}
+    </>
+  )
+}
+
 function ActionConfigFields({ actionType, config, onChange, variables }: ActionConfigFieldsProps) {
   const get = (key: string) => (config[key] as string | undefined) ?? ''
 
@@ -1076,19 +1120,73 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
       )
 
     case 'create_task':
-    case 'create_note': {
-      const key = actionType === 'create_task' ? 'title' : 'content'
       return (
-        <VarTextareaField
-          label={actionType === 'create_task' ? 'Title' : 'Content'}
-          value={get(key)}
-          onChange={(v) => onChange({ [key]: v })}
-          rows={3}
-          placeholder="What needs to happen?"
-          variables={variables}
-        />
+        <>
+          <VarField
+            label="Title"
+            value={get('title')}
+            onChange={(v) => onChange({ title: v })}
+            placeholder="Follow up with {{contact.first_name}}"
+            variables={variables}
+          />
+          <VarTextareaField
+            label="Description"
+            value={get('description')}
+            onChange={(v) => onChange({ description: v })}
+            rows={2}
+            placeholder="Optional details…"
+            variables={variables}
+          />
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-text-tertiary">Priority</Label>
+            <Select value={get('priority') || 'medium'} onValueChange={(v) => onChange({ priority: v })}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['low', 'medium', 'high', 'urgent'].map((p) => (
+                  <SelectItem key={p} value={p} className="text-xs capitalize">{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <VarField
+            label="Due date"
+            value={get('due_date')}
+            onChange={(v) => onChange({ due_date: v })}
+            placeholder="ISO date or {{meeting.starts_at}}"
+            variables={variables}
+          />
+          <EntityLinkFields get={get} onChange={onChange} variables={variables} />
+        </>
       )
-    }
+
+    case 'create_note':
+      return (
+        <>
+          <VarTextareaField
+            label="Content"
+            value={get('content')}
+            onChange={(v) => onChange({ content: v })}
+            rows={3}
+            placeholder="Note body…"
+            variables={variables}
+          />
+          <VarField
+            label="Title (optional)"
+            value={get('title')}
+            onChange={(v) => onChange({ title: v })}
+            placeholder="Short title"
+            variables={variables}
+          />
+          <label className="flex items-center gap-2 text-[12px] text-text-secondary">
+            <Checkbox
+              checked={get('pinned') === 'true' || (config.pinned as boolean) === true}
+              onCheckedChange={(c) => onChange({ pinned: c === true })}
+            />
+            Pin this note
+          </label>
+          <EntityLinkFields get={get} onChange={onChange} variables={variables} />
+        </>
+      )
 
     case 'google_contacts_create':
     case 'google_contacts_update': {
