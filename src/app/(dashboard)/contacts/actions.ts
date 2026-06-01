@@ -210,7 +210,10 @@ export async function getContacts(
     }
   }
   if (f.source) query = query.eq('source', f.source)
+  // Hide merged contacts by default — the survivor is the canonical row. When a
+  // specific identity_status is requested, honour it (e.g. inspecting conflicts).
   if (f.identity_status) query = query.eq('identity_status', f.identity_status)
+  else query = query.neq('identity_status', 'archived_duplicate')
 
   // Custom field exact-match filters (CF-09)
   for (const [key, rawValue] of Object.entries(cfFilters)) {
