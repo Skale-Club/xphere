@@ -2,7 +2,7 @@
 // Google OAuth 2.0 utilities | mirrors src/lib/meta/oauth.ts pattern
 
 export const GOOGLE_CALLBACK_PATH = '/api/google/callback'
-export const GOOGLE_CALLBACK_URI = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'}${GOOGLE_CALLBACK_PATH}`
+export const GOOGLE_CALLBACK_URI = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xphere.app'}${GOOGLE_CALLBACK_PATH}`
 export const GOOGLE_OAUTH_STATE_COOKIE = 'google_oauth_state'
 export const GOOGLE_OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10
 
