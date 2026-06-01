@@ -118,6 +118,35 @@ export default async function DashboardLayout({ children }: { children: React.Re
     hasPhoneNumber = false
   }
 
+  // Gate Copilot behind an AI provider check. Only mount the launcher and panel
+  // when the org (or platform) has at least one active OpenRouter or Anthropic
+  // key — avoids showing the panel and then immediately erroring "no provider".
+  // Uses COUNT-only queries (no decryption) so it's fast.
+  let hasCopilotProvider = false
+  try {
+    const supabase = await createClient()
+    // 1. Org-level: any active openrouter / anthropic integration?
+    if (activeOrgId) {
+      const { count: orgCount } = await supabase
+        .from('integrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', activeOrgId)
+        .in('provider', ['openrouter', 'anthropic'])
+        .eq('is_active', true)
+      hasCopilotProvider = (orgCount ?? 0) > 0
+    }
+    // 2. Platform-level fallback (super-admin key covers all orgs)
+    if (!hasCopilotProvider) {
+      const { count: platformCount } = await supabase
+        .from('platform_settings')
+        .select('key', { count: 'exact', head: true })
+        .in('key', ['OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY'])
+      hasCopilotProvider = (platformCount ?? 0) > 0
+    }
+  } catch {
+    hasCopilotProvider = false
+  }
+
   // Org timezone + currency → client context so client-side date/money
   // formatting matches server rendering (org is the source of truth).
   const orgSettings = await getOrgSettings()
@@ -161,12 +190,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                       <PageTransition>{children}</PageTransition>
                     </div>
                   </main>
-                  <CopilotPanel />
+                  {hasCopilotProvider && <CopilotPanel />}
                 </div>
               </div>
               <OnboardingTour />
               <DialPadPanelServer />
-              <CopilotShell />
+              {hasCopilotProvider && <CopilotShell />}
               <PwaInstallDialog />
             </CelebrationProvider>
           </VoiceDeviceShell>
