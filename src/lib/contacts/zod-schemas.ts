@@ -179,10 +179,18 @@ export function normaliseContactInput(input: ContactFormOutput): NormalisedConta
   }
 }
 
+// Channels a contact can be filtered by — mirrors the design-system Channel set
+// used for the Channels column (reachable channels).
+export const CONTACT_CHANNEL_FILTERS = [
+  'whatsapp', 'sms', 'email', 'instagram', 'messenger', 'telegram', 'voice', 'web',
+] as const
+export type ContactChannelFilter = (typeof CONTACT_CHANNEL_FILTERS)[number]
+
 export const contactListFiltersSchema = z.object({
   q: z.string().trim().max(200).optional(),
   tag: z.string().trim().max(40).optional(),
   source: z.enum(CONTACT_SOURCES).optional(),
+  channel: z.enum(CONTACT_CHANNEL_FILTERS).optional(),
   identity_status: z
     .enum(['channel_only', 'identified', 'verified', 'merge_conflict'])
     .optional(),

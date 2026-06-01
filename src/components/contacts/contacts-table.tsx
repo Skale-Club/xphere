@@ -44,7 +44,11 @@ import type { Database } from "@/types/database";
 import type { TagRow } from "@/app/(dashboard)/settings/tags/actions";
 import type { CustomFieldDefinitionRow } from "@/app/(dashboard)/settings/custom-fields/actions";
 import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
-import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
+import {
+  CONTACT_SOURCES,
+  CONTACT_CHANNEL_FILTERS,
+  type ContactChannelFilter,
+} from "@/lib/contacts/zod-schemas";
 import type { CustomFieldType } from "@/types/database";
 import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
 import { formatEmailDisplay } from "@/lib/email-addresses/format";
@@ -73,6 +77,19 @@ const CHANNEL_LABEL: Record<Channel, string> = {
   whatsapp: "WhatsApp", instagram: "Instagram", messenger: "Messenger",
   telegram: "Telegram", sms: "SMS", voice: "Voice", email: "Email",
   web: "Web", direct: "Direct", unknown: "Channel",
+};
+
+// Channels offered in the filter popover (matches the Channels column set).
+const FILTER_CHANNELS = CONTACT_CHANNEL_FILTERS as readonly Channel[];
+const CHANNEL_SELECTED_BG: Partial<Record<Channel, string>> = {
+  whatsapp: "!bg-[var(--ch-whatsapp)]/50",
+  instagram: "!bg-[var(--ch-instagram)]/50",
+  messenger: "!bg-[var(--ch-messenger)]/50",
+  telegram: "!bg-sky-500/50",
+  sms: "!bg-[var(--ch-sms)]/50",
+  voice: "!bg-[var(--ch-voice)]/50",
+  email: "!bg-[var(--ch-email)]/50",
+  web: "!bg-[var(--ch-web)]/50",
 };
 
 /** Up to 3 channel icons; a "⋯" chip with a tooltip lists any extras. */
@@ -116,6 +133,7 @@ interface ContactsTableProps {
   allTags: TagRow[];
   currentTag?: string;
   currentSource?: string;
+  currentChannel?: ContactChannelFilter;
   currentSort: string;
   currentQuery?: string;
   visibleDefs?: CustomFieldDefinitionRow[];
@@ -152,6 +170,7 @@ export function ContactsTable({
   allTags,
   currentTag,
   currentSource,
+  currentChannel,
   currentSort,
   currentQuery,
   visibleDefs = [],
@@ -210,6 +229,7 @@ export function ContactsTable({
     const params = new URLSearchParams(searchParams.toString());
     params.delete("source");
     params.delete("tag");
+    params.delete("channel");
     for (const key of Array.from(params.keys())) {
       if (key.startsWith("cff_")) params.delete(key);
     }
@@ -259,10 +279,10 @@ export function ContactsTable({
       Boolean(value) && filterableDefs.some((def) => def.key === key),
   ).length;
   const filterActiveCount =
-    [currentTag, currentSource].filter(Boolean).length +
+    [currentTag, currentSource, currentChannel].filter(Boolean).length +
     activeCustomFilterCount;
   const showFilters = Boolean(
-    currentTag || currentSource || activeCustomFilterCount > 0,
+    currentTag || currentSource || currentChannel || activeCustomFilterCount > 0,
   );
 
   return (
@@ -292,6 +312,7 @@ export function ContactsTable({
           allTags={allTags}
           currentTag={currentTag}
           currentSource={currentSource}
+          currentChannel={currentChannel}
           filterableDefs={filterableDefs}
           activeCfFilters={activeCfFilters}
           setParam={setParam}
@@ -779,6 +800,7 @@ function ContactsFilterPopover({
   allTags,
   currentTag,
   currentSource,
+  currentChannel,
   filterableDefs,
   activeCfFilters,
   setParam,
@@ -788,6 +810,7 @@ function ContactsFilterPopover({
   allTags: TagRow[];
   currentTag?: string;
   currentSource?: string;
+  currentChannel?: ContactChannelFilter;
   filterableDefs: CustomFieldDefinitionRow[];
   activeCfFilters: Record<string, string>;
   setParam: (key: string, value: string | null) => void;
@@ -801,6 +824,39 @@ function ContactsFilterPopover({
         onClear={onClear}
       />
       <div className="space-y-4 p-4">
+        <FilterSection title="Channels">
+          <FilterPill
+            active={!currentChannel}
+            onClick={() => setParam("channel", null)}
+          >
+            All channels
+          </FilterPill>
+          {FILTER_CHANNELS.map((ch) => {
+            const active = currentChannel === ch;
+            return (
+              <button
+                key={ch}
+                type="button"
+                title={CHANNEL_LABEL[ch]}
+                aria-label={CHANNEL_LABEL[ch]}
+                aria-pressed={active}
+                onClick={() => setParam("channel", active ? null : ch)}
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-[7px] transition-all",
+                  active ? "opacity-100" : "opacity-40 hover:opacity-100",
+                )}
+              >
+                <ChannelBadge
+                  channel={ch}
+                  showLabel={false}
+                  size="md"
+                  className={cn("!h-8 !w-8", active && CHANNEL_SELECTED_BG[ch])}
+                />
+              </button>
+            );
+          })}
+        </FilterSection>
+
         <FilterSection title="Source">
           <FilterPill
             active={!currentSource}

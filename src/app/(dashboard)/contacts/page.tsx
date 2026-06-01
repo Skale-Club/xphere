@@ -4,7 +4,11 @@ import { getContacts } from "./actions";
 import { getDefinitions } from "@/app/(dashboard)/settings/custom-fields/actions";
 import { ContactsTable } from "@/components/contacts/contacts-table";
 import { ContactsPageSkeleton } from "@/components/skeletons/contacts-page-skeleton";
-import { CONTACT_SOURCES } from "@/lib/contacts/zod-schemas";
+import {
+  CONTACT_SOURCES,
+  CONTACT_CHANNEL_FILTERS,
+  type ContactChannelFilter,
+} from "@/lib/contacts/zod-schemas";
 import { getConflictCount } from "@/lib/contacts/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +36,12 @@ export default async function ContactsPage({
     sourceRaw && (CONTACT_SOURCES as readonly string[]).includes(sourceRaw)
       ? (sourceRaw as (typeof CONTACT_SOURCES)[number])
       : undefined;
+  const channelRaw = typeof sp.channel === "string" ? sp.channel : undefined;
+  const channel = (CONTACT_CHANNEL_FILTERS as readonly string[]).includes(
+    channelRaw ?? "",
+  )
+    ? (channelRaw as ContactChannelFilter)
+    : undefined;
   const sort = typeof sp.sort === "string" ? sp.sort : undefined;
   const pageRaw = typeof sp.page === "string" ? parseInt(sp.page, 10) : 1;
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
@@ -61,6 +71,7 @@ export default async function ContactsPage({
           q={q}
           tag={tag}
           source={source}
+          channel={channel}
           sort={sort}
           page={page}
           cfFilters={cfFilters}
@@ -75,6 +86,7 @@ async function ContactsBody({
   q,
   tag,
   source,
+  channel,
   sort,
   page,
   cfFilters,
@@ -83,6 +95,7 @@ async function ContactsBody({
   q?: string;
   tag?: string;
   source?: (typeof CONTACT_SOURCES)[number];
+  channel?: ContactChannelFilter;
   sort?: string;
   page: number;
   cfFilters: Record<string, string>;
@@ -95,6 +108,7 @@ async function ContactsBody({
         q,
         tag,
         source,
+        channel,
         sort,
         page,
         pageSize: 25,
@@ -118,6 +132,7 @@ async function ContactsBody({
       allTags={result.allTags}
       currentTag={tag}
       currentSource={source}
+      currentChannel={channel}
       currentSort={sort ?? "recent"}
       currentQuery={q}
       visibleDefs={visibleDefs}

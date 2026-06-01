@@ -119,6 +119,38 @@ function deriveContactChannels(row: {
 
 export type ContactListRow = ContactRow & { channels: Channel[] }
 
+// Contact ids that have an identity for a social channel (used by the Channels
+// filter). Zernio identities encode the platform in the external_id prefix.
+async function identityContactIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  channel: string,
+): Promise<string[]> {
+  const map: Record<string, { providers: ChannelProvider[]; zernioPlatform: string | null }> = {
+    instagram: { providers: ['instagram'], zernioPlatform: 'instagram' },
+    messenger: { providers: ['messenger', 'facebook'], zernioPlatform: 'facebook' },
+    telegram: { providers: ['telegram'], zernioPlatform: 'telegram' },
+    voice: { providers: ['vapi'], zernioPlatform: null },
+    web: { providers: ['webchat'], zernioPlatform: null },
+  }
+  const cfg = map[channel]
+  if (!cfg) return []
+  const ids = new Set<string>()
+  const { data: direct } = await supabase
+    .from('contact_channel_identities')
+    .select('contact_id')
+    .in('provider', cfg.providers)
+  for (const r of direct ?? []) ids.add(r.contact_id)
+  if (cfg.zernioPlatform) {
+    const { data: zernio } = await supabase
+      .from('contact_channel_identities')
+      .select('contact_id')
+      .eq('provider', 'zernio')
+      .like('external_id', `${cfg.zernioPlatform}:%`)
+    for (const r of zernio ?? []) ids.add(r.contact_id)
+  }
+  return Array.from(ids)
+}
+
 /**
  * Source of the dedup match when {@link createContact} returns `existed: true`.
  *
@@ -210,6 +242,24 @@ export async function getContacts(
     }
   }
   if (f.source) query = query.eq('source', f.source)
+
+  // Channel filter (mirrors the Channels column semantics). Email/SMS/WhatsApp
+  // come from contact columns (phone → both SMS and WhatsApp); social channels
+  // come from contact_channel_identities.
+  if (f.channel) {
+    if (f.channel === 'email') {
+      query = query.not('email', 'is', null)
+    } else if (f.channel === 'sms' || f.channel === 'whatsapp') {
+      query = query.or('phone_e164.not.is.null,phone.not.is.null')
+    } else {
+      const ids = await identityContactIds(supabase, f.channel)
+      if (ids.length === 0) {
+        return { rows: [], total: 0, page: f.page, pageSize: f.pageSize, allTags }
+      }
+      query = query.in('id', ids)
+    }
+  }
+
   // Hide merged contacts by default — the survivor is the canonical row. When a
   // specific identity_status is requested, honour it (e.g. inspecting conflicts).
   if (f.identity_status) query = query.eq('identity_status', f.identity_status)
