@@ -732,8 +732,21 @@ export function ChatLayout({
       if (!res.ok) throw new Error(await readSendFailure(res))
       const data = await res.json().catch(() => null)
       if (data?.message) updateConversationPreview(data.message as ConversationMessage)
+      // Swap the optimistic temp bubble for the real message from the response.
+      // This avoids calling fetchMessages (which blanks + replaces the entire array
+      // and causes a visible flash/spinner). The Realtime subscription also fires and
+      // dedupes silently via the `prev.some((m) => m.id === newMsg.id)` guard.
+      if (isCurrentThread && data?.message) {
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === tempId)
+          if (idx < 0) return prev // Realtime already resolved it, nothing to do
+          const next = [...prev]
+          next[idx] = data.message as ConversationMessage
+          return next
+        })
+      }
+      // Cross-thread: switching selectedId triggers the fetchMessages useEffect automatically.
       if (!isCurrentThread) setSelectedId(targetId)
-      await fetchMessages(targetId)
     } catch (err) {
       if (isCurrentThread) setMessages((prev) => prev.filter((m) => m.id !== tempId))
       const latest = previousMessages[previousMessages.length - 1]
