@@ -154,28 +154,40 @@ export const ConditionNode = memo(ConditionNodeImpl)
 
 // ─── Wait ─────────────────────────────────────────────────────────────────────
 
-function formatWaitDuration(value: string | undefined): string | null {
-  const match = value?.trim().toLowerCase().match(/^(\d+)\s*([mhdw])$/)
-  if (!match) return value?.trim() || null
-
-  const amount = Number(match[1])
-  const unit = match[2]
-  const label =
+function unitLabel(unit: string): string {
+  return unit === 's' ? 'second' :
     unit === 'm' ? 'minute' :
     unit === 'h' ? 'hour' :
     unit === 'd' ? 'day' :
     'week'
+}
 
-  return `${amount} ${label}${amount === 1 ? '' : 's'}`
+function formatWaitDuration(value: string | undefined): string | null {
+  const match = value?.trim().toLowerCase().match(/^(\d+)\s*([smhdw])$/)
+  if (!match) return value?.trim() || null
+  const amount = Number(match[1])
+  return `${amount} ${unitLabel(match[2])}${amount === 1 ? '' : 's'}`
+}
+
+// "-24h" → "24 hours before", "5m" → "5 minutes after", "0"/none → "at the scheduled time".
+function formatOffset(value: string | undefined): string {
+  const match = value?.trim().toLowerCase().match(/^(-?)(\d+)\s*([smhdw])$/)
+  if (!match) return 'at the scheduled time'
+  const amount = Number(match[2])
+  if (amount === 0) return 'at the scheduled time'
+  const dir = match[1] === '-' ? 'before' : 'after'
+  return `${amount} ${unitLabel(match[3])}${amount === 1 ? '' : 's'} ${dir}`
 }
 
 function WaitNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   const flow = data.flowData
   const subtitle =
     flow.kind === 'wait'
-      ? flow.mode === 'sleep'
-        ? `Sleep - ${formatWaitDuration(flow.duration) ?? '1 hour'}`
-        : `Wait for event — ${flow.event_type ?? 'no event selected'}`
+      ? flow.mode === 'wait_for_event'
+        ? `Wait for event — ${flow.event_type ?? 'no event selected'}`
+        : flow.until
+          ? formatOffset(flow.offset)
+          : `Sleep - ${formatWaitDuration(flow.duration) ?? '1 hour'}`
       : ''
   const state: NodeVisualState = flow.kind === 'wait' && !isWaitNodeComplete(flow.mode, flow.event_type)
     ? 'incomplete'

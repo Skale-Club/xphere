@@ -330,75 +330,102 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
         )}
 
         {flow.kind === 'wait' && (
-          <>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-text-tertiary">Mode</Label>
-              <Select
-                value={flow.mode}
-                onValueChange={(v) => {
-                  const mode = v as 'sleep' | 'wait_for_event'
-                  updateNodeData(
-                    node.id,
-                    mode === 'sleep'
-                      ? { mode, duration: flow.duration ?? '1h' }
-                      : { mode, timeout: flow.timeout ?? '7d' },
-                  )
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sleep" className="text-xs">Sleep (duration)</SelectItem>
-                  <SelectItem value="wait_for_event" className="text-xs">Wait for event</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {flow.mode === 'sleep' ? (
-              <DurationField
-                label="Duration"
-                value={flow.duration}
-                fallback="1h"
-                onChange={(duration) => updateNodeData(node.id, { duration })}
-              />
-            ) : (
-              <div className="space-y-2">
-                <DurationField
-                  label="Timeout"
-                  value={flow.timeout}
-                  fallback="7d"
-                  onChange={(timeout) => updateNodeData(node.id, { timeout })}
-                />
+          {(() => {
+            // The schema stores mode ∈ {sleep, wait_for_event}; a sleep with an
+            // `until` anchor is the "wait until a time" UX. Derive a 3-way mode.
+            const waitMode: 'duration' | 'until' | 'event' =
+              flow.mode === 'wait_for_event' ? 'event' : flow.until ? 'until' : 'duration'
+            return (
+              <>
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] text-text-tertiary">Event Type</Label>
+                  <Label className="text-[11px] text-text-tertiary">Mode</Label>
                   <Select
-                    value={flow.event_type ?? ''}
-                    onValueChange={(v) => updateNodeData(node.id, { event_type: v })}
+                    value={waitMode}
+                    onValueChange={(v) => {
+                      if (v === 'duration') {
+                        updateNodeData(node.id, { mode: 'sleep', until: undefined, offset: undefined, duration: flow.duration ?? '1h' })
+                      } else if (v === 'until') {
+                        updateNodeData(node.id, { mode: 'sleep', until: flow.until || '{{meeting.starts_at}}', offset: flow.offset ?? '-24h' })
+                      } else {
+                        updateNodeData(node.id, { mode: 'wait_for_event', until: undefined, timeout: flow.timeout ?? '7d' })
+                      }
+                    }}
                   >
-                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select event..." /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="meeting.confirmed" className="text-xs">Meeting confirmed</SelectItem>
-                      <SelectItem value="meeting.cancelled" className="text-xs">Meeting cancelled</SelectItem>
-                      <SelectItem value="meeting.starts_in" className="text-xs">Meeting starts in...</SelectItem>
-                      <SelectItem value="meeting.completed" className="text-xs">Meeting completed</SelectItem>
-                      <SelectItem value="meeting.no_show" className="text-xs">Meeting no-show</SelectItem>
-                      <SelectItem value="meeting.rescheduled" className="text-xs">Meeting rescheduled</SelectItem>
+                      <SelectItem value="duration" className="text-xs">Sleep (fixed duration)</SelectItem>
+                      <SelectItem value="until" className="text-xs">Wait until a time (e.g. before a meeting)</SelectItem>
+                      <SelectItem value="event" className="text-xs">Wait for event</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[10.5px] leading-snug text-text-tertiary">
-                    Aguarda este evento <strong>para o contato deste fluxo</strong>. Se o timeout
-                    expirar antes, o fluxo segue marcado como expirado.
-                  </p>
                 </div>
-                {flow.event_type === 'meeting.starts_in' && (
+
+                {waitMode === 'duration' && (
                   <DurationField
-                    label="Offset before event"
-                    value={flow.offset}
-                    fallback="5m"
-                    onChange={(offset) => updateNodeData(node.id, { offset })}
+                    label="Duration"
+                    value={flow.duration}
+                    fallback="1h"
+                    onChange={(duration) => updateNodeData(node.id, { duration })}
                   />
                 )}
-              </div>
-            )}
-          </>
+
+                {waitMode === 'until' && (
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-text-tertiary">Anchor time</Label>
+                      <Input
+                        value={flow.until ?? ''}
+                        placeholder="{{meeting.starts_at}}"
+                        onChange={(e) => updateNodeData(node.id, { until: e.target.value })}
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                    <OffsetField
+                      label="Offset"
+                      value={flow.offset}
+                      fallback="-24h"
+                      onChange={(offset) => updateNodeData(node.id, { offset })}
+                    />
+                    <p className="text-[10.5px] leading-snug text-text-tertiary">
+                      Resumes at the anchor time shifted by the offset. For a “24h before the meeting”
+                      reminder, use anchor <code>{'{{meeting.starts_at}}'}</code> and offset 24 hours <strong>before</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {waitMode === 'event' && (
+                  <div className="space-y-2">
+                    <DurationField
+                      label="Timeout"
+                      value={flow.timeout}
+                      fallback="7d"
+                      onChange={(timeout) => updateNodeData(node.id, { timeout })}
+                    />
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-text-tertiary">Event Type</Label>
+                      <Select
+                        value={flow.event_type ?? ''}
+                        onValueChange={(v) => updateNodeData(node.id, { event_type: v })}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Select event..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="meeting.confirmed" className="text-xs">Meeting confirmed</SelectItem>
+                          <SelectItem value="meeting.cancelled" className="text-xs">Meeting cancelled</SelectItem>
+                          <SelectItem value="meeting.completed" className="text-xs">Meeting completed</SelectItem>
+                          <SelectItem value="meeting.no_show" className="text-xs">Meeting no-show</SelectItem>
+                          <SelectItem value="meeting.rescheduled" className="text-xs">Meeting rescheduled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10.5px] leading-snug text-text-tertiary">
+                        Waits for this event <strong>for the contact of this flow</strong>. If the
+                        timeout passes first, the flow continues, flagged as timed out.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         )}
 
         {flow.kind === 'agent' && (
@@ -722,6 +749,58 @@ function DurationField({
                 {unit.label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
+
+// Signed offset relative to an anchor time: magnitude + unit + before/after.
+// Serializes to "-24h" (before) or "24h" (after) — consumed by the wait engine.
+function OffsetField({
+  label,
+  value,
+  fallback,
+  onChange,
+}: {
+  label: string
+  value?: string
+  fallback: string
+  onChange: (value: string) => void
+}) {
+  const raw = (value ?? fallback).trim()
+  const direction = raw.startsWith('-') ? 'before' : 'after'
+  const parsed = parseDurationValue(raw.replace(/^[-+]/, ''), fallback.replace(/^[-+]/, ''))
+  const write = (amount: string, unit: DurationUnit, dir: string) => {
+    const body = toDurationValue(amount, unit)
+    onChange(dir === 'before' ? `-${body}` : body)
+  }
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] text-text-tertiary">{label}</Label>
+      <div className="grid grid-cols-[1fr_110px_110px] gap-2">
+        <Input
+          type="number"
+          min={0}
+          step={1}
+          value={parsed.amount}
+          onChange={(e) => write(e.target.value, parsed.unit, direction)}
+          className="h-8 text-xs"
+        />
+        <Select value={parsed.unit} onValueChange={(u) => write(parsed.amount, u as DurationUnit, direction)}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {DURATION_UNITS.map((unit) => (
+              <SelectItem key={unit.value} value={unit.value} className="text-xs">{unit.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={direction} onValueChange={(d) => write(parsed.amount, parsed.unit, d)}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="before" className="text-xs">before</SelectItem>
+            <SelectItem value="after" className="text-xs">after</SelectItem>
           </SelectContent>
         </Select>
       </div>
