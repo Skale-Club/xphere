@@ -44,6 +44,10 @@ const WaitNodeData = z.object({
   kind: z.literal('wait'),
   mode: z.enum(['sleep', 'wait_for_event']).default('sleep'),
   duration: z.string().optional(),
+  // Absolute anchor for a timed wait: resume at `until` (ISO or {{variable}})
+  // optionally shifted by signed `offset` (e.g. "-24h", "-5m"). Powers
+  // "N before the meeting" reminders: until={{meeting.starts_at}}, offset="-24h".
+  until: z.string().optional(),
   event_filter: z.record(z.unknown()).optional(),
   event_type: z.string().optional(),
   offset: z.string().optional(),
@@ -54,6 +58,8 @@ const WaitNodeData = z.object({
 const AgentNodeData = z.object({
   kind: z.literal('agent'),
   agent_id: z.string().optional(),
+  /** The message/objective the agent processes. Supports {{variables}}. */
+  input: z.string().default(''),
   system_prompt: z.string().default(''),
   max_steps: z.number().int().min(1).max(50).default(10),
   label: z.string().default('Agent'),

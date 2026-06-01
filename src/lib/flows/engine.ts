@@ -8,6 +8,7 @@ import { decrypt } from '@/lib/crypto'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import { insertNotification } from '@/lib/notifications/insert'
 import { createWait, durationToMs, resolveRunContactId } from './wait'
+import { executeAgentNode } from './execute-agent-node'
 
 const MAX_STEPS = 100
 
@@ -140,9 +141,23 @@ async function walkFrom(p: WalkParams): Promise<{ status: 'succeeded' | 'failed'
       const wd = node.data
       const isEvent = wd.mode === 'wait_for_event'
       const eventType = isEvent ? (wd.event_type ?? null) : null
-      const durStr = isEvent ? wd.timeout : (wd.duration ?? wd.timeout)
-      const ms = durationToMs(durStr)
-      const timeoutAt = ms != null ? new Date(Date.now() + ms).toISOString() : null
+
+      let timeoutAt: string | null = null
+      if (!isEvent && wd.until) {
+        // Absolute anchor: resume at (until + signed offset). Powers
+        // "N before the meeting" reminders. `until` may be a {{variable}}.
+        const resolvedUntil = String(interpolate(wd.until, state) ?? '')
+        const base = Date.parse(resolvedUntil)
+        if (!Number.isNaN(base)) {
+          const offMs = durationToMs(wd.offset) ?? 0
+          timeoutAt = new Date(base + offMs).toISOString()
+        }
+      }
+      if (!timeoutAt) {
+        const durStr = isEvent ? wd.timeout : (wd.duration ?? wd.timeout)
+        const ms = durationToMs(durStr)
+        timeoutAt = ms != null ? new Date(Date.now() + ms).toISOString() : null
+      }
 
       // Nothing could ever resume this wait → skip suspension (legacy passthrough).
       if (!eventType && !timeoutAt) {
@@ -660,11 +675,14 @@ async function executeFlowNode(
   }
 
   if (data.kind === 'agent') {
-    return {
-      _stub: true,
-      _agent_id: data.agent_id ?? null,
-      _note: 'Agent nodes are stubbed until agent runtime wiring.',
-    }
+    const userMessage = interpolate(data.input ?? '', ctx.state) as string
+    return executeAgentNode({
+      orgId: ctx.orgId,
+      agentId: data.agent_id,
+      userMessage: typeof userMessage === 'string' ? userMessage : String(userMessage ?? ''),
+      instructions: data.system_prompt,
+      maxSteps: data.max_steps,
+    })
   }
 
   if (data.kind === 'action') {
@@ -713,7 +731,7 @@ function extractNodeConfig(node: FlowNode): Record<string, unknown> {
   if (data.kind === 'trigger') return (data.filter ?? {}) as Record<string, unknown>
   if (data.kind === 'condition') return { expression: data.expression }
   if (data.kind === 'wait') {
-    return { mode: data.mode, duration: data.duration, event_filter: data.event_filter, timeout: data.timeout, event_type: data.event_type, offset: data.offset }
+    return { mode: data.mode, duration: data.duration, until: data.until, event_filter: data.event_filter, timeout: data.timeout, event_type: data.event_type, offset: data.offset }
   }
   if (data.kind === 'agent') {
     return { agent_id: data.agent_id, system_prompt: data.system_prompt, max_steps: data.max_steps }

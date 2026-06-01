@@ -13,10 +13,13 @@ import type { Database } from '@/types/database'
 
 type Db = SupabaseClient<Database>
 
-/** Parse a duration string like "7d" | "5m" | "2h" | "1w" → milliseconds. */
+/**
+ * Parse a duration/offset string → milliseconds. Accepts a leading sign so the
+ * same parser covers durations ("7d", "5m") and signed anchors ("-24h", "-5m").
+ */
 export function durationToMs(duration: string | undefined | null): number | null {
   if (!duration) return null
-  const m = /^(\d+)\s*([smhdw])$/.exec(duration.trim())
+  const m = /^(-?\d+)\s*([smhdw])$/.exec(duration.trim())
   if (!m) return null
   const n = parseInt(m[1], 10)
   switch (m[2]) {
