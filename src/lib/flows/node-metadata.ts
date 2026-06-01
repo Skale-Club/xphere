@@ -297,7 +297,7 @@ export const ACTION_METADATA: ActionMetadata[] = [
 
   // ── Automation ──
   {
-    key: 'query_knowledge',
+    key: 'knowledge_base',
     label: 'Query knowledge base',
     description: 'Semantic search across uploaded documents',
     icon: BookOpen,

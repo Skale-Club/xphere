@@ -1140,7 +1140,7 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
         />
       )
 
-    case 'query_knowledge':
+    case 'knowledge_base':
       return (
         <VarTextareaField
           label="Query"
