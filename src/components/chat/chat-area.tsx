@@ -345,6 +345,12 @@ export function ChatArea({
         agentMap={agentMap}
         primaryChannel={conversation.channel}
         noAvailableChannel={noAvailableOutboundChannel}
+        visitorInitial={
+          (conversation.contactName || conversation.visitorName || conversation.visitorPhone || '')
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .charAt(0)
+            .toUpperCase() || '?'
+        }
       />
       <MessageBanner conversation={conversation} />
       {/* Phase 1085 DND: banner when this channel is blocked for the contact */}

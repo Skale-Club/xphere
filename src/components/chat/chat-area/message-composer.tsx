@@ -12,7 +12,7 @@
  */
 
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle } from 'lucide-react'
+import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -326,7 +326,7 @@ export function MessageComposer({
   // Outside the 24h customer service window, free-text via Cloud will fail
   // — only templates work. We block the regular Send button to steer the
   // operator to the template path instead of letting them get a Meta error.
-  const canSend = value.trim().length > 0 && !isDisabled && !outsideWindow
+  const canSend = (value.trim().length > 0 || attachments.length > 0) && !isDisabled && !outsideWindow
   const activeOption =
     availableChannels.find((ch) => ch.channel === activeChannel) ??
     availableChannels[0] ??
@@ -635,9 +635,12 @@ export function MessageComposer({
                 ? 'bg-accent text-white shadow-sm hover:bg-accent-hover hover:scale-[1.03]'
                 : 'bg-bg-tertiary text-text-tertiary',
             )}
-            aria-label="Send"
+            aria-label={isSending ? 'Sending…' : 'Send'}
           >
-            <Send className="h-3.5 w-3.5" />
+            {isSending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Send className="h-3.5 w-3.5" />
+            }
           </Button>
         </div>
       </div>

@@ -39,6 +39,8 @@ interface MessageListProps {
   primaryChannel?: string
   /** When true, the empty center state explains that no outbound transport exists. */
   noAvailableChannel?: boolean
+  /** First letter to show in visitor message avatars (contact name or phone). */
+  visitorInitial?: string
 }
 
 function formatTime(iso: string): string {
@@ -73,6 +75,7 @@ export function MessageList({
   isAgentThinking = false,
   agentMap,
   noAvailableChannel = false,
+  visitorInitial = '?',
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -201,7 +204,7 @@ export function MessageList({
                         {!sameSender ? (
                           <Avatar className="h-7 w-7 shrink-0">
                             <AvatarFallback className="bg-bg-tertiary text-text-secondary text-[10.5px] font-medium">
-                              {(message.content.charAt(0) || '·').toUpperCase()}
+                              {(message.content.charAt(0) || visitorInitial).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                         ) : (

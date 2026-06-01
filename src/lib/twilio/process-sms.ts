@@ -66,6 +66,22 @@ export async function ingestTwilioSms(
   const hasMedia = numMedia > 0
   if (!messageText && !hasMedia) return null
 
+  // Preview label used for conversations.last_message when the message has no
+  // text body. Set it now (before the conversation upsert) so the inbox shows
+  // a meaningful preview immediately — the DB trigger (1121) also computes this
+  // after message insert, but setting it here avoids the brief "No messages yet"
+  // flash caused by the empty-string that would be stored during the window
+  // between conversation update and message insert.
+  const mediaPreview: string | null = !messageText && hasMedia
+    ? (() => {
+        const ct = String(payload[`MediaContentType0` as keyof typeof payload] ?? '')
+        if (ct.startsWith('image/')) return '📷 Foto'
+        if (ct.startsWith('audio/')) return '🎵 Áudio'
+        if (ct.startsWith('video/')) return '🎬 Vídeo'
+        return '📎 Mídia'
+      })()
+    : null
+
   const fromNumber = payload.From
   const toNumber = payload.To
   const messageSid = payload.MessageSid
@@ -106,7 +122,7 @@ export async function ingestTwilioSms(
     await supabase
       .from('conversations')
       .update({
-        last_message: messageText,
+        last_message: messageText || mediaPreview,
         last_message_at: receivedAt,
         last_inbound_at: receivedAt,
         updated_at: new Date().toISOString(),
@@ -127,7 +143,7 @@ export async function ingestTwilioSms(
           last_message_sid: messageSid,
         },
         visitor_phone: fromNumber,
-        last_message: messageText,
+        last_message: messageText || mediaPreview,
         last_message_at: receivedAt,
         last_inbound_at: receivedAt,
         phone_number_id: phoneNumberId,
