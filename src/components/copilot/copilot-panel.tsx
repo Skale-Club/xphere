@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   PaperPlaneTilt,
   Pencil,
@@ -19,6 +19,7 @@ import {
   GitMerge,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { Plug2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,68 @@ import {
 import { sendCopilotMessage } from "@/app/(dashboard)/copilot/_actions/turn";
 
 const VOICE_BAR_COUNT = 11;
+const DESKTOP_STORAGE_KEY = "copilot-panel-height";
+const MOBILE_STORAGE_KEY = "copilot-panel-height-mobile";
+
+// ─── Drag-to-resize hook ─────────────────────────────────────────────────────
+
+function useDragResize(
+  storageKey: string,
+  defaultVh: number,
+  minPx: number,
+  onClose?: () => void,
+) {
+  const [height, setHeight] = useState<number | null>(null);
+  const heightRef = useRef(0);
+
+  // Hydrate from localStorage after mount
+  useEffect(() => {
+    const defaultH = window.innerHeight * defaultVh;
+    const stored = Number(localStorage.getItem(storageKey) || "0");
+    const init =
+      stored > 0
+        ? Math.max(minPx, Math.min(window.innerHeight * 0.95, stored))
+        : defaultH;
+    heightRef.current = init;
+    setHeight(init);
+  }, [storageKey, defaultVh, minPx]);
+
+  const startDrag = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startH = heightRef.current;
+
+      function onMove(me: PointerEvent) {
+        const delta = startY - me.clientY; // drag up → increase height
+        const maxH = window.innerHeight * 0.95;
+        const newH = Math.max(minPx - 80, Math.min(maxH, startH + delta));
+        heightRef.current = newH;
+        setHeight(newH);
+      }
+
+      function onUp() {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        // Close if dragged below minimum
+        if (onClose && heightRef.current < minPx) {
+          onClose();
+        } else {
+          const clamped = Math.max(minPx, heightRef.current);
+          heightRef.current = clamped;
+          setHeight(clamped);
+          localStorage.setItem(storageKey, String(clamped));
+        }
+      }
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [storageKey, minPx, onClose],
+  );
+
+  return { height, startDrag };
+}
 
 // ─── Image helpers ────────────────────────────────────────────────────────────
 
@@ -54,9 +117,48 @@ function compressImage(file: File, maxPx = 1024): Promise<string> {
   });
 }
 
-// ─── Panel (desktop sidebar + mobile fullscreen) ──────────────────────────────
+// ─── No-provider notice ───────────────────────────────────────────────────────
 
-export function CopilotPanel() {
+function NoProviderPanel() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 py-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bg-secondary">
+        <Plug2 className="h-6 w-6 text-text-tertiary" />
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-[14px] font-semibold text-text-primary">
+          AI provider not connected
+        </p>
+        <p className="text-[12px] leading-relaxed text-text-tertiary">
+          Copilot needs an OpenRouter or Anthropic key to run. Add one in
+          Integrations, then come back here.
+        </p>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <Link
+          href="/integrations"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover transition-colors"
+        >
+          Go to Integrations
+        </Link>
+        <Link
+          href="/settings/copilot"
+          className="text-[12px] text-text-tertiary hover:text-text-secondary transition-colors"
+        >
+          Copilot settings
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+
+interface CopilotPanelProps {
+  hasProvider: boolean;
+}
+
+export function CopilotPanel({ hasProvider }: CopilotPanelProps) {
   const {
     open,
     setOpen,
@@ -76,7 +178,7 @@ export function CopilotPanel() {
   } = useCopilotStore();
 
   const [input, setInput] = useState("");
-  const [images, setImages] = useState<string[]>([]); // compressed base64
+  const [images, setImages] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const [voiceLevels, setVoiceLevels] = useState<number[]>(() =>
     Array.from({ length: VOICE_BAR_COUNT }, () => 0),
@@ -92,6 +194,17 @@ export function CopilotPanel() {
   const voiceAudioContextRef = useRef<AudioContext | null>(null);
   const voiceAnimationRef = useRef<number | null>(null);
   const voiceMeterRunRef = useRef(0);
+
+  // Drag-to-resize — desktop panel height + mobile sheet height
+  const {
+    height: desktopHeight,
+    startDrag: startDesktopDrag,
+  } = useDragResize(DESKTOP_STORAGE_KEY, 0.72, 280);
+
+  const {
+    height: mobileHeight,
+    startDrag: startMobileDrag,
+  } = useDragResize(MOBILE_STORAGE_KEY, 0.65, 220, () => setOpen(false));
 
   useEffect(() => {
     if (scrollerRef.current) {
@@ -354,9 +467,166 @@ export function CopilotPanel() {
     }
   }
 
-  // ── Desktop render (compact sidebar) ───────────────────────────────────────
+  // ── Shared composer content ────────────────────────────────────────────────
 
-  const desktopPanelContent = (
+  function composerContent(
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    fileRef: React.RefObject<HTMLInputElement | null>,
+    compact?: boolean,
+  ) {
+    return (
+      <>
+        {images.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {images.map((src, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt=""
+                  className={cn(
+                    "rounded-lg object-cover border border-border",
+                    compact ? "h-14 w-14" : "h-16 w-16",
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary hover:text-text-primary"
+                >
+                  <X size={10} weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className={cn("flex items-stretch", compact ? "" : "gap-2.5")}>
+          {!compact && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-12 w-12 shrink-0 p-0"
+                onClick={() => fileRef.current?.click()}
+                disabled={sending || images.length >= 4}
+              >
+                <ImageSquare size={24} weight="bold" className="text-text-secondary" />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={listening ? "primary" : "ghost"}
+                className={cn(
+                  "h-12 w-12 shrink-0 p-0",
+                  listening
+                    ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
+                    : "text-text-secondary",
+                )}
+                onClick={toggleMic}
+                disabled={sending}
+              >
+                {listening ? (
+                  <Square size={16} weight="fill" />
+                ) : (
+                  <Microphone size={24} weight="bold" />
+                )}
+              </Button>
+            </>
+          )}
+
+          <div className="relative flex flex-1">
+            {compact && (
+              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 text-text-secondary hover:text-text-primary"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={sending || images.length >= 4}
+                >
+                  <ImageSquare size={16} weight="bold" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={listening ? "secondary" : "ghost"}
+                  className={cn(
+                    "h-7 w-7 p-0 text-text-secondary hover:text-text-primary",
+                    listening && "text-red-500",
+                  )}
+                  onClick={toggleMic}
+                  disabled={sending}
+                >
+                  {listening ? (
+                    <Square size={14} weight="fill" />
+                  ) : (
+                    <Microphone size={16} weight="bold" />
+                  )}
+                </Button>
+              </div>
+            )}
+            <Textarea
+              ref={textareaRef as React.RefObject<HTMLTextAreaElement>}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={compact ? handleKeyDown : undefined}
+              placeholder={listening ? "Listening…" : "Ask Copilot…"}
+              rows={compact ? 2 : 1}
+              className={cn(
+                "resize-none rounded-r-none border-r-0 text-sm",
+                compact
+                  ? "min-h-[88px] flex-1 pb-10 pl-3"
+                  : "flex-1 min-h-[56px] max-h-40 text-base leading-relaxed py-4 px-4",
+              )}
+              enterKeyHint="send"
+              autoCapitalize="sentences"
+              disabled={sending || (compact ? false : listening)}
+            />
+          </div>
+
+          <Button
+            size="sm"
+            onClick={handleSend}
+            disabled={sending || (!input.trim() && images.length === 0) || !hasProvider}
+            className={cn(
+              "rounded-l-none p-0 shrink-0",
+              compact ? "h-full min-h-[88px] w-10" : "h-auto min-h-[56px] w-12",
+            )}
+          >
+            {sending ? (
+              <CircleNotch
+                size={compact ? 16 : 24}
+                weight="bold"
+                className="animate-spin"
+              />
+            ) : (
+              <PaperPlaneTilt size={compact ? 16 : 24} weight="bold" />
+            )}
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // ── Desktop drag handle ────────────────────────────────────────────────────
+
+  const DragHandle = ({ onPointerDown }: { onPointerDown: (e: React.PointerEvent) => void }) => (
+    <div
+      className="flex h-3.5 shrink-0 cursor-ns-resize select-none items-center justify-center border-b border-border bg-bg-secondary hover:bg-bg-tertiary transition-colors touch-none"
+      onPointerDown={onPointerDown}
+      title="Drag to resize"
+      aria-hidden
+    >
+      <div className="h-1 w-8 rounded-full bg-border" />
+    </div>
+  );
+
+  // ── Desktop render ─────────────────────────────────────────────────────────
+
+  const desktopPanelInner = (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">
@@ -419,111 +689,38 @@ export function CopilotPanel() {
         ref={scrollerRef}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
       >
-        {messages.length === 0 && <GreetingPanel onPick={setInput} />}
+        {messages.length === 0 && (
+          hasProvider ? (
+            <GreetingPanel onPick={setInput} />
+          ) : (
+            <NoProviderPanel />
+          )
+        )}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}
       </div>
 
-      {/* Input area */}
-      <div className="relative border-t border-border p-3 shrink-0">
-        {/* Image previews */}
-        {images.length > 0 && (
-          <div className="flex gap-2 mb-2 flex-wrap">
-            {images.map((src, i) => (
-              <div key={i} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  alt=""
-                  className="h-14 w-14 rounded-lg object-cover border border-border"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(i)}
-                  className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary hover:text-text-primary"
-                >
-                  <X size={10} weight="bold" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Text row */}
-        <div className="flex items-stretch">
-          <div className="relative flex-1">
-            <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 p-0 text-text-secondary hover:text-text-primary"
-                onClick={() => fileInputRef.current?.click()}
-                title="Attach image"
-                disabled={sending || images.length >= 4}
-              >
-                <ImageSquare size={16} weight="bold" />
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={listening ? "secondary" : "ghost"}
-                className={cn(
-                  "h-7 w-7 p-0 text-text-secondary hover:text-text-primary",
-                  listening && "text-red-500",
-                )}
-                onClick={toggleMic}
-                title={listening ? "Stop recording" : "Voice input"}
-                disabled={sending}
-              >
-                {listening ? (
-                  <Square size={14} weight="fill" />
-                ) : (
-                  <Microphone size={16} weight="bold" />
-                )}
-              </Button>
-            </div>
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={listening ? "Listening…" : "Ask Copilot…"}
-              rows={2}
-              className="min-h-[88px] flex-1 resize-none rounded-r-none border-r-0 pb-10 pl-3 text-sm"
-              disabled={sending}
+      {/* Input area — hidden when no provider and no messages */}
+      {hasProvider && (
+        <div className="relative border-t border-border p-3 shrink-0">
+          {composerContent(
+            { current: null } as React.RefObject<HTMLTextAreaElement | null>,
+            fileInputRef,
+            true,
+          )}
+          {listening && (
+            <VoiceRecordingOverlay
+              onStop={toggleMic}
+              compact
+              levels={voiceLevels}
             />
-          </div>
-          <div className="flex items-stretch">
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={sending || (!input.trim() && images.length === 0)}
-              className="h-full min-h-[88px] w-10 rounded-l-none p-0"
-              title="Send"
-            >
-              {sending ? (
-                <CircleNotch size={16} weight="bold" className="animate-spin" />
-              ) : (
-                <PaperPlaneTilt size={16} weight="bold" />
-              )}
-            </Button>
-          </div>
+          )}
+          <p className="mt-1.5 text-[10px] text-text-tertiary">
+            Enter to send · Shift+Enter for newline · ⌘I to toggle
+          </p>
         </div>
-
-        {/* Desktop recording overlay (covers composer while recording) */}
-        {listening && (
-          <VoiceRecordingOverlay
-            onStop={toggleMic}
-            compact
-            levels={voiceLevels}
-          />
-        )}
-
-        <p className="mt-1.5 text-[10px] text-text-tertiary">
-          Enter to send · Shift+Enter for newline · ⌘I to toggle
-        </p>
-      </div>
+      )}
 
       {/* Hidden file input */}
       <input
@@ -540,9 +737,9 @@ export function CopilotPanel() {
     </div>
   );
 
-  // ── Mobile render (rebranded fullscreen experience) ────────────────────────
+  // ── Mobile render (bottom sheet) ───────────────────────────────────────────
 
-  const mobilePanelContent = (
+  const mobilePanelInner = (
     <div className="relative flex h-full flex-col bg-bg-primary">
       {/* Branded header */}
       <header className="flex items-center gap-3 border-b border-border bg-bg-primary px-4 pt-safe-3 pb-3 shrink-0">
@@ -559,7 +756,6 @@ export function CopilotPanel() {
               "h-9 gap-1.5 px-2.5 text-xs font-medium",
               writeMode ? "text-amber-500" : "text-green-500",
             )}
-            title={writeMode ? "Write mode ON" : "Read-only mode"}
           >
             {writeMode ? (
               <Pencil size={16} weight="bold" />
@@ -568,7 +764,7 @@ export function CopilotPanel() {
             )}
             {writeMode ? "Write" : "Read-only"}
             {sessionCostUsd > 0 && (
-              <span className="text-text-tertiary font-normal">
+              <span className="font-normal text-text-tertiary">
                 · ~${sessionCostUsd.toFixed(4)}
               </span>
             )}
@@ -586,7 +782,6 @@ export function CopilotPanel() {
             href="/copilot/conversations"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary hover:bg-bg-tertiary"
             onClick={() => setOpen(false)}
-            title="History"
           >
             <ClockCounterClockwise size={18} weight="bold" />
           </Link>
@@ -595,7 +790,6 @@ export function CopilotPanel() {
             size="sm"
             onClick={() => setOpen(false)}
             className="h-9 w-9 p-0 text-text-secondary"
-            title="Close"
           >
             <X size={22} weight="bold" />
           </Button>
@@ -607,104 +801,31 @@ export function CopilotPanel() {
         ref={mobileScrollerRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0"
       >
-        {messages.length === 0 && <MobileGreetingPanel onPick={setInput} />}
+        {messages.length === 0 && (
+          hasProvider ? (
+            <MobileGreetingPanel onPick={setInput} />
+          ) : (
+            <NoProviderPanel />
+          )
+        )}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}
       </div>
 
       {/* Composer */}
-      <div className="relative border-t border-border bg-bg-primary px-3 pt-3 pb-safe-3 shrink-0">
-        {/* Image previews */}
-        {images.length > 0 && (
-          <div className="flex gap-2 mb-2 flex-wrap">
-            {images.map((src, i) => (
-              <div key={i} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  alt=""
-                  className="h-16 w-16 rounded-lg object-cover border border-border"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(i)}
-                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg-primary border border-border text-text-tertiary active:text-text-primary"
-                >
-                  <X size={12} weight="bold" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Image + mic left · textarea · send button attached right */}
-        <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-12 w-12 p-0 shrink-0"
-            onClick={() => mobileFileInputRef.current?.click()}
-            title="Attach image"
-            disabled={sending || images.length >= 4}
-          >
-            <ImageSquare size={24} weight="bold" className="text-text-secondary" />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={listening ? "primary" : "ghost"}
-            className={cn(
-              "h-12 w-12 p-0 shrink-0",
-              listening
-                ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
-                : "text-text-secondary",
-            )}
-            onClick={toggleMic}
-            title={listening ? "Stop recording" : "Voice input"}
-            disabled={sending}
-          >
-            {listening ? (
-              <Square size={16} weight="fill" />
-            ) : (
-              <Microphone size={24} weight="bold" />
-            )}
-          </Button>
-          {/* Textarea + send button share a border — no gap between them */}
-          <div className="flex flex-1 items-stretch">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={listening ? "Listening…" : "Ask Copilot…"}
-              rows={1}
-              className="flex-1 min-h-[56px] max-h-40 resize-none rounded-r-none border-r-0 text-base leading-relaxed py-4 px-4"
-              enterKeyHint="send"
-              autoCapitalize="sentences"
-              disabled={sending || listening}
-            />
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={sending || (!input.trim() && images.length === 0)}
-              className="h-auto min-h-[56px] w-12 rounded-l-none p-0 shrink-0"
-              title="Send"
-            >
-              {sending ? (
-                <CircleNotch size={24} weight="bold" className="animate-spin" />
-              ) : (
-                <PaperPlaneTilt size={24} weight="bold" />
-              )}
-            </Button>
-          </div>
+      {hasProvider && (
+        <div className="relative border-t border-border bg-bg-primary px-3 pt-3 pb-safe-3 shrink-0">
+          {composerContent(
+            { current: null } as React.RefObject<HTMLTextAreaElement | null>,
+            mobileFileInputRef,
+            false,
+          )}
+          {listening && (
+            <VoiceRecordingOverlay onStop={toggleMic} levels={voiceLevels} />
+          )}
         </div>
-
-        {/* Recording overlay */}
-        {listening && (
-          <VoiceRecordingOverlay onStop={toggleMic} levels={voiceLevels} />
-        )}
-      </div>
+      )}
 
       {/* Hidden file input */}
       <input
@@ -723,22 +844,58 @@ export function CopilotPanel() {
 
   return (
     <>
-      {/* Desktop: right sidebar that pushes the layout */}
+      {/* ── Desktop: right sidebar with drag-to-resize ── */}
       <aside
         className={cn(
-          "hidden md:flex flex-col border-l border-border bg-bg-primary",
-          "transition-[width] duration-200 ease-in-out overflow-hidden shrink-0",
+          "relative hidden md:block border-l border-border shrink-0",
+          "transition-[width] duration-200 ease-in-out overflow-visible",
           open ? "w-[380px]" : "w-0",
         )}
       >
-        <div className="w-[380px] h-full">{desktopPanelContent}</div>
+        {/* Panel anchored to bottom of sidebar, height controlled by drag */}
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 flex flex-col bg-bg-primary overflow-hidden",
+            "border-t border-border",
+          )}
+          style={
+            desktopHeight !== null
+              ? { height: desktopHeight }
+              : { top: 0, bottom: 0 } // before hydration: full height
+          }
+        >
+          <DragHandle onPointerDown={startDesktopDrag} />
+          <div className="w-[380px] flex flex-1 min-h-0 flex-col">
+            {desktopPanelInner}
+          </div>
+        </div>
       </aside>
 
-      {/* Mobile: fixed full-screen overlay with rebranded UI */}
+      {/* ── Mobile: bottom sheet with drag handle ── */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50 bg-bg-primary flex flex-col animate-fade-in">
-          {mobilePanelContent}
-        </div>
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-fade-in"
+            onClick={() => setOpen(false)}
+          />
+          {/* Sheet */}
+          <div
+            className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-bg-primary shadow-2xl animate-sheet-in overflow-hidden"
+            style={mobileHeight !== null ? { height: mobileHeight } : { height: "65vh" }}
+          >
+            {/* Drag handle */}
+            <div
+              className="flex h-8 shrink-0 cursor-ns-resize select-none items-center justify-center rounded-t-2xl touch-none active:bg-bg-secondary"
+              onPointerDown={startMobileDrag}
+            >
+              <div className="h-1.5 w-12 rounded-full bg-border" />
+            </div>
+            <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+              {mobilePanelInner}
+            </div>
+          </div>
+        </>
       )}
     </>
   );
@@ -777,10 +934,7 @@ function GreetingPanel({ onPick }: { onPick: (text: string) => void }) {
 }
 
 function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
-  const suggestions: Array<{
-    icon: typeof Users;
-    label: string;
-  }> = [
+  const suggestions: Array<{ icon: typeof Users; label: string }> = [
     { icon: Users, label: "List my 10 most recent contacts" },
     { icon: Pulse, label: "Summarize pipeline health" },
     { icon: ListChecks, label: "Show all open tasks due this week" },
@@ -788,7 +942,7 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
   ];
   return (
     <div className="flex flex-col gap-5 py-4 animate-fade-in">
-      <div className="flex flex-col items-center text-center gap-3">
+      <div className="flex flex-col items-center gap-3 text-center">
         <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-accent shadow-xl shadow-accent/30">
           <ChatCircle size={32} weight="fill" className="text-white" />
         </div>
@@ -796,7 +950,7 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
           <h2 className="text-lg font-semibold text-text-primary">
             Chat with Xphere
           </h2>
-          <p className="text-[13px] text-text-secondary max-w-[280px] mx-auto leading-relaxed">
+          <p className="mx-auto max-w-[280px] text-[13px] leading-relaxed text-text-secondary">
             Query, summarize, and mutate contacts, deals, tasks, and notes.
             Attach images or hold the mic to ask anything.
           </p>
@@ -810,7 +964,7 @@ function MobileGreetingPanel({ onPick }: { onPick: (text: string) => void }) {
             onClick={() => onPick(label)}
             className="flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-3 text-left text-[13px] text-text-primary active:bg-bg-tertiary active:scale-[0.99] transition"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-bg-tertiary text-accent shrink-0">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bg-tertiary text-accent">
               <Icon size={16} weight="bold" />
             </span>
             <span className="leading-snug">{label}</span>

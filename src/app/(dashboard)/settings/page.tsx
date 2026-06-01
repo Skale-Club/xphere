@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import {
   BookOpen,
+  Bot,
   Boxes,
   CreditCard,
   Download,
@@ -92,6 +93,12 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         title: 'Billing',
         description:
           'Subscription, payment method and invoices for your organization.',
+      },
+      {
+        href: '/settings/copilot',
+        icon: Bot,
+        title: 'Copilot',
+        description: 'Enable or disable the AI assistant for this workspace.',
       },
     ],
   },

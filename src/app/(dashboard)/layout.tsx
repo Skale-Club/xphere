@@ -118,25 +118,35 @@ export default async function DashboardLayout({ children }: { children: React.Re
     hasPhoneNumber = false
   }
 
-  // Gate Copilot behind an AI provider check. Only mount the launcher and panel
-  // when the org (or platform) has at least one active OpenRouter or Anthropic
-  // key — avoids showing the panel and then immediately erroring "no provider".
-  // Uses COUNT-only queries (no decryption) so it's fast.
+  // Copilot visibility:
+  //  copilotEnabled  — org-level toggle (settings.copilot_enabled, default true)
+  //                    false → hide both launcher and panel entirely
+  //  hasCopilotProvider — at least one active AI key exists (org or platform)
+  //                       false → show panel but surface a setup notice inside
+  let copilotEnabled = true
   let hasCopilotProvider = false
   try {
     const supabase = await createClient()
-    // 1. Org-level: any active openrouter / anthropic integration?
     if (activeOrgId) {
-      const { count: orgCount } = await supabase
-        .from('integrations')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', activeOrgId)
-        .in('provider', ['openrouter', 'anthropic'])
-        .eq('is_active', true)
-      hasCopilotProvider = (orgCount ?? 0) > 0
+      const [{ data: orgData }, { count: orgProviderCount }] = await Promise.all([
+        supabase
+          .from('organizations')
+          .select('settings')
+          .eq('id', activeOrgId)
+          .maybeSingle(),
+        supabase
+          .from('integrations')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', activeOrgId)
+          .in('provider', ['openrouter', 'anthropic'])
+          .eq('is_active', true),
+      ])
+      const orgSettings = (orgData?.settings ?? {}) as Record<string, unknown>
+      copilotEnabled = orgSettings.copilot_enabled !== false // default true
+      hasCopilotProvider = (orgProviderCount ?? 0) > 0
     }
-    // 2. Platform-level fallback (super-admin key covers all orgs)
-    if (!hasCopilotProvider) {
+    // Platform-level key fallback (super-admin key covers all orgs)
+    if (copilotEnabled && !hasCopilotProvider) {
       const { count: platformCount } = await supabase
         .from('platform_settings')
         .select('key', { count: 'exact', head: true })
@@ -144,6 +154,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       hasCopilotProvider = (platformCount ?? 0) > 0
     }
   } catch {
+    copilotEnabled = true   // fail open
     hasCopilotProvider = false
   }
 
@@ -190,12 +201,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                       <PageTransition>{children}</PageTransition>
                     </div>
                   </main>
-                  {hasCopilotProvider && <CopilotPanel />}
+                  {copilotEnabled && <CopilotPanel hasProvider={hasCopilotProvider} />}
                 </div>
               </div>
               <OnboardingTour />
               <DialPadPanelServer />
-              {hasCopilotProvider && <CopilotShell />}
+              {copilotEnabled && <CopilotShell />}
               <PwaInstallDialog />
             </CelebrationProvider>
           </VoiceDeviceShell>
