@@ -80,6 +80,7 @@ const channelSelectedBg: Record<Exclude<Channel, 'unknown'>, string> = {
   whatsapp:  '!bg-[var(--ch-whatsapp)]/50',
   instagram: '!bg-[var(--ch-instagram)]/50',
   messenger: '!bg-[var(--ch-messenger)]/50',
+  telegram:  '!bg-sky-500/50',
   sms:       '!bg-[var(--ch-sms)]/50',
   voice:     '!bg-[var(--ch-voice)]/50',
   email:     '!bg-[var(--ch-email)]/50',

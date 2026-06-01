@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Globe, Mail, MessageSquare, User } from 'lucide-react'
+import { Globe, Mail, MessageSquare, Send, User } from 'lucide-react'
 
 // Filled phone glyph (Material Design solid style) so the channel pill renders
 // a solid shape instead of the outlined lucide variant.
@@ -26,6 +26,7 @@ export type Channel =
   | 'whatsapp'
   | 'instagram'
   | 'messenger'
+  | 'telegram'
   | 'sms'
   | 'voice'
   | 'email'
@@ -48,6 +49,7 @@ const channelMeta: Record<Channel, ChannelMeta> = {
   whatsapp:  { label: 'WhatsApp',  logoPath: '/logos/whatsapp.svg',  bg: 'bg-[var(--ch-whatsapp)]/15',  color: 'text-[var(--ch-whatsapp)]' },
   instagram: { label: 'Instagram', logoPath: '/logos/instagram.svg', bg: 'bg-[var(--ch-instagram)]/15', color: 'text-[var(--ch-instagram)]' },
   messenger: { label: 'Messenger', logoPath: '/logos/messenger.svg', bg: 'bg-[var(--ch-messenger)]/15', color: 'text-[var(--ch-messenger)]' },
+  telegram:  { label: 'Telegram',  icon: Send,                       bg: 'bg-sky-500/15',               color: 'text-sky-400' },
   sms:       { label: 'SMS',       icon: SmsFilled,                  bg: 'bg-[var(--ch-sms)]/15',       color: 'text-[var(--ch-sms)]' },
   voice:     { label: 'Voice',     icon: PhoneFilled,                bg: 'bg-[var(--ch-voice)]/15',     color: 'text-[var(--ch-voice)]' },
   email:     { label: 'Email',     icon: Mail,                       bg: 'bg-[var(--ch-email)]/15',     color: 'text-[var(--ch-email)]' },

@@ -58,11 +58,58 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useBreadcrumbOverride } from "@/components/layout/breadcrumb-override-context";
 import { DndBadge } from "@/components/contacts/dnd-badge";
+import { ChannelBadge, type Channel } from "@/components/design-system/channel-badge";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import type { ContactListRow } from "@/app/(dashboard)/contacts/actions";
 
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
+const CHANNEL_LABEL: Record<Channel, string> = {
+  whatsapp: "WhatsApp", instagram: "Instagram", messenger: "Messenger",
+  telegram: "Telegram", sms: "SMS", voice: "Voice", email: "Email",
+  web: "Web", direct: "Direct", unknown: "Channel",
+};
+
+/** Up to 3 channel icons; a "⋯" chip with a tooltip lists any extras. */
+function ContactChannels({ channels }: { channels: Channel[] }) {
+  if (!channels || channels.length === 0) {
+    return <span className="text-[12.5px] text-text-tertiary">-</span>;
+  }
+  const shown = channels.slice(0, 3);
+  const rest = channels.slice(3);
+  return (
+    <TooltipProvider delayDuration={150}>
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {shown.map((c) => (
+          <Tooltip key={c}>
+            <TooltipTrigger asChild>
+              <span><ChannelBadge channel={c} showLabel={false} size="sm" /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{CHANNEL_LABEL[c]}</TooltipContent>
+          </Tooltip>
+        ))}
+        {rest.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] bg-bg-tertiary px-1 text-[11px] font-semibold leading-none text-text-secondary">
+                <MoreHorizontal className="h-3 w-3" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{rest.map((c) => CHANNEL_LABEL[c]).join(", ")}</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}
+
 interface ContactsTableProps {
-  rows: ContactRow[];
+  rows: ContactListRow[];
   total: number;
   page: number;
   pageSize: number;
@@ -436,6 +483,11 @@ export function ContactsTable({
                         )}
                       </div>
                     )}
+                    {c.channels.length > 0 && (
+                      <div className="mt-1.5">
+                        <ContactChannels channels={c.channels} />
+                      </div>
+                    )}
                   </div>
                   <div className="self-start pt-1 text-right text-[11.5px] text-text-tertiary whitespace-nowrap">
                     {relativeTime(c.created_at)}
@@ -451,7 +503,7 @@ export function ContactsTable({
           <div
             className="grid items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary"
             style={{
-              gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
+              gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
             }}
           >
             <Checkbox
@@ -463,6 +515,7 @@ export function ContactsTable({
             <SortableColumnHeader column="phone" label="Phone" />
             <SortableColumnHeader column="email" label="Email" />
             <div>Tags</div>
+            <div>Channels</div>
             {visibleDefs.map((def) => (
               <div key={def.id}>{def.label}</div>
             ))}
@@ -498,7 +551,7 @@ export function ContactsTable({
                       "opacity-30 -translate-x-2 pointer-events-none",
                   )}
                   style={{
-                    gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
+                    gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
                   }}
                 >
                   <div onClick={(e) => e.stopPropagation()}>
@@ -594,6 +647,7 @@ export function ContactsTable({
                       </span>
                     )}
                   </div>
+                  <ContactChannels channels={c.channels} />
                   {visibleDefs.map((def) => {
                     const cf = (c.custom_fields ?? {}) as Record<
                       string,

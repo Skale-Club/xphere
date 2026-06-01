@@ -20,6 +20,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritable } from '@/lib/demo/guard'
 import { requirePermission } from '@/lib/rbac/server'
 import type { Database, ContactSource, ChannelProvider } from '@/types/database'
+import type { Channel } from '@/components/design-system/channel-badge'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { FIELD_RENDER_CONFIG } from '@/lib/custom-fields/render-config'
 import type { CustomFieldType } from '@/types/database'
@@ -62,6 +63,62 @@ const CHANNEL_TO_PROVIDER: Record<string, ChannelProvider> = {
 
 type ContactRow = Database['public']['Tables']['contacts']['Row']
 
+// ── Reachable channels for the Contacts list "Channels" column ──────────────
+// "Reachable from the contact's own data": email, phone (→ SMS + WhatsApp), plus
+// social channels the contact has an identity on. Not gated by org integrations.
+const PROVIDER_TO_CHANNEL: Partial<Record<ChannelProvider, Channel>> = {
+  whatsapp: 'whatsapp',
+  evolution: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  facebook: 'messenger',
+  telegram: 'telegram',
+  webchat: 'web',
+  vapi: 'voice',
+  // zernio: resolved from the external_id platform prefix below.
+}
+
+// Zernio identities store provider='zernio'; the platform lives in the
+// external_id prefix ("whatsapp:acct:participant" / "...:contact:id").
+const PLATFORM_TO_CHANNEL: Record<string, Channel> = {
+  whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  facebook: 'messenger',
+  messenger: 'messenger',
+  telegram: 'telegram',
+}
+
+const CHANNEL_PRIORITY: Channel[] = [
+  'whatsapp', 'sms', 'email', 'instagram', 'messenger', 'telegram', 'voice', 'web',
+]
+
+function deriveContactChannels(row: {
+  email?: string | null
+  phone?: string | null
+  phone_e164?: string | null
+  contact_channel_identities?: { provider: ChannelProvider; external_id?: string | null }[] | null
+}): Channel[] {
+  const set = new Set<Channel>()
+  if (row.email) set.add('email')
+  if (row.phone_e164 || row.phone) {
+    set.add('sms')
+    set.add('whatsapp')
+  }
+  for (const id of row.contact_channel_identities ?? []) {
+    if (id.provider === 'zernio') {
+      const platform = (id.external_id ?? '').split(':')[0]
+      const ch = PLATFORM_TO_CHANNEL[platform]
+      if (ch) set.add(ch)
+      continue
+    }
+    const ch = PROVIDER_TO_CHANNEL[id.provider]
+    if (ch) set.add(ch)
+  }
+  return CHANNEL_PRIORITY.filter((c) => set.has(c))
+}
+
+export type ContactListRow = ContactRow & { channels: Channel[] }
+
 /**
  * Source of the dedup match when {@link createContact} returns `existed: true`.
  *
@@ -76,7 +133,7 @@ type ContactRow = Database['public']['Tables']['contacts']['Row']
 export type MatchedVia = 'phone' | 'email' | 'both_same' | 'multi_conflict' | null
 
 export interface ContactListResult {
-  rows: ContactRow[]
+  rows: ContactListRow[]
   total: number
   page: number
   pageSize: number
@@ -114,7 +171,10 @@ export async function getContacts(
     opportunity_count: 0,
   }))
 
-  let query = supabase.from('contacts').select('*', { count: 'exact' })
+  // Embed channel identities (one query, no N+1) to derive the Channels column.
+  let query = supabase
+    .from('contacts')
+    .select('*, contact_channel_identities(provider, external_id)', { count: 'exact' })
 
   if (f.q) {
     const escaped = f.q.replace(/[%_]/g, (m) => `\\${m}`)
@@ -193,8 +253,15 @@ export async function getContacts(
     return { rows: [], total: 0, page: f.page, pageSize: f.pageSize, allTags }
   }
 
+  const rows: ContactListRow[] = (data as Array<ContactRow & {
+    contact_channel_identities?: { provider: ChannelProvider; external_id?: string | null }[] | null
+  }>).map((r) => {
+    const { contact_channel_identities, ...rest } = r
+    return { ...(rest as ContactRow), channels: deriveContactChannels(r) }
+  })
+
   return {
-    rows: data,
+    rows,
     total: count ?? 0,
     page: f.page,
     pageSize: f.pageSize,
