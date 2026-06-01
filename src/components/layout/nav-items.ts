@@ -14,7 +14,6 @@ import {
   FolderKanban,
   BarChart3,
   MonitorPlay,
-  Plug,
 } from 'lucide-react'
 
 export type NavItem = {
@@ -35,11 +34,9 @@ export type NavItem = {
 /**
  * Single source of truth for top-level nav. Sidebar + breadcrumb both consume this.
  *
- * Knowledge and Email Templates intentionally live in /settings (tenant
- * configuration), not in the daily-use sidebar — they're set-up surfaces, not
- * workflows operators reach for every day. Integrations is surfaced directly in
- * the sidebar (Manage group) so the channel connections that power Chat,
- * Calls and Campaigns are one click away.
+ * Knowledge, Email Templates and Integrations intentionally live in /settings
+ * (tenant configuration), not in the daily-use sidebar — they're set-up
+ * surfaces, not workflows operators reach for every day.
  */
 export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview', permission: 'dashboard.view' },
@@ -57,7 +54,6 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view' },
   { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build',    permission: 'scheduling.view' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view' },
-  { icon: Plug,            label: 'Integrations', href: '/integrations', group: 'manage',   permission: 'integrations.view' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [

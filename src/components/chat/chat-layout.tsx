@@ -651,7 +651,12 @@ export function ChatLayout({
 
   async function handleSendMessage(
     content: string,
-    opts?: { channel?: string; conversationId?: string; subject?: string },
+    opts?: {
+      channel?: string
+      conversationId?: string
+      subject?: string
+      media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
+    },
   ) {
     if (!selectedId) return
     const targetId = opts?.conversationId ?? selectedId
@@ -664,6 +669,7 @@ export function ChatLayout({
       content,
       createdAt: new Date().toISOString(),
       channel: opts?.channel ?? null,
+      ...(opts?.media?.length ? { metadata: { media: opts.media } } : {}),
     }
     if (isCurrentThread) setMessages((prev) => [...prev, tempMsg])
     updateConversationPreview(tempMsg)
@@ -672,7 +678,7 @@ export function ChatLayout({
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject }),
+        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject, media: opts?.media }),
       })
       if (!res.ok) throw new Error(await readSendFailure(res))
       const data = await res.json().catch(() => null)

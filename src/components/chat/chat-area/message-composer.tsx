@@ -52,7 +52,12 @@ export type ComposerChannel = {
 interface MessageComposerProps {
   onSendMessage: (
     content: string,
-    opts?: { channel?: string; conversationId?: string; subject?: string },
+    opts?: {
+      channel?: string
+      conversationId?: string
+      subject?: string
+      media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
+    },
   ) => Promise<void>
   /** Optional | fired (debounced ~500ms) while the user is typing. */
   onTyping?: () => void
@@ -249,19 +254,45 @@ export function MessageComposer({
 
   async function handleSend() {
     const content = value.trim()
-    if (!content || isSending || disabled) return
+    if ((!content && attachments.length === 0) || isSending || disabled) return
     const activeOption = availableChannels.find((ch) => ch.channel === activeChannel)
+    const filesToSend = attachments
     setValue('')
     setSendError(null)
     setIsSending(true)
     // SEED-040: tiny haptic confirmation on send (no-op on desktop / iOS).
     haptic(10)
     try {
+      // Upload any attachments first → public chat-media URLs to send as media.
+      let media:
+        | Array<{ url: string; mime_type: string; size?: number; filename?: string }>
+        | undefined
+      if (filesToSend.length > 0) {
+        media = []
+        for (const file of filesToSend) {
+          const fd = new FormData()
+          fd.append('file', file)
+          const res = await fetch('/api/chat/upload', { method: 'POST', body: fd })
+          if (!res.ok) {
+            const msg = (await res.json().catch(() => null))?.error ?? 'Upload failed'
+            throw new Error(msg)
+          }
+          const { url } = (await res.json()) as { url: string }
+          media.push({
+            url,
+            mime_type: file.type || 'application/octet-stream',
+            size: file.size,
+            filename: file.name,
+          })
+        }
+      }
       await onSendMessage(content, {
         channel: activeOption?.channel ?? activeChannel,
         conversationId: activeOption?.conversationId,
         subject: isEmail ? subject.trim() || undefined : undefined,
+        media,
       })
+      setAttachments([])
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Message was not sent.'
       setSendError(message)

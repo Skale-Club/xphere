@@ -116,12 +116,26 @@ export async function sendSms(
 
   const to = String(params.to ?? '')
   const body = String(params.body ?? params.message ?? '')
+  // MMS: optional public media URLs (e.g. Supabase chat-media public URLs).
+  // Twilio accepts up to 10 repeated `MediaUrl` parameters per message and the
+  // URLs must be publicly reachable so Twilio can fetch them.
+  const mediaUrls = Array.isArray(params.media_urls)
+    ? (params.media_urls as unknown[]).filter(
+        (u): u is string => typeof u === 'string' && u.length > 0,
+      )
+    : []
 
   if (!to) throw new Error('send_sms requires a "to" phone number parameter.')
-  if (!body) throw new Error('send_sms requires a "body" message parameter.')
+  if (!body && mediaUrls.length === 0) {
+    throw new Error('send_sms requires a "body" message or at least one media URL.')
+  }
 
   const basicAuth = btoa(`${creds.accountSid}:${creds.authToken}`)
   const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Messages.json`
+
+  const form = new URLSearchParams({ To: to, From: creds.fromNumber })
+  if (body) form.set('Body', body)
+  for (const mediaUrl of mediaUrls) form.append('MediaUrl', mediaUrl)
 
   const res = await fetch(url, {
     method: 'POST',
@@ -129,11 +143,7 @@ export async function sendSms(
       Authorization: `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      To: to,
-      From: creds.fromNumber,
-      Body: body,
-    }).toString(),
+    body: form.toString(),
     cache: 'no-store',
   })
 

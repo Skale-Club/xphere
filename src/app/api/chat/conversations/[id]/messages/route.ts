@@ -326,20 +326,16 @@ export async function POST(
         400,
       )
     }
-    if (media?.length && !content) {
-      return sendError(
-        'sms_media_not_supported',
-        'SMS attachments are not supported yet. Add text to send this as an SMS.',
-        400,
-      )
-    }
-    // Text-only for now (media via Twilio MMS is a separate follow-up).
-    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
+    // MMS: forward the public media URLs to Twilio. Don't prefix the operator
+    // name when there's no text (media-only message).
+    const mediaUrls = media?.map((m) => m.url) ?? []
+    const outboundContent = operatorName && content ? `${operatorName}:\n${content}` : content
     try {
       await sendSms(
         {
           to,
           body: outboundContent,
+          media_urls: mediaUrls,
           phone_number_id: conv.phone_number_id ?? undefined,
         },
         {
