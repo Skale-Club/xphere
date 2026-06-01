@@ -15,6 +15,7 @@ import {
   updateWorkflow,
 } from '@/app/(dashboard)/workflows/flows/_actions/workflows'
 import { runFlowNow } from '@/app/(dashboard)/workflows/flows/_actions/runs'
+import { RunsDialog } from '@/components/flows/runs-dialog'
 import { cn } from '@/lib/utils'
 
 interface FlowToolbarProps {
@@ -29,6 +30,8 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
   const [isRunning, startRun] = useTransition()
   const [name, setName] = useState(workflowName)
   const [editing, setEditing] = useState(false)
+  const [runsOpen, setRunsOpen] = useState(false)
+  const [runsInitialId, setRunsInitialId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { setSegmentLabel } = useBreadcrumbOverride()
 
@@ -106,7 +109,9 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
       } else {
         toast.error('Run failed | check run history')
       }
-      router.push(`/automations/flows/runs/${result.data.runId}`)
+      // Open the Runs modal straight to this run's detail (no page navigation).
+      setRunsInitialId(result.data.runId)
+      setRunsOpen(true)
     })
   }
 
@@ -183,11 +188,14 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
           showLabel
         />
         <div className="w-px h-4 bg-border mx-1" />
-        <Button asChild size="sm" variant="ghost" className="gap-1.5 px-2">
-          <Link href={`/workflows/flows/${workflowId}/runs`}>
-            <History className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Runs</span>
-          </Link>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1.5 px-2"
+          onClick={() => setRunsOpen(true)}
+        >
+          <History className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Runs</span>
         </Button>
         <Button
           size="sm"
@@ -204,6 +212,17 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
           <span className="hidden sm:inline">Save</span>
         </Button>
       </div>
+
+      <RunsDialog
+        open={runsOpen}
+        onOpenChange={(o) => {
+          setRunsOpen(o)
+          if (!o) setRunsInitialId(null)
+        }}
+        workflowId={workflowId}
+        workflowName={name}
+        initialRunId={runsInitialId}
+      />
     </div>
   )
 }
