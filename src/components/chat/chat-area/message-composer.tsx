@@ -370,11 +370,14 @@ export function MessageComposer({
             <Select value={activeOption.channel} onValueChange={(next) => onActiveChannelChange?.(next)}>
               {/* Trigger: icon-only badge (no colored bg) + plain label text so
                   the pill color doesn't bleed into the button background. */}
+              {/* Use a <div> wrapper — SelectTrigger base has [&>span]:line-clamp-1
+                  which applies -webkit-box (vertical) to direct span children and
+                  stacks icon + label on separate lines. */}
               <SelectTrigger className="h-7 w-auto min-w-0 gap-1.5 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0">
-                <span className="inline-flex items-center gap-1.5">
-                  <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent" />
-                  <span className="text-[11.5px] text-text-primary">{activeOption.label}</span>
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent shrink-0" />
+                  <span className="whitespace-nowrap text-[11.5px] text-text-primary">{activeOption.label}</span>
+                </div>
               </SelectTrigger>
               <SelectContent align="start" className="min-w-[150px]">
                 {availableChannels.map((ch) => (

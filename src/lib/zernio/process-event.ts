@@ -379,6 +379,29 @@ async function processMessageReceived(
   }
   if (norm.duplicate) return
 
+  // Persist sender avatar on the contact when the platform sends one.
+  // Only update when the contact has no avatar yet — never overwrite a photo
+  // the operator uploaded manually. Fire-and-forget (non-fatal).
+  const inboundPicture = msg.sender.picture ?? payload.conversation.participantPicture ?? null
+  if (contactId && inboundPicture) {
+    supabase
+      .from('contacts')
+      .select('avatar_url')
+      .eq('id', contactId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data?.avatar_url) {
+          supabase
+            .from('contacts')
+            .update({ avatar_url: inboundPicture })
+            .eq('id', contactId)
+            .then(({ error }) => {
+              if (error) console.warn('[zernio/process] avatar update failed:', error.message)
+            })
+        }
+      })
+  }
+
   await maybeRunAgentAndReply({
     supabase,
     orgId,
