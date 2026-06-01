@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useState, type ButtonHTMLAttributes } from 'react'
-import { Braces, Check, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react'
+import { Braces, Check, ChevronDown, Trash2, X } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -148,7 +148,6 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
     const t = s.nodes.find((n) => n.data.flowData.kind === 'trigger')
     return t && t.data.flowData.kind === 'trigger' ? t.data.flowData.event_type : undefined
   })
-  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   if (!node) {
     return (
@@ -275,41 +274,6 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
                 updateNodeData(node.id, { config: { ...(flow.config ?? {}), ...patch } })
               }
             />
-
-            {/* Advanced (raw JSON) is shown ONLY for actions without dedicated
-                fields — there it's the only editor. Actions with fields (Google
-                Contacts, send_email, …) have no Advanced section at all. */}
-            {!ACTION_TYPES_WITH_FIELDS.has(flow.action_type) && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                  className="flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary"
-                >
-                  {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  Advanced
-                </button>
-                {advancedOpen && (
-                  <div className="space-y-3 pt-1 pl-2 border-l border-border-subtle">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] text-text-tertiary">Config (raw JSON)</Label>
-                      <Textarea
-                        value={JSON.stringify(flow.config ?? {}, null, 2)}
-                        onChange={(e) => {
-                          try {
-                            updateNodeData(node.id, { config: JSON.parse(e.target.value) })
-                          } catch {
-                            /* ignore parse errors while typing */
-                          }
-                        }}
-                        rows={6}
-                        className="text-xs font-mono resize-none"
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </>
         )}
 
@@ -330,7 +294,7 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
         )}
 
         {flow.kind === 'wait' && (
-          {(() => {
+          (() => {
             // The schema stores mode ∈ {sleep, wait_for_event}; a sleep with an
             // `until` anchor is the "wait until a time" UX. Derive a 3-way mode.
             const waitMode: 'duration' | 'until' | 'event' =
@@ -425,7 +389,7 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
                 )}
               </>
             )
-          })()}
+          })()
         )}
 
         {flow.kind === 'agent' && (
@@ -808,26 +772,6 @@ function OffsetField({
   )
 }
 
-// Action types that render dedicated form fields in ActionConfigFields. For
-// these the raw-JSON editor is redundant (the form owns the config), so it is
-// hidden. Unmapped actions fall through to the raw JSON, which is then their
-// only editor. Keep this in sync with the switch in ActionConfigFields.
-const ACTION_TYPES_WITH_FIELDS = new Set<string>([
-  'send_whatsapp',
-  'send_email',
-  'http_request',
-  'create_contact',
-  'create_task',
-  'create_note',
-  'update_pipeline_stage',
-  'query_knowledge',
-  'execute_flow',
-  'google_contacts_create',
-  'google_contacts_update',
-  'google_contacts_find',
-  'google_contacts_delete',
-])
-
 // ── Variable picker — inserts {{token}} into a field ──────────────────────────
 
 function VariablePicker({
@@ -998,6 +942,65 @@ function ActionConfigFields({ actionType, config, onChange, variables }: ActionC
           />
         </>
       )
+
+    case 'send_sms':
+      return (
+        <>
+          <VarField
+            label="To"
+            value={get('to')}
+            onChange={(v) => onChange({ to: v })}
+            placeholder="+14155551234 or {{contact.phone}}"
+            variables={variables}
+          />
+          <VarTextareaField
+            label="Message"
+            value={get('body')}
+            onChange={(v) => onChange({ body: v })}
+            rows={4}
+            placeholder="Hi {{contact.first_name}}, …"
+            variables={variables}
+          />
+        </>
+      )
+
+    case 'send_whatsapp_template': {
+      const bodyValues = Array.isArray(config.body_values)
+        ? (config.body_values as string[]).join('\n')
+        : ''
+      return (
+        <>
+          <VarField
+            label="To"
+            value={get('to')}
+            onChange={(v) => onChange({ to: v })}
+            placeholder="+14155551234 or {{contact.phone}}"
+            variables={variables}
+          />
+          <VarField
+            label="Template ID"
+            value={get('template_id')}
+            onChange={(v) => onChange({ template_id: v })}
+            placeholder="Approved template UUID"
+            variables={variables}
+            mono
+          />
+          <VarTextareaField
+            label="Body values (one per line)"
+            value={bodyValues}
+            onChange={(v) =>
+              onChange({ body_values: v.split('\n').map((s) => s.trim()).filter(Boolean) })
+            }
+            rows={3}
+            placeholder={'{{contact.first_name}}\n{{meeting.starts_at}}'}
+            variables={variables}
+          />
+          <p className="text-[10.5px] text-text-tertiary">
+            One value per line, in order, for the template&apos;s {`{{1}}`}, {`{{2}}`}… placeholders.
+          </p>
+        </>
+      )
+    }
 
     case 'http_request':
       return (
