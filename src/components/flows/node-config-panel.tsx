@@ -136,6 +136,11 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
   const updateNodeData = useFlowStore((s) => s.updateNodeData)
   const removeNode = useFlowStore((s) => s.removeNode)
   const setSelected = useFlowStore((s) => s.setSelected)
+  // Trigger event_type drives which dynamic variables are in scope at action nodes.
+  const triggerEventType = useFlowStore((s) => {
+    const t = s.nodes.find((n) => n.data.flowData.kind === 'trigger')
+    return t && t.data.flowData.kind === 'trigger' ? t.data.flowData.event_type : undefined
+  })
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   if (!node) {
@@ -258,6 +263,7 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
             <ActionConfigFields
               actionType={flow.action_type}
               config={flow.config ?? {}}
+              variables={variablesForTrigger(triggerEventType)}
               onChange={(patch) =>
                 updateNodeData(node.id, { config: { ...(flow.config ?? {}), ...patch } })
               }
@@ -694,13 +700,143 @@ const ACTION_TYPES_WITH_FIELDS = new Set<string>([
   'google_contacts_delete',
 ])
 
+// ── Variable picker — inserts {{token}} into a field ──────────────────────────
+
+function VariablePicker({
+  variables,
+  onInsert,
+}: {
+  variables: VariableGroup[]
+  onInsert: (token: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  if (variables.length === 0) return null
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title="Insert a dynamic field"
+          className="flex h-5 shrink-0 items-center gap-1 rounded px-1.5 text-[10px] font-medium text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+        >
+          <Braces className="h-3 w-3" />
+          Variable
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="end" side="bottom">
+        <Command>
+          <CommandInput placeholder="Search fields…" className="h-8 text-xs" />
+          <CommandList className="max-h-64">
+            <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">
+              No field found.
+            </CommandEmpty>
+            {variables.map((g) => (
+              <CommandGroup key={g.label} heading={g.label}>
+                {g.items.map((it) => (
+                  <CommandItem
+                    key={it.token}
+                    value={`${it.label} ${it.token}`}
+                    onSelect={() => { onInsert(it.token); setOpen(false) }}
+                    className="flex items-center justify-between gap-2 text-xs py-1.5"
+                  >
+                    <span className="truncate">{it.label}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-text-tertiary">
+                      {`{{${it.token}}}`}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function FieldLabelRow({
+  label,
+  variables,
+  onInsert,
+}: {
+  label: string
+  variables: VariableGroup[]
+  onInsert: (token: string) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <Label className="text-[11px] text-text-tertiary">{label}</Label>
+      <VariablePicker variables={variables} onInsert={onInsert} />
+    </div>
+  )
+}
+
+function VarField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  variables,
+  mono,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  variables: VariableGroup[]
+  mono?: boolean
+}) {
+  return (
+    <div className="space-y-1.5">
+      <FieldLabelRow label={label} variables={variables} onInsert={(t) => onChange(appendVariableToken(value, t))} />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn('h-8 text-xs', mono && 'font-mono')}
+      />
+    </div>
+  )
+}
+
+function VarTextareaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  variables,
+  rows = 2,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  variables: VariableGroup[]
+  rows?: number
+}) {
+  return (
+    <div className="space-y-1.5">
+      <FieldLabelRow label={label} variables={variables} onInsert={(t) => onChange(appendVariableToken(value, t))} />
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        className="text-xs resize-none"
+        placeholder={placeholder}
+      />
+    </div>
+  )
+}
+
 interface ActionConfigFieldsProps {
   actionType: string
   config: Record<string, unknown>
   onChange: (patch: Record<string, unknown>) => void
+  /** Dynamic fields available at this node, derived from the flow's trigger. */
+  variables: VariableGroup[]
 }
 
-function ActionConfigFields({ actionType, config, onChange }: ActionConfigFieldsProps) {
+function ActionConfigFields({ actionType, config, onChange, variables }: ActionConfigFieldsProps) {
   const get = (key: string) => (config[key] as string | undefined) ?? ''
 
   switch (actionType) {
@@ -708,36 +844,30 @@ function ActionConfigFields({ actionType, config, onChange }: ActionConfigFields
     case 'send_email':
       return (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">To</Label>
-            <Input
-              value={get('to')}
-              onChange={(e) => onChange({ to: e.target.value })}
-              placeholder={actionType === 'send_email' ? 'user@example.com or {{trigger.email}}' : '+14155551234 or {{trigger.phone}}'}
-              className="h-8 text-xs"
-            />
-          </div>
+          <VarField
+            label="To"
+            value={get('to')}
+            onChange={(v) => onChange({ to: v })}
+            placeholder={actionType === 'send_email' ? 'user@example.com' : '+14155551234'}
+            variables={variables}
+          />
           {actionType === 'send_email' && (
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-text-tertiary">Subject</Label>
-              <Input
-                value={get('subject')}
-                onChange={(e) => onChange({ subject: e.target.value })}
-                placeholder="Hi {{contact.first_name}}"
-                className="h-8 text-xs"
-              />
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Message</Label>
-            <Textarea
-              value={get('body') || get('message')}
-              onChange={(e) => onChange({ body: e.target.value, message: e.target.value })}
-              rows={4}
-              className="text-xs resize-none"
-              placeholder="Hi {{contact.first_name}}, …"
+            <VarField
+              label="Subject"
+              value={get('subject')}
+              onChange={(v) => onChange({ subject: v })}
+              placeholder="Hi {{contact.first_name}}"
+              variables={variables}
             />
-          </div>
+          )}
+          <VarTextareaField
+            label="Message"
+            value={get('body') || get('message')}
+            onChange={(v) => onChange({ body: v, message: v })}
+            rows={4}
+            placeholder="Hi {{contact.first_name}}, …"
+            variables={variables}
+          />
         </>
       )
 
@@ -758,121 +888,56 @@ function ActionConfigFields({ actionType, config, onChange }: ActionConfigFields
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">URL</Label>
-            <Input
-              value={get('url')}
-              onChange={(e) => onChange({ url: e.target.value })}
-              placeholder="https://api.example.com/endpoint"
-              className="h-8 text-xs"
-            />
-          </div>
+          <VarField
+            label="URL"
+            value={get('url')}
+            onChange={(v) => onChange({ url: v })}
+            placeholder="https://api.example.com/endpoint"
+            variables={variables}
+          />
         </>
       )
 
     case 'create_contact':
       return (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Name</Label>
-            <Input
-              value={get('name')}
-              onChange={(e) => onChange({ name: e.target.value })}
-              placeholder="{{trigger.name}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Email</Label>
-            <Input
-              value={get('email')}
-              onChange={(e) => onChange({ email: e.target.value })}
-              placeholder="{{trigger.email}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Phone</Label>
-            <Input
-              value={get('phone')}
-              onChange={(e) => onChange({ phone: e.target.value })}
-              placeholder="{{trigger.phone}}"
-              className="h-8 text-xs"
-            />
-          </div>
+          <VarField label="Name" value={get('name')} onChange={(v) => onChange({ name: v })} placeholder="{{contact.name}}" variables={variables} />
+          <VarField label="Email" value={get('email')} onChange={(v) => onChange({ email: v })} placeholder="{{contact.email}}" variables={variables} />
+          <VarField label="Phone" value={get('phone')} onChange={(v) => onChange({ phone: v })} placeholder="{{contact.phone}}" variables={variables} />
         </>
       )
 
     case 'create_task':
-    case 'create_note':
+    case 'create_note': {
+      const key = actionType === 'create_task' ? 'title' : 'content'
       return (
-        <>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">{actionType === 'create_task' ? 'Title' : 'Content'}</Label>
-            <Textarea
-              value={get(actionType === 'create_task' ? 'title' : 'content')}
-              onChange={(e) => onChange({ [actionType === 'create_task' ? 'title' : 'content']: e.target.value })}
-              rows={3}
-              className="text-xs resize-none"
-              placeholder="What needs to happen?"
-            />
-          </div>
-        </>
+        <VarTextareaField
+          label={actionType === 'create_task' ? 'Title' : 'Content'}
+          value={get(key)}
+          onChange={(v) => onChange({ [key]: v })}
+          rows={3}
+          placeholder="What needs to happen?"
+          variables={variables}
+        />
       )
+    }
 
     case 'google_contacts_create':
     case 'google_contacts_update': {
       const isUpdate = actionType === 'google_contacts_update'
       return (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">
-              Email{isUpdate ? ' (used to find the contact)' : ''}
-            </Label>
-            <Input
-              value={get('email')}
-              onChange={(e) => onChange({ email: e.target.value })}
-              placeholder="{{contact.email}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Name</Label>
-            <Input
-              value={get('name')}
-              onChange={(e) => onChange({ name: e.target.value })}
-              placeholder="{{contact.name}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Phone</Label>
-            <Input
-              value={get('phone')}
-              onChange={(e) => onChange({ phone: e.target.value })}
-              placeholder="{{contact.phone}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Company</Label>
-            <Input
-              value={get('company')}
-              onChange={(e) => onChange({ company: e.target.value })}
-              placeholder="{{contact.company}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Notes</Label>
-            <Textarea
-              value={get('notes')}
-              onChange={(e) => onChange({ notes: e.target.value })}
-              rows={2}
-              className="text-xs resize-none"
-              placeholder="{{contact.notes}}"
-            />
-          </div>
+          <VarField
+            label={`Email${isUpdate ? ' (used to find the contact)' : ''}`}
+            value={get('email')}
+            onChange={(v) => onChange({ email: v })}
+            placeholder="{{contact.email}}"
+            variables={variables}
+          />
+          <VarField label="Name" value={get('name')} onChange={(v) => onChange({ name: v })} placeholder="{{contact.name}}" variables={variables} />
+          <VarField label="Phone" value={get('phone')} onChange={(v) => onChange({ phone: v })} placeholder="{{contact.phone}}" variables={variables} />
+          <VarField label="Company" value={get('company')} onChange={(v) => onChange({ company: v })} placeholder="{{contact.company}}" variables={variables} />
+          <VarTextareaField label="Notes" value={get('notes')} onChange={(v) => onChange({ notes: v })} placeholder="{{contact.notes}}" variables={variables} />
         </>
       )
     }
@@ -880,78 +945,55 @@ function ActionConfigFields({ actionType, config, onChange }: ActionConfigFields
     case 'google_contacts_find':
       return (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Email</Label>
-            <Input
-              value={get('email')}
-              onChange={(e) => onChange({ email: e.target.value })}
-              placeholder="{{contact.email}}"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Phone (used if email is empty)</Label>
-            <Input
-              value={get('phone')}
-              onChange={(e) => onChange({ phone: e.target.value })}
-              placeholder="{{contact.phone}}"
-              className="h-8 text-xs"
-            />
-          </div>
+          <VarField label="Email" value={get('email')} onChange={(v) => onChange({ email: v })} placeholder="{{contact.email}}" variables={variables} />
+          <VarField label="Phone (used if email is empty)" value={get('phone')} onChange={(v) => onChange({ phone: v })} placeholder="{{contact.phone}}" variables={variables} />
         </>
       )
 
     case 'google_contacts_delete':
       return (
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-text-tertiary">Email (used to find the contact)</Label>
-          <Input
-            value={get('email')}
-            onChange={(e) => onChange({ email: e.target.value })}
-            placeholder="{{contact.email}}"
-            className="h-8 text-xs"
-          />
-        </div>
+        <VarField
+          label="Email (used to find the contact)"
+          value={get('email')}
+          onChange={(v) => onChange({ email: v })}
+          placeholder="{{contact.email}}"
+          variables={variables}
+        />
       )
 
     case 'update_pipeline_stage':
       return (
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-text-tertiary">Stage</Label>
-          <Input
-            value={get('stage')}
-            onChange={(e) => onChange({ stage: e.target.value })}
-            placeholder="qualified | proposal | won | lost"
-            className="h-8 text-xs"
-          />
-        </div>
+        <VarField
+          label="Stage"
+          value={get('stage')}
+          onChange={(v) => onChange({ stage: v })}
+          placeholder="qualified | proposal | won | lost"
+          variables={variables}
+        />
       )
 
     case 'query_knowledge':
       return (
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-text-tertiary">Query</Label>
-          <Textarea
-            value={get('query')}
-            onChange={(e) => onChange({ query: e.target.value })}
-            rows={3}
-            className="text-xs resize-none"
-            placeholder="What is the cancellation policy?"
-          />
-        </div>
+        <VarTextareaField
+          label="Query"
+          value={get('query')}
+          onChange={(v) => onChange({ query: v })}
+          rows={3}
+          placeholder="What is the cancellation policy?"
+          variables={variables}
+        />
       )
 
     case 'execute_flow':
       return (
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-text-tertiary">Flow ID</Label>
-          <Input
-            value={get('flow_id')}
-            onChange={(e) => onChange({ flow_id: e.target.value })}
-            placeholder="flow_xxx"
-            className="h-8 text-xs font-mono"
-          />
-        </div>
+        <VarField
+          label="Flow ID"
+          value={get('flow_id')}
+          onChange={(v) => onChange({ flow_id: v })}
+          placeholder="flow_xxx"
+          variables={variables}
+          mono
+        />
       )
 
     default:
