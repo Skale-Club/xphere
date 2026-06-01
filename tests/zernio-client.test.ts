@@ -27,6 +27,31 @@ describe('Zernio REST client contracts', () => {
     )
   })
 
+  it('sends Zernio DM attachments with attachmentUrl and attachmentType', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: { messageId: 'msg-2' } }), { status: 200 }),
+    )
+
+    await sendZernioDm('conv-1', 'acct-1', 'Voice note', 'ze_key', {
+      attachment: { url: 'https://xphere.app/audio.ogg', mime_type: 'audio/ogg; codecs=opus' },
+      voiceNote: true,
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://zernio.com/api/v1/inbox/conversations/conv-1/messages',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          accountId: 'acct-1',
+          message: 'Voice note',
+          attachmentUrl: 'https://xphere.app/audio.ogg',
+          attachmentType: 'audio',
+          voiceNote: true,
+        }),
+      }),
+    )
+  })
+
   it('replies to comments through the comments endpoint', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ success: true, data: { commentId: 'reply-1' } }), { status: 200 }),

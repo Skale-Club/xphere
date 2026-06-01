@@ -102,6 +102,7 @@ export interface ContactInfoPanelProps {
   fallbackName?: string | null
   fallbackPhone?: string | null
   fallbackEmail?: string | null
+  onContactUpdated?: (contact: Pick<ContactDetail, 'id' | 'first_name' | 'last_name' | 'name' | 'phone' | 'email' | 'avatar_url'>) => void
   onClose?: () => void
   onCollapse?: () => void
 }
@@ -169,8 +170,8 @@ function availableChannelsForContact(contact: ContactDetail): ReachChannel[] {
     out.push({
       channel: 'whatsapp',
       label: 'WhatsApp',
-      active: Boolean(firstByChannel('whatsapp', 'ghl_whatsapp')),
-      conversationId: firstByChannel('whatsapp', 'ghl_whatsapp'),
+      active: Boolean(firstByChannel('whatsapp', 'ghl_whatsapp', 'zernio_whatsapp')),
+      conversationId: firstByChannel('whatsapp', 'ghl_whatsapp', 'zernio_whatsapp'),
     })
     out.push({
       channel: 'sms',
@@ -181,11 +182,11 @@ function availableChannelsForContact(contact: ContactDetail): ReachChannel[] {
     const voiceConv = firstByChannel('voice')
     if (voiceConv) out.push({ channel: 'voice', label: 'Voice', active: true, conversationId: voiceConv })
   }
-  const messengerConv = firstByChannel('messenger')
+  const messengerConv = firstByChannel('messenger', 'zernio_facebook')
   if (messengerConv) {
     out.push({ channel: 'messenger', label: 'Messenger', active: true, conversationId: messengerConv })
   }
-  const instaConv = firstByChannel('instagram')
+  const instaConv = firstByChannel('instagram', 'zernio_instagram')
   if (instaConv) {
     out.push({ channel: 'instagram', label: 'Instagram', active: true, conversationId: instaConv })
   }
@@ -202,6 +203,7 @@ export function ContactInfoPanel({
   fallbackName,
   fallbackPhone,
   fallbackEmail,
+  onContactUpdated,
   onClose,
   onCollapse,
 }: ContactInfoPanelProps) {
@@ -300,33 +302,37 @@ export function ContactInfoPanel({
       if (!contactId) throw new Error('No contact')
       const res = await updateContactField(contactId, { field, value })
       if (!res.ok) throw new Error(res.error ?? 'Save failed')
+      const current = contact
       // Update local state with the new value so subsequent renders pick it up
       // without a full refetch.
-      setContact((prev) => {
-        if (!prev) return prev
+      if (current) {
+        let nextContact: ContactDetail = current
         if (field === 'first_name') {
-          const next = { ...prev, first_name: value || null }
-          return { ...next, name: displayContactName(next, '') || null }
-        }
-        if (field === 'last_name') {
-          const next = { ...prev, last_name: value || null }
-          return { ...next, name: displayContactName(next, '') || null }
-        }
-        if (field === 'name') return { ...prev, name: value || null }
-        if (field === 'phone') return { ...prev, phone: value || null }
-        if (field === 'email') return { ...prev, email: value || null }
-        if (field === 'company') return { ...prev, company: value || null }
-        if (field.startsWith('custom_fields.')) {
+          const next = { ...current, first_name: value || null }
+          nextContact = { ...next, name: displayContactName(next, '') || null }
+        } else if (field === 'last_name') {
+          const next = { ...current, last_name: value || null }
+          nextContact = { ...next, name: displayContactName(next, '') || null }
+        } else if (field === 'name') {
+          nextContact = { ...current, name: value || null }
+        } else if (field === 'phone') {
+          nextContact = { ...current, phone: value || null }
+        } else if (field === 'email') {
+          nextContact = { ...current, email: value || null }
+        } else if (field === 'company') {
+          nextContact = { ...current, company: value || null }
+        } else if (field.startsWith('custom_fields.')) {
           const key = field.slice('custom_fields.'.length)
-          const cf = { ...((prev.custom_fields as Record<string, unknown> | null) ?? {}) }
+          const cf = { ...((current.custom_fields as Record<string, unknown> | null) ?? {}) }
           if (value.trim() === '') delete cf[key]
           else cf[key] = value
-          return { ...prev, custom_fields: cf }
+          nextContact = { ...current, custom_fields: cf }
         }
-        return prev
-      })
+        setContact(nextContact)
+        onContactUpdated?.(nextContact)
+      }
     },
-    [contactId],
+    [contact, contactId, onContactUpdated],
   )
 
   if (!contactId) {

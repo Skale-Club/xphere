@@ -173,6 +173,34 @@ export async function POST(
   // Email subject: operator-provided, else a sensible default.
   const emailSubject = parsed.data.subject?.trim() || 'New message'
 
+  // SEED-039 multichannel: a message may be sent on a channel different from the
+  // conversation's primary channel (e.g. reply by Email inside an SMS thread).
+  // Native channels (recipient derived from the contact) route by the per-message
+  // channel; provider-bound channels (GHL/Meta/Zernio) only when it matches conv.channel.
+  const NATIVE_CHANNELS = ['sms', 'email', 'whatsapp'] as const
+  const routeChannel = (messageChannel ?? conv.channel ?? '') as string
+  const isNativeRoute = (NATIVE_CHANNELS as readonly string[]).includes(routeChannel)
+
+  // Resolve the recipient from the contact when the conversation's own visitor_*
+  // doesn't carry it (cross-channel send within the same thread).
+  let contactPhone: string | null = null
+  let contactEmail: string | null = null
+  if (isNativeRoute && conv.contact_id) {
+    const needPhone = (routeChannel === 'sms' || routeChannel === 'whatsapp') && !conv.visitor_phone
+    const needEmail = routeChannel === 'email' && !conv.visitor_email
+    if (needPhone || needEmail) {
+      const { data: c } = await supabase
+        .from('contacts')
+        .select('phone_e164, phone, email')
+        .eq('id', conv.contact_id)
+        .maybeSingle()
+      contactPhone = c?.phone_e164 ?? c?.phone ?? null
+      contactEmail = c?.email ?? null
+    }
+  }
+  // Recipient email actually used (for stamping email_to on the persisted row).
+  let emailTo: string | null = null
+
   // Require either content or media
   if (!content && (!media || media.length === 0)) {
     return Response.json({ error: 'Either content or media is required' }, { status: 400 })
@@ -219,7 +247,7 @@ export async function POST(
   // Widget / web: no outbound call needed | SSE picks up the persisted message.
   // Messenger / Instagram: call Meta Send API synchronously.
   // GHL (ghl_sms / ghl_whatsapp): send via GHL Conversations API.
-  if (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp') {
+  if (routeChannel === conv.channel && (conv.channel === 'ghl_sms' || conv.channel === 'ghl_whatsapp')) {
     const metadata = conv.channel_metadata as Record<string, string>
     const locationId = metadata.location_id
     const contactId = metadata.contact_id
@@ -264,7 +292,7 @@ export async function POST(
     }
   }
 
-  if (conv.channel === 'messenger' || conv.channel === 'instagram') {
+  if (routeChannel === conv.channel && (conv.channel === 'messenger' || conv.channel === 'instagram')) {
     const metadata = conv.channel_metadata as Record<string, string>
     const pageId = metadata.page_id
 
@@ -320,9 +348,9 @@ export async function POST(
   // Native Twilio SMS: send via the org's Twilio credentials. The recipient is
   // the conversation's visitor phone (set when the thread was created/opened
   // for the contact) or the stored to_number.
-  if (conv.channel === 'sms') {
+  if (routeChannel === 'sms') {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
-    const to = conv.visitor_phone ?? metadata.to_number ?? ''
+    const to = conv.visitor_phone ?? metadata.to_number ?? contactPhone ?? ''
     if (!to) {
       return sendError(
         'sms_no_recipient',
@@ -357,15 +385,16 @@ export async function POST(
   }
 
   // Email: send via the org's Resend (tenant) integration.
-  if (conv.channel === 'email') {
-    const to = conv.visitor_email ?? ''
+  if (routeChannel === 'email') {
+    const to = conv.visitor_email ?? contactEmail ?? ''
     if (!to) {
       return sendError(
         'email_no_recipient',
-        'This conversation has no recipient email address. Add an email before sending.',
+        'This contact has no email address. Add an email before sending.',
         400,
       )
     }
+    emailTo = to
     const safe = content
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -380,9 +409,9 @@ export async function POST(
 
   // Native WhatsApp (Evolution or Meta Cloud). The route already persisted the
   // message row above, so we use the low-level senders (no extra persistence).
-  if (conv.channel === 'whatsapp') {
+  if (routeChannel === 'whatsapp') {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
-    const to = conv.visitor_phone ?? metadata.to_number ?? metadata.sender_jid ?? ''
+    const to = conv.visitor_phone ?? metadata.to_number ?? metadata.sender_jid ?? contactPhone ?? ''
     if (!to) {
       return sendError(
         'wa_no_recipient',
@@ -415,7 +444,7 @@ export async function POST(
   }
 
   // Zernio unified social inbox (Instagram, Facebook, LinkedIn, TikTok, etc.)
-  if (isZernioChannel(conv.channel)) {
+  if (routeChannel === conv.channel && isZernioChannel(conv.channel)) {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const zernioAccountId = metadata.account_id ?? ''
 
@@ -466,8 +495,28 @@ export async function POST(
           )
         }
 
-        const { messageId } = await sendZernioDm(zernioConversationId, zernioAccountId, content, apiKey)
-        if (messageId) deliveryMetadata.zernio_message_id = messageId
+        const sentIds: string[] = []
+        if (media?.length) {
+          for (const [index, item] of media.entries()) {
+            const isWhatsAppVoice =
+              conv.channel === 'zernio_whatsapp' &&
+              item.mime_type.startsWith('audio/') &&
+              item.mime_type.includes('ogg')
+            const { messageId } = await sendZernioDm(
+              zernioConversationId,
+              zernioAccountId,
+              index === 0 ? content : '',
+              apiKey,
+              { attachment: item, voiceNote: isWhatsAppVoice },
+            )
+            if (messageId) sentIds.push(messageId)
+          }
+        } else {
+          const { messageId } = await sendZernioDm(zernioConversationId, zernioAccountId, content, apiKey)
+          if (messageId) sentIds.push(messageId)
+        }
+        if (sentIds.length === 1) deliveryMetadata.zernio_message_id = sentIds[0]
+        if (sentIds.length > 1) deliveryMetadata.zernio_message_ids = sentIds
       }
     } catch (err) {
       console.error('[POST messages] Zernio send error:', err)
@@ -476,10 +525,14 @@ export async function POST(
     }
   }
 
-  if (!isZernioChannel(conv.channel) && !['widget', 'web', 'sms', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram', 'email', 'whatsapp'].includes(conv.channel)) {
+  const providerRoute =
+    routeChannel === conv.channel &&
+    (isZernioChannel(conv.channel) ||
+      ['widget', 'web', 'ghl_sms', 'ghl_whatsapp', 'messenger', 'instagram'].includes(conv.channel))
+  if (!isNativeRoute && !providerRoute) {
     return sendError(
       'channel_not_sendable',
-      `The ${conv.channel || 'selected'} channel is not configured for outbound messages.`,
+      `The ${routeChannel || 'selected'} channel is not configured for outbound messages.`,
       400,
     )
   }
@@ -500,8 +553,8 @@ export async function POST(
       message_type: messageType,
       channel: messageChannel,
       ...(Object.keys(finalMetadata).length > 0 ? { metadata: finalMetadata } : {}),
-      ...(conv.channel === 'email'
-        ? { email_subject: emailSubject, email_to: conv.visitor_email }
+      ...(routeChannel === 'email'
+        ? { email_subject: emailSubject, email_to: emailTo }
         : {}),
     })
     .select('id, conversation_id, role, content, created_at, metadata, channel')

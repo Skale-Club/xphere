@@ -16,6 +16,7 @@ import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
+import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import type {
   ZernioCommentReceivedPayload,
   ZernioMessageReceivedPayload,
@@ -36,12 +37,60 @@ function identityKey(platform: string, accountId: string, participantId: string)
   return `${platform}:${accountId}:${participantId}`
 }
 
+function zernioContactIdentityKey(platform: string, accountId: string, contactId: string): string {
+  return `${platform}:${accountId}:contact:${contactId}`
+}
+
 function contactSourceForPlatform(platform: string): 'manual' | 'whatsapp' | 'instagram' | 'facebook' | 'messenger' {
   if (platform === 'whatsapp') return 'whatsapp'
   if (platform === 'instagram') return 'instagram'
   if (platform === 'facebook') return 'facebook'
   if (platform === 'messenger') return 'messenger'
   return 'manual'
+}
+
+function splitDisplayName(displayName: string | null): { first_name: string | null; last_name: string | null } {
+  const parts = displayName?.trim().split(/\s+/).filter(Boolean) ?? []
+  if (parts.length === 0) return { first_name: null, last_name: null }
+  return {
+    first_name: parts[0] ?? null,
+    last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
+  }
+}
+
+function mimeTypeForZernioAttachment(attachment: { type: string; payload?: Record<string, unknown> }): string {
+  const payloadMime = attachment.payload?.mimeType
+  if (typeof payloadMime === 'string' && payloadMime.trim()) return payloadMime
+  if (attachment.type === 'image') return 'image/jpeg'
+  if (attachment.type === 'audio') return 'audio/ogg'
+  if (attachment.type === 'video') return 'video/mp4'
+  return 'application/octet-stream'
+}
+
+function proxiedZernioMediaUrl(url: string): string {
+  return `/api/zernio/media?url=${encodeURIComponent(url)}`
+}
+
+function mediaLabel(attachments: Array<{ type: string }> | undefined): string {
+  const firstType = attachments?.[0]?.type
+  if (!firstType) return ''
+  if (firstType === 'audio') return 'Audio'
+  if (firstType === 'image') return 'Image'
+  if (firstType === 'video') return 'Video'
+  return 'File'
+}
+
+function messageTypeForAttachments(
+  text: string,
+  attachments: Array<{ type: string }> | undefined,
+): string {
+  if (!attachments?.length) return 'text'
+  if (text) return 'mixed'
+  const firstType = attachments[0]?.type
+  if (firstType === 'audio') return 'audio'
+  if (firstType === 'image') return 'image'
+  if (firstType === 'video') return 'video'
+  return 'document'
 }
 
 async function markWebhookEventSeen(
@@ -73,6 +122,8 @@ async function resolveOrCreateChannelContact({
   platform,
   accountId,
   participantId,
+  zernioContactId,
+  phoneNumber,
   displayName,
 }: {
   supabase: ReturnType<typeof createServiceRoleClient>
@@ -80,21 +131,78 @@ async function resolveOrCreateChannelContact({
   platform: string
   accountId: string
   participantId: string
+  zernioContactId?: string | null
+  phoneNumber?: string | null
   displayName: string | null
 }): Promise<string | null> {
   if (!participantId || !accountId) return null
 
-  const externalId = identityKey(platform, accountId, participantId)
-  const channelHit = await findByChannelIdentity(supabase, orgId, 'zernio', externalId)
-  if (channelHit) return channelHit.contact_id
+  const identityKeys = [
+    zernioContactId ? zernioContactIdentityKey(platform, accountId, zernioContactId) : null,
+    identityKey(platform, accountId, participantId),
+  ].filter((v): v is string => Boolean(v))
+
+  const normalizedPhone = normalisePhone(phoneNumber)
+  const phoneHit = normalizedPhone
+    ? await supabase
+        .from('contacts')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('phone_e164', normalizedPhone)
+        .neq('identity_status', 'archived_duplicate')
+        .maybeSingle()
+    : { data: null }
+
+  for (const externalId of identityKeys) {
+    const channelHit = await findByChannelIdentity(supabase, orgId, 'zernio', externalId)
+    if (channelHit) {
+      if (phoneHit.data?.id && phoneHit.data.id !== channelHit.contact_id && channelHit.identity_status === 'channel_only') {
+        await supabase
+          .from('contacts')
+          .update({
+            identity_status: 'archived_duplicate',
+            merged_into_contact_id: phoneHit.data.id,
+          })
+          .eq('id', channelHit.contact_id)
+        await supabase
+          .from('contact_channel_identities')
+          .delete()
+          .eq('org_id', orgId)
+          .eq('provider', 'zernio')
+          .eq('contact_id', channelHit.contact_id)
+        for (const key of identityKeys) {
+          await attachChannelIdentity(supabase, orgId, phoneHit.data.id, 'zernio', key)
+        }
+        await supabase
+          .from('conversations')
+          .update({ contact_id: phoneHit.data.id })
+          .eq('org_id', orgId)
+          .eq('contact_id', channelHit.contact_id)
+        return phoneHit.data.id
+      }
+      return channelHit.contact_id
+    }
+  }
+
+  if (phoneHit.data?.id) {
+    for (const externalId of identityKeys) {
+      await attachChannelIdentity(supabase, orgId, phoneHit.data.id, 'zernio', externalId)
+    }
+    return phoneHit.data.id
+  }
+
+  const nameParts = splitDisplayName(displayName)
 
   const { data: created, error: insertError } = await supabase
     .from('contacts')
     .insert({
       org_id: orgId,
+      first_name: nameParts.first_name,
+      last_name: nameParts.last_name,
       name: displayName,
+      phone: normalizedPhone,
       source: contactSourceForPlatform(platform),
-      identity_status: 'channel_only',
+      identity_status: normalizedPhone ? 'identified' : 'channel_only',
     })
     .select('id')
     .single()
@@ -107,17 +215,15 @@ async function resolveOrCreateChannelContact({
   const createdContactId = created?.id ?? null
   if (!createdContactId) return null
 
-  const attached = await attachChannelIdentity(supabase, orgId, createdContactId, 'zernio', externalId)
-  if (attached?.contact_id && attached.contact_id !== createdContactId) {
-    await supabase.from('contacts').delete().eq('id', createdContactId)
-    return attached.contact_id
+  for (const externalId of identityKeys) {
+    const attached = await attachChannelIdentity(supabase, orgId, createdContactId, 'zernio', externalId)
+    if (attached?.contact_id && attached.contact_id !== createdContactId) {
+      await supabase.from('contacts').delete().eq('id', createdContactId)
+      return attached.contact_id
+    }
   }
 
   return createdContactId
-}
-
-function attachmentLabel(attachments: unknown[] | undefined): string {
-  return attachments?.length ? 'Attachment' : ''
 }
 
 export async function processZernioEvent(
@@ -166,7 +272,6 @@ async function processMessageReceived(
     null
   const messageText = msg.text ?? ''
   const channel = zernioChannel(platform)
-  const now = new Date().toISOString()
 
   if (!zernioConversationId || !zernioAccountId || !participantId) {
     console.warn('[zernio/process] Missing required message routing fields; skipping')
@@ -179,23 +284,44 @@ async function processMessageReceived(
     platform,
     accountId: zernioAccountId,
     participantId,
+    zernioContactId: msg.sender.contactId ?? payload.conversation.contactId ?? null,
+    phoneNumber: msg.sender.phoneNumber ?? null,
     displayName: senderName,
   })
 
-  const fallback = attachmentLabel(msg.attachments)
+  const fallback = mediaLabel(msg.attachments)
   const displayText = messageText || fallback
+  const sentAt = msg.sentAt || payload.timestamp || new Date().toISOString()
+  const media = msg.attachments.map((attachment) => ({
+    url: proxiedZernioMediaUrl(attachment.url),
+    original_url: attachment.url,
+    mime_type: mimeTypeForZernioAttachment(attachment),
+    filename:
+      typeof attachment.payload?.filename === 'string'
+        ? attachment.payload.filename
+        : `${attachment.type}-${attachment.payload?.id ?? zernioMessageId}`,
+    provider: 'zernio',
+    zernio_media_id: typeof attachment.payload?.id === 'string' ? attachment.payload.id : undefined,
+  }))
+  const updatePayload: Record<string, unknown> = {
+    last_message: displayText,
+    last_message_at: sentAt,
+    last_inbound_at: sentAt,
+    updated_at: new Date().toISOString(),
+    visitor_name: senderName,
+    visitor_phone: msg.sender.phoneNumber ?? null,
+  }
+  if (contactId) updatePayload.contact_id = contactId
 
   const norm = await normalizeInbound({
     supabase,
     orgId,
     channel,
-    match: { by: 'metadata', keys: { zernio_conversation_id: zernioConversationId } },
-    updatePayload: {
-      last_message: displayText,
-      last_message_at: now,
-      last_inbound_at: now,
-      updated_at: now,
+    match: {
+      by: 'metadata',
+      keys: { account_id: zernioAccountId, zernio_conversation_id: zernioConversationId },
     },
+    updatePayload,
     createPayload: {
       widget_token: '',
       channel_metadata: {
@@ -212,13 +338,14 @@ async function processMessageReceived(
       visitor_phone: msg.sender.phoneNumber ?? null,
       contact_id: contactId,
       last_message: displayText,
-      last_message_at: now,
-      last_inbound_at: now,
+      last_message_at: sentAt,
+      last_inbound_at: sentAt,
     },
     message: {
       role: 'user',
       content: messageText,
-      message_type: msg.attachments.length ? (messageText ? 'mixed' : 'document') : 'text',
+      created_at: sentAt,
+      message_type: messageTypeForAttachments(messageText, msg.attachments),
       channel,
       metadata: {
         zernio_event_id: payload.id,
@@ -228,6 +355,7 @@ async function processMessageReceived(
         account_id: zernioAccountId,
         platform,
         attachments: msg.attachments,
+        media,
       },
     },
     idempotencyMetadata: { zernio_message_id: zernioMessageId },

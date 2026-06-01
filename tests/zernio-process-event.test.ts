@@ -147,8 +147,8 @@ describe('processZernioEvent', () => {
     expect(normalizeInboundMock).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: 'org-1',
-        channel: 'zernio',
-        match: { by: 'metadata', keys: { zernio_conversation_id: 'conv-1' } },
+        channel: 'zernio_instagram',
+        match: { by: 'metadata', keys: { account_id: 'acct-1', zernio_conversation_id: 'conv-1' } },
         createPayload: expect.objectContaining({
           channel_metadata: expect.objectContaining({
             thread_type: 'dm',
@@ -182,7 +182,7 @@ describe('processZernioEvent', () => {
       expect.objectContaining({
         orgId: 'org-1',
         agentId: 'agent-1',
-        channel: 'zernio',
+        channel: 'instagram',
         userMessage: 'Oi',
         conversationId: 'xphere-conv-1',
       }),

@@ -130,17 +130,55 @@ export async function normalizeInbound(
       .select('id')
       .single()
     if (error || !created) {
-      return {
-        conversationId: '',
-        isNew: false,
-        existing: null,
-        messageId: null,
-        duplicate: false,
-        error: error?.message ?? 'conversation_insert_failed',
+      // A concurrent webhook can create the same conversation between our
+      // lookup and insert. Partial unique indexes protect the table; on that
+      // race, re-run the lookup and continue as an existing conversation.
+      if (error?.code === '23505') {
+        let retry = supabase
+          .from('conversations')
+          .select(EXISTING_COLS)
+          .eq('org_id', orgId)
+          .eq('channel', channel)
+        if (match.by === 'visitor_phone') {
+          retry = retry.eq('visitor_phone', match.phone)
+        } else if (match.by === 'metadata') {
+          for (const [k, v] of Object.entries(match.keys)) {
+            retry = retry.eq(`channel_metadata->>${k}`, v)
+          }
+        } else {
+          retry = retry.eq('contact_id', match.contactId).eq('status', 'open').order('created_at', { ascending: false })
+        }
+        const { data: racedExisting } = await retry.limit(1).maybeSingle<ExistingConversation>()
+        if (racedExisting) {
+          conversationId = racedExisting.id
+          isNew = false
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
+          }
+        } else {
+          return {
+            conversationId: '',
+            isNew: false,
+            existing: null,
+            messageId: null,
+            duplicate: false,
+            error: error.message,
+          }
+        }
+      } else {
+        return {
+          conversationId: '',
+          isNew: false,
+          existing: null,
+          messageId: null,
+          duplicate: false,
+          error: error?.message ?? 'conversation_insert_failed',
+        }
       }
+    } else {
+      conversationId = (created as { id: string }).id
+      isNew = true
     }
-    conversationId = (created as { id: string }).id
-    isNew = true
   }
 
   // Upsert-only mode: caller owns the message write.

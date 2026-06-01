@@ -79,16 +79,16 @@ const CHANNEL_MAP: Record<string, Channel> = {
 }
 
 // Reverse: design-system label → raw DB value for /api filter param
-const CHANNEL_TO_DB: Record<Channel, string> = {
-  whatsapp: 'whatsapp',
-  instagram: 'instagram',
-  messenger: 'messenger',
-  sms: 'sms',
-  voice: 'voice',
-  email: 'email',
-  web: 'widget',
-  direct: 'manual',
-  unknown: '',
+const CHANNEL_TO_DB: Record<Channel, string[]> = {
+  whatsapp: ['whatsapp', 'ghl_whatsapp', 'zernio_whatsapp'],
+  instagram: ['instagram', 'zernio_instagram'],
+  messenger: ['messenger', 'zernio_facebook'],
+  sms: ['sms', 'ghl_sms'],
+  voice: ['voice'],
+  email: ['email'],
+  web: ['widget'],
+  direct: ['manual'],
+  unknown: [],
 }
 
 type FilterId = 'all' | 'unread' | 'mine' | Channel
@@ -251,7 +251,7 @@ export function ConversationList({
     // Channel pills (multi-select) | comma-separated for the API
     if (selectedChannels.size > 0) {
       const dbValues = Array.from(selectedChannels)
-        .map((ch) => CHANNEL_TO_DB[ch])
+        .flatMap((ch) => CHANNEL_TO_DB[ch])
         .filter(Boolean)
       if (dbValues.length > 0) channel = dbValues.join(',')
     }

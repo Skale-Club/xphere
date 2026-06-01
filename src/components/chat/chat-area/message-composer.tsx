@@ -103,6 +103,15 @@ const CHANNEL_MAP: Record<string, Channel> = {
   email: 'email',
   widget: 'web',
   web: 'web',
+  zernio_instagram: 'instagram',
+  zernio_facebook: 'messenger',
+  zernio_whatsapp: 'whatsapp',
+  zernio_telegram: 'unknown',
+  zernio_linkedin: 'unknown',
+  zernio_tiktok: 'unknown',
+  zernio_twitter: 'unknown',
+  zernio_threads: 'unknown',
+  zernio_youtube: 'unknown',
 }
 
 function badgeChannel(channel?: string | null): Channel {

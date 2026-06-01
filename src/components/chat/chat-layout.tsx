@@ -132,6 +132,16 @@ function messagePreview(message: ConversationMessage): string {
   return ''
 }
 
+function contactDisplayName(contact: {
+  first_name?: string | null
+  last_name?: string | null
+  name?: string | null
+}): string | null {
+  return [contact.first_name?.trim(), contact.last_name?.trim()].filter(Boolean).join(' ')
+    || contact.name?.trim()
+    || null
+}
+
 async function readSendFailure(res: Response): Promise<string> {
   const fallback = `Failed to send message (${res.status})`
   try {
@@ -852,6 +862,33 @@ export function ChatLayout({
 
   // Selected conversation may be in either bucket on the current page, or — when
   // it lives on a page we haven't loaded — in the directly-fetched fallback.
+  const handleContactUpdated = useCallback((contact: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    name: string | null
+    phone: string | null
+    email: string | null
+    avatar_url: string | null
+  }) => {
+    const name = contactDisplayName(contact)
+    const apply = (conversation: ConversationSummary): ConversationSummary => {
+      if (conversation.contactId !== contact.id) return conversation
+      return {
+        ...conversation,
+        contactName: name,
+        visitorPhone: contact.phone ?? conversation.visitorPhone,
+        visitorEmail: contact.email ?? conversation.visitorEmail,
+        contactAvatarUrl: contact.avatar_url ?? conversation.contactAvatarUrl,
+      }
+    }
+
+    for (const conversation of [...conversations, ...pinned]) {
+      if (conversation.contactId === contact.id) upsertConversation(apply(conversation))
+    }
+    setFetchedConversation((prev) => (prev ? apply(prev) : prev))
+  }, [conversations, pinned, upsertConversation])
+
   const selected =
     conversations.find((c) => c.id === selectedId) ??
     pinned.find((c) => c.id === selectedId) ??
@@ -1005,6 +1042,7 @@ export function ChatLayout({
                 fallbackName={selected?.visitorName ?? null}
                 fallbackPhone={selected?.visitorPhone ?? null}
                 fallbackEmail={selected?.visitorEmail ?? null}
+                onContactUpdated={handleContactUpdated}
                 onCollapse={() => setInfoOpen(false)}
               />
             </div>
@@ -1092,6 +1130,7 @@ export function ChatLayout({
               fallbackName={selected?.visitorName ?? null}
               fallbackPhone={selected?.visitorPhone ?? null}
               fallbackEmail={selected?.visitorEmail ?? null}
+              onContactUpdated={handleContactUpdated}
               onClose={() => setMobileView('chat')}
             />
           </div>

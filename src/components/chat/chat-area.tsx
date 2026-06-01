@@ -30,6 +30,7 @@ import {
 import { SendTemplateDialog } from '@/components/chat/chat-area/send-template-dialog'
 import { EmptyState } from '@/components/empty-states/empty-state'
 import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import { resolveContactStartChannels } from '@/app/(dashboard)/chat/actions'
 import { getContact } from '@/app/(dashboard)/contacts/actions'
 import { DND_CHANNEL_LABELS } from '@/lib/dnd'
 
@@ -67,7 +68,6 @@ const DELIVERABLE_CHANNELS = new Set([
   'widget',
   'web',
   // Zernio per-platform channels are replyable on their own thread.
-  'zernio',
   'zernio_instagram',
   'zernio_facebook',
   'zernio_whatsapp',
@@ -187,6 +187,9 @@ export function ChatArea({
   const [activeChannel, setActiveChannel] = useState<string | null>(null)
   const [contactChannels, setContactChannels] = useState<ComposerChannel[]>([])
   const [contactChannelsLoaded, setContactChannelsLoaded] = useState(false)
+  // Multichannel: native channels (SMS/Email/WhatsApp) the contact is reachable
+  // on AND the org has connected — offered as outbound options on the SAME thread.
+  const [startChannels, setStartChannels] = useState<ComposerChannel[]>([])
   // Phase 1085 DND: track contact DND state to block composer.
   const [contactDnd, setContactDnd] = useState<{ enabled: boolean; channels: string[] }>({ enabled: false, channels: [] })
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
@@ -258,19 +261,49 @@ export function ChatArea({
     }
   }, [conversation?.contactId])
 
+  // Multichannel: surface the native channels the contact can be reached on
+  // (SMS/Email/WhatsApp, gated on org connectivity) as outbound options that
+  // send on the CURRENT thread — no separate per-channel conversation.
+  useEffect(() => {
+    let cancelled = false
+    setStartChannels([])
+    const contactId = conversation?.contactId
+    const conversationId = conversation?.id
+    if (!contactId || !conversationId) return
+
+    resolveContactStartChannels(contactId)
+      .then((res) => {
+        if (cancelled || !('options' in res)) return
+        const opts = res.options
+          .filter((o) => o.available)
+          .map((o) => ({ channel: o.channel, label: channelLabel(o.channel), conversationId }))
+        setStartChannels(opts)
+      })
+      .catch(() => {
+        /* best-effort | composer still works with thread-derived channels */
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [conversation?.contactId, conversation?.id])
+
   const composerChannelOptions = useMemo(() => {
     if (!conversation) return []
     const byChannel = new Map<string, ComposerChannel>()
     const add = (channel: string, label = channelLabel(channel), conversationId?: string) => {
+      if (channel === 'zernio') return
       if (!byChannel.has(channel)) byChannel.set(channel, { channel, label, conversationId })
     }
 
     add(conversation.channel, channelLabel(conversation.channel), conversation.id)
     for (const ch of composerChannels ?? []) add(ch.channel, ch.label, ch.conversationId)
     for (const ch of contactChannels) add(ch.channel, ch.label, ch.conversationId)
+    // Native reachable+connected channels target the current thread.
+    for (const ch of startChannels) add(ch.channel, ch.label, ch.conversationId)
 
     return Array.from(byChannel.values())
-  }, [composerChannels, contactChannels, conversation])
+  }, [composerChannels, contactChannels, startChannels, conversation])
 
   if (!conversation) {
     return (
