@@ -160,7 +160,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'zernio',
     name: 'Zernio',
-    description: 'Inbox unificado de DMs e comentários para 15+ redes sociais (Instagram, Facebook, LinkedIn, TikTok…). Conecta contas via OAuth gerenciado — sem Meta App Review.',
+    description: 'Inbox unificado de DMs e comentários para Instagram, Facebook, LinkedIn, TikTok e mais.',
     category: 'messaging',
     logo: { path: '/logos/zernio.svg', letter: 'Z', color: 'bg-[#EB3514]' },
     panelType: 'api_key',
@@ -175,13 +175,6 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
         required: true,
         placeholder: 'ze_...',
         hint: 'Encontre em Zernio → Settings → API Keys.',
-      },
-      {
-        key: 'default_profile_id',
-        label: 'Profile ID padrão',
-        type: 'text',
-        required: false,
-        hint: 'ID do profile Zernio desta org. Pode ser sobrescrito por ação.',
       },
     ],
   },
