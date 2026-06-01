@@ -19,8 +19,13 @@ const STATE_COOKIE_CLEAR_OPTIONS = {
   maxAge: 0,
 }
 
-function buildRedirect(request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, request.url))
+// Behind Coolify's reverse proxy, request.url resolves to the internal
+// origin (http://0.0.0.0:3000), which leaks into user-facing redirects.
+// Always build redirects against the canonical public origin instead.
+const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
+
+function buildRedirect(_request: NextRequest, path: string) {
+  return NextResponse.redirect(new URL(path, APP_ORIGIN))
 }
 
 async function clearStateCookie() {
@@ -100,7 +105,11 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     // D-07: redirect to integrations page with success indicator
     return buildRedirect(request, '/integrations/google-contacts?connected=true')
-  } catch {
+  } catch (err) {
+    // Surface the real cause in Coolify logs — common post-migration causes:
+    // missing GOOGLE_CLIENT_ID/SECRET, or a redirect_uri not registered in
+    // Google Cloud Console for the current host.
+    console.error('[google-callback] oauth_exchange failed:', err)
     return buildRedirect(request, '/integrations/google-contacts?error=oauth_exchange')
   }
 }
