@@ -44,6 +44,7 @@ import { setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/act
 import { validateCustomFields } from '@/lib/custom-fields'
 import { composeContactName, splitContactName } from '@/lib/contacts/names'
 import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity, hasVerifications } from '@/lib/contacts/server'
+import { syncContactToGoogle, syncContactUpdateToGoogle } from '@/lib/google-contacts/sync'
 
 /**
  * Phase 108 D-04: maps conversations.channel enum values to the corresponding
@@ -611,6 +612,22 @@ export async function createContact(
     }
   }
 
+  // Sync to Google Contacts if the integration is connected.
+  // Fire-and-forget with internal timeout/error-catching — never blocks the UI.
+  await syncContactToGoogle(
+    {
+      name:       data.name,
+      first_name: data.first_name,
+      last_name:  data.last_name,
+      email:      data.email,
+      phone:      data.phone,
+      company:    data.company,
+      notes:      data.notes,
+    },
+    orgId,
+    supabase,
+  )
+
   revalidatePath('/contacts')
   return {
     id: inserted.id,
@@ -720,6 +737,21 @@ export async function updateContact(
   }
 
   await setContactTags(id, data.tags)
+
+  // Sync updated fields back to Google Contacts (requires email to locate the record).
+  await syncContactUpdateToGoogle(
+    {
+      name:       data.name,
+      first_name: data.first_name,
+      last_name:  data.last_name,
+      email:      data.email,
+      phone:      data.phone,
+      company:    data.company,
+      notes:      data.notes,
+    },
+    orgId,
+    supabase,
+  )
 
   revalidatePath('/contacts')
   revalidatePath(`/contacts/${id}`)
