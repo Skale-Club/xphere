@@ -405,6 +405,33 @@ export async function saveIntegrationCredentials(
     revalidatePath('/settings/email')
   }
 
+  if (provider === 'zernio' && apiKey) {
+    try {
+      const { randomBytes } = await import('node:crypto')
+      const webhookToken = crypto.randomUUID()
+      const webhookSecret = randomBytes(32).toString('hex')
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
+      const webhookUrl = `${appUrl}/api/zernio/webhook?t=${webhookToken}`
+
+      const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
+      const { webhookId } = await registerZernioWebhook(apiKey, webhookUrl, webhookSecret)
+
+      await supabase
+        .from('integrations')
+        .update({
+          config: { webhook_token: webhookToken, webhook_secret: webhookSecret, webhook_id: webhookId },
+          health_status: 'connected',
+          is_active: true,
+        })
+        .eq('organization_id', orgId)
+        .eq('provider', 'zernio' as Provider)
+    } catch (err) {
+      // Don't fail the save if webhook registration fails — integration stays saved,
+      // operator can re-save to retry.
+      console.error('[saveIntegrationCredentials] Zernio webhook registration failed:', err)
+    }
+  }
+
   revalidatePath('/integrations')
   return { ok: true }
 }
