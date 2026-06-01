@@ -451,7 +451,7 @@ export function CopilotPanel() {
         )}
 
         {/* Text row */}
-        <div className="flex items-stretch gap-2">
+        <div className="flex items-stretch">
           <div className="relative flex-1">
             <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
               <Button
@@ -490,7 +490,7 @@ export function CopilotPanel() {
               onKeyDown={handleKeyDown}
               placeholder={listening ? "Listening…" : "Ask Copilot…"}
               rows={2}
-              className="min-h-[88px] flex-1 resize-none pb-10 pl-3 text-sm"
+              className="min-h-[88px] flex-1 resize-none rounded-r-none border-r-0 pb-10 pl-3 text-sm"
               disabled={sending}
             />
           </div>
@@ -499,7 +499,7 @@ export function CopilotPanel() {
               size="sm"
               onClick={handleSend}
               disabled={sending || (!input.trim() && images.length === 0)}
-              className="h-full min-h-[88px] w-10 p-0"
+              className="h-full min-h-[88px] w-10 rounded-l-none p-0"
               title="Send"
             >
               {sending ? (
@@ -638,68 +638,66 @@ export function CopilotPanel() {
           </div>
         )}
 
-        <div className="flex items-end gap-2">
+        {/* Image + mic left · textarea · send button attached right */}
+        <div className="flex items-center gap-2.5">
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-10 w-10 p-0 shrink-0"
+            className="h-12 w-12 p-0 shrink-0"
             onClick={() => mobileFileInputRef.current?.click()}
             title="Attach image"
             disabled={sending || images.length >= 4}
           >
-            <ImageSquare size={20} weight="bold" className="text-text-secondary" />
+            <ImageSquare size={24} weight="bold" className="text-text-secondary" />
           </Button>
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={listening ? "Listening…" : "Ask Copilot…"}
-            rows={1}
-            // text-base = 16px keeps iOS Safari from auto-zooming when the field
-            // gets focus. Without this, the page would zoom in and break the
-            // mobile layout. enterKeyHint hints the iOS keyboard "send" button.
-            className="flex-1 min-h-[44px] max-h-32 resize-none text-base"
-            enterKeyHint="send"
-            autoCapitalize="sentences"
-            disabled={sending || listening}
-          />
-          {input.trim() || images.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={listening ? "primary" : "ghost"}
+            className={cn(
+              "h-12 w-12 p-0 shrink-0",
+              listening
+                ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
+                : "text-text-secondary",
+            )}
+            onClick={toggleMic}
+            title={listening ? "Stop recording" : "Voice input"}
+            disabled={sending}
+          >
+            {listening ? (
+              <Square size={16} weight="fill" />
+            ) : (
+              <Microphone size={24} weight="bold" />
+            )}
+          </Button>
+          {/* Textarea + send button share a border — no gap between them */}
+          <div className="flex flex-1 items-stretch">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={listening ? "Listening…" : "Ask Copilot…"}
+              rows={1}
+              className="flex-1 min-h-[56px] max-h-40 resize-none rounded-r-none border-r-0 text-base leading-relaxed py-4 px-4"
+              enterKeyHint="send"
+              autoCapitalize="sentences"
+              disabled={sending || listening}
+            />
             <Button
               size="sm"
               onClick={handleSend}
-              disabled={sending}
-              className="h-10 w-10 p-0 shrink-0"
+              disabled={sending || (!input.trim() && images.length === 0)}
+              className="h-auto min-h-[56px] w-12 rounded-l-none p-0 shrink-0"
               title="Send"
             >
               {sending ? (
-                <CircleNotch size={20} weight="bold" className="animate-spin" />
+                <CircleNotch size={24} weight="bold" className="animate-spin" />
               ) : (
-                <PaperPlaneTilt size={20} weight="bold" />
+                <PaperPlaneTilt size={24} weight="bold" />
               )}
             </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant={listening ? "primary" : "ghost"}
-              className={cn(
-                "h-10 w-10 p-0 shrink-0",
-                listening
-                  ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30"
-                  : "text-text-secondary",
-              )}
-              onClick={toggleMic}
-              title={listening ? "Stop recording" : "Voice input"}
-              disabled={sending}
-            >
-              {listening ? (
-                <Square size={14} weight="fill" />
-              ) : (
-                <Microphone size={20} weight="bold" />
-              )}
-            </Button>
-          )}
+          </div>
         </div>
 
         {/* Recording overlay */}
