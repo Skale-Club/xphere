@@ -1,0 +1,12 @@
+-- Migration 1126: Add 'resend' to the integration_provider enum
+--
+-- The /integrations registry exposes Resend as an api_key integration, and
+-- saveIntegrationCredentials() upserts a row into `integrations` with
+-- provider='resend' (in addition to syncing tenant_email_integrations). The
+-- enum was never extended, so the insert failed with:
+--   invalid input value for enum integration_provider: "resend"
+--
+-- NOTE: PostgreSQL enum ADD VALUE cannot run inside a BEGIN/COMMIT block, but
+-- it accepts ADD VALUE IF NOT EXISTS as a standalone statement — same pattern
+-- as 1123_zernio_integration.sql and 006_api_key_admin.sql.
+ALTER TYPE public.integration_provider ADD VALUE IF NOT EXISTS 'resend';
