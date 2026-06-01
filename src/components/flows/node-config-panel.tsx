@@ -285,16 +285,18 @@ export function NodeConfigPanel({ activeIntegrations, agents = [] }: NodeConfigP
 
         {flow.kind === 'condition' && (
           <div className="space-y-1.5">
-            <Label className="text-[11px] text-text-tertiary">Condition (JSONata)</Label>
-            <Textarea
+            <VarTextareaField
+              label="Condition"
               value={flow.expression}
-              onChange={(e) => updateNodeData(node.id, { expression: e.target.value })}
-              rows={4}
-              className="text-xs font-mono resize-none"
-              placeholder="trigger.payload.amount > 100"
+              onChange={(v) => updateNodeData(node.id, { expression: v })}
+              rows={3}
+              placeholder="{{opportunity.value}} > 100"
+              variables={variablesForTrigger(triggerEventType)}
+              mono
             />
-            <p className="text-[10.5px] text-text-tertiary">
-              True → green output, false → red.
+            <p className="text-[10.5px] leading-snug text-text-tertiary">
+              Insert a field with the <strong>Variable</strong> button, then compare it
+              (e.g. <code>{'{{contact.email}}'} != &quot;&quot;</code>). True → green path, false → red.
             </p>
           </div>
         )}
@@ -916,6 +918,7 @@ function VarTextareaField({
   placeholder,
   variables,
   rows = 2,
+  mono = false,
 }: {
   label: string
   value: string
@@ -923,6 +926,7 @@ function VarTextareaField({
   placeholder?: string
   variables: VariableGroup[]
   rows?: number
+  mono?: boolean
 }) {
   return (
     <div className="space-y-1.5">
@@ -931,7 +935,7 @@ function VarTextareaField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="text-xs resize-none"
+        className={cn('text-xs resize-none', mono && 'font-mono')}
         placeholder={placeholder}
       />
     </div>
