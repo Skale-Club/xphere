@@ -182,15 +182,54 @@ describe('runFlow — lib/flows/engine.ts', () => {
     expect(vi.mocked(insertNotification)).toHaveBeenCalledWith('org-1', 'flow_failed', expect.any(Object))
   })
 
-  it('wait node does not block execution — flow succeeds', async () => {
+  it('wait node suspends the run (status waiting) and defers downstream nodes', async () => {
     const supabase = makeSupabase()
     const def = makeFlow({
       nodes: [trig(), wait(), act('a1')],
       edges: [edge('trigger', 'w1'), edge('w1', 'a1')],
     })
-    const result = await runFlow({ workflowId: 'wf-1', versionId: null, definition: def, orgId: 'org-1', supabase })
+    const result = await runFlow({ workflowId: 'wf-1', versionId: 'ver-1', definition: def, orgId: 'org-1', supabase })
+    expect(result.status).toBe('waiting')
+    // The action after the wait is NOT executed until the run resumes.
+    expect(vi.mocked(executeAction)).not.toHaveBeenCalled()
+    // A workflow_waits row was created for the suspended run.
+    expect(supabase.from).toHaveBeenCalledWith('workflow_waits')
+  })
+
+  it('resumeRun continues the flow from after the wait node', async () => {
+    const { resumeRun } = await import('@/lib/flows/engine')
+    const def = makeFlow({
+      nodes: [trig(), wait(), act('a1'), end()],
+      edges: [edge('trigger', 'w1'), edge('w1', 'a1'), edge('a1', 'end1')],
+    })
+    // Tailored supabase: run is waiting + version returns the definition.
+    const supabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'workflow_runs') {
+          return {
+            ...makeChain({ data: null, error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'run-1', org_id: 'org-1', workflow_id: 'wf-1',
+                workflow_version_id: 'ver-1', state: { steps: {} }, status: 'waiting',
+              },
+              error: null,
+            }),
+          }
+        }
+        if (table === 'workflow_versions') {
+          return {
+            ...makeChain({ data: null, error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { definition: def }, error: null }),
+          }
+        }
+        return makeChain({ data: null, error: null })
+      }),
+    } as unknown as SupabaseClient<Database>
+
+    const result = await resumeRun(supabase, { runId: 'run-1', nodeId: 'w1', event: 'meeting.confirmed' })
     expect(result.status).toBe('succeeded')
-    // action after wait is still executed
+    // The deferred action now runs.
     expect(vi.mocked(executeAction)).toHaveBeenCalledOnce()
   })
 

@@ -376,6 +376,10 @@ export function NodeConfigPanel({ activeIntegrations }: NodeConfigPanelProps) {
                       <SelectItem value="meeting.rescheduled" className="text-xs">Meeting rescheduled</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-[10.5px] leading-snug text-text-tertiary">
+                    Aguarda este evento <strong>para o contato deste fluxo</strong>. Se o timeout
+                    expirar antes, o fluxo segue marcado como expirado.
+                  </p>
                 </div>
                 {flow.event_type === 'meeting.starts_in' && (
                   <DurationField

@@ -24,6 +24,8 @@ import {
   emitOpportunityEvent,
   type OpportunityEventType,
 } from '@/lib/pipeline/events'
+import { resumeRun } from '@/lib/flows/engine'
+import { findExpiredWaits, satisfyWait } from '@/lib/flows/wait'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -196,11 +198,27 @@ export async function GET(request: Request) {
   totalDispatched += pipelineDispatched
   totalSkipped += pipelineSkipped
 
+  // ─── Wait-node timeouts: resume runs whose wait deadline passed ───────────
+  // Covers both sleep (timeout = the sleep duration) and wait_for_event that
+  // expired without the event arriving (resumes with state.wait.timed_out=true).
+  let timedOutWaits = 0
+  const expired = await findExpiredWaits(supabase, windowStart)
+  for (const w of expired) {
+    await satisfyWait(supabase, w.id, { timedOut: true })
+    try {
+      await resumeRun(supabase, { runId: w.run_id, nodeId: w.node_id, timedOut: true })
+      timedOutWaits++
+    } catch (err) {
+      console.error('[scheduling-tick] resume on timeout failed:', err)
+    }
+  }
+
   return Response.json({
     ok: true,
     window_start: windowStart,
     dispatched: totalDispatched,
     skipped_already_dispatched: totalSkipped,
+    wait_timeouts_resumed: timedOutWaits,
   })
 }
 

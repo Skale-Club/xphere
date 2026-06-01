@@ -55,12 +55,13 @@ function TriggerNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   // Subtitle: brand name when known, otherwise the metadata description, falls
   // back to the raw event_type so nothing renders blank for unknown triggers.
   const subtitle =
-    visual?.definition?.name ?? meta?.description ?? eventType
+    meta?.subtitle ?? visual?.definition?.name ?? meta?.description ?? eventType
 
   return (
     <BaseNode
       icon={<Lightning className={ICON_SIZE} weight="fill" />}
-      logo={visual?.logo}
+      // Same source as the dropdown (node-metadata), registry logo as fallback.
+      logo={meta?.logo ?? visual?.logo}
       title={title}
       subtitle={subtitle}
       // Node-type colour (not the brand colour): the tile, card border and
@@ -103,6 +104,7 @@ function ActionNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   const configSubtitle = formatConfigSubtitle(config)
   const subtitle =
     configSubtitle ??
+    meta?.subtitle ??
     visual?.definition?.name ??
     meta?.description ??
     actionType
@@ -114,7 +116,10 @@ function ActionNodeImpl({ data, selected }: NodeProps<CanvasNode>) {
   return (
     <BaseNode
       icon={<PlayCircle className={ICON_SIZE} weight="fill" />}
-      logo={visual?.logo}
+      // Single source of truth: the node-metadata logo (same as the dropdown),
+      // falling back to the integration-registry logo for action types that
+      // exist on the canvas but not in the dropdown catalogue.
+      logo={meta?.logo ?? visual?.logo}
       title={title}
       subtitle={subtitle}
       // Node-type colour (not the brand colour): tile, card border and handles

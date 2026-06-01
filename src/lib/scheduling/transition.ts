@@ -15,6 +15,31 @@ import type { Database, Json } from '@/types/database'
 import type { CalendarEvent, CalendarEventPayload } from '@/lib/scheduling/events'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
 import { buildMeetingScope } from '@/lib/scheduling/scope'
+import { runFlow, resumeRun, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
+import { findUnsatisfiedWaits, satisfyWait } from '@/lib/flows/wait'
+
+// Resume any runs suspended at a wait node that this event satisfies (correlated
+// to the event's contact). Fire-and-forget per wait so one failure can't block.
+async function resumeMatchingWaits(
+  supabase: SupabaseClient<Database>,
+  params: { orgId: string; eventType: string; contactId: string | null; payload: Record<string, unknown> },
+): Promise<void> {
+  const waits = await findUnsatisfiedWaits(supabase, {
+    orgId: params.orgId,
+    eventType: params.eventType,
+    contactId: params.contactId,
+  })
+  for (const w of waits) {
+    await satisfyWait(supabase, w.id)
+    await resumeRun(supabase, {
+      runId: w.run_id,
+      nodeId: w.node_id,
+      event: params.eventType,
+      payload: params.payload,
+    })
+  }
+}
 
 type BookingStatus = 'confirmed' | 'cancelled' | 'no_show'
 
@@ -109,13 +134,9 @@ export async function emitCalendarEvent(
     matched.map((m) => m.id),
   )
 
-  if (matched.length === 0) {
-    return { dispatched: 0, dispatch_id }
-  }
-
-  // Build the meeting scope for workflow variable interpolation.
-  // If the booking is gone by the time we query, bail (the audit row
-  // still exists for debugging).
+  // Build the meeting scope for workflow variable interpolation + wait
+  // correlation. Built unconditionally (even with no trigger matches) because a
+  // run may be *waiting* for this event without any workflow being triggered by it.
   const scope = await buildMeetingScope(ctx.supabase, payload.booking_id, {
     rescheduled_from: payload.rescheduled_from,
     rescheduled_to: payload.rescheduled_to,
@@ -127,6 +148,21 @@ export async function emitCalendarEvent(
   const triggerInput: Record<string, unknown> = {
     meeting: scope,
     event: payload.event,
+  }
+
+  // Resume any runs suspended on a wait node that this event satisfies,
+  // correlated to the meeting's contact. Independent of trigger matches.
+  void resumeMatchingWaits(ctx.supabase, {
+    orgId: payload.org_id,
+    eventType: payload.event,
+    contactId: scope.attendee_contact?.id ?? null,
+    payload: triggerInput,
+  }).catch((err) => {
+    console.error('[scheduling/transition] resumeMatchingWaits error:', err)
+  })
+
+  if (matched.length === 0) {
+    return { dispatched: 0, dispatch_id }
   }
 
   // Load each matched workflow's current definition.
@@ -155,14 +191,30 @@ export async function emitCalendarEvent(
       ? defById.get(wf.current_version_id)
       : null
     if (!definition) continue
-    void runFlowSync({
-      workflowId: wf.id,
-      definition,
-      triggerInput,
-      context: { orgId: payload.org_id },
-    }).catch((err) => {
-      console.error('[scheduling/transition] runFlowSync error:', err)
-    })
+    // Flows containing a wait node run through the persistent engine (supports
+    // suspend/resume). Everything else stays on the lightweight sync runner.
+    if (definitionHasWait(definition)) {
+      void runFlow({
+        workflowId: wf.id,
+        versionId: wf.current_version_id ?? null,
+        definition: definition as FlowDefinition,
+        orgId: payload.org_id,
+        triggerType: 'event',
+        triggerPayload: triggerInput,
+        supabase: ctx.supabase,
+      }).catch((err) => {
+        console.error('[scheduling/transition] runFlow error:', err)
+      })
+    } else {
+      void runFlowSync({
+        workflowId: wf.id,
+        definition,
+        triggerInput,
+        context: { orgId: payload.org_id },
+      }).catch((err) => {
+        console.error('[scheduling/transition] runFlowSync error:', err)
+      })
+    }
   }
 
   return { dispatched: matched.length, dispatch_id }
