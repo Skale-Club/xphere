@@ -64,6 +64,7 @@ export function OpenRouterPanel({ definition, existing, onClose }: CustomPanelPr
 
   const [apiKey, setApiKey] = useState('')
   const [showKey, setShowKey] = useState(false)
+  const [keyTouched, setKeyTouched] = useState(false)
   const [testState, setTestState] = useState<'idle' | 'testing' | 'pass' | 'fail'>(
     existing ? 'pass' : 'idle',
   )
@@ -160,6 +161,8 @@ export function OpenRouterPanel({ definition, existing, onClose }: CustomPanelPr
     }
   }
 
+  const showKeyMask = !!existing && !keyTouched
+
   const canSave = apiKey.trim().length > 0
     ? testState === 'pass'
     : !!existing && (textModel || visionModel || audioModel).length > 0
@@ -196,23 +199,28 @@ export function OpenRouterPanel({ definition, existing, onClose }: CustomPanelPr
           <div className="relative">
             <Input
               id="or-key"
-              type={showKey ? 'text' : 'password'}
-              placeholder={existing ? `••••••••• (${existing.masked_api_key})` : 'sk-or-...'}
-              value={apiKey}
+              type={showKeyMask ? 'text' : (showKey ? 'text' : 'password')}
+              placeholder={showKeyMask ? '' : 'sk-or-...'}
+              value={showKeyMask ? (existing?.masked_api_key ?? '••••••••••••') : apiKey}
+              readOnly={showKeyMask}
+              onFocus={() => { if (showKeyMask) setKeyTouched(true) }}
               onChange={(e) => {
                 setApiKey(e.target.value)
                 setTestState('idle')
               }}
               autoComplete="new-password"
+              className={showKeyMask ? 'cursor-text' : undefined}
             />
-            <button
-              type="button"
-              onClick={() => setShowKey((v) => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-              aria-label={showKey ? 'Hide' : 'Show'}
-            >
-              {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+            {!showKeyMask && (
+              <button
+                type="button"
+                onClick={() => setShowKey((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
+                aria-label={showKey ? 'Hide' : 'Show'}
+              >
+                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            )}
           </div>
         </div>
 

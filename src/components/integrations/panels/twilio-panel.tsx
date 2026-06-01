@@ -101,12 +101,16 @@ function TwilioCredentialsTab({
   const [accountSid, setAccountSid] = useState('')
   const [authToken, setAuthToken] = useState('')
   const [showToken, setShowToken] = useState(false)
+  const [sidTouched, setSidTouched] = useState(false)
+  const [tokenTouched, setTokenTouched] = useState(false)
   const [testState, setTestState] = useState<'idle' | 'testing' | 'pass' | 'fail'>('idle')
   const [testMessage, setTestMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isActive, setIsActive] = useState(existing?.is_active ?? false)
   const [isToggling, setIsToggling] = useState(false)
 
+  const showSidMask = !!existing && !sidTouched
+  const showTokenMask = !!existing && !tokenTouched
   const dirty = accountSid.length > 0 || authToken.length > 0
   const canSave = testState === 'pass'
 
@@ -174,12 +178,15 @@ function TwilioCredentialsTab({
           </Label>
           <Input
             id="tw-sid"
-            placeholder={existing ? '••••••••• (saved)' : 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-            value={accountSid}
+            placeholder={showSidMask ? '' : 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+            value={showSidMask ? '••••••••••••••••••••••' : accountSid}
+            readOnly={showSidMask}
+            onFocus={() => { if (showSidMask) setSidTouched(true) }}
             onChange={(e) => {
               setAccountSid(e.target.value)
               setTestState('idle')
             }}
+            className={showSidMask ? 'cursor-text' : undefined}
           />
         </div>
 
@@ -190,23 +197,28 @@ function TwilioCredentialsTab({
           <div className="relative">
             <Input
               id="tw-token"
-              type={showToken ? 'text' : 'password'}
-              placeholder={existing ? `••••••••• (${existing.masked_api_key})` : 'Enter Auth Token'}
-              value={authToken}
+              type={showTokenMask ? 'text' : (showToken ? 'text' : 'password')}
+              placeholder={showTokenMask ? '' : 'Enter Auth Token'}
+              value={showTokenMask ? (existing?.masked_api_key ?? '••••••••••••') : authToken}
+              readOnly={showTokenMask}
+              onFocus={() => { if (showTokenMask) setTokenTouched(true) }}
               onChange={(e) => {
                 setAuthToken(e.target.value)
                 setTestState('idle')
               }}
               autoComplete="new-password"
+              className={showTokenMask ? 'cursor-text' : undefined}
             />
-            <button
-              type="button"
-              onClick={() => setShowToken((v) => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-              aria-label={showToken ? 'Hide' : 'Show'}
-            >
-              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+            {!showTokenMask && (
+              <button
+                type="button"
+                onClick={() => setShowToken((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
+                aria-label={showToken ? 'Hide' : 'Show'}
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            )}
           </div>
           <p className="text-[11px] text-text-tertiary">
             Find both in console.twilio.com → Account → API keys & tokens.

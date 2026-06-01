@@ -9,6 +9,7 @@ export const AGENT_CHANNELS = [
   'instagram',
   'manychat',
   'telegram',
+  'zernio',
 ] as const
 
 export type AgentChannel = (typeof AGENT_CHANNELS)[number]
@@ -21,4 +22,5 @@ export const AGENT_CHANNEL_LABELS: Record<AgentChannel, string> = {
   instagram: 'Instagram',
   manychat: 'ManyChat',
   telegram: 'Telegram',
+  zernio: 'Zernio',
 }

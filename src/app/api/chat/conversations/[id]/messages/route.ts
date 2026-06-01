@@ -12,6 +12,7 @@ import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 import { sendZernioDm } from '@/lib/zernio/send-dm'
+import { sendZernioCommentReply } from '@/lib/zernio/send-comment-reply'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 
 export const runtime = 'nodejs'
@@ -415,15 +416,7 @@ export async function POST(
   // Zernio unified social inbox (Instagram, Facebook, LinkedIn, TikTok, etc.)
   if (conv.channel === 'zernio') {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
-    const zernioConversationId = metadata.zernio_conversation_id ?? ''
-
-    if (!zernioConversationId) {
-      return sendError(
-        'zernio_no_conversation_id',
-        'This Zernio conversation has no conversation ID. The channel may not have been set up correctly.',
-        400,
-      )
-    }
+    const zernioAccountId = metadata.account_id ?? ''
 
     const apiKey = await getProviderKey('zernio', conv.org_id, supabase)
     if (!apiKey) {
@@ -435,8 +428,46 @@ export async function POST(
     }
 
     try {
-      const { messageId } = await sendZernioDm(zernioConversationId, content, apiKey)
-      if (messageId) deliveryMetadata.zernio_message_id = messageId
+      if (!zernioAccountId) {
+        return sendError(
+          'zernio_no_account_id',
+          'This Zernio conversation has no account ID. Reconnect Zernio and wait for a fresh inbound event.',
+          400,
+        )
+      }
+
+      if (metadata.thread_type === 'comment') {
+        const postId = metadata.zernio_post_id ?? metadata.zernio_platform_post_id ?? ''
+        const commentId = metadata.zernio_comment_id ?? ''
+        if (!postId || !commentId) {
+          return sendError(
+            'zernio_no_comment_context',
+            'This Zernio comment thread is missing the post or comment ID required to reply.',
+            400,
+          )
+        }
+
+        const { commentId: replyCommentId } = await sendZernioCommentReply({
+          postId,
+          accountId: zernioAccountId,
+          commentId,
+          text: content,
+          apiKey,
+        })
+        if (replyCommentId) deliveryMetadata.zernio_comment_id = replyCommentId
+      } else {
+        const zernioConversationId = metadata.zernio_conversation_id ?? ''
+        if (!zernioConversationId) {
+          return sendError(
+            'zernio_no_conversation_id',
+            'This Zernio conversation has no conversation ID. The channel may not have been set up correctly.',
+            400,
+          )
+        }
+
+        const { messageId } = await sendZernioDm(zernioConversationId, zernioAccountId, content, apiKey)
+        if (messageId) deliveryMetadata.zernio_message_id = messageId
+      }
     } catch (err) {
       console.error('[POST messages] Zernio send error:', err)
       const message = err instanceof Error ? err.message : 'Zernio rejected the message.'

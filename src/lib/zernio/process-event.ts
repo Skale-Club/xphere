@@ -1,118 +1,194 @@
 // src/lib/zernio/process-event.ts
-// Processes a validated Zernio webhook payload (message.received / comment.received).
-// Called from src/app/api/zernio/webhook/route.ts via after().
+// Processes validated Zernio inbox webhook payloads.
 //
 // Flow:
-//   1. Extract sender, conversation, account info from payload
-//   2. Resolve/create contact via contact_channel_identities (provider='zernio')
-//   3. normalizeInbound() → find-or-create conversation + insert message
-//   4. If bot_status='active': runAgent() → sendZernioDm()
+//   1. Deduplicate by Zernio webhook event id
+//   2. Resolve/create contact via contact_channel_identities(provider='zernio')
+//   3. normalizeInbound() -> find-or-create conversation + insert message
+//   4. If bot_status='active': runAgent() -> reply via Zernio
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { sendZernioDm } from './send-dm'
+import { sendZernioCommentReply } from './send-comment-reply'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import type {
+  ZernioCommentReceivedPayload,
+  ZernioMessageReceivedPayload,
+  ZernioWebhookPayload,
+} from './types'
 
-export interface ZernioWebhookPayload {
-  id?: string            // dedup event ID
-  event: string          // 'message.received' | 'comment.received' | etc.
-  message?: {
-    _id?: string
-    text?: string
-    attachments?: unknown[]
-    sender?: {
-      contactId?: string
-      platformContactId?: string
-      name?: string
-    }
-    createdAt?: string
+export type { ZernioWebhookPayload } from './types'
+
+function isMessageReceived(payload: ZernioWebhookPayload): payload is ZernioMessageReceivedPayload {
+  return payload.event === 'message.received' && typeof payload.message === 'object'
+}
+
+function isCommentReceived(payload: ZernioWebhookPayload): payload is ZernioCommentReceivedPayload {
+  return payload.event === 'comment.received' && typeof payload.comment === 'object'
+}
+
+function identityKey(platform: string, accountId: string, participantId: string): string {
+  return `${platform}:${accountId}:${participantId}`
+}
+
+function contactSourceForPlatform(platform: string): 'manual' | 'whatsapp' | 'instagram' | 'facebook' | 'messenger' {
+  if (platform === 'whatsapp') return 'whatsapp'
+  if (platform === 'instagram') return 'instagram'
+  if (platform === 'facebook') return 'facebook'
+  if (platform === 'messenger') return 'messenger'
+  return 'manual'
+}
+
+async function markWebhookEventSeen(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  eventId: string | undefined,
+  eventType: string | undefined,
+): Promise<boolean> {
+  if (!eventId) return true
+
+  const { error } = await supabase
+    .from('zernio_webhook_events')
+    .insert({
+      organization_id: orgId,
+      event_id: eventId,
+      event_type: eventType ?? 'unknown',
+    })
+
+  if (!error) return true
+  if (error.code === '23505') return false
+
+  console.error('[zernio/process] webhook idempotency insert failed:', error.message)
+  return true
+}
+
+async function resolveOrCreateChannelContact({
+  supabase,
+  orgId,
+  platform,
+  accountId,
+  participantId,
+  displayName,
+}: {
+  supabase: ReturnType<typeof createServiceRoleClient>
+  orgId: string
+  platform: string
+  accountId: string
+  participantId: string
+  displayName: string | null
+}): Promise<string | null> {
+  if (!participantId || !accountId) return null
+
+  const externalId = identityKey(platform, accountId, participantId)
+  const channelHit = await findByChannelIdentity(supabase, orgId, 'zernio', externalId)
+  if (channelHit) return channelHit.contact_id
+
+  const { data: created, error: insertError } = await supabase
+    .from('contacts')
+    .insert({
+      org_id: orgId,
+      name: displayName,
+      source: contactSourceForPlatform(platform),
+      identity_status: 'channel_only',
+    })
+    .select('id')
+    .single()
+
+  if (insertError) {
+    console.error('[zernio/process] insert contact error:', insertError.message)
+    return null
   }
-  conversation?: {
-    _id?: string
+
+  const createdContactId = created?.id ?? null
+  if (!createdContactId) return null
+
+  const attached = await attachChannelIdentity(supabase, orgId, createdContactId, 'zernio', externalId)
+  if (attached?.contact_id && attached.contact_id !== createdContactId) {
+    await supabase.from('contacts').delete().eq('id', createdContactId)
+    return attached.contact_id
   }
-  account?: {
-    _id?: string
-    platform?: string         // 'instagram' | 'facebook' | 'linkedin' | etc.
-    platformAccountId?: string
-  }
+
+  return createdContactId
+}
+
+function attachmentLabel(attachments: unknown[] | undefined): string {
+  return attachments?.length ? 'Attachment' : ''
 }
 
 export async function processZernioEvent(
   payload: ZernioWebhookPayload,
   orgId: string,
 ): Promise<void> {
-  // Only handle inbound DMs for now; comments can be added later
-  if (payload.event !== 'message.received') return
+  const supabase = createServiceRoleClient()
 
-  const msg = payload.message
-  if (!msg) return
+  const firstTime = await markWebhookEventSeen(supabase, orgId, payload.id, payload.event)
+  if (!firstTime) return
 
-  const messageText = msg.text ?? ''
-  const zernioMessageId = msg._id ?? ''
-  const zernioConversationId = payload.conversation?._id ?? ''
-  const senderPlatformId = msg.sender?.platformContactId ?? msg.sender?.contactId ?? ''
-  const senderName = msg.sender?.name ?? null
-  const platform = payload.account?.platform ?? 'unknown'
-  const accountId = payload.account?._id ?? ''
-
-  if (!zernioConversationId) {
-    console.warn('[zernio/process] Missing conversation._id — skipping')
+  if (isMessageReceived(payload)) {
+    await processMessageReceived(payload, orgId, supabase)
     return
   }
 
-  const supabase = createServiceRoleClient()
+  if (isCommentReceived(payload)) {
+    await processCommentReceived(payload, orgId, supabase)
+  }
+}
+
+async function processMessageReceived(
+  payload: ZernioMessageReceivedPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const msg = payload.message
+  if (msg.direction !== 'incoming') return
+
+  const zernioMessageId = msg.id
+  const zernioPlatformMessageId = msg.platformMessageId
+  const zernioConversationId = msg.conversationId || payload.conversation.id
+  const zernioAccountId = payload.account.id
+  const platform = msg.platform || payload.account.platform || 'unknown'
+  const participantId =
+    msg.sender.businessScopedUserId ??
+    msg.sender.phoneNumber ??
+    msg.sender.id ??
+    payload.conversation.participantId ??
+    ''
+  const senderName =
+    msg.sender.name ??
+    payload.conversation.participantName ??
+    msg.sender.username ??
+    payload.conversation.participantUsername ??
+    null
+  const messageText = msg.text ?? ''
   const now = new Date().toISOString()
 
-  // 1. Resolve / create contact
-  let contactId: string | null = null
-
-  if (senderPlatformId) {
-    const channelHit = await findByChannelIdentity(supabase, orgId, 'zernio', senderPlatformId)
-    if (channelHit) {
-      contactId = channelHit.contact_id
-    } else {
-      // Create a new contact from what Zernio gives us
-      const { data: created, error: insErr } = await supabase
-        .from('contacts')
-        .insert({
-          org_id: orgId,
-          name: senderName,
-          source: 'manual',
-        })
-        .select('id')
-        .single()
-
-      if (insErr?.code === '23505') {
-        // Race condition: another event created the contact first
-        const { data: existing } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('org_id', orgId)
-          .limit(1)
-          .maybeSingle()
-        contactId = existing?.id ?? null
-      } else if (insErr) {
-        console.error('[zernio/process] insert contact error:', insErr.message)
-      } else {
-        contactId = created?.id ?? null
-      }
-
-      if (contactId) {
-        await attachChannelIdentity(supabase, orgId, contactId, 'zernio', senderPlatformId)
-      }
-    }
+  if (!zernioConversationId || !zernioAccountId || !participantId) {
+    console.warn('[zernio/process] Missing required message routing fields; skipping')
+    return
   }
 
-  // 2. normalizeInbound — find-or-create conversation + insert message
+  const contactId = await resolveOrCreateChannelContact({
+    supabase,
+    orgId,
+    platform,
+    accountId: zernioAccountId,
+    participantId,
+    displayName: senderName,
+  })
+
+  const fallback = attachmentLabel(msg.attachments)
+  const displayText = messageText || fallback
+
   const norm = await normalizeInbound({
     supabase,
     orgId,
     channel: 'zernio',
     match: { by: 'metadata', keys: { zernio_conversation_id: zernioConversationId } },
     updatePayload: {
-      last_message: messageText || '📎 Attachment',
+      last_message: displayText,
       last_message_at: now,
       last_inbound_at: now,
       updated_at: now,
@@ -120,26 +196,35 @@ export async function processZernioEvent(
     createPayload: {
       widget_token: '',
       channel_metadata: {
+        thread_type: 'dm',
         platform,
-        account_id: accountId,
+        account_id: zernioAccountId,
+        account_username: payload.account.username ?? null,
         zernio_conversation_id: zernioConversationId,
-        sender_platform_id: senderPlatformId,
+        zernio_platform_conversation_id: payload.conversation.platformConversationId,
+        participant_id: participantId,
+        participant_username: payload.conversation.participantUsername ?? msg.sender.username ?? null,
       },
       visitor_name: senderName,
+      visitor_phone: msg.sender.phoneNumber ?? null,
       contact_id: contactId,
-      last_message: messageText || '📎 Attachment',
+      last_message: displayText,
       last_message_at: now,
       last_inbound_at: now,
     },
     message: {
       role: 'user',
       content: messageText,
-      message_type: 'text',
+      message_type: msg.attachments.length ? (messageText ? 'mixed' : 'document') : 'text',
       channel: 'zernio',
       metadata: {
+        zernio_event_id: payload.id,
         zernio_message_id: zernioMessageId,
+        zernio_platform_message_id: zernioPlatformMessageId,
         zernio_conversation_id: zernioConversationId,
+        account_id: zernioAccountId,
         platform,
+        attachments: msg.attachments,
       },
     },
     idempotencyMetadata: { zernio_message_id: zernioMessageId },
@@ -151,14 +236,140 @@ export async function processZernioEvent(
   }
   if (norm.duplicate) return
 
-  const conversationId = norm.conversationId
+  await maybeRunAgentAndReply({
+    supabase,
+    orgId,
+    conversationId: norm.conversationId,
+    existingBotStatus: norm.existing?.bot_status ?? null,
+    userMessage: messageText,
+    reply: async (text, apiKey) => {
+      await sendZernioDm(zernioConversationId, zernioAccountId, text, apiKey)
+    },
+  })
+}
 
-  // 3. Bot status gate
-  const botStatus = norm.existing?.bot_status ?? 'active'
+async function processCommentReceived(
+  payload: ZernioCommentReceivedPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const comment = payload.comment
+  const zernioAccountId = payload.account.id
+  const platform = comment.platform || payload.account.platform || 'unknown'
+  const participantId = comment.author.id
+  const senderName = comment.author.name ?? comment.author.username ?? null
+  const postId = payload.post.id ?? comment.postId ?? comment.platformPostId
+  const now = new Date().toISOString()
+
+  if (!zernioAccountId || !participantId || !postId || !comment.id) {
+    console.warn('[zernio/process] Missing required comment routing fields; skipping')
+    return
+  }
+
+  const contactId = await resolveOrCreateChannelContact({
+    supabase,
+    orgId,
+    platform,
+    accountId: zernioAccountId,
+    participantId,
+    displayName: senderName,
+  })
+
+  const norm = await normalizeInbound({
+    supabase,
+    orgId,
+    channel: 'zernio',
+    match: { by: 'metadata', keys: { zernio_comment_id: comment.id } },
+    updatePayload: {
+      last_message: comment.text,
+      last_message_at: now,
+      last_inbound_at: now,
+      updated_at: now,
+    },
+    createPayload: {
+      widget_token: '',
+      channel_metadata: {
+        thread_type: 'comment',
+        platform,
+        account_id: zernioAccountId,
+        account_username: payload.account.username ?? null,
+        zernio_post_id: postId,
+        zernio_platform_post_id: comment.platformPostId,
+        zernio_comment_id: comment.id,
+        zernio_parent_comment_id: comment.parentCommentId,
+        participant_id: participantId,
+        participant_username: comment.author.username ?? null,
+        is_ad_comment: Boolean(comment.ad),
+      },
+      visitor_name: senderName,
+      contact_id: contactId,
+      last_message: comment.text,
+      last_message_at: now,
+      last_inbound_at: now,
+    },
+    message: {
+      role: 'user',
+      content: comment.text,
+      message_type: 'text',
+      channel: 'zernio',
+      metadata: {
+        zernio_event_id: payload.id,
+        zernio_comment_id: comment.id,
+        zernio_post_id: postId,
+        zernio_platform_post_id: comment.platformPostId,
+        account_id: zernioAccountId,
+        platform,
+        parent_comment_id: comment.parentCommentId,
+        is_reply: comment.isReply,
+        ad: comment.ad ?? null,
+      },
+    },
+    idempotencyMetadata: { zernio_comment_id: comment.id },
+  })
+
+  if (norm.error) {
+    console.error('[zernio/process] normalizeInbound failed:', norm.error)
+    return
+  }
+  if (norm.duplicate) return
+
+  await maybeRunAgentAndReply({
+    supabase,
+    orgId,
+    conversationId: norm.conversationId,
+    existingBotStatus: norm.existing?.bot_status ?? null,
+    userMessage: comment.text,
+    reply: async (text, apiKey) => {
+      await sendZernioCommentReply({
+        postId,
+        accountId: zernioAccountId,
+        commentId: comment.id,
+        text,
+        apiKey,
+      })
+    },
+  })
+}
+
+async function maybeRunAgentAndReply({
+  supabase,
+  orgId,
+  conversationId,
+  existingBotStatus,
+  userMessage,
+  reply,
+}: {
+  supabase: ReturnType<typeof createServiceRoleClient>
+  orgId: string
+  conversationId: string
+  existingBotStatus: string | null
+  userMessage: string
+  reply: (text: string, apiKey: string) => Promise<void>
+}): Promise<void> {
+  const botStatus = existingBotStatus ?? 'active'
   if (botStatus !== 'active') return
-  if (!messageText) return
+  if (!userMessage) return
 
-  // 4. Resolve channel agent
   const { data: defaultRow } = await supabase
     .from('agent_channel_defaults')
     .select('agent_id')
@@ -168,7 +379,6 @@ export async function processZernioEvent(
 
   if (!defaultRow?.agent_id) return
 
-  // 5. Run agent + send reply
   try {
     const apiKey = await getProviderKey('zernio', orgId, supabase)
     if (!apiKey) {
@@ -180,14 +390,14 @@ export async function processZernioEvent(
       orgId,
       agentId: defaultRow.agent_id,
       channel: 'zernio',
-      userMessage: messageText,
+      userMessage,
       conversationId,
       stream: false,
     })
 
     if (!result.text) return
 
-    await sendZernioDm(zernioConversationId, result.text, apiKey)
+    await reply(result.text, apiKey)
   } catch (err) {
     console.error('[zernio/process] runAgent/send error:', err)
   }

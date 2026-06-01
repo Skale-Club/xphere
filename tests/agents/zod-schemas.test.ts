@@ -29,10 +29,11 @@ describe('AVAILABLE_MODELS', () => {
 })
 
 describe('AGENT_CHANNELS', () => {
-  it('mirrors the agent_channel enum (6 channels)', () => {
-    expect(AGENT_CHANNELS).toHaveLength(6)
+  it('mirrors the agent_channel enum', () => {
+    expect(AGENT_CHANNELS).toHaveLength(8)
     expect(AGENT_CHANNELS).toContain('web_widget')
     expect(AGENT_CHANNELS).toContain('whatsapp')
+    expect(AGENT_CHANNELS).toContain('zernio')
   })
 })
 

@@ -4909,6 +4909,38 @@ export interface Database {
         }
         Relationships: []
       }
+      zernio_webhook_events: {
+        Row: {
+          id: string
+          organization_id: string
+          event_id: string
+          event_type: string
+          processed_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          event_id: string
+          event_type: string
+          processed_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          event_id?: string
+          event_type?: string
+          processed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'zernio_webhook_events_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       workflow_runs: {
         Row: {
           id: string

@@ -351,7 +351,7 @@ export async function saveIntegrationCredentials(
   // Find an existing row for this provider/org
   const { data: existing } = await supabase
     .from('integrations')
-    .select('id')
+    .select('id, config')
     .eq('organization_id', orgId)
     .eq('provider', provider as Provider)
     .limit(1)
@@ -361,6 +361,8 @@ export async function saveIntegrationCredentials(
     return { ok: false, error: 'API key is required.' }
   }
 
+  const existingConfig = (existing?.config as Record<string, string> | null) ?? {}
+  const savedConfig = existing?.id ? { ...existingConfig, ...config } : config
   const encryptedKey = apiKey ? await encrypt(apiKey) : null
   const keyHint = apiKey ? maskApiKey(apiKey) : null
   const payload = {
@@ -370,13 +372,13 @@ export async function saveIntegrationCredentials(
     encrypted_api_key: encryptedKey ?? '',
     key_hint: keyHint,
     location_id: locationId,
-    config,
+    config: savedConfig,
   }
 
   if (existing?.id) {
     const updateData: Record<string, unknown> = {
       location_id: locationId,
-      config,
+      config: savedConfig,
     }
     if (encryptedKey) {
       updateData.encrypted_api_key = encryptedKey
@@ -408,18 +410,19 @@ export async function saveIntegrationCredentials(
   if (provider === 'zernio' && apiKey) {
     try {
       const { randomBytes } = await import('node:crypto')
-      const webhookToken = crypto.randomUUID()
-      const webhookSecret = randomBytes(32).toString('hex')
+      const webhookToken = existingConfig.webhook_token || crypto.randomUUID()
+      const webhookSecret = existingConfig.webhook_secret || randomBytes(32).toString('hex')
+      const existingWebhookId = existingConfig.webhook_id || undefined
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
       const webhookUrl = `${appUrl}/api/zernio/webhook?t=${webhookToken}`
 
       const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
-      const { webhookId } = await registerZernioWebhook(apiKey, webhookUrl, webhookSecret)
+      const { webhookId } = await registerZernioWebhook(apiKey, webhookUrl, webhookSecret, existingWebhookId)
 
       await supabase
         .from('integrations')
         .update({
-          config: { webhook_token: webhookToken, webhook_secret: webhookSecret, webhook_id: webhookId },
+          config: { ...savedConfig, webhook_token: webhookToken, webhook_secret: webhookSecret, webhook_id: webhookId },
           health_status: 'connected',
           is_active: true,
         })
