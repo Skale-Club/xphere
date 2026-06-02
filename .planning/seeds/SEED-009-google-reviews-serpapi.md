@@ -36,6 +36,10 @@ Upsert reviews no banco por review_id nativo do Google
 Widget serve do banco → iframe no site do cliente
 ```
 
+## Decisao de produto - 2026-06-02
+
+O painel de Reviews deve tratar o widget embeddavel como o produto primario da area, nao apenas como um monitor de reputacao. A experiencia principal em `/reviews` deve permitir que o operador escolha o layout do widget, visualize os cards com dados reais no formato aproximado do site do cliente, e copie snippets prontos de iframe ou JavaScript. A pagina dedicada da integracao Google Reviews pode continuar mostrando status operacional, chave SerpAPI, scraping e reviews recentes, mas deve reutilizar o mesmo builder de widget para evitar um configurador antigo ou simplificado.
+
 ## Como o cliente acha o Place ID
 
 O Place ID do Google Maps é público e gratuito de obter:

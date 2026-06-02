@@ -20,9 +20,9 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { BusinessSearch } from '@/components/reviews/business-search'
 import { RefreshButton } from '@/components/reviews/refresh-button'
+import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
 import { SerpApiKeyForm } from '@/components/reviews/serpapi-key-form'
 import { StarRating } from '@/components/reviews/star-rating'
-import { WidgetTemplatePicker } from '@/components/reviews/widget-template-picker'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Separator } from '@/components/ui/separator'
@@ -177,15 +177,55 @@ export default async function GoogleReviewsIntegrationPage() {
     text: string | null
     date_text: string | null
   }[] = []
+  let widgetReviews: ReviewWidgetPreviewReview[] = []
+  let distribution: { rating: number; count: number }[] = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: 0,
+  }))
   if (profile?.id) {
-    const { data } = await supabase
-      .from('google_reviews')
-      .select('id, reviewer_name, rating, text, date_text')
-      .eq('profile_id', profile.id)
-      .eq('is_removed', false)
-      .order('date_iso', { ascending: false, nullsFirst: false })
-      .limit(5)
-    recentReviews = data ?? []
+    const [{ data }, { data: distRows }] = await Promise.all([
+      supabase
+        .from('google_reviews')
+        .select('id, reviewer_name, reviewer_photo_url, reviewer_profile_url, rating, text, date_text, is_local_guide, helpful_count, owner_response, owner_response_date, google_review_photos(id, original_url, hetzner_url)')
+        .eq('profile_id', profile.id)
+        .eq('is_removed', false)
+        .order('date_iso', { ascending: false, nullsFirst: false })
+        .limit(18),
+      supabase
+        .from('google_reviews')
+        .select('rating')
+        .eq('profile_id', profile.id)
+        .eq('is_removed', false),
+    ])
+    widgetReviews = (data ?? []).map((review) => ({
+      id: review.id,
+      reviewerName: review.reviewer_name,
+      reviewerPhotoUrl: review.reviewer_photo_url,
+      reviewerProfileUrl: review.reviewer_profile_url,
+      rating: review.rating,
+      text: review.text,
+      dateText: review.date_text,
+      isLocalGuide: review.is_local_guide,
+      helpfulCount: review.helpful_count,
+      ownerResponse: review.owner_response,
+      ownerResponseDate: review.owner_response_date,
+      photos: (review.google_review_photos ?? []).map((photo) => ({
+        url: photo.hetzner_url ?? photo.original_url,
+      })),
+    }))
+    recentReviews = widgetReviews.slice(0, 5).map((review) => ({
+      id: review.id,
+      reviewer_name: review.reviewerName,
+      rating: review.rating,
+      text: review.text,
+      date_text: review.dateText,
+    }))
+
+    const distMap = new Map<number, number>([[5, 0], [4, 0], [3, 0], [2, 0], [1, 0]])
+    for (const row of distRows ?? []) {
+      distMap.set(row.rating, (distMap.get(row.rating) ?? 0) + 1)
+    }
+    distribution = [5, 4, 3, 2, 1].map((rating) => ({ rating, count: distMap.get(rating) ?? 0 }))
   }
 
   const nextIn = nextScrapeText()
@@ -274,9 +314,18 @@ export default async function GoogleReviewsIntegrationPage() {
         emptyLabel="-"
       >
         {profile?.widget_token ? (
-          <WidgetTemplatePicker
+          <ReviewWidgetBuilder
             baseUrl={PRODUCTION_ORIGIN}
             widgetToken={profile.widget_token}
+            embedded
+            business={{
+              name: profile.business_name,
+              address: profile.address,
+              averageRating: profile.average_rating,
+              totalReviewsCount: profile.total_reviews_count,
+            }}
+            distribution={distribution}
+            reviews={widgetReviews}
           />
         ) : null}
       </SectionCard>

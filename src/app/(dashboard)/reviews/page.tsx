@@ -1,13 +1,11 @@
-import { formatDistanceToNow } from 'date-fns'
-import { ArrowRight, Sparkles, Star } from 'lucide-react'
+import { ArrowRight, Star } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { createClient, getUser } from '@/lib/supabase/server'
-import { RatingDistribution } from '@/components/reviews/rating-distribution'
 import { ReviewCard } from '@/components/reviews/review-card'
+import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
 import { ReviewsFilters } from '@/components/reviews/reviews-filters'
-import { StarRating } from '@/components/reviews/star-rating'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout/page-header'
@@ -45,7 +43,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   const { data: profile } = await supabase
     .from('google_business_profiles')
     .select(
-      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id'
+      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token'
     )
     .maybeSingle()
 
@@ -84,6 +82,33 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   const distribution = [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 }))
   const totalActive = distRows?.length ?? 0
 
+  const { data: widgetPreviewRows } = await supabase
+    .from('google_reviews')
+    .select(
+      'id, reviewer_name, reviewer_photo_url, reviewer_profile_url, rating, text, date_text, is_local_guide, helpful_count, owner_response, owner_response_date, google_review_photos(id, original_url, hetzner_url)'
+    )
+    .eq('profile_id', profile.id)
+    .eq('is_removed', false)
+    .order('date_iso', { ascending: false, nullsFirst: false })
+    .limit(18)
+
+  const widgetReviews: ReviewWidgetPreviewReview[] = (widgetPreviewRows ?? []).map((review) => ({
+    id: review.id,
+    reviewerName: review.reviewer_name,
+    reviewerPhotoUrl: review.reviewer_photo_url,
+    reviewerProfileUrl: review.reviewer_profile_url,
+    rating: review.rating,
+    text: review.text,
+    dateText: review.date_text,
+    isLocalGuide: review.is_local_guide,
+    helpfulCount: review.helpful_count,
+    ownerResponse: review.owner_response,
+    ownerResponseDate: review.owner_response_date,
+    photos: (review.google_review_photos ?? []).map((photo) => ({
+      url: photo.hetzner_url ?? photo.original_url,
+    })),
+  }))
+
   // Filtered reviews
   let q = supabase
     .from('google_reviews')
@@ -107,52 +132,18 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
 
   return (
     <PageContainer>
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-amber-50 via-background to-background p-8 dark:from-amber-950/30 dark:via-background dark:to-background">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-300/30 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-orange-300/20 blur-3xl" />
-
-        <div className="relative grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground shadow-sm backdrop-blur">
-              <Sparkles className="h-3 w-3 text-amber-500" />
-              Live from Google
-            </div>
-            <h1 className="font-serif text-3xl font-semibold tracking-tight">
-              {profile.business_name ?? 'Your business'}
-            </h1>
-            {profile.address ? (
-              <p className="text-sm text-muted-foreground">{profile.address}</p>
-            ) : null}
-
-            <div className="flex items-baseline gap-4 pt-2">
-              <div>
-                <p className="font-serif text-6xl font-semibold tabular-nums leading-none">
-                  {profile.average_rating?.toFixed(1) ?? '-'}
-                </p>
-                <div className="mt-1.5">
-                  <StarRating rating={profile.average_rating ?? 0} size="lg" />
-                </div>
-              </div>
-              <div className="pb-1">
-                <p className="text-sm font-medium">{profile.total_reviews_count ?? totalActive} reviews</p>
-                {profile.last_scraped_at ? (
-                  <p className="text-xs text-muted-foreground">
-                    Updated {formatDistanceToNow(new Date(profile.last_scraped_at))} ago
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border bg-background/70 p-5 shadow-sm backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Rating distribution
-            </p>
-            <RatingDistribution distribution={distribution} className="mt-3" />
-          </div>
-        </div>
-      </section>
+      <ReviewWidgetBuilder
+        baseUrl="https://xphere.app"
+        widgetToken={profile.widget_token}
+        business={{
+          name: profile.business_name,
+          address: profile.address,
+          averageRating: profile.average_rating,
+          totalReviewsCount: profile.total_reviews_count,
+        }}
+        distribution={distribution}
+        reviews={widgetReviews}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
