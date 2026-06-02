@@ -201,6 +201,29 @@ function availableChannelsForContact(contact: ContactDetail): ReachChannel[] {
   return out
 }
 
+/**
+ * Derive the contact's public Instagram handle + profile URL from any Instagram
+ * conversation's stored metadata (Zernio persists the participant's username in
+ * `channel_metadata.participant_username`). Returns null when the contact has no
+ * Instagram channel or no usable username (e.g. only a scoped IGSID is known).
+ */
+function instagramProfileForContact(
+  contact: ContactDetail,
+): { username: string; url: string } | null {
+  const conv = (contact.conversations ?? []).find(
+    (c) =>
+      (c.channel === 'instagram' || c.channel === 'zernio_instagram') &&
+      typeof (c.channel_metadata as Record<string, unknown> | null)?.participant_username ===
+        'string',
+  )
+  const raw = conv
+    ? ((conv.channel_metadata as Record<string, unknown>).participant_username as string)
+    : null
+  const username = raw?.replace(/^@+/, '').trim()
+  if (!username) return null
+  return { username, url: `https://instagram.com/${username}` }
+}
+
 export function ContactInfoPanel({
   contactId,
   conversationId,
@@ -433,6 +456,7 @@ export function ContactInfoPanel({
   }
 
   const reach = availableChannelsForContact(contact)
+  const instagramProfile = instagramProfileForContact(contact)
   const customFields = (contact.custom_fields as Record<string, unknown> | null) ?? {}
   // A contact is "verified" either by an explicit verification row
   // (is_verified) or by the literal DB status — treat both the same so the
@@ -521,6 +545,27 @@ export function ContactInfoPanel({
                 className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
               />
             </div>
+            {/* Instagram profile link — shown when the contact reached us via
+                Instagram and we know their public @handle. Opens the profile in
+                a new tab. */}
+            {instagramProfile && (
+              <a
+                href={instagramProfile.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open Instagram @${instagramProfile.username}`}
+                className="mt-1 ml-1 inline-flex w-fit max-w-full items-center gap-1.5 rounded-full bg-bg-tertiary px-2 py-0.5 text-[11.5px] text-text-secondary ring-1 ring-border-subtle transition-colors hover:text-text-primary hover:ring-border-strong"
+              >
+                <ChannelBadge
+                  channel="instagram"
+                  showLabel={false}
+                  size="sm"
+                  className="!h-3.5 !w-3.5"
+                />
+                <span className="truncate">@{instagramProfile.username}</span>
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+              </a>
+            )}
             {/* Labels live in their own collapsible "Labels" section below
                 (with inline editing) — no longer crowding the name header. */}
           </div>
