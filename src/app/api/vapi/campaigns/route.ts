@@ -9,8 +9,11 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { mapEndedReasonToStatus } from '@/lib/campaigns/engine'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
+import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
+
+const obs = createLogger({ route: 'api/vapi/campaigns' })
 
 async function updateContactStatus(
   campaignContactId: string,
@@ -39,7 +42,7 @@ async function updateContactStatus(
     .single()
 
   if (updateErr) {
-    console.error('[vapi/campaigns] Failed to update contact status:', updateErr.message, { campaignContactId })
+    obs.error('vapi_campaigns_update_contact_failed', { error: updateErr.message, campaignContactId })
     return
   }
   if (!contact?.campaign_id) return
@@ -63,7 +66,7 @@ async function updateContactStatus(
 export async function POST(request: Request): Promise<Response> {
   try {
     if (!verifyVapiSecret(request)) {
-      console.warn('[vapi/campaigns] Rejected request with invalid or missing X-Vapi-Secret')
+      obs.warn('vapi_secret_rejected')
       return new Response(null, { status: 200 })
     }
 
@@ -101,7 +104,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return new Response(null, { status: 200 })
   } catch (err) {
-    console.error('[vapi/campaigns] Unexpected error:', err)
+    obs.error('vapi_campaigns_unexpected_error', { error: err })
     return new Response(null, { status: 200 })
   }
 }

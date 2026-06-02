@@ -17,6 +17,7 @@ import { queryKnowledge } from '@/lib/knowledge/query-knowledge'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { createEncoder } from '@/lib/chat/stream/encoder'
+import { createLogger } from '@/lib/obs/logger'
 import { persistMessage } from '@/lib/chat/persist'
 import {
   checkKillSwitch,
@@ -164,12 +165,10 @@ async function buildPartnerTools(params: {
         // DELEG-05: Validate handoff payload | reject forbidden keys
         const validationError = validateHandoffKeys(handoffArgs)
         if (validationError) {
-          console.warn(JSON.stringify({
-            event: 'delegation_handoff_rejected',
+          createLogger({ traceId, orgId }).warn('delegation_handoff_rejected', {
             reason: validationError,
             partnerSlug: capturedPartner.slug,
-            traceId,
-          }))
+          })
           return `Delegation blocked: ${validationError}`
         }
 
@@ -216,7 +215,7 @@ async function buildPartnerTools(params: {
           partnerReply = partnerResult.text || partnerResult.errorDetail || 'Partner did not respond'
         } catch (err) {
           partnerReply = 'Partner agent invocation failed'
-          console.error(JSON.stringify({ event: 'partner_invocation_failed', partnerSlug: capturedPartner.slug, error: String(err), traceId }))
+          createLogger({ traceId, orgId }).error('partner_invocation_failed', { partnerSlug: capturedPartner.slug, error: err })
         }
 
         // Emit partner_done SSE event (streaming path only | DELEG-08)
@@ -284,9 +283,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
     resolvedAgentId = defaultRow?.agent_id ?? undefined
     if (!resolvedAgentId) {
-      console.error(
-        JSON.stringify({ event: 'no_agent_for_channel', orgId: opts.orgId, channel: opts.channel })
-      )
+      createLogger({ orgId: opts.orgId, channel: opts.channel }).error('no_agent_for_channel')
       return {
         text: "I'm unable to process your request right now.",
         usage: { tokensIn: 0, tokensOut: 0 },
@@ -298,8 +295,8 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 1: Generate traceId
-  const traceId = crypto.randomUUID()
+  // Step 1: Generate traceId (reuse caller's correlation id if provided | O1b)
+  const traceId = opts.traceId ?? crypto.randomUUID()
 
   // Step 2: Kill switch check | before any DB writes or LLM calls (GATE-03 / RUNTIME-09)
   const killSwitchResult = checkKillSwitch(traceId)
@@ -308,9 +305,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
   // Step 3: Resolve agent row + apply channel_overrides
   const resolvedAgent = await resolveAgent(resolvedAgentId, orgId, channel)
   if (!resolvedAgent) {
-    console.error(
-      JSON.stringify({ event: 'agent_resolve_failed', agentId: resolvedAgentId, orgId, channel, traceId })
-    )
+    createLogger({ traceId, orgId, channel }).error('agent_resolve_failed', { agentId: resolvedAgentId })
     return {
       text: "I'm unable to process your request right now.",
       usage: { tokensIn: 0, tokensOut: 0 },
@@ -323,9 +318,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
   // Step 4: is_active check (D-34-13) | denied, no invocation row
   if (!resolvedAgent.isActive) {
-    console.warn(
-      JSON.stringify({ event: 'agent_inactive_denied', agentId: resolvedAgentId, orgId, traceId })
-    )
+    createLogger({ traceId, orgId }).warn('agent_inactive_denied', { agentId: resolvedAgentId })
     return {
       text: resolvedAgent.fallbackMessage,
       usage: { tokensIn: 0, tokensOut: 0 },
@@ -341,16 +334,10 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
   // channel — bypass the gate so any active agent can run inside a workflow
   // without the operator having to opt the agent into a channel.
   if (channel !== 'workflow' && !resolvedAgent.allowedChannels.includes(channel)) {
-    console.warn(
-      JSON.stringify({
-        event: 'channel_denied',
-        channel,
-        allowedChannels: resolvedAgent.allowedChannels,
-        agentId: resolvedAgentId,
-        orgId,
-        traceId,
-      })
-    )
+    createLogger({ traceId, orgId, channel }).warn('channel_denied', {
+      allowedChannels: resolvedAgent.allowedChannels,
+      agentId: resolvedAgentId,
+    })
     return {
       text: resolvedAgent.fallbackMessage,
       usage: { tokensIn: 0, tokensOut: 0 },
@@ -589,13 +576,11 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                     blocking_agent: chainAgentId,
                   }
                   toolCallsLog.push(denialEntry)
-                  console.warn(JSON.stringify({
-                    event: 'intersection_authz_denied',
+                  createLogger({ traceId, orgId }).warn('intersection_authz_denied', {
                     tool: capturedToolName,
                     chainAgentId,
                     chain: currentChain,
-                    traceId,
-                  }))
+                  })
                   return `Tool execution denied: delegation chain agent ${chainAgentId} does not have permission for ${capturedToolName}`
                 }
               }
@@ -612,14 +597,10 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                 apiKey = (parsed.apiKey as string) ?? ''
                 locationId = (parsed.locationId as string) ?? ''
               } catch {
-                console.error(
-                  JSON.stringify({
-                    event: 'credential_decrypt_failed',
-                    toolName: capturedToolName,
-                    agentId: resolvedAgentId,
-                    traceId,
-                  })
-                )
+                createLogger({ traceId, orgId }).error('credential_decrypt_failed', {
+                  toolName: capturedToolName,
+                  agentId: resolvedAgentId,
+                })
               }
             }
 
@@ -676,15 +657,11 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
               }
             } catch (err) {
               result = 'Tool execution failed'
-              console.error(
-                JSON.stringify({
-                  event: 'tool_execute_failed',
-                  toolName: capturedToolName,
-                  agentId: resolvedAgentId,
-                  traceId,
-                  error: String(err),
-                })
-              )
+              createLogger({ traceId, orgId }).error('tool_execute_failed', {
+                toolName: capturedToolName,
+                agentId: resolvedAgentId,
+                error: err,
+              })
             }
 
             // Log successful tool call
@@ -769,34 +746,22 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     const error = err as Error
     if (error.name === 'AbortError') {
       // Timeout-triggered abort (RUNTIME-08)
-      console.warn(
-        JSON.stringify({
-          event: 'agent_turn_aborted',
-          agentId: resolvedAgentId,
-          orgId,
-          traceId,
-          reason: 'timeout',
-        })
-      )
+      createLogger({ traceId, orgId }).warn('agent_turn_aborted', {
+        agentId: resolvedAgentId,
+        reason: 'timeout',
+      })
       finalStatus = 'aborted'
       errorDetail = 'turn_timeout'
     } else if (error.message === 'no_anthropic_key') {
-      console.error(
-        JSON.stringify({ event: 'no_anthropic_key', agentId: resolvedAgentId, orgId, traceId })
-      )
+      createLogger({ traceId, orgId }).error('no_anthropic_key', { agentId: resolvedAgentId })
       finalStatus = 'error'
       errorDetail = 'no_anthropic_key'
       finalText = resolvedAgent.fallbackMessage
     } else {
-      console.error(
-        JSON.stringify({
-          event: 'runAgent_error',
-          agentId: resolvedAgentId,
-          orgId,
-          traceId,
-          error: String(err),
-        })
-      )
+      createLogger({ traceId, orgId }).error('runAgent_error', {
+        agentId: resolvedAgentId,
+        error: err,
+      })
       finalStatus = 'error'
       errorDetail = String(err)
       finalText = resolvedAgent.fallbackMessage
@@ -866,7 +831,7 @@ function runAgentStreaming(
       // GATE-01: session event MUST be first
       emit({ event: 'session', sessionId })
 
-      const traceId = crypto.randomUUID()
+      const traceId = opts.traceId ?? crypto.randomUUID()
       const startedAt = Date.now()
 
       let accumulatedText = ''
@@ -893,9 +858,7 @@ function runAgentStreaming(
 
           resolvedAgentId = defaultRow?.agent_id ?? undefined
           if (!resolvedAgentId) {
-            console.error(
-              JSON.stringify({ event: 'no_agent_for_channel', orgId, channel })
-            )
+            createLogger({ traceId, orgId, channel }).error('no_agent_for_channel')
             emit({ event: 'token', text: "I'm unable to process your request right now." })
             emit({ event: 'done' })
             controller.close()
@@ -1073,7 +1036,7 @@ function runAgentStreaming(
                     const chainToolCheck = await resolveAgentTool(chainAgentId, capturedToolName, channel)
                     if (!chainToolCheck) {
                       toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, denied: true, denied_reason: 'intersection_excludes_tool', chain: currentChain, blocking_agent: chainAgentId })
-                      console.warn(JSON.stringify({ event: 'intersection_authz_denied', tool: capturedToolName, chainAgentId, chain: currentChain }))
+                      createLogger({ traceId, orgId }).warn('intersection_authz_denied', { tool: capturedToolName, chainAgentId, chain: currentChain })
                       return `Tool execution denied: delegation chain agent ${chainAgentId} does not have permission for ${capturedToolName}`
                     }
                   }
@@ -1248,7 +1211,7 @@ function runAgentStreaming(
               })
             }
           } catch (err) {
-            console.error('[runAgent/stream] post-stream persist failed:', err)
+            createLogger({ traceId, orgId }).error('stream_post_persist_failed', { error: err })
           }
         })
       }

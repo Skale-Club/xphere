@@ -106,6 +106,9 @@ export async function POST(
     return Response.json({ error: 'Agent not found' }, { status: 404 })
   }
 
+  // Correlation id propagated into the agent run (O1b).
+  const traceId = crypto.randomUUID()
+
   // 5. Stream agent response
   // PLAY-05: conversationId deliberately omitted | runAgentStreaming only persists
   // conversation_messages when conversationId is truthy. Omitting it means zero
@@ -113,6 +116,7 @@ export async function POST(
   // PLAY-04: mode='playground' tags the agent_invocations row.
   const stream = runAgent({
     orgId: membership.organization_id,
+    traceId,
     agentId,
     channel: channel as AgentChannel,
     userMessage: message,

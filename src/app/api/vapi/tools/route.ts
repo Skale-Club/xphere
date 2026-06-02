@@ -13,8 +13,11 @@ import { executeAction } from '@/lib/action-engine/execute-action'
 import { logAction } from '@/lib/action-engine/log-action'
 import { decrypt } from '@/lib/crypto'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
+import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
+
+const obs = createLogger({ route: 'api/vapi/tools' })
 
 export async function POST(request: Request): Promise<Response> {
   const startTime = Date.now()
@@ -22,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
   // Outer catch: prevents ANY uncaught error from returning non-200 to Vapi
   try {
     if (!verifyVapiSecret(request)) {
-      console.warn('[vapi/tools] Rejected request with invalid or missing X-Vapi-Secret')
+      obs.warn('vapi_secret_rejected')
       return Response.json({ results: [] }, { status: 200 })
     }
 
@@ -119,7 +122,7 @@ export async function POST(request: Request): Promise<Response> {
 
   } catch (outerErr) {
     // Truly unexpected error | still return 200 so Vapi doesn't go silent
-    console.error('[vapi/tools] Unexpected error:', outerErr)
+    obs.error('vapi_tools_unexpected_error', { error: outerErr })
     return Response.json({
       results: [{ toolCallId: 'unknown', result: 'Service unavailable.' }]
     }, { status: 200 })

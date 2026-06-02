@@ -12,6 +12,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getSession, setSession, type ChatSessionContext } from '@/lib/chat/session'
 import { ensureDbSession, persistMessage } from '@/lib/chat/persist'
 import { runAgent } from '@/lib/agent-runtime'
+import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
 export const maxDuration = 10
@@ -35,6 +36,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ): Promise<Response> {
+  // Correlation id for this request, propagated into the agent run (O1b).
+  const traceId = crypto.randomUUID()
+  const log = createLogger({ traceId, route: 'api/chat' })
   try {
     // 1. Await params (required in Next.js 15 App Router)
     const { token } = await params
@@ -112,13 +116,14 @@ export async function POST(
       try {
         await persistMessage({ dbSessionId: ctx.dbSessionId, orgId: ctx.orgId, role: 'user', content: message })
       } catch (err) {
-        console.error('[chat-api] persistMessage failed:', err)
+        log.error('persist_user_message_failed', { error: err, orgId: ctx.orgId })
       }
     })
 
     // 7. Call agent runtime | resolves agent, runs LLM, persists assistant reply (D-35-06)
     const stream = runAgent({
       orgId: org.id,
+      traceId,
       channel: 'web_widget',
       conversationId: ctx.dbSessionId,
       sessionId,
@@ -136,7 +141,7 @@ export async function POST(
       },
     })
   } catch (err) {
-    console.error('[chat-api] unhandled error:', err)
+    log.error('chat_unhandled_error', { error: err })
     return Response.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS })
   }
 }
