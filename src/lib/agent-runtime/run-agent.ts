@@ -295,8 +295,8 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 1: Generate traceId
-  const traceId = crypto.randomUUID()
+  // Step 1: Generate traceId (reuse caller's correlation id if provided | O1b)
+  const traceId = opts.traceId ?? crypto.randomUUID()
 
   // Step 2: Kill switch check | before any DB writes or LLM calls (GATE-03 / RUNTIME-09)
   const killSwitchResult = checkKillSwitch(traceId)
@@ -831,7 +831,7 @@ function runAgentStreaming(
       // GATE-01: session event MUST be first
       emit({ event: 'session', sessionId })
 
-      const traceId = crypto.randomUUID()
+      const traceId = opts.traceId ?? crypto.randomUUID()
       const startedAt = Date.now()
 
       let accumulatedText = ''
