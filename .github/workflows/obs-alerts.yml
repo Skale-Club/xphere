@@ -1,0 +1,34 @@
+name: Observability Alerts
+
+# O3: hourly check of cost/scrape/error-rate signals -> deduped Slack alerts.
+# The endpoint no-ops when SLACK_ALERTS_WEBHOOK_URL is unset, so this is safe
+# to enable before the webhook secret is configured.
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # hourly
+  workflow_dispatch:        # manual trigger
+
+concurrency:
+  group: obs-alerts
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fire obs-alerts endpoint
+        run: |
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --max-time 60 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/obs-alerts")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "obs-alerts failed with status $STATUS" >&2
+            exit 1
+          fi
