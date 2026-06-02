@@ -17,7 +17,7 @@
  *     "New messages" pill anchored bottom-right that scrolls back when clicked.
  */
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Info, Loader2, Mail, RadioTower } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
@@ -237,7 +237,7 @@ export function MessageList({
   // Multichannel: precompute which messages start a new channel group so the
   // timeline can render a divider when the channel changes (e.g. SMS → Email).
   // System/debug rows don't carry a channel and never trigger a divider.
-  const channelDividers: (Channel | null)[] = (() => {
+  const channelDividers: (Channel | null)[] = useMemo(() => {
     const out: (Channel | null)[] = []
     let last: string | null = null
     let seenFirst = false
@@ -262,11 +262,11 @@ export function MessageList({
       }
     }
     return out
-  })()
+  }, [messages, primaryChannel])
 
   // Day separators: label the first message and every message that starts a new
   // calendar day, so long threads stay readable across days.
-  const dayDividers: (string | null)[] = (() => {
+  const dayDividers: (string | null)[] = useMemo(() => {
     const out: (string | null)[] = []
     let lastDay: number | null = null
     for (const m of messages) {
@@ -284,7 +284,7 @@ export function MessageList({
       }
     }
     return out
-  })()
+  }, [messages])
 
   return (
     <div className="relative flex-1 min-h-0">

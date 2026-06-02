@@ -9,6 +9,11 @@ import { getUser, createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 import { sendCloudTemplate } from '@/lib/whatsapp/cloud/send-template'
+import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import {
+  resolveZernioProfileId,
+  sendZernioWhatsappTemplate,
+} from '@/lib/zernio/whatsapp-templates'
 
 export const runtime = 'nodejs'
 
@@ -44,6 +49,114 @@ export async function POST(
 
     if (!templateId) {
       return Response.json({ ok: false, error: 'Missing templateId' }, { status: 400 })
+    }
+
+    // ── Zernio template path (id encoded as `zernio:<name>:<language>`) ──
+    // Zernio WhatsApp is the official Cloud API under the hood, so outside the
+    // 24h window only approved templates deliver. There is no single-call send;
+    // we use the 3-step broadcast flow targeting this one recipient.
+    if (templateId.startsWith('zernio:')) {
+      const rest = templateId.slice('zernio:'.length)
+      const sep = rest.lastIndexOf(':')
+      const templateName = sep > 0 ? rest.slice(0, sep) : rest
+      const language = sep > 0 ? rest.slice(sep + 1) : ''
+      if (!templateName || !language) {
+        return Response.json({ ok: false, error: 'Invalid Zernio template id' }, { status: 400 })
+      }
+
+      const svc = createServiceRoleClient()
+      const { data: convo } = await svc
+        .from('conversations')
+        .select('id, org_id, channel, channel_metadata, visitor_phone')
+        .eq('id', conversationId)
+        .maybeSingle()
+      if (!convo || convo.org_id !== orgId) {
+        return Response.json({ ok: false, error: 'Conversation not found' }, { status: 404 })
+      }
+
+      const meta = (convo.channel_metadata as Record<string, string>) ?? {}
+      const phone = convo.visitor_phone ?? meta.to_number ?? ''
+      if (!phone) {
+        return Response.json(
+          { ok: false, error: 'Conversation has no associated phone number' },
+          { status: 400 },
+        )
+      }
+      const accountId = meta.account_id
+      if (!accountId) {
+        return Response.json(
+          { ok: false, error: 'This Zernio conversation is missing its account id.' },
+          { status: 400 },
+        )
+      }
+      const apiKey = await getProviderKey('zernio', orgId, supabase)
+      if (!apiKey) {
+        return Response.json(
+          { ok: false, error: 'Zernio is not connected for this organization.' },
+          { status: 400 },
+        )
+      }
+      const profileId = await resolveZernioProfileId(accountId, apiKey)
+      if (!profileId) {
+        return Response.json(
+          {
+            ok: false,
+            error:
+              'Could not resolve the Zernio profile for this account. Reconnect Zernio or check the workspace.',
+          },
+          { status: 400 },
+        )
+      }
+
+      const result = await sendZernioWhatsappTemplate({
+        apiKey,
+        profileId,
+        accountId,
+        phone,
+        templateName,
+        language,
+        bodyVariables,
+        headerVariables,
+      })
+      if (!result.ok) {
+        return Response.json({ ok: false, error: result.error }, { status: 502 })
+      }
+
+      const summary =
+        bodyVariables.length > 0
+          ? `[Template: ${templateName}] ${bodyVariables.join(' · ')}`
+          : `[Template: ${templateName}]`
+      try {
+        await svc.from('conversation_messages').insert({
+          conversation_id: conversationId,
+          org_id: orgId,
+          role: 'assistant',
+          content: summary,
+          channel: convo.channel,
+          metadata: {
+            channel: convo.channel,
+            provider: 'zernio',
+            source: 'template',
+            template_name: templateName,
+            template_language: language,
+            body_variables: bodyVariables,
+            header_variables: headerVariables,
+            zernio_broadcast_id: result.broadcastId,
+          },
+        })
+        await svc
+          .from('conversations')
+          .update({
+            last_message: summary,
+            last_message_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', conversationId)
+      } catch (err) {
+        console.error('[send-template] zernio persist error:', err)
+      }
+
+      return Response.json({ ok: true, broadcastId: result.broadcastId })
     }
 
     // Load template via the RLS-aware client (must belong to this org).

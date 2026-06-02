@@ -197,7 +197,12 @@ export function ChatArea({
   // WhatsApp Cloud template support: available when the conversation is via
   // meta_cloud. Outside the 24h customer service window, free text fails;
   // the composer banner pushes the user toward the template path.
-  const templateAvailable = conversation?.channelMetadata?.provider === 'meta_cloud'
+  // Templates are needed outside the 24h window on the official WhatsApp Cloud
+  // API. Zernio runs on the official API under the hood, so its WhatsApp threads
+  // get the same template path (sent via Zernio's broadcast endpoint).
+  const templateAvailable =
+    conversation?.channelMetadata?.provider === 'meta_cloud' ||
+    conversation?.channel === 'zernio_whatsapp'
   const lastInboundAt = conversation?.lastInboundAt ?? null
   const outsideWindow = useMemo(() => {
     if (!templateAvailable) return false
@@ -218,6 +223,23 @@ export function ChatArea({
     }
     return Array.from(set)
   }, [messages])
+
+  // Visible messages: drop internal/debug rows unless showDebug, and apply the
+  // per-thread channel filter. Memoized so it isn't recomputed on every render
+  // (e.g. typing indicator, header hover) over the full message array.
+  const visibleMessages = useMemo(() => {
+    return messages.filter((m) => {
+      if (!showDebug && m.metadata?.internal) return false
+      if (channelFilter && channelFilter.length > 0) {
+        const ch =
+          (m.channel as string | null | undefined) ??
+          ((m.metadata as Record<string, unknown> | null | undefined)?.channel as string | undefined) ??
+          conversation?.channel
+        if (!ch || !channelFilter.includes(ch)) return false
+      }
+      return true
+    })
+  }, [messages, showDebug, channelFilter, conversation?.channel])
 
   useEffect(() => {
     setActiveChannel(null)
@@ -349,18 +371,6 @@ export function ChatArea({
       </div>
     )
   }
-
-  const visibleMessages = messages.filter((m) => {
-    if (!showDebug && m.metadata?.internal) return false
-    if (channelFilter && channelFilter.length > 0) {
-      const ch =
-        (m.channel as string | null | undefined) ??
-        ((m.metadata as Record<string, unknown> | null | undefined)?.channel as string | undefined) ??
-        conversation.channel
-      if (!ch || !channelFilter.includes(ch)) return false
-    }
-    return true
-  })
 
   const isBotActive = botAgentAvailable && conversation.botStatus === 'active'
 

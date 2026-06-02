@@ -70,6 +70,7 @@ export interface ExistingConversation {
   contact_id: string | null
   channel_metadata: unknown
   last_inbound_at: string | null
+  last_message_at: string | null
   status: string | null
 }
 
@@ -87,7 +88,41 @@ export interface NormalizeInboundResult {
   error?: string
 }
 
-const EXISTING_COLS = 'id, bot_status, contact_id, channel_metadata, last_inbound_at, status'
+const EXISTING_COLS =
+  'id, bot_status, contact_id, channel_metadata, last_inbound_at, last_message_at, status'
+
+/**
+ * Keep the conversation's activity timestamps monotonic (forward-only).
+ *
+ * Providers re-deliver / replay webhooks out of order (Zernio especially). A
+ * late replay of an OLDER message must not regress `last_inbound_at` /
+ * `last_message_at` — doing so breaks the WhatsApp 24h-window calc and the
+ * inbox ordering. When the incoming message isn't newer than what's stored, we
+ * drop those fields (and the message-preview fields tied to them) from the
+ * update so existing values stand.
+ */
+function applyMonotonicGuard(
+  updatePayload: Record<string, unknown>,
+  existing: ExistingConversation,
+): Record<string, unknown> {
+  const next = { ...updatePayload }
+  const olderOrEqual = (incoming: unknown, current: string | null): boolean =>
+    typeof incoming === 'string' &&
+    typeof current === 'string' &&
+    new Date(incoming).getTime() <= new Date(current).getTime()
+
+  if (olderOrEqual(next.last_inbound_at, existing.last_inbound_at)) {
+    delete next.last_inbound_at
+  }
+  if (olderOrEqual(next.last_message_at, existing.last_message_at)) {
+    // The preview (`last_message`) and the message's `channel` belong to that
+    // not-newer message — drop them too so the preview doesn't regress.
+    delete next.last_message_at
+    delete next.last_message
+    delete next.channel
+  }
+  return next
+}
 
 export async function normalizeInbound(
   input: NormalizeInboundInput,
@@ -119,8 +154,9 @@ export async function normalizeInbound(
     isNew = false
     // Skip an empty update — some handlers (e.g. Telegram) don't touch the
     // conversation during the upsert and bump last_message later themselves.
-    if (Object.keys(updatePayload).length > 0) {
-      await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
+    const safeUpdate = applyMonotonicGuard(updatePayload, existing)
+    if (Object.keys(safeUpdate).length > 0) {
+      await supabase.from('conversations').update(safeUpdate as never).eq('id', conversationId)
     }
   } else {
     const resolvedCreate = typeof createPayload === 'function' ? await createPayload() : createPayload
@@ -152,8 +188,9 @@ export async function normalizeInbound(
         if (racedExisting) {
           conversationId = racedExisting.id
           isNew = false
-          if (Object.keys(updatePayload).length > 0) {
-            await supabase.from('conversations').update(updatePayload as never).eq('id', conversationId)
+          const safeUpdate = applyMonotonicGuard(updatePayload, racedExisting)
+          if (Object.keys(safeUpdate).length > 0) {
+            await supabase.from('conversations').update(safeUpdate as never).eq('id', conversationId)
           }
         } else {
           return {

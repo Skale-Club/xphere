@@ -26,6 +26,7 @@ import {
   Calendar,
   MapPin,
   Pencil,
+  Check,
   PhoneCall,
   TrendingUp,
   UserPlus,
@@ -69,6 +70,9 @@ import {
   type ContactDetail,
 } from '@/app/(dashboard)/contacts/actions'
 import { createTask, updateTask } from '@/app/(dashboard)/tasks/actions'
+import { listTags, setContactTags, type TagRow } from '@/app/(dashboard)/settings/tags/actions'
+import { TagPicker } from '@/components/tags/tag-picker'
+import { TagBadge } from '@/components/tags/tag-badge'
 import { getStages, getDefaultPipeline } from '@/app/(dashboard)/pipeline/actions'
 import { getEventTypes } from '@/app/(dashboard)/scheduling/_actions/event-types'
 import { TaskForm } from '@/components/tasks/task-form'
@@ -517,20 +521,8 @@ export function ContactInfoPanel({
                 className="!px-1 [&_span]:text-[16px] [&_span]:font-semibold [&_span]:tracking-tight"
               />
             </div>
-            {/* Company shown only in the INFO section below — keeping it here
-                duplicates the value and pushes the action grid further down. */}
-            {contact.tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {contact.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center rounded-full bg-accent-muted px-2 py-0.5 text-[10.5px] font-medium text-accent"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
+            {/* Labels live in their own collapsible "Labels" section below
+                (with inline editing) — no longer crowding the name header. */}
           </div>
         </div>
 
@@ -695,6 +687,13 @@ export function ContactInfoPanel({
               </div>
             )}
           </Section>
+
+          {/* ── Labels ── */}
+          <ContactLabelsSection
+            contactId={contact.id}
+            initialTagIds={contact.tagIds}
+            initialTagEntities={contact.tagEntities}
+          />
 
           {/* ── Tasks ── */}
           <Section
@@ -1151,6 +1150,112 @@ function Section({
       </div>
       {open && <div className="flex flex-col gap-2">{children}</div>}
     </div>
+  )
+}
+
+/**
+ * Collapsible "Labels" section with inline editing. Display shows colored tag
+ * chips; the header Edit button swaps in a TagPicker (toggle existing org tags
+ * or create new), and Save persists via setContactTags. Replaces the old pills
+ * that crowded the contact name header.
+ */
+function ContactLabelsSection({
+  contactId,
+  initialTagIds,
+  initialTagEntities,
+}: {
+  contactId: string
+  initialTagIds: string[]
+  initialTagEntities: ContactDetail['tagEntities']
+}) {
+  const [allTags, setAllTags] = React.useState<TagRow[]>([])
+  const [loadedAllTags, setLoadedAllTags] = React.useState(false)
+  const [tagIds, setTagIds] = React.useState<string[]>(initialTagIds)
+  const [editing, setEditing] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+
+  // Reset when the panel switches to another contact.
+  React.useEffect(() => {
+    setTagIds(initialTagIds)
+    setEditing(false)
+  }, [contactId, initialTagIds])
+
+  async function startEditing() {
+    setEditing(true)
+    if (!loadedAllTags) {
+      try {
+        setAllTags(await listTags())
+        setLoadedAllTags(true)
+      } catch {
+        toast.error('Could not load labels')
+      }
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const res = await setContactTags(contactId, tagIds)
+    setSaving(false)
+    if (!res.ok) {
+      toast.error(res.error ?? 'Could not update labels')
+      return
+    }
+    setEditing(false)
+    toast.success('Labels updated')
+  }
+
+  // Prefer freshly-loaded org tags (carry colors); fall back to the entities the
+  // panel already had so chips render instantly before listTags resolves.
+  const selectedTags = loadedAllTags
+    ? allTags.filter((t) => tagIds.includes(t.id))
+    : initialTagEntities.filter((t) => tagIds.includes(t.id))
+
+  const action = editing ? (
+    <button
+      type="button"
+      onClick={handleSave}
+      disabled={saving}
+      className="inline-flex items-center gap-1 text-[10px] text-accent hover:text-accent/80 disabled:opacity-50"
+    >
+      <Check className="h-3 w-3" /> Save
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={startEditing}
+      className="inline-flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary"
+    >
+      <Pencil className="h-3 w-3" /> Edit
+    </button>
+  )
+
+  return (
+    <Section title="Labels" actions={action}>
+      {editing ? (
+        <TagPicker
+          allTags={allTags}
+          value={tagIds}
+          onChange={setTagIds}
+          onTagCreated={(tag) =>
+            setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)))
+          }
+        />
+      ) : selectedTags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedTags.map((t) => (
+            <TagBadge key={t.id} name={t.name} color={t.color} />
+          ))}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={startEditing}
+          className="self-start text-[12px] text-text-tertiary hover:text-text-secondary transition-colors"
+        >
+          No labels — click to add
+        </button>
+      )}
+    </Section>
   )
 }
 

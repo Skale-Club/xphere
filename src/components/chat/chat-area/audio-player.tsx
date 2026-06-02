@@ -50,7 +50,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [totalDuration, setTotalDuration] = useState(duration ?? 0)
-  const [speed, setSpeed] = useState<1 | 2>(1)
+  const [speed, setSpeed] = useState<1 | 1.5 | 2>(1)
   const waveform = useRef(generateWaveform(src))
 
   useEffect(() => {
@@ -88,7 +88,8 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
 
   function toggleSpeed() {
     const audio = audioRef.current
-    const next: 1 | 2 = speed === 1 ? 2 : 1
+    // Cycle 1× → 1.5× → 2× → 1×
+    const next: 1 | 1.5 | 2 = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1
     setSpeed(next)
     if (audio) audio.playbackRate = next
   }
@@ -107,7 +108,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
   const progress = displayDuration > 0 ? currentTime / displayDuration : 0
 
   return (
-    <div className="flex w-full items-center gap-2.5 py-0.5">
+    <div className="flex w-full min-w-[15rem] items-center gap-2.5 py-0.5">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} src={src} preload="metadata" />
 
@@ -151,7 +152,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
               <div
                 key={i}
                 className={cn(
-                  'flex-1 rounded-full transition-colors duration-75',
+                  'min-w-[2px] flex-1 rounded-full transition-colors duration-75',
                   active
                     ? 'bg-accent'
                     : isCurrent
@@ -177,7 +178,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
         onClick={toggleSpeed}
         className={cn(
           'shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors',
-          speed === 2
+          speed !== 1
             ? 'bg-accent/20 text-accent'
             : 'text-white/50 hover:text-white/80',
         )}

@@ -9,7 +9,7 @@
  * conversation (no mapping to dynamic contact fields needed).
  */
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Plus, Send } from 'lucide-react'
 import { TemplateComposerDialog } from '@/components/integrations/whatsapp/template-composer-dialog'
@@ -25,10 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import {
-  listApprovedTemplates,
-  type ApprovedTemplate,
-} from '@/app/(dashboard)/integrations/whatsapp/actions'
+import type { ApprovedTemplate } from '@/app/(dashboard)/integrations/whatsapp/actions'
 
 interface SendTemplateDialogProps {
   open: boolean
@@ -44,6 +41,7 @@ export function SendTemplateDialog({
   onSent,
 }: SendTemplateDialogProps) {
   const [templates, setTemplates] = useState<ApprovedTemplate[]>([])
+  const [canCreate, setCanCreate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const [bodyValues, setBodyValues] = useState<string[]>([])
@@ -51,22 +49,28 @@ export function SendTemplateDialog({
   const [composerOpen, setComposerOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  function reloadTemplates() {
+  // Provider-aware template list: Meta Cloud reads the synced DB table, Zernio
+  // fetches its live library — the endpoint normalizes both to ApprovedTemplate
+  // and tells us whether in-app template creation is supported (Cloud only).
+  const loadTemplates = useCallback(() => {
     setLoading(true)
-    listApprovedTemplates()
-      .then((data) => setTemplates(data))
-      .catch(() => setTemplates([]))
+    fetch(`/api/chat/conversations/${conversationId}/templates`)
+      .then((res) => (res.ok ? res.json() : { templates: [], canCreate: false }))
+      .then((data: { templates?: ApprovedTemplate[]; canCreate?: boolean }) => {
+        setTemplates(data.templates ?? [])
+        setCanCreate(Boolean(data.canCreate))
+      })
+      .catch(() => {
+        setTemplates([])
+        setCanCreate(false)
+      })
       .finally(() => setLoading(false))
-  }
+  }, [conversationId])
 
   useEffect(() => {
     if (!open) return
-    setLoading(true)
-    listApprovedTemplates()
-      .then((data) => setTemplates(data))
-      .catch(() => setTemplates([]))
-      .finally(() => setLoading(false))
-  }, [open])
+    loadTemplates()
+  }, [open, loadTemplates])
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -140,8 +144,17 @@ export function SendTemplateDialog({
             </div>
           ) : templates.length === 0 ? (
             <div className="rounded-[8px] border border-border bg-bg-tertiary/40 p-4 text-[12.5px] text-text-secondary">
-              No approved templates yet. Create one in Meta Business Manager, then go to
-              Integrations → WhatsApp Official and click <strong>Sync from Meta</strong>.
+              {canCreate ? (
+                <>
+                  No approved templates yet. Create one in Meta Business Manager, then go to
+                  Integrations → WhatsApp Official and click <strong>Sync from Meta</strong>.
+                </>
+              ) : (
+                <>
+                  No approved WhatsApp templates found for this account. Create and get a template
+                  approved in your WhatsApp provider before re-engaging outside the 24h window.
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -221,15 +234,19 @@ export function SendTemplateDialog({
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-          <Button
-            variant="ghost"
-            onClick={() => setComposerOpen(true)}
-            disabled={pending}
-            className="gap-1.5 text-[12.5px] text-accent"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Create new template
-          </Button>
+          {canCreate ? (
+            <Button
+              variant="ghost"
+              onClick={() => setComposerOpen(true)}
+              disabled={pending}
+              className="gap-1.5 text-[12.5px] text-accent"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create new template
+            </Button>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancel
@@ -243,11 +260,13 @@ export function SendTemplateDialog({
       </DialogContent>
 
       {/* New template lands as PENDING — reload the approved list once Meta approves + sync. */}
-      <TemplateComposerDialog
-        open={composerOpen}
-        onOpenChange={setComposerOpen}
-        onCreated={reloadTemplates}
-      />
+      {canCreate && (
+        <TemplateComposerDialog
+          open={composerOpen}
+          onOpenChange={setComposerOpen}
+          onCreated={loadTemplates}
+        />
+      )}
     </Dialog>
   )
 }

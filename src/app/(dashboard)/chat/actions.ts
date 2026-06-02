@@ -405,7 +405,7 @@ export async function resolveContactStartChannels(
   const dndChannels = contact.dnd_channels ?? []
 
   // ── Org connectivity probes (parallel, best-effort) ──
-  const [twilioInt, smsNumber, emailInt, evoInstance] = await Promise.all([
+  const [twilioInt, smsNumber, emailInt, evoInstance, metaCloudAccount] = await Promise.all([
     supabase
       .from('integrations')
       .select('id')
@@ -434,11 +434,22 @@ export async function resolveContactStartChannels(
       .eq('status', 'connected')
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('whatsapp_cloud_accounts')
+      .select('id')
+      .eq('org_id', orgId as string)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const smsConnected = Boolean(twilioInt.data && smsNumber.data)
   const emailConnected = Boolean(emailInt.data)
-  const whatsappConnected = Boolean(evoInstance.data)
+  // Native WhatsApp (the kind we can START + send on the `whatsapp` channel) is
+  // available via Evolution or Meta Cloud. Zernio/GHL WhatsApp are their own
+  // channels and can only continue existing threads — they are surfaced via
+  // reopenContactWhatsappConversation, not as a native start channel.
+  const whatsappConnected = Boolean(evoInstance.data) || Boolean(metaCloudAccount.data)
 
   const build = (
     channel: StartChannel,
@@ -560,8 +571,34 @@ export async function createContactConversation(
         .maybeSingle()
       if (num) insert.phone_number_id = num.id
     } else {
-      // WhatsApp via Evolution (the provider we detect for "connected").
-      insert.channel_metadata = { provider: 'evolution', to_number: phone }
+      // WhatsApp cold-start: pick a provider that can INITIATE a native thread
+      // (Evolution preferred, else Meta Cloud). Zernio/GHL can't start from
+      // scratch (their APIs require an inbound thread), so they're handled by
+      // reopenContactWhatsappConversation instead.
+      const [evo, metaCloud] = await Promise.all([
+        supabase
+          .from('evolution_instances')
+          .select('id')
+          .eq('org_id', orgId as string)
+          .eq('status', 'connected')
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('whatsapp_cloud_accounts')
+          .select('id')
+          .eq('org_id', orgId as string)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle(),
+      ])
+      const provider = evo.data ? 'evolution' : metaCloud.data ? 'meta_cloud' : null
+      if (!provider) {
+        return {
+          error:
+            'WhatsApp não pode iniciar uma conversa nova com o provedor conectado. O contato precisa enviar a primeira mensagem.',
+        }
+      }
+      insert.channel_metadata = { provider, to_number: phone }
     }
   } else if (channel === 'email') {
     const { data: contact } = await supabase
@@ -586,6 +623,69 @@ export async function createContactConversation(
     return { error: error?.message ?? 'Failed to create conversation.' }
   }
   return { conversation: mapConversationRow(createdRow) }
+}
+
+// WhatsApp lives on several channels depending on the connected provider.
+// All of them are "WhatsApp" to the operator and can continue an existing
+// thread (only native `whatsapp` can also be cold-started).
+const WHATSAPP_FAMILY_CHANNELS = ['whatsapp', 'ghl_whatsapp', 'zernio_whatsapp']
+
+/**
+ * Find the contact's most-recent WhatsApp conversation across ANY provider
+ * (native, GHL, Zernio) and ANY status, reopening it when closed, so opening
+ * the contact reaches the existing thread instead of trying to cold-start
+ * (which Zernio/GHL cannot do). Returns `{ conversation: null }` when the
+ * contact has no WhatsApp thread at all.
+ */
+export async function reopenContactWhatsappConversation(
+  contactId: string,
+): Promise<{ conversation: ConversationSummary | null } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const liveContactId = await resolveLiveContactId(contactId)
+
+  const { data: rows, error } = await supabase
+    .from('conversations')
+    .select(CONVERSATION_SUMMARY_COLUMNS)
+    .eq('contact_id', liveContactId)
+    .in('channel', WHATSAPP_FAMILY_CHANNELS)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (error) {
+    console.error('[chat:reopen-whatsapp]', error)
+    return { error: error.message }
+  }
+
+  const candidates = (rows ?? []) as Record<string, unknown>[]
+  if (candidates.length === 0) return { conversation: null }
+
+  // Most recent by activity (last message, else updated/created).
+  const chosen = candidates.sort((a, b) => {
+    const ta = new Date((a.last_message_at ?? a.updated_at ?? a.created_at) as string).getTime()
+    const tb = new Date((b.last_message_at ?? b.updated_at ?? b.created_at) as string).getTime()
+    return tb - ta
+  })[0]
+
+  // Reopen if archived, and force manual mode so the operator can reply now.
+  const needsUpdate = chosen.status === 'closed' || chosen.bot_status !== 'paused'
+  if (needsUpdate) {
+    const { data: updated } = await supabase
+      .from('conversations')
+      .update({ status: 'open', bot_status: 'paused', updated_at: new Date().toISOString() })
+      .eq('id', chosen.id as string)
+      .select(CONVERSATION_SUMMARY_COLUMNS)
+      .maybeSingle()
+    return {
+      conversation: mapConversationRow(
+        (updated as Record<string, unknown> | null) ?? { ...chosen, status: 'open', bot_status: 'paused' },
+      ),
+    }
+  }
+
+  return { conversation: mapConversationRow(chosen) }
 }
 
 /**
