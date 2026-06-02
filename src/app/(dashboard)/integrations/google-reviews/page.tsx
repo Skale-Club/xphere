@@ -2,15 +2,16 @@ import { formatDistanceToNow } from 'date-fns'
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   Clock,
   ExternalLink,
   KeyRound,
   MapPin,
   Quote,
+  Settings2,
   ShieldCheck,
   Sparkles,
   Star,
-  TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -18,11 +19,12 @@ import { redirect } from 'next/navigation'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { BusinessSearch } from '@/components/reviews/business-search'
-import { EmbedSnippet } from '@/components/reviews/embed-snippet'
 import { RefreshButton } from '@/components/reviews/refresh-button'
 import { SerpApiKeyForm } from '@/components/reviews/serpapi-key-form'
 import { StarRating } from '@/components/reviews/star-rating'
+import { WidgetTemplatePicker } from '@/components/reviews/widget-template-picker'
 import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Separator } from '@/components/ui/separator'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { SectionCard } from '@/components/integrations/section-card'
@@ -32,7 +34,18 @@ export const dynamic = 'force-dynamic'
 
 const PRODUCTION_ORIGIN = 'https://xphere.app'
 
-function statusBadge(status: string | null) {
+function nextScrapeText(): string {
+  const now = new Date()
+  const next = new Date()
+  next.setUTCHours(6, 0, 0, 0)
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+  const diffMs = next.getTime() - now.getTime()
+  const hours = Math.floor(diffMs / 3_600_000)
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000)
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+
+function StatusBadge({ status }: { status: string | null }) {
   if (!status) {
     return (
       <Badge variant="secondary" className="gap-1">
@@ -109,6 +122,54 @@ export default async function GoogleReviewsIntegrationPage() {
   const hasApiKey = Boolean(profile?.serpapi_key_encrypted)
   const isConfigured = Boolean(profile?.is_active && profile?.place_id && profile?.place_id !== '__pending__')
 
+  // ── Setup wizard (not yet configured) ───────────────────────────────────
+  if (!isConfigured) {
+    return (
+      <PageContainer>
+        <PageHeader
+          eyebrow="Google Reviews"
+          eyebrowIcon={Star}
+          title="Google Reviews"
+          description="Scrape your Google Business reviews daily via SerpAPI and serve them through an embeddable widget."
+          back={{ href: '/integrations', label: 'All integrations' }}
+        />
+
+        <SectionCard
+          icon={KeyRound}
+          title="Step 1 · SerpAPI key"
+          description="Each org connects its own free SerpAPI account | 100 searches/month at no cost."
+          statusReady={hasApiKey}
+          readyLabel="Key saved"
+          emptyLabel="Key missing"
+          helpLinks={[{ label: 'Get a free SerpAPI key', href: 'https://serpapi.com/manage-api-key' }]}
+        >
+          <SerpApiKeyForm currentHint={keyHint} />
+        </SectionCard>
+
+        <SectionCard
+          icon={MapPin}
+          title="Step 2 · Find your business"
+          description="Search Google Maps to lock in the correct Place ID for review scraping."
+          statusReady={false}
+          readyLabel="Business selected"
+          emptyLabel="Not selected"
+        >
+          <BusinessSearch
+            hasApiKey={hasApiKey}
+            currentPlaceId={null}
+          />
+        </SectionCard>
+
+        <EmptyState
+          icon={Star}
+          title="Almost there"
+          description="Save your SerpAPI key and pick your business above to unlock the daily scrape and embeddable widget."
+        />
+      </PageContainer>
+    )
+  }
+
+  // ── Operational dashboard (configured) ──────────────────────────────────
   let recentReviews: {
     id: string
     reviewer_name: string | null
@@ -127,170 +188,184 @@ export default async function GoogleReviewsIntegrationPage() {
     recentReviews = data ?? []
   }
 
+  const nextIn = nextScrapeText()
+
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Google Reviews"
         eyebrowIcon={Star}
-        title="Google Reviews"
-        description="Scrape your Google Business reviews daily via SerpAPI and serve them through an embeddable widget."
+        title={profile?.business_name ?? 'Google Reviews'}
+        description={profile?.address ?? 'Connected via SerpAPI'}
         back={{ href: '/integrations', label: 'All integrations' }}
         actions={
-          isConfigured ? (
-            <div className="flex items-center gap-2">
-              {statusBadge(profile?.last_scrape_status ?? null)}
-              <RefreshButton />
-            </div>
-          ) : null
+          <div className="flex items-center gap-2">
+            <StatusBadge status={profile?.last_scrape_status ?? null} />
+            <RefreshButton />
+          </div>
         }
       />
 
+      {/* ── Business stats ── */}
       <SectionCard
-        icon={KeyRound}
-        title="Step 1 · SerpAPI key"
-        description="Each org connects its own free SerpAPI account | 100 searches/month at no cost."
-        statusReady={hasApiKey}
-        readyLabel="Key saved"
-        emptyLabel="Key missing"
-        helpLinks={[{ label: 'Get a free SerpAPI key', href: 'https://serpapi.com/manage-api-key' }]}
+        icon={Star}
+        title="Reviews overview"
+        description="Live metrics from your Google Business profile."
+        statusReady={true}
+        readyLabel="Pipeline active"
+        emptyLabel="-"
       >
-        <SerpApiKeyForm currentHint={keyHint} />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1">
+            <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Average rating</p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif text-3xl font-semibold tabular-nums">
+                {profile?.average_rating?.toFixed(1) ?? '-'}
+              </span>
+              <StarRating rating={profile?.average_rating ?? 0} size="md" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Total reviews</p>
+            <p className="font-serif text-3xl font-semibold tabular-nums">
+              {profile?.total_reviews_count ?? 0}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Last scrape</p>
+            <p className="text-[13px] font-medium text-text-primary">
+              {profile?.last_scraped_at
+                ? `${formatDistanceToNow(new Date(profile.last_scraped_at))} ago`
+                : 'Never'}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Next scrape</p>
+            <p className="text-[13px] font-medium text-text-primary">
+              Daily · 06:00 UTC
+            </p>
+            <p className="text-[11.5px] text-text-tertiary">in {nextIn}</p>
+          </div>
+        </div>
+
+        {profile?.last_scrape_error ? (
+          <div className="flex items-start gap-2 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="break-words">{profile.last_scrape_error}</span>
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-tertiary/50 px-3 py-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-success shrink-0" />
+          <span className="text-[11.5px] text-text-secondary">
+            Place ID:{' '}
+            <span className="font-mono text-[10.5px] text-text-tertiary">{profile?.place_id}</span>
+          </span>
+        </div>
       </SectionCard>
 
+      {/* ── Widget templates ── */}
       <SectionCard
-        icon={MapPin}
-        title="Step 2 · Find your business"
-        description="Search Google Maps to lock in the correct Place ID for review scraping."
-        statusReady={isConfigured}
-        readyLabel="Business selected"
-        emptyLabel="Not selected"
+        icon={Sparkles}
+        title="Widget embed"
+        description="Pick a layout, set the minimum rating and theme, then paste the snippet on your site."
+        statusReady={Boolean(profile?.widget_token)}
+        readyLabel="Snippet ready"
+        emptyLabel="-"
       >
-        <BusinessSearch
-          hasApiKey={hasApiKey}
-          currentPlaceId={isConfigured ? profile?.place_id ?? null : null}
-        />
-        {isConfigured ? (
-          <div className="flex items-center gap-2 rounded-[10px] border border-success/30 bg-success/5 px-3 py-2 text-[12px]">
-            <ShieldCheck className="h-3.5 w-3.5 text-success" />
-            <span className="text-text-primary">
-              Connected to <strong>{profile?.business_name}</strong>
-            </span>
-            <span className="font-mono text-[10.5px] text-text-tertiary">
-              {profile?.place_id}
-            </span>
-          </div>
+        {profile?.widget_token ? (
+          <WidgetTemplatePicker
+            baseUrl={PRODUCTION_ORIGIN}
+            widgetToken={profile.widget_token}
+          />
         ) : null}
       </SectionCard>
 
-      {isConfigured ? (
-        <>
-          <SectionCard
-            icon={TrendingUp}
-            title="Status"
-            description="Live snapshot of your reviews pipeline."
-            statusReady={true}
-            readyLabel="Pipeline healthy"
-            emptyLabel="-"
-          >
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1">
-                <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Average rating</p>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-serif text-3xl font-semibold tabular-nums">
-                    {profile?.average_rating?.toFixed(1) ?? '-'}
-                  </span>
-                  <StarRating rating={profile?.average_rating ?? 0} size="md" />
-                </div>
+      {/* ── Settings (collapsible) ── */}
+      <Collapsible>
+        <section className="rounded-[14px] border border-border bg-bg-secondary overflow-hidden">
+          <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-6 text-left hover:bg-bg-tertiary/30 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-bg-tertiary text-text-secondary">
+                <Settings2 className="h-5 w-5" />
               </div>
-              <div className="space-y-1">
-                <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Total reviews</p>
-                <p className="font-serif text-3xl font-semibold tabular-nums">
-                  {profile?.total_reviews_count ?? 0}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Last scrape</p>
-                <p className="text-[13px] font-medium text-text-primary">
-                  {profile?.last_scraped_at
-                    ? `${formatDistanceToNow(new Date(profile.last_scraped_at))} ago`
-                    : 'Never'}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Cadence</p>
-                <p className="text-[13px] font-medium text-text-primary">
-                  Every {profile?.scrape_interval_hours ?? 24} h
+              <div>
+                <h2 className="text-[15px] font-medium text-text-primary">Settings</h2>
+                <p className="mt-0.5 text-[12.5px] text-text-secondary">
+                  API key · connected business · disconnect
                 </p>
               </div>
             </div>
-            {profile?.last_scrape_error ? (
-              <div className="flex items-start gap-2 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
-                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span className="break-words">{profile.last_scrape_error}</span>
-              </div>
-            ) : null}
-          </SectionCard>
+            <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+          </CollapsibleTrigger>
 
-          <SectionCard
-            icon={Quote}
-            title="Recent reviews"
-            description="Last 5 captured from Google."
-            statusReady={recentReviews.length > 0}
-            readyLabel={`${recentReviews.length} on file`}
-            emptyLabel="Awaiting first scrape"
-          >
-            {recentReviews.length === 0 ? (
-              <div className="rounded-[10px] border border-dashed border-border bg-bg-secondary/40 p-6 text-center text-[13px] text-text-secondary">
-                No reviews captured yet | click <em>Refresh now</em> above.
-              </div>
-            ) : (
-              <ul className="divide-y divide-border-subtle">
-                {recentReviews.map((r) => (
-                  <li key={r.id} className="grid gap-2 py-3 sm:grid-cols-[160px_1fr]">
-                    <div>
-                      <p className="text-[13px] font-medium text-text-primary">{r.reviewer_name ?? 'Anonymous'}</p>
-                      <div className="mt-0.5 flex items-center gap-2">
-                        <StarRating rating={r.rating} size="sm" />
-                        {r.date_text ? (
-                          <span className="text-[11px] text-text-tertiary">{r.date_text}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '-'}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Separator className="my-3" />
-            <Link
-              href="/reviews"
-              className="inline-flex items-center gap-1 text-[12px] font-medium text-accent underline-offset-4 hover:underline"
-            >
-              Open reviews dashboard
-              <ExternalLink className="h-3 w-3" />
-            </Link>
-          </SectionCard>
+          <CollapsibleContent>
+            <div className="space-y-6 px-6 pb-6">
+              <Separator />
 
-          <SectionCard
-            icon={Sparkles}
-            title="Step 3 · Embed on your site"
-            description="Drop this <iframe> anywhere | no script tags, no API keys exposed."
-            statusReady={Boolean(profile?.widget_token)}
-            readyLabel="Snippet ready"
-            emptyLabel="-"
-          >
-            {profile?.widget_token ? (
-              <EmbedSnippet baseUrl={PRODUCTION_ORIGIN} widgetToken={profile.widget_token} />
-            ) : null}
-          </SectionCard>
-        </>
-      ) : (
-        <EmptyState
-          icon={Star}
-          title="Almost there"
-          description="Save your SerpAPI key and pick your business above to unlock the daily scrape and embeddable widget."
-        />
-      )}
+              <div className="space-y-3">
+                <p className="text-[11.5px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+                  SerpAPI key
+                </p>
+                <SerpApiKeyForm currentHint={keyHint} />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <p className="text-[11.5px] font-medium uppercase tracking-[0.06em] text-text-tertiary">
+                  Connected business
+                </p>
+                <BusinessSearch
+                  hasApiKey={hasApiKey}
+                  currentPlaceId={profile?.place_id ?? null}
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </section>
+      </Collapsible>
+
+      {/* ── Recent reviews ── */}
+      <SectionCard
+        icon={Quote}
+        title="Recent reviews"
+        description="Last 5 captured from Google."
+        statusReady={recentReviews.length > 0}
+        readyLabel={`${recentReviews.length} on file`}
+        emptyLabel="Awaiting first scrape"
+      >
+        {recentReviews.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-border bg-bg-secondary/40 p-6 text-center text-[13px] text-text-secondary">
+            No reviews captured yet — click <em>Refresh now</em> above to trigger a manual scrape.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border-subtle">
+            {recentReviews.map((r) => (
+              <li key={r.id} className="grid gap-2 py-3 sm:grid-cols-[160px_1fr]">
+                <div>
+                  <p className="text-[13px] font-medium text-text-primary">{r.reviewer_name ?? 'Anonymous'}</p>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <StarRating rating={r.rating} size="sm" />
+                    {r.date_text ? (
+                      <span className="text-[11px] text-text-tertiary">{r.date_text}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <p className="text-[13px] text-text-secondary line-clamp-3">{r.text ?? '-'}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Separator className="my-3" />
+        <Link
+          href="/reviews"
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-accent underline-offset-4 hover:underline"
+        >
+          Open reviews dashboard
+          <ExternalLink className="h-3 w-3" />
+        </Link>
+      </SectionCard>
     </PageContainer>
   )
 }
