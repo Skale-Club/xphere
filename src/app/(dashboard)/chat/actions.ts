@@ -742,3 +742,99 @@ export async function prepareContactConversationForOpen(
 
   return { conversation: mapConversationRow(row) }
 }
+
+// ─── Inbox Saved Views ────────────────────────────────────────────────────────
+
+export interface SavedView {
+  id: string
+  name: string
+  filters: Record<string, unknown>
+  isDefault: boolean
+  createdAt: string
+}
+
+export async function listSavedViews(): Promise<SavedView[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('inbox_saved_views')
+    .select('id, name, filters, is_default, created_at')
+    .order('created_at', { ascending: true })
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    filters: (r.filters as Record<string, unknown>) ?? {},
+    isDefault: Boolean(r.is_default),
+    createdAt: r.created_at as string,
+  }))
+}
+
+export async function createSavedView(
+  name: string,
+  filters: Record<string, unknown>,
+  setAsDefault: boolean,
+): Promise<{ view: SavedView } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  if (setAsDefault) {
+    await supabase
+      .from('inbox_saved_views')
+      .update({ is_default: false })
+      .eq('user_id', user.id)
+      .eq('org_id', orgId as string)
+  }
+
+  const { data, error } = await supabase
+    .from('inbox_saved_views')
+    .insert({ org_id: orgId as string, user_id: user.id, name, filters, is_default: setAsDefault })
+    .select('id, name, filters, is_default, created_at')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Failed to save view' }
+  return {
+    view: {
+      id: data.id as string,
+      name: data.name as string,
+      filters: (data.filters as Record<string, unknown>) ?? {},
+      isDefault: Boolean(data.is_default),
+      createdAt: data.created_at as string,
+    },
+  }
+}
+
+export async function deleteSavedView(id: string): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('inbox_saved_views').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function setDefaultSavedView(id: string | null): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  await supabase
+    .from('inbox_saved_views')
+    .update({ is_default: false })
+    .eq('user_id', user.id)
+    .eq('org_id', orgId as string)
+
+  if (id) {
+    const { error } = await supabase
+      .from('inbox_saved_views')
+      .update({ is_default: true })
+      .eq('id', id)
+    if (error) return { error: error.message }
+  }
+  return {}
+}

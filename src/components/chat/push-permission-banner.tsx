@@ -31,8 +31,11 @@ export function PushPermissionBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    // Only show when: push is supported, not yet granted/denied, not already subscribed, not dismissed
-    if (supported && permission === 'default' && !subscribed && !isDismissed()) {
+    if (permission !== 'default' || subscribed) {
+      setVisible(false)
+      return
+    }
+    if (supported && !isDismissed()) {
       setVisible(true)
     }
   }, [supported, permission, subscribed])
@@ -41,12 +44,16 @@ export function PushPermissionBanner() {
 
   async function handleEnable() {
     const granted = await subscribe()
+    setVisible(false)
     if (granted) {
       toast.success('Notifications enabled')
-      setVisible(false)
     } else {
-      toast.error('Notifications blocked | check your browser settings')
-      setVisible(false)
+      const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default'
+      if (perm === 'denied') {
+        toast.error('Notifications blocked — enable them in your browser settings')
+      } else {
+        toast.error('Could not subscribe to notifications — try again or check browser settings')
+      }
     }
   }
 

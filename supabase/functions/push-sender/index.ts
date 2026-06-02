@@ -6,9 +6,9 @@
 import webpush from 'npm:web-push@^3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@^2'
 
-const VAPID_CONTACT = Deno.env.get('VAPID_CONTACT') ?? 'mailto:admin@xphere.app'
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
+const VAPID_CONTACT = Deno.env.get('VAPID_CONTACT') ?? 'mailto:skale.club@gmail.com'
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? 'BMEcSTxVVttfJ9u9yWgHDgO_BQOTKoh4tvGIM8QlzrhjDSThw3xAitj6l6SySKlEPdiag7BCORb_VZ_Hi6BwNY0'
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? 'bqyv2IH1lX274mjKIDsgC-xBlSHIwtbZ_nc510Jce68'
 
 webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 
