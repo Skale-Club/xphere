@@ -62,9 +62,34 @@ function emit(level: LogLevel, base: LogContext, event: string, fields?: LogCont
   else console.log(line)
 
   // Two-layer model: error-level logs are also persisted to the durable
-  // event_logs table (surfaced in /admin/logs) with the shared correlation id.
-  // Fire-and-forget; dynamic import keeps this module lean for non-error paths.
-  if (level === 'error') forwardErrorToEventLogs(base, event, fields)
+  // event_logs table (surfaced in /admin/logs) with the shared correlation id,
+  // and to Sentry for error tracking. Fire-and-forget; dynamic imports keep this
+  // module lean for non-error paths.
+  if (level === 'error') {
+    forwardErrorToEventLogs(base, event, fields)
+    forwardErrorToSentry(base, event, fields)
+  }
+}
+
+function forwardErrorToSentry(base: LogContext, event: string, fields?: LogContext): void {
+  try {
+    const rawErr = fields?.error
+    void import('@sentry/nextjs')
+      .then((Sentry) => {
+        const context = { tags: { event }, extra: { ...base, ...(fields ?? {}) } }
+        if (rawErr instanceof Error) {
+          Sentry.captureException(rawErr, context)
+        } else {
+          Sentry.captureMessage(`${event}${rawErr != null ? `: ${String(rawErr)}` : ''}`, {
+            level: 'error',
+            ...context,
+          })
+        }
+      })
+      .catch(() => {})
+  } catch {
+    /* never let logging break the caller */
+  }
 }
 
 function forwardErrorToEventLogs(base: LogContext, event: string, fields?: LogContext): void {
