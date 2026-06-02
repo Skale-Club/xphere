@@ -691,11 +691,16 @@ function ConversationCardBase({
         )}
       </div>
 
-      {/* Right column: timestamp + channel badge stacked + vertically centered */}
+      {/* Right column: timestamp + unread dot + channel badge stacked */}
       <div className="flex shrink-0 flex-col items-end gap-1.5 self-center">
-        <span className="whitespace-nowrap text-[10.5px] tabular-nums text-text-tertiary">
-          {formatRelative(conversation)}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="whitespace-nowrap text-[10.5px] tabular-nums text-text-tertiary">
+            {formatRelative(conversation)}
+          </span>
+          {conversation.isUnread && !selected && (
+            <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-label="Unread" />
+          )}
+        </div>
         {channel !== 'unknown' && (
           <TooltipProvider delayDuration={200}>
             <Tooltip>
@@ -776,6 +781,7 @@ const MemoConversationCard = memo(ConversationCardBase, (prev, next) => {
     a.status === b.status &&
     a.botStatus === b.botStatus &&
     a.starred === b.starred &&
+    a.isUnread === b.isUnread &&
     a.assignedUserId === b.assignedUserId &&
     a.visitorName === b.visitorName &&
     a.visitorPhone === b.visitorPhone &&

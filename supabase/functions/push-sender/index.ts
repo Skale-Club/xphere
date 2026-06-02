@@ -106,15 +106,16 @@ interface PushData {
 
 function buildPushData(type: string, payload: Record<string, unknown>): PushData {
   switch (type) {
-    case 'new_conversation': {
+    case 'new_conversation':
+    case 'new_message': {
       const name = (payload.contact_name as string | undefined) ?? 'Someone'
       const msg = (payload.message_preview as string | undefined) ?? ''
       const preview = msg.length > 60 ? msg.slice(0, 60) + '…' : msg
       return {
-        title: 'New message',
-        body: preview ? `${name}: ${preview}` : name,
+        title: type === 'new_message' ? name : 'New conversation',
+        body: preview ? (type === 'new_message' ? preview : `${name}: ${preview}`) : name,
         url: payload.conversation_id
-          ? `/conversations/${payload.conversation_id}`
+          ? `/chat?conversation=${payload.conversation_id}`
           : '/chat',
         tag: `conv-${payload.conversation_id ?? 'inbox'}`,
       }
@@ -127,8 +128,20 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
       return {
         title: 'Missed call',
         body: caller,
-        url: payload.call_log_id ? `/calls/${payload.call_log_id}` : '/calls',
+        url: payload.call_log_id ? `/calls?highlight=${payload.call_log_id}` : '/calls',
         tag: `call-${payload.call_log_id ?? 'missed'}`,
+      }
+    }
+    case 'incoming_call': {
+      const caller =
+        (payload.caller_name as string | undefined) ??
+        (payload.caller_number as string | undefined) ??
+        'Unknown caller'
+      return {
+        title: 'Incoming call',
+        body: `Call from ${caller}`,
+        url: '/calls',
+        tag: `incoming-${payload.call_id ?? 'call'}`,
       }
     }
     case 'flow_failed': {
@@ -144,7 +157,7 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
       return {
         title: 'New notification',
         body: '',
-        url: '/dashboard',
+        url: '/chat',
         tag: `notif-${type}`,
       }
   }

@@ -174,17 +174,28 @@ export async function GET(request: Request): Promise<Response> {
     ...pageEntries.map((e) => e.representative_conversation_id),
   ]
   const rowsById = new Map<string, Record<string, unknown>>()
+  const readAtMap = new Map<string, string | null>()
+
   if (repIds.length > 0) {
-    const { data: hydrated, error: hydrateErr } = await supabase
-      .from('conversations')
-      .select(SELECT_COLS)
-      .in('id', repIds)
-    if (hydrateErr) {
-      console.error('[GET /api/chat/conversations] hydrate', hydrateErr)
+    const [hydrateRes, readsRes] = await Promise.all([
+      supabase.from('conversations').select(SELECT_COLS).in('id', repIds),
+      supabase
+        .from('conversation_reads')
+        .select('conversation_id, read_at')
+        .in('conversation_id', repIds)
+        .eq('user_id', userId),
+    ])
+
+    if (hydrateRes.error) {
+      console.error('[GET /api/chat/conversations] hydrate', hydrateRes.error)
       return Response.json({ error: 'Failed to load conversations' }, { status: 500 })
     }
-    for (const r of (hydrated ?? []) as Record<string, unknown>[]) {
+
+    for (const r of (hydrateRes.data ?? []) as Record<string, unknown>[]) {
       rowsById.set(r.id as string, r)
+    }
+    for (const r of (readsRes.data ?? [])) {
+      readAtMap.set(r.conversation_id, r.read_at)
     }
   }
 
@@ -248,12 +259,18 @@ export async function GET(request: Request): Promise<Response> {
     const phoneNumberLabel = phoneNumber
       ? (phoneNumber.inbox_label?.trim() || phoneNumber.friendly_name?.trim() || phoneNumber.e164 || null)
       : null
+    const lastActivity = (row.last_message_at as string | null) ?? null
+    const readAt = readAtMap.has(id) ? (readAtMap.get(id) ?? null) : undefined
+    const isUnread = lastActivity
+      ? readAt === undefined || !readAt || lastActivity > readAt
+      : false
+
     return {
       id,
       status: row.status as ConversationStatus,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
-      lastMessageAt: (row.last_message_at as string | null) ?? null,
+      lastMessageAt: lastActivity,
       visitorName: (row.visitor_name as string | null) ?? null,
       visitorEmail: (row.visitor_email as string | null) ?? null,
       visitorPhone: (row.visitor_phone as string | null) ?? null,
@@ -274,6 +291,7 @@ export async function GET(request: Request): Promise<Response> {
       phoneNumberLabel,
       lastInboundAt: (row.last_inbound_at as string | null) ?? null,
       channels: (row.__channels as string[] | undefined) ?? [row.channel as string],
+      isUnread,
     }
   }
 

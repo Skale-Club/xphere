@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarContext, useSidebarState } from './sidebar-context'
+import { useUnreadCount } from '@/hooks/use-unread-count'
 
 function getInitials(user: User): string {
   const fullName = user.user_metadata?.full_name as string | undefined
@@ -78,6 +79,7 @@ interface SidebarBodyProps {
   /** Called after a nav link is followed — used to dismiss the mobile overlay. */
   onNavigate?: () => void
   user: User
+  userId?: string | null
   displayName: string
   email: string
   initials: string
@@ -94,6 +96,7 @@ function SidebarBody({
   onToggle,
   showShortcut = false,
   onNavigate,
+  userId,
   displayName,
   email,
   initials,
@@ -104,6 +107,7 @@ function SidebarBody({
   pathname,
   onSignOut,
 }: SidebarBodyProps) {
+  const chatUnreadCount = useUnreadCount(userId)
   return (
     <>
       {/* Header | brand + collapse */}
@@ -229,6 +233,14 @@ function SidebarBody({
                       )}
                     />
                     {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && item.href === '/chat' && chatUnreadCount > 0 && (
+                      <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white leading-none">
+                        {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                      </span>
+                    )}
+                    {collapsed && item.href === '/chat' && chatUnreadCount > 0 && (
+                      <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                    )}
                   </Link>
                 )
 
@@ -354,6 +366,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
 
   const bodyProps = {
     user,
+    userId: user.id,
     displayName,
     email,
     initials,

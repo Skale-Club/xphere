@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call'
 
 /**
  * Fan-out helper: inserts one notification row per target user.

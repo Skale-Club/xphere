@@ -77,6 +77,12 @@ interface UseChatRealtimeParams {
   onConversationDelete: (id: string) => void
   /** Realtime message arrived on the open thread (mapped). */
   onMessageInsert: (message: ConversationMessage) => void
+  /**
+   * A conversation that is NOT the currently selected one received a new
+   * inbound message (last_message_at advanced). Used for browser notifications
+   * and optimistic isUnread updates.
+   */
+  onInboundOtherConversation?: (conversation: ConversationSummary, prevLastMessageAt: string | null) => void
 }
 
 export interface UseChatRealtimeResult {
@@ -92,6 +98,7 @@ export function useChatRealtime({
   onConversationUpdate,
   onConversationDelete,
   onMessageInsert,
+  onInboundOtherConversation,
 }: UseChatRealtimeParams): UseChatRealtimeResult {
   const [isTyping, setIsTyping] = useState(false)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -102,11 +109,15 @@ export function useChatRealtime({
   // preview update) would change on every list mutation and tear down + rebuild
   // the realtime channel on every incoming message, risking dropped events
   // during the resubscribe window.
+  // Track last known lastMessageAt per conversation to detect new inbounds.
+  const lastMessageAtRef = useRef<Map<string, string | null>>(new Map())
+
   const cbRef = useRef({
     onConversationInsert,
     onConversationUpdate,
     onConversationDelete,
     onMessageInsert,
+    onInboundOtherConversation,
   })
   useEffect(() => {
     cbRef.current = {
@@ -114,6 +125,7 @@ export function useChatRealtime({
       onConversationUpdate,
       onConversationDelete,
       onMessageInsert,
+      onInboundOtherConversation,
     }
   })
 
@@ -127,14 +139,32 @@ export function useChatRealtime({
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
-          cbRef.current.onConversationInsert(mapConversationRow(payload.new))
+          const mapped = mapConversationRow(payload.new)
+          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
+          lastMessageAtRef.current.set(mapped.id, newLastMessageAt)
+          cbRef.current.onConversationInsert(mapped)
         },
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
-          cbRef.current.onConversationUpdate(mapConversationRow(payload.new))
+          const mapped = mapConversationRow(payload.new)
+          cbRef.current.onConversationUpdate(mapped)
+
+          // Detect new inbound message in a non-selected conversation.
+          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
+          const prevLastMessageAt = lastMessageAtRef.current.get(mapped.id) ?? null
+          lastMessageAtRef.current.set(mapped.id, newLastMessageAt)
+
+          if (
+            mapped.id !== selectedId &&
+            newLastMessageAt &&
+            newLastMessageAt !== prevLastMessageAt &&
+            cbRef.current.onInboundOtherConversation
+          ) {
+            cbRef.current.onInboundOtherConversation(mapped, prevLastMessageAt)
+          }
         },
       )
       .on(

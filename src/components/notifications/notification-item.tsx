@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { MessageCircle, PhoneMissed, AlertTriangle } from 'lucide-react'
+import { MessageCircle, PhoneMissed, AlertTriangle, Phone } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import type { NotificationRow } from '@/app/(dashboard)/notifications/actions'
 
@@ -15,9 +15,12 @@ function getNavigationTarget(notification: NotificationRow): string {
   const payload = notification.payload as Record<string, unknown>
   switch (notification.type) {
     case 'new_conversation':
-      return `/chat?id=${payload.conversation_id ?? ''}`
+    case 'new_message':
+      return `/chat?conversation=${payload.conversation_id ?? ''}`
     case 'missed_call':
       return `/calls?highlight=${payload.call_log_id ?? ''}`
+    case 'incoming_call':
+      return '/calls'
     case 'flow_failed':
       return `/workflows/logs`
     default:
@@ -28,11 +31,16 @@ function getNavigationTarget(notification: NotificationRow): string {
 function getIcon(type: NotificationRow['type']) {
   switch (type) {
     case 'new_conversation':
+    case 'new_message':
       return <MessageCircle className="h-4 w-4 shrink-0 text-text-secondary" />
     case 'missed_call':
       return <PhoneMissed className="h-4 w-4 shrink-0 text-text-secondary" />
+    case 'incoming_call':
+      return <Phone className="h-4 w-4 shrink-0 text-accent animate-pulse" />
     case 'flow_failed':
       return <AlertTriangle className="h-4 w-4 shrink-0 text-text-secondary" />
+    default:
+      return <MessageCircle className="h-4 w-4 shrink-0 text-text-secondary" />
   }
 }
 
@@ -40,10 +48,16 @@ function getMessage(type: NotificationRow['type']): string {
   switch (type) {
     case 'new_conversation':
       return 'New conversation'
+    case 'new_message':
+      return 'New message'
     case 'missed_call':
       return 'Missed call'
+    case 'incoming_call':
+      return 'Incoming call'
     case 'flow_failed':
       return 'Automation flow failed'
+    default:
+      return 'Notification'
   }
 }
 
