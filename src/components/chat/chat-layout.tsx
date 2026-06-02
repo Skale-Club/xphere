@@ -41,6 +41,7 @@ import {
   starConversation,
   setConversationPriority,
   assignConversation,
+  setConversationOperatorNamePrefix,
   listAgentDefaultChannels,
   listOrgMembers,
   resolveContactStartChannels,
@@ -770,10 +771,18 @@ export function ChatLayout({
     updateConversationPreview(tempMsg)
     const previousMessages = isCurrentThread ? messages : []
     try {
+      const selectedConv = findVisibleConversation(targetId)
       const res = await fetch(`/api/chat/conversations/${targetId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'assistant', channel: opts?.channel, subject: opts?.subject, media: opts?.media }),
+        body: JSON.stringify({
+          content,
+          role: 'assistant',
+          channel: opts?.channel,
+          subject: opts?.subject,
+          media: opts?.media,
+          operator_prefix: Boolean(selectedConv?.operatorNamePrefix),
+        }),
       })
       if (!res.ok) throw new Error(await readSendFailure(res))
       const data = await res.json().catch(() => null)
@@ -902,6 +911,20 @@ export function ChatLayout({
       toast.error('Could not update priority')
       if (current) {
         upsertConversation({ ...current, priority: previousPriority })
+      }
+    }
+  }
+
+  async function handleOperatorNamePrefixToggle(id: string, enabled: boolean) {
+    const current = findVisibleConversation(id)
+    if (current) {
+      upsertConversation({ ...current, operatorNamePrefix: enabled })
+    }
+    const res = await setConversationOperatorNamePrefix(id, enabled)
+    if ('error' in res) {
+      toast.error('Could not update operator name prefix setting')
+      if (current) {
+        upsertConversation({ ...current, operatorNamePrefix: !enabled })
       }
     }
   }
@@ -1056,6 +1079,7 @@ export function ChatLayout({
             onLoadMore={loadMoreMessages}
             hasMore={hasMoreMessages}
             isLoadingMore={isLoadingMoreMessages}
+            onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
           />
         </div>
         {infoOpen && (
@@ -1189,6 +1213,7 @@ export function ChatLayout({
               onLoadMore={loadMoreMessages}
               hasMore={hasMoreMessages}
               isLoadingMore={isLoadingMoreMessages}
+              onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
             />
           </div>
         )}

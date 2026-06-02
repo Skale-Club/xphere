@@ -74,6 +74,8 @@ export interface ConversationSummary {
   lastInboundAt?: string | null
   /** Contact-centric inbox | distinct channels this contact has open threads on (for multi-channel rows). */
   channels?: string[]
+  /** Operator name prefix feature: when true, outbound messages are prefixed with the operator's display name. */
+  operatorNamePrefix?: boolean
 }
 
 export interface ConversationMessage {

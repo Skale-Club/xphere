@@ -320,7 +320,7 @@ const START_CHANNEL_LABEL: Record<StartChannel, string> = {
 
 /** Columns selected when returning a ConversationSummary to the client. */
 const CONVERSATION_SUMMARY_COLUMNS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) )'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id, show_operator_name_prefix, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) )'
 
 function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
   const contact = row.contacts as {
@@ -362,7 +362,25 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
     lastInboundAt: (row.last_inbound_at as string | null) ?? null,
     phoneNumberId: (row.phone_number_id as string | null) ?? null,
+    operatorNamePrefix: Boolean(row.show_operator_name_prefix),
   }
+}
+
+export async function setConversationOperatorNamePrefix(
+  conversationId: string,
+  enabled: boolean,
+): Promise<{ operatorNamePrefix: boolean } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('conversations')
+    .update({ show_operator_name_prefix: enabled, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  if (error) return { error: 'Failed to update operator name prefix setting' }
+  return { operatorNamePrefix: enabled }
 }
 
 /** Returns true when the given channel key is suppressed by the contact's DND. */
