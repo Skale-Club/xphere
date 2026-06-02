@@ -564,7 +564,6 @@ export function ChatLayout({
                 body: updated.lastMessage ?? '',
                 icon: '/api/pwa/icons/192',
                 tag: `msg-${updated.id}`,
-                renotify: true,
               })
               notif.addEventListener('click', () => {
                 window.focus()

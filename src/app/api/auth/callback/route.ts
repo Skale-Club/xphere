@@ -1,35 +1,22 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
-  if (code) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          },
-        },
-      }
-    )
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
-    }
+export async function GET(request: NextRequest) {
+  const incoming = new URL(request.url)
+  const code = incoming.searchParams.get('code')
+
+  if (!code) {
+    return NextResponse.redirect(`${resolveRequestOrigin(request)}/`)
   }
 
-  return NextResponse.redirect(`${origin}/`)
+  const callbackUrl = new URL('/auth/callback', resolveRequestOrigin(request))
+  incoming.searchParams.forEach((value, key) => {
+    callbackUrl.searchParams.append(key, value)
+  })
+  if (!callbackUrl.searchParams.has('next')) {
+    callbackUrl.searchParams.set('next', '/dashboard')
+  }
+
+  return NextResponse.redirect(callbackUrl)
 }
