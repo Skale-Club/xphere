@@ -1,0 +1,82 @@
+name: Build and Deploy
+
+# CI→GHCR→Coolify pipeline. Builds Docker image off-VPS (GitHub runners
+# have 16GB RAM; the 8GB CX32 OOM-thrashes on next build), pushes to GHCR,
+# then triggers Coolify to `docker pull` + run the prebuilt image.
+#
+# ── Change these two lines when copying to another repo ──────────────────────
+#   IMAGE_NAME   ghcr.io/skale-club/<app-name>
+#   APP_UUID     Coolify resource UUID (Settings → UUID in the app UI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Single source of truth for deploys (deploy.yml was removed to stop the
+# double Coolify trigger). A newer push cancels an in-flight build so stale
+# deploys never queue.
+concurrency:
+  group: build-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/skale-club/xphere
+  APP_UUID: c70jg4t9o88x985dctsl57qy
+  COOLIFY_BASE: https://coolify.skale.club
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image and push to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+
+      - name: Trigger Coolify deploy (pull prebuilt image)
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "::warning::COOLIFY_TOKEN not set — skipping Coolify trigger."
+            echo "Image is built and pushed to GHCR. Set COOLIFY_TOKEN secret to auto-deploy."
+            exit 0
+          fi
+          echo "Triggering Coolify pull for app ${APP_UUID}…"
+          curl --fail-with-body -sS --retry 3 --retry-all-errors \
+            "${COOLIFY_BASE}/api/v1/deploy?uuid=${APP_UUID}" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo
+          echo "Deploy queued. Coolify will pull ghcr.io/…:latest and restart."
