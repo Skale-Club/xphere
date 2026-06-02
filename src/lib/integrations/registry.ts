@@ -94,6 +94,7 @@ import { WhatsAppCloudPanel } from '@/components/integrations/panels/whatsapp-cl
 import { TwilioPanel } from '@/components/integrations/panels/twilio-panel'
 import { OpenRouterPanel } from '@/components/integrations/panels/openrouter-panel'
 import { GoogleContactsOAuthPanel } from '@/components/integrations/google-contacts-oauth-panel'
+import { GoogleCalendarOAuthPanel } from '@/components/integrations/google-calendar-oauth-panel'
 
 export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   // ── Messaging ─────────────────────────────────────────────────────────────
@@ -313,6 +314,18 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   },
 
   // ── Scheduling ───────────────────────────────────────────────────────────
+  {
+    id: 'google_calendar',
+    name: 'Google Calendar',
+    description:
+      'Respeita horários ocupados ao gerar slots e cria eventos com Google Meet para bookings.',
+    category: 'scheduling',
+    logo: { path: '/logos/google-calendar.svg', letter: 'C', color: 'bg-blue-500' },
+    panelType: 'custom',
+    CustomPanel: GoogleCalendarOAuthPanel,
+    canActivate: true,
+    testable: false,
+  },
   {
     id: 'calcom',
     name: 'Cal.com',

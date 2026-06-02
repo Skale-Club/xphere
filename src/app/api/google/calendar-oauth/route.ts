@@ -8,6 +8,7 @@ const CALENDAR_SCOPE =
   'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events'
 const CALLBACK_URI = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'}/api/google/calendar-callback`
 const STATE_COOKIE = 'google_cal_oauth_state'
+const RETURN_COOKIE = 'google_cal_oauth_return'
 
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
@@ -22,6 +23,19 @@ export async function GET(request: NextRequest): Promise<Response> {
     path: '/',
     maxAge: 600,
   })
+
+  // Where to send the user after the callback. Only same-origin paths are
+  // honored; anything else falls back to the default (/scheduling).
+  const requestedReturn = request.nextUrl.searchParams.get('return')
+  if (requestedReturn && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//')) {
+    jar.set(RETURN_COOKIE, requestedReturn, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 600,
+    })
+  }
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID!)

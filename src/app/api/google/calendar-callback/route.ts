@@ -8,6 +8,7 @@ export const runtime = 'nodejs'
 
 const CALLBACK_URI = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'}/api/google/calendar-callback`
 const STATE_COOKIE = 'google_cal_oauth_state'
+const RETURN_COOKIE = 'google_cal_oauth_return'
 
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
@@ -21,7 +22,13 @@ export async function GET(request: NextRequest): Promise<Response> {
   const storedState = jar.get(STATE_COOKIE)?.value
   jar.set(STATE_COOKIE, '', { maxAge: 0, path: '/' })
 
-  const base = '/scheduling'
+  // Honor the return path captured at the start of the handshake; clear it.
+  const storedReturn = jar.get(RETURN_COOKIE)?.value
+  jar.set(RETURN_COOKIE, '', { maxAge: 0, path: '/' })
+  const base =
+    storedReturn && storedReturn.startsWith('/') && !storedReturn.startsWith('//')
+      ? storedReturn
+      : '/scheduling'
 
   if (!code) return NextResponse.redirect(new URL(`${base}?error=missing_code`, request.url))
   if (!state || !storedState || state !== storedState)
@@ -71,7 +78,12 @@ export async function GET(request: NextRequest): Promise<Response> {
       { onConflict: 'organization_id,provider' },
     )
 
-    return NextResponse.redirect(new URL(`${base}?calendar_connected=true`, request.url))
+    // Reopen the integration panel when returning to /integrations; the
+    // /scheduling page ignores `open` and reads `calendar_connected`.
+    const successQuery = base.startsWith('/integrations')
+      ? 'open=google_calendar'
+      : 'calendar_connected=true'
+    return NextResponse.redirect(new URL(`${base}?${successQuery}`, request.url))
   } catch {
     return NextResponse.redirect(new URL(`${base}?error=oauth_exchange`, request.url))
   }
