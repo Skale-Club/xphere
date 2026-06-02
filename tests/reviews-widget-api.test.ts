@@ -12,7 +12,9 @@ function takeResult(): Result {
   return nextResults.shift() ?? { data: null, error: null }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeChain(): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: any = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
@@ -21,6 +23,7 @@ function makeChain(): any {
     order: vi.fn(() => chain),
     range: vi.fn(() => Promise.resolve(takeResult())),
     single: vi.fn(() => Promise.resolve(takeResult())),
+    maybeSingle: vi.fn(() => Promise.resolve(takeResult())),
     not: vi.fn(() => chain),
     // Allow awaiting the chain itself when no terminator is called
     then: (onFulfilled: (v: Result) => unknown) => Promise.resolve(takeResult()).then(onFulfilled),
@@ -36,6 +39,7 @@ import { GET } from '@/app/api/reviews/[token]/route'
 
 const PROFILE = {
   id: 'profile-1',
+  org_id: 'org-1',
   business_name: 'Skale Club',
   address: 'Av. Paulista, 1000, São Paulo',
   average_rating: 4.6,
@@ -61,6 +65,7 @@ const REVIEWS = [
 ]
 
 const DIST_RATINGS = [{ rating: 5 }, { rating: 5 }, { rating: 4 }, { rating: 3 }]
+const ORG_BRANDING = { accent_color: '#22C55E' }
 
 describe('GET /api/reviews/[token]', () => {
   beforeEach(() => {
@@ -81,11 +86,13 @@ describe('GET /api/reviews/[token]', () => {
     nextResults = [
       // 1. profile lookup
       { data: PROFILE, error: null },
-      // 2. main reviews query (range)
+      // 2. organization branding lookup
+      { data: ORG_BRANDING, error: null },
+      // 3. main reviews query (range)
       { data: REVIEWS, error: null, count: 1 },
-      // 3. photos fetch (in)
+      // 4. photos fetch (in)
       { data: [], error: null },
-      // 4. distribution full-set query
+      // 5. distribution full-set query
       { data: DIST_RATINGS, error: null },
     ]
 
@@ -98,6 +105,7 @@ describe('GET /api/reviews/[token]', () => {
     const body = await res.json()
     expect(body.business.name).toBe('Skale Club')
     expect(body.business.averageRating).toBe(4.6)
+    expect(body.brand.accent).toBe('#22C55E')
     expect(body.reviews).toHaveLength(1)
     expect(body.reviews[0].reviewerName).toBe('Jane Doe')
     expect(body.reviews[0].rating).toBe(5)
@@ -115,6 +123,7 @@ describe('GET /api/reviews/[token]', () => {
   it('sets a 1-hour cache header for CDN', async () => {
     nextResults = [
       { data: PROFILE, error: null },
+      { data: ORG_BRANDING, error: null },
       { data: [], error: null, count: 0 },
       { data: [], error: null },
       { data: [], error: null },
@@ -131,6 +140,7 @@ describe('GET /api/reviews/[token]', () => {
   it('clamps min_rating, limit and offset', async () => {
     nextResults = [
       { data: PROFILE, error: null },
+      { data: ORG_BRANDING, error: null },
       { data: [], error: null, count: 0 },
       { data: [], error: null },
       { data: [], error: null },

@@ -26,7 +26,10 @@ export async function GET(
   // Ensure the bundle's getConfig() finds ?token=
   sp.set('token', token)
   const theme = sp.get('theme') === 'dark' ? 'dark' : 'light'
-  const origin = url.origin
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    'https://xphere.app'
 
   const html = `<!doctype html>
 <html lang="en" data-theme="${theme}">
@@ -37,7 +40,7 @@ export async function GET(
   <title>Reviews</title>
   <style>
     html, body { margin: 0; padding: 0; }
-    body { padding: 12px; background: ${theme === 'dark' ? '#0a0a0a' : '#fafaf7'}; }
+    html, body { background: transparent; }
   </style>
 </head>
 <body>

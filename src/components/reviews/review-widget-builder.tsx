@@ -1,7 +1,7 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   Code2,
@@ -9,6 +9,7 @@ import {
   Grid3x3,
   List,
   MonitorSmartphone,
+  Save,
   SlidersHorizontal,
   Star,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import type { SavedWidgetSettings } from '@/app/(dashboard)/reviews/actions'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -43,15 +45,20 @@ export type ReviewWidgetPreviewReview = {
 interface ReviewWidgetBuilderProps {
   baseUrl: string
   widgetToken: string
+  profileId: string
   embedded?: boolean
+  brandAccent: string
   business: {
     name: string | null
     address: string | null
+    placeId?: string | null
     averageRating: number | null
     totalReviewsCount: number | null
   }
   distribution: { rating: number; count: number }[]
   reviews: ReviewWidgetPreviewReview[]
+  savedSettings?: SavedWidgetSettings
+  onSave: (settings: SavedWidgetSettings) => Promise<void>
 }
 
 const LAYOUTS: Array<{
@@ -59,9 +66,9 @@ const LAYOUTS: Array<{
   label: string
   icon: ComponentType<{ className?: string }>
 }> = [
+  { id: 'carousel', label: 'Carousel', icon: SlidersHorizontal },
   { id: 'grid', label: 'Grid', icon: Grid3x3 },
   { id: 'list', label: 'List', icon: List },
-  { id: 'carousel', label: 'Carousel', icon: SlidersHorizontal },
 ]
 
 function initials(name: string | null): string {
@@ -85,6 +92,26 @@ function escapeAttribute(value: string): string {
     .replace(/>/g, '&gt;')
 }
 
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value)
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function hexBlendSolid(hex: string, alpha: number, baseR: number, baseG: number, baseB: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.round(((n >> 16) & 0xff) * alpha + baseR * (1 - alpha))
+  const g = Math.round(((n >> 8) & 0xff) * alpha + baseG * (1 - alpha))
+  const b = Math.round((n & 0xff) * alpha + baseB * (1 - alpha))
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 function iframeHeight(layout: Layout, showHero: boolean): number {
   if (layout === 'carousel') return showHero ? 500 : 360
   if (layout === 'list') return showHero ? 720 : 560
@@ -99,6 +126,8 @@ function buildWidgetUrl({
   theme,
   limit,
   showHero,
+  equalHeight,
+  footerCta,
 }: {
   baseUrl: string
   widgetToken: string
@@ -107,30 +136,40 @@ function buildWidgetUrl({
   theme: Theme
   limit: string
   showHero: boolean
+  equalHeight: boolean
+  footerCta: boolean
 }) {
   const params = new URLSearchParams({
     layout,
     min_rating: minRating,
     theme,
-    limit,
+    limit: limit === 'all' ? '500' : limit,
   })
   if (!showHero) params.set('hero', '0')
+  if (!equalHeight) params.set('eqh', '0')
+  if (footerCta) params.set('cta', '1')
   return `${baseUrl}/widget/reviews/${widgetToken}?${params.toString()}`
 }
 
 function PreviewCard({
   review,
   theme,
+  brandAccent,
   compact = false,
+  fill = false,
 }: {
   review: ReviewWidgetPreviewReview
   theme: Theme
+  brandAccent: string
   compact?: boolean
+  fill?: boolean
 }) {
+  const brandSoft = hexToRgba(brandAccent, theme === 'dark' ? 0.22 : 0.12)
   return (
     <article
       className={cn(
         'min-w-0 rounded-[14px] border p-4 shadow-sm',
+        fill && 'h-full',
         theme === 'dark'
           ? 'border-white/10 bg-zinc-900 text-zinc-50 shadow-black/30'
           : 'border-zinc-200 bg-white text-zinc-950 shadow-zinc-200/70',
@@ -139,7 +178,10 @@ function PreviewCard({
       <header className="flex items-start gap-3">
         <Avatar className="h-9 w-9 shrink-0">
           <AvatarImage src={review.reviewerPhotoUrl ?? undefined} alt={review.reviewerName ?? 'Reviewer'} />
-          <AvatarFallback className="bg-amber-100 text-xs font-semibold text-amber-900">
+          <AvatarFallback
+            className="text-xs font-semibold"
+            style={{ backgroundColor: brandSoft, color: brandAccent }}
+          >
             {initials(review.reviewerName)}
           </AvatarFallback>
         </Avatar>
@@ -152,8 +194,8 @@ function PreviewCard({
               <span
                 className={cn(
                   'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
-                  theme === 'dark' ? 'bg-amber-400/15 text-amber-300' : 'bg-amber-100 text-amber-700',
                 )}
+                style={{ backgroundColor: brandSoft, color: brandAccent }}
               >
                 Local Guide
               </span>
@@ -198,11 +240,12 @@ function PreviewCard({
       {review.ownerResponse ? (
         <div
           className={cn(
-            'mt-3 rounded-[10px] border-l-2 border-amber-400 px-3 py-2',
-            theme === 'dark' ? 'bg-amber-400/10 text-zinc-200' : 'bg-amber-50 text-zinc-700',
+            'mt-3 rounded-[10px] border-l-2 px-3 py-2',
+            theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
           )}
+          style={{ backgroundColor: brandSoft, borderLeftColor: brandAccent }}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-600">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: brandAccent }}>
             Owner response
           </p>
           <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed">{review.ownerResponse}</p>
@@ -212,25 +255,137 @@ function PreviewCard({
   )
 }
 
+function PreviewCarousel({
+  reviews,
+  theme,
+  brandAccent,
+  equalHeight,
+}: {
+  reviews: ReviewWidgetPreviewReview[]
+  theme: Theme
+  brandAccent: string
+  equalHeight: boolean
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [hovered, setHovered] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const dragRef = useRef({ active: false, startX: 0, startScroll: 0 })
+
+  const getStep = useCallback((): number => {
+    const first = viewportRef.current?.querySelector<HTMLElement>('[data-card]')
+    return first ? first.offsetWidth + 12 : 292
+  }, [])
+
+  const advance = useCallback(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    const max = vp.scrollWidth - vp.clientWidth
+    vp.scrollTo({ left: vp.scrollLeft >= max - 4 ? 0 : vp.scrollLeft + getStep(), behavior: 'smooth' })
+  }, [getStep])
+
+  const scrollDir = useCallback((dir: 1 | -1) => {
+    viewportRef.current?.scrollBy({ left: dir * getStep(), behavior: 'smooth' })
+  }, [getStep])
+
+  useEffect(() => {
+    if (hovered) return
+    timerRef.current = setInterval(advance, 4000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [hovered, advance])
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'mouse') return
+    dragRef.current = { active: true, startX: e.clientX, startScroll: viewportRef.current?.scrollLeft ?? 0 }
+    viewportRef.current?.setPointerCapture(e.pointerId)
+    setDragging(true)
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current.active || e.pointerType !== 'mouse' || !viewportRef.current) return
+    e.preventDefault()
+    viewportRef.current.scrollLeft = dragRef.current.startScroll + (dragRef.current.startX - e.clientX)
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'mouse' || !dragRef.current.active) return
+    dragRef.current.active = false
+    setDragging(false)
+    if (!hovered) timerRef.current = setInterval(advance, 4000)
+  }
+
+  const btnClass = cn(
+    'absolute top-1/2 z-10 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border text-lg shadow-sm transition hover:scale-105',
+    theme === 'dark'
+      ? 'border-white/10 bg-zinc-800 text-zinc-200'
+      : 'border-zinc-200 bg-white text-zinc-700',
+  )
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => scrollDir(-1)} className={cn(btnClass, 'left-1.5')} aria-label="Previous">‹</button>
+      <button type="button" onClick={() => scrollDir(1)} className={cn(btnClass, 'right-1.5')} aria-label="Next">›</button>
+      <div
+        ref={viewportRef}
+        className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden cursor-grab active:cursor-grabbing select-none"
+        style={{
+          scrollSnapType: dragging ? 'none' : 'x mandatory',
+          scrollBehavior: dragging ? 'auto' : undefined,
+          WebkitOverflowScrolling: 'touch' as never,
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
+          {reviews.map((review) => (
+            <div key={review.id} data-card className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
+              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ReviewWidgetBuilder({
   baseUrl,
   widgetToken,
+  profileId,
   embedded = false,
+  brandAccent,
   business,
   distribution,
   reviews,
+  savedSettings,
+  onSave,
 }: ReviewWidgetBuilderProps) {
-  const [layout, setLayout] = useState<Layout>('grid')
-  const [theme, setTheme] = useState<Theme>('light')
-  const [minRating, setMinRating] = useState('4')
-  const [limit, setLimit] = useState('12')
-  const [showHero, setShowHero] = useState(true)
-  const [embedMode, setEmbedMode] = useState<EmbedMode>('iframe')
+  const [layout, setLayout] = useState<Layout>((savedSettings?.layout as Layout) ?? 'carousel')
+  const [theme, setTheme] = useState<Theme>((savedSettings?.theme as Theme) ?? 'light')
+  const [minRating, setMinRating] = useState(savedSettings?.minRating ?? '4')
+  const [limit, setLimit] = useState(savedSettings?.limit ?? '12')
+  const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
+  const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
+  const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
+  const [embedMode, setEmbedMode] = useState<EmbedMode>((savedSettings?.embedMode as EmbedMode) ?? 'iframe')
+  const [embedOpen, setEmbedOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const accent = isHexColor(brandAccent) ? brandAccent : '#6366F1'
+  const brandSoft = hexToRgba(accent, theme === 'dark' ? 0.22 : 0.12)
+  const heroSolidStart = theme === 'dark'
+    ? hexBlendSolid(accent, 0.22, 24, 24, 27)
+    : hexBlendSolid(accent, 0.12, 255, 255, 255)
+  const heroSolidEnd = theme === 'dark' ? '#18181b' : '#ffffff'
 
   const visibleReviews = useMemo(() => {
     const min = Number.parseInt(minRating, 10)
-    return reviews.filter((review) => review.rating >= min).slice(0, Number.parseInt(limit, 10))
+    const filtered = reviews.filter((review) => review.rating >= min)
+    return limit === 'all' ? filtered : filtered.slice(0, Number.parseInt(limit, 10))
   }, [limit, minRating, reviews])
 
   const widgetUrl = buildWidgetUrl({
@@ -241,20 +396,34 @@ export function ReviewWidgetBuilder({
     theme,
     limit,
     showHero,
+    equalHeight,
+    footerCta,
   })
   const height = iframeHeight(layout, showHero)
   const title = `${business.name ?? 'Google'} reviews`
   const safeTitle = escapeAttribute(title)
+  const embedLimit = limit === 'all' ? '500' : limit
+  const embedOrigin = (() => {
+    try {
+      return new URL(baseUrl).origin
+    } catch {
+      return ''
+    }
+  })()
+  const originCheck = embedOrigin ? `if(e.origin!==${JSON.stringify(embedOrigin)})return;` : ''
 
   const iframeSnippet = `<iframe
   src="${widgetUrl}"
   width="100%"
   height="${height}"
   frameborder="0"
-  style="border:0;border-radius:16px;overflow:hidden;"
+  style="border:0;border-radius:16px;overflow:hidden;width:100%;"
   loading="lazy"
-  title="${safeTitle}">
-</iframe>`
+  title="${safeTitle}"
+  data-orw-frame="${widgetToken}"></iframe>
+<script>
+(function(){window.addEventListener("message",function(e){${originCheck}var d=e.data;if(!d||d.type!=="orw-resize")return;var f=document.querySelector('iframe[data-orw-frame="'+d.token+'"]');if(f&&d.height)f.style.height=d.height+"px";});})();
+</script>`
 
   const scriptSnippet = `<div
   data-operator-reviews
@@ -262,8 +431,10 @@ export function ReviewWidgetBuilder({
   data-layout="${layout}"
   data-theme="${theme}"
   data-min-rating="${minRating}"
-  data-limit="${limit}"
-  data-hero="${showHero ? '1' : '0'}">
+  data-limit="${embedLimit}"
+  data-hero="${showHero ? '1' : '0'}"
+  data-equal-height="${equalHeight ? '1' : '0'}"
+  data-footer-cta="${footerCta ? '1' : '0'}">
 </div>
 <script src="${baseUrl}/reviews-widget.js" defer></script>`
 
@@ -277,6 +448,19 @@ export function ReviewWidgetBuilder({
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
       setCopied(false)
+    }
+  }
+
+  async function handleSave() {
+    if (saveState === 'saving') return
+    setSaveState('saving')
+    try {
+      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode })
+      setSaveState('saved')
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
+    } catch {
+      setSaveState('idle')
     }
   }
 
@@ -294,14 +478,30 @@ export function ReviewWidgetBuilder({
             embedded && 'p-0 pb-5 lg:pb-0 lg:pr-5',
           )}
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-bg-tertiary text-accent">
-              <MonitorSmartphone className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-bg-tertiary text-accent">
+                <MonitorSmartphone className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-[15px] font-medium text-text-primary">Website widget</h2>
+                <p className="text-[12px] text-text-tertiary">Preview and embed code</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-[15px] font-medium text-text-primary">Website widget</h2>
-              <p className="text-[12px] text-text-tertiary">Preview and embed code</p>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant={saveState === 'saved' ? 'default' : 'secondary'}
+              onClick={handleSave}
+              disabled={saveState === 'saving'}
+              className="h-8 shrink-0 gap-1.5 text-[12px]"
+            >
+              {saveState === 'saved' ? (
+                <><Check className="h-3.5 w-3.5" />Saved</>
+              ) : (
+                <><Save className="h-3.5 w-3.5" />Save</>
+              )}
+            </Button>
           </div>
 
           <div className="mt-5 space-y-5">
@@ -364,6 +564,7 @@ export function ReviewWidgetBuilder({
                     <SelectItem value="9">9 reviews</SelectItem>
                     <SelectItem value="12">12 reviews</SelectItem>
                     <SelectItem value="18">18 reviews</SelectItem>
+                    <SelectItem value="all">All reviews</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -374,6 +575,20 @@ export function ReviewWidgetBuilder({
                 Summary header
               </Label>
               <Switch id="reviews-widget-hero" checked={showHero} onCheckedChange={setShowHero} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <Label htmlFor="reviews-widget-eqh" className="text-[12px] font-medium text-text-secondary">
+                Equal card height
+              </Label>
+              <Switch id="reviews-widget-eqh" checked={equalHeight} onCheckedChange={setEqualHeight} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <Label htmlFor="reviews-widget-cta" className="text-[12px] font-medium text-text-secondary">
+                &ldquo;Write a review&rdquo; below cards
+              </Label>
+              <Switch id="reviews-widget-cta" checked={footerCta} onCheckedChange={setFooterCta} />
             </div>
 
             <div>
@@ -397,43 +612,6 @@ export function ReviewWidgetBuilder({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-                  Embed
-                </Label>
-                <div className="flex overflow-hidden rounded-[7px] border border-border bg-bg-tertiary/50 p-1">
-                  {(['iframe', 'script'] as const).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setEmbedMode(item)}
-                      className={cn(
-                        'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors',
-                        embedMode === item ? 'bg-bg-primary text-text-primary shadow-sm' : 'text-text-tertiary hover:text-text-primary',
-                      )}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="relative rounded-[10px] border border-border bg-zinc-950 text-zinc-100">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={copySnippet}
-                  className="absolute right-2 top-2 h-7 gap-1 text-[11.5px]"
-                >
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
-                <pre className="max-h-72 overflow-auto p-4 pr-20 font-mono text-[11px] leading-relaxed">
-                  <code>{snippet}</code>
-                </pre>
-              </div>
-            </div>
           </div>
         </aside>
 
@@ -445,27 +623,92 @@ export function ReviewWidgetBuilder({
                 Live preview
               </p>
             </div>
-            <p className="text-[11px] text-text-tertiary">
-              {visibleReviews.length} of {reviews.length}
-            </p>
+            <div className="relative">
+              <div className="flex items-center gap-1">
+                {(['iframe', 'script'] as const).map((mode) => {
+                  const active = embedOpen && embedMode === mode
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        if (embedMode === mode && embedOpen) {
+                          setEmbedOpen(false)
+                          return
+                        }
+                        setEmbedMode(mode)
+                        setEmbedOpen(true)
+                      }}
+                      className={cn(
+                        'flex items-center gap-1 rounded-[7px] border px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors',
+                        active
+                          ? 'border-accent/50 bg-accent/10 text-accent'
+                          : 'border-border bg-bg-tertiary/50 text-text-secondary hover:text-text-primary',
+                      )}
+                    >
+                      <Code2 className="h-3 w-3" />
+                      {mode}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {embedOpen ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close embed code"
+                    className="fixed inset-0 z-20 cursor-default"
+                    onClick={() => setEmbedOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full z-30 mt-2 w-[min(460px,78vw)] rounded-[10px] border border-border bg-zinc-950 text-zinc-100 shadow-xl">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={copySnippet}
+                      className="absolute right-2 top-2 h-7 gap-1 text-[11.5px]"
+                    >
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                    <pre className="max-h-72 overflow-auto p-4 pr-20 font-mono text-[11px] leading-relaxed">
+                      <code>{snippet}</code>
+                    </pre>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div
             className={cn(
-              'max-h-[760px] overflow-auto rounded-[16px] border p-4',
+              'max-h-[760px] overflow-auto rounded-[16px] border p-0',
               theme === 'dark'
-                ? 'border-zinc-800 bg-zinc-950'
-                : 'border-zinc-200 bg-[#fafaf7]',
+                ? 'border-zinc-800'
+                : 'border-zinc-200',
             )}
+            style={{
+              backgroundColor: theme === 'dark' ? '#18181b' : '#fafaf7',
+              backgroundImage:
+                theme === 'dark'
+                  ? 'linear-gradient(45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.035) 75%)'
+                  : 'linear-gradient(45deg, rgba(24,24,27,0.035) 25%, transparent 25%), linear-gradient(-45deg, rgba(24,24,27,0.035) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(24,24,27,0.035) 75%), linear-gradient(-45deg, transparent 75%, rgba(24,24,27,0.035) 75%)',
+              backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+              backgroundSize: '16px 16px',
+            }}
           >
             {showHero ? (
               <section
                 className={cn(
-                  'mb-4 rounded-[16px] border p-5',
+                  'mb-4 select-none rounded-[16px] border p-5',
                   theme === 'dark'
-                    ? 'border-white/10 bg-gradient-to-br from-amber-400/15 to-zinc-900 text-zinc-50'
-                    : 'border-amber-200 bg-gradient-to-br from-amber-100 to-white text-zinc-950',
+                    ? 'border-white/10 text-zinc-50'
+                    : 'border-zinc-200 text-zinc-950',
                 )}
+                style={{
+                  background: `linear-gradient(135deg, ${heroSolidStart}, ${heroSolidEnd} 80%)`,
+                }}
               >
                 <div className="grid gap-5 md:grid-cols-[1fr_220px] md:items-center">
                   <div>
@@ -486,6 +729,17 @@ export function ReviewWidgetBuilder({
                         </p>
                       </div>
                     </div>
+                    {business.placeId ? (
+                      <a
+                        href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                        style={{ backgroundColor: accent }}
+                      >
+                        ★ Write a review
+                      </a>
+                    ) : null}
                   </div>
                   <div className="space-y-1.5">
                     {distribution.map((row) => (
@@ -496,8 +750,11 @@ export function ReviewWidgetBuilder({
                         </span>
                         <div className={cn('h-2 flex-1 overflow-hidden rounded-full', theme === 'dark' ? 'bg-white/10' : 'bg-zinc-200')}>
                           <div
-                            className="h-full rounded-full bg-amber-400"
-                            style={{ width: `${Math.round((row.count / maxDistribution) * 100)}%` }}
+                            className="h-full rounded-full"
+                            style={{
+                              backgroundColor: accent,
+                              width: `${Math.round((row.count / maxDistribution) * 100)}%`,
+                            }}
                           />
                         </div>
                         <span className={cn('w-7 text-right text-[11px] tabular-nums', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
@@ -522,24 +779,32 @@ export function ReviewWidgetBuilder({
             ) : layout === 'list' ? (
               <div className="space-y-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} />
                 ))}
               </div>
             ) : layout === 'carousel' ? (
-              <div className="overflow-x-auto pb-2">
-                <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col gap-3">
-                  {visibleReviews.map((review) => (
-                    <PreviewCard key={review.id} review={review} theme={theme} compact />
-                  ))}
-                </div>
-              </div>
+              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} />
             ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} compact />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} />
                 ))}
               </div>
             )}
+
+            {footerCta && business.placeId && visibleReviews.length > 0 ? (
+              <div className="mt-6 flex justify-center">
+                <a
+                  href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: accent }}
+                >
+                  ★ Write a review
+                </a>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

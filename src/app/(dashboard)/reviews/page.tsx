@@ -2,21 +2,17 @@ import { ArrowRight, Star } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { resolveOrgBranding } from '@/lib/branding'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { ReviewCard } from '@/components/reviews/review-card'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
-import { ReviewsFilters } from '@/components/reviews/reviews-filters'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout/page-header'
+import { saveWidgetSettings, type SavedWidgetSettings } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-interface PageProps {
-  searchParams: Promise<{ min?: string; photos?: string; response?: string }>
-}
-
-export default async function ReviewsPage({ searchParams }: PageProps) {
+export default async function ReviewsPage() {
   const user = await getUser()
   if (!user) redirect('/')
 
@@ -35,15 +31,10 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     )
   }
 
-  const sp = await searchParams
-  const minRating = Math.max(1, Math.min(5, Number.parseInt(sp.min ?? '1', 10) || 1))
-  const withPhotos = sp.photos === '1'
-  const withResponse = sp.response === '1'
-
   const { data: profile } = await supabase
     .from('google_business_profiles')
     .select(
-      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token'
+      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token, widget_settings'
     )
     .maybeSingle()
 
@@ -80,7 +71,13 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   const distMap = new Map<number, number>([[5, 0], [4, 0], [3, 0], [2, 0], [1, 0]])
   for (const r of distRows ?? []) distMap.set(r.rating, (distMap.get(r.rating) ?? 0) + 1)
   const distribution = [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 }))
-  const totalActive = distRows?.length ?? 0
+
+  const { data: orgBranding } = await supabase
+    .from('organizations')
+    .select('accent_color')
+    .eq('id', orgId as string)
+    .maybeSingle()
+  const brandAccent = resolveOrgBranding(orgBranding).accent
 
   const { data: widgetPreviewRows } = await supabase
     .from('google_reviews')
@@ -109,86 +106,25 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
     })),
   }))
 
-  // Filtered reviews
-  let q = supabase
-    .from('google_reviews')
-    .select(
-      'id, reviewer_name, reviewer_photo_url, reviewer_profile_url, rating, text, date_text, date_iso, is_local_guide, local_guide_reviews_count, helpful_count, owner_response, owner_response_date, google_review_photos(id, original_url, hetzner_url)'
-    )
-    .eq('profile_id', profile.id)
-    .eq('is_removed', false)
-    .gte('rating', minRating)
-    .order('date_iso', { ascending: false, nullsFirst: false })
-    .limit(60)
-  if (withResponse) q = q.not('owner_response', 'is', null)
-
-  const { data: reviewsRaw } = await q
-
-  type ReviewWithPhotos = NonNullable<typeof reviewsRaw>[number]
-  let reviews: ReviewWithPhotos[] = reviewsRaw ?? []
-  if (withPhotos) {
-    reviews = reviews.filter((r) => (r.google_review_photos?.length ?? 0) > 0)
-  }
-
   return (
-    <PageContainer>
+    <PageContainer className="px-0 py-0 sm:px-0 lg:px-0">
       <ReviewWidgetBuilder
         baseUrl="https://xphere.app"
         widgetToken={profile.widget_token}
+        profileId={profile.id}
+        brandAccent={brandAccent}
         business={{
           name: profile.business_name,
           address: profile.address,
+          placeId: profile.place_id !== '__pending__' ? profile.place_id : null,
           averageRating: profile.average_rating,
           totalReviewsCount: profile.total_reviews_count,
         }}
         distribution={distribution}
         reviews={widgetReviews}
+        savedSettings={(profile.widget_settings as SavedWidgetSettings | null) ?? undefined}
+        onSave={saveWidgetSettings.bind(null, profile.id)}
       />
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReviewsFilters />
-        <p className="text-xs text-muted-foreground">
-          Showing <strong className="text-foreground">{reviews.length}</strong> of {totalActive}
-        </p>
-      </div>
-
-      {/* Reviews list */}
-      {reviews.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <p className="text-sm font-medium">No reviews match these filters.</p>
-            <p className="text-xs text-muted-foreground">Try lowering the minimum rating or clearing filters.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {reviews.map((r) => (
-            <ReviewCard
-              key={r.id}
-              review={{
-                id: r.id,
-                reviewer_name: r.reviewer_name,
-                reviewer_photo_url: r.reviewer_photo_url,
-                reviewer_profile_url: r.reviewer_profile_url,
-                rating: r.rating,
-                text: r.text,
-                date_text: r.date_text,
-                is_local_guide: r.is_local_guide,
-                local_guide_reviews_count: r.local_guide_reviews_count,
-                helpful_count: r.helpful_count,
-                owner_response: r.owner_response,
-                owner_response_date: r.owner_response_date,
-                photos: (r.google_review_photos ?? []).map((p) => ({
-                  id: p.id,
-                  original_url: p.original_url,
-                  hetzner_url: p.hetzner_url,
-                })),
-              }}
-            />
-          ))}
-        </div>
-      )}
     </PageContainer>
   )
 }

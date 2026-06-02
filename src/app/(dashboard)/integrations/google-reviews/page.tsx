@@ -16,6 +16,7 @@ import {
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { resolveOrgBranding } from '@/lib/branding'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { BusinessSearch } from '@/components/reviews/business-search'
@@ -121,6 +122,12 @@ export default async function GoogleReviewsIntegrationPage() {
 
   const hasApiKey = Boolean(profile?.serpapi_key_encrypted)
   const isConfigured = Boolean(profile?.is_active && profile?.place_id && profile?.place_id !== '__pending__')
+  const { data: orgBranding } = await supabase
+    .from('organizations')
+    .select('accent_color')
+    .eq('id', orgId as string)
+    .maybeSingle()
+  const brandAccent = resolveOrgBranding(orgBranding).accent
 
   // ── Setup wizard (not yet configured) ───────────────────────────────────
   if (!isConfigured) {
@@ -318,6 +325,7 @@ export default async function GoogleReviewsIntegrationPage() {
             baseUrl={PRODUCTION_ORIGIN}
             widgetToken={profile.widget_token}
             embedded
+            brandAccent={brandAccent}
             business={{
               name: profile.business_name,
               address: profile.address,

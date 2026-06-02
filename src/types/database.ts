@@ -4104,6 +4104,7 @@ export interface Database {
           average_rating: number | null
           is_active: boolean
           widget_token: string
+          widget_settings: Json
           created_at: string
           updated_at: string
         }
@@ -4122,6 +4123,7 @@ export interface Database {
           average_rating?: number | null
           is_active?: boolean
           widget_token?: string
+          widget_settings?: Json
           created_at?: string
           updated_at?: string
         }
@@ -4138,6 +4140,7 @@ export interface Database {
           average_rating?: number | null
           is_active?: boolean
           widget_token?: string
+          widget_settings?: Json
           updated_at?: string
         }
         Relationships: [

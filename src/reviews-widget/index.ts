@@ -25,9 +25,13 @@ interface ApiPayload {
   business: {
     name: string | null
     address: string | null
+    placeId: string | null
     averageRating: number | null
     totalReviewsCount: number | null
     lastScrapedAt: string | null
+  }
+  brand?: {
+    accent?: string | null
   }
   distribution: { rating: number; count: number }[]
   reviews: ReviewItem[]
@@ -63,6 +67,8 @@ interface WidgetConfig {
   limit: number
   apiBase: string
   showHero: boolean
+  equalHeight: boolean
+  footerCta: boolean
 }
 
 const DEFAULTS: Omit<WidgetConfig, 'token'> = {
@@ -73,6 +79,8 @@ const DEFAULTS: Omit<WidgetConfig, 'token'> = {
   limit: 12,
   apiBase: '',
   showHero: true,
+  equalHeight: true,
+  footerCta: false,
 }
 
 const CSS = `
@@ -80,26 +88,27 @@ const CSS = `
   color-scheme: light dark;
 }
 .orw-root {
-  --orw-bg: #fafaf7;
+  --orw-bg: transparent;
   --orw-card: #ffffff;
   --orw-text: #18181b;
   --orw-muted: #6b7280;
   --orw-border: rgba(24, 24, 27, 0.10);
   --orw-shadow: 0 10px 30px rgba(24, 24, 27, 0.06);
-  --orw-accent: #f59e0b;
-  --orw-accent-soft: #fef3c7;
+  --orw-brand: #6366f1;
+  --orw-brand-soft: rgba(99, 102, 241, 0.12);
+  --orw-star: #f59e0b;
   --orw-radius: 18px;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--orw-text);
 }
 .orw-root[data-theme="dark"] {
-  --orw-bg: #0a0a0a;
+  --orw-bg: transparent;
   --orw-card: #161616;
   --orw-text: #f5f5f4;
   --orw-muted: #a1a1aa;
   --orw-border: rgba(245, 245, 244, 0.10);
   --orw-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  --orw-accent-soft: rgba(245, 158, 11, 0.18);
+  --orw-brand-soft: rgba(99, 102, 241, 0.20);
 }
 .orw-root *, .orw-root *::before, .orw-root *::after { box-sizing: border-box; }
 
@@ -110,9 +119,13 @@ const CSS = `
   gap: 24px;
   padding: 24px;
   border-radius: var(--orw-radius);
-  background: linear-gradient(135deg, var(--orw-accent-soft), var(--orw-bg) 80%);
+  background: linear-gradient(135deg, var(--orw-brand-soft), #ffffff 80%);
   border: 1px solid var(--orw-border);
   margin-bottom: 20px;
+  user-select: none; -webkit-user-select: none;
+}
+.orw-root[data-theme="dark"] .orw-hero {
+  background: linear-gradient(135deg, var(--orw-brand-soft), #161616 80%);
 }
 .orw-hero-rating { display: flex; align-items: baseline; gap: 12px; }
 .orw-hero-rating-num {
@@ -127,14 +140,39 @@ const CSS = `
 .orw-dist-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
 .orw-dist-label { width: 32px; color: var(--orw-muted); display: inline-flex; align-items: center; gap: 2px; }
 .orw-dist-bar { flex: 1; height: 8px; background: var(--orw-border); border-radius: 999px; overflow: hidden; }
-.orw-dist-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); border-radius: 999px; transition: width 600ms ease; }
+.orw-dist-fill { height: 100%; background: var(--orw-brand); border-radius: 999px; transition: width 600ms ease; }
 .orw-dist-count { width: 40px; text-align: right; color: var(--orw-muted); font-variant-numeric: tabular-nums; }
 
 .orw-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .orw-list { display: flex; flex-direction: column; gap: 14px; }
-.orw-carousel-viewport { overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; padding-bottom: 8px; }
+.orw-carousel-wrap { position: relative; }
+.orw-carousel-viewport {
+  overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; cursor: grab; padding-bottom: 4px;
+  user-select: none; -webkit-user-select: none;
+}
+.orw-carousel-viewport::-webkit-scrollbar { display: none; }
+.orw-carousel-viewport.orw-dragging { cursor: grabbing; scroll-snap-type: none; }
 .orw-carousel-track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 76%); gap: 16px; }
 .orw-carousel-track .orw-card { scroll-snap-align: start; }
+
+/* Equal-height mode: cards stretch to the tallest in their row */
+.orw-eqh .orw-grid .orw-card,
+.orw-eqh .orw-carousel-track .orw-card { height: 100%; }
+.orw-carousel-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 10; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--orw-border); background: var(--orw-card); color: var(--orw-text);
+  font-size: 22px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  transition: opacity 250ms ease, transform 200ms ease, box-shadow 200ms ease;
+  padding: 0;
+}
+.orw-carousel-btn:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.18); transform: translateY(-50%) scale(1.08); }
+.orw-carousel-btn[disabled] { opacity: 0.35; pointer-events: none; }
+.orw-carousel-prev { left: 6px; }
+.orw-carousel-next { right: 6px; }
 
 .orw-card {
   background: var(--orw-card);
@@ -150,7 +188,7 @@ const CSS = `
 .orw-card-head { display: flex; align-items: center; gap: 10px; }
 .orw-avatar {
   width: 40px; height: 40px; border-radius: 999px; overflow: hidden;
-  background: var(--orw-accent-soft); color: var(--orw-accent);
+  background: var(--orw-brand-soft); color: var(--orw-brand);
   display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;
 }
 .orw-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -159,7 +197,7 @@ const CSS = `
 .orw-name a:hover { text-decoration: underline; }
 .orw-localguide {
   display: inline-block; padding: 1px 6px; margin-left: 6px; font-size: 10px;
-  border-radius: 999px; background: var(--orw-accent-soft); color: var(--orw-accent);
+  border-radius: 999px; background: var(--orw-brand-soft); color: var(--orw-brand);
   vertical-align: middle;
 }
 .orw-meta-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--orw-muted); margin-top: 2px; }
@@ -167,7 +205,7 @@ const CSS = `
 .orw-stars { display: inline-flex; gap: 2px; }
 .orw-star { width: 14px; height: 14px; flex: none; }
 .orw-star-empty { fill: rgba(245, 158, 11, 0.20); }
-.orw-star-full  { fill: #f59e0b; }
+.orw-star-full  { fill: var(--orw-star); }
 
 .orw-text {
   font-size: 14px; line-height: 1.55; margin: 0; color: var(--orw-text);
@@ -178,7 +216,7 @@ const CSS = `
 }
 .orw-more {
   align-self: flex-start; background: none; border: 0; padding: 0; cursor: pointer;
-  color: var(--orw-accent); font-size: 12px; font-weight: 600;
+  color: var(--orw-brand); font-size: 12px; font-weight: 600;
 }
 
 .orw-photos { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -191,16 +229,28 @@ const CSS = `
 
 .orw-owner {
   margin-top: 4px;
-  border-left: 3px solid var(--orw-accent);
-  background: var(--orw-accent-soft);
+  border-left: 3px solid var(--orw-brand);
+  background: var(--orw-brand-soft);
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 13px;
 }
 .orw-owner-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--orw-accent); font-weight: 700;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--orw-brand); font-weight: 700;
 }
 .orw-owner-text { margin: 4px 0 0; line-height: 1.5; }
+
+.orw-write-btn {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 16px;
+  padding: 9px 20px; border-radius: 999px;
+  background: var(--orw-brand); color: #fff;
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  border: none; cursor: pointer; white-space: nowrap;
+  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.orw-write-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.20); }
+.orw-footer-cta { display: flex; justify-content: center; margin-top: 24px; }
 
 .orw-empty {
   padding: 40px 20px; text-align: center; color: var(--orw-muted); font-size: 14px;
@@ -255,6 +305,18 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+function isHexColor(value: unknown): value is string {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 function getConfig(): WidgetConfig | null {
   // 1) iframe / standalone page: read from query string
   const sp = new URLSearchParams(window.location.search)
@@ -268,6 +330,8 @@ function getConfig(): WidgetConfig | null {
       limit: Number.parseInt(sp.get('limit') ?? '12', 10) || DEFAULTS.limit,
       apiBase: sp.get('api') ?? window.location.origin,
       showHero: sp.get('hero') !== '0',
+      equalHeight: sp.get('eqh') !== '0',
+      footerCta: sp.get('cta') === '1',
     }
   }
 
@@ -283,6 +347,8 @@ function getConfig(): WidgetConfig | null {
     limit: Number.parseInt(host.dataset.limit ?? '12', 10) || DEFAULTS.limit,
     apiBase: host.dataset.api ?? new URL((document.currentScript as HTMLScriptElement | null)?.src ?? window.location.href).origin,
     showHero: host.dataset.hero !== '0',
+    equalHeight: host.dataset.equalHeight !== '0',
+    footerCta: host.dataset.footerCta === '1',
   }
 }
 
@@ -290,6 +356,9 @@ function renderHero(p: ApiPayload): string {
   const avg = p.business.averageRating ?? 0
   const total = p.business.totalReviewsCount ?? p.distribution.reduce((s, d) => s + d.count, 0)
   const max = Math.max(...p.distribution.map((d) => d.count), 1)
+  const writeUrl = p.business.placeId
+    ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(p.business.placeId)}`
+    : null
   return `
     <section class="orw-hero">
       <div class="orw-hero-text">
@@ -301,6 +370,7 @@ function renderHero(p: ApiPayload): string {
             <div class="orw-hero-meta">${total} reviews</div>
           </div>
         </div>
+        ${writeUrl ? `<a href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer" class="orw-write-btn">&#9733; Write a review</a>` : ''}
       </div>
       <div class="orw-dist" aria-label="Rating distribution">
         ${p.distribution.map((d) => `
@@ -366,22 +436,135 @@ function renderReview(r: ReviewItem): string {
   `
 }
 
+function renderFooterCta(config: WidgetConfig, p: ApiPayload): string {
+  if (!config.footerCta || !p.business.placeId) return ''
+  const url = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(p.business.placeId)}`
+  return `<div class="orw-footer-cta"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="orw-write-btn">&#9733; Write a review</a></div>`
+}
+
 function renderShell(config: WidgetConfig, payload: ApiPayload): string {
   const cards = payload.reviews.map(renderReview).join('')
   const heroHtml = config.showHero ? renderHero(payload) : ''
+  const footerHtml = renderFooterCta(config, payload)
   const empty = payload.reviews.length === 0
     ? `<div class="orw-empty">No reviews yet.</div>`
     : ''
+  const accent = isHexColor(payload.brand?.accent) ? payload.brand.accent : '#6366F1'
+  const brandStyle = ` style="--orw-brand:${escapeHtml(accent)};--orw-brand-soft:${escapeHtml(hexToRgba(accent, config.theme === 'dark' ? 0.22 : 0.12))};"`
+  const rootClass = config.equalHeight ? 'orw-root orw-eqh' : 'orw-root'
 
-  if (empty) return `<div class="orw-root" data-theme="${config.theme}">${heroHtml}${empty}</div>`
+  if (empty) return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}${empty}</div>`
 
   if (config.layout === 'list') {
-    return `<div class="orw-root" data-theme="${config.theme}">${heroHtml}<div class="orw-list">${cards}</div></div>`
+    return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-list">${cards}</div>${footerHtml}</div>`
   }
   if (config.layout === 'carousel') {
-    return `<div class="orw-root" data-theme="${config.theme}">${heroHtml}<div class="orw-carousel-viewport"><div class="orw-carousel-track">${cards}</div></div></div>`
+    return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-carousel-wrap"><div class="orw-carousel-viewport"><div class="orw-carousel-track">${cards}</div></div></div>${footerHtml}</div>`
   }
-  return `<div class="orw-root" data-theme="${config.theme}">${heroHtml}<div class="orw-grid">${cards}</div></div>`
+  return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-grid">${cards}</div>${footerHtml}</div>`
+}
+
+function wireCarousel(root: HTMLElement): void {
+  const wrap = root.querySelector<HTMLElement>('.orw-carousel-wrap')
+  const viewport = root.querySelector<HTMLElement>('.orw-carousel-viewport')
+  const track = root.querySelector<HTMLElement>('.orw-carousel-track')
+  if (!wrap || !viewport || !track) return
+
+  // Inject arrow buttons
+  const prevBtn = document.createElement('button')
+  prevBtn.type = 'button'
+  prevBtn.className = 'orw-carousel-btn orw-carousel-prev'
+  prevBtn.setAttribute('aria-label', 'Previous')
+  prevBtn.innerHTML = '&#8249;'
+
+  const nextBtn = document.createElement('button')
+  nextBtn.type = 'button'
+  nextBtn.className = 'orw-carousel-btn orw-carousel-next'
+  nextBtn.setAttribute('aria-label', 'Next')
+  nextBtn.innerHTML = '&#8250;'
+
+  wrap.appendChild(prevBtn)
+  wrap.appendChild(nextBtn)
+
+  function cardStep(): number {
+    const first = track.firstElementChild as HTMLElement | null
+    return first ? first.offsetWidth + 16 : 296
+  }
+
+  function maxScroll(): number {
+    return viewport.scrollWidth - viewport.clientWidth
+  }
+
+  function updateArrows(): void {
+    prevBtn.disabled = viewport.scrollLeft < 4
+    nextBtn.disabled = viewport.scrollLeft > maxScroll() - 4
+  }
+
+  function scrollTo(left: number): void {
+    viewport.scrollTo({ left, behavior: 'smooth' })
+  }
+
+  prevBtn.addEventListener('click', () => scrollTo(viewport.scrollLeft - cardStep()))
+  nextBtn.addEventListener('click', () => scrollTo(viewport.scrollLeft + cardStep()))
+  viewport.addEventListener('scroll', updateArrows, { passive: true })
+  updateArrows()
+
+  // Auto-advance
+  let timer: ReturnType<typeof setInterval> | null = null
+  let paused = false
+
+  function advance(): void {
+    if (paused) return
+    if (viewport.scrollLeft >= maxScroll() - 4) {
+      scrollTo(0)
+    } else {
+      scrollTo(viewport.scrollLeft + cardStep())
+    }
+  }
+
+  function startTimer(): void {
+    if (timer) clearInterval(timer)
+    timer = setInterval(advance, 4000)
+  }
+
+  function stopTimer(): void {
+    if (timer) { clearInterval(timer); timer = null }
+  }
+
+  startTimer()
+
+  viewport.addEventListener('mouseenter', () => { paused = true })
+  viewport.addEventListener('mouseleave', () => { paused = false })
+
+  // Mouse drag
+  let dragStartX = 0
+  let dragStartScroll = 0
+  let dragging = false
+
+  viewport.addEventListener('pointerdown', (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse') return
+    dragging = true
+    dragStartX = e.clientX
+    dragStartScroll = viewport.scrollLeft
+    viewport.classList.add('orw-dragging')
+    viewport.setPointerCapture(e.pointerId)
+    stopTimer()
+  })
+
+  viewport.addEventListener('pointermove', (e: PointerEvent) => {
+    if (!dragging || e.pointerType !== 'mouse') return
+    viewport.scrollLeft = dragStartScroll + (dragStartX - e.clientX)
+  })
+
+  function endDrag(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse' || !dragging) return
+    dragging = false
+    viewport.classList.remove('orw-dragging')
+    startTimer()
+  }
+
+  viewport.addEventListener('pointerup', endDrag)
+  viewport.addEventListener('pointerleave', endDrag)
 }
 
 function wireInteractions(root: HTMLElement): void {
@@ -418,6 +601,31 @@ function wireInteractions(root: HTMLElement): void {
       lbImg.src = btn.dataset.orwPhoto!
       lb.classList.add('open')
     })
+  })
+
+  wireCarousel(root)
+}
+
+// When rendered inside an iframe, report content height to the parent so the
+// host page can resize the <iframe> to fit (no inner scrollbars / dead space).
+function setupAutoHeight(token: string): void {
+  if (window.parent === window) return // not framed
+  const post = () => {
+    const h = Math.ceil(document.documentElement.scrollHeight)
+    try {
+      window.parent.postMessage({ type: 'orw-resize', token, height: h }, '*')
+    } catch {
+      /* cross-origin parent | ignore */
+    }
+  }
+  post()
+  window.addEventListener('load', post)
+  window.addEventListener('resize', post)
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(post).observe(document.body)
+  }
+  document.querySelectorAll('img').forEach((img) => {
+    if (!img.complete) img.addEventListener('load', post, { once: true })
   })
 }
 
@@ -463,6 +671,9 @@ async function main() {
 
   host.innerHTML = html
   wireInteractions(host)
+
+  // Iframe embeds: auto-resize the frame to content height.
+  if (sp.has('token')) setupAutoHeight(config.token)
 }
 
 if (document.readyState === 'loading') {

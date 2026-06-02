@@ -26,11 +26,17 @@ const CACHE_HEADERS = {
 
 type ProfileRow = {
   id: string
+  org_id: string
+  place_id: string
   business_name: string | null
   address: string | null
   average_rating: number | null
   total_reviews_count: number | null
   last_scraped_at: string | null
+}
+
+type OrganizationRow = {
+  accent_color: string | null
 }
 
 type ReviewRow = {
@@ -61,9 +67,13 @@ type WidgetPayload = {
   business: {
     name: string | null
     address: string | null
+    placeId: string | null
     averageRating: number | null
     totalReviewsCount: number | null
     lastScrapedAt: string | null
+  }
+  brand: {
+    accent: string
   }
   distribution: { rating: number; count: number }[]
   reviews: Array<{
@@ -95,6 +105,10 @@ function clampInt(raw: string | null, min: number, max: number, fallback: number
   return Math.min(max, Math.max(min, n))
 }
 
+function resolveAccent(raw: string | null | undefined): string {
+  return typeof raw === 'string' && /^#[0-9a-f]{6}$/i.test(raw) ? raw : '#6366F1'
+}
+
 export async function OPTIONS(): Promise<Response> {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -111,14 +125,14 @@ export async function GET(
   const url = new URL(request.url)
   const minRating = clampInt(url.searchParams.get('min_rating'), 1, 5, 1)
   const sort = (url.searchParams.get('sort') ?? 'recent') as 'recent' | 'rating_high' | 'helpful'
-  const limit = clampInt(url.searchParams.get('limit'), 1, 50, 10)
+  const limit = clampInt(url.searchParams.get('limit'), 1, 500, 10)
   const offset = clampInt(url.searchParams.get('offset'), 0, 1000, 0)
 
   const supabase = createServiceRoleClient()
 
   const { data: profile, error: profileErr } = await supabase
     .from('google_business_profiles')
-    .select('id, business_name, address, average_rating, total_reviews_count, last_scraped_at')
+    .select('id, org_id, place_id, business_name, address, average_rating, total_reviews_count, last_scraped_at')
     .eq('widget_token', token)
     .eq('is_active', true)
     .single<ProfileRow>()
@@ -126,6 +140,12 @@ export async function GET(
   if (profileErr || !profile) {
     return Response.json({ error: 'Not found' }, { status: 404, headers: CORS_HEADERS })
   }
+
+  const { data: organization } = await supabase
+    .from('organizations')
+    .select('accent_color')
+    .eq('id', profile.org_id)
+    .maybeSingle<OrganizationRow>()
 
   // Build query
   let query = supabase
@@ -186,9 +206,13 @@ export async function GET(
     business: {
       name: profile.business_name,
       address: profile.address,
+      placeId: profile.place_id && profile.place_id !== '__pending__' ? profile.place_id : null,
       averageRating: profile.average_rating,
       totalReviewsCount: profile.total_reviews_count,
       lastScrapedAt: profile.last_scraped_at,
+    },
+    brand: {
+      accent: resolveAccent(organization?.accent_color),
     },
     distribution: [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 })),
     reviews: ((reviews ?? []) as ReviewRow[]).map((r) => ({
