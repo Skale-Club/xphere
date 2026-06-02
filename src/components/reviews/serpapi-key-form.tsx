@@ -11,9 +11,11 @@ import { Label } from '@/components/ui/label'
 
 interface SerpApiKeyFormProps {
   currentHint: string | null
+  /** Called after the key is successfully saved (used by the setup wizard). */
+  onSaved?: () => void
 }
 
-export function SerpApiKeyForm({ currentHint }: SerpApiKeyFormProps) {
+export function SerpApiKeyForm({ currentHint, onSaved }: SerpApiKeyFormProps) {
   const [value, setValue] = useState('')
   const [isPending, startTransition] = useTransition()
 
@@ -31,6 +33,7 @@ export function SerpApiKeyForm({ currentHint }: SerpApiKeyFormProps) {
       }
       toast.success('SerpAPI key saved.')
       setValue('')
+      onSaved?.()
     })
   }
 

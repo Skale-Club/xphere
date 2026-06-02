@@ -14,9 +14,11 @@ import { StarRating } from './star-rating'
 interface BusinessSearchProps {
   hasApiKey: boolean
   currentPlaceId: string | null
+  /** Called after a business is successfully selected (used by the setup wizard). */
+  onSelected?: () => void
 }
 
-export function BusinessSearch({ hasApiKey, currentPlaceId }: BusinessSearchProps) {
+export function BusinessSearch({ hasApiKey, currentPlaceId, onSelected }: BusinessSearchProps) {
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
   const [results, setResults] = useState<SerpApiMapsSearchPlace[]>([])
@@ -56,6 +58,7 @@ export function BusinessSearch({ hasApiKey, currentPlaceId }: BusinessSearchProp
         return
       }
       toast.success(`${place.title} selected. Click "Refresh now" to fetch reviews.`)
+      onSelected?.()
     })
   }
 

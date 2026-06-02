@@ -466,9 +466,12 @@ function renderShell(config: WidgetConfig, payload: ApiPayload): string {
 
 function wireCarousel(root: HTMLElement): void {
   const wrap = root.querySelector<HTMLElement>('.orw-carousel-wrap')
-  const viewport = root.querySelector<HTMLElement>('.orw-carousel-viewport')
-  const track = root.querySelector<HTMLElement>('.orw-carousel-track')
-  if (!wrap || !viewport || !track) return
+  const viewportEl = root.querySelector<HTMLElement>('.orw-carousel-viewport')
+  const trackEl = root.querySelector<HTMLElement>('.orw-carousel-track')
+  if (!wrap || !viewportEl || !trackEl) return
+  // Narrowed, non-null aliases so hoisted helper functions keep the type.
+  const viewport: HTMLElement = viewportEl
+  const track: HTMLElement = trackEl
 
   // Inject arrow buttons
   const prevBtn = document.createElement('button')

@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 
 import { resolveOrgBranding } from '@/lib/branding'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { decrypt, maskApiKey } from '@/lib/crypto'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
+import { WidgetSettingsDialog } from '@/components/reviews/widget-settings-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout/page-header'
@@ -34,7 +36,7 @@ export default async function ReviewsPage() {
   const { data: profile } = await supabase
     .from('google_business_profiles')
     .select(
-      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token, widget_settings'
+      'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token, widget_settings, serpapi_key_encrypted'
     )
     .maybeSingle()
 
@@ -78,6 +80,17 @@ export default async function ReviewsPage() {
     .eq('id', orgId as string)
     .maybeSingle()
   const brandAccent = resolveOrgBranding(orgBranding).accent
+
+  // Settings dialog inputs (same fields as the integration onboarding).
+  const hasApiKey = Boolean(profile.serpapi_key_encrypted)
+  let keyHint: string | null = null
+  if (profile.serpapi_key_encrypted) {
+    try {
+      keyHint = maskApiKey(await decrypt(profile.serpapi_key_encrypted))
+    } catch {
+      keyHint = null
+    }
+  }
 
   const { data: widgetPreviewRows } = await supabase
     .from('google_reviews')
@@ -124,6 +137,13 @@ export default async function ReviewsPage() {
         reviews={widgetReviews}
         savedSettings={(profile.widget_settings as SavedWidgetSettings | null) ?? undefined}
         onSave={saveWidgetSettings.bind(null, profile.id)}
+        settingsSlot={
+          <WidgetSettingsDialog
+            currentHint={keyHint}
+            hasApiKey={hasApiKey}
+            currentPlaceId={profile.place_id !== '__pending__' ? profile.place_id : null}
+          />
+        }
       />
     </PageContainer>
   )

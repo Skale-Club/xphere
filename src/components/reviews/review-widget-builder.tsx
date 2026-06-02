@@ -1,6 +1,6 @@
 'use client'
 
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
@@ -10,6 +10,7 @@ import {
   List,
   MonitorSmartphone,
   Save,
+  Share2,
   SlidersHorizontal,
   Star,
 } from 'lucide-react'
@@ -45,7 +46,7 @@ export type ReviewWidgetPreviewReview = {
 interface ReviewWidgetBuilderProps {
   baseUrl: string
   widgetToken: string
-  profileId: string
+  profileId?: string
   embedded?: boolean
   brandAccent: string
   business: {
@@ -58,7 +59,9 @@ interface ReviewWidgetBuilderProps {
   distribution: { rating: number; count: number }[]
   reviews: ReviewWidgetPreviewReview[]
   savedSettings?: SavedWidgetSettings
-  onSave: (settings: SavedWidgetSettings) => Promise<void>
+  onSave?: (settings: SavedWidgetSettings) => Promise<void>
+  /** Optional element rendered in the header (e.g. a settings button). */
+  settingsSlot?: ReactNode
 }
 
 const LAYOUTS: Array<{
@@ -354,7 +357,6 @@ function PreviewCarousel({
 export function ReviewWidgetBuilder({
   baseUrl,
   widgetToken,
-  profileId,
   embedded = false,
   brandAccent,
   business,
@@ -362,6 +364,7 @@ export function ReviewWidgetBuilder({
   reviews,
   savedSettings,
   onSave,
+  settingsSlot,
 }: ReviewWidgetBuilderProps) {
   const [layout, setLayout] = useState<Layout>((savedSettings?.layout as Layout) ?? 'carousel')
   const [theme, setTheme] = useState<Theme>((savedSettings?.theme as Theme) ?? 'light')
@@ -452,7 +455,7 @@ export function ReviewWidgetBuilder({
   }
 
   async function handleSave() {
-    if (saveState === 'saving') return
+    if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
       await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode })
@@ -488,20 +491,22 @@ export function ReviewWidgetBuilder({
                 <p className="text-[12px] text-text-tertiary">Preview and embed code</p>
               </div>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant={saveState === 'saved' ? 'default' : 'secondary'}
-              onClick={handleSave}
-              disabled={saveState === 'saving'}
-              className="h-8 shrink-0 gap-1.5 text-[12px]"
-            >
-              {saveState === 'saved' ? (
-                <><Check className="h-3.5 w-3.5" />Saved</>
-              ) : (
-                <><Save className="h-3.5 w-3.5" />Save</>
-              )}
-            </Button>
+            {onSave ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={saveState === 'saved' ? 'default' : 'secondary'}
+                onClick={handleSave}
+                disabled={saveState === 'saving'}
+                className="h-8 shrink-0 gap-1.5 text-[12px]"
+              >
+                {saveState === 'saved' ? (
+                  <><Check className="h-3.5 w-3.5" />Saved</>
+                ) : (
+                  <><Save className="h-3.5 w-3.5" />Save</>
+                )}
+              </Button>
+            ) : null}
           </div>
 
           <div className="mt-5 space-y-5">
@@ -623,61 +628,65 @@ export function ReviewWidgetBuilder({
                 Live preview
               </p>
             </div>
-            <div className="relative">
-              <div className="flex items-center gap-1">
-                {(['iframe', 'script'] as const).map((mode) => {
-                  const active = embedOpen && embedMode === mode
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => {
-                        if (embedMode === mode && embedOpen) {
-                          setEmbedOpen(false)
-                          return
-                        }
-                        setEmbedMode(mode)
-                        setEmbedOpen(true)
-                      }}
-                      className={cn(
-                        'flex items-center gap-1 rounded-[7px] border px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors',
-                        active
-                          ? 'border-accent/50 bg-accent/10 text-accent'
-                          : 'border-border bg-bg-tertiary/50 text-text-secondary hover:text-text-primary',
-                      )}
-                    >
-                      <Code2 className="h-3 w-3" />
-                      {mode}
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="flex items-center gap-2">
+              {settingsSlot}
+              <div className="relative">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEmbedOpen((v) => !v)}
+                  className="h-8 gap-1.5 text-[12px]"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Share
+                </Button>
 
-              {embedOpen ? (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Close embed code"
-                    className="fixed inset-0 z-20 cursor-default"
-                    onClick={() => setEmbedOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full z-30 mt-2 w-[min(460px,78vw)] rounded-[10px] border border-border bg-zinc-950 text-zinc-100 shadow-xl">
-                    <Button
+                {embedOpen ? (
+                  <>
+                    <button
                       type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={copySnippet}
-                      className="absolute right-2 top-2 h-7 gap-1 text-[11.5px]"
-                    >
-                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </Button>
-                    <pre className="max-h-72 overflow-auto p-4 pr-20 font-mono text-[11px] leading-relaxed">
-                      <code>{snippet}</code>
-                    </pre>
-                  </div>
-                </>
-              ) : null}
+                      aria-label="Close share panel"
+                      className="fixed inset-0 z-20 cursor-default"
+                      onClick={() => setEmbedOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-30 mt-2 w-[min(460px,78vw)] overflow-hidden rounded-[10px] border border-border bg-bg-primary shadow-xl">
+                      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                        <div className="flex overflow-hidden rounded-[7px] border border-border bg-bg-tertiary/50 p-0.5">
+                          {(['iframe', 'script'] as const).map((mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setEmbedMode(mode)}
+                              className={cn(
+                                'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors',
+                                embedMode === mode
+                                  ? 'bg-bg-primary text-text-primary shadow-sm'
+                                  : 'text-text-tertiary hover:text-text-primary',
+                              )}
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={copySnippet}
+                          className="h-7 gap-1 text-[11.5px]"
+                        >
+                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {copied ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                      <pre className="max-h-72 overflow-auto bg-zinc-950 p-4 font-mono text-[11px] leading-relaxed text-zinc-100">
+                        <code>{snippet}</code>
+                      </pre>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
 

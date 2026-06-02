@@ -5,8 +5,6 @@ import {
   ChevronDown,
   Clock,
   ExternalLink,
-  KeyRound,
-  MapPin,
   Quote,
   Settings2,
   ShieldCheck,
@@ -22,6 +20,7 @@ import { decrypt, maskApiKey } from '@/lib/crypto'
 import { BusinessSearch } from '@/components/reviews/business-search'
 import { RefreshButton } from '@/components/reviews/refresh-button'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
+import { ReviewsSetupWizard } from '@/components/reviews/reviews-setup-wizard'
 import { SerpApiKeyForm } from '@/components/reviews/serpapi-key-form'
 import { StarRating } from '@/components/reviews/star-rating'
 import { Badge } from '@/components/ui/badge'
@@ -141,37 +140,19 @@ export default async function GoogleReviewsIntegrationPage() {
           back={{ href: '/integrations', label: 'All integrations' }}
         />
 
-        <SectionCard
-          icon={KeyRound}
-          title="Step 1 · SerpAPI key"
-          description="Each org connects its own free SerpAPI account | 100 searches/month at no cost."
-          statusReady={hasApiKey}
-          readyLabel="Key saved"
-          emptyLabel="Key missing"
-          helpLinks={[{ label: 'Get a free SerpAPI key', href: 'https://serpapi.com/manage-api-key' }]}
-        >
-          <SerpApiKeyForm currentHint={keyHint} />
-        </SectionCard>
-
-        <SectionCard
-          icon={MapPin}
-          title="Step 2 · Find your business"
-          description="Search Google Maps to lock in the correct Place ID for review scraping."
-          statusReady={false}
-          readyLabel="Business selected"
-          emptyLabel="Not selected"
-        >
-          <BusinessSearch
-            hasApiKey={hasApiKey}
-            currentPlaceId={null}
-          />
-        </SectionCard>
-
-        <EmptyState
-          icon={Star}
-          title="Almost there"
-          description="Save your SerpAPI key and pick your business above to unlock the daily scrape and embeddable widget."
-        />
+        <div className="flex w-full flex-col items-center justify-center gap-4 rounded-[12px] border border-dashed border-border bg-bg-secondary/40 px-6 py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle">
+            <Star className="h-6 w-6 text-text-secondary" />
+          </div>
+          <div className="flex max-w-md flex-col gap-1.5">
+            <h3 className="text-[15px] font-semibold text-text-primary">Set up Google Reviews</h3>
+            <p className="text-[13px] text-text-secondary leading-relaxed">
+              A quick 2-step setup: connect your SerpAPI key and pick your Google business. We&rsquo;ll
+              handle the daily scrape and give you an embeddable widget.
+            </p>
+          </div>
+          <ReviewsSetupWizard startStep={hasApiKey ? 2 : 1} currentHint={keyHint} />
+        </div>
       </PageContainer>
     )
   }
