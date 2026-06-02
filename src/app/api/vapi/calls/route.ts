@@ -8,8 +8,11 @@ import { VapiEndOfCallMessageSchema } from '@/types/vapi'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
 import { insertNotification } from '@/lib/notifications/insert'
 import { log } from '@/lib/logger'
+import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
+
+const obs = createLogger({ route: 'api/vapi/calls' })
 
 export async function POST(request: Request): Promise<Response> {
   const webhookStart = Date.now()
@@ -24,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     if (!verifyVapiSecret(request)) {
-      console.warn('[vapi/calls] Rejected request with invalid or missing X-Vapi-Secret')
+      obs.warn('vapi_secret_rejected')
       void log({
         event_type: 'webhook.rejected',
         source: 'vapi-webhook',
@@ -54,7 +57,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const vapiCallId = call?.id
     if (!vapiCallId) {
-      console.warn('[vapi/calls] Missing call.id in end-of-call payload')
+      obs.warn('vapi_missing_call_id')
       return new Response(null, { status: 200 })
     }
 
@@ -78,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (!organizationId) {
-      console.warn('[vapi/calls] No active assistant mapping for assistantId:', call?.assistantId)
+      obs.warn('vapi_no_assistant_mapping', { assistantId: call?.assistantId })
       return new Response(null, { status: 200 })
     }
 
@@ -102,7 +105,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error) {
       // Duplicate vapi_call_id | idempotent: Vapi may retry, ignore unique constraint violations
       if (error.code !== '23505') {
-        console.error('[vapi/calls] Insert error:', error.message)
+        obs.error('vapi_calls_insert_error', { error: error.message })
         void log({
           event_type: 'call.ingested',
           source: 'vapi-webhook',
@@ -145,7 +148,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return new Response(null, { status: 200 })
   } catch (err) {
-    console.error('[vapi/calls] Unexpected error:', err)
+    obs.error('vapi_calls_unexpected_error', { error: err })
     return new Response(null, { status: 200 })
   }
 }

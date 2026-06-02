@@ -6,8 +6,11 @@
 import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { processMetaEvent, type MetaWebhookPayload } from '@/lib/meta/process-event'
+import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
+
+const obs = createLogger({ route: 'api/meta/webhook' })
 
 /**
  * Verifies the x-hub-signature-256 header against the raw body HMAC.
@@ -60,7 +63,7 @@ export async function POST(request: Request): Promise<Response> {
     const signature = request.headers.get('x-hub-signature-256')
 
     if (!verifyMetaSignature(rawBody, signature)) {
-      console.warn('[meta/webhook] Invalid or missing HMAC signature | request rejected')
+      obs.warn('meta_hmac_rejected')
       return new Response(null, { status: 403 })
     }
 
@@ -68,7 +71,7 @@ export async function POST(request: Request): Promise<Response> {
     try {
       payload = JSON.parse(rawBody) as MetaWebhookPayload
     } catch {
-      console.warn('[meta/webhook] Malformed JSON body after valid HMAC | skipping processing')
+      obs.warn('meta_malformed_json')
       return Response.json({ ok: true })
     }
 
@@ -77,13 +80,13 @@ export async function POST(request: Request): Promise<Response> {
       try {
         await processMetaEvent(payload)
       } catch (err) {
-        console.error('[meta/webhook] processMetaEvent error:', err)
+        obs.error('meta_process_event_error', { error: err })
       }
     })
 
     return Response.json({ ok: true })
   } catch (err) {
-    console.error('[meta/webhook] Outer handler error:', err)
+    obs.error('meta_outer_handler_error', { error: err })
     return Response.json({ ok: true })
   }
 }

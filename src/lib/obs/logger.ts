@@ -60,6 +60,37 @@ function emit(level: LogLevel, base: LogContext, event: string, fields?: LogCont
   if (level === 'error') console.error(line)
   else if (level === 'warn') console.warn(line)
   else console.log(line)
+
+  // Two-layer model: error-level logs are also persisted to the durable
+  // event_logs table (surfaced in /admin/logs) with the shared correlation id.
+  // Fire-and-forget; dynamic import keeps this module lean for non-error paths.
+  if (level === 'error') forwardErrorToEventLogs(base, event, fields)
+}
+
+function forwardErrorToEventLogs(base: LogContext, event: string, fields?: LogContext): void {
+  try {
+    const f = { ...(fields ?? {}) }
+    const rawErr = f.error
+    const errorMessage =
+      rawErr instanceof Error ? rawErr.message : rawErr != null ? String(rawErr) : undefined
+    delete f.error // keep the durable payload JSON-safe (Error objects don't serialize)
+    void import('@/lib/logger')
+      .then(({ log }) =>
+        log({
+          event_type: event,
+          source: typeof base.route === 'string' ? base.route : 'app',
+          severity: 'error',
+          status: 'failed',
+          correlation_id: typeof base.traceId === 'string' ? base.traceId : undefined,
+          org_id: typeof base.orgId === 'string' ? base.orgId : undefined,
+          error_message: errorMessage,
+          payload: { ...base, ...f } as Record<string, unknown>,
+        }),
+      )
+      .catch(() => {})
+  } catch {
+    /* never let logging break the caller */
+  }
 }
 
 /** Create a structured logger with optional bound context (e.g. correlation ids). */

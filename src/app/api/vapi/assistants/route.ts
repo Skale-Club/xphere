@@ -6,6 +6,9 @@ export const runtime = 'nodejs'
 
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
+import { createLogger } from '@/lib/obs/logger'
+
+const obs = createLogger({ route: 'api/vapi/assistants' })
 
 export async function GET(): Promise<Response> {
   const supabase = await createClient()
@@ -49,7 +52,7 @@ export async function GET(): Promise<Response> {
     const data = await response.json()
     return Response.json(data)
   } catch (err) {
-    console.error('[vapi/assistants] Error:', err)
+    obs.error('vapi_assistants_error', { error: err })
     return Response.json({ error: 'Internal error' }, { status: 500 })
   }
 }
