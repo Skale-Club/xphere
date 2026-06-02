@@ -6,12 +6,46 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { NotificationList } from './notification-list'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   type NotificationRow,
 } from '@/app/(dashboard)/notifications/actions'
+
+/** Play a simple ring tone using the Web Audio API. Returns a stop function. */
+function playRingtone(): () => void {
+  if (typeof window === 'undefined' || !('AudioContext' in window || 'webkitAudioContext' in window)) {
+    return () => {}
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const AudioCtx = (window as any).AudioContext ?? (window as any).webkitAudioContext
+  const ctx = new AudioCtx() as AudioContext
+  let stopped = false
+
+  function ring(startAt: number) {
+    if (stopped) return
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.value = 440
+    gain.gain.setValueAtTime(0, startAt)
+    gain.gain.linearRampToValueAtTime(0.18, startAt + 0.05)
+    gain.gain.linearRampToValueAtTime(0, startAt + 0.4)
+    osc.start(startAt)
+    osc.stop(startAt + 0.45)
+    if (!stopped) setTimeout(() => ring(ctx.currentTime + 0.1), 900)
+  }
+
+  ring(ctx.currentTime)
+  return () => {
+    stopped = true
+    ctx.close().catch(() => {})
+  }
+}
 
 interface NotificationBellProps {
   userId: string | null
@@ -47,6 +81,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
     const supabase = createClient()
     const channel = supabase.channel(`notifications:${userId}:${instanceId}`)
+    let stopRingtone: (() => void) | null = null
 
     channel.on(
       'postgres_changes',
@@ -59,12 +94,32 @@ export function NotificationBell({ userId }: NotificationBellProps) {
       (payload) => {
         const newRow = payload.new as NotificationRow
         setNotifications((prev) => [newRow, ...prev])
+
+        if (newRow.type === 'incoming_call') {
+          const p = newRow.payload as Record<string, unknown>
+          const caller = (p.caller_name as string | undefined)
+            ?? (p.caller_number as string | undefined)
+            ?? 'Unknown'
+          stopRingtone?.()
+          stopRingtone = playRingtone()
+          toast(`Incoming call from ${caller}`, {
+            duration: 30000,
+            icon: '📞',
+            action: {
+              label: 'View calls',
+              onClick: () => { window.location.href = '/calls' },
+            },
+            onDismiss: () => { stopRingtone?.(); stopRingtone = null },
+            onAutoClose: () => { stopRingtone?.(); stopRingtone = null },
+          })
+        }
       },
     )
 
     channel.subscribe()
 
     return () => {
+      stopRingtone?.()
       void supabase.removeChannel(channel)
     }
   }, [instanceId, userId])

@@ -8,6 +8,7 @@ import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { routeWhatsAppReply } from './route-reply'
+import { insertNotification } from '@/lib/notifications/insert'
 import type { ChannelProvider } from '@/types/database'
 import type {
   NormalizedWhatsAppMessage,
@@ -259,6 +260,18 @@ export async function processWhatsAppMessage(
         updated_at: now,
       })
       .eq('id', conversationId)
+
+    // Notify org users: new_conversation for first message, new_message for subsequent ones
+    void insertNotification(
+      orgId,
+      existing ? 'new_message' : 'new_conversation',
+      {
+        conversation_id: conversationId,
+        contact_name: fromName ?? null,
+        message_preview: msg.text ?? null,
+        channel: 'whatsapp',
+      },
+    )
 
     // --- 5. Bot gate ---------------------------------------------------------
     const botStatus = existing?.bot_status ?? 'active'

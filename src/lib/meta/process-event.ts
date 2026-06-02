@@ -138,9 +138,16 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
         const existing = norm.existing
         const existingChannelMetadata: Record<string, string> =
           (norm.existing?.channel_metadata as Record<string, string>) ?? {}
-        if (norm.isNew) {
-          void insertNotification(orgId, 'new_conversation', { conversation_id: conversationId, channel: channelType })
-        }
+        void insertNotification(
+          orgId,
+          norm.isNew ? 'new_conversation' : 'new_message',
+          {
+            conversation_id: conversationId,
+            contact_name: (norm.existing as Record<string, unknown> | null)?.visitor_name ?? null,
+            message_preview: messageText || null,
+            channel: channelType,
+          },
+        )
 
         // 2b. Idempotency by mid | skip if we've already inserted this message
         if (mid) {

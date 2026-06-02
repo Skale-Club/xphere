@@ -510,6 +510,19 @@ export function ChatLayout({
 
   // ───────────────────────── Realtime: conversations ─────────────────────────
 
+  // Tracks last known lastMessageAt per conversation to detect new inbounds.
+  const lastMessageAtMapRef = useRef<Map<string, string | null>>(new Map())
+
+  // Seed the map from the initial conversation load so the first UPDATE after
+  // page load doesn't falsely fire as "new message" for pre-existing messages.
+  useEffect(() => {
+    for (const c of [...conversations, ...pinned]) {
+      if (!lastMessageAtMapRef.current.has(c.id)) {
+        lastMessageAtMapRef.current.set(c.id, c.lastMessageAt ?? null)
+      }
+    }
+  }, [conversations, pinned])
+
   useEffect(() => {
     if (!currentOrgId) return
     const supabase = createClient()
@@ -520,6 +533,8 @@ export function ChatLayout({
         { event: 'INSERT', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
           const newConv = mapConversationRow(payload.new)
+          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
+          lastMessageAtMapRef.current.set(newConv.id, newLastMessageAt)
           prependConversation(newConv)
         },
       )
@@ -528,7 +543,39 @@ export function ChatLayout({
         { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
           const updated = mapConversationRow(payload.new)
-          upsertConversation(updated)
+          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
+          const prevLastMessageAt = lastMessageAtMapRef.current.get(updated.id) ?? null
+          lastMessageAtMapRef.current.set(updated.id, newLastMessageAt)
+
+          // New inbound in a non-selected conversation → mark unread + browser notification
+          const isOtherConversation = updated.id !== selectedIdRef.current
+          const hasNewMessage = newLastMessageAt && newLastMessageAt !== prevLastMessageAt
+          if (isOtherConversation && hasNewMessage) {
+            upsertConversation({ ...updated, isUnread: true })
+            if (
+              typeof window !== 'undefined' &&
+              'Notification' in window &&
+              Notification.permission === 'granted' &&
+              !document.hasFocus()
+            ) {
+              const name =
+                updated.contactName ?? updated.visitorName ?? updated.visitorPhone ?? 'New message'
+              const notif = new Notification(name, {
+                body: updated.lastMessage ?? '',
+                icon: '/api/pwa/icons/192',
+                tag: `msg-${updated.id}`,
+                renotify: true,
+              })
+              notif.addEventListener('click', () => {
+                window.focus()
+                setSelectedId(updated.id)
+                notif.close()
+              })
+            }
+          } else {
+            upsertConversation(updated)
+          }
+
           setFetchedConversation((prev) => {
             if (!prev || prev.id !== updated.id) return prev
             return {
@@ -956,6 +1003,8 @@ export function ChatLayout({
             onFilterChange={handleFilterChange}
             onSelect={(id) => {
               setSelectedId(id)
+              const conv = findVisibleConversation(id)
+              if (conv?.isUnread) upsertConversation({ ...conv, isUnread: false })
               void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
             }}
             onConversationUpdated={refreshConversations}
@@ -1094,6 +1143,8 @@ export function ChatLayout({
               onSelect={(id) => {
                 setSelectedId(id)
                 setMobileView('chat')
+                const conv = findVisibleConversation(id)
+                if (conv?.isUnread) upsertConversation({ ...conv, isUnread: false })
                 // SEED-035: mark as read when conversation opens
                 void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
               }}
