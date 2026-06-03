@@ -89,7 +89,7 @@ export default async function CancelBookingPage({ params, searchParams }: Props)
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/api/pwa/icons/32" alt="" width={14} height={14} className="rounded-[3px] opacity-70" />
-          Powered by Xphere Scheduling
+          Powered by Xphere
         </a>
       </div>
     </div>

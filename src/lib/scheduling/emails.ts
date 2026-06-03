@@ -237,7 +237,7 @@ export async function sendBookingConfirmation(
     </p>
 
     <p style="${MUTED} font-size: 12px; margin-top: 32px;">
-      Powered by Xphere Scheduling
+      Powered by Xphere
     </p>
   </div>
 </body></html>`
@@ -341,7 +341,7 @@ export async function sendBookingCancellation(
     </p>
 
     <p style="${MUTED} font-size: 12px; margin-top: 32px;">
-      Powered by Xphere Scheduling
+      Powered by Xphere
     </p>
   </div>
 </body></html>`
