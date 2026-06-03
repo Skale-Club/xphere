@@ -1,7 +1,4 @@
 import { redirect } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { getUser } from '@/lib/supabase/server'
 import { getBookings } from '../_actions/bookings'
 import { getEventTypes } from '../_actions/event-types'
@@ -30,10 +27,6 @@ export default async function SchedulingCalendarPage() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/scheduling"><ArrowLeft className="h-3.5 w-3.5" /> Back</Link>
-      </Button>
-
       <CalendarView bookings={bookings} eventTypeColors={eventTypeColors} timezone={timezone} />
     </div>
   )

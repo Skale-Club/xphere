@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, CalendarCheck, Clock, User, Mail } from 'lucide-react'
-import Link from 'next/link'
+import { CalendarCheck, Clock, User, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getUser } from '@/lib/supabase/server'
@@ -27,10 +26,6 @@ export default async function BookingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/scheduling"><ArrowLeft className="h-3.5 w-3.5" /> Back</Link>
-      </Button>
-
       {bookings.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-12 text-center">
           <CalendarCheck className="mx-auto h-8 w-8 text-muted-foreground mb-3" />

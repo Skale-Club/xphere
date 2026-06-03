@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { CalendarDays, Settings2, ExternalLink, Calendar, ListChecks } from 'lucide-react'
+import { CalendarDays, ExternalLink } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import { getEventTypes } from './_actions/event-types'
 import { getSchedulingProfile } from './_actions/scheduling-profile'
@@ -41,23 +41,8 @@ export default async function SchedulingPage({ searchParams }: Props) {
 
   return (
     <PageContainer>
-      {/* Header actions */}
-      <div className="flex items-center justify-end gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link href="/scheduling/bookings">
-            <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Bookings
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/scheduling/calendar">
-            <Calendar className="h-3.5 w-3.5 mr-1.5" /> Calendar
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/scheduling/availability">
-            <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Availability
-          </Link>
-        </Button>
+      {/* Header — New event type button on the left */}
+      <div className="flex items-center justify-start">
         <NewEventTypeDialog />
       </div>
 
@@ -79,18 +64,11 @@ export default async function SchedulingPage({ searchParams }: Props) {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Your booking page</p>
           <code className="text-sm text-indigo-400">{siteUrl}/book/{profile.slug}</code>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
-            </a>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <a href="/api/google/calendar-oauth">
-              <Calendar className="h-3.5 w-3.5 mr-1.5" /> Connect Google Calendar
-            </a>
-          </Button>
-        </div>
+        <Button asChild variant="outline" size="sm">
+          <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
+          </a>
+        </Button>
       </div>
 
       {/* Event types */}
