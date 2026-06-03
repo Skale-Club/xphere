@@ -273,6 +273,34 @@ const CSS = `
   .orw-hero-rating-num { font-size: 44px; }
   .orw-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Continuous marquee carousel ─────────────────────────────────── */
+@keyframes orw-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(var(--orw-marquee-end, -50%)); }
+}
+.orw-carousel-viewport.orw-auto {
+  overflow: hidden;
+  cursor: default;
+  padding-bottom: 0;
+}
+.orw-carousel-viewport.orw-auto .orw-carousel-track {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  gap: 16px;
+  grid-auto-flow: unset;
+  grid-auto-columns: unset;
+}
+.orw-carousel-viewport.orw-auto .orw-card {
+  flex: none;
+  width: 300px;
+  max-height: 380px;
+  overflow: hidden;
+  cursor: default;
+}
+/* hide scroll-snap in marquee mode */
+.orw-carousel-viewport.orw-auto { scroll-snap-type: none; }
 `
 
 const STAR_PATH =
@@ -464,129 +492,108 @@ function renderShell(config: WidgetConfig, payload: ApiPayload): string {
   return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-grid">${cards}</div>${footerHtml}</div>`
 }
 
+// Measure a card's natural (unconstrained) height by cloning it off-screen.
+function measureCardNaturalHeight(card: HTMLElement, root: HTMLElement): number {
+  const wrapper = document.createElement('div')
+  wrapper.className = root.className
+  if (root.dataset.theme) wrapper.dataset.theme = root.dataset.theme
+  wrapper.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;pointer-events:none;'
+  const clone = card.cloneNode(true) as HTMLElement
+  clone.style.cssText = 'width:300px;height:auto;max-height:none;overflow:visible;'
+  wrapper.appendChild(clone)
+  document.body.appendChild(wrapper)
+  const h = clone.scrollHeight
+  document.body.removeChild(wrapper)
+  return h
+}
+
 function wireCarousel(root: HTMLElement): void {
-  const wrap = root.querySelector<HTMLElement>('.orw-carousel-wrap')
   const viewportEl = root.querySelector<HTMLElement>('.orw-carousel-viewport')
   const trackEl = root.querySelector<HTMLElement>('.orw-carousel-track')
-  if (!wrap || !viewportEl || !trackEl) return
-  // Narrowed, non-null aliases so hoisted helper functions keep the type.
+  if (!viewportEl || !trackEl) return
+
   const viewport: HTMLElement = viewportEl
   const track: HTMLElement = trackEl
 
-  // Inject arrow buttons
-  const prevBtn = document.createElement('button')
-  prevBtn.type = 'button'
-  prevBtn.className = 'orw-carousel-btn orw-carousel-prev'
-  prevBtn.setAttribute('aria-label', 'Previous')
-  prevBtn.innerHTML = '&#8249;'
+  const MAX_H = 380
+  const SPEED = 55 // px per second — adjust for faster/slower feel
 
-  const nextBtn = document.createElement('button')
-  nextBtn.type = 'button'
-  nextBtn.className = 'orw-carousel-btn orw-carousel-next'
-  nextBtn.setAttribute('aria-label', 'Next')
-  nextBtn.innerHTML = '&#8250;'
-
-  wrap.appendChild(prevBtn)
-  wrap.appendChild(nextBtn)
-
-  function cardStep(): number {
-    const first = track.firstElementChild as HTMLElement | null
-    return first ? first.offsetWidth + 16 : 296
-  }
-
-  function maxScroll(): number {
-    return viewport.scrollWidth - viewport.clientWidth
-  }
-
-  function updateArrows(): void {
-    prevBtn.disabled = viewport.scrollLeft < 4
-    nextBtn.disabled = viewport.scrollLeft > maxScroll() - 4
-  }
-
-  function scrollTo(left: number): void {
-    viewport.scrollTo({ left, behavior: 'smooth' })
-  }
-
-  prevBtn.addEventListener('click', () => scrollTo(viewport.scrollLeft - cardStep()))
-  nextBtn.addEventListener('click', () => scrollTo(viewport.scrollLeft + cardStep()))
-  viewport.addEventListener('scroll', updateArrows, { passive: true })
-  updateArrows()
-
-  // Auto-advance
-  let timer: ReturnType<typeof setInterval> | null = null
-  let paused = false
-
-  function advance(): void {
-    if (paused) return
-    if (viewport.scrollLeft >= maxScroll() - 4) {
-      scrollTo(0)
-    } else {
-      scrollTo(viewport.scrollLeft + cardStep())
-    }
-  }
-
-  function startTimer(): void {
-    if (timer) clearInterval(timer)
-    timer = setInterval(advance, 4000)
-  }
-
-  function stopTimer(): void {
-    if (timer) { clearInterval(timer); timer = null }
-  }
-
-  startTimer()
-
-  viewport.addEventListener('mouseenter', () => { paused = true })
-  viewport.addEventListener('mouseleave', () => { paused = false })
-
-  // Mouse drag
-  let dragStartX = 0
-  let dragStartScroll = 0
-  let dragging = false
-
-  viewport.addEventListener('pointerdown', (e: PointerEvent) => {
-    if (e.pointerType !== 'mouse') return
-    dragging = true
-    dragStartX = e.clientX
-    dragStartScroll = viewport.scrollLeft
-    viewport.classList.add('orw-dragging')
-    viewport.setPointerCapture(e.pointerId)
-    stopTimer()
+  // 1. Hide owner response on cards whose full content would exceed max height.
+  Array.from(track.children).forEach((child) => {
+    const card = child as HTMLElement
+    const owner = card.querySelector<HTMLElement>('.orw-owner')
+    if (!owner) return
+    const naturalH = measureCardNaturalHeight(card, root)
+    if (naturalH > MAX_H) owner.hidden = true
   })
 
-  viewport.addEventListener('pointermove', (e: PointerEvent) => {
-    if (!dragging || e.pointerType !== 'mouse') return
-    viewport.scrollLeft = dragStartScroll + (dragStartX - e.clientX)
-  })
+  // 2. Switch to marquee mode (CSS class applies flex layout + max-height on cards).
+  viewport.classList.add('orw-auto')
 
-  function endDrag(e: PointerEvent): void {
-    if (e.pointerType !== 'mouse' || !dragging) return
-    dragging = false
-    viewport.classList.remove('orw-dragging')
-    startTimer()
+  // 3. Duplicate cards for a seamless infinite loop.
+  //    Keep cloning sets until the total content is at least 2× the viewport width
+  //    so the loop never shows empty space on wide screens.
+  const originals = Array.from(track.children) as HTMLElement[]
+  let sets = 1
+  originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
+  sets++
+  // Ensure we have enough content for the viewport.
+  if (originals.length < 6) {
+    originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
+    sets++
   }
 
-  viewport.addEventListener('pointerup', endDrag)
-  viewport.addEventListener('pointerleave', endDrag)
+  // 4. After layout settles: measure, animate, and wire hover-pause.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // Each "set" has the same width. The animation moves exactly one set width,
+      // then CSS loops the animation — the duplicate set makes it seamless.
+      const oneSetWidth = Math.ceil(track.scrollWidth / sets)
+      const duration = Math.round(oneSetWidth / SPEED)
+
+      track.style.setProperty('--orw-marquee-end', `-${oneSetWidth}px`)
+      track.style.animation = `orw-marquee ${duration}s linear infinite`
+
+      // Pause on hover.
+      viewport.addEventListener('mouseenter', () => {
+        track.style.animationPlayState = 'paused'
+      })
+      viewport.addEventListener('mouseleave', () => {
+        track.style.animationPlayState = 'running'
+      })
+
+      // Show "Read more" buttons on any card (original or clone) whose text is clamped.
+      root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
+        const btn = el.nextElementSibling as HTMLButtonElement | null
+        if (!btn?.hasAttribute('data-orw-more')) return
+        btn.hidden = !(el.scrollHeight > el.clientHeight + 4)
+      })
+    })
+  })
 }
 
 function wireInteractions(root: HTMLElement): void {
-  // Expand long reviews
-  root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-    requestAnimationFrame(() => {
-      if (el.scrollHeight > el.clientHeight + 4) {
-        const btn = el.nextElementSibling as HTMLButtonElement | null
-        if (btn?.hasAttribute('data-orw-more')) btn.hidden = false
-      }
+  // Show "Read more" buttons for non-carousel layouts (carousel re-checks after cloning).
+  const isCarousel = !!root.querySelector('.orw-carousel-viewport')
+  if (!isCarousel) {
+    root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
+      requestAnimationFrame(() => {
+        if (el.scrollHeight > el.clientHeight + 4) {
+          const btn = el.nextElementSibling as HTMLButtonElement | null
+          if (btn?.hasAttribute('data-orw-more')) btn.hidden = false
+        }
+      })
     })
-  })
-  root.querySelectorAll<HTMLButtonElement>('[data-orw-more]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const prev = btn.previousElementSibling as HTMLElement | null
-      if (!prev) return
-      prev.classList.remove('orw-collapsed')
-      btn.remove()
-    })
+  }
+
+  // Event delegation — works for original cards AND cloned carousel cards.
+  root.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orw-more]')
+    if (!btn) return
+    const prev = btn.previousElementSibling as HTMLElement | null
+    if (!prev) return
+    prev.classList.remove('orw-collapsed')
+    btn.remove()
   })
 
   // Lightbox
