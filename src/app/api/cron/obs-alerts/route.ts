@@ -1,12 +1,12 @@
 // O3: observability alerting cron.
 // Invoked by .github/workflows/obs-alerts.yml (hourly). Checks existing signals
-// cross-org and posts deduped Slack alerts:
+// cross-org and posts deduped Telegram alerts:
 //   1. Agent cost near the daily cap (>= 80%)
 //   2. Google Reviews scrape failures (error / quota_exceeded)
 //   3. High agent error rate in the last hour
 //
 // Caller sends CRON_SECRET as `Authorization: Bearer`. No-ops cleanly when
-// SLACK_ALERTS_WEBHOOK_URL is unset, so it is safe to schedule before the
+// the Telegram bot token/chat id are unset, so it is safe to schedule before the
 // webhook secret is configured.
 
 export const runtime = 'nodejs'
@@ -22,8 +22,8 @@ import {
   costSeverity,
   errorRateBreached,
   recordAlert,
-  sendSlackAlert,
-  slackConfigured,
+  sendTelegramAlert,
+  telegramConfigured,
 } from '@/lib/obs/alerts'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -43,8 +43,8 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const log = createLogger({ route: 'api/cron/obs-alerts' })
-  if (!slackConfigured()) {
-    return Response.json({ ok: true, skipped: 'SLACK_ALERTS_WEBHOOK_URL not set' })
+  if (!telegramConfigured()) {
+    return Response.json({ ok: true, skipped: 'TELEGRAM_BOT_TOKEN / TELEGRAM_ALERT_CHAT_ID not set' })
   }
 
   const supabase = createClient<Database>(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
@@ -142,7 +142,7 @@ export async function GET(request: Request): Promise<Response> {
   for (const alert of candidates) {
     const windowMinutes = alert.key.startsWith('cost:') ? 360 : alert.key.startsWith('scrape:') ? 1440 : 60
     if (await alreadyAlerted(dedupe, alert.key, windowMinutes)) continue
-    if (await sendSlackAlert(alert)) {
+    if (await sendTelegramAlert(alert)) {
       await recordAlert(dedupe, alert.key)
       sent++
     }
