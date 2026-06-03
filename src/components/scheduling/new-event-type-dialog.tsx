@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Users, User } from 'lucide-react'
@@ -37,16 +37,36 @@ const BOOKING_TYPES: {
   },
 ]
 
-export function NewEventTypeDialog() {
+interface NewEventTypeDialogProps {
+  /** Controlled open state. When provided, the internal trigger can be hidden. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Hide the built-in "New event type" trigger button (controlled usage). */
+  hideTrigger?: boolean
+}
+
+export function NewEventTypeDialog({ open: controlledOpen, onOpenChange, hideTrigger = false }: NewEventTypeDialogProps = {}) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = isControlled ? controlledOpen : uncontrolledOpen
+  const setOpen = (o: boolean) => {
+    if (isControlled) onOpenChange?.(o)
+    else setUncontrolledOpen(o)
+  }
   const [step, setStep] = useState<'type' | 'form'>('type')
   const [bookingType, setBookingType] = useState<BookingType>('personal')
   const [isPending, startTransition] = useTransition()
 
+  // Reset to the first step whenever the dialog opens (covers controlled opens).
+  useEffect(() => {
+    if (open) {
+      setStep('type')
+      setBookingType('personal')
+    }
+  }, [open])
+
   function handleOpen() {
-    setStep('type')
-    setBookingType('personal')
     setOpen(true)
   }
 
@@ -76,11 +96,13 @@ export function NewEventTypeDialog() {
 
   return (
     <>
-      <Button size="sm" onClick={handleOpen} className="gap-1.5">
-        <Plus className="h-3.5 w-3.5" /> New event type
-      </Button>
+      {!hideTrigger && (
+        <Button size="sm" onClick={handleOpen} className="gap-1.5">
+          <Plus className="h-3.5 w-3.5" /> New event type
+        </Button>
+      )}
 
-      <Dialog open={open} onOpenChange={(o) => { if (!o) setOpen(false) }}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           {step === 'type' ? (
             <>

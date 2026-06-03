@@ -2,10 +2,10 @@
 
 import * as React from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Building2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { CustomFieldsFilterBar } from '@/components/custom-fields/custom-fields-filter-bar'
 import type { CustomFieldDefinitionRow } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -38,6 +38,10 @@ function relativeTime(iso: string): string {
   const d = Math.round(h / 24)
   if (d < 30) return `${d}d ago`
   return new Date(iso).toLocaleDateString()
+}
+
+function companyInitial(name: string | null): string {
+  return name?.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
 }
 
 interface AccountsTableProps {
@@ -159,9 +163,12 @@ export function AccountsTable({
                   />
                 </div>
 
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-muted text-accent">
-                  <Building2 className="h-3.5 w-3.5" />
-                </div>
+                <Avatar className="h-8 w-8 shrink-0 rounded-[8px]">
+                  {row.avatar_url ? <AvatarImage src={row.avatar_url} alt="" /> : null}
+                  <AvatarFallback className="rounded-[8px] bg-accent-muted text-[11px] font-semibold text-accent">
+                    {companyInitial(row.name)}
+                  </AvatarFallback>
+                </Avatar>
 
                 <div className="min-w-0">
                   <button
@@ -264,7 +271,12 @@ export function AccountsTable({
                     }}
                     className="flex items-center gap-2 min-w-0 group text-left"
                   >
-                    <Building2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary group-hover:text-accent transition-colors" />
+                    <Avatar className="h-8 w-8 shrink-0 rounded-[8px]">
+                      {row.avatar_url ? <AvatarImage src={row.avatar_url} alt="" /> : null}
+                      <AvatarFallback className="rounded-[8px] bg-accent-muted text-[11px] font-semibold text-accent">
+                        {companyInitial(row.name)}
+                      </AvatarFallback>
+                    </Avatar>
                     <span className="truncate text-[13px] font-medium text-text-primary group-hover:text-accent transition-colors">
                       {row.name ?? <span className="italic text-text-tertiary">Unnamed</span>}
                     </span>

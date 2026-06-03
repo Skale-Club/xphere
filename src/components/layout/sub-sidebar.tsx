@@ -18,6 +18,8 @@ interface SubSidebarLayoutProps {
   /** Optional title shown in the sidebar header. */
   title?: string
   defaultExpanded?: boolean
+  /** Expanded sidebar width in pixels. */
+  expandedWidth?: number
   /** When set, expanded/collapsed follows the route: expanded on the section
    *  index, collapsed once an item is open. See provider. */
   autoCollapseBasePath?: string
@@ -35,6 +37,7 @@ export function SubSidebarLayout({
   storageKey,
   title,
   defaultExpanded = true,
+  expandedWidth = 240,
   autoCollapseBasePath,
 }: SubSidebarLayoutProps) {
   return (
@@ -43,7 +46,7 @@ export function SubSidebarLayout({
       defaultMode={defaultExpanded ? 'expanded' : 'collapsed'}
       autoCollapseBasePath={autoCollapseBasePath}
     >
-      <SubSidebarLayoutInner nav={nav} title={title}>
+      <SubSidebarLayoutInner nav={nav} title={title} expandedWidth={expandedWidth}>
         {children}
       </SubSidebarLayoutInner>
     </SubSidebarProvider>
@@ -55,10 +58,12 @@ export function SubSidebarLayout({
 function SubSidebarLayoutInner({
   nav,
   title,
+  expandedWidth,
   children,
 }: {
   nav: React.ReactNode
   title?: string
+  expandedWidth: number
   children: React.ReactNode
 }) {
   const { mode, hydrated, expand } = useSubSidebar()
@@ -74,11 +79,12 @@ function SubSidebarLayoutInner({
           'relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-secondary/50',
           hydrated &&
             'transition-[width] duration-[250ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]',
-          isExpanded ? 'w-[240px]' : 'w-10',
+          !isExpanded && 'w-10',
         )}
+        style={isExpanded ? { width: expandedWidth } : undefined}
       >
         {isExpanded ? (
-          <div className="flex h-full w-[240px] flex-col">
+          <div className="flex h-full flex-col" style={{ width: expandedWidth }}>
             <SubSidebarHeader title={title} />
             <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">{nav}</div>
           </div>

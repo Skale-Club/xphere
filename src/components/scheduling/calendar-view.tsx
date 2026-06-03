@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { NewBookingDialog } from './new-booking-dialog'
+import { NewEventTypeDialog } from './new-event-type-dialog'
 import { cancelBooking } from '@/app/(dashboard)/scheduling/_actions/bookings'
 import type { BookingRow } from '@/app/(dashboard)/scheduling/_actions/bookings'
 import type { EventTypeRow } from '@/app/(dashboard)/scheduling/_actions/event-types'
@@ -170,8 +171,17 @@ export function CalendarView({
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createStart, setCreateStart] = useState<Date | null>(null)
+  const [createEnd, setCreateEnd] = useState<Date | null>(null)
+  const [etDialogOpen, setEtDialogOpen] = useState(false)
   const [selected, setSelected] = useState<BookingRow | null>(null)
   const [cancelling, setCancelling] = useState(false)
+
+  // Drag-to-create selection (Google-Calendar style): anchor + current hour
+  // within a single day column. Fractional hours; snapped to 15 min on commit.
+  const [drag, setDrag] = useState<{ day: Date; anchorHour: number; currentHour: number } | null>(null)
+  const dragRef = useRef(drag)
+  dragRef.current = drag
+  const dragColRef = useRef<HTMLElement | null>(null)
 
   // Tick the now-indicator every minute.
   useEffect(() => {
@@ -203,14 +213,60 @@ export function CalendarView({
     return confirmed.filter((b) => isSameDay(toZonedTime(parseISO(b.start_at), timezone), day))
   }
 
-  function openCreateAt(day: Date, hour: number) {
+  function dateAtHour(day: Date, hour: number): Date {
+    const snapped = Math.round(hour * 4) / 4 // snap to 15-min
     const d = new Date(day)
-    // snap to 15-min
-    const snapped = Math.round(hour * 4) / 4
     d.setHours(Math.floor(snapped), Math.round((snapped % 1) * 60), 0, 0)
-    setCreateStart(d)
+    return d
+  }
+
+  function openCreateAt(day: Date, hour: number) {
+    setCreateStart(dateAtHour(day, hour))
+    setCreateEnd(null) // duration comes from the event type
     setCreateOpen(true)
   }
+
+  function openCreateRange(day: Date, startHour: number, endHour: number) {
+    setCreateStart(dateAtHour(day, startHour))
+    setCreateEnd(dateAtHour(day, endHour))
+    setCreateOpen(true)
+  }
+
+  function clampHour(h: number): number {
+    return Math.min(END_HOUR, Math.max(START_HOUR, h))
+  }
+
+  function hourFromClientY(col: HTMLElement, clientY: number): number {
+    const rect = col.getBoundingClientRect()
+    return clampHour(START_HOUR + (clientY - rect.top) / HOUR_HEIGHT)
+  }
+
+  // Window-level move/up so the drag keeps tracking outside the column bounds.
+  useEffect(() => {
+    if (!drag) return
+    function onMove(e: MouseEvent) {
+      const col = dragColRef.current
+      if (!col) return
+      setDrag((d) => (d ? { ...d, currentHour: hourFromClientY(col, e.clientY) } : d))
+    }
+    function onUp() {
+      const d = dragRef.current
+      dragColRef.current = null
+      setDrag(null)
+      if (!d) return
+      const lo = Math.min(d.anchorHour, d.currentHour)
+      const hi = Math.max(d.anchorHour, d.currentHour)
+      // < 15 min of travel → treat as a plain click (event-type duration).
+      if (hi - lo < 0.25) openCreateAt(d.day, lo)
+      else openCreateRange(d.day, lo, hi)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [drag])
 
   function nav(dir: -1 | 1) {
     setCursor((c) =>
@@ -379,10 +435,23 @@ export function CalendarView({
                 const nowTop = (nowHour - START_HOUR) * HOUR_HEIGHT
                 const nowVisible = showNow && nowHour >= START_HOUR && nowHour < END_HOUR
 
+                const dragOnThisDay = drag && isSameDay(drag.day, day)
+                const dragLo = dragOnThisDay ? Math.min(drag.anchorHour, drag.currentHour) : 0
+                const dragHi = dragOnThisDay ? Math.max(drag.anchorHour, drag.currentHour) : 0
+
                 return (
                   <div
                     key={day.toISOString()}
-                    className={cn('relative border-r border-border last:border-r-0', isToday(day) && 'bg-indigo-500/5')}
+                    onMouseDown={(e) => {
+                      // Only left-click on empty grid starts a drag (bookings stop it).
+                      if (e.button !== 0) return
+                      if ((e.target as HTMLElement).closest('[data-booking]')) return
+                      const col = e.currentTarget as HTMLElement
+                      dragColRef.current = col
+                      const hour = hourFromClientY(col, e.clientY)
+                      setDrag({ day, anchorHour: hour, currentHour: hour })
+                    }}
+                    className={cn('relative border-r border-border last:border-r-0 select-none', isToday(day) && 'bg-indigo-500/5')}
                     style={{ height: GRID_HEIGHT }}
                   >
                     {/* Working-hours shading (non-working dimmed) */}
@@ -390,19 +459,28 @@ export function CalendarView({
                       <div key={`sh-${i}`} className="absolute inset-x-0 bg-bg-tertiary/25 pointer-events-none" style={{ top: s.top, height: s.height }} />
                     ))}
 
-                    {/* Hour lines + click-to-create layer */}
+                    {/* Hour lines (visual only — create happens via click/drag on the column) */}
                     {VISIBLE_HOURS.map((h, i) => (
                       <div
                         key={h}
-                        onClick={(e) => {
-                          const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
-                          const y = e.clientY - rect.top
-                          openCreateAt(day, START_HOUR + y / HOUR_HEIGHT)
-                        }}
-                        className="absolute inset-x-0 border-t border-border/40 cursor-pointer hover:bg-accent/5"
+                        className="absolute inset-x-0 border-t border-border/40 pointer-events-none"
                         style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                       />
                     ))}
+
+                    {/* Drag-to-create selection preview */}
+                    {dragOnThisDay && dragHi > dragLo && (
+                      <div
+                        className="absolute inset-x-1 z-20 rounded-md border border-indigo-400/60 bg-indigo-500/25 pointer-events-none"
+                        style={{ top: (dragLo - START_HOUR) * HOUR_HEIGHT, height: (dragHi - dragLo) * HOUR_HEIGHT }}
+                      >
+                        <span className="absolute left-1 top-0.5 text-[10px] font-medium text-indigo-100">
+                          {dateAtHour(day, dragLo).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                          {' – '}
+                          {dateAtHour(day, dragHi).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Now indicator */}
                     {nowVisible && (
@@ -418,6 +496,8 @@ export function CalendarView({
                       <button
                         key={booking.id}
                         type="button"
+                        data-booking
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => { e.stopPropagation(); setSelected(booking) }}
                         className="absolute z-10 rounded-md overflow-hidden px-1.5 py-0.5 text-left text-white transition-opacity hover:opacity-100"
                         style={{
@@ -452,9 +532,14 @@ export function CalendarView({
         onOpenChange={setCreateOpen}
         eventTypes={eventTypes}
         defaultStart={createStart}
+        defaultEnd={createEnd}
         timezone={timezone}
         onCreated={() => router.refresh()}
+        onCreateEventType={() => { setCreateOpen(false); setEtDialogOpen(true) }}
       />
+
+      {/* Event-type creation (opened from the booking dialog when none exist) */}
+      <NewEventTypeDialog open={etDialogOpen} onOpenChange={setEtDialogOpen} hideTrigger />
 
       {/* Booking detail dialog */}
       <Dialog open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>

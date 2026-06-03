@@ -642,6 +642,9 @@ export async function createBooking(
 const createInternalBookingSchema = z.object({
   event_type_id: z.string().uuid(),
   start_at: z.string(), // ISO 8601
+  // Optional duration override (operator dragged a custom slot on the calendar).
+  // Falls back to the event type's default duration when omitted.
+  duration_minutes: z.number().int().min(5).max(720).optional(),
   booker_name: z.string().min(1).max(100),
   booker_email: z.string().email().optional().or(z.literal('')),
   booker_phone: z.string().max(30).optional().or(z.literal('')),
@@ -695,7 +698,11 @@ export async function createBookingInternal(
   const hostTimezone = hostProfile?.timezone ?? 'UTC'
 
   const startAt = new Date(parsed.data.start_at)
-  const endAt = addMinutes(startAt, et.duration_minutes)
+  const durationMinutes =
+    parsed.data.duration_minutes && parsed.data.duration_minutes > 0
+      ? parsed.data.duration_minutes
+      : et.duration_minutes
+  const endAt = addMinutes(startAt, durationMinutes)
 
   // Race-condition guard.
   const { data: conflict } = await supabase

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { CurrencySelect } from '@/components/pipeline/currency-select'
 import { TimezoneSelect } from '@/components/settings/timezone-select'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
+import { cn } from '@/lib/utils'
 import {
   updateCompanyProfile,
   updateDefaultCurrency,
@@ -55,6 +56,8 @@ const COUNTRIES: { code: string; name: string }[] = [
   { code: 'IN', name: 'India' },
   { code: 'AE', name: 'United Arab Emirates' },
 ]
+
+const CONTROL_CLASS = 'border-border bg-bg-primary text-text-primary placeholder:text-text-tertiary'
 
 export function CompanyProfileForm({ initial }: Props) {
   // Baseline = last-saved values. Dirty is computed against this so the page
@@ -159,33 +162,33 @@ export function CompanyProfileForm({ initial }: Props) {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Legal name" htmlFor="legal_name">
-              <Input id="legal_name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Acme Inc." maxLength={160} />
+              <Input id="legal_name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Acme Inc." maxLength={160} className={CONTROL_CLASS} />
             </Field>
             <Field label="Tax ID" htmlFor="tax_id">
-              <Input id="tax_id" value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="CNPJ / EIN / VAT" maxLength={64} />
+              <Input id="tax_id" value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="CNPJ / EIN / VAT" maxLength={64} className={CONTROL_CLASS} />
             </Field>
           </div>
 
           <div className="space-y-3">
             <Field label="Address line 1" htmlFor="line1">
-              <Input id="line1" value={line1} onChange={(e) => setLine1(e.target.value)} placeholder="Street, number" maxLength={200} />
+              <Input id="line1" value={line1} onChange={(e) => setLine1(e.target.value)} placeholder="Street, number" maxLength={200} className={CONTROL_CLASS} />
             </Field>
             <Field label="Address line 2" htmlFor="line2">
-              <Input id="line2" value={line2} onChange={(e) => setLine2(e.target.value)} placeholder="Suite, unit (optional)" maxLength={200} />
+              <Input id="line2" value={line2} onChange={(e) => setLine2(e.target.value)} placeholder="Suite, unit (optional)" maxLength={200} className={CONTROL_CLASS} />
             </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="City" htmlFor="city">
-                <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />
+                <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} className={CONTROL_CLASS} />
               </Field>
               <Field label="State / Region" htmlFor="state">
-                <Input id="state" value={state} onChange={(e) => setState(e.target.value)} maxLength={120} />
+                <Input id="state" value={state} onChange={(e) => setState(e.target.value)} maxLength={120} className={CONTROL_CLASS} />
               </Field>
               <Field label="Postal code" htmlFor="postal">
-                <Input id="postal" value={postal} onChange={(e) => setPostal(e.target.value)} maxLength={40} />
+                <Input id="postal" value={postal} onChange={(e) => setPostal(e.target.value)} maxLength={40} className={CONTROL_CLASS} />
               </Field>
             </div>
             <Field label="Country" htmlFor="country">
-              <NativeSelect id="country" value={country} onChange={(e) => setCountry(e.target.value)}>
+              <NativeSelect id="country" value={country} onChange={(e) => setCountry(e.target.value)} className={CONTROL_CLASS}>
                 <option value="">Select country…</option>
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>{c.name}</option>
@@ -196,10 +199,10 @@ export function CompanyProfileForm({ initial }: Props) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Timezone" htmlFor="timezone">
-              <TimezoneSelect id="timezone" value={timezone} onChange={setTimezone} />
+              <TimezoneSelect id="timezone" value={timezone} onChange={setTimezone} className={CONTROL_CLASS} />
             </Field>
             <Field label="Default currency" htmlFor="currency">
-              <CurrencySelect value={currency} onChange={setCurrency} className="w-full" />
+              <CurrencySelect value={currency} onChange={setCurrency} className={cn('w-full', CONTROL_CLASS)} />
             </Field>
           </div>
         </CardContent>
@@ -218,12 +221,16 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor: string; c
 
 function NativeSelect({
   children,
+  className,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="h-9 w-full rounded-[8px] border border-border bg-bg-secondary px-2.5 text-[13.5px] text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className={cn(
+        'h-9 w-full rounded-[8px] border border-border bg-bg-primary px-2.5 text-[13.5px] text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        className,
+      )}
     >
       {children}
     </select>

@@ -2,8 +2,8 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { format, addMinutes } from 'date-fns'
-import { Loader2, Search, User, X } from 'lucide-react'
+import { format, addMinutes, differenceInMinutes } from 'date-fns'
+import { Loader2, Plus, Search, User, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -63,13 +63,21 @@ interface Props {
   onOpenChange: (open: boolean) => void
   eventTypes: EventTypeRow[]
   defaultStart: Date | null
+  /** Dragged slot end — when present the dialog uses it as a custom duration. */
+  defaultEnd?: Date | null
   timezone: string
   onCreated: () => void
+  /** Open the "create event type" flow (used when none exist yet). */
+  onCreateEventType?: () => void
 }
 
-export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart, timezone, onCreated }: Props) {
+export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart, defaultEnd, timezone, onCreated, onCreateEventType }: Props) {
   const [eventTypeId, setEventTypeId] = React.useState<string>('')
   const [startTime, setStartTime] = React.useState('')   // 'HH:mm'
+  const [endTime, setEndTime] = React.useState('')       // 'HH:mm'
+  // True once the end is pinned by a drag or manual edit, so it stops tracking
+  // the event type's default duration.
+  const [endCustom, setEndCustom] = React.useState(false)
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [phone, setPhone] = React.useState('')
@@ -91,6 +99,12 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
     const first = eventTypes[0]
     setEventTypeId(first?.id ?? '')
     setStartTime(defaultStart ? format(defaultStart, 'HH:mm') : '09:00')
+    if (defaultEnd) {
+      setEndTime(format(defaultEnd, 'HH:mm'))
+      setEndCustom(true)
+    } else {
+      setEndCustom(false) // endTime is filled by the derive effect below
+    }
     setName('')
     setEmail('')
     setPhone('')
@@ -99,7 +113,7 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
     setQuery('')
     setResults([])
     setLocationKind((first?.allowed_location_kinds ?? [])[0] ?? '')
-  }, [open, defaultStart, eventTypes])
+  }, [open, defaultStart, defaultEnd, eventTypes])
 
   // Update default location kind when event type changes.
   React.useEffect(() => {
@@ -140,10 +154,31 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
     return d
   }, [defaultStart, startTime])
 
-  const endLabel = React.useMemo(() => {
-    if (!startDate || !eventType) return null
-    return format(addMinutes(startDate, eventType.duration_minutes), 'HH:mm')
-  }, [startDate, eventType])
+  const endDate = React.useMemo(() => {
+    if (!defaultStart || !endTime) return null
+    const [h, m] = endTime.split(':').map(Number)
+    const d = new Date(defaultStart)
+    d.setHours(h, m, 0, 0)
+    return d
+  }, [defaultStart, endTime])
+
+  // While the end isn't pinned (no drag / no manual edit), track the event
+  // type's default duration off the start time.
+  React.useEffect(() => {
+    if (endCustom) return
+    if (!startDate || !eventType) return
+    setEndTime(format(addMinutes(startDate, eventType.duration_minutes), 'HH:mm'))
+  }, [startDate, eventType, endCustom])
+
+  // Effective duration: the visible start→end span when valid, else the event
+  // type default. This is what gets persisted, so the End field is authoritative.
+  const durationMinutes = React.useMemo(() => {
+    if (startDate && endDate) {
+      const diff = differenceInMinutes(endDate, startDate)
+      if (diff > 0) return diff
+    }
+    return eventType?.duration_minutes ?? null
+  }, [startDate, endDate, eventType])
 
   async function handleSubmit() {
     if (!eventType || !startDate) return
@@ -153,6 +188,7 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
       const res = await createBookingInternal({
         event_type_id: eventType.id,
         start_at: startDate.toISOString(),
+        duration_minutes: durationMinutes ?? undefined,
         booker_name: name.trim(),
         booker_email: email.trim() || undefined,
         booker_phone: phone.trim() || undefined,
@@ -195,19 +231,49 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
           {/* Event type */}
           <div className="space-y-1.5">
             <Label className="text-[12px] text-text-secondary">Event type</Label>
-            <Select value={eventTypeId} onValueChange={setEventTypeId}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="Select an event type" /></SelectTrigger>
-              <SelectContent>
-                {eventTypes.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: e.color }} />
-                      {e.title} · {e.duration_minutes}m
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {eventTypes.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border-subtle px-3 py-3 text-center">
+                <p className="text-[12.5px] text-text-secondary">No event types yet</p>
+                <p className="mt-0.5 text-[11.5px] text-text-tertiary">Create one to start booking.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 gap-1.5"
+                  onClick={() => onCreateEventType?.()}
+                  disabled={!onCreateEventType}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Create event type
+                </Button>
+              </div>
+            ) : (
+              <Select value={eventTypeId} onValueChange={setEventTypeId}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Select an event type" /></SelectTrigger>
+                <SelectContent>
+                  {eventTypes.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: e.color }} />
+                        {e.title} · {e.duration_minutes}m
+                      </span>
+                    </SelectItem>
+                  ))}
+                  {onCreateEventType && (
+                    <>
+                      <div className="my-1 h-px bg-border-subtle" />
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onCreateEventType()}
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] text-text-secondary hover:bg-bg-secondary"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> New event type
+                      </button>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* When */}
@@ -218,9 +284,12 @@ export function NewBookingDialog({ open, onOpenChange, eventTypes, defaultStart,
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px] text-text-secondary">End</Label>
-              <div className="flex h-9 items-center rounded-md border border-border-subtle bg-bg-secondary px-3 text-[13px] text-text-tertiary">
-                {endLabel ?? '—'}
-              </div>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => { setEndTime(e.target.value); setEndCustom(true) }}
+                className="h-9"
+              />
             </div>
           </div>
 

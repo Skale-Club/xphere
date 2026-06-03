@@ -996,6 +996,13 @@ export function ChatLayout({
   const selectedBotAgentAvailable = selected
     ? agentDefaultChannels?.has(conversationChannelToAgentChannel(selected.channel) ?? '') !== false
     : false
+  const infoPanelContactId: string | null = selected
+    ? (selected.contactId ?? null)
+    : selectedId
+      ? null
+      : (initialContactId ?? null)
+  const infoPanelConversationId = selected?.id ?? selectedId ?? null
+  const infoPanelKey = `${infoPanelConversationId ?? 'none'}:${infoPanelContactId ?? 'unregistered'}`
 
   const visibleConversations = useMemo(() => {
     if (!selected) return conversations
@@ -1138,8 +1145,9 @@ export function ChatLayout({
             })()}
             <div className="flex-1 min-h-0 overflow-hidden">
               <ContactInfoPanel
-                contactId={selected?.contactId ?? initialContactId}
-                conversationId={selected?.id ?? null}
+                key={infoPanelKey}
+                contactId={infoPanelContactId}
+                conversationId={infoPanelConversationId}
                 fallbackName={selected?.visitorName ?? null}
                 fallbackPhone={selected?.visitorPhone ?? null}
                 fallbackEmail={selected?.visitorEmail ?? null}
@@ -1231,7 +1239,9 @@ export function ChatLayout({
         {mobileView === 'info' && (
           <div className="h-full min-h-0 w-full">
             <ContactInfoPanel
-              contactId={selected?.contactId ?? initialContactId}
+              key={infoPanelKey}
+              contactId={infoPanelContactId}
+              conversationId={infoPanelConversationId}
               fallbackName={selected?.visitorName ?? null}
               fallbackPhone={selected?.visitorPhone ?? null}
               fallbackEmail={selected?.visitorEmail ?? null}

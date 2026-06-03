@@ -5,26 +5,14 @@ import { format } from 'date-fns'
 import { PageContainer } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { getCampaigns } from './actions'
-import { createClient } from '@/lib/supabase/server'
 import type { CampaignChannel } from '@/types/database'
 import { CampaignActions } from './_components/campaign-actions'
 import { NewCampaignDialog } from './_components/new-campaign-dialog'
+import { getCampaignProviderAvailability } from './provider-availability'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
-
-const CHANNEL_TABS: Array<{
-  value: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-}> = [
-  { value: 'all', label: 'All', icon: Megaphone },
-  { value: 'calls', label: 'Calls', icon: Phone },
-  { value: 'sms', label: 'SMS', icon: MessageSquare },
-  { value: 'email', label: 'Email', icon: Mail },
-  { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-]
 
 const CHANNEL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   calls: Phone,
@@ -55,83 +43,19 @@ function humanStatus(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
 }
 
-async function getProviderAvailability() {
-  const supabase = await createClient()
-  const [integRes, resendRes, whatsappRes] = await Promise.all([
-    supabase.from('integrations').select('provider').eq('is_active', true),
-    supabase.from('tenant_email_integrations').select('id').eq('status', 'connected').limit(1),
-    supabase.from('whatsapp_cloud_accounts').select('id').eq('status', 'connected').eq('is_active', true).limit(1),
-  ])
-  const providers = new Set((integRes.data ?? []).map((i) => i.provider))
-  return {
-    hasTwilio: providers.has('twilio'),
-    hasResend: (resendRes.data ?? []).length > 0,
-    hasWhatsApp: (whatsappRes.data ?? []).length > 0,
-  }
-}
-
-async function getAssistants() {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('assistant_mappings')
-    .select('vapi_assistant_id, name')
-    .eq('is_active', true)
-    .order('name')
-  return (data ?? []).map((a) => ({
-    id: a.vapi_assistant_id,
-    name: a.name ?? a.vapi_assistant_id,
-  }))
-}
-
 export default async function CampaignsPage({ searchParams }: PageProps) {
   const sp = await searchParams
-  const activeChannel = typeof sp.channel === 'string' ? sp.channel : 'all'
+  const activeChannel = (typeof sp.channel === 'string' ? sp.channel : null) as CampaignChannel | null
 
-  const [campaigns, availability, assistants] = await Promise.all([
-    getCampaigns(activeChannel),
-    getProviderAvailability(),
-    getAssistants(),
+  const [availability, campaigns] = await Promise.all([
+    getCampaignProviderAvailability(),
+    getCampaigns(activeChannel ?? 'all'),
   ])
 
   return (
     <PageContainer>
-      {/* Page heading */}
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-text-primary">Campaigns</h1>
-        <NewCampaignDialog
-          variant="primary"
-          assistants={assistants}
-          hasTwilio={availability.hasTwilio}
-          hasResend={availability.hasResend}
-          hasWhatsApp={availability.hasWhatsApp}
-        />
-      </div>
 
-      {/* Channel tabs */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex items-center gap-6">
-          {CHANNEL_TABS.map((tab) => {
-            const active = activeChannel === tab.value
-            return (
-              <Link
-                key={tab.value}
-                href={tab.value === 'all' ? '/campaigns' : `/campaigns?channel=${tab.value}`}
-                className={[
-                  'inline-flex items-center gap-1.5 py-2 text-[13px] font-medium border-b-2 transition-colors',
-                  active
-                    ? 'border-accent text-text-primary'
-                    : 'border-transparent text-text-tertiary hover:text-text-primary hover:border-border-strong',
-                ].join(' ')}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
-
-      {/* Provider availability banners (only when viewing that channel and integration is missing) */}
+      {/* Provider availability banners — only shown when the relevant channel is active */}
       {activeChannel === 'email' && !availability.hasResend && (
         <div className="rounded-[10px] border border-violet-500/20 bg-violet-500/5 px-4 py-3 flex items-center gap-3">
           <Mail className="h-4 w-4 text-violet-400 shrink-0" />
@@ -198,10 +122,11 @@ export default async function CampaignsPage({ searchParams }: PageProps) {
             Create your first campaign to start reaching contacts at scale.
           </p>
           <NewCampaignDialog
-            assistants={assistants}
+            assistants={[]}
             hasTwilio={availability.hasTwilio}
             hasResend={availability.hasResend}
             hasWhatsApp={availability.hasWhatsApp}
+            defaultChannel={activeChannel ?? undefined}
           />
         </div>
       ) : (

@@ -10,8 +10,9 @@
  */
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { Loader2, Plus, Send } from 'lucide-react'
+import { ExternalLink, Loader2, Plus, Send } from 'lucide-react'
 import { TemplateComposerDialog } from '@/components/integrations/whatsapp/template-composer-dialog'
 
 import {
@@ -245,7 +246,16 @@ export function SendTemplateDialog({
               Create new template
             </Button>
           ) : (
-            <span />
+            <Button
+              asChild
+              variant="ghost"
+              className="gap-1.5 text-[12.5px] text-accent"
+            >
+              <Link href="/integrations/whatsapp/templates" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Create template
+              </Link>
+            </Button>
           )}
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>

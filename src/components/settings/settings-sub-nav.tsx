@@ -44,7 +44,7 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Workspace',
     items: [
-      { href: '/settings/workspace', label: 'Identity', icon: Settings2 },
+      { href: '/settings/workspace', label: 'Company Info', icon: Settings2 },
       { href: '/settings/tags', label: 'Tags & labels', icon: Tag },
       { href: '/settings/custom-fields', label: 'Custom fields', icon: Settings2 },
       { href: '/settings/locations', label: 'Locations', icon: MapPin },

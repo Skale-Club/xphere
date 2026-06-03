@@ -247,6 +247,7 @@ export function ContactInfoPanel({
   const [hasCalendars, setHasCalendars] = React.useState(false)
   const [dealDialogOpen, setDealDialogOpen] = React.useState(false)
   const [survivorName, setSurvivorName] = React.useState<string | null>(null)
+  const previousContactIdRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     if (
@@ -270,16 +271,35 @@ export function ContactInfoPanel({
 
   React.useEffect(() => {
     if (!contactId) {
+      previousContactIdRef.current = null
       setContact(null)
+      setLoading(false)
       return
     }
     let cancelled = false
+    const contactChanged = previousContactIdRef.current !== contactId
+    previousContactIdRef.current = contactId
+    if (contactChanged) {
+      setContact(null)
+      setEditingTask(null)
+      setCreatingTask(false)
+      setSelectedOpportunityId(null)
+      setDealDialogOpen(false)
+    }
     setLoading(true)
-    getContact(contactId).then((c) => {
-      if (cancelled) return
-      setContact(c)
-      setLoading(false)
-    })
+    getContact(contactId)
+      .then((c) => {
+        if (cancelled) return
+        setContact(c)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setContact(null)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
     return () => {
       cancelled = true
     }

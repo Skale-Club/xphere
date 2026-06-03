@@ -1,30 +1,17 @@
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { NewCampaignWizard } from '../_components/new-campaign-wizard'
 import { createClient } from '@/lib/supabase/server'
+import { getCampaignProviderAvailability } from '../provider-availability'
 
 async function getSetupData() {
   const supabase = await createClient()
-  const [assistantsRes, integRes, resendRes, whatsappRes] = await Promise.all([
+  const [assistantsRes, availability] = await Promise.all([
     supabase
       .from('assistant_mappings')
       .select('vapi_assistant_id, name')
       .eq('is_active', true)
       .order('name'),
-    supabase
-      .from('integrations')
-      .select('provider')
-      .eq('is_active', true),
-    supabase
-      .from('tenant_email_integrations')
-      .select('id')
-      .eq('status', 'connected')
-      .limit(1),
-    supabase
-      .from('whatsapp_cloud_accounts')
-      .select('id')
-      .eq('status', 'connected')
-      .eq('is_active', true)
-      .limit(1),
+    getCampaignProviderAvailability(),
   ])
 
   const assistants = (assistantsRes.data ?? []).map((a) => ({
@@ -32,13 +19,11 @@ async function getSetupData() {
     name: a.name ?? a.vapi_assistant_id,
   }))
 
-  const providers = new Set((integRes.data ?? []).map((i) => i.provider))
-
   return {
     assistants,
-    hasTwilio: providers.has('twilio'),
-    hasResend: (resendRes.data ?? []).length > 0,
-    hasWhatsApp: (whatsappRes.data ?? []).length > 0,
+    hasTwilio: availability.hasTwilio,
+    hasResend: availability.hasResend,
+    hasWhatsApp: availability.hasWhatsApp,
   }
 }
 

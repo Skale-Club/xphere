@@ -14,6 +14,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
     <SubSidebarLayout
       storageKey="sub-sidebar:settings"
       title="Settings"
+      expandedWidth={208}
       nav={<SettingsSubNav />}
     >
       {children}

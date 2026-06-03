@@ -57,4 +57,10 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 USER node
 EXPOSE 3000
+# Health probe — Docker (and Coolify) wait for this to pass before routing
+# traffic to the new container, giving zero-downtime rolling deploys.
+# --start-period: grace window while Next.js boots (server.js is fast, 30s is generous).
+# wget is available on alpine; curl is not installed in the base image.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
 CMD ["node", "server.js"]

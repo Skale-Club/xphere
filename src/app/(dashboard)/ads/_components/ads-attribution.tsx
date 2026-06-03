@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, AlertCircle, TrendingUp, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -57,6 +57,11 @@ export function AdsAttribution({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Stable ref so onTotalsLoaded never triggers a re-fetch when the parent
+  // re-renders with a new inline callback reference.
+  const onTotalsLoadedRef = useRef(onTotalsLoaded)
+  onTotalsLoadedRef.current = onTotalsLoaded
+
   const fetch = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -75,13 +80,13 @@ export function AdsAttribution({
       }
       const json = await res.json() as AttributionData
       setData(json)
-      if (json.totals) onTotalsLoaded?.(json.totals)
+      if (json.totals) onTotalsLoadedRef.current?.(json.totals)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load attribution data')
     } finally {
       setLoading(false)
     }
-  }, [platform, datePreset, since, until, onTotalsLoaded])
+  }, [platform, datePreset, since, until])
 
   useEffect(() => { void fetch() }, [fetch])
 

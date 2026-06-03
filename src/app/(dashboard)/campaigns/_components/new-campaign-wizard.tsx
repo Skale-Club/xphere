@@ -20,6 +20,8 @@ interface Props {
   hasTwilio: boolean
   hasResend: boolean
   hasWhatsApp: boolean
+  /** When set, skips step 1 and pre-selects this channel. */
+  defaultChannel?: CampaignChannel
   /** When provided (e.g. rendered inside a dialog), Cancel closes the surface instead of navigating to /campaigns. */
   onCancel?: () => void
 }
@@ -62,13 +64,15 @@ const CHANNELS: Array<{
   },
 ]
 
-export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsApp, onCancel }: Props) {
+export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsApp, defaultChannel, onCancel }: Props) {
   const router = useRouter()
-  const [step, setStep] = useState(1)
+  // Skip step 1 when a channel is pre-selected.
+  const [step, setStep] = useState(defaultChannel ? 2 : 1)
   const [submitting, setSubmitting] = useState(false)
+  const availableChannels = CHANNELS.filter((ch) => ch.value !== 'whatsapp' || hasWhatsApp)
 
   // Step 1 — channel
-  const [channel, setChannel] = useState<CampaignChannel>('calls')
+  const [channel, setChannel] = useState<CampaignChannel>(defaultChannel ?? 'calls')
 
   // Step 2 — name & description
   const [name, setName] = useState('')
@@ -98,20 +102,38 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
   const [scheduledAt, setScheduledAt] = useState('')
 
   useEffect(() => {
+    let cancelled = false
+
     if (step === 4 && channel === 'whatsapp') {
-      setLoadingTemplates(true)
-      listApprovedTemplates()
-        .then((data) => setWhatsappTemplates(data))
-        .catch(() => setWhatsappTemplates([]))
-        .finally(() => setLoadingTemplates(false))
+      void (async () => {
+        setLoadingTemplates(true)
+        try {
+          const data = await listApprovedTemplates()
+          if (!cancelled) setWhatsappTemplates(data)
+        } catch {
+          if (!cancelled) setWhatsappTemplates([])
+        } finally {
+          if (!cancelled) setLoadingTemplates(false)
+        }
+      })()
     }
     if (step === 4 && channel === 'calls') {
-      setLoadingPhones(true)
-      fetch('/api/vapi/phone-numbers')
-        .then((r) => r.json())
-        .then((data) => Array.isArray(data) ? setPhoneNumbers(data) : setPhoneNumbers([]))
-        .catch(() => setPhoneNumbers([]))
-        .finally(() => setLoadingPhones(false))
+      void (async () => {
+        setLoadingPhones(true)
+        try {
+          const response = await fetch('/api/vapi/phone-numbers')
+          const data = await response.json()
+          if (!cancelled) setPhoneNumbers(Array.isArray(data) ? data : [])
+        } catch {
+          if (!cancelled) setPhoneNumbers([])
+        } finally {
+          if (!cancelled) setLoadingPhones(false)
+        }
+      })()
+    }
+
+    return () => {
+      cancelled = true
     }
   }, [step, channel])
 
@@ -124,7 +146,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
 
   function getGatedMessage(c: CampaignChannel): string {
     if (c === 'email') return 'Connect Resend to unlock email campaigns.'
-    if (c === 'whatsapp') return 'Connect WhatsApp Official (Meta Cloud) in Integrations to unlock campaigns.'
+    if (c === 'whatsapp') return 'Connect WhatsApp Official or Zernio to unlock WhatsApp campaigns.'
     if (c === 'calls') return 'Connect Twilio to unlock voice campaigns.'
     if (c === 'sms') return 'Connect Twilio to unlock SMS campaigns.'
     return ''
@@ -201,8 +223,9 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
       <div className="flex items-center gap-2">
         {STEP_LABELS.map((label, i) => {
           const num = i + 1
-          const done = num < step
-          const active = num === step
+          // Step 1 is always "done" when pre-seeded with a channel.
+          const done = num < step || (num === 1 && !!defaultChannel)
+          const active = num === step && !(num === 1 && !!defaultChannel)
           return (
             <div key={label} className="flex items-center gap-2">
               <div
@@ -235,7 +258,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
           <div className="space-y-4">
             <h2 className="text-[15px] font-semibold text-text-primary">Choose channel</h2>
             <div className="grid grid-cols-2 gap-3">
-              {CHANNELS.map((ch) => {
+              {availableChannels.map((ch) => {
                 const gated = isChannelGated(ch.value)
                 const selected = channel === ch.value
                 return (
