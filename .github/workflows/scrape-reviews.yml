@@ -5,8 +5,8 @@ name: Scrape Google Reviews (SerpAPI)
 # and ?profileId=... (scrape one profile only).
 #
 # Required GitHub repo secrets:
-#   OPERATOR_BASE_URL              e.g. https://operator.skale.club
-#   OPERATOR_AUTOMATION_SECRET     matches the env var on Vercel
+#   OPERATOR_BASE_URL              e.g. https://xphere.app  (Coolify production)
+#   OPERATOR_AUTOMATION_SECRET     matches OPERATOR_AUTOMATION_SECRET env var on Coolify
 
 on:
   schedule:
