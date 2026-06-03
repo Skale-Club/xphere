@@ -476,6 +476,10 @@ export function LandingPage({
               <XphereOrb size={22} />
               Xphere
             </Link>
+            <nav className="flex items-center gap-5 text-[0.8125rem] text-[#A1A1AA]">
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            </nav>
             <p className="text-[0.8125rem] text-[#52525B]">
               © {new Date().getFullYear()} Skale Club. All rights reserved.
             </p>
