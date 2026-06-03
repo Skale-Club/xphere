@@ -41,9 +41,23 @@ export default async function SchedulingPage({ searchParams }: Props) {
 
   return (
     <PageContainer>
-      {/* Header — New event type button on the left */}
-      <div className="flex items-center justify-start">
+      {/* Single header row: + New event type (left) | booking URL + Preview (right) */}
+      <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3">
         <NewEventTypeDialog />
+        <div className="h-5 w-px bg-border shrink-0" />
+        <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
+          <div className="min-w-0">
+            <p className="text-[10.5px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">
+              Your booking page
+            </p>
+            <code className="text-sm text-indigo-400 truncate block">{siteUrl}/book/{profile.slug}</code>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Google Calendar banners */}
@@ -57,19 +71,6 @@ export default async function SchedulingPage({ searchParams }: Props) {
           Error connecting Google Calendar: {sp.error}
         </div>
       )}
-
-      {/* Booking page link */}
-      <div className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Your booking page</p>
-          <code className="text-sm text-indigo-400">{siteUrl}/book/{profile.slug}</code>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Preview
-          </a>
-        </Button>
-      </div>
 
       {/* Event types */}
       <div className="space-y-4">
