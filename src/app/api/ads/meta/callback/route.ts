@@ -9,6 +9,7 @@ import {
   fetchMetaAdsAdAccounts,
   fetchMetaUserScopedId,
 } from '@/lib/ads/meta-oauth'
+import { resolveRequestOrigin } from '@/lib/site-url'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -21,8 +22,13 @@ const COOKIE_CLEAR = {
   maxAge: 0,
 }
 
+// Build redirects from the canonical public origin (not request.url, which
+// resolves to the internal container address http://0.0.0.0:3000 behind the
+// Coolify proxy), and clear the CSRF state cookie on the response.
 function redirect(request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, request.url))
+  const res = NextResponse.redirect(new URL(path, resolveRequestOrigin(request)))
+  res.cookies.set(META_ADS_OAUTH_STATE_COOKIE, '', COOKIE_CLEAR)
+  return res
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
@@ -39,9 +45,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const state = url.searchParams.get('state')
   const jar = await cookies()
   const storedState = jar.get(META_ADS_OAUTH_STATE_COOKIE)?.value
-
-  // Always clear the state cookie
-  jar.set(META_ADS_OAUTH_STATE_COOKIE, '', COOKIE_CLEAR)
 
   if (!code) return redirect(request, '/ads?error=missing_code')
 
