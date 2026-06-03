@@ -40,6 +40,8 @@ import { formatEmailDisplay } from '@/lib/email-addresses/format'
 interface Props {
   number: TwilioPhoneNumberRow
   members: OrgMemberOption[]
+  /** When provided (e.g. rendered in a dialog), called after a successful save/archive. */
+  onClose?: () => void
 }
 
 const UNASSIGNED = '__unassigned__'
@@ -48,7 +50,7 @@ const E164_REGEX = /^\+[1-9]\d{6,14}$/
 
 type RoutingMode = 'browser' | 'sip' | 'forward'
 
-export function PhoneNumberEditor({ number, members }: Props) {
+export function PhoneNumberEditor({ number, members, onClose }: Props) {
   const router = useRouter()
   const [saving, setSaving] = React.useState(false)
   const [actionLoading, setActionLoading] = React.useState<'default' | 'archive' | null>(null)
@@ -100,6 +102,7 @@ export function PhoneNumberEditor({ number, members }: Props) {
       }
       toast.success('Phone number updated.')
       router.refresh()
+      onClose?.()
     } finally {
       setSaving(false)
     }
@@ -118,6 +121,7 @@ export function PhoneNumberEditor({ number, members }: Props) {
     routingMode,
     forwardTo,
     router,
+    onClose,
   ])
 
   const handleSetDefault = React.useCallback(async () => {
@@ -145,11 +149,16 @@ export function PhoneNumberEditor({ number, members }: Props) {
         return
       }
       toast.success('Phone number archived.')
-      router.push('/settings/phone-numbers')
+      if (onClose) {
+        router.refresh()
+        onClose()
+      } else {
+        router.push('/settings/phone-numbers')
+      }
     } finally {
       setActionLoading(null)
     }
-  }, [number.id, router])
+  }, [number.id, router, onClose])
 
   return (
     <div className="space-y-8">

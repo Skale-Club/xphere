@@ -10,7 +10,6 @@
  */
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CheckCircle2, MoreHorizontal, Phone, Plus, Settings2, Star, Trash2 } from 'lucide-react'
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { AddPhoneNumberDialog } from '@/components/phone-numbers/add-phone-number-dialog'
+import { EditPhoneNumberDialog } from '@/components/phone-numbers/edit-phone-number-dialog'
 import {
   setDefaultTwilioNumber,
   softDeleteTwilioNumber,
@@ -52,6 +52,7 @@ function capabilitySummary(row: TwilioPhoneNumberRow): string {
 export function PhoneNumbersList({ initial, twilioConnected }: Props) {
   const router = useRouter()
   const [addOpen, setAddOpen] = React.useState(false)
+  const [editRow, setEditRow] = React.useState<TwilioPhoneNumberRow | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
 
   const handleSetDefault = React.useCallback(
@@ -181,11 +182,9 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
                     Set as default
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem asChild>
-                  <Link href={`/settings/phone-numbers/${row.id}`}>
-                    <Settings2 className="h-3.5 w-3.5" />
-                    Configure
-                  </Link>
+                <DropdownMenuItem onClick={() => setEditRow(row)}>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Configure
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -205,6 +204,12 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
         open={addOpen}
         onOpenChange={setAddOpen}
         twilioConnected={twilioConnected}
+      />
+
+      <EditPhoneNumberDialog
+        number={editRow}
+        open={editRow !== null}
+        onOpenChange={(open) => !open && setEditRow(null)}
       />
     </div>
   )
