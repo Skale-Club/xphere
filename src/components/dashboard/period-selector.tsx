@@ -36,8 +36,8 @@ export function PeriodSelector() {
 
   const handleChange = (next: string) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (next === 'today') {
-      // 'today' is the default — drop the param so the URL stays clean.
+    if (next === '7d') {
+      // '7d' is the default — drop the param so the URL stays clean.
       params.delete('range')
     } else {
       params.set('range', next as Period)

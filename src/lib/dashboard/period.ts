@@ -10,8 +10,7 @@
  *                        bucket count (we cap at 30 so the chart stays legible)
  *
  * The selector and every widget that respects the range go through this util
- * so the math stays in one place. Default period is 'today' — matches what
- * the dashboard showed before the selector existed.
+ * so the math stays in one place. Default period is '7d' (last 7 days).
  */
 
 export type Period =
@@ -33,7 +32,7 @@ export const PERIODS: { value: Period; label: string }[] = [
   { value: 'all_time', label: 'All time' },
 ]
 
-export const DEFAULT_PERIOD: Period = 'today'
+export const DEFAULT_PERIOD: Period = '7d'
 
 const VALID = new Set<Period>(PERIODS.map((p) => p.value))
 
