@@ -67,51 +67,24 @@ export default async function SettingsWidgetPage() {
         description={`Configure the public chat widget for ${organization.name}.`}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <WidgetSettingsForm
-          initialSettings={{
-            displayName: normalizeWidgetValue(
-              organization.widget_display_name,
-              DEFAULT_WIDGET_SETTINGS.displayName
-            ),
-            primaryColor: normalizeWidgetValue(
-              organization.widget_primary_color,
-              normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
-            ),
-            welcomeMessage: normalizeWidgetValue(
-              organization.widget_welcome_message,
-              DEFAULT_WIDGET_SETTINGS.welcomeMessage
-            ),
-            avatarUrl: organization.widget_avatar_url || '',
-          }}
-          widgetToken={organization.widget_token}
-        />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-[15px]">Active organization</CardTitle>
-            <CardDescription>
-              Widget settings always apply to the current org selection in the dashboard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-[13px]">
-            <div>
-              <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Organization</p>
-              <p className="mt-1 font-medium text-text-primary">{organization.name}</p>
-            </div>
-            <div>
-              <p className="text-[11.5px] uppercase tracking-[0.06em] text-text-tertiary">Current token</p>
-              <code className="mt-1 block overflow-x-auto rounded-[6px] border border-border-subtle bg-bg-tertiary px-3 py-2 text-[11px] font-mono text-text-secondary">
-                {organization.widget_token}
-              </code>
-            </div>
-            <div className="rounded-[8px] border border-dashed border-border bg-bg-secondary/40 p-4 text-[12px] leading-relaxed text-text-tertiary">
-              Saved changes are picked up by new widget loads on public sites through the token-based
-              config endpoint.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <WidgetSettingsForm
+        initialSettings={{
+          displayName: normalizeWidgetValue(
+            organization.widget_display_name,
+            DEFAULT_WIDGET_SETTINGS.displayName
+          ),
+          primaryColor: normalizeWidgetValue(
+            organization.widget_primary_color,
+            normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
+          ),
+          welcomeMessage: normalizeWidgetValue(
+            organization.widget_welcome_message,
+            DEFAULT_WIDGET_SETTINGS.welcomeMessage
+          ),
+          avatarUrl: organization.widget_avatar_url || '',
+        }}
+        widgetToken={organization.widget_token}
+      />
     </PageContainer>
   )
 }
