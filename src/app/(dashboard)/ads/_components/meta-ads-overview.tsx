@@ -12,10 +12,12 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
-  MessageSquare,
   LayoutGrid,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
@@ -36,16 +38,24 @@ type OverviewData = {
   } | null
 }
 
-const DATE_PRESETS = [
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 7 days', value: 'last_7d' },
-  { label: 'Last 14 days', value: 'last_14d' },
-  { label: 'Last 30 days', value: 'last_30d' },
-  { label: 'Last 90 days', value: 'last_90d' },
-  { label: 'This month', value: 'this_month' },
-  { label: 'Last month', value: 'last_month' },
-]
+// A date filter is either a named Meta preset or an explicit custom range.
+type DateFilter =
+  | { type: 'preset'; value: string }
+  | { type: 'custom'; since: string; until: string }
+
+const PRESET_LABELS: Record<string, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  last_7d: 'Last 7 days',
+  last_14d: 'Last 14 days',
+  last_30d: 'Last 30 days',
+  last_90d: 'Last 90 days',
+  this_month: 'This month',
+  last_month: 'Last month',
+  maximum: 'All time',
+}
+const QUICK_PRESETS = ['today', 'yesterday', 'last_7d', 'last_30d']
+const MORE_PRESETS = ['last_14d', 'last_90d', 'this_month', 'last_month', 'maximum']
 
 function StatCard({
   label,
@@ -94,7 +104,10 @@ export function MetaAdsOverview({
   const searchParams = useSearchParams()
   const justConnected = searchParams.get('connected') === 'true'
 
-  const [datePreset, setDatePreset] = useState('last_30d')
+  const [filter, setFilter] = useState<DateFilter>({ type: 'preset', value: 'last_30d' })
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [customSince, setCustomSince] = useState('')
+  const [customUntil, setCustomUntil] = useState('')
   const [activeAccountId, setActiveAccountId] = useState(adAccountId)
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -102,13 +115,23 @@ export function MetaAdsOverview({
 
   const activeAccount = connections.find((c) => c.id === activeAccountId)
 
+  const filterLabel =
+    filter.type === 'preset'
+      ? PRESET_LABELS[filter.value] ?? filter.value
+      : `${filter.since} → ${filter.until}`
+
   const fetchOverview = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
-        `/api/ads/meta/reports?report=overview&ad_account_id=${activeAccountId}&date_preset=${datePreset}`,
-      )
+      const params = new URLSearchParams({ report: 'overview', ad_account_id: activeAccountId })
+      if (filter.type === 'preset') {
+        params.set('date_preset', filter.value)
+      } else {
+        params.set('since', filter.since)
+        params.set('until', filter.until)
+      }
+      const res = await fetch(`/api/ads/meta/reports?${params.toString()}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error((body as { error?: string }).error ?? 'Failed to load data')
@@ -120,7 +143,7 @@ export function MetaAdsOverview({
     } finally {
       setLoading(false)
     }
-  }, [activeAccountId, datePreset])
+  }, [activeAccountId, filter])
 
   useEffect(() => {
     void fetchOverview()
@@ -137,6 +160,10 @@ export function MetaAdsOverview({
 
   const purchases = insights?.actions?.find((a) => a.action_type === 'purchase')
   const leads = insights?.actions?.find((a) => a.action_type === 'lead')
+
+  // AdsAttribution only understands named presets; fall back to last_30d for
+  // custom ranges so it keeps working.
+  const attributionPreset = filter.type === 'preset' ? filter.value : 'last_30d'
 
   return (
     <div className="p-6 space-y-6">
@@ -172,40 +199,100 @@ export function MetaAdsOverview({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Date preset pills */}
+          {/* Date preset pills + filters */}
           <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
-            {DATE_PRESETS.slice(0, 4).map((p) => (
+            {QUICK_PRESETS.map((p) => (
               <button
-                key={p.value}
-                onClick={() => setDatePreset(p.value)}
+                key={p}
+                onClick={() => setFilter({ type: 'preset', value: p })}
                 className={cn(
                   'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                  datePreset === p.value
+                  filter.type === 'preset' && filter.value === p
                     ? 'bg-bg-primary text-text-primary shadow-sm'
                     : 'text-text-secondary hover:text-text-primary',
                 )}
               >
-                {p.label}
+                {PRESET_LABELS[p]}
               </button>
             ))}
-            <select
-              value={DATE_PRESETS.slice(4).some((p) => p.value === datePreset) ? datePreset : ''}
-              onChange={(e) => e.target.value && setDatePreset(e.target.value)}
-              className="rounded-[5px] bg-transparent px-1 py-1 text-[11.5px] text-text-secondary focus:outline-none"
-            >
-              <option value="">More</option>
-              {DATE_PRESETS.slice(4).map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
+
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    'flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
+                    filter.type === 'custom' ||
+                      (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
+                      ? 'bg-bg-primary text-text-primary shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary',
+                  )}
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  {filter.type === 'custom' ||
+                  (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
+                    ? filterLabel
+                    : 'More'}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-2">
+                <div className="space-y-0.5">
+                  {MORE_PRESETS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setFilter({ type: 'preset', value: p })
+                        setFilterOpen(false)
+                      }}
+                      className={cn(
+                        'w-full rounded-md px-2.5 py-1.5 text-left text-[12.5px] transition-colors',
+                        filter.type === 'preset' && filter.value === p
+                          ? 'bg-accent/10 text-accent'
+                          : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+                      )}
+                    >
+                      {PRESET_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-2 border-t border-border-subtle" />
+
+                <div className="space-y-2 px-1 pb-1">
+                  <p className="text-[11px] font-medium text-text-secondary">Custom range</p>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={customSince}
+                      max={customUntil || undefined}
+                      onChange={(e) => setCustomSince(e.target.value)}
+                      className="w-full rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <span className="text-text-tertiary">→</span>
+                    <input
+                      type="date"
+                      value={customUntil}
+                      min={customSince || undefined}
+                      onChange={(e) => setCustomUntil(e.target.value)}
+                      className="w-full rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={!customSince || !customUntil}
+                    onClick={() => {
+                      setFilter({ type: 'custom', since: customSince, until: customUntil })
+                      setFilterOpen(false)
+                    }}
+                  >
+                    Apply range
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/ads/chat">
-              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-              AI Chat
-            </Link>
-          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href="/ads/campaigns">
               <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
@@ -232,7 +319,7 @@ export function MetaAdsOverview({
               label="Spend"
               value={`${currency} ${fmt(insights?.spend, currency)}`}
               icon={DollarSign}
-              sub={datePreset.replace(/_/g, ' ')}
+              sub={filterLabel}
             />
             <StatCard
               label="Impressions"
@@ -291,7 +378,7 @@ export function MetaAdsOverview({
         </div>
         <AdsAttribution
           platform="meta"
-          datePreset={datePreset}
+          datePreset={attributionPreset}
           currency={data?.account?.currency ?? 'USD'}
         />
       </div>

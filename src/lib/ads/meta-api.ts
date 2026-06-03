@@ -171,6 +171,7 @@ export type DatePreset =
   | 'last_90d'
   | 'this_month'
   | 'last_month'
+  | 'maximum'
 
 export async function getInsights(
   objectId: string,
