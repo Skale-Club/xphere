@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   SlidersHorizontal,
   ChevronDown,
+  Unlink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
@@ -112,8 +113,26 @@ export function MetaAdsOverview({
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const activeAccount = connections.find((c) => c.id === activeAccountId)
+
+  const handleDisconnect = async () => {
+    if (!window.confirm('Disconnect Meta Ads? You can reconnect anytime.')) return
+    setDisconnecting(true)
+    try {
+      const res = await fetch('/api/ads/meta/disconnect', { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? 'Failed to disconnect')
+      }
+      toast.success('Meta Ads disconnected')
+      window.location.href = '/ads'
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to disconnect')
+      setDisconnecting(false)
+    }
+  }
 
   const filterLabel =
     filter.type === 'preset'
@@ -196,6 +215,19 @@ export function MetaAdsOverview({
               {data.account.account_status === 1 ? 'Active' : 'Review'}
             </span>
           )}
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            title="Disconnect Meta Ads"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-text-tertiary transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+          >
+            {disconnecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Unlink className="h-3 w-3" />
+            )}
+            Disconnect
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -260,22 +292,27 @@ export function MetaAdsOverview({
 
                 <div className="space-y-2 px-1 pb-1">
                   <p className="text-[11px] font-medium text-text-secondary">Custom range</p>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="date"
-                      value={customSince}
-                      max={customUntil || undefined}
-                      onChange={(e) => setCustomSince(e.target.value)}
-                      className="w-full rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
-                    />
-                    <span className="text-text-tertiary">→</span>
-                    <input
-                      type="date"
-                      value={customUntil}
-                      min={customSince || undefined}
-                      onChange={(e) => setCustomUntil(e.target.value)}
-                      className="w-full rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
-                    />
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-[11px] text-text-tertiary">
+                      <span className="w-8 shrink-0">From</span>
+                      <input
+                        type="date"
+                        value={customSince}
+                        max={customUntil || undefined}
+                        onChange={(e) => setCustomSince(e.target.value)}
+                        className="min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-[11px] text-text-tertiary">
+                      <span className="w-8 shrink-0">To</span>
+                      <input
+                        type="date"
+                        value={customUntil}
+                        min={customSince || undefined}
+                        onChange={(e) => setCustomUntil(e.target.value)}
+                        className="min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    </label>
                   </div>
                   <Button
                     size="sm"
