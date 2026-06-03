@@ -320,7 +320,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description:
       'Respeita horários ocupados ao gerar slots e cria eventos com Google Meet para bookings.',
     category: 'scheduling',
-    logo: { path: '/logos/google-calendar.svg', letter: 'C', color: 'bg-blue-500' },
+    logo: { path: 'https://www.gstatic.com/images/branding/productlogos/calendar_2026_03/v2/png/calendar_2026_03_96dp.png', letter: 'C', color: 'bg-blue-500' },
     panelType: 'custom',
     CustomPanel: GoogleCalendarOAuthPanel,
     canActivate: true,
