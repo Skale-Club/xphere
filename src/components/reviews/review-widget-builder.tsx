@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import type { SavedWidgetSettings } from '@/app/(dashboard)/reviews/actions'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { StarRating } from './star-rating'
 
@@ -450,7 +451,25 @@ export function ReviewWidgetBuilder({
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
-      setCopied(false)
+      // Fallback for browsers/contexts where clipboard API is unavailable
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = snippet
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'
+        document.body.appendChild(ta)
+        ta.focus()
+        ta.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+        if (ok) {
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1600)
+        } else {
+          toast.error('Failed to copy — please select the code manually.')
+        }
+      } catch {
+        toast.error('Failed to copy — please select the code manually.')
+      }
     }
   }
 
