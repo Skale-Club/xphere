@@ -65,7 +65,7 @@ const SECTIONS: NavSection[] = [
       { href: '/settings/calls', label: 'Calls', icon: PhoneCall },
       { href: '/email-templates', label: 'Email templates', icon: Mail },
       { href: '/settings/mcp', label: 'MCP server', icon: Plug },
-      { href: '/widget', label: 'Chat widget', icon: MessageSquare },
+      { href: '/settings/widget', label: 'Chat widget', icon: MessageSquare },
     ],
   },
   {
@@ -83,10 +83,10 @@ const SECTIONS: NavSection[] = [
 
 export function SettingsSubNav() {
   const pathname = usePathname()
-  const { collapse } = useSubSidebar()
+  const { onNavigate } = useSubSidebar()
 
   return (
-    <nav className="flex flex-col gap-4 px-2 py-3">
+    <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3">
       {SECTIONS.map((section) => (
         <div key={section.heading}>
           <div className="mb-1 px-2 text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
@@ -101,7 +101,7 @@ export function SettingsSubNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={collapse}
+                  onClick={onNavigate}
                   className={cn(
                     'group relative flex items-center gap-2.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] transition-colors',
                     isActive
