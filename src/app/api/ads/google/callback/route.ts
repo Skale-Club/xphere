@@ -63,6 +63,14 @@ export async function GET(request: NextRequest): Promise<Response> {
     const encryptedTokens = await encrypt(serializeTokens(tokens))
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
+    // Preserve the chosen status of accounts already linked; new ones arrive as
+    // 'available' so the admin opts them in (instead of showing every account).
+    const { data: existing } = await supabase
+      .from('ads_connections')
+      .select('ad_account_id, status')
+      .eq('platform', 'google')
+    const existingStatus = new Map((existing ?? []).map((r) => [r.ad_account_id, r.status]))
+
     const rows = customers
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .map((c) => ({
@@ -72,7 +80,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         ad_account_name: c.name,
         encrypted_access_token: encryptedTokens,
         token_expires_at: expiresAt,
-        status: 'active' as const,
+        status: existingStatus.get(c.id) ?? 'available',
         connection_error: null,
         meta_app_scoped_user_id: null,
       }))

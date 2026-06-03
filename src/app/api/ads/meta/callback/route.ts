@@ -73,6 +73,15 @@ export async function GET(request: NextRequest): Promise<Response> {
       ? new Date(Date.now() + longToken.expires_in * 1000).toISOString()
       : null
 
+    // Preserve the chosen status of accounts already linked to this org; new
+    // accounts arrive as 'available' so the admin opts them in explicitly
+    // (instead of every account showing up at once).
+    const { data: existing } = await supabase
+      .from('ads_connections')
+      .select('ad_account_id, status')
+      .eq('platform', 'meta')
+    const existingStatus = new Map((existing ?? []).map((r) => [r.ad_account_id, r.status]))
+
     const rows = adAccounts.map((account) => ({
       org_id: orgId as string,
       platform: 'meta' as const,
@@ -80,7 +89,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       ad_account_name: account.name,
       encrypted_access_token: encryptedToken,
       token_expires_at: expiresAt,
-      status: 'active' as const,
+      status: existingStatus.get(account.id) ?? 'available',
       connection_error: null,
       meta_app_scoped_user_id: userId,
     }))

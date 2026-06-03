@@ -2,6 +2,8 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MetaAdsConnect } from './_components/meta-ads-connect'
 import { MetaAdsOverview } from './_components/meta-ads-overview'
+import { NoAccountsSelected } from './_components/no-accounts-selected'
+import { ManageAccountsButton } from './_components/manage-accounts-button'
 
 export default async function AdsPage() {
   const user = await getUser()
@@ -9,26 +11,37 @@ export default async function AdsPage() {
 
   const supabase = await createClient()
 
-  const { data: connections } = await supabase
+  // All connected accounts (active = shown, available = connected-but-hidden).
+  const { data: rows } = await supabase
     .from('ads_connections')
     .select('id, ad_account_id, ad_account_name, status, created_at')
     .eq('platform', 'meta')
-    .eq('status', 'active')
     .order('created_at', { ascending: true })
 
-  const hasConnections = (connections?.length ?? 0) > 0
-
-  if (!hasConnections) {
+  const all = rows ?? []
+  if (all.length === 0) {
     return <MetaAdsConnect />
   }
 
-  const primaryAccount = connections![0]
+  const connections = all.filter((c) => c.status === 'active')
+
+  // Connected, but the admin hasn't picked which accounts to show yet.
+  if (connections.length === 0) {
+    return <NoAccountsSelected platform="meta" />
+  }
+
+  const primaryAccount = connections[0]
 
   return (
-    <MetaAdsOverview
-      adAccountId={primaryAccount.ad_account_id}
-      adAccountName={primaryAccount.ad_account_name ?? primaryAccount.ad_account_id}
-      connections={connections!.map((c) => ({ id: c.ad_account_id, name: c.ad_account_name ?? c.ad_account_id }))}
-    />
+    <div>
+      <div className="flex justify-end px-6 pt-4">
+        <ManageAccountsButton platform="meta" />
+      </div>
+      <MetaAdsOverview
+        adAccountId={primaryAccount.ad_account_id}
+        adAccountName={primaryAccount.ad_account_name ?? primaryAccount.ad_account_id}
+        connections={connections.map((c) => ({ id: c.ad_account_id, name: c.ad_account_name ?? c.ad_account_id }))}
+      />
+    </div>
   )
 }
