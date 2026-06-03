@@ -124,7 +124,6 @@ function nullableString(value: string | undefined | null): string | null {
 function revalidateAll() {
   revalidatePath('/integrations')
   revalidatePath('/integrations/twilio')
-  revalidatePath('/settings/calls')
   revalidatePath('/settings/phone-numbers')
 }
 
@@ -155,6 +154,7 @@ export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
   try {
     const { data, error } = await supabase.rpc('get_org_member_profiles')
     if (!error && Array.isArray(data)) {
+      const seen = new Set<string>()
       return (data as Array<{ user_id: string; full_name?: string | null; email?: string | null }>)
         .filter((row) => row.user_id && ids.includes(row.user_id))
         .map((row) => ({
@@ -162,6 +162,11 @@ export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
           display_name: (row.full_name?.trim() || row.email || row.user_id) as string,
           email: row.email ?? null,
         }))
+        .filter((row) => {
+          if (seen.has(row.user_id)) return false
+          seen.add(row.user_id)
+          return true
+        })
     }
   } catch {
     // RPC not available in this environment | swallow and return ids only.
