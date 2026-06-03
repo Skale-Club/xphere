@@ -11,7 +11,6 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { deleteIntegration } from '@/app/(dashboard)/integrations/actions'
 import { updateSchedulingPreferences } from '@/app/(dashboard)/scheduling/_actions/scheduling-profile'
+import { ConflictCalendarsDialog } from './conflict-calendars-dialog'
 import { cn } from '@/lib/utils'
 
 type SyncMode = 'one_way' | 'two_way'
@@ -37,6 +37,7 @@ interface Integration {
 interface Props {
   integration: Integration | null
   syncMode: SyncMode
+  conflictCalendarIds?: string[]
 }
 
 function GoogleCalendarLogo() {
@@ -54,12 +55,14 @@ function GoogleCalendarLogo() {
   )
 }
 
-export function CalendarConnections({ integration, syncMode: initialSyncMode }: Props) {
+export function CalendarConnections({ integration, syncMode: initialSyncMode, conflictCalendarIds: initialConflictIds = [] }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [syncOpen, setSyncOpen] = useState(false)
+  const [conflictOpen, setConflictOpen] = useState(false)
   const [syncMode, setSyncMode] = useState<SyncMode>(initialSyncMode)
   const [draftSyncMode, setDraftSyncMode] = useState<SyncMode>(initialSyncMode)
+  const [conflictIds, setConflictIds] = useState<string[]>(initialConflictIds)
 
   const email =
     (integration?.config as { google_email?: string } | null)?.google_email ??
@@ -148,6 +151,7 @@ export function CalendarConnections({ integration, syncMode: initialSyncMode }: 
 
       {/* ── Calendar configuration ───────────────────────────────── */}
       {integration && (
+        <>
         <section className="rounded-[14px] border border-border bg-bg-secondary overflow-hidden">
           <div className="px-5 py-4 border-b border-border-subtle">
             <h2 className="text-[14px] font-semibold text-text-primary">Calendar configuration</h2>
@@ -218,21 +222,45 @@ export function CalendarConnections({ integration, syncMode: initialSyncMode }: 
                 </p>
               </div>
               {email && (
-                <div className="rounded-[10px] border border-border-subtle bg-bg-primary px-3 py-2 min-w-[200px]">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-[10px] border border-border-subtle bg-bg-primary px-3 py-2 min-w-[160px]">
+                    <div className="flex items-center gap-2 mb-1">
                       <GoogleCalendarLogo />
-                      <span className="text-[12.5px] font-medium text-text-primary truncate">{email}</span>
+                      <span className="text-[12px] font-medium text-text-primary truncate">{email}</span>
                     </div>
+                    {conflictIds.length > 0 ? (
+                      <p className="text-[11.5px] text-text-tertiary">
+                        {conflictIds.length} calendar{conflictIds.length !== 1 ? 's' : ''} selected
+                      </p>
+                    ) : (
+                      <p className="text-[11.5px] text-text-tertiary">Linked calendar only</p>
+                    )}
                   </div>
-                  <p className="text-[11.5px] text-text-tertiary mt-1">
-                    All events in this calendar are checked for conflicts.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConflictOpen(true)}
+                    className="text-[12.5px] font-medium text-accent hover:underline shrink-0 mt-1"
+                  >
+                    Edit
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </section>
+
+        {/* Conflict calendars dialog */}
+        {email && (
+          <ConflictCalendarsDialog
+            open={conflictOpen}
+            onOpenChange={setConflictOpen}
+            linkedCalendarId="primary"
+            accountEmail={email}
+            initialSelected={conflictIds}
+            onSaved={setConflictIds}
+          />
+        )}
+        </>
       )}
 
       {/* ── Sync preferences dialog ──────────────────────────────── */}

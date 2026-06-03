@@ -29,6 +29,7 @@ export default async function SchedulingConnectionsPage() {
       <CalendarConnections
         integration={gcalRow ?? null}
         syncMode={profile?.sync_mode ?? 'one_way'}
+        conflictCalendarIds={profile?.conflict_calendar_ids ?? []}
       />
     </div>
   )

@@ -279,3 +279,37 @@ export async function createCalendarEvent(
   const data = (await res.json()) as { id: string }
   return data.id
 }
+
+export interface GoogleCalendarEntry {
+  id: string
+  summary: string
+  primary?: boolean
+  backgroundColor?: string
+  accessRole: string
+}
+
+// List all calendars in the user's Google Calendar account.
+// Used to populate the conflict-calendars picker.
+export async function listGoogleCalendars(
+  userId: string,
+  orgId: string,
+): Promise<GoogleCalendarEntry[]> {
+  const tokens = await getCalendarTokens(userId, orgId)
+  if (!tokens) return []
+
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250',
+    {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+      cache: 'no-store',
+    },
+  )
+
+  if (!res.ok) {
+    console.error('[google-calendar] calendarList error:', res.status)
+    return []
+  }
+
+  const data = (await res.json()) as { items?: GoogleCalendarEntry[] }
+  return data.items ?? []
+}

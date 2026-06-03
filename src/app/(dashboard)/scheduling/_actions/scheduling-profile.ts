@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { listGoogleCalendars, type GoogleCalendarEntry } from '@/lib/scheduling/google-calendar'
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -24,6 +25,7 @@ export type SchedulingProfile = {
   timezone: string
   sync_mode: 'one_way' | 'two_way'
   default_location_type: 'google_meet' | 'my_address' | 'client_address' | 'phone'
+  conflict_calendar_ids: string[]
   created_at: string
   updated_at: string
 }
@@ -31,6 +33,7 @@ export type SchedulingProfile = {
 export async function updateSchedulingPreferences(input: {
   sync_mode?: 'one_way' | 'two_way'
   default_location_type?: 'google_meet' | 'my_address' | 'client_address' | 'phone'
+  conflict_calendar_ids?: string[]
 }): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
@@ -93,4 +96,20 @@ export async function upsertSchedulingProfile(
   if (error) return { ok: false, error: error.message }
   revalidatePath('/scheduling')
   return { ok: true, data: data as SchedulingProfile }
+}
+
+export async function getGoogleCalendarList(): Promise<ActionResult<GoogleCalendarEntry[]>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  try {
+    const calendars = await listGoogleCalendars(user.id, orgId as string)
+    return { ok: true, data: calendars }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to fetch calendars' }
+  }
 }
