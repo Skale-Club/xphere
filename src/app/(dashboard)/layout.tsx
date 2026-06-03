@@ -193,6 +193,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     <TopBar
                       activeOrgId={activeOrgId}
                       activeOrgName={activeOrgName}
+                      activeOrgLogo={branding.logoUrl}
                       isPlatformAdmin={isPlatformAdmin}
                       userId={user.id}
                       hasPhoneNumber={hasPhoneNumber}

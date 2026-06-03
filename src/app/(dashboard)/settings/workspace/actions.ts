@@ -379,3 +379,64 @@ export async function getActiveWhatsAppProvider(): Promise<ActiveWhatsAppProvide
     return null
   }
 }
+
+// ─── Logo upload ──────────────────────────────────────────────────────────────
+// Upload a square logo image. Resized to 256x256 webp and stored in the public
+// `avatars` bucket; returns the public URL. The caller persists it via
+// updateWorkspaceBranding({ logo_url: url }).
+
+const LOGO_MAX_BYTES = 4 * 1024 * 1024 // 4MB
+const LOGO_ALLOWED_MIME = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+])
+
+export async function uploadOrgLogo(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return { ok: false, error: 'Missing file' }
+  if (file.size === 0) return { ok: false, error: 'Empty file' }
+  if (file.size > LOGO_MAX_BYTES) return { ok: false, error: 'File too large (max 4MB)' }
+  if (!LOGO_ALLOWED_MIME.has(file.type)) return { ok: false, error: 'Unsupported image type' }
+
+  const arrayBuffer = await file.arrayBuffer()
+  const sharp = (await import('sharp')).default
+  let processed: Buffer
+  try {
+    processed = await sharp(Buffer.from(arrayBuffer))
+      .rotate()
+      .resize(256, 256, { fit: 'cover', position: 'attention' })
+      .webp({ quality: 86 })
+      .toBuffer()
+  } catch {
+    return { ok: false, error: 'Could not process image' }
+  }
+
+  const nonce = Math.random().toString(36).slice(2, 10)
+  const objectPath = `${orgId as string}/logo/${nonce}.webp`
+
+  const { error: uploadErr } = await supabase.storage
+    .from('avatars')
+    .upload(objectPath, processed, {
+      contentType: 'image/webp',
+      upsert: false,
+      cacheControl: '3600',
+    })
+  if (uploadErr) return { ok: false, error: uploadErr.message }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(objectPath)
+  if (!data.publicUrl) return { ok: false, error: 'Could not resolve public URL' }
+  return { ok: true, url: data.publicUrl }
+}

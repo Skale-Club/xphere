@@ -3,15 +3,15 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Check, Loader2, Upload } from 'lucide-react'
+import { Check, Loader2, Upload, X, ImageUp } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DEFAULT_ACCENT } from '@/lib/branding'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
-import { updateWorkspaceBranding, updateDailyCostCap } from '@/app/(dashboard)/settings/workspace/actions'
+import { updateWorkspaceBranding, updateDailyCostCap, uploadOrgLogo } from '@/app/(dashboard)/settings/workspace/actions'
 
 interface OrgBrandingShape {
   id: string
@@ -64,6 +64,22 @@ export function WorkspaceBrandingForm({ org }: Props) {
   const [accentInput, setAccentInput] = React.useState(baseline.accent)
   const [capInput, setCapInput] = React.useState(baseline.cap)
   const [saving, setSaving] = React.useState(false)
+  const [uploading, setUploading] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  async function handleLogoFile(file: File) {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await uploadOrgLogo(fd)
+      if (!res.ok) { toast.error(res.error); return }
+      setLogoUrl(res.url)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
   const [savedAt, setSavedAt] = React.useState<number | null>(null)
   const [, force] = React.useReducer((x: number) => x + 1, 0)
 
@@ -138,6 +154,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
   })
 
   const savedLabel = savedAt ? `Saved ${formatAgo(Date.now() - savedAt)}` : null
+  const pickerColor = HEX_RE.test(accentInput) ? accentInput : DEFAULT_ACCENT
 
   return (
     <div className="space-y-4">
@@ -147,7 +164,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
           <div>
             <CardTitle>Logo</CardTitle>
             <CardDescription>
-              Square image, ideally 256×256 PNG or SVG. Paste a URL | uploads coming soon.
+              Square image, ideally 256×256. PNG, JPG, WebP or SVG (max 4MB).
             </CardDescription>
           </div>
           {saving && savedLabel === null ? (
@@ -161,25 +178,49 @@ export function WorkspaceBrandingForm({ org }: Props) {
           ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[10px] border border-border bg-bg-tertiary overflow-hidden">
-              {logoUrl ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleLogoFile(f) }}
+          />
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-border bg-bg-tertiary overflow-hidden">
+              {uploading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
+              ) : logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Logo preview" className="h-full w-full object-cover" />
+                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
               ) : (
                 <Upload className="h-5 w-5 text-text-tertiary" />
               )}
             </div>
-            <div className="flex-1">
-              <Label htmlFor="logo_url" className="text-[12px] text-text-secondary">Logo URL</Label>
-              <Input
-                id="logo_url"
-                type="url"
-                placeholder="https://…/logo.png"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="mt-1"
-              />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="gap-1.5"
+              >
+                <ImageUp className="h-3.5 w-3.5" />
+                {logoUrl ? 'Replace logo' : 'Upload logo'}
+              </Button>
+              {logoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLogoUrl('')}
+                  disabled={uploading}
+                  className="gap-1.5 text-text-tertiary hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Remove
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -213,12 +254,21 @@ export function WorkspaceBrandingForm({ org }: Props) {
           </div>
           <div className="flex items-center gap-2 max-w-xs">
             <div
-              className="h-9 w-9 shrink-0 rounded-[8px] border border-border"
-              style={{ backgroundColor: HEX_RE.test(accentInput) ? accentInput : '#ffffff' }}
-            />
+              className="relative h-9 w-9 shrink-0 overflow-hidden rounded-[8px] border border-border"
+              style={{ backgroundColor: pickerColor }}
+              title="Pick custom color"
+            >
+              <Input
+                type="color"
+                value={pickerColor}
+                onChange={(e) => setAccentInput(e.target.value.toUpperCase())}
+                aria-label="Pick custom accent color"
+                className="absolute inset-0 h-full w-full cursor-pointer border-0 p-0 opacity-0"
+              />
+            </div>
             <Input
               value={accentInput}
-              onChange={(e) => setAccentInput(e.target.value)}
+              onChange={(e) => setAccentInput(e.target.value.toUpperCase())}
               placeholder="#6366F1"
               className="font-mono"
               maxLength={7}

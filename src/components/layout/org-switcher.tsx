@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { switchOrganization, createOrganization, getUserOrgs } from '@/app/(dashboard)/organizations/actions'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 interface OrgSwitcherProps {
   currentOrgId: string | null
   currentOrgName: string | null
+  currentOrgLogo?: string | null
   /** Compact (icon-only) when used inside a collapsed sidebar */
   collapsed?: boolean
 }
@@ -43,6 +44,25 @@ interface OrgSwitcherProps {
 interface Org {
   id: string
   name: string
+  logo_url: string | null
+}
+
+// Small square org avatar: logo image when present, else a colored initial.
+function OrgAvatar({ name, logo, size = 18 }: { name: string | null; logo?: string | null; size?: number }) {
+  const initial = (name ?? '?').trim().charAt(0).toUpperCase() || '?'
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-bg-tertiary text-[10px] font-semibold text-text-secondary ring-1 ring-border-subtle"
+      style={{ width: size, height: size }}
+    >
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="" className="h-full w-full object-cover" />
+      ) : (
+        initial
+      )}
+    </span>
+  )
 }
 
 const createOrgSchema = z.object({
@@ -109,7 +129,7 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   )
 }
 
-export function OrgSwitcher({ currentOrgId, currentOrgName, collapsed = false }: OrgSwitcherProps) {
+export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, collapsed = false }: OrgSwitcherProps) {
   const [isSwitching, startSwitchTransition] = useTransition()
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -160,7 +180,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, collapsed = false }:
             {isSwitching ? (
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-text-tertiary" />
             ) : (
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+              <OrgAvatar name={currentOrgName} logo={currentOrgLogo} size={collapsed ? 22 : 18} />
             )}
             {!collapsed && (
               <>
@@ -185,10 +205,11 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, collapsed = false }:
                 onClick={() => handleSwitch(org.id)}
                 className="cursor-pointer gap-2"
               >
+                <OrgAvatar name={org.name} logo={org.logo_url} size={20} />
+                <span className="flex-1 truncate">{org.name}</span>
                 <Check
                   className={`h-3.5 w-3.5 shrink-0 ${org.id === currentOrgId ? 'opacity-100 text-accent' : 'opacity-0'}`}
                 />
-                <span className="truncate">{org.name}</span>
               </DropdownMenuItem>
             ))
           )}

@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 interface TopBarProps {
   activeOrgId: string | null
   activeOrgName: string | null
+  activeOrgLogo?: string | null
   isPlatformAdmin: boolean
   userId: string | null
   /** True when the org has at least one active twilio_phone_numbers row.
@@ -56,6 +57,7 @@ function MobileMenu({
   onClose,
   activeOrgId,
   activeOrgName,
+  activeOrgLogo,
   isPlatformAdmin,
   userId,
   onOpenSearch,
@@ -64,6 +66,7 @@ function MobileMenu({
   onClose: () => void
   activeOrgId: string | null
   activeOrgName: string | null
+  activeOrgLogo?: string | null
   isPlatformAdmin: boolean
   userId: string | null
   onOpenSearch: () => void
@@ -110,7 +113,7 @@ function MobileMenu({
         <section className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Workspace</p>
           <div className="rounded-[14px] border border-border-subtle bg-bg-secondary px-4 py-4">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} />
+            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} />
           </div>
         </section>
 
@@ -193,7 +196,7 @@ function MobileMenu({
   )
 }
 
-export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId, hasPhoneNumber }: TopBarProps) {
+export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAdmin, userId, hasPhoneNumber }: TopBarProps) {
   const { setOpen } = useCommandPalette()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -222,7 +225,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId, ha
           <NotificationBell userId={userId} />
           <ThemeToggle />
           <div className="min-w-0">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} />
+            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} />
           </div>
           {isPlatformAdmin && (
             <Tooltip>
@@ -266,6 +269,7 @@ export function TopBar({ activeOrgId, activeOrgName, isPlatformAdmin, userId, ha
         onClose={() => setMobileOpen(false)}
         activeOrgId={activeOrgId}
         activeOrgName={activeOrgName}
+        activeOrgLogo={activeOrgLogo}
         isPlatformAdmin={isPlatformAdmin}
         userId={userId}
         onOpenSearch={openSearch}

@@ -122,15 +122,24 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
       ),
       cell: ({ row }) => {
         const org = row.original
+        const initial = (org.name ?? '?').trim().charAt(0).toUpperCase() || '?'
         return (
           <button
             type="button"
             onClick={() => handleSwitchOrganization(org)}
             disabled={!org.is_active || isPending}
-            className="font-medium text-left text-text-primary transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:text-text-tertiary"
+            className="flex items-center gap-2.5 font-medium text-left text-text-primary transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:text-text-tertiary"
             title={org.is_active ? `Switch to ${org.name}` : 'Organization is inactive'}
           >
-            {row.getValue('name')}
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-bg-tertiary text-[11px] font-semibold text-text-secondary ring-1 ring-border-subtle">
+              {org.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={org.logo_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initial
+              )}
+            </span>
+            {org.name}
           </button>
         )
       },
@@ -197,9 +206,8 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-start mb-4">
         <span className="sr-only">Loading organizations...</span>
-        <div />
         <Button onClick={openCreateDialog}>Create Organization</Button>
       </div>
 

@@ -14,19 +14,19 @@ async function setActiveOrgCookie(id: string, name: string) {
   jar.set(ORG_COOKIE, JSON.stringify({ id, name }), COOKIE_OPTS)
 }
 
-export async function getUserOrgs(): Promise<{ id: string; name: string }[]> {
+export async function getUserOrgs(): Promise<{ id: string; name: string; logo_url: string | null }[]> {
   const user = await getUser()
   if (!user) return []
   const supabase = await createClient()
 
   const { data } = await supabase
     .from('org_members')
-    .select('organization_id, organizations(id, name)')
+    .select('organization_id, organizations(id, name, logo_url)')
     .eq('user_id', user.id)
 
   return (data ?? [])
-    .map(m => m.organizations as { id: string; name: string } | null)
-    .filter((o): o is { id: string; name: string } => o !== null)
+    .map(m => m.organizations as { id: string; name: string; logo_url: string | null } | null)
+    .filter((o): o is { id: string; name: string; logo_url: string | null } => o !== null)
 }
 
 export async function createOrganization(data: { name: string }): Promise<{ error?: string } | void> {
