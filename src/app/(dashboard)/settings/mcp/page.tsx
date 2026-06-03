@@ -7,7 +7,7 @@ export default async function McpSettingsPage() {
 
   return (
     <PageContainer className="space-y-6">
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         <div>
           <h1 className="text-xl font-semibold">MCP Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
