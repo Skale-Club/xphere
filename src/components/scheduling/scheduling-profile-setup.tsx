@@ -18,17 +18,77 @@ import {
 import { upsertSchedulingProfile } from '@/app/(dashboard)/scheduling/_actions/scheduling-profile'
 
 const TIMEZONES = [
+  // Brazil
   'America/Sao_Paulo',
   'America/Manaus',
   'America/Belem',
   'America/Fortaleza',
   'America/Recife',
+  'America/Bahia',
+  'America/Porto_Velho',
+  'America/Boa_Vista',
+  'America/Rio_Branco',
+  'America/Noronha',
+  // North America
   'America/New_York',
   'America/Chicago',
   'America/Denver',
   'America/Los_Angeles',
+  'America/Phoenix',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Mexico_City',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
+  'America/Buenos_Aires',
+  // Europe
   'Europe/London',
   'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'Europe/Brussels',
+  'Europe/Lisbon',
+  'Europe/Warsaw',
+  'Europe/Stockholm',
+  'Europe/Oslo',
+  'Europe/Copenhagen',
+  'Europe/Helsinki',
+  'Europe/Athens',
+  'Europe/Istanbul',
+  'Europe/Moscow',
+  // Asia/Pacific
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Dhaka',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Hong_Kong',
+  'Asia/Jakarta',
+  'Asia/Kuala_Lumpur',
+  'Asia/Karachi',
+  'Asia/Riyadh',
+  'Asia/Tehran',
+  'Asia/Jerusalem',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Perth',
+  'Pacific/Auckland',
+  'Pacific/Fiji',
+  // Africa
+  'Africa/Cairo',
+  'Africa/Lagos',
+  'Africa/Nairobi',
+  'Africa/Johannesburg',
+  'Africa/Casablanca',
+  // UTC
   'UTC',
 ]
 
@@ -48,7 +108,11 @@ export function SchedulingProfileSetup() {
   const [isPending, startTransition] = useTransition()
 
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const defaultTz = TIMEZONES.includes(browserTz) ? browserTz : 'UTC'
+  // Use browser timezone if it's in our list; otherwise include it dynamically
+  const allTimezones = TIMEZONES.includes(browserTz)
+    ? TIMEZONES
+    : [browserTz, ...TIMEZONES]
+  const defaultTz = browserTz
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -103,8 +167,8 @@ export function SchedulingProfileSetup() {
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                 <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                  {allTimezones.map((tz) => (
+                    <SelectItem key={tz} value={tz}>{tz.replace(/_/g, ' ')}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

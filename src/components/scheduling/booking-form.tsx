@@ -26,14 +26,17 @@ type FormValues = z.infer<typeof schema>
 
 const LOCATION_KIND_LABELS: Record<string, string> = {
   google_meet: 'Google Meet',
+  zoom: 'Zoom',
+  whereby: 'Whereby',
   custom_link: 'Video link',
   phone_call: 'Phone call',
-  client_phone: 'My phone',
+  custom_phone: 'Phone call',
   store_location: 'In person',
   custom_address: 'Address (you provide)',
   client_address: 'Address (on file)',
-  custom_phone: 'Custom phone',
   video: 'Video call',
+  phone: 'Phone call',
+  in_person: 'In person',
 }
 
 interface BookingFormProps {

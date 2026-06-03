@@ -50,7 +50,10 @@ export function BookingSlotPicker({
   const startPad = getDay(monthStart)
   const paddedDays = [...Array(startPad).fill(null), ...days]
 
+  const isCurrentMonthOrPast = isBefore(startOfMonth(viewMonth), startOfMonth(today))
+
   function isDayAvailable(day: Date) {
+    if (!isSameMonth(day, viewMonth)) return false
     if (isBefore(day, today)) return false
     return availableDows.includes(getDay(day))
   }
@@ -84,7 +87,8 @@ export function BookingSlotPicker({
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => setViewMonth((m) => subMonths(m, 1))}
-            className="p-1 rounded hover:bg-accent transition-colors"
+            disabled={isCurrentMonthOrPast}
+            className="p-1 rounded hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
