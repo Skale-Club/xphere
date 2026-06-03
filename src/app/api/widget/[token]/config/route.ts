@@ -35,7 +35,7 @@ export async function GET(
   const supabase = createServiceRoleClient()
   const { data: org, error } = await supabase
     .from('organizations')
-    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url')
+    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color')
     .eq('widget_token', token)
     .single()
 
@@ -45,7 +45,12 @@ export async function GET(
 
   return Response.json({
     displayName: normalizeWidgetValue(org.widget_display_name, DEFAULT_WIDGET_CONFIG.displayName),
-    primaryColor: normalizeWidgetValue(org.widget_primary_color, DEFAULT_WIDGET_CONFIG.primaryColor),
+    // Fall back to the company's brand accent so the widget matches the brand
+    // out of the box; an explicit widget_primary_color still overrides it.
+    primaryColor: normalizeWidgetValue(
+      org.widget_primary_color,
+      normalizeWidgetValue(org.accent_color, DEFAULT_WIDGET_CONFIG.primaryColor),
+    ),
     welcomeMessage: normalizeWidgetValue(org.widget_welcome_message, DEFAULT_WIDGET_CONFIG.welcomeMessage),
     avatarUrl: org.widget_avatar_url || null,
   })

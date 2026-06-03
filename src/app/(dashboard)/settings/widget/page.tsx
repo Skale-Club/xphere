@@ -49,7 +49,7 @@ export default async function SettingsWidgetPage() {
   const { data: organization, error } = await supabase
     .from('organizations')
     .select(
-      'id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url'
+      'id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url, accent_color'
     )
     .eq('id', activeOrgId)
     .single()
@@ -76,7 +76,7 @@ export default async function SettingsWidgetPage() {
             ),
             primaryColor: normalizeWidgetValue(
               organization.widget_primary_color,
-              DEFAULT_WIDGET_SETTINGS.primaryColor
+              normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
             ),
             welcomeMessage: normalizeWidgetValue(
               organization.widget_welcome_message,
