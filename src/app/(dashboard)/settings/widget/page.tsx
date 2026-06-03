@@ -65,6 +65,16 @@ export default async function SettingsWidgetPage() {
   const organization = orgResult.data
   const currentAgentId = channelDefaults.web_widget ?? null
 
+  const widgetConfig = {
+    displayName: normalizeWidgetValue(organization.widget_display_name, DEFAULT_WIDGET_SETTINGS.displayName),
+    primaryColor: normalizeWidgetValue(
+      organization.widget_primary_color,
+      normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor),
+    ),
+    welcomeMessage: normalizeWidgetValue(organization.widget_welcome_message, DEFAULT_WIDGET_SETTINGS.welcomeMessage),
+    avatarUrl: organization.widget_avatar_url || '',
+  }
+
   return (
     <PageContainer>
       <PageHeader
@@ -77,29 +87,21 @@ export default async function SettingsWidgetPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Settings */}
         <WidgetSettingsForm
-          initialSettings={{
-            displayName: normalizeWidgetValue(
-              organization.widget_display_name,
-              DEFAULT_WIDGET_SETTINGS.displayName
-            ),
-            primaryColor: normalizeWidgetValue(
-              organization.widget_primary_color,
-              normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
-            ),
-            welcomeMessage: normalizeWidgetValue(
-              organization.widget_welcome_message,
-              DEFAULT_WIDGET_SETTINGS.welcomeMessage
-            ),
-            avatarUrl: organization.widget_avatar_url || '',
-          }}
+          initialSettings={widgetConfig}
           widgetToken={organization.widget_token}
           agents={agents}
           currentAgentId={currentAgentId}
         />
 
         {/* Playground */}
-        <div className="space-y-4">
-          <WidgetPlayground widgetToken={organization.widget_token} />
+        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <WidgetPlayground
+            widgetToken={organization.widget_token}
+            displayName={widgetConfig.displayName}
+            primaryColor={widgetConfig.primaryColor}
+            welcomeMessage={widgetConfig.welcomeMessage}
+            avatarUrl={widgetConfig.avatarUrl}
+          />
         </div>
       </div>
     </PageContainer>
