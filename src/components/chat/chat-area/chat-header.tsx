@@ -32,6 +32,7 @@ import {
 import Link from 'next/link'
 
 import { ConversationSummary, ConversationPriority, ConversationStatus, ConversationLabel } from '@/types/chat'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -142,7 +143,7 @@ export function ChatHeader({
   // Subtitle: phone OR email if available, with the receiving phone number
   // appended when an inbound number is linked (phone-numbers Phase 4).
   const baseSubtitle =
-    conversation.visitorPhone ??
+    (conversation.visitorPhone ? formatPhoneDisplay(conversation.visitorPhone) : null) ??
     conversation.visitorEmail ??
     (conversation.channelAccountName ? `· ${conversation.channelAccountName}` : '')
   const subtitle = conversation.phoneNumberLabel
