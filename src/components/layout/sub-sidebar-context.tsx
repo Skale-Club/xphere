@@ -7,17 +7,14 @@ type SubSidebarMode = 'expanded' | 'collapsed'
 
 interface SubSidebarContextValue {
   mode: SubSidebarMode
-  isPeeking: boolean
   /** True once the initial mode has settled. Used to gate the width transition
    *  so the sidebar doesn't animate on first paint. */
   hydrated: boolean
   collapse: () => void
   expand: () => void
   toggle: () => void
-  startPeek: () => void
-  endPeek: () => void
-  /** Called by nav links on navigation. Dismisses the peek overlay but leaves a
-   *  pinned (expanded) sidebar open, so navigating between pages doesn't hide it. */
+  /** Called by nav links on navigation. No-op kept for API stability (the
+   *  hover-to-peek behavior was removed). */
   onNavigate: () => void
 }
 
@@ -33,7 +30,7 @@ interface SubSidebarProviderProps {
    *  - On the section index (nothing open) the sidebar is expanded and only
    *    collapses when the user clicks the collapse button.
    *  - Once an item is open (path is deeper than the base) it collapses to the
-   *    peek-on-hover rail by default.
+   *    slim rail by default.
    * A manual toggle sticks until the next time the "an item is open" state
    * flips (i.e. opening an item or returning to the index).
    */
@@ -55,9 +52,7 @@ export function SubSidebarProvider({
   const [mode, setMode] = React.useState<SubSidebarMode>(
     routeDriven ? (itemOpen ? 'collapsed' : 'expanded') : defaultMode,
   )
-  const [isPeeking, setIsPeeking] = React.useState(false)
   const [hydrated, setHydrated] = React.useState(false)
-  const peekTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Persisted-preference mode (settings): read the stored value after mount.
   // Route-driven mode skips storage entirely. Either way, flip `hydrated` so
@@ -83,7 +78,6 @@ export function SubSidebarProvider({
     if (prevItemOpen.current === itemOpen) return
     prevItemOpen.current = itemOpen
     setMode(itemOpen ? 'collapsed' : 'expanded')
-    setIsPeeking(false)
   }, [routeDriven, itemOpen])
 
   const persist = React.useCallback(
@@ -96,66 +90,29 @@ export function SubSidebarProvider({
     [storageKey, routeDriven],
   )
 
-  const clearPeekTimeout = React.useCallback(() => {
-    if (peekTimeout.current) {
-      clearTimeout(peekTimeout.current)
-      peekTimeout.current = null
-    }
-  }, [])
-
   const collapse = React.useCallback(() => {
     setMode('collapsed')
-    setIsPeeking(false)
-    clearPeekTimeout()
     persist('collapsed')
-  }, [persist, clearPeekTimeout])
+  }, [persist])
 
   const expand = React.useCallback(() => {
     setMode('expanded')
-    setIsPeeking(false)
-    clearPeekTimeout()
     persist('expanded')
-  }, [persist, clearPeekTimeout])
+  }, [persist])
 
   const toggle = React.useCallback(() => {
     setMode((prev) => {
       const next = prev === 'expanded' ? 'collapsed' : 'expanded'
-      setIsPeeking(false)
       persist(next)
       return next
     })
   }, [persist])
 
-  const startPeek = React.useCallback(() => {
-    clearPeekTimeout()
-    setIsPeeking(true)
-  }, [clearPeekTimeout])
-
-  const endPeek = React.useCallback(() => {
-    clearPeekTimeout()
-    peekTimeout.current = setTimeout(() => setIsPeeking(false), 220)
-  }, [clearPeekTimeout])
-
-  const onNavigate = React.useCallback(() => {
-    clearPeekTimeout()
-    setIsPeeking(false)
-  }, [clearPeekTimeout])
-
-  React.useEffect(() => clearPeekTimeout, [clearPeekTimeout])
+  const onNavigate = React.useCallback(() => {}, [])
 
   return (
     <SubSidebarContext.Provider
-      value={{
-        mode,
-        isPeeking,
-        hydrated,
-        collapse,
-        expand,
-        toggle,
-        startPeek,
-        endPeek,
-        onNavigate,
-      }}
+      value={{ mode, hydrated, collapse, expand, toggle, onNavigate }}
     >
       {children}
     </SubSidebarContext.Provider>

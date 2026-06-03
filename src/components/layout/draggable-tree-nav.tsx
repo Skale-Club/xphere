@@ -18,12 +18,14 @@ import {
   Folder as FolderIcon,
   FolderOpen,
   GripVertical,
+  Loader2,
   MoreHorizontal,
   Palette,
   Pencil,
   RotateCcw,
   Smile,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 import {
@@ -78,6 +80,15 @@ const FOLDER_EMOJIS = [
   '📨', '🗂️', '🏷️', '🟢', '🔵', '🟣',
 ]
 
+/** A folder `icon` value is either an emoji (rendered as text) or an image URL
+ *  (rendered in a rounded mask). */
+function isImageIcon(icon: string | null | undefined): icon is string {
+  return (
+    !!icon &&
+    (icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('data:'))
+  )
+}
+
 export interface TreeNavItem {
   id: string
   name: string
@@ -103,6 +114,10 @@ export interface TreeNavActions {
     id: string,
     input: { color?: string | null; icon?: string | null },
   ) => Promise<ActionResult>
+  /** Optional: upload a custom image to use as a folder icon. Returns its URL. */
+  uploadFolderIcon?: (
+    formData: FormData,
+  ) => Promise<{ ok: true; url: string } | { ok: false; error: string }>
   moveItemToFolder: (itemId: string, folderId: string | null) => Promise<ActionResult>
   reorderItemsInFolder: (
     folderId: string | null,
@@ -480,6 +495,8 @@ function FolderSection<T extends TreeNavItem>({
   const [draft, setDraft] = React.useState(folder.name)
   const [saving, setSaving] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [uploading, setUploading] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: folder.id,
@@ -488,9 +505,16 @@ function FolderSection<T extends TreeNavItem>({
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition }
 
   const colorStyle = folder.color ? { color: folder.color } : { color: '#f59e0b' }
-  // The folder glyph: a chosen emoji icon when set, otherwise the colored
-  // open/closed folder icon.
-  const glyph = folder.icon ? (
+  // The folder glyph: an uploaded image (rounded mask) or a chosen emoji when
+  // set, otherwise the colored open/closed folder icon.
+  const glyph = isImageIcon(folder.icon) ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={folder.icon}
+      alt=""
+      className="h-3.5 w-3.5 shrink-0 rounded-[4px] object-cover"
+    />
+  ) : folder.icon ? (
     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
       {folder.icon}
     </span>
@@ -531,6 +555,24 @@ function FolderSection<T extends TreeNavItem>({
     router.refresh()
   }
 
+  async function handleIconUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file later
+    if (!file || !actions.uploadFolderIcon) return
+    setUploading(true)
+    const tid = toast.loading('Uploading icon…')
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await actions.uploadFolderIcon(fd)
+    setUploading(false)
+    if (!res.ok) {
+      toast.error(res.error, { id: tid })
+      return
+    }
+    toast.success('Icon updated', { id: tid })
+    await applyMeta({ icon: res.url })
+  }
+
   async function handleDelete() {
     const res = await actions.deleteFolder(folder.id, { cascadeChildren: true })
     if (!res.ok) toast.error(res.error)
@@ -543,6 +585,15 @@ function FolderSection<T extends TreeNavItem>({
       style={style}
       className={cn(isDragging && 'opacity-40', isOver && 'bg-accent/5 rounded-[7px]')}
     >
+      {actions.uploadFolderIcon && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleIconUpload}
+        />
+      )}
       <div className="group flex items-center gap-1 rounded-[6px] px-1.5 py-1 hover:bg-bg-tertiary/60 transition-colors">
         <button
           type="button"
@@ -685,6 +736,22 @@ function FolderSection<T extends TreeNavItem>({
                         ))}
                       </div>
                       <DropdownMenuSeparator />
+                      {actions.uploadFolderIcon && (
+                        <DropdownMenuItem
+                          disabled={uploading}
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            fileInputRef.current?.click()
+                          }}
+                        >
+                          {uploading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          Upload image…
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onSelect={() => applyMeta({ icon: null })}>
                         <RotateCcw className="h-3 w-3" />
                         Default icon
@@ -849,7 +916,14 @@ function ItemDragGhost({ name, icon }: { name: string; icon: React.ReactNode }) 
 function FolderDragGhost({ folder }: { folder: TreeNavFolder }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary px-3 py-1.5 shadow-lg">
-      {folder.icon ? (
+      {isImageIcon(folder.icon) ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={folder.icon}
+          alt=""
+          className="h-3.5 w-3.5 shrink-0 rounded-[4px] object-cover"
+        />
+      ) : folder.icon ? (
         <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
           {folder.icon}
         </span>

@@ -22,6 +22,7 @@ import {
   reorderProjectsInFolder,
   softDeleteProject,
 } from '@/app/(dashboard)/projects/actions'
+import { uploadFolderIcon } from '@/app/(dashboard)/projects/_actions/folder-icon'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
 import { NewFolderButton } from '@/components/projects/new-folder-button'
 
@@ -74,6 +75,7 @@ export function ProjectSubNav({ projects, folders }: Props) {
         deleteFolder,
         renameFolder,
         updateFolderMeta,
+        uploadFolderIcon,
         moveItemToFolder: moveProjectToFolder,
         reorderItemsInFolder: reorderProjectsInFolder,
       }}
