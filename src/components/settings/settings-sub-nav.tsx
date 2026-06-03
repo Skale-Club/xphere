@@ -6,20 +6,18 @@ import { usePathname } from 'next/navigation'
 import {
   BookOpen,
   Bot,
-  Boxes,
   CreditCard,
   Download,
   Mail,
   MapPin,
   MessageSquare,
   Phone,
-  PhoneCall,
   Plug,
   Plug2,
   Settings2,
-  ShieldCheck,
   Tag,
   UserCog,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -48,13 +46,7 @@ const SECTIONS: NavSection[] = [
       { href: '/settings/tags', label: 'Tags & labels', icon: Tag },
       { href: '/settings/custom-fields', label: 'Custom fields', icon: Settings2 },
       { href: '/settings/locations', label: 'Locations', icon: MapPin },
-      {
-        href: '/settings/organization-templates',
-        label: 'Templates',
-        icon: Boxes,
-      },
-      { href: '/settings/roles', label: 'Roles', icon: ShieldCheck },
-      { href: '/settings/billing', label: 'Billing', icon: CreditCard },
+      { href: '/settings/members', label: 'Members', icon: UsersRound },
       { href: '/settings/copilot', label: 'Copilot', icon: Bot },
     ],
   },
@@ -62,10 +54,9 @@ const SECTIONS: NavSection[] = [
     heading: 'Communications',
     items: [
       { href: '/settings/phone-numbers', label: 'Phone numbers', icon: Phone },
-      { href: '/settings/calls', label: 'Calls', icon: PhoneCall },
       { href: '/settings/email-templates', label: 'Email templates', icon: Mail },
-      { href: '/settings/mcp', label: 'MCP server', icon: Plug },
       { href: '/settings/widget', label: 'Chat widget', icon: MessageSquare },
+      { href: '/settings/mcp', label: 'MCP server', icon: Plug },
     ],
   },
   {
@@ -78,6 +69,10 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'App',
     items: [{ href: '/settings/install', label: 'Install app', icon: Download }],
+  },
+  {
+    heading: 'Billing',
+    items: [{ href: '/settings/billing', label: 'Billing', icon: CreditCard }],
   },
 ]
 
