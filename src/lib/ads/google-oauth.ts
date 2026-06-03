@@ -1,5 +1,5 @@
-// Google Ads OAuth — uses the same GOOGLE_CLIENT_ID/SECRET as Google Contacts,
-// but with the adwords scope and a separate callback URI.
+// Google Ads OAuth — uses dedicated GOOGLE_ADS_CLIENT_ID/SECRET credentials
+// (separate OAuth client from Google Contacts) with the adwords scope.
 // Tokens are stored as encrypted JSON: { access_token, refresh_token }
 // because Google access tokens expire in 1 hour and require refresh.
 
@@ -24,10 +24,10 @@ type GoogleTokenResponse = {
 }
 
 function getGoogleEnv() {
-  const clientId = process.env.GOOGLE_CLIENT_ID
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  const clientId = process.env.GOOGLE_ADS_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET
   if (!clientId || !clientSecret) {
-    throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured.')
+    throw new Error('GOOGLE_ADS_CLIENT_ID and GOOGLE_ADS_CLIENT_SECRET must be configured.')
   }
   return { clientId, clientSecret }
 }
