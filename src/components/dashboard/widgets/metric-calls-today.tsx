@@ -1,6 +1,7 @@
 import { Phone } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
+import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/actions'
 import { MetricCard } from '@/components/design-system/metric-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import type { ResolvedPeriod } from '@/lib/dashboard/period'
@@ -19,6 +20,7 @@ export async function MetricCallsToday({ range }: Props) {
   let missed = 0
   let series: { value: number }[] = []
   let everCount = 0
+  let twilioConnected = false
 
   try {
     const supabase = await createClient()
@@ -27,6 +29,9 @@ export async function MetricCallsToday({ range }: Props) {
     const toIso = range.to.toISOString()
     const prevFromIso = range.prevFrom.toISOString()
     const prevToIso = range.prevTo.toISOString()
+
+    const twilio = await getTwilioIntegration()
+    twilioConnected = twilio.hasAccountSid && twilio.hasAuthToken
 
     const [{ count: cur }, { count: prev }, { count: missedC }, { count: ever }, { data: rows }] =
       await Promise.all([
@@ -73,8 +78,16 @@ export async function MetricCallsToday({ range }: Props) {
         <WidgetEmpty
           icon={Phone}
           title="No calls yet"
-          description="Connect Twilio to handle SMS + voice from one inbox."
-          cta={{ label: 'Connect Twilio', href: '/integrations/twilio' }}
+          description={
+            twilioConnected
+              ? 'Calls will appear here as they come in.'
+              : 'Connect Twilio to handle SMS + voice from one inbox.'
+          }
+          cta={
+            twilioConnected
+              ? undefined
+              : { label: 'Connect Twilio', href: '/settings/integrations?open=twilio' }
+          }
           size="compact"
         />
       </div>

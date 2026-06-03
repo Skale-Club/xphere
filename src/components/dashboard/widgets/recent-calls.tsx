@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Phone, PhoneIncoming, PhoneOutgoing, Mic } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
+import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/actions'
 import { WidgetCard } from '@/components/dashboard/widget-card'
 import { WidgetEmpty } from '@/components/dashboard/widget-empty'
 import { StatusPill } from '@/components/design-system/status-pill'
@@ -43,9 +44,12 @@ function statusTone(status: string | null): 'success' | 'warning' | 'danger' | '
 export async function RecentCalls() {
   let rows: CallRow[] = []
   let everCount = 0
+  let twilioConnected = false
 
   try {
     const supabase = await createClient()
+    const twilio = await getTwilioIntegration()
+    twilioConnected = twilio.hasAccountSid && twilio.hasAuthToken
 
     const startToday = new Date()
     startToday.setHours(0, 0, 0, 0)
@@ -119,8 +123,16 @@ export async function RecentCalls() {
         <WidgetEmpty
           icon={Phone}
           title="No calls yet"
-          description="Connect Twilio to start placing and receiving calls."
-          cta={{ label: 'Connect Twilio', href: '/integrations/twilio' }}
+          description={
+            twilioConnected
+              ? 'Calls will appear here as they come in.'
+              : 'Connect Twilio to start placing and receiving calls.'
+          }
+          cta={
+            twilioConnected
+              ? undefined
+              : { label: 'Connect Twilio', href: '/settings/integrations?open=twilio' }
+          }
         />
       </WidgetCard>
     )
