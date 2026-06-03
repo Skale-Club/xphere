@@ -24,7 +24,7 @@ import {
   type TwilioIncomingListResponse,
   type TwilioRemoteNumber,
 } from '@/lib/phone-numbers/import'
-import { configureTwilioSmsWebhook } from '@/lib/twilio/configure-number'
+import { configureTwilioSmsWebhook, configureTwilioVoiceWebhook } from '@/lib/twilio/configure-number'
 
 export type TwilioPhoneNumberRow =
   Database['public']['Tables']['twilio_phone_numbers']['Row']
@@ -204,24 +204,79 @@ async function getTwilioCredBlob(
   }
 }
 
-async function syncSmsWebhookIfPossible(params: {
+/**
+ * Configure the Twilio-side inbound webhooks (SMS + Voice) on the number's
+ * IncomingPhoneNumber resource so Twilio actually delivers inbound traffic to
+ * Xphere. Without the Voice webhook, inbound CALLS silently never reach the app
+ * (the SMS webhook alone is not enough — that was the gap that broke inbound
+ * calls). Best-effort per capability; returns the first error encountered.
+ */
+async function syncWebhooksIfPossible(params: {
   supabase: Awaited<ReturnType<typeof createClient>>
   orgId: string
   phoneSid: string | null
   capabilitySms: boolean
+  capabilityVoice: boolean
 }): Promise<{ error?: string }> {
-  if (!params.capabilitySms || !params.phoneSid) return {}
+  if (!params.phoneSid) return {}
+  if (!params.capabilitySms && !params.capabilityVoice) return {}
 
   const { blob, error } = await getTwilioCredBlob(params.supabase, params.orgId)
   if (error || !blob?.account_sid || !blob.auth_token) return { error }
 
-  const result = await configureTwilioSmsWebhook({
-    accountSid: blob.account_sid,
-    authToken: blob.auth_token,
-    phoneSid: params.phoneSid,
-  })
+  if (params.capabilitySms) {
+    const result = await configureTwilioSmsWebhook({
+      accountSid: blob.account_sid,
+      authToken: blob.auth_token,
+      phoneSid: params.phoneSid,
+    })
+    if (!result.ok) return { error: `SMS webhook: ${result.error}` }
+  }
 
-  if (!result.ok) return { error: result.error }
+  if (params.capabilityVoice) {
+    const result = await configureTwilioVoiceWebhook({
+      accountSid: blob.account_sid,
+      authToken: blob.auth_token,
+      phoneSid: params.phoneSid,
+    })
+    if (!result.ok) return { error: `Voice webhook: ${result.error}` }
+  }
+
+  return {}
+}
+
+/**
+ * Re-apply the SMS + Voice webhooks for an already-saved number. Lets operators
+ * fix a number whose Twilio-side routing drifted (e.g. imported before voice
+ * webhook sync existed) without re-editing every field.
+ */
+export async function resyncTwilioNumberWebhooks(id: string): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const { data: row, error } = await supabase
+    .from('twilio_phone_numbers')
+    .select('phone_sid, capability_sms, capability_voice, organization_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) return { error: error.message }
+  if (!row) return { error: 'Phone number not found.' }
+  if (!row.phone_sid) {
+    return { error: 'No Twilio Phone SID on this number. Re-import it from Twilio first.' }
+  }
+
+  const sync = await syncWebhooksIfPossible({
+    supabase,
+    orgId: row.organization_id,
+    phoneSid: row.phone_sid,
+    capabilitySms: row.capability_sms,
+    capabilityVoice: row.capability_voice,
+  })
+  if (sync.error) return { error: sync.error }
+
+  revalidateAll()
   return {}
 }
 
@@ -360,14 +415,15 @@ export async function createTwilioNumber(
     return { error: error.message }
   }
 
-  const sync = await syncSmsWebhookIfPossible({
+  const sync = await syncWebhooksIfPossible({
     supabase,
     orgId: orgId as string,
     phoneSid: data.phone_sid,
     capabilitySms: data.capability_sms,
+    capabilityVoice: data.capability_voice,
   })
   if (sync.error) {
-    return { data, error: `Number saved, but SMS webhook sync failed: ${sync.error}` }
+    return { data, error: `Number saved, but webhook sync failed: ${sync.error}` }
   }
 
   revalidateAll()
@@ -425,14 +481,15 @@ export async function updateTwilioNumber(
 
   if (error) return { error: error.message }
 
-  const sync = await syncSmsWebhookIfPossible({
+  const sync = await syncWebhooksIfPossible({
     supabase,
     orgId: data.organization_id,
     phoneSid: data.phone_sid,
     capabilitySms: data.capability_sms,
+    capabilityVoice: data.capability_voice,
   })
   if (sync.error) {
-    return { data, error: `Number saved, but SMS webhook sync failed: ${sync.error}` }
+    return { data, error: `Number saved, but webhook sync failed: ${sync.error}` }
   }
 
   revalidateAll()

@@ -12,7 +12,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { CheckCircle2, MoreHorizontal, Phone, Plus, Settings2, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal, Phone, Plus, RefreshCw, Settings2, Star, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-states/empty-state'
@@ -29,6 +29,7 @@ import { EditPhoneNumberDialog } from '@/components/phone-numbers/edit-phone-num
 import {
   setDefaultTwilioNumber,
   softDeleteTwilioNumber,
+  resyncTwilioNumberWebhooks,
   type TwilioPhoneNumberRow,
 } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
 
@@ -66,6 +67,24 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
           return
         }
         toast.success(`${displayLabel(row)} is now the default number.`)
+        router.refresh()
+      } finally {
+        setBusyId(null)
+      }
+    },
+    [router],
+  )
+
+  const handleResync = React.useCallback(
+    async (row: TwilioPhoneNumberRow) => {
+      setBusyId(row.id)
+      try {
+        const res = await resyncTwilioNumberWebhooks(row.id)
+        if (res.error) {
+          toast.error(res.error)
+          return
+        }
+        toast.success(`Twilio webhooks re-synced for ${displayLabel(row)}. Inbound calls and SMS now route to Xphere.`)
         router.refresh()
       } finally {
         setBusyId(null)
@@ -186,6 +205,12 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
                   <Settings2 className="h-3.5 w-3.5" />
                   Configure
                 </DropdownMenuItem>
+                {row.is_active && row.phone_sid && (
+                  <DropdownMenuItem onClick={() => handleResync(row)}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Sync Twilio webhooks
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => handleDelete(row)}
