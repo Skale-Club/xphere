@@ -3,14 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { exchangeCodeForTokens, fetchGoogleUserEmail } from '@/lib/google-contacts/oauth'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
 
-const CALLBACK_URI = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'}/api/google/calendar-callback`
 const STATE_COOKIE = 'google_cal_oauth_state'
 const RETURN_COOKIE = 'google_cal_oauth_return'
 
 export async function GET(request: NextRequest): Promise<Response> {
+  const CALLBACK_URI = `${resolveRequestOrigin(request)}/api/google/calendar-callback`
   const user = await getUser()
   if (!user) return NextResponse.redirect(new URL('/', request.url))
 

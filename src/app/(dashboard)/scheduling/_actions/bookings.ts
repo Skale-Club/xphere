@@ -18,8 +18,7 @@ import {
 import type { TimeSlot } from '@/lib/scheduling/slots'
 import { emitCalendarEvent } from '@/lib/scheduling/transition'
 import type { CalendarEventPayload } from '@/lib/scheduling/events'
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
+import { getSiteOriginFromHeaders } from '@/lib/site-url'
 
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.
@@ -238,9 +237,10 @@ async function sendCancellationEmailForBooking(bookingId: string): Promise<void>
       .maybeSingle()
 
     const hostName = await resolveHostName(et.user_id)
+    const siteUrl = await getSiteOriginFromHeaders()
     const rebookUrl = profile?.slug
-      ? `${SITE_URL}/book/${profile.slug}/${et.slug}`
-      : `${SITE_URL}`
+      ? `${siteUrl}/book/${profile.slug}/${et.slug}`
+      : siteUrl
 
     await sendBookingCancellation({
       bookerEmail: b.booker_email,
@@ -527,7 +527,8 @@ export async function createBooking(
   // helper has its own try/catch that logs and swallows any failure.
   void (async () => {
     const hostName = await resolveHostName(et.user_id)
-    const cancelUrl = `${SITE_URL}/book/cancel/${booking.id}?token=${booking.cancel_token}`
+    const siteUrl = await getSiteOriginFromHeaders()
+    const cancelUrl = `${siteUrl}/book/cancel/${booking.id}?token=${booking.cancel_token}`
 
     // Re-fetch the booking to pick up any meeting_url written by the
     // google_meet flow that runs in the same request.

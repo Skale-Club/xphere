@@ -12,6 +12,11 @@
  * instead of the request socket. `NEXT_PUBLIC_SITE_URL` is the source of truth
  * (inlined at build time, see Dockerfile build args); we fall back to the
  * reverse-proxy forwarded host, then finally the request origin.
+ *
+ * Usage guide:
+ *   - Server components / server actions → getSiteOriginFromHeaders()  [async, uses next/headers]
+ *   - Route Handlers with a Request arg   → resolveRequestOrigin(request)
+ *   - Client components / shared utils   → getSiteOrigin()
  */
 
 const CANONICAL_FALLBACK = 'https://xphere.app'
@@ -24,11 +29,43 @@ function normalize(url: string): string {
 /**
  * Client/server-safe origin for building `redirectTo` URLs.
  * Prefers the configured site URL; falls back to the current browser origin.
+ * In server contexts without a configured URL falls back to the canonical
+ * production domain — use getSiteOriginFromHeaders() in server components
+ * when localhost dev-accuracy matters.
  */
 export function getSiteOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL
   if (configured) return normalize(configured)
   if (typeof window !== 'undefined') return normalize(window.location.origin)
+  return CANONICAL_FALLBACK
+}
+
+/**
+ * Async variant for Server Components and Server Actions.
+ * Uses next/headers to read the real request host so localhost URLs are
+ * accurate in development even when NEXT_PUBLIC_SITE_URL is not set.
+ *
+ * Order: NEXT_PUBLIC_SITE_URL → x-forwarded-host header → host header.
+ */
+export async function getSiteOriginFromHeaders(): Promise<string> {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL
+  if (configured) return normalize(configured)
+
+  const { headers } = await import('next/headers')
+  const hdrs = await headers()
+
+  const forwardedHost = hdrs.get('x-forwarded-host')
+  if (forwardedHost) {
+    const proto = hdrs.get('x-forwarded-proto') ?? 'https'
+    return normalize(`${proto}://${forwardedHost}`)
+  }
+
+  const host = hdrs.get('host')
+  if (host) {
+    const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+    return normalize(`${proto}://${host}`)
+  }
+
   return CANONICAL_FALLBACK
 }
 

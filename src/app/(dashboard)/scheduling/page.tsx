@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
 import { CalendarDays, Settings2, ExternalLink, Calendar, ListChecks } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import { getEventTypes } from './_actions/event-types'
@@ -10,6 +9,7 @@ import { SchedulingProfileSetup } from '@/components/scheduling/scheduling-profi
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/layout/page-header'
 import Link from 'next/link'
+import { getSiteOriginFromHeaders } from '@/lib/site-url'
 
 interface Props {
   searchParams: Promise<{ calendar_connected?: string; error?: string }>
@@ -28,11 +28,7 @@ export default async function SchedulingPage({ searchParams }: Props) {
   const profile = profileResult.ok ? profileResult.data : null
   const eventTypes = eventTypesResult.ok ? eventTypesResult.data : []
 
-  // Use the real request origin so the link works on localhost too
-  const hdrs = await headers()
-  const host = hdrs.get('host') ?? 'xphere.app'
-  const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `${proto}://${host}`
+  const siteUrl = await getSiteOriginFromHeaders()
 
   // No profile yet — show centered setup screen, no header buttons
   if (!profile) {
