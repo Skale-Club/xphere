@@ -13,7 +13,6 @@ import {
   saveWidgetSettings,
   type WidgetSettingsInput,
 } from '@/app/(dashboard)/widget/actions'
-import { WidgetPreview } from '@/components/widget/widget-preview'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -113,7 +112,6 @@ export function WidgetSettingsForm({
     defaultValues: savedSettings,
   })
 
-  const previewValues = form.watch()
   const embedCode = useMemo(
     () => `<script src="https://xphere.app/widget.js" data-token="${currentToken}"></script>`,
     [currentToken]
@@ -270,21 +268,6 @@ export function WidgetSettingsForm({
               </div>
             </form>
           </Form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Live preview</CardTitle>
-          <CardDescription>Unsaved edits appear here immediately.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <WidgetPreview
-            displayName={previewValues.displayName}
-            primaryColor={previewValues.primaryColor}
-            welcomeMessage={previewValues.welcomeMessage}
-            avatarUrl={previewValues.avatarUrl}
-          />
         </CardContent>
       </Card>
 
