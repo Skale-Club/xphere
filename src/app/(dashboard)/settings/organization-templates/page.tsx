@@ -1,10 +1,15 @@
+import { redirect } from 'next/navigation'
 import { Boxes } from 'lucide-react'
 
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { OrganizationTemplatesManager } from '@/components/org-templates/organization-templates-manager'
+import { getRbacContext } from '@/lib/rbac/server'
 import { listOrgTemplates, listOrgTemplateInstalls } from './actions'
 
 export default async function OrganizationTemplatesPage() {
+  const { isPlatformAdmin } = await getRbacContext()
+  if (!isPlatformAdmin) redirect('/settings')
+
   const [templates, installs] = await Promise.all([
     listOrgTemplates(),
     listOrgTemplateInstalls(),

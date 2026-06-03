@@ -25,12 +25,15 @@ import {
 } from 'lucide-react'
 
 import { ModalShell } from '@/components/layout/modal-shell'
+import { getRbacContext } from '@/lib/rbac/server'
 
 interface SettingsCardConfig {
   href: string
   icon: LucideIcon
   title: string
   description: string
+  /** When true, card is hidden unless the viewer is a platform admin. */
+  platformAdminOnly?: boolean
 }
 
 const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
@@ -74,11 +77,12 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
         description: 'Physical addresses for bookings.',
       },
       {
-        href: '/settings/organization-templates',
+        href: ‘/settings/organization-templates’,
         icon: Boxes,
-        title: 'Organization templates',
+        title: ‘Organization templates’,
         description:
-          'Capture this organization’s structure as a reusable industry template, then create new organizations from it.',
+          ‘Capture this organization’s structure as a reusable industry template, then create new organizations from it.’,
+        platformAdminOnly: true,
       },
       {
         href: '/settings/roles',
@@ -169,25 +173,33 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
   },
 ]
 
-export default function SettingsHubPage() {
+export default async function SettingsHubPage() {
+  const { isPlatformAdmin } = await getRbacContext()
+
   return (
     <ModalShell
       title="Settings"
       description="Workspace, communications and personal preferences."
     >
       <div className="space-y-8">
-        {SECTIONS.map((section) => (
-          <section key={section.heading} className="space-y-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              {section.heading}
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {section.cards.map((card) => (
-                <SettingsCard key={card.href} {...card} />
-              ))}
-            </div>
-          </section>
-        ))}
+        {SECTIONS.map((section) => {
+          const visibleCards = section.cards.filter(
+            (c) => !c.platformAdminOnly || isPlatformAdmin,
+          )
+          if (visibleCards.length === 0) return null
+          return (
+            <section key={section.heading} className="space-y-3">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                {section.heading}
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {visibleCards.map((card) => (
+                  <SettingsCard key={card.href} {...card} />
+                ))}
+              </div>
+            </section>
+          )
+        })}
       </div>
     </ModalShell>
   )
