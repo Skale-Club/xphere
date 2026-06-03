@@ -149,6 +149,12 @@ interface ChatAreaProps {
   isLoadingMore?: boolean
   /** Operator name prefix: toggle per-conversation setting. */
   onOperatorNamePrefixToggle?: (id: string, enabled: boolean) => void
+  /**
+   * Bumped by the parent whenever the contact is edited (e.g. an email or phone
+   * added in the INFO panel). Re-runs channel resolution so newly-reachable
+   * native channels (Email/SMS/WhatsApp) surface without reopening the thread.
+   */
+  contactEditNonce?: number
 }
 
 export function ChatArea({
@@ -182,6 +188,7 @@ export function ChatArea({
   hasMore = false,
   isLoadingMore = false,
   onOperatorNamePrefixToggle,
+  contactEditNonce = 0,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   // SEED-039: per-thread channel filter (client-side, no refetch).
@@ -284,7 +291,9 @@ export function ChatArea({
     return () => {
       cancelled = true
     }
-  }, [conversation?.contactId])
+    // contactEditNonce: re-fetch when the contact is edited so reachability changes
+    // (e.g. a phone added) refresh the thread-derived channel list.
+  }, [conversation?.contactId, contactEditNonce])
 
   // Multichannel: surface the native channels the contact can be reached on
   // (SMS/Email/WhatsApp, gated on org connectivity) as outbound options that
@@ -311,7 +320,10 @@ export function ChatArea({
     return () => {
       cancelled = true
     }
-  }, [conversation?.contactId, conversation?.id])
+    // contactEditNonce: re-resolve native start-channels when the contact is
+    // edited, so adding an email/phone in the INFO panel surfaces Email/SMS/
+    // WhatsApp immediately without reopening the conversation.
+  }, [conversation?.contactId, conversation?.id, contactEditNonce])
 
   const composerChannelOptions = useMemo(() => {
     if (!conversation) return []

@@ -950,6 +950,11 @@ export function ChatLayout({
 
   // Selected conversation may be in either bucket on the current page, or — when
   // it lives on a page we haven't loaded — in the directly-fetched fallback.
+  // Bumped on every saved contact edit so ChatArea re-resolves reachable
+  // channels — adding an email/phone in the INFO panel surfaces Email/SMS/
+  // WhatsApp in the composer without reopening the conversation.
+  const [contactEditNonce, setContactEditNonce] = useState(0)
+
   const handleContactUpdated = useCallback((contact: {
     id: string
     first_name: string | null
@@ -975,6 +980,7 @@ export function ChatLayout({
       if (conversation.contactId === contact.id) upsertConversation(apply(conversation))
     }
     setFetchedConversation((prev) => (prev ? apply(prev) : prev))
+    setContactEditNonce((n) => n + 1)
   }, [conversations, pinned, upsertConversation])
 
   const selected =
@@ -1080,6 +1086,7 @@ export function ChatLayout({
             hasMore={hasMoreMessages}
             isLoadingMore={isLoadingMoreMessages}
             onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
+            contactEditNonce={contactEditNonce}
           />
         </div>
         {infoOpen && (
@@ -1214,6 +1221,7 @@ export function ChatLayout({
               hasMore={hasMoreMessages}
               isLoadingMore={isLoadingMoreMessages}
               onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
+              contactEditNonce={contactEditNonce}
             />
           </div>
         )}
