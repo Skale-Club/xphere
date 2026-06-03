@@ -637,6 +637,202 @@ export async function createBooking(
   return { ok: true, data: { id: booking.id, cancel_token: booking.cancel_token } }
 }
 
+// ─── Internal: operator creates a booking from the dashboard calendar ─────────
+
+const createInternalBookingSchema = z.object({
+  event_type_id: z.string().uuid(),
+  start_at: z.string(), // ISO 8601
+  booker_name: z.string().min(1).max(100),
+  booker_email: z.string().email().optional().or(z.literal('')),
+  booker_phone: z.string().max(30).optional().or(z.literal('')),
+  booker_timezone: z.string().default('UTC'),
+  notes: z.string().max(2000).optional().or(z.literal('')),
+  location_kind: z.string().optional(),
+  contact_id: z.string().uuid().optional(),
+})
+
+export type CreateInternalBookingInput = z.input<typeof createInternalBookingSchema>
+
+/**
+ * Operator-facing booking creation (dashboard calendar). Unlike the public
+ * `createBooking`, this requires an authenticated user, has no rate limit, and
+ * accepts an optional email/contact. Side-effects (Google Calendar event +
+ * confirmation email) run only when a booker email is present.
+ */
+export async function createBookingInternal(
+  input: CreateInternalBookingInput,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const parsed = createInternalBookingSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'validation_error' }
+
+  const email = parsed.data.booker_email?.trim() || null
+  const phone = parsed.data.booker_phone?.trim() || null
+  const notes = parsed.data.notes?.trim() || null
+
+  const supabase = createServiceRoleClient()
+
+  const { data: et } = await supabase
+    .from('event_types')
+    .select('duration_minutes, org_id, user_id, title, location_type, location_value, allowed_location_kinds')
+    .eq('id', parsed.data.event_type_id)
+    .eq('active', true)
+    .single()
+
+  if (!et) return { ok: false, error: 'event_type_not_found' }
+
+  // Scope the booking to the operator's active org.
+  const { data: orgId } = await (await createClient()).rpc('get_current_org_id')
+  if (orgId && et.org_id !== orgId) return { ok: false, error: 'forbidden' }
+
+  const { data: hostProfile } = await supabase
+    .from('scheduling_profiles')
+    .select('timezone')
+    .eq('user_id', et.user_id)
+    .maybeSingle()
+  const hostTimezone = hostProfile?.timezone ?? 'UTC'
+
+  const startAt = new Date(parsed.data.start_at)
+  const endAt = addMinutes(startAt, et.duration_minutes)
+
+  // Race-condition guard.
+  const { data: conflict } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('event_type_id', parsed.data.event_type_id)
+    .eq('status', 'confirmed')
+    .lt('start_at', endAt.toISOString())
+    .gt('end_at', startAt.toISOString())
+    .maybeSingle()
+  if (conflict) return { ok: false, error: 'slot_taken' }
+
+  // Resolve / link contact: prefer the explicit contact_id, else match by email.
+  let linkedContactId: string | null = null
+  if (parsed.data.contact_id) {
+    linkedContactId = parsed.data.contact_id
+  } else if (email) {
+    try {
+      const { data: existing } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('org_id', et.org_id)
+        .eq('email', email)
+        .maybeSingle()
+      if (existing) {
+        linkedContactId = existing.id
+      } else {
+        const customFieldsDefaults = await buildRequiredCustomFieldDefaults(et.org_id)
+        const { data: newContact } = await supabase
+          .from('contacts')
+          .insert({
+            org_id: et.org_id,
+            name: parsed.data.booker_name,
+            email,
+            phone,
+            source: 'manual',
+            custom_fields: customFieldsDefaults,
+          })
+          .select('id')
+          .single()
+        linkedContactId = newContact?.id ?? null
+      }
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  const allowedKinds = (et.allowed_location_kinds ?? []) as string[]
+  const effectiveLocationKind: string | null =
+    parsed.data.location_kind && allowedKinds.includes(parsed.data.location_kind)
+      ? parsed.data.location_kind
+      : (allowedKinds[0] ?? et.location_type ?? null)
+
+  const liveContactId = linkedContactId ? await resolveLiveContactId(linkedContactId) : null
+
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .insert({
+      org_id: et.org_id,
+      event_type_id: parsed.data.event_type_id,
+      booker_name: parsed.data.booker_name,
+      booker_email: email ?? '',
+      booker_phone: phone,
+      booker_timezone: parsed.data.booker_timezone,
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      notes,
+      linked_contact_id: liveContactId,
+      status: 'confirmed',
+      location_kind: effectiveLocationKind,
+    })
+    .select('id, cancel_token')
+    .single()
+
+  if (error || !booking) {
+    const code = (error as { code?: string } | null)?.code
+    if (code === '23505') return { ok: false, error: 'slot_taken' }
+    return { ok: false, error: error?.message ?? 'create_failed' }
+  }
+
+  // Side-effects only when we have a booker email (GCal attendee + email need it).
+  if (email) {
+    try {
+      const { createCalendarEvent } = await import('@/lib/scheduling/google-calendar')
+      await createCalendarEvent(et.user_id, et.org_id, {
+        summary: `${et.title} with ${parsed.data.booker_name}`,
+        description: notes ?? undefined,
+        start: startAt.toISOString(),
+        end: endAt.toISOString(),
+        attendeeEmail: email,
+        attendeeName: parsed.data.booker_name,
+        location: et.location_value ?? undefined,
+        timezone: hostTimezone,
+      })
+    } catch {
+      /* non-fatal */
+    }
+
+    void (async () => {
+      const hostName = await resolveHostName(et.user_id)
+      const siteUrl = await getSiteOriginFromHeaders()
+      const cancelUrl = `${siteUrl}/book/cancel/${booking.id}?token=${booking.cancel_token}`
+      const { data: freshBooking } = await supabase
+        .from('bookings')
+        .select('meeting_url, meeting_phone, location_data')
+        .eq('id', booking.id)
+        .maybeSingle()
+      await sendBookingConfirmation({
+        bookerEmail: email,
+        bookerName: parsed.data.booker_name,
+        hostName,
+        eventTitle: et.title,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        timezone: parsed.data.booker_timezone,
+        cancelUrl,
+        locationKind: effectiveLocationKind ?? undefined,
+        meetingUrl: freshBooking?.meeting_url ?? undefined,
+        meetingPhone: freshBooking?.meeting_phone ?? undefined,
+        locationAddress: et.location_value ?? undefined,
+      })
+    })().catch(() => {})
+  }
+
+  void emitCalendarEvent(
+    { supabase, depth: 0 },
+    {
+      event: 'meeting.scheduled',
+      booking_id: booking.id,
+      org_id: et.org_id,
+    } satisfies CalendarEventPayload,
+  ).catch(() => {})
+
+  revalidatePath('/scheduling/calendar')
+  return { ok: true, data: { id: booking.id } }
+}
+
 // ─── Public: cancel via token ─────────────────────────────────────────────────
 
 export async function cancelBookingByToken(
