@@ -15,6 +15,7 @@ import {
   deleteFolder,
   renameFolder,
   reorderFolders,
+  updateFolderMeta,
 } from '@/app/(dashboard)/projects/_actions/folders'
 import {
   moveProjectToFolder,
@@ -32,6 +33,7 @@ interface FolderItem {
   id: string
   name: string
   color: string | null
+  icon: string | null
   parent_id: string | null
   position: number
 }
@@ -50,6 +52,7 @@ export function ProjectSubNav({ projects, folders }: Props) {
       items={projects}
       folders={folders}
       itemNoun="project"
+      enableFolderIcon
       getHref={(p) => `/projects/${p.id}`}
       renderItemIcon={(p) => (
         <span
@@ -70,6 +73,7 @@ export function ProjectSubNav({ projects, folders }: Props) {
         reorderFolders,
         deleteFolder,
         renameFolder,
+        updateFolderMeta,
         moveItemToFolder: moveProjectToFolder,
         reorderItemsInFolder: reorderProjectsInFolder,
       }}

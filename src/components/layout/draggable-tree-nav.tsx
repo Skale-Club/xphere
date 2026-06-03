@@ -19,7 +19,10 @@ import {
   FolderOpen,
   GripVertical,
   MoreHorizontal,
+  Palette,
   Pencil,
+  RotateCcw,
+  Smile,
   Trash2,
   X,
 } from 'lucide-react'
@@ -55,11 +58,25 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
 
 const UNFILED_ID = '__unfiled__'
+
+// Folder customization palettes. Colors match the project-creation dialog.
+const FOLDER_COLORS = [
+  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
+  '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6',
+]
+const FOLDER_EMOJIS = [
+  '📁', '📌', '⭐', '🚀', '💡', '🔥',
+  '✅', '🎯', '📊', '💼', '🧩', '🔔',
+  '📨', '🗂️', '🏷️', '🟢', '🔵', '🟣',
+]
 
 export interface TreeNavItem {
   id: string
@@ -71,6 +88,7 @@ export interface TreeNavFolder {
   id: string
   name: string
   color: string | null
+  icon: string | null
   parent_id: string | null
   position: number
 }
@@ -81,6 +99,10 @@ export interface TreeNavActions {
   reorderFolders: (orderedIds: string[]) => Promise<ActionResult>
   deleteFolder: (id: string, opts?: { cascadeChildren?: boolean }) => Promise<ActionResult>
   renameFolder: (id: string, input: { name: string }) => Promise<ActionResult>
+  updateFolderMeta: (
+    id: string,
+    input: { color?: string | null; icon?: string | null },
+  ) => Promise<ActionResult>
   moveItemToFolder: (itemId: string, folderId: string | null) => Promise<ActionResult>
   reorderItemsInFolder: (
     folderId: string | null,
@@ -98,6 +120,8 @@ interface DraggableTreeNavProps<T extends TreeNavItem> {
   /** Performs the soft-delete (incl. its own toast). Refresh is handled here. */
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
+  /** Enables the per-folder icon (emoji) picker. Color is always available. */
+  enableFolderIcon?: boolean
   toolbar: React.ReactNode
   footer?: React.ReactNode
   emptyState: React.ReactNode
@@ -115,6 +139,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
   renderItemIcon,
   onDeleteItem,
   actions,
+  enableFolderIcon,
   toolbar,
   footer,
   emptyState,
@@ -315,9 +340,10 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                   onDeleteItem={onDeleteItem}
                   actions={actions}
                   itemNoun={itemNoun}
-                  onRenamed={(id, name) =>
+                  enableFolderIcon={enableFolderIcon}
+                  onPatched={(id, patch) =>
                     setLocalFolders((prev) =>
-                      prev.map((f) => (f.id === id ? { ...f, name } : f)),
+                      prev.map((f) => (f.id === id ? { ...f, ...patch } : f)),
                     )
                   }
                 />
@@ -431,7 +457,8 @@ function FolderSection<T extends TreeNavItem>({
   onDeleteItem,
   actions,
   itemNoun,
-  onRenamed,
+  enableFolderIcon,
+  onPatched,
 }: {
   folder: TreeNavFolder
   items: T[]
@@ -441,19 +468,37 @@ function FolderSection<T extends TreeNavItem>({
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
   itemNoun: string
-  onRenamed: (id: string, name: string) => void
+  enableFolderIcon?: boolean
+  onPatched: (
+    id: string,
+    patch: Partial<Pick<TreeNavFolder, 'name' | 'color' | 'icon'>>,
+  ) => void
 }) {
   const router = useRouter()
   const [open, setOpen] = React.useState(true)
   const [editing, setEditing] = React.useState(false)
   const [draft, setDraft] = React.useState(folder.name)
   const [saving, setSaving] = React.useState(false)
+  const [menuOpen, setMenuOpen] = React.useState(false)
 
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: folder.id,
     data: { type: 'folder', folderId: folder.id },
   })
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition }
+
+  const colorStyle = folder.color ? { color: folder.color } : { color: '#f59e0b' }
+  // The folder glyph: a chosen emoji icon when set, otherwise the colored
+  // open/closed folder icon.
+  const glyph = folder.icon ? (
+    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
+      {folder.icon}
+    </span>
+  ) : open ? (
+    <FolderOpen className="h-3.5 w-3.5 shrink-0" style={colorStyle} />
+  ) : (
+    <FolderIcon className="h-3.5 w-3.5 shrink-0" style={colorStyle} />
+  )
 
   function beginRename() {
     setDraft(folder.name)
@@ -473,8 +518,16 @@ function FolderSection<T extends TreeNavItem>({
       toast.error(res.error)
       return
     }
-    onRenamed(folder.id, name)
+    onPatched(folder.id, { name })
     setEditing(false)
+    router.refresh()
+  }
+
+  async function applyMeta(patch: { color?: string | null; icon?: string | null }) {
+    onPatched(folder.id, patch) // optimistic
+    setMenuOpen(false)
+    const res = await actions.updateFolderMeta(folder.id, patch)
+    if (!res.ok) toast.error(res.error)
     router.refresh()
   }
 
@@ -503,10 +556,7 @@ function FolderSection<T extends TreeNavItem>({
 
         {editing ? (
           <div className="flex flex-1 min-w-0 items-center gap-1">
-            <FolderIcon
-              className="h-3.5 w-3.5 shrink-0"
-              style={folder.color ? { color: folder.color } : { color: '#f59e0b' }}
-            />
+            {glyph}
             <Input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -553,14 +603,7 @@ function FolderSection<T extends TreeNavItem>({
                   open && 'rotate-90',
                 )}
               />
-              {open ? (
-                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-              ) : (
-                <FolderIcon
-                  className="h-3.5 w-3.5 shrink-0"
-                  style={folder.color ? { color: folder.color } : { color: '#f59e0b' }}
-                />
-              )}
+              {glyph}
               <span className="flex-1 min-w-0 truncate text-left text-[12px] font-medium text-text-secondary">
                 {folder.name}
               </span>
@@ -569,7 +612,7 @@ function FolderSection<T extends TreeNavItem>({
               </span>
             </button>
 
-            <DropdownMenu>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -580,11 +623,76 @@ function FolderSection<T extends TreeNavItem>({
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onSelect={beginRename}>
                   <Pencil className="h-3 w-3" />
                   Rename
                 </DropdownMenuItem>
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Palette className="h-3 w-3" />
+                    Color
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-0">
+                    <div className="grid grid-cols-5 gap-1.5 p-1.5">
+                      {FOLDER_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => applyMeta({ color: c })}
+                          className="h-5 w-5 rounded-full transition-transform hover:scale-110"
+                          style={{
+                            backgroundColor: c,
+                            boxShadow:
+                              folder.color === c
+                                ? `0 0 0 2px var(--bg-primary), 0 0 0 3.5px ${c}`
+                                : undefined,
+                          }}
+                          aria-label={`Color ${c}`}
+                        />
+                      ))}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => applyMeta({ color: null })}>
+                      <RotateCcw className="h-3 w-3" />
+                      Default color
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                {enableFolderIcon && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Smile className="h-3 w-3" />
+                      Icon
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-0">
+                      <div className="grid grid-cols-6 gap-1 p-1.5">
+                        {FOLDER_EMOJIS.map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            onClick={() => applyMeta({ icon: e })}
+                            className={cn(
+                              'flex h-7 w-7 items-center justify-center rounded-md text-[15px] leading-none hover:bg-bg-tertiary',
+                              folder.icon === e && 'bg-accent/15',
+                            )}
+                            aria-label={`Icon ${e}`}
+                          >
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => applyMeta({ icon: null })}>
+                        <RotateCcw className="h-3 w-3" />
+                        Default icon
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-rose-500 focus:text-rose-500"
@@ -741,10 +849,16 @@ function ItemDragGhost({ name, icon }: { name: string; icon: React.ReactNode }) 
 function FolderDragGhost({ folder }: { folder: TreeNavFolder }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary px-3 py-1.5 shadow-lg">
-      <FolderIcon
-        className="h-3.5 w-3.5 shrink-0"
-        style={folder.color ? { color: folder.color } : { color: '#f59e0b' }}
-      />
+      {folder.icon ? (
+        <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
+          {folder.icon}
+        </span>
+      ) : (
+        <FolderIcon
+          className="h-3.5 w-3.5 shrink-0"
+          style={folder.color ? { color: folder.color } : { color: '#f59e0b' }}
+        />
+      )}
       <span className="max-w-[180px] truncate text-[12px] font-medium text-text-secondary">
         {folder.name}
       </span>

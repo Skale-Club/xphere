@@ -23,6 +23,7 @@ import {
   deleteFolder,
   renameFolder,
   reorderFolders,
+  updateFolderMeta,
 } from '@/app/(dashboard)/workflows/_actions/folders'
 import {
   moveWorkflowToFolder,
@@ -41,6 +42,7 @@ interface FolderItem {
   id: string
   name: string
   color: string | null
+  icon: string | null
   parent_id: string | null
   position: number
 }
@@ -97,6 +99,7 @@ export function WorkflowSubNav({ workflows, folders }: Props) {
         reorderFolders,
         deleteFolder,
         renameFolder,
+        updateFolderMeta,
         moveItemToFolder: moveWorkflowToFolder,
         reorderItemsInFolder: reorderWorkflowsInFolder,
       }}

@@ -22,6 +22,7 @@ export default async function ProjectsLayout({ children }: { children: React.Rea
     id: f.id,
     name: f.name,
     color: f.color,
+    icon: f.icon,
     parent_id: f.parent_id,
     position: f.position,
   }))

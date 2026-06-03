@@ -39,6 +39,7 @@ export default async function WorkflowsLayout({ children }: { children: React.Re
     id: f.id,
     name: f.name,
     color: f.color,
+    icon: f.icon,
     parent_id: f.parent_id,
     position: f.position,
   }))
