@@ -422,7 +422,7 @@ export function MetaAdsOverview({
 
       {/* ── Section 2: Conversion Funnel + Trend Charts ─────────────── */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <MetaFunnel
             impressions={parseFloat(insights?.impressions ?? '0')}
             clicks={parseFloat(insights?.clicks ?? '0')}
@@ -443,7 +443,7 @@ export function MetaAdsOverview({
 
       {/* ── Section 3: Performance Summary + Top Campaigns ──────────── */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {/* Summary card */}
           <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-4">
             <div>

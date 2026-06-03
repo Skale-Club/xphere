@@ -236,7 +236,7 @@ export function MetaTrendCharts({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-4 col-span-2">
+      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-4 md:col-span-2">
         <div className="h-4 w-32 rounded bg-bg-tertiary animate-pulse" />
         <div className="h-[220px] rounded-lg bg-bg-tertiary animate-pulse" />
         <div className="h-[160px] rounded-lg bg-bg-tertiary animate-pulse" />
@@ -246,7 +246,7 @@ export function MetaTrendCharts({
 
   if (data.length < 2) {
     return (
-      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-6 col-span-2 flex items-center justify-center">
+      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-6 md:col-span-2 flex items-center justify-center">
         <p className="text-[13px] text-text-tertiary">
           Daily trend requires at least 2 days of data. Select a wider date range.
         </p>
@@ -255,7 +255,7 @@ export function MetaTrendCharts({
   }
 
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 col-span-2 space-y-6">
+    <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 md:col-span-2 space-y-6">
       <SpendLeadsChart data={data} currency={currency} gradientId={spendGradId} />
       <div className="border-t border-border-subtle" />
       <CplTrendChart data={data} currency={currency} gradientId={cplGradId} />

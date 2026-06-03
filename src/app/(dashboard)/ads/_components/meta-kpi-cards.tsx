@@ -145,7 +145,7 @@ export function MetaKpiCards({
   return (
     <div className="space-y-3">
       {/* Row 1 — lead-gen KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
           label="Cost per Lead"
           value={cpl != null ? fmt(cpl, currency) : '—'}

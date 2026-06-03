@@ -26,7 +26,7 @@ export function MetaTopCampaigns({
 }) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 col-span-2">
+      <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 md:col-span-2">
         <div className="h-4 w-40 rounded bg-bg-tertiary animate-pulse mb-4" />
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex gap-3 py-2.5 border-b border-border-subtle/50 animate-pulse">
@@ -53,7 +53,7 @@ export function MetaTopCampaigns({
   }
 
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 col-span-2">
+    <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 md:col-span-2">
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-[12px] font-semibold text-text-primary">Top Campaigns by Leads</p>
