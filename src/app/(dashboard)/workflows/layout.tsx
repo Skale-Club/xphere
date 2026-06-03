@@ -47,6 +47,7 @@ export default async function WorkflowsLayout({ children }: { children: React.Re
     <SubSidebarLayout
       storageKey="sub-sidebar:workflows"
       title="Workflows"
+      autoCollapseBasePath="/workflows"
       nav={<WorkflowSubNav workflows={navWorkflows} folders={navFolders} />}
     >
       {children}

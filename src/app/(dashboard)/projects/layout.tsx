@@ -30,6 +30,7 @@ export default async function ProjectsLayout({ children }: { children: React.Rea
     <SubSidebarLayout
       storageKey="sub-sidebar:projects"
       title="Projects"
+      autoCollapseBasePath="/projects"
       nav={<ProjectSubNav projects={navProjects} folders={navFolders} />}
     >
       {children}

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --port 4267",
+    "dev": "cross-env NODE_OPTIONS=--max-http-header-size=32768 next dev --turbopack --port 4267",
     "build:favicon": "tsx scripts/generate-favicon.ts",
     "build:widget": "esbuild src/widget/index.ts --bundle --minify --platform=browser --format=iife --target=es2017 --outfile=public/widget.js",
     "build:reviews-widget": "esbuild src/reviews-widget/index.ts --bundle --minify --platform=browser --format=iife --target=es2017 --outfile=public/reviews-widget.js",
@@ -111,6 +111,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "^16.2.2",

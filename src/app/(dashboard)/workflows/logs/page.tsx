@@ -68,7 +68,6 @@ export default async function ToolLogsPage({
             )}
           </>
         }
-        back={{ href: '/workflows', label: 'Back to workflows' }}
       />
 
       <LogsFilters
