@@ -1,10 +1,11 @@
 // src/lib/obs/alerts.ts
-// O3: observability alerting. Posts to a Slack Incoming Webhook and dedupes
+// O3: observability alerting. Sends messages + errors to Telegram and dedupes
 // repeat notifications via the obs_alert_log table. Used by the obs-alerts cron.
 //
 // Config:
-//   SLACK_ALERTS_WEBHOOK_URL  - Slack incoming webhook. When unset, alerting is
-//                               a no-op (slackConfigured() === false).
+//   TELEGRAM_BOT_TOKEN     - Bot token from @BotFather.
+//   TELEGRAM_ALERT_CHAT_ID - Target chat/channel/group id (e.g. -1001234567890).
+// When either is unset, alerting is a no-op (telegramConfigured() === false).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -18,10 +19,11 @@ export interface Alert {
   fields?: Record<string, string | number>
 }
 
-const SLACK_URL = process.env.SLACK_ALERTS_WEBHOOK_URL
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TELEGRAM_ALERT_CHAT_ID = process.env.TELEGRAM_ALERT_CHAT_ID
 
-export function slackConfigured(): boolean {
-  return Boolean(SLACK_URL)
+export function telegramConfigured(): boolean {
+  return Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_ALERT_CHAT_ID)
 }
 
 // ─── Pure evaluation helpers (unit-tested) ────────────────────────────────────
@@ -42,18 +44,23 @@ export function errorRateBreached(total: number, errors: number, minVolume = 20,
   return errors / total >= ratio
 }
 
-// ─── Slack delivery ───────────────────────────────────────────────────────────
+// ─── Telegram delivery ─────────────────────────────────────────────────────────
 
-export async function sendSlackAlert(alert: Alert): Promise<boolean> {
-  if (!SLACK_URL) return false
+export async function sendTelegramAlert(alert: Alert): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_ALERT_CHAT_ID) return false
   const icon = alert.severity === 'critical' ? '🔴' : '🟠'
   const lines = [`${icon} *${alert.title}*`]
   for (const [k, v] of Object.entries(alert.fields ?? {})) lines.push(`• ${k}: ${v}`)
   try {
-    const res = await fetch(SLACK_URL, {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: lines.join('\n') }),
+      body: JSON.stringify({
+        chat_id: TELEGRAM_ALERT_CHAT_ID,
+        text: lines.join('\n'),
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true,
+      }),
     })
     return res.ok
   } catch {
