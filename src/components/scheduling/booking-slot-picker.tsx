@@ -18,16 +18,23 @@ import {
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getAvailableSlots } from '@/app/(dashboard)/scheduling/_actions/bookings'
-import type { TimeSlot } from '@/lib/scheduling/slots'
+import { getAvailableSlots, getDebugSlots } from '@/app/(dashboard)/scheduling/_actions/bookings'
+import type { TimeSlot, DebugTimeSlot, SlotBlockReason } from '@/lib/scheduling/slots'
 
 const DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+
+const REASON_LABEL: Record<SlotBlockReason, string> = {
+  past: 'PAST',
+  booked: 'BOOKED',
+  google_busy: 'GOOGLE BUSY',
+}
 
 interface BookingSlotPickerProps {
   eventTypeId: string
   availableDows: number[] // days of week with availability
   durationMinutes: number
   onSelectSlot: (slot: TimeSlot) => void
+  debugMode?: boolean
 }
 
 export function BookingSlotPicker({
@@ -35,10 +42,11 @@ export function BookingSlotPicker({
   availableDows,
   durationMinutes,
   onSelectSlot,
+  debugMode = false,
 }: BookingSlotPickerProps) {
   const [viewMonth, setViewMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [slots, setSlots] = useState<TimeSlot[]>([])
+  const [slots, setSlots] = useState<DebugTimeSlot[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
 
@@ -64,12 +72,15 @@ export function BookingSlotPicker({
     setSlots([])
     setLoadingSlots(true)
     try {
-      const result = await getAvailableSlots({
-        eventTypeId,
-        date: format(day, 'yyyy-MM-dd'),
-        bookerTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      })
-      setSlots(result.ok ? result.data : [])
+      const dateStr = format(day, 'yyyy-MM-dd')
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (debugMode) {
+        const result = await getDebugSlots({ eventTypeId, date: dateStr, bookerTimezone: tz })
+        setSlots(result.ok ? result.data : [])
+      } else {
+        const result = await getAvailableSlots({ eventTypeId, date: dateStr, bookerTimezone: tz })
+        setSlots(result.ok ? result.data.map((s) => ({ ...s, available: true })) : [])
+      }
     } finally {
       setLoadingSlots(false)
     }
@@ -146,23 +157,50 @@ export function BookingSlotPicker({
             ) : slots.length === 0 ? (
               <div className="text-xs text-muted-foreground">No slots available</div>
             ) : (
-              slots.map((slot) => (
-                <button
-                  key={slot.start}
-                  onClick={() => handleSelectSlot(slot)}
-                  className={cn(
-                    'w-full rounded border border-border py-2 text-sm font-medium transition-colors',
-                    selectedSlot?.start === slot.start
-                      ? 'bg-indigo-600 border-indigo-600 text-white'
-                      : 'hover:border-indigo-400 hover:text-indigo-400',
-                  )}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <Clock className="h-3.5 w-3.5 opacity-70" />
-                    {slot.startLocal}
-                  </div>
-                </button>
-              ))
+              slots.map((slot) => {
+                if (!slot.available) {
+                  return (
+                    <div
+                      key={slot.start}
+                      className="w-full rounded border border-dashed border-border/50 py-2 px-3 text-sm opacity-60 pointer-events-none"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 opacity-70" />
+                          {slot.startLocal}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">
+                            UNAVAILABLE
+                          </span>
+                          {slot.reason && (
+                            <span className="text-[9px] font-bold uppercase bg-[#2A2A2F] text-muted-foreground px-1.5 py-0.5 rounded">
+                              {REASON_LABEL[slot.reason]}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+                return (
+                  <button
+                    key={slot.start}
+                    onClick={() => handleSelectSlot(slot)}
+                    className={cn(
+                      'w-full rounded border border-border py-2 text-sm font-medium transition-colors',
+                      selectedSlot?.start === slot.start
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'hover:border-indigo-400 hover:text-indigo-400',
+                    )}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <Clock className="h-3.5 w-3.5 opacity-70" />
+                      {slot.startLocal}
+                    </div>
+                  </button>
+                )
+              })
             )}
           </div>
         ) : (

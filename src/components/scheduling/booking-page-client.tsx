@@ -15,6 +15,7 @@ interface BookingPageClientProps {
   durationMinutes: number
   color: string
   allowedLocationKinds: string[]
+  debugMode?: boolean
 }
 
 export function BookingPageClient({
@@ -23,6 +24,7 @@ export function BookingPageClient({
   durationMinutes,
   color,
   allowedLocationKinds,
+  debugMode = false,
 }: BookingPageClientProps) {
   const [step, setStep] = useState<Step>('pick')
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
@@ -117,6 +119,7 @@ export function BookingPageClient({
       availableDows={availableDows}
       durationMinutes={durationMinutes}
       onSelectSlot={handleSlotSelect}
+      debugMode={debugMode}
     />
   )
 }

@@ -7,7 +7,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { addMinutes, startOfDay, endOfDay, addDays } from 'date-fns'
 import { fromZonedTime } from 'date-fns-tz'
-import { generateSlots } from '@/lib/scheduling/slots'
+import { generateSlots, generateSlotsWithReasons, type DebugTimeSlot } from '@/lib/scheduling/slots'
 import { fetchBusyTimes } from '@/lib/scheduling/google-calendar'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolveLiveContactId } from '@/lib/contacts/server'
@@ -338,6 +338,76 @@ export async function getAvailableSlots(params: {
   ).catch(() => [])
 
   const slots = generateSlots({
+    date: params.date,
+    timezone,
+    durationMinutes: et.duration_minutes,
+    availability: avail,
+    existingBookings,
+    busyTimes,
+    bufferMinutes: 0,
+    minAdvanceMinutes: 60,
+  })
+
+  return { ok: true, data: slots }
+}
+
+// ─── Debug: all slots with blocking reasons (troubleshooting view) ──────────
+
+export async function getDebugSlots(params: {
+  eventTypeId: string
+  date: string
+  bookerTimezone?: string
+}): Promise<ActionResult<DebugTimeSlot[]>> {
+  const supabase = createServiceRoleClient()
+
+  const { data: et } = await supabase
+    .from('event_types')
+    .select('*')
+    .eq('id', params.eventTypeId)
+    .eq('active', true)
+    .single()
+
+  if (!et) return { ok: false, error: 'event_type_not_found' }
+
+  const userId = et.user_id
+  const orgId = et.org_id
+
+  const { data: profile } = await supabase
+    .from('scheduling_profiles')
+    .select('timezone')
+    .eq('user_id', userId)
+    .single()
+
+  const timezone = profile?.timezone ?? 'UTC'
+
+  const [year, month, day] = params.date.split('-').map(Number)
+  const dateObj = new Date(year, month - 1, day)
+  const dow = dateObj.getDay()
+
+  const { data: avail } = await supabase
+    .from('user_availability')
+    .select('start_time, end_time')
+    .eq('user_id', userId)
+    .eq('day_of_week', dow)
+    .maybeSingle()
+
+  if (!avail) return { ok: true, data: [] }
+
+  const dayStartUtc = fromZonedTime(new Date(year, month - 1, day, 0, 0, 0), timezone)
+  const dayEndUtc = fromZonedTime(new Date(year, month - 1, day, 23, 59, 59), timezone)
+
+  const { data: existing } = await supabase
+    .from('bookings')
+    .select('start_at, end_at')
+    .eq('event_type_id', params.eventTypeId)
+    .eq('status', 'confirmed')
+    .gte('start_at', dayStartUtc.toISOString())
+    .lte('start_at', dayEndUtc.toISOString())
+
+  const existingBookings = (existing ?? []).map((b) => ({ start: b.start_at, end: b.end_at }))
+  const busyTimes = await fetchBusyTimes(userId, orgId, dayStartUtc.toISOString(), dayEndUtc.toISOString()).catch(() => [])
+
+  const slots = generateSlotsWithReasons({
     date: params.date,
     timezone,
     durationMinutes: et.duration_minutes,

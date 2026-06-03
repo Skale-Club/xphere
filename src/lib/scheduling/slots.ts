@@ -141,6 +141,109 @@ export function generateSlots(params: {
   return slots
 }
 
+// ── Debug / troubleshooting types ────────────────────────────────────────────
+
+export type SlotBlockReason = 'past' | 'booked' | 'google_busy'
+
+export interface DebugTimeSlot extends TimeSlot {
+  available: boolean
+  reason?: SlotBlockReason
+}
+
+// Like generateSlots but returns ALL candidate slots (available + blocked),
+// each tagged with the reason it was blocked. Used by the troubleshooting view.
+export function generateSlotsWithReasons(params: {
+  date: string
+  timezone: string
+  durationMinutes: number
+  availability: AvailabilityWindow | null
+  existingBookings: BusyInterval[]
+  busyTimes: BusyInterval[]
+  bufferMinutes?: number
+  minAdvanceMinutes?: number
+}): DebugTimeSlot[] {
+  const {
+    date,
+    timezone,
+    durationMinutes,
+    availability,
+    existingBookings,
+    busyTimes,
+    bufferMinutes = 0,
+    minAdvanceMinutes = 60,
+  } = params
+
+  if (!availability) return []
+
+  const [startH, startM] = parseTime(availability.start_time)
+  const [endH, endM] = parseTime(availability.end_time)
+
+  const localDate = parseISO(date)
+  const windowStartLocal = setMilliseconds(
+    setSeconds(setMinutes(setHours(localDate, startH), startM), 0), 0,
+  )
+  const windowEndLocal = setMilliseconds(
+    setSeconds(setMinutes(setHours(localDate, endH), endM), 0), 0,
+  )
+
+  const windowStartUtc = fromZonedTime(windowStartLocal, timezone)
+  const windowEndUtc = fromZonedTime(windowEndLocal, timezone)
+
+  const now = new Date()
+  const minAdvanceCutoff = addMinutes(now, minAdvanceMinutes)
+  const stepMinutes = durationMinutes + bufferMinutes
+
+  const slots: DebugTimeSlot[] = []
+  let cursor = windowStartUtc
+
+  while (
+    isBefore(addMinutes(cursor, durationMinutes), windowEndUtc) ||
+    addMinutes(cursor, durationMinutes).getTime() === windowEndUtc.getTime()
+  ) {
+    const slotStart = cursor
+    const slotEnd = addMinutes(cursor, durationMinutes)
+
+    const startLocal = toZonedTime(slotStart, timezone)
+    const endLocal = toZonedTime(slotEnd, timezone)
+    const base: TimeSlot = {
+      start: slotStart.toISOString(),
+      end: slotEnd.toISOString(),
+      startLocal: format(startLocal, 'HH:mm'),
+      endLocal: format(endLocal, 'HH:mm'),
+    }
+
+    if (isBefore(slotStart, minAdvanceCutoff)) {
+      slots.push({ ...base, available: false, reason: 'past' })
+      cursor = addMinutes(cursor, stepMinutes)
+      continue
+    }
+
+    // Check bookings first, then Google Calendar
+    const bookedBy = existingBookings.find((b) =>
+      overlaps(slotStart, slotEnd, parseISO(b.start), parseISO(b.end)),
+    )
+    if (bookedBy) {
+      slots.push({ ...base, available: false, reason: 'booked' })
+      cursor = addMinutes(cursor, stepMinutes)
+      continue
+    }
+
+    const gcalBusy = busyTimes.find((b) =>
+      overlaps(slotStart, slotEnd, parseISO(b.start), parseISO(b.end)),
+    )
+    if (gcalBusy) {
+      slots.push({ ...base, available: false, reason: 'google_busy' })
+      cursor = addMinutes(cursor, stepMinutes)
+      continue
+    }
+
+    slots.push({ ...base, available: true })
+    cursor = addMinutes(cursor, stepMinutes)
+  }
+
+  return slots
+}
+
 // Get which days of the month have availability (for date picker highlighting).
 export function getDaysWithAvailability(
   year: number,

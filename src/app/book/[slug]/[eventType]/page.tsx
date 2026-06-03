@@ -2,16 +2,20 @@ import { notFound } from 'next/navigation'
 import { Clock, MapPin, Phone, Video, CalendarCheck } from 'lucide-react'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { BookingPageClient } from '@/components/scheduling/booking-page-client'
+import { BookingDebugBanner } from '@/components/scheduling/booking-debug-banner'
 
 const LOCATION_ICONS = { video: Video, phone: Phone, in_person: MapPin }
 const LOCATION_LABELS = { video: 'Video call', phone: 'Phone call', in_person: 'In person' }
 
 interface Props {
   params: Promise<{ slug: string; eventType: string }>
+  searchParams: Promise<{ debug?: string }>
 }
 
-export default async function PublicBookingPage({ params }: Props) {
+export default async function PublicBookingPage({ params, searchParams }: Props) {
   const { slug, eventType: eventTypeSlug } = await params
+  const sp = await searchParams
+  const debugMode = sp.debug === '1'
 
   const supabase = createServiceRoleClient()
 
@@ -47,6 +51,7 @@ export default async function PublicBookingPage({ params }: Props) {
   return (
     <div className="dark min-h-screen bg-[#08090A] flex items-start justify-center pt-10 px-4">
       <div className="w-full max-w-3xl">
+        {debugMode && <BookingDebugBanner />}
         {/* Event type info */}
         <div className="rounded-xl border border-[#2A2A2F] bg-[#111113] overflow-hidden">
           <div className="h-2" style={{ backgroundColor: et.color }} />
@@ -81,6 +86,7 @@ export default async function PublicBookingPage({ params }: Props) {
               durationMinutes={et.duration_minutes}
               color={et.color}
               allowedLocationKinds={et.allowed_location_kinds ?? ['video']}
+              debugMode={debugMode}
             />
           </div>
         </div>
