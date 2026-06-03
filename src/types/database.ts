@@ -1954,6 +1954,54 @@ export interface Database {
           }
         ]
       }
+      inbox_saved_views: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          name: string
+          filters: Record<string, unknown>
+          is_default: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          name: string
+          filters?: Record<string, unknown>
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string
+          name?: string
+          filters?: Record<string, unknown>
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'inbox_saved_views_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'inbox_saved_views_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       conversation_messages: {
         Row: {
           id: string
