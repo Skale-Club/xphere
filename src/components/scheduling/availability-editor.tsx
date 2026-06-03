@@ -54,6 +54,15 @@ export function AvailabilityEditor({ initialAvailability }: AvailabilityEditorPr
   }
 
   function handleSave() {
+    // Validate enabled days have end > start
+    for (const d of DAYS) {
+      const state = days[d.dow]
+      if (state.enabled && state.end <= state.start) {
+        toast.error(`${d.label}: end time must be after start time`)
+        return
+      }
+    }
+
     startTransition(async () => {
       const items = DAYS.map((d) => ({
         day_of_week: d.dow,

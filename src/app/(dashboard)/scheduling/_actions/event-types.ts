@@ -40,6 +40,7 @@ export type EventTypeRow = {
   color: string
   location_type: string
   location_value: string | null
+  allowed_location_kinds: string[] | null
   active: boolean
   created_at: string
   updated_at: string

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Clock, Video, Phone, MapPin, Copy, Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Clock, Video, Phone, MapPin, Copy, Pencil, Trash2, ExternalLink, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -13,15 +13,33 @@ import { EventTypeForm } from './event-type-form'
 import { updateEventType, deleteEventType } from '@/app/(dashboard)/scheduling/_actions/event-types'
 import type { EventTypeRow } from '@/app/(dashboard)/scheduling/_actions/event-types'
 
-const LOCATION_ICONS = {
+const LOCATION_ICONS: Record<string, React.ElementType> = {
+  google_meet: Video,
+  zoom: Video,
+  whereby: Video,
+  custom_link: Link2,
   video: Video,
+  phone_call: Phone,
+  custom_phone: Phone,
   phone: Phone,
+  store_location: MapPin,
+  client_address: MapPin,
+  custom_address: MapPin,
   in_person: MapPin,
 }
 
-const LOCATION_LABELS = {
+const LOCATION_LABELS: Record<string, string> = {
+  google_meet: 'Google Meet',
+  zoom: 'Zoom',
+  whereby: 'Whereby',
+  custom_link: 'Video link',
   video: 'Video call',
+  phone_call: 'Phone call',
+  custom_phone: 'Phone call',
   phone: 'Phone call',
+  store_location: 'In person',
+  client_address: 'Client address',
+  custom_address: 'In person',
   in_person: 'In person',
 }
 
@@ -37,7 +55,9 @@ export function EventTypeCard({ eventType, bookingSlug, siteUrl }: EventTypeCard
   const [editing, setEditing] = useState(false)
 
   const bookingUrl = `${siteUrl}/book/${bookingSlug}/${eventType.slug}`
-  const LocationIcon = LOCATION_ICONS[eventType.location_type as keyof typeof LOCATION_ICONS] ?? Video
+  const primaryKind = eventType.allowed_location_kinds?.[0] ?? eventType.location_type
+  const LocationIcon = LOCATION_ICONS[primaryKind] ?? Video
+  const locationLabel = LOCATION_LABELS[primaryKind] ?? primaryKind
 
   function handleToggleActive(active: boolean) {
     startTransition(async () => {
@@ -65,14 +85,16 @@ export function EventTypeCard({ eventType, bookingSlug, siteUrl }: EventTypeCard
   }
 
   async function handleEditSubmit(values: Parameters<React.ComponentProps<typeof EventTypeForm>['onSubmit']>[0]) {
-    const result = await updateEventType(eventType.id, values)
-    if (!result.ok) {
-      toast.error(result.error)
-      return
-    }
-    toast.success('Event type updated')
-    setEditing(false)
-    router.refresh()
+    startTransition(async () => {
+      const result = await updateEventType(eventType.id, values)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Event type updated')
+      setEditing(false)
+      router.refresh()
+    })
   }
 
   return (
@@ -100,7 +122,7 @@ export function EventTypeCard({ eventType, bookingSlug, siteUrl }: EventTypeCard
           </span>
           <span className="flex items-center gap-1">
             <LocationIcon className="h-3 w-3" />
-            {LOCATION_LABELS[eventType.location_type as keyof typeof LOCATION_LABELS] ?? eventType.location_type}
+            {locationLabel}
           </span>
         </div>
 
@@ -141,6 +163,7 @@ export function EventTypeCard({ eventType, bookingSlug, siteUrl }: EventTypeCard
           <EventTypeForm
             defaultValues={eventType}
             onSubmit={handleEditSubmit}
+            loading={isPending}
             submitLabel="Update"
           />
         </SheetContent>

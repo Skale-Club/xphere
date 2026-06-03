@@ -27,6 +27,7 @@ export function BookingPageClient({
   const [step, setStep] = useState<Step>('pick')
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [cancelToken, setCancelToken] = useState<string | null>(null)
   // Default to the first available kind; only matters when there are multiple.
   const [selectedLocationKind, setSelectedLocationKind] = useState<string>(
     allowedLocationKinds[0] ?? 'video',
@@ -37,12 +38,18 @@ export function BookingPageClient({
     setStep('confirm')
   }
 
-  function handleBookingSuccess(id: string, cancelToken: string) {
+  function handleBookingSuccess(id: string, token: string) {
     setBookingId(id)
+    setCancelToken(token)
     setStep('done')
   }
 
   if (step === 'done' && selectedSlot) {
+    const cancelUrl =
+      bookingId && cancelToken
+        ? `/book/cancel/${bookingId}?token=${cancelToken}`
+        : null
+
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center gap-4">
         <div className="h-14 w-14 rounded-full flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
@@ -62,6 +69,14 @@ export function BookingPageClient({
           </p>
         </div>
         <p className="text-xs text-[#71717A]">A calendar invite will be sent to your email.</p>
+        {cancelUrl && (
+          <a
+            href={cancelUrl}
+            className="text-xs text-[#71717A] hover:text-[#A1A1AA] underline underline-offset-2 transition-colors mt-1"
+          >
+            Need to cancel? Click here
+          </a>
+        )}
       </div>
     )
   }

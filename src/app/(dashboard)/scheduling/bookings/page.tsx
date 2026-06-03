@@ -16,11 +16,12 @@ export default async function BookingsPage() {
   const result = await getBookings()
   const bookings = result.ok ? result.data : []
 
+  const now = new Date()
   const upcoming = bookings.filter(
-    (b) => b.status === 'confirmed' && new Date(b.start_at) >= new Date(),
+    (b) => b.status === 'confirmed' && new Date(b.start_at) >= now,
   )
   const past = bookings.filter(
-    (b) => b.status === 'confirmed' && new Date(b.start_at) < new Date(),
+    (b) => (b.status === 'confirmed' || b.status === 'no_show') && new Date(b.start_at) < now,
   )
   const cancelled = bookings.filter((b) => b.status === 'cancelled')
 
@@ -95,6 +96,7 @@ function BookingSection({
                 'text-[11px] shrink-0',
                 booking.status === 'confirmed' && 'bg-emerald-500/15 text-emerald-400',
                 booking.status === 'cancelled' && 'bg-zinc-500/15 text-zinc-400',
+                booking.status === 'no_show' && 'bg-amber-500/15 text-amber-400',
               )}
             >
               {booking.status}

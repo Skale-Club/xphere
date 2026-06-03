@@ -5,19 +5,22 @@ import { Button } from '@/components/ui/button'
 import { getUser } from '@/lib/supabase/server'
 import { getBookings } from '../_actions/bookings'
 import { getEventTypes } from '../_actions/event-types'
+import { getSchedulingProfile } from '../_actions/scheduling-profile'
 import { CalendarView } from '@/components/scheduling/calendar-view'
 
 export default async function SchedulingCalendarPage() {
   const user = await getUser()
   if (!user) redirect('/')
 
-  const [bookingsResult, eventTypesResult] = await Promise.all([
+  const [bookingsResult, eventTypesResult, profileResult] = await Promise.all([
     getBookings(),
     getEventTypes(),
+    getSchedulingProfile(),
   ])
 
   const bookings = bookingsResult.ok ? bookingsResult.data : []
   const eventTypes = eventTypesResult.ok ? eventTypesResult.data : []
+  const timezone = profileResult.ok && profileResult.data ? profileResult.data.timezone : 'UTC'
 
   // Build color map: event_type_id → color
   const eventTypeColors: Record<string, string> = {}
@@ -31,7 +34,7 @@ export default async function SchedulingCalendarPage() {
         <Link href="/scheduling"><ArrowLeft className="h-3.5 w-3.5" /> Back</Link>
       </Button>
 
-      <CalendarView bookings={bookings} eventTypeColors={eventTypeColors} />
+      <CalendarView bookings={bookings} eventTypeColors={eventTypeColors} timezone={timezone} />
     </div>
   )
 }

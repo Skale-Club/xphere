@@ -10,11 +10,10 @@ import {
   eachDayOfInterval,
   isSameDay,
   parseISO,
-  getHours,
-  getMinutes,
   differenceInMinutes,
   isToday,
 } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -27,6 +26,7 @@ const HOUR_HEIGHT = 60 // px per hour
 interface CalendarViewProps {
   bookings: BookingRow[]
   eventTypeColors?: Record<string, string>
+  timezone?: string
 }
 
 interface PositionedBooking {
@@ -39,17 +39,19 @@ interface PositionedBooking {
 function positionBookingInDay(
   booking: BookingRow,
   color: string,
+  timezone: string,
 ): PositionedBooking {
   const start = parseISO(booking.start_at)
   const end = parseISO(booking.end_at)
-  const startHour = getHours(start) + getMinutes(start) / 60
+  const startZoned = toZonedTime(start, timezone)
+  const startHour = startZoned.getHours() + startZoned.getMinutes() / 60
   const duration = differenceInMinutes(end, start)
   const top = (startHour - 6) * HOUR_HEIGHT
   const height = Math.max((duration / 60) * HOUR_HEIGHT, 20)
   return { booking, top, height, color }
 }
 
-export function CalendarView({ bookings, eventTypeColors = {} }: CalendarViewProps) {
+export function CalendarView({ bookings, eventTypeColors = {}, timezone = 'UTC' }: CalendarViewProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }),
   )
@@ -62,16 +64,19 @@ export function CalendarView({ bookings, eventTypeColors = {} }: CalendarViewPro
     for (const day of days) {
       const key = format(day, 'yyyy-MM-dd')
       const dayBookings = bookings
-        .filter(
-          (b) => b.status === 'confirmed' && isSameDay(parseISO(b.start_at), day),
-        )
+        .filter((b) => {
+          if (b.status !== 'confirmed') return false
+          // Compare the booking's start time in the host's timezone against the calendar day
+          const startZoned = toZonedTime(parseISO(b.start_at), timezone)
+          return isSameDay(startZoned, day)
+        })
         .map((b) =>
-          positionBookingInDay(b, eventTypeColors[b.event_type_id] ?? '#6366F1'),
+          positionBookingInDay(b, eventTypeColors[b.event_type_id] ?? '#6366F1', timezone),
         )
       map.set(key, dayBookings)
     }
     return map
-  }, [bookings, days, eventTypeColors])
+  }, [bookings, days, eventTypeColors, timezone])
 
   function prevWeek() {
     setCurrentWeekStart((d) => subWeeks(d, 1))
@@ -182,10 +187,10 @@ export function CalendarView({ bookings, eventTypeColors = {} }: CalendarViewPro
                       backgroundColor: color,
                       opacity: 0.9,
                     }}
-                    title={`${booking.booker_name} | ${format(parseISO(booking.start_at), 'HH:mm')}–${format(parseISO(booking.end_at), 'HH:mm')}`}
+                    title={`${booking.booker_name} | ${format(toZonedTime(parseISO(booking.start_at), timezone), 'HH:mm')}–${format(toZonedTime(parseISO(booking.end_at), timezone), 'HH:mm')}`}
                   >
                     <div className="text-[11px] font-semibold leading-tight truncate">
-                      {format(parseISO(booking.start_at), 'HH:mm')}
+                      {format(toZonedTime(parseISO(booking.start_at), timezone), 'HH:mm')}
                     </div>
                     {height > 32 && (
                       <div className="text-[10px] leading-tight truncate opacity-90">
