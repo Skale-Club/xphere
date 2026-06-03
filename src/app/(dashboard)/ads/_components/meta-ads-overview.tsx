@@ -1,15 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  TrendingUp,
-  Eye,
-  MousePointerClick,
-  DollarSign,
-  Users,
-  CheckCircle2,
   Loader2,
   AlertCircle,
   LayoutGrid,
@@ -23,6 +16,11 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
 import { AccountSelector } from './account-selector'
+import { CampaignsModal } from './campaigns-modal'
+import { MetaKpiCards } from './meta-kpi-cards'
+import { MetaFunnel } from './meta-funnel'
+import { MetaTrendCharts, type DailyTrendRow } from './meta-trend-charts'
+import { MetaTopCampaigns, type CampaignLeadRow } from './meta-top-campaigns'
 
 const ACCOUNT_STORAGE_KEY = 'xphere:meta_ads_account'
 
@@ -40,6 +38,13 @@ type OverviewData = {
     ctr?: string
     actions?: Array<{ action_type: string; value: string }>
   } | null
+}
+
+type AttributionTotals = {
+  sessions: number
+  identified_contacts: number
+  opportunities: number
+  revenue: number
 }
 
 // A date filter is either a named Meta preset or an explicit custom range.
@@ -61,41 +66,6 @@ const PRESET_LABELS: Record<string, string> = {
 const QUICK_PRESETS = ['today', 'yesterday', 'last_7d', 'last_30d']
 const MORE_PRESETS = ['last_14d', 'last_90d', 'this_month', 'last_month', 'maximum']
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  sub,
-}: {
-  label: string
-  value: string
-  icon: React.ComponentType<{ className?: string }>
-  sub?: string
-}) {
-  return (
-    <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium text-text-secondary">{label}</span>
-        <Icon className="h-4 w-4 text-text-tertiary" />
-      </div>
-      <div className="space-y-0.5">
-        <p className="text-2xl font-semibold text-text-primary">{value}</p>
-        {sub && <p className="text-[11.5px] text-text-tertiary">{sub}</p>}
-      </div>
-    </div>
-  )
-}
-
-function fmt(n: number | string | undefined, currency?: string): string {
-  if (n == null || n === '') return '—'
-  const num = typeof n === 'string' ? parseFloat(n) : n
-  if (isNaN(num)) return '—'
-  if (currency) return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(num)
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
-  return num.toFixed(2)
-}
-
 export function MetaAdsOverview({
   adAccountId,
   adAccountName,
@@ -113,9 +83,25 @@ export function MetaAdsOverview({
   const [customSince, setCustomSince] = useState('')
   const [customUntil, setCustomUntil] = useState('')
   const [activeAccountId, setActiveAccountId] = useState(adAccountId)
+  const [campaignsOpen, setCampaignsOpen] = useState(false)
+
+  // Overview data
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Daily trend data
+  const [trendData, setTrendData] = useState<DailyTrendRow[]>([])
+  const [trendLoading, setTrendLoading] = useState(true)
+
+  // Top campaigns by leads
+  const [campaignData, setCampaignData] = useState<CampaignLeadRow[]>([])
+  const [campaignLoading, setCampaignLoading] = useState(true)
+
+  // Attribution totals lifted up for the conversion funnel
+  const [attrTotals, setAttrTotals] = useState<AttributionTotals | null>(null)
+  const [attrLoading, setAttrLoading] = useState(true)
+
   const [disconnecting, setDisconnecting] = useState(false)
 
   const activeAccount = connections.find((c) => c.id === activeAccountId)
@@ -125,11 +111,11 @@ export function MetaAdsOverview({
     try {
       localStorage.setItem(ACCOUNT_STORAGE_KEY, id)
     } catch {
-      /* ignore storage errors (private mode, etc.) */
+      /* ignore storage errors */
     }
   }
 
-  // Restore the previously-selected account when the screen opens (per browser).
+  // Restore previously-selected account on mount.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ACCOUNT_STORAGE_KEY)
@@ -137,7 +123,6 @@ export function MetaAdsOverview({
     } catch {
       /* ignore */
     }
-    // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -163,54 +148,114 @@ export function MetaAdsOverview({
       ? PRESET_LABELS[filter.value] ?? filter.value
       : `${filter.since} → ${filter.until}`
 
+  const dateQuery =
+    filter.type === 'preset'
+      ? `date_preset=${filter.value}`
+      : `since=${filter.since}&until=${filter.until}`
+
+  function applyDateParams(params: URLSearchParams) {
+    if (filter.type === 'preset') {
+      params.set('date_preset', filter.value)
+    } else {
+      params.set('since', filter.since)
+      params.set('until', filter.until)
+    }
+  }
+
   const fetchOverview = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams({ report: 'overview', ad_account_id: activeAccountId })
-      if (filter.type === 'preset') {
-        params.set('date_preset', filter.value)
-      } else {
-        params.set('since', filter.since)
-        params.set('until', filter.until)
-      }
+      applyDateParams(params)
       const res = await fetch(`/api/ads/meta/reports?${params.toString()}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error((body as { error?: string }).error ?? 'Failed to load data')
       }
-      const json = await res.json()
-      setData(json as OverviewData)
+      setData(await res.json() as OverviewData)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load overview')
     } finally {
       setLoading(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId, filter])
+
+  const fetchTrend = useCallback(async () => {
+    setTrendLoading(true)
+    try {
+      const params = new URLSearchParams({ report: 'daily_trend', ad_account_id: activeAccountId })
+      applyDateParams(params)
+      const res = await fetch(`/api/ads/meta/reports?${params.toString()}`)
+      if (!res.ok) { setTrendData([]); return }
+      const json = await res.json() as {
+        rows: Array<{
+          date_start: string
+          spend: string
+          actions?: Array<{ action_type: string; value: string }>
+        }>
+      }
+      const rows: DailyTrendRow[] = (json.rows ?? []).map((r) => {
+        const spend = parseFloat(r.spend ?? '0')
+        const leads = parseFloat(r.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+        const d = new Date(r.date_start)
+        const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return { date, spend, leads, cpl: leads > 0 ? spend / leads : null }
+      })
+      setTrendData(rows)
+    } catch {
+      setTrendData([])
+    } finally {
+      setTrendLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId, filter])
+
+  const fetchTopCampaigns = useCallback(async () => {
+    setCampaignLoading(true)
+    try {
+      const params = new URLSearchParams({ report: 'campaign_leads', ad_account_id: activeAccountId })
+      applyDateParams(params)
+      const res = await fetch(`/api/ads/meta/reports?${params.toString()}`)
+      if (!res.ok) { setCampaignData([]); return }
+      const json = await res.json() as { data: CampaignLeadRow[] }
+      setCampaignData(json.data ?? [])
+    } catch {
+      setCampaignData([])
+    } finally {
+      setCampaignLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId, filter])
 
   useEffect(() => {
     void fetchOverview()
-  }, [fetchOverview])
+    void fetchTrend()
+    void fetchTopCampaigns()
+    setAttrLoading(true)
+    setAttrTotals(null)
+  }, [fetchOverview, fetchTrend, fetchTopCampaigns])
 
   useEffect(() => {
-    if (justConnected) {
-      toast.success('Meta Ads connected successfully!')
-    }
+    if (justConnected) toast.success('Meta Ads connected successfully!')
   }, [justConnected])
 
   const insights = data?.insights
   const currency = data?.account?.currency ?? 'USD'
 
-  const purchases = insights?.actions?.find((a) => a.action_type === 'purchase')
-  const leads = insights?.actions?.find((a) => a.action_type === 'lead')
+  const leadsVal = parseFloat(insights?.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+  const spendVal = parseFloat(insights?.spend ?? '0')
+  const clicksVal = parseFloat(insights?.clicks ?? '0')
 
-  // AdsAttribution only understands named presets; fall back to last_30d for
-  // custom ranges so it keeps working.
+  // AdsAttribution supports custom ranges via since/until props (added in this PR).
   const attributionPreset = filter.type === 'preset' ? filter.value : 'last_30d'
+  const attrSince = filter.type === 'custom' ? filter.since : undefined
+  const attrUntil = filter.type === 'custom' ? filter.until : undefined
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {connections.length > 1 ? (
@@ -236,17 +281,12 @@ export function MetaAdsOverview({
             title="Disconnect Meta Ads"
             className="flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-text-tertiary transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
           >
-            {disconnecting ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Unlink className="h-3 w-3" />
-            )}
+            {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
             Disconnect
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Date preset pills + filters */}
           <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
             {QUICK_PRESETS.map((p) => (
               <button
@@ -268,15 +308,13 @@ export function MetaAdsOverview({
                 <button
                   className={cn(
                     'flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                    filter.type === 'custom' ||
-                      (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
+                    filter.type === 'custom' || (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
                       ? 'bg-bg-primary text-text-primary shadow-sm'
                       : 'text-text-secondary hover:text-text-primary',
                   )}
                 >
                   <SlidersHorizontal className="h-3 w-3" />
-                  {filter.type === 'custom' ||
-                  (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
+                  {filter.type === 'custom' || (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
                     ? filterLabel
                     : 'More'}
                   <ChevronDown className="h-3 w-3" />
@@ -287,10 +325,7 @@ export function MetaAdsOverview({
                   {MORE_PRESETS.map((p) => (
                     <button
                       key={p}
-                      onClick={() => {
-                        setFilter({ type: 'preset', value: p })
-                        setFilterOpen(false)
-                      }}
+                      onClick={() => { setFilter({ type: 'preset', value: p }); setFilterOpen(false) }}
                       className={cn(
                         'w-full rounded-md px-2.5 py-1.5 text-left text-[12.5px] transition-colors',
                         filter.type === 'preset' && filter.value === p
@@ -302,9 +337,7 @@ export function MetaAdsOverview({
                     </button>
                   ))}
                 </div>
-
                 <div className="my-2 border-t border-border-subtle" />
-
                 <div className="space-y-2 px-1 pb-1">
                   <p className="text-[11px] font-medium text-text-secondary">Custom range</p>
                   <div className="space-y-1.5">
@@ -333,10 +366,7 @@ export function MetaAdsOverview({
                     size="sm"
                     className="w-full"
                     disabled={!customSince || !customUntil}
-                    onClick={() => {
-                      setFilter({ type: 'custom', since: customSince, until: customUntil })
-                      setFilterOpen(false)
-                    }}
+                    onClick={() => { setFilter({ type: 'custom', since: customSince, until: customUntil }); setFilterOpen(false) }}
                   >
                     Apply range
                   </Button>
@@ -345,84 +375,121 @@ export function MetaAdsOverview({
             </Popover>
           </div>
 
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/ads/campaigns">
-              <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
-              Campaigns
-            </Link>
+          <Button variant="outline" size="sm" onClick={() => setCampaignsOpen(true)}>
+            <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+            Campaigns
           </Button>
         </div>
       </div>
 
-      {/* Stats */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-text-tertiary" />
-        </div>
-      ) : error ? (
+      <CampaignsModal
+        open={campaignsOpen}
+        onOpenChange={setCampaignsOpen}
+        adAccountId={activeAccountId}
+        currency={currency}
+        dateQuery={dateQuery}
+      />
+
+      {/* ── Error ─────────────────────────────────────────────────── */}
+      {!loading && error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-[13px] text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label="Spend"
-              value={`${currency} ${fmt(insights?.spend, currency)}`}
-              icon={DollarSign}
-              sub={filterLabel}
-            />
-            <StatCard
-              label="Impressions"
-              value={fmt(insights?.impressions)}
-              icon={Eye}
-              sub={`CPM: ${fmt(insights?.cpm, currency)}`}
-            />
-            <StatCard
-              label="Clicks"
-              value={fmt(insights?.clicks)}
-              icon={MousePointerClick}
-              sub={`CPC: ${fmt(insights?.cpc, currency)} · CTR: ${insights?.ctr ? `${parseFloat(insights.ctr).toFixed(2)}%` : '—'}`}
-            />
-            <StatCard
-              label="Reach"
-              value={fmt(insights?.reach)}
-              icon={Users}
-              sub="Unique accounts"
-            />
-          </div>
-
-          {(purchases || leads) && (
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {purchases && (
-                <StatCard
-                  label="Purchases"
-                  value={fmt(purchases.value)}
-                  icon={CheckCircle2}
-                  sub="Conversion actions"
-                />
-              )}
-              {leads && (
-                <StatCard
-                  label="Leads"
-                  value={fmt(leads.value)}
-                  icon={TrendingUp}
-                  sub="Lead form fills"
-                />
-              )}
-            </div>
-          )}
-
-          {!insights && (
-            <div className="rounded-lg border border-border-subtle bg-bg-secondary px-4 py-8 text-center text-[13px] text-text-tertiary">
-              No data available for the selected period.
-            </div>
-          )}
-        </>
       )}
 
-      {/* Lead & Revenue Attribution */}
+      {/* ── Section 1: Lead-Gen KPI Cards ──────────────────────────── */}
+      <MetaKpiCards
+        insights={insights ?? null}
+        currency={currency}
+        loading={loading}
+        filterLabel={filterLabel}
+      />
+
+      {/* ── Section 2: Conversion Funnel + Trend Charts ─────────────── */}
+      {!loading && !error && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <MetaFunnel
+            impressions={parseFloat(insights?.impressions ?? '0')}
+            clicks={parseFloat(insights?.clicks ?? '0')}
+            leads={leadsVal}
+            contacts={attrTotals?.identified_contacts ?? 0}
+            opportunities={attrTotals?.opportunities ?? 0}
+            revenue={attrTotals?.revenue ?? 0}
+            currency={currency}
+            loading={attrLoading}
+          />
+          <MetaTrendCharts
+            data={trendData}
+            currency={currency}
+            loading={trendLoading}
+          />
+        </div>
+      )}
+
+      {/* ── Section 3: Performance Summary + Top Campaigns ──────────── */}
+      {!loading && !error && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Summary card */}
+          <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-4">
+            <div>
+              <p className="text-[12px] font-semibold text-text-primary">Performance Summary</p>
+              <p className="text-[11px] text-text-tertiary mt-0.5">{filterLabel}</p>
+            </div>
+            <div className="space-y-3 divide-y divide-border-subtle/50">
+              {[
+                {
+                  label: 'Total Spend',
+                  value: spendVal > 0
+                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal)
+                    : '—',
+                },
+                {
+                  label: 'Total Leads',
+                  value: leadsVal > 0 ? leadsVal.toLocaleString() : '—',
+                },
+                {
+                  label: 'Cost per Lead',
+                  value: leadsVal > 0
+                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal / leadsVal)
+                    : '—',
+                },
+                {
+                  label: 'Lead Rate',
+                  value: clicksVal > 0
+                    ? `${((leadsVal / clicksVal) * 100).toFixed(2)}%`
+                    : '—',
+                },
+                {
+                  label: 'Opportunities',
+                  value: attrTotals?.opportunities != null && attrTotals.opportunities > 0
+                    ? attrTotals.opportunities.toLocaleString()
+                    : '—',
+                },
+                {
+                  label: 'Revenue',
+                  value: attrTotals?.revenue != null && attrTotals.revenue > 0
+                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(attrTotals.revenue)
+                    : '—',
+                },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between pt-3 first:pt-0">
+                  <span className="text-[12px] text-text-secondary">{item.label}</span>
+                  <span className="text-[12.5px] font-semibold text-text-primary">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <MetaTopCampaigns
+            data={campaignData}
+            currency={currency}
+            loading={campaignLoading}
+          />
+        </div>
+      )}
+
+      {/* ── Section 4: Lead & Revenue Attribution ──────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[13px] font-semibold text-text-primary">Lead & Revenue Attribution</h2>
@@ -431,7 +498,13 @@ export function MetaAdsOverview({
         <AdsAttribution
           platform="meta"
           datePreset={attributionPreset}
-          currency={data?.account?.currency ?? 'USD'}
+          since={attrSince}
+          until={attrUntil}
+          currency={currency}
+          onTotalsLoaded={(totals) => {
+            setAttrTotals(totals)
+            setAttrLoading(false)
+          }}
         />
       </div>
     </div>

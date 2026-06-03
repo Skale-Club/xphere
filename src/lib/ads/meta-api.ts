@@ -105,6 +105,8 @@ export type MetaInsightsPaged = {
   paging?: { cursors?: { after?: string }; next?: string }
 }
 
+export type MetaDailyInsight = MetaInsights & { campaign_id?: string }
+
 // ─── Campaigns ────────────────────────────────────────────────────────────────
 
 export async function listCampaigns(
@@ -151,11 +153,35 @@ export async function listAdSets(
     fields: 'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,created_time,updated_time',
     limit: '100',
   })
-  if (campaignId) params.set('campaign_id', campaignId)
-  const res = await graphRequest<{ data?: MetaAdSet[] }>(
-    `${adAccountId}/adsets?${params.toString()}`,
-    accessToken,
-  )
+  // Drilling into a campaign: query the campaign node so results are actually
+  // scoped to it (the account /adsets edge ignores a campaign_id param).
+  const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
+  const res = await graphRequest<{ data?: MetaAdSet[] }>(`${node}?${params.toString()}`, accessToken)
+  return res.data ?? []
+}
+
+export type MetaAd = {
+  id: string
+  name: string
+  adset_id: string
+  status: string
+  effective_status: string
+  creative?: { id?: string; thumbnail_url?: string; title?: string; body?: string }
+  created_time: string
+}
+
+export async function listAds(
+  adAccountId: string,
+  accessToken: string,
+  adsetId?: string,
+): Promise<MetaAd[]> {
+  const params = new URLSearchParams({
+    fields: 'id,name,adset_id,status,effective_status,creative{id,thumbnail_url,title,body},created_time',
+    limit: '100',
+  })
+  // Scope to the ad set node when drilling down.
+  const node = adsetId ? `${adsetId}/ads` : `${adAccountId}/ads`
+  const res = await graphRequest<{ data?: MetaAd[] }>(`${node}?${params.toString()}`, accessToken)
   return res.data ?? []
 }
 
@@ -181,17 +207,21 @@ export async function getInsights(
     datePreset?: DatePreset
     timeRange?: { since: string; until: string }
     breakdowns?: string[]
+    timeIncrement?: number
+    fields?: string[]
     limit?: number
   },
 ): Promise<MetaInsightsPaged> {
+  const defaultFields = 'impressions,clicks,spend,reach,cpc,cpm,ctr,cpp,frequency,actions'
   const params = new URLSearchParams({
-    fields: 'impressions,clicks,spend,reach,cpc,cpm,ctr,cpp,frequency,actions',
+    fields: opts.fields ? opts.fields.join(',') : defaultFields,
     level: opts.level,
     limit: String(opts.limit ?? 100),
   })
   if (opts.datePreset) params.set('date_preset', opts.datePreset)
   if (opts.timeRange) params.set('time_range', JSON.stringify(opts.timeRange))
   if (opts.breakdowns?.length) params.set('breakdowns', opts.breakdowns.join(','))
+  if (opts.timeIncrement) params.set('time_increment', String(opts.timeIncrement))
 
   return graphRequest<MetaInsightsPaged>(`${objectId}/insights?${params.toString()}`, accessToken)
 }

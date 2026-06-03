@@ -61,9 +61,11 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const url = new URL(request.url)
   const platform = url.searchParams.get('platform') as 'meta' | 'google' | null
+  const since = url.searchParams.get('since')
+  const until = url.searchParams.get('until')
   const datePreset = url.searchParams.get('date_preset') ?? 'last_30d'
 
-  const { from, to } = resolveDateRange(datePreset)
+  const { from, to } = since && until ? { from: since, to: until } : resolveDateRange(datePreset)
 
   try {
     const data = await getAdsAttribution({ from, to, platformFilter: platform })

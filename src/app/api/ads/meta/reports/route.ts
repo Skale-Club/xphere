@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { decrypt } from '@/lib/crypto'
-import { getInsights, listCampaigns, listAdSets, getAdAccountInfo, type DatePreset } from '@/lib/ads/meta-api'
+import { getInsights, listCampaigns, listAdSets, listAds, getAdAccountInfo, type DatePreset } from '@/lib/ads/meta-api'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -79,12 +79,60 @@ export async function GET(request: NextRequest): Promise<Response> {
         return Response.json({ data: enriched })
       }
 
+      case 'ads': {
+        const adsetId = url.searchParams.get('adset_id') ?? undefined
+        const [ads, insights] = await Promise.all([
+          listAds(adAccountId, accessToken, adsetId),
+          getInsights(adAccountId, accessToken, { level: 'ad', ...dateOpts }),
+        ])
+        const insightMap = new Map(insights.data.map((i) => [(i as unknown as Record<string, string>).ad_id, i]))
+        const enriched = ads.map((a) => ({ ...a, insights: insightMap.get(a.id) ?? null }))
+        return Response.json({ data: enriched })
+      }
+
       case 'insights': {
         const data = await getInsights(adAccountId, accessToken, {
           level: level as 'account' | 'campaign' | 'adset' | 'ad',
           ...dateOpts,
         })
         return Response.json(data)
+      }
+
+      case 'daily_trend': {
+        const data = await getInsights(adAccountId, accessToken, {
+          level: 'account',
+          timeIncrement: 1,
+          ...dateOpts,
+        })
+        const rows = [...data.data].sort((a, b) => a.date_start.localeCompare(b.date_start))
+        return Response.json({ rows })
+      }
+
+      case 'campaign_leads': {
+        const [campaigns, insights] = await Promise.all([
+          listCampaigns(adAccountId, accessToken),
+          getInsights(adAccountId, accessToken, { level: 'campaign', ...dateOpts }),
+        ])
+        const nameMap = new Map(campaigns.map((c) => [c.id, c.name]))
+        const rows = insights.data
+          .map((i) => {
+            const raw = i as unknown as Record<string, string>
+            const campaignId = raw.campaign_id ?? ''
+            const leads = parseFloat(i.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+            const spend = parseFloat(i.spend ?? '0')
+            const clicks = parseFloat(i.clicks ?? '0')
+            return {
+              id: campaignId,
+              name: nameMap.get(campaignId) ?? campaignId,
+              leads,
+              spend,
+              cpl: leads > 0 ? spend / leads : null,
+              ctr: i.ctr ? parseFloat(i.ctr) : null,
+            }
+          })
+          .sort((a, b) => b.leads - a.leads)
+          .slice(0, 10)
+        return Response.json({ data: rows })
       }
 
       default:

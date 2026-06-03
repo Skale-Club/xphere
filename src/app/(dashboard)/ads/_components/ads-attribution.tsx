@@ -40,12 +40,18 @@ export function AdsAttribution({
   datePreset,
   adSpendBycampaign,
   currency = 'USD',
+  onTotalsLoaded,
+  since,
+  until,
 }: {
   platform: 'meta' | 'google'
   datePreset: string
   /** Optional: spend data from ads API keyed by campaign name, for ROAS calc */
   adSpendBycampaign?: Record<string, number>
   currency?: string
+  onTotalsLoaded?: (totals: AttributionData['totals']) => void
+  since?: string
+  until?: string
 }) {
   const [data, setData] = useState<AttributionData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,20 +61,27 @@ export function AdsAttribution({
     setLoading(true)
     setError(null)
     try {
-      const res = await window.fetch(
-        `/api/ads/attribution?platform=${platform}&date_preset=${datePreset}`,
-      )
+      const params = new URLSearchParams({ platform })
+      if (since && until) {
+        params.set('since', since)
+        params.set('until', until)
+      } else {
+        params.set('date_preset', datePreset)
+      }
+      const res = await window.fetch(`/api/ads/attribution?${params.toString()}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error((body as { error?: string }).error ?? 'Failed to load attribution')
       }
-      setData(await res.json() as AttributionData)
+      const json = await res.json() as AttributionData
+      setData(json)
+      if (json.totals) onTotalsLoaded?.(json.totals)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load attribution data')
     } finally {
       setLoading(false)
     }
-  }, [platform, datePreset])
+  }, [platform, datePreset, since, until, onTotalsLoaded])
 
   useEffect(() => { void fetch() }, [fetch])
 
