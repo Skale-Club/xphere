@@ -9,6 +9,7 @@ import {
   getCustomerInfo,
 } from '@/lib/ads/google-oauth'
 import { serializeTokens } from '@/lib/ads/google-api'
+import { resolveRequestOrigin } from '@/lib/site-url'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -21,8 +22,13 @@ const COOKIE_CLEAR = {
   maxAge: 0,
 }
 
+// Build redirects from the canonical public origin (request.url resolves to the
+// internal container 0.0.0.0:3000 behind the Coolify proxy) and clear the
+// state cookie on the response.
 function redirect(request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, request.url))
+  const res = NextResponse.redirect(new URL(path, resolveRequestOrigin(request)))
+  res.cookies.set(GOOGLE_ADS_OAUTH_STATE_COOKIE, '', COOKIE_CLEAR)
+  return res
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
@@ -35,8 +41,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const state = url.searchParams.get('state')
   const jar = await cookies()
   const storedState = jar.get(GOOGLE_ADS_OAUTH_STATE_COOKIE)?.value
-
-  jar.set(GOOGLE_ADS_OAUTH_STATE_COOKIE, '', COOKIE_CLEAR)
 
   if (!code) return redirect(request, '/ads/google?error=missing_code')
   if (!state || !storedState || state !== storedState) return redirect(request, '/ads/google?error=csrf')
@@ -85,6 +89,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : ''
     if (msg.includes('refresh_token')) return redirect(request, '/ads/google?error=no_refresh_token')
-    return redirect(request, '/ads/google?error=oauth_exchange')
+    // Surface the real Google error so it can be diagnosed (admin-only screen).
+    return redirect(request, `/ads/google?error=oauth_exchange&detail=${encodeURIComponent(msg.slice(0, 300))}`)
   }
 }
