@@ -22,8 +22,28 @@ export type SchedulingProfile = {
   org_id: string
   slug: string
   timezone: string
+  sync_mode: 'one_way' | 'two_way'
+  default_location_type: 'google_meet' | 'my_address' | 'client_address' | 'phone'
   created_at: string
   updated_at: string
+}
+
+export async function updateSchedulingPreferences(input: {
+  sync_mode?: 'one_way' | 'two_way'
+  default_location_type?: 'google_meet' | 'my_address' | 'client_address' | 'phone'
+}): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('scheduling_profiles')
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/scheduling')
+  return { ok: true, data: undefined }
 }
 
 export async function getSchedulingProfile(): Promise<ActionResult<SchedulingProfile | null>> {
@@ -38,7 +58,8 @@ export async function getSchedulingProfile(): Promise<ActionResult<SchedulingPro
     .maybeSingle()
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data }
+  // Cast: database.ts types predate the sync_mode / default_location_type columns.
+  return { ok: true, data: data as SchedulingProfile | null }
 }
 
 export async function upsertSchedulingProfile(
@@ -71,5 +92,5 @@ export async function upsertSchedulingProfile(
 
   if (error) return { ok: false, error: error.message }
   revalidatePath('/scheduling')
-  return { ok: true, data }
+  return { ok: true, data: data as SchedulingProfile }
 }
