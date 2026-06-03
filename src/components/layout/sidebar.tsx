@@ -10,7 +10,6 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
-  UserCog,
 } from 'lucide-react'
 import { NAV_ITEMS as nav, NAV_GROUPS as groups } from './nav-items'
 
@@ -293,12 +292,6 @@ function SidebarBody({
               <>
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/settings/profile" onClick={onNavigate}>
-                    <UserCog className="h-4 w-4 mr-2" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings" onClick={onNavigate}>
                     <Settings className="h-4 w-4 mr-2" />
                     Settings
                   </Link>
