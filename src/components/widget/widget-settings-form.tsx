@@ -52,10 +52,6 @@ const widgetSettingsSchema = z.object({
     .trim()
     .min(1, 'Display name is required.')
     .max(60, 'Display name must be 60 characters or fewer.'),
-  primaryColor: z
-    .string()
-    .trim()
-    .regex(/^#[0-9A-Fa-f]{6}$/, 'Use a hex color in #RRGGBB format.'),
   welcomeMessage: z
     .string()
     .trim()
@@ -183,7 +179,7 @@ export function WidgetSettingsForm({
         <CardHeader>
           <CardTitle>Widget settings</CardTitle>
           <CardDescription>
-            Customize the assistant name, color, and welcome copy shown to visitors.
+            Customize the assistant name and welcome copy shown to visitors. The color is inherited from your Company info accent color.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -199,28 +195,6 @@ export function WidgetSettingsForm({
                       <Input disabled={isPending} placeholder="AI Assistant" {...field} />
                     </FormControl>
                     <FormDescription>The widget header label visitors see.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="primaryColor"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Primary color</FormLabel>
-                    <FormControl>
-                      <div className="flex gap-3">
-                        <Input disabled={isPending} placeholder="#18181B" {...field} />
-                        <div
-                          aria-hidden="true"
-                          className="h-10 w-10 shrink-0 rounded-md border"
-                          style={{ backgroundColor: field.value || '#18181B' }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>Hex only, for example #18181B.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

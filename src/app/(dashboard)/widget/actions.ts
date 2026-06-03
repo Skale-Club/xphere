@@ -4,11 +4,9 @@ import { revalidatePath } from 'next/cache'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 
-const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 
 export interface WidgetSettingsInput {
   displayName: string
-  primaryColor: string
   welcomeMessage: string
   avatarUrl?: string | null
 }
@@ -19,28 +17,12 @@ export interface WidgetActionResult {
 
 function normalizeWidgetSettings(input: WidgetSettingsInput): WidgetSettingsInput | null {
   const displayName = input.displayName.trim()
-  const primaryColor = input.primaryColor.trim().toUpperCase()
   const welcomeMessage = input.welcomeMessage.trim()
   const avatarUrl = input.avatarUrl?.trim() || null
 
-  if (!displayName) {
-    return null
-  }
+  if (!displayName || !welcomeMessage) return null
 
-  if (!welcomeMessage) {
-    return null
-  }
-
-  if (!HEX_COLOR_REGEX.test(primaryColor)) {
-    return null
-  }
-
-  return {
-    displayName,
-    primaryColor,
-    welcomeMessage,
-    avatarUrl,
-  }
+  return { displayName, welcomeMessage, avatarUrl }
 }
 
 async function getActiveOrgId() {
@@ -70,7 +52,7 @@ export async function saveWidgetSettings(
   const settings = normalizeWidgetSettings(input)
 
   if (!settings) {
-    return { error: 'Enter a display name, welcome message, and a valid hex color like #18181B.' }
+    return { error: 'Enter a display name and welcome message.' }
   }
 
   const { error: orgError, supabase, orgId } = await getActiveOrgId()
@@ -83,7 +65,7 @@ export async function saveWidgetSettings(
     .from('organizations')
     .update({
       widget_display_name: settings.displayName,
-      widget_primary_color: settings.primaryColor,
+      widget_primary_color: null, // always use the org's accent_color from Company info
       widget_welcome_message: settings.welcomeMessage,
       widget_avatar_url: settings.avatarUrl || null,
     })
