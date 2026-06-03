@@ -15,7 +15,15 @@ import {
 import { useBreadcrumbOverride } from './breadcrumb-override-context'
 import { findNavItemForPath } from './nav-items'
 
+// Acronyms and proper nouns that must not be auto-cased by toTitleCase.
+const SEGMENT_LABELS: Record<string, string> = {
+  mcp: 'MCP Server',
+  sms: 'SMS',
+  api: 'API',
+}
+
 function toTitleCase(str: string) {
+  if (SEGMENT_LABELS[str.toLowerCase()]) return SEGMENT_LABELS[str.toLowerCase()]
   return str
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase())
