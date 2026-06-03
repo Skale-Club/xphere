@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { MessageSquare, X, RefreshCw, Send } from 'lucide-react'
+import { MessageSquare, X, RefreshCw, Send, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
 interface WidgetPlaygroundProps {
@@ -27,7 +28,7 @@ export function WidgetPlayground({
   welcomeMessage,
   avatarUrl,
 }: WidgetPlaygroundProps) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -40,7 +41,18 @@ export function WidgetPlayground({
     setMessages([])
     setSessionId(null)
     setInput('')
+    setOpen(false)
   }, [])
+
+  function share() {
+    const url = `https://xphere.app/book`  // placeholder — use widget embed URL
+    const embedCode = `<script src="https://xphere.app/widget.js" data-token="${widgetToken}"></script>`
+    void navigator.clipboard.writeText(embedCode).then(() => {
+      toast.success('Embed code copied to clipboard.')
+    }).catch(() => {
+      toast.error('Could not copy to clipboard.')
+    })
+  }
 
   // Auto-scroll to bottom on new content.
   useEffect(() => {
@@ -146,10 +158,16 @@ export function WidgetPlayground({
             Click the bubble to open and test a real conversation.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={reset} className="gap-1.5">
-          <RefreshCw className="h-3.5 w-3.5" />
-          Reset
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={share} className="gap-1.5">
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={reset} className="gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Reset
+          </Button>
+        </div>
       </div>
 
       {/* Stage — neutral backdrop with the widget anchored bottom-right */}
