@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { CalendarDays, Settings2, ExternalLink, Calendar } from 'lucide-react'
+import { CalendarDays, Settings2, ExternalLink, Calendar, ListChecks } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import { getEventTypes } from './_actions/event-types'
 import { getSchedulingProfile } from './_actions/scheduling-profile'
@@ -9,6 +9,7 @@ import { SchedulingProfileSetup } from '@/components/scheduling/scheduling-profi
 import { Button } from '@/components/ui/button'
 import { PageContainer } from '@/components/layout/page-header'
 import Link from 'next/link'
+import { getSiteOriginFromHeaders } from '@/lib/site-url'
 
 interface Props {
   searchParams: Promise<{ calendar_connected?: string; error?: string }>
@@ -27,7 +28,7 @@ export default async function SchedulingPage({ searchParams }: Props) {
   const profile = profileResult.ok ? profileResult.data : null
   const eventTypes = eventTypesResult.ok ? eventTypesResult.data : []
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
+  const siteUrl = await getSiteOriginFromHeaders()
 
   // No profile yet — show centered setup screen, no header buttons
   if (!profile) {
@@ -42,6 +43,11 @@ export default async function SchedulingPage({ searchParams }: Props) {
     <PageContainer>
       {/* Header actions */}
       <div className="flex items-center justify-end gap-2">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/scheduling/bookings">
+            <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Bookings
+          </Link>
+        </Button>
         <Button asChild variant="outline" size="sm">
           <Link href="/scheduling/calendar">
             <Calendar className="h-3.5 w-3.5 mr-1.5" /> Calendar
