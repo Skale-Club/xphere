@@ -3,24 +3,65 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, Users, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 import { EventTypeForm } from './event-type-form'
 import { createEventType } from '@/app/(dashboard)/scheduling/_actions/event-types'
+
+type BookingType = 'personal' | 'round_robin'
+
+const BOOKING_TYPES: {
+  value: BookingType
+  icon: React.ReactNode
+  label: string
+  description: string
+  example: string
+}[] = [
+  {
+    value: 'personal',
+    icon: <User className="h-5 w-5 text-indigo-400" />,
+    label: 'Personal booking',
+    description: 'Schedules one-on-one meetings with a specific team member.',
+    example: 'E.g.: Client meetings, private consultations.',
+  },
+  {
+    value: 'round_robin',
+    icon: <Users className="h-5 w-5 text-indigo-400" />,
+    label: 'Round robin',
+    description: 'Distributes appointments among team members in a rotating order.',
+    example: 'E.g.: Sales calls, onboarding sessions.',
+  },
+]
 
 export function NewEventTypeDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<'type' | 'form'>('type')
+  const [bookingType, setBookingType] = useState<BookingType>('personal')
   const [isPending, startTransition] = useTransition()
 
-  async function handleSubmit(values: Parameters<React.ComponentProps<typeof EventTypeForm>['onSubmit']>[0]) {
+  function handleOpen() {
+    setStep('type')
+    setBookingType('personal')
+    setOpen(true)
+  }
+
+  function handleTypeSelect(type: BookingType) {
+    setBookingType(type)
+    setStep('form')
+  }
+
+  async function handleSubmit(
+    values: Parameters<React.ComponentProps<typeof EventTypeForm>['onSubmit']>[0],
+  ) {
     startTransition(async () => {
       const result = await createEventType({
         ...values,
-        duration_minutes: values.duration_minutes,
+        booking_type: bookingType,
         active: true,
       })
       if (!result.ok) {
@@ -35,15 +76,66 @@ export function NewEventTypeDialog() {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} className="gap-1.5">
+      <Button size="sm" onClick={handleOpen} className="gap-1.5">
         <Plus className="h-3.5 w-3.5" /> New event type
       </Button>
-      <Sheet open={open} onOpenChange={setOpen}>
+
+      <Sheet open={open} onOpenChange={(o) => { if (!o) setOpen(false) }}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>New event type</SheetTitle>
-          </SheetHeader>
-          <EventTypeForm onSubmit={handleSubmit} loading={isPending} submitLabel="Create" />
+          {step === 'type' ? (
+            <>
+              <SheetHeader className="mb-6">
+                <SheetTitle>Choose event type</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-3">
+                {BOOKING_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => handleTypeSelect(t.value)}
+                    className={cn(
+                      'flex items-start gap-3 rounded-[12px] border p-4 text-left transition-colors',
+                      'border-border bg-bg-secondary hover:border-accent/50 hover:bg-accent/5',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                    )}
+                  >
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-indigo-500/10">
+                      {t.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-semibold text-text-primary">{t.label}</p>
+                      <p className="mt-0.5 text-[12.5px] text-text-secondary leading-snug">
+                        {t.description}
+                      </p>
+                      <p className="mt-1 text-[11.5px] text-text-tertiary">{t.example}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <SheetHeader className="mb-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('type')}
+                    className="text-[12px] text-text-tertiary hover:text-text-primary transition-colors"
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <SheetTitle>
+                  {bookingType === 'personal' ? 'Personal booking' : 'Round robin'}
+                </SheetTitle>
+              </SheetHeader>
+              <EventTypeForm
+                onSubmit={handleSubmit}
+                loading={isPending}
+                submitLabel="Create"
+              />
+            </>
+          )}
         </SheetContent>
       </Sheet>
     </>

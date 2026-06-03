@@ -3822,6 +3822,7 @@ export interface Database {
           active: boolean
           allowed_location_kinds: string[]
           default_store_location_id: string | null
+          booking_type: 'personal' | 'round_robin'
           created_at: string
           updated_at: string
         }
@@ -3839,6 +3840,7 @@ export interface Database {
           active?: boolean
           allowed_location_kinds?: string[]
           default_store_location_id?: string | null
+          booking_type?: 'personal' | 'round_robin'
           created_at?: string
           updated_at?: string
         }
@@ -3853,6 +3855,7 @@ export interface Database {
           active?: boolean
           allowed_location_kinds?: string[]
           default_store_location_id?: string | null
+          booking_type?: 'personal' | 'round_robin'
           updated_at?: string
         }
         Relationships: [

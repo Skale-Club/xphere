@@ -25,6 +25,7 @@ const eventTypeSchema = z.object({
   location_type: z.enum(['video', 'phone', 'in_person']).default('video'),
   location_value: z.string().max(500).optional(),
   active: z.boolean().default(true),
+  booking_type: z.enum(['personal', 'round_robin']).default('personal'),
 })
 
 export type EventTypeInput = z.infer<typeof eventTypeSchema>
@@ -42,6 +43,7 @@ export type EventTypeRow = {
   location_value: string | null
   allowed_location_kinds: string[] | null
   active: boolean
+  booking_type: 'personal' | 'round_robin'
   created_at: string
   updated_at: string
 }
