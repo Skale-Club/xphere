@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import { ModalShell } from '@/components/layout/modal-shell'
+import { PageContainer } from '@/components/layout/page-header'
 
 interface SettingsCardConfig {
   href: string
@@ -171,10 +171,7 @@ const SECTIONS: Array<{ heading: string; cards: SettingsCardConfig[] }> = [
 
 export default function SettingsHubPage() {
   return (
-    <ModalShell
-      title="Settings"
-      description="Workspace, communications and personal preferences."
-    >
+    <PageContainer>
       <div className="space-y-8">
         {SECTIONS.map((section) => (
           <section key={section.heading} className="space-y-3">
@@ -189,7 +186,7 @@ export default function SettingsHubPage() {
           </section>
         ))}
       </div>
-    </ModalShell>
+    </PageContainer>
   )
 }
 
