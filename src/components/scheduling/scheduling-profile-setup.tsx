@@ -81,12 +81,12 @@ export function SchedulingProfileSetup() {
               <FormLabel>Username</FormLabel>
               <FormControl>
                 <div className="flex items-center gap-0">
-                  <span className="rounded-l border border-r-0 border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  <span className="shrink-0 whitespace-nowrap rounded-l border border-r-0 border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
                     /book/
                   </span>
                   <Input
                     placeholder="your-name"
-                    className="rounded-l-none"
+                    className="min-w-0 flex-1 rounded-l-none"
                     {...field}
                     onChange={(e) => field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
                   />
