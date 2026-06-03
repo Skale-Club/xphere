@@ -32,7 +32,7 @@ export default async function SettingsEmailTemplatesPage() {
           </p>
         </div>
         <Button asChild size="sm" className="gap-1.5">
-          <Link href="/email-templates/new">
+          <Link href="/settings/email-templates/new">
             <Plus className="h-3.5 w-3.5" /> New Template
           </Link>
         </Button>
@@ -60,7 +60,7 @@ export default async function SettingsEmailTemplatesPage() {
             Create your first email template with the block editor.
           </p>
           <Button asChild size="sm" className="gap-1.5">
-            <Link href="/email-templates/new">
+            <Link href="/settings/email-templates/new">
               <Plus className="h-3.5 w-3.5" /> New Template
             </Link>
           </Button>
@@ -77,7 +77,7 @@ export default async function SettingsEmailTemplatesPage() {
             >
               {/* Preview area */}
               <Link
-                href={`/email-templates/${template.id}`}
+                href={`/settings/email-templates/${template.id}`}
                 className="block h-36 rounded-t-lg bg-muted/30 overflow-hidden border-b border-border"
               >
                 {template.html_snapshot ? (
@@ -98,7 +98,7 @@ export default async function SettingsEmailTemplatesPage() {
               <div className="p-3 flex flex-col gap-2 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <Link
-                    href={`/email-templates/${template.id}`}
+                    href={`/settings/email-templates/${template.id}`}
                     className="text-sm font-medium leading-tight hover:underline line-clamp-2 flex-1"
                   >
                     {template.name}
@@ -115,7 +115,7 @@ export default async function SettingsEmailTemplatesPage() {
                   Updated {formatDistanceToNow(new Date(template.updated_at), { addSuffix: true })}
                 </p>
 
-                <TemplateListActions templateId={template.id} />
+                <TemplateListActions templateId={template.id} basePath="/settings/email-templates" />
               </div>
             </div>
           ))}

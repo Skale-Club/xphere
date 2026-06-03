@@ -20,9 +20,11 @@ import { duplicateTemplate, deleteTemplate } from '../actions'
 
 interface TemplateListActionsProps {
   templateId: string
+  /** Base path for redirects after duplicate. Defaults to '/email-templates'. */
+  basePath?: string
 }
 
-export function TemplateListActions({ templateId }: TemplateListActionsProps) {
+export function TemplateListActions({ templateId, basePath = '/email-templates' }: TemplateListActionsProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -34,7 +36,7 @@ export function TemplateListActions({ templateId }: TemplateListActionsProps) {
         return
       }
       toast.success('Template duplicated')
-      router.push(`/email-templates/${result.data.id}`)
+      router.push(`${basePath}/${result.data.id}`)
     })
   }
 
