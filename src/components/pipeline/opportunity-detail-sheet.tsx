@@ -419,16 +419,21 @@ export function OpportunityDetailSheet({
                       {stage.name}
                     </span>
                   )}
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium uppercase tracking-wider',
-                      status === 'won' && 'bg-emerald-500/10 text-emerald-400',
-                      status === 'lost' && 'bg-rose-500/10 text-rose-400',
-                      status === 'open' && 'bg-bg-tertiary text-text-tertiary',
-                    )}
-                  >
-                    {status}
-                  </span>
+                  {/* Only show the status badge when it adds information the stage
+                      badge doesn't already convey. If the stage is already a
+                      won/lost stage, the status badge is redundant. */}
+                  {!(status === 'won' && stage?.is_won) && !(status === 'lost' && stage?.is_lost) && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-medium uppercase tracking-wider',
+                        status === 'won' && 'bg-emerald-500/10 text-emerald-400',
+                        status === 'lost' && 'bg-rose-500/10 text-rose-400',
+                        status === 'open' && 'bg-bg-tertiary text-text-tertiary',
+                      )}
+                    >
+                      {status}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-2">
                   <InlineEditField
