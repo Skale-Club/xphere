@@ -11,9 +11,10 @@
 //   - saving indicator
 
 import * as React from 'react'
-import { Archive, ChevronRight, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Archive, ChevronRight, Loader2, MoreHorizontal, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { DialogClose } from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,9 +134,9 @@ export function TaskHeader({
             #{taskId.slice(0, 8)}
           </span>
         </nav>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {saving && (
-            <span className="flex items-center gap-1 text-text-tertiary">
+            <span className="flex items-center gap-1 text-text-tertiary mr-1">
               <Loader2 className="h-3 w-3 animate-spin" />
               Saving…
             </span>
@@ -176,6 +177,16 @@ export function TaskHeader({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <DialogClose asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-text-tertiary hover:text-text-primary"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
         </div>
       </div>
 

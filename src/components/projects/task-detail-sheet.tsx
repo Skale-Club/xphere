@@ -106,7 +106,7 @@ interface Props {
 export function TaskDetailSheet({ taskId, projectId, projectName, onClose, onRefresh }: Props) {
   return (
     <Dialog open={!!taskId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] md:max-h-[90vh] overflow-hidden p-0 gap-0 flex flex-col">
+      <DialogContent hideCloseButton className="max-w-5xl w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] md:max-h-[90vh] overflow-hidden p-0 gap-0 flex flex-col">
         <VisuallyHidden>
           <DialogTitle>Task detail</DialogTitle>
         </VisuallyHidden>
