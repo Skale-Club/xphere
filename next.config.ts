@@ -66,8 +66,19 @@ const nextConfig: NextConfig = {
       },
     ].filter((h, i, arr) => arr.findIndex(x => x.key === h.key) === i)
 
+    // The playground preview iframe is always same-origin (dashboard → own API),
+    // so frame-ancestors 'self' is enough — no need to open it to '*'.
+    const previewHeaders = [
+      ...commonHeaders.filter(h => h.key !== 'X-Frame-Options'),
+      {
+        key: 'Content-Security-Policy-Report-Only',
+        value: cspDirectives.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+      },
+    ].filter((h, i, arr) => arr.findIndex(x => x.key === h.key) === i)
+
     return [
       { source: '/widget/:path*', headers: widgetHeaders },
+      { source: '/api/widget-preview/:path*', headers: previewHeaders },
       { source: '/:path*', headers: commonHeaders },
     ]
   },

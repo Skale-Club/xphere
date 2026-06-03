@@ -16,10 +16,8 @@ export async function GET(
 ) {
   const { token } = await params
 
-  // Derive the widget script URL from the canonical production origin so the
-  // preview always tests the real built artefact, not a dev bundle.
-  const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'https://xphere.app'
-
+  // Root-relative URL so the script loads from whatever origin the iframe is
+  // served from — works in dev (any IP/port) and in production without env-var issues.
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -39,7 +37,7 @@ export async function GET(
 </head>
 <body>
   <script
-    src="${origin}/widget.js"
+    src="/widget.js"
     data-token="${token}"
     async
   ></script>
@@ -51,8 +49,6 @@ export async function GET(
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
-      // Allow embedding in the dashboard iframe.
-      'X-Frame-Options': 'SAMEORIGIN',
     },
   })
 }
