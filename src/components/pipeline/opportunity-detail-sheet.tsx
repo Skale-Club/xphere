@@ -34,6 +34,8 @@ import {
   Activity as ActivityIcon,
   ExternalLink,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 import {
@@ -53,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   AlertDialog,
@@ -493,10 +496,12 @@ export function OpportunityDetailSheet({
                   {/* DETAILS */}
                   {section === 'details' && (
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <FieldRow label="Stage">
                           <Select value={opp.stage_id} onValueChange={saveStage}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-9 rounded-[8px] border-border-subtle bg-bg-secondary text-[12.5px] hover:bg-bg-tertiary focus:ring-accent">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                               {stages.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
@@ -513,7 +518,9 @@ export function OpportunityDetailSheet({
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <FieldRow label="Status">
                             <Select value={status} onValueChange={(v) => saveStatus(v as OpportunityStatus)}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-9 rounded-[8px] border-border-subtle bg-bg-secondary text-[12.5px] hover:bg-bg-tertiary focus:ring-accent">
+                                <SelectValue />
+                              </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="open">Open</SelectItem>
                                 <SelectItem value="won">Won</SelectItem>
@@ -522,10 +529,9 @@ export function OpportunityDetailSheet({
                             </Select>
                           </FieldRow>
                           <FieldRow label="Expected close">
-                            <Input
-                              type="date"
-                              defaultValue={opp.expected_close_date ?? ''}
-                              onChange={(e) => void saveField('expected_close_date')(e.target.value)}
+                            <DatePickerField
+                              value={opp.expected_close_date ?? ''}
+                              onChange={(v) => void saveField('expected_close_date')(v)}
                             />
                           </FieldRow>
                         </div>
@@ -893,6 +899,143 @@ function InlineValueField({
         {formatCurrency(value, currency)}
       </span>
     </button>
+  )
+}
+
+// ── Inline date picker (calendar popover) ────────────────────────────────────
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const DOW = ['Su','Mo','Tu','We','Th','Fr','Sa']
+
+function DatePickerField({
+  value,
+  onChange,
+}: {
+  value: string       // 'YYYY-MM-DD' or ''
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = React.useState(false)
+  const today = new Date()
+  const parsed = value ? new Date(value + 'T00:00:00') : null
+  const [view, setView] = React.useState<{ year: number; month: number }>(() => {
+    const d = parsed ?? today
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
+
+  function prevMonth() {
+    setView((v) => v.month === 0 ? { year: v.year - 1, month: 11 } : { ...v, month: v.month - 1 })
+  }
+  function nextMonth() {
+    setView((v) => v.month === 11 ? { year: v.year + 1, month: 0 } : { ...v, month: v.month + 1 })
+  }
+
+  const firstDay = new Date(view.year, view.month, 1).getDay()
+  const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
+  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+
+  function select(day: number) {
+    const mm = String(view.month + 1).padStart(2, '0')
+    const dd = String(day).padStart(2, '0')
+    const iso = `${view.year}-${mm}-${dd}`
+    onChange(iso)
+    setOpen(false)
+  }
+
+  function clear(e: React.MouseEvent) {
+    e.stopPropagation()
+    onChange('')
+  }
+
+  const displayLabel = parsed
+    ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'Pick a date'
+
+  const isSelected = (day: number) => {
+    if (!parsed) return false
+    return parsed.getFullYear() === view.year && parsed.getMonth() === view.month && parsed.getDate() === day
+  }
+  const isToday = (day: number) =>
+    today.getFullYear() === view.year && today.getMonth() === view.month && today.getDate() === day
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'flex h-9 w-full items-center justify-between rounded-[8px] border border-border-subtle',
+            'bg-bg-secondary px-3 py-2 text-[12.5px] transition-colors',
+            'hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            parsed ? 'text-text-primary' : 'text-text-tertiary',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
+            {displayLabel}
+          </div>
+          {parsed && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={clear}
+              onKeyDown={(e) => e.key === 'Enter' && clear(e as unknown as React.MouseEvent)}
+              className="rounded p-0.5 text-text-tertiary hover:text-text-primary"
+              aria-label="Clear date"
+            >
+              <X className="h-3 w-3" />
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-auto p-0 border border-border-subtle bg-bg-secondary shadow-elevation-lg rounded-[12px] overflow-hidden"
+      >
+        {/* Month navigation */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-subtle">
+          <button type="button" onClick={prevMonth} className="rounded-[6px] p-1 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-[12.5px] font-semibold text-text-primary">
+            {MONTHS[view.month]} {view.year}
+          </span>
+          <button type="button" onClick={nextMonth} className="rounded-[6px] p-1 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary transition-colors">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        {/* Day-of-week header */}
+        <div className="grid grid-cols-7 px-2 pt-2">
+          {DOW.map((d) => (
+            <div key={d} className="flex h-7 items-center justify-center text-[10.5px] font-medium text-text-tertiary">
+              {d}
+            </div>
+          ))}
+        </div>
+        {/* Day cells */}
+        <div className="grid grid-cols-7 gap-y-0.5 px-2 pb-3">
+          {cells.map((day, i) =>
+            day == null ? (
+              <div key={`e-${i}`} />
+            ) : (
+              <button
+                key={day}
+                type="button"
+                onClick={() => select(day)}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-medium transition-colors',
+                  isSelected(day)
+                    ? 'bg-accent text-white'
+                    : isToday(day)
+                    ? 'text-accent ring-1 ring-accent/50 hover:bg-accent/10'
+                    : 'text-text-primary hover:bg-bg-tertiary',
+                )}
+              >
+                {day}
+              </button>
+            ),
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
