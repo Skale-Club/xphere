@@ -147,6 +147,8 @@ interface ChatAreaProps {
   hasMore?: boolean
   /** Pagination: true while older messages are being fetched. */
   isLoadingMore?: boolean
+  /** Operator name prefix: toggle per-conversation setting. */
+  onOperatorNamePrefixToggle?: (id: string, enabled: boolean) => void
 }
 
 export function ChatArea({
@@ -179,6 +181,7 @@ export function ChatArea({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  onOperatorNamePrefixToggle,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
   // SEED-039: per-thread channel filter (client-side, no refetch).
@@ -422,6 +425,8 @@ export function ChatArea({
         onToggleDebug={() => setShowDebug((v) => !v)}
         dndEnabled={contactDnd.enabled}
         dndChannels={contactDnd.channels}
+        operatorNamePrefix={Boolean(conversation.operatorNamePrefix)}
+        onOperatorNamePrefixToggle={onOperatorNamePrefixToggle}
       />
 
       <MessageList

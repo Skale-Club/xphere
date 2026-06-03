@@ -1879,6 +1879,7 @@ export interface Database {
           starred: boolean
           wait_until: string | null
           phone_number_id: string | null
+          show_operator_name_prefix: boolean
         }
         Insert: {
           id?: string
@@ -1909,6 +1910,7 @@ export interface Database {
           starred?: boolean
           wait_until?: string | null
           phone_number_id?: string | null
+          show_operator_name_prefix?: boolean
         }
         Update: {
           status?: string
@@ -1933,6 +1935,7 @@ export interface Database {
           starred?: boolean
           wait_until?: string | null
           phone_number_id?: string | null
+          show_operator_name_prefix?: boolean
         }
         Relationships: [
           {

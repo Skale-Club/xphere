@@ -214,6 +214,10 @@ export async function POST(
       ?? null
     : null
 
+  // Single outbound content string reused by all channel providers.
+  // Skip prefix when there is no text (media-only messages).
+  const outboundContent = operatorName && content ? `${operatorName}:\n${content}` : content
+
   // Determine message_type
   const messageType = media?.length ? (content ? 'mixed' : (() => {
     const first = media[0]
@@ -271,9 +275,6 @@ export async function POST(
 
     const apiKey = await decrypt(ghlChannel.encrypted_api_key)
 
-    // Build the outbound message | optionally prefix with operator name
-    const outboundContent = operatorName ? `${operatorName}:\n${content}` : content
-
     try {
       const sent = await sendGhlMessage(
         {
@@ -329,7 +330,7 @@ export async function POST(
       )
     }
 
-    const result = await sendMetaMessage(pageToken, recipientId, content)
+    const result = await sendMetaMessage(pageToken, recipientId, outboundContent)
 
     if ('error' in result) {
       if (result.code === 190) {
@@ -358,10 +359,8 @@ export async function POST(
         400,
       )
     }
-    // MMS: forward the public media URLs to Twilio. Don't prefix the operator
-    // name when there's no text (media-only message).
+    // MMS: forward the public media URLs to Twilio.
     const mediaUrls = media?.map((m) => m.url) ?? []
-    const outboundContent = operatorName && content ? `${operatorName}:\n${content}` : content
     try {
       await sendSms(
         {
@@ -428,14 +427,14 @@ export async function POST(
           400,
         )
       }
-      const res = await sendCloudText({ account, to, body: content })
+      const res = await sendCloudText({ account, to, body: outboundContent })
       if (!res.ok) {
         return sendError('wa_send_failed', res.error, 502, { outsideWindow: res.outsideWindow })
       }
       deliveryMetadata.whatsapp_message_id = res.wamid
     } else {
       // Evolution Go (default). Omit conversationId so it does NOT persist again.
-      const res = await sendWhatsappMessage({ orgId: conv.org_id, to, text: content })
+      const res = await sendWhatsappMessage({ orgId: conv.org_id, to, text: outboundContent })
       if (!res.ok) {
         return sendError('wa_send_failed', res.error ?? 'WhatsApp send failed.', 502)
       }
@@ -481,7 +480,7 @@ export async function POST(
           postId,
           accountId: zernioAccountId,
           commentId,
-          text: content,
+          text: outboundContent,
           apiKey,
         })
         if (replyCommentId) deliveryMetadata.zernio_comment_id = replyCommentId
@@ -505,14 +504,14 @@ export async function POST(
             const { messageId } = await sendZernioDm(
               zernioConversationId,
               zernioAccountId,
-              index === 0 ? content : '',
+              index === 0 ? outboundContent : '',
               apiKey,
               { attachment: item, voiceNote: isWhatsAppVoice },
             )
             if (messageId) sentIds.push(messageId)
           }
         } else {
-          const { messageId } = await sendZernioDm(zernioConversationId, zernioAccountId, content, apiKey)
+          const { messageId } = await sendZernioDm(zernioConversationId, zernioAccountId, outboundContent, apiKey)
           if (messageId) sentIds.push(messageId)
         }
         if (sentIds.length === 1) deliveryMetadata.zernio_message_id = sentIds[0]

@@ -27,6 +27,7 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  UserCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -97,6 +98,10 @@ interface ChatHeaderProps {
   /** Phase 1085 DND: show DndBadge in header when contact has DND active. */
   dndEnabled?: boolean
   dndChannels?: string[]
+  /** Operator name prefix: current setting value. */
+  operatorNamePrefix?: boolean
+  /** Operator name prefix: toggle callback. */
+  onOperatorNamePrefixToggle?: (id: string, enabled: boolean) => void
 }
 
 export function ChatHeader({
@@ -123,6 +128,8 @@ export function ChatHeader({
   onToggleDebug,
   dndEnabled = false,
   dndChannels = [],
+  operatorNamePrefix = false,
+  onOperatorNamePrefixToggle,
 }: ChatHeaderProps) {
   const [showDelete, setShowDelete] = useState(false)
   // When set, opens the contact editor popup for this contact (edit mode).
@@ -301,6 +308,12 @@ export function ChatHeader({
                 <DropdownMenuItem onClick={onToggleDebug}>
                   {showDebug ? <Eye className="h-4 w-4 text-accent" /> : <EyeOff className="h-4 w-4" />}
                   {showDebug ? 'Hide internal messages' : 'Show internal messages'}
+                </DropdownMenuItem>
+              )}
+              {onOperatorNamePrefixToggle && (
+                <DropdownMenuItem onClick={() => onOperatorNamePrefixToggle(conversation.id, !operatorNamePrefix)}>
+                  <UserCheck className={cn('h-4 w-4', operatorNamePrefix && 'text-accent')} />
+                  {operatorNamePrefix ? 'Disable name prefix' : 'Enable name prefix'}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

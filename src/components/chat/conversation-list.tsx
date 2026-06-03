@@ -57,9 +57,16 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { FilterPanel, type AdvancedFilters, EMPTY_FILTERS, countActiveFilters } from './filter-panel'
-import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import {
+  listSavedViews,
+  createSavedView,
+  deleteSavedView,
+  type SavedView,
+  type OrgMember,
+} from '@/app/(dashboard)/chat/actions'
 
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -220,6 +227,12 @@ export function ConversationList({
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)
 
+  const [savedViews, setSavedViews] = useState<SavedView[]>([])
+  const [activeSavedViewId, setActiveSavedViewId] = useState<string | null>(null)
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [saveViewName, setSaveViewName] = useState('')
+  const [savingView, setSavingView] = useState(false)
+
   // Debounce search (300ms) | search is client-side over the current page.
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -236,6 +249,25 @@ export function ConversationList({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // Load saved views on mount; apply the default one if any
+  useEffect(() => {
+    listSavedViews().then((views) => {
+      setSavedViews(views)
+      const defaultView = views.find((v) => v.isDefault)
+      if (defaultView) {
+        const f = defaultView.filters as {
+          statusFilter?: StatusId
+          selectedChannels?: Channel[]
+          advancedFilters?: AdvancedFilters
+        }
+        if (f.statusFilter !== undefined) setStatusFilter(f.statusFilter)
+        if (f.selectedChannels !== undefined) setSelectedChannels(new Set(f.selectedChannels))
+        if (f.advancedFilters !== undefined) setAdvancedFilters(f.advancedFilters)
+        setActiveSavedViewId(defaultView.id)
+      }
+    })
   }, [])
 
   // Propagate filter changes to parent (which drives server fetch + page reset).
@@ -326,6 +358,60 @@ export function ConversationList({
 
   const hasAnyOnPage = filteredUnpinned.length + filteredPinned.length > 0
 
+  const hasActiveFilters =
+    statusFilter !== 'all' || selectedChannels.size > 0 || countActiveFilters(advancedFilters) > 0
+
+  function currentFiltersToSave(): Record<string, unknown> {
+    return {
+      statusFilter,
+      selectedChannels: Array.from(selectedChannels),
+      advancedFilters,
+    }
+  }
+
+  function applyView(view: SavedView) {
+    const f = view.filters as {
+      statusFilter?: StatusId
+      selectedChannels?: Channel[]
+      advancedFilters?: AdvancedFilters
+    }
+    if (f.statusFilter !== undefined) setStatusFilter(f.statusFilter)
+    if (f.selectedChannels !== undefined) setSelectedChannels(new Set(f.selectedChannels))
+    if (f.advancedFilters !== undefined) setAdvancedFilters(f.advancedFilters)
+    setActiveSavedViewId(view.id)
+  }
+
+  async function handleDeleteView(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    const res = await deleteSavedView(id)
+    if (res?.error) {
+      toast.error('Could not delete saved view')
+      return
+    }
+    setSavedViews((prev) => prev.filter((v) => v.id !== id))
+    if (activeSavedViewId === id) setActiveSavedViewId(null)
+  }
+
+  async function handleSaveView(e: React.FormEvent) {
+    e.preventDefault()
+    const name = saveViewName.trim()
+    if (!name) return
+    setSavingView(true)
+    try {
+      const res = await createSavedView(name, currentFiltersToSave(), false)
+      if ('error' in res) {
+        toast.error('Could not save view')
+      } else {
+        setSavedViews((prev) => [...prev, res.view])
+        setActiveSavedViewId(res.view.id)
+        setShowSaveInput(false)
+        setSaveViewName('')
+      }
+    } finally {
+      setSavingView(false)
+    }
+  }
+
   // Range string: "1–30 of 171"
   const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
   const rangeEnd = Math.min(page * pageSize, totalCount)
@@ -372,6 +458,73 @@ export function ConversationList({
             ⌘K
           </kbd>
         </div>
+
+        {(savedViews.length > 0 || hasActiveFilters) && (
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {savedViews.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                onClick={() => applyView(view)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                  activeSavedViewId === view.id
+                    ? 'bg-accent text-white'
+                    : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80 hover:text-text-primary',
+                )}
+              >
+                {view.name}
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => handleDeleteView(view.id, e)}
+                  aria-label={`Delete ${view.name} view`}
+                  className="ml-0.5 opacity-50 hover:opacity-100"
+                >
+                  ×
+                </span>
+              </button>
+            ))}
+            {hasActiveFilters && !showSaveInput && (
+              <button
+                type="button"
+                onClick={() => setShowSaveInput(true)}
+                className="flex shrink-0 items-center gap-1 rounded-full border border-dashed border-border-subtle px-2.5 py-0.5 text-[11px] font-medium text-text-tertiary transition-colors hover:border-border hover:text-text-secondary"
+              >
+                + Save view
+              </button>
+            )}
+            {showSaveInput && (
+              <form
+                onSubmit={handleSaveView}
+                className="flex shrink-0 items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  autoFocus
+                  value={saveViewName}
+                  onChange={(e) => setSaveViewName(e.target.value)}
+                  placeholder="View name…"
+                  className="h-6 w-28 rounded-full border border-accent/50 bg-bg-primary px-2.5 text-[11px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={savingView || !saveViewName.trim()}
+                  className="text-[11px] font-medium text-accent hover:text-accent/80 disabled:opacity-40"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowSaveInput(false); setSaveViewName('') }}
+                  className="text-[11px] text-text-tertiary hover:text-text-secondary"
+                >
+                  ✕
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
 
       {/* List | min-h-0 lets the flex child shrink below content size so
@@ -578,6 +731,8 @@ function ConversationCardBase({
         priorityBar,
         selected
           ? 'bg-accent-muted/60'
+          : conversation.isUnread
+          ? 'bg-bg-secondary hover:bg-bg-tertiary/70 focus-visible:ring-2 focus-visible:ring-accent/20'
           : 'hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/60 focus-visible:ring-2 focus-visible:ring-accent/20',
       )}
     >

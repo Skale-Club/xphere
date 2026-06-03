@@ -320,7 +320,7 @@ const START_CHANNEL_LABEL: Record<StartChannel, string> = {
 
 /** Columns selected when returning a ConversationSummary to the client. */
 const CONVERSATION_SUMMARY_COLUMNS =
-  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) )'
+  'id, status, created_at, updated_at, last_message_at, visitor_name, visitor_email, visitor_phone, last_message, channel, channel_metadata, bot_status, contact_id, pinned, starred, priority, assigned_user_id, last_inbound_at, phone_number_id, show_operator_name_prefix, contacts:contact_id ( first_name, last_name, name, avatar_url, contact_verifications ( id ) )'
 
 function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
   const contact = row.contacts as {
@@ -362,7 +362,25 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
     lastInboundAt: (row.last_inbound_at as string | null) ?? null,
     phoneNumberId: (row.phone_number_id as string | null) ?? null,
+    operatorNamePrefix: Boolean(row.show_operator_name_prefix),
   }
+}
+
+export async function setConversationOperatorNamePrefix(
+  conversationId: string,
+  enabled: boolean,
+): Promise<{ operatorNamePrefix: boolean } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('conversations')
+    .update({ show_operator_name_prefix: enabled, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+
+  if (error) return { error: 'Failed to update operator name prefix setting' }
+  return { operatorNamePrefix: enabled }
 }
 
 /** Returns true when the given channel key is suppressed by the contact's DND. */
@@ -723,4 +741,100 @@ export async function prepareContactConversationForOpen(
   if (!row) return { error: 'Conversation not found.' }
 
   return { conversation: mapConversationRow(row) }
+}
+
+// ─── Inbox Saved Views ────────────────────────────────────────────────────────
+
+export interface SavedView {
+  id: string
+  name: string
+  filters: Record<string, unknown>
+  isDefault: boolean
+  createdAt: string
+}
+
+export async function listSavedViews(): Promise<SavedView[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('inbox_saved_views')
+    .select('id, name, filters, is_default, created_at')
+    .order('created_at', { ascending: true })
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    filters: (r.filters as Record<string, unknown>) ?? {},
+    isDefault: Boolean(r.is_default),
+    createdAt: r.created_at as string,
+  }))
+}
+
+export async function createSavedView(
+  name: string,
+  filters: Record<string, unknown>,
+  setAsDefault: boolean,
+): Promise<{ view: SavedView } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  if (setAsDefault) {
+    await supabase
+      .from('inbox_saved_views')
+      .update({ is_default: false })
+      .eq('user_id', user.id)
+      .eq('org_id', orgId as string)
+  }
+
+  const { data, error } = await supabase
+    .from('inbox_saved_views')
+    .insert({ org_id: orgId as string, user_id: user.id, name, filters, is_default: setAsDefault })
+    .select('id, name, filters, is_default, created_at')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? 'Failed to save view' }
+  return {
+    view: {
+      id: data.id as string,
+      name: data.name as string,
+      filters: (data.filters as Record<string, unknown>) ?? {},
+      isDefault: Boolean(data.is_default),
+      createdAt: data.created_at as string,
+    },
+  }
+}
+
+export async function deleteSavedView(id: string): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('inbox_saved_views').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function setDefaultSavedView(id: string | null): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Unauthorized' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  await supabase
+    .from('inbox_saved_views')
+    .update({ is_default: false })
+    .eq('user_id', user.id)
+    .eq('org_id', orgId as string)
+
+  if (id) {
+    const { error } = await supabase
+      .from('inbox_saved_views')
+      .update({ is_default: true })
+      .eq('id', id)
+    if (error) return { error: error.message }
+  }
+  return {}
 }
