@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { MessageSquare, X, Send, Share2 } from 'lucide-react'
+import { MessageSquare, X, Send, Share2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
@@ -166,6 +166,17 @@ export function WidgetPlayground({
 
       {/* Stage — neutral backdrop with the widget anchored bottom-right */}
       <div className="relative overflow-hidden rounded-[16px] border border-border-subtle bg-[#0f0f11]" style={{ height: 520 }}>
+        {/* Reset conversation — bottom-left of stage */}
+        <button
+          type="button"
+          onClick={reset}
+          aria-label="Reset conversation"
+          className="absolute bottom-4 left-4 z-10 flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11.5px] font-medium text-white/60 transition-colors hover:bg-white/20 hover:text-white/90"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Reset
+        </button>
+
         {/* Closed: floating bubble */}
         {!open && (
           <button
