@@ -22,6 +22,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
+import { AccountSelector } from './account-selector'
+
+const ACCOUNT_STORAGE_KEY = 'xphere:meta_ads_account'
 
 type AdAccountOption = { id: string; name: string }
 
@@ -117,6 +120,27 @@ export function MetaAdsOverview({
 
   const activeAccount = connections.find((c) => c.id === activeAccountId)
 
+  const selectAccount = (id: string) => {
+    setActiveAccountId(id)
+    try {
+      localStorage.setItem(ACCOUNT_STORAGE_KEY, id)
+    } catch {
+      /* ignore storage errors (private mode, etc.) */
+    }
+  }
+
+  // Restore the previously-selected account when the screen opens (per browser).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ACCOUNT_STORAGE_KEY)
+      if (saved && connections.some((c) => c.id === saved)) setActiveAccountId(saved)
+    } catch {
+      /* ignore */
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleDisconnect = async () => {
     if (!window.confirm('Disconnect Meta Ads? You can reconnect anytime.')) return
     setDisconnecting(true)
@@ -189,18 +213,9 @@ export function MetaAdsOverview({
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {connections.length > 1 && (
-            <select
-              value={activeAccountId}
-              onChange={(e) => setActiveAccountId(e.target.value)}
-              className="rounded-lg border border-border-subtle bg-bg-secondary px-3 py-1.5 text-[12.5px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              {connections.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          )}
-          {connections.length === 1 && (
+          {connections.length > 1 ? (
+            <AccountSelector value={activeAccountId} options={connections} onSelect={selectAccount} />
+          ) : (
             <span className="text-[13px] font-medium text-text-primary">{activeAccount?.name}</span>
           )}
           {data?.account && (
