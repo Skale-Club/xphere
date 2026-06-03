@@ -36,6 +36,10 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Phone as PhoneIcon,
+  Mail as MailIcon,
+  Building2 as BuildingIcon,
 } from 'lucide-react'
 
 import {
@@ -85,6 +89,7 @@ import {
   type OpportunityWithContact,
   type ActivityWithMeta,
 } from '@/app/(dashboard)/pipeline/actions'
+import { updateContactField } from '@/app/(dashboard)/contacts/actions'
 import {
   listTags,
   setOpportunityTags,
@@ -560,53 +565,19 @@ export function OpportunityDetailSheet({
                   {section === 'contact' && (
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                       {opp.contact ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary p-3">
-                            <Avatar className="h-10 w-10 shrink-0">
-                              <AvatarFallback className="bg-accent-muted text-accent text-[13px] font-semibold">
-                                {initialsFromContactName(
-                                  opp.contact,
-                                  opp.contact.email ?? opp.contact.phone ?? '?',
-                                )}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-[14px] font-medium text-text-primary">
-                                {displayContactName(opp.contact, 'Unnamed')}
-                              </div>
-                              <div className="truncate text-[12px] text-text-tertiary">
-                                {opp.contact.phone
-                                  ? formatPhoneDisplay(opp.contact.phone)
-                                  : opp.contact.email ?? ''}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void saveContact(null)}
-                              className="shrink-0 rounded p-1 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
-                              aria-label="Unlink contact"
-                              title="Unlink contact"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {opp.contact.email && (
-                              <InfoCell label="Email" value={formatEmailDisplay(opp.contact.email)} />
-                            )}
-                            {opp.contact.phone && (
-                              <InfoCell label="Phone" value={formatPhoneDisplay(opp.contact.phone)} />
-                            )}
-                            {opp.contact.company && (
-                              <InfoCell label="Company" value={opp.contact.company} />
-                            )}
-                          </div>
-                          <Button asChild variant="secondary" size="sm" className="gap-1.5">
-                            <Link href={`/chat?contact=${opp.contact.id}`} onClick={() => onOpenChange(false)}>
-                              Open contact <ExternalLink className="h-3.5 w-3.5" />
-                            </Link>
-                          </Button>
-                        </div>
+                        <ContactFields
+                          contact={opp.contact}
+                          contactId={opp.contact.id}
+                          onUnlink={() => void saveContact(null)}
+                          onOpenContact={() => onOpenChange(false)}
+                          onFieldSaved={(field, value) => {
+                            setOpp((prev) =>
+                              prev
+                                ? { ...prev, contact: prev.contact ? { ...prev.contact, [field]: value || null } : prev.contact }
+                                : prev,
+                            )
+                          }}
+                        />
                       ) : (
                         <div className="space-y-2">
                           <Label className="text-[12px] text-text-secondary">Link a contact</Label>
@@ -899,6 +870,200 @@ function InlineValueField({
         {formatCurrency(value, currency)}
       </span>
     </button>
+  )
+}
+
+// ── Contact inline-edit fields ───────────────────────────────────────────────
+
+interface ContactLike {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  name: string | null
+  phone: string | null
+  email: string | null
+  company: string | null
+}
+
+function ContactFields({
+  contact,
+  contactId,
+  onUnlink,
+  onOpenContact,
+  onFieldSaved,
+}: {
+  contact: ContactLike
+  contactId: string
+  onUnlink: () => void
+  onOpenContact: () => void
+  onFieldSaved: (field: string, value: string) => void
+}) {
+  type EditingField = 'name' | 'phone' | 'email' | 'company' | null
+  const [editing, setEditing] = React.useState<EditingField>(null)
+  const [draft, setDraft] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
+
+  const displayName = displayContactName(contact, 'Unnamed')
+
+  function startEdit(field: EditingField, current: string) {
+    setEditing(field)
+    setDraft(current)
+  }
+
+  async function commit(field: EditingField) {
+    if (!field) return
+    setSaving(true)
+    try {
+      const res = await updateContactField(contactId, { field, value: draft })
+      if (!res.ok) { toast.error(res.error); return }
+      onFieldSaved(field, draft)
+      toast.success('Saved')
+    } finally {
+      setSaving(false)
+      setEditing(null)
+    }
+  }
+
+  function cancel() { setEditing(null) }
+
+  const CONTACT_FIELD_CLS = cn(
+    'group flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary px-4 py-3',
+    'hover:bg-bg-tertiary/60 transition-colors cursor-pointer',
+  )
+  const LABEL_CLS = 'text-[10.5px] font-medium uppercase tracking-wider text-text-tertiary mb-0.5'
+  const VALUE_CLS = 'text-[13px] font-medium text-text-primary truncate'
+  const EMPTY_CLS = 'text-[13px] text-text-tertiary italic'
+
+  function EditableRow({
+    field,
+    label,
+    display,
+    raw,
+    icon: Icon,
+  }: {
+    field: EditingField
+    label: string
+    display: string
+    raw: string
+    icon: React.ElementType
+  }) {
+    const isEditing = editing === field
+    return (
+      <div
+        className={cn(CONTACT_FIELD_CLS, isEditing && 'bg-bg-tertiary/60')}
+        onClick={() => !isEditing && startEdit(field, raw)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && !isEditing && startEdit(field, raw)}
+      >
+        <Icon className="h-4 w-4 shrink-0 text-text-tertiary" />
+        <div className="min-w-0 flex-1">
+          <p className={LABEL_CLS}>{label}</p>
+          {isEditing ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void commit(field)
+                if (e.key === 'Escape') cancel()
+              }}
+              onBlur={() => void commit(field)}
+              className="w-full bg-transparent text-[13px] font-medium text-text-primary outline-none placeholder:text-text-tertiary"
+              placeholder={`Enter ${label.toLowerCase()}…`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p className={display ? VALUE_CLS : EMPTY_CLS}>{display || `Add ${label.toLowerCase()}…`}</p>
+          )}
+        </div>
+        {saving && isEditing && <Loader2 className="h-3.5 w-3.5 animate-spin text-text-tertiary" />}
+        {!isEditing && (
+          <Pencil className="h-3.5 w-3.5 shrink-0 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Avatar + name header */}
+      <div className="flex items-center gap-3">
+        <Avatar className="h-12 w-12 shrink-0">
+          <AvatarFallback className="bg-accent-muted text-accent text-[14px] font-bold">
+            {initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => startEdit('name', displayName === 'Unnamed' ? '' : displayName)}
+            className="group flex items-center gap-1.5 text-left"
+          >
+            <span className="text-[16px] font-semibold text-text-primary leading-tight truncate">
+              {displayName}
+            </span>
+            <Pencil className="h-3.5 w-3.5 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </button>
+          {editing === 'name' && (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void commit('name')
+                if (e.key === 'Escape') cancel()
+              }}
+              onBlur={() => void commit('name')}
+              className="mt-0.5 w-full rounded-[6px] border border-accent/50 bg-bg-secondary px-2 py-1 text-[13px] text-text-primary outline-none"
+              placeholder="Full name…"
+            />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onUnlink}
+          className="shrink-0 rounded p-1.5 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+          aria-label="Unlink contact"
+          title="Unlink contact"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Editable fields */}
+      <div className="space-y-2">
+        <EditableRow
+          field="phone"
+          label="Phone"
+          display={contact.phone ? formatPhoneDisplay(contact.phone) : ''}
+          raw={contact.phone ?? ''}
+          icon={PhoneIcon}
+        />
+        <EditableRow
+          field="email"
+          label="Email"
+          display={contact.email ? formatEmailDisplay(contact.email) : ''}
+          raw={contact.email ?? ''}
+          icon={MailIcon}
+        />
+        <EditableRow
+          field="company"
+          label="Company"
+          display={contact.company ?? ''}
+          raw={contact.company ?? ''}
+          icon={BuildingIcon}
+        />
+      </div>
+
+      {/* Open contact CTA */}
+      <Button asChild variant="outline" size="sm" className="gap-1.5">
+        <Link href={`/chat?contact=${contactId}`} onClick={onOpenContact}>
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open full contact
+        </Link>
+      </Button>
+    </div>
   )
 }
 
