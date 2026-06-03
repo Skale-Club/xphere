@@ -64,6 +64,11 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
   }, [initialOpen])
 
   const grouped = useMemo(() => {
+    // Zernio and ManyChat are mutually exclusive inbox providers.
+    // When one is active the other is hidden — both can't serve the inbox simultaneously.
+    const zernioActive = saved['zernio']?.is_active === true
+    const manychatActive = saved['manychat']?.is_active === true
+
     const out: Record<string, IntegrationDefinition[]> = {}
     for (const def of INTEGRATION_REGISTRY) {
       // 'whatsapp_cloud' is exposed as a tab inside the unified WhatsApp card,
@@ -73,11 +78,14 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
       // 'meta' is superseded by Zernio for Instagram/Facebook inbox.
       // Existing data is preserved; new connections are disabled.
       if (def.id === 'meta') continue
+      // Mutual exclusion: hide ManyChat when Zernio is active, and vice versa.
+      if (def.id === 'manychat' && zernioActive) continue
+      if (def.id === 'zernio' && manychatActive) continue
       out[def.category] ??= []
       out[def.category].push(def)
     }
     return out
-  }, [])
+  }, [saved])
 
   const activeDef = openId ? getDefinitionByProvider(openId) ?? null : null
   const activeRow = openId ? saved[openId] : undefined

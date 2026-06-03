@@ -63,7 +63,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: '/settings/phone-numbers', label: 'Phone numbers', icon: Phone },
       { href: '/settings/calls', label: 'Calls', icon: PhoneCall },
-      { href: '/email-templates', label: 'Email templates', icon: Mail },
+      { href: '/settings/email-templates', label: 'Email templates', icon: Mail },
       { href: '/settings/mcp', label: 'MCP server', icon: Plug },
       { href: '/settings/widget', label: 'Chat widget', icon: MessageSquare },
     ],
@@ -71,8 +71,8 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Build',
     items: [
-      { href: '/integrations', label: 'Integrations', icon: Plug2 },
-      { href: '/knowledge', label: 'Knowledge', icon: BookOpen },
+      { href: '/settings/integrations', label: 'Integrations', icon: Plug2 },
+      { href: '/settings/knowledge', label: 'Knowledge', icon: BookOpen },
     ],
   },
   {
