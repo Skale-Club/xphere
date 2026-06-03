@@ -139,11 +139,16 @@ export default async function PublicBookingProfilePage({ params }: Props) {
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-1.5 text-center text-xs text-[#52525B] mt-8">
+        <a
+          href="https://xphere.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 text-center text-xs text-[#52525B] mt-8 transition-colors hover:text-[#A1A1AA]"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/api/pwa/icons/32" alt="" width={14} height={14} className="rounded-[3px] opacity-70" />
           Powered by Xphere Scheduling
-        </div>
+        </a>
       </div>
     </div>
   )
