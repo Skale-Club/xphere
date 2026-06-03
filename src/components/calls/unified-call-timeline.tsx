@@ -107,7 +107,7 @@ export function UnifiedCallTimeline({
   }
 
   return (
-    <div className="-mt-6 space-y-4">
+    <div className="space-y-4 pt-2 pb-8">
       {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
