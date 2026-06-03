@@ -27,6 +27,14 @@ import { CSS } from '@dnd-kit/utilities'
 
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ArrowDownUp } from 'lucide-react'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { formatCurrency } from '@/lib/pipeline/format'
 import {
@@ -45,6 +53,37 @@ type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 
 const DEFAULT_CARD_FIELDS = ['contact_name', 'value', 'days_in_stage']
 
+type SortKey = 'manual' | 'value_desc' | 'value_asc' | 'name_asc' | 'days_desc' | 'created_desc'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  manual:       'Manual (drag order)',
+  value_desc:   'Value: high → low',
+  value_asc:    'Value: low → high',
+  name_asc:     'Name A → Z',
+  days_desc:    'Days in stage: most',
+  created_desc: 'Newest first',
+}
+
+function sortOpps(opps: OpportunityWithContact[], key: SortKey): OpportunityWithContact[] {
+  if (key === 'manual') return opps
+  return [...opps].sort((a, b) => {
+    switch (key) {
+      case 'value_desc':   return Number(b.value ?? 0) - Number(a.value ?? 0)
+      case 'value_asc':    return Number(a.value ?? 0) - Number(b.value ?? 0)
+      case 'name_asc':     return (a.title ?? '').localeCompare(b.title ?? '')
+      case 'days_desc': {
+        // days_in_stage may not be on the row; fall back to created_at delta
+        const aDays = (a as unknown as Record<string, unknown>).days_in_stage
+        const bDays = (b as unknown as Record<string, unknown>).days_in_stage
+        if (typeof aDays === 'number' && typeof bDays === 'number') return bDays - aDays
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      }
+      case 'created_desc': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      default:             return 0
+    }
+  })
+}
+
 interface KanbanBoardProps {
   pipelineId: string
   stages: StageRow[]
@@ -60,9 +99,11 @@ interface ColumnProps {
   onOpen: (id: string) => void
   onAction: (action: 'won' | 'lost' | 'delete' | 'edit', id: string) => void
   isOver: boolean
+  sortKey: SortKey
+  onSortChange: (key: SortKey) => void
 }
 
-function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOver }: ColumnProps) {
+function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOver, sortKey, onSortChange }: ColumnProps) {
   // Make the whole column a sortable drop area by using the SortableContext id
   const { setNodeRef } = useSortable({
     id: `column-${stage.id}`,
@@ -92,8 +133,35 @@ function StageColumn({ stage, opportunities, cardFields, onOpen, onAction, isOve
             {opportunities.length}
           </span>
         </div>
-        <div className="text-[10.5px] font-medium tabular-nums text-text-tertiary">
-          {formatCurrency(total, currency)}
+        <div className="flex items-center gap-2">
+          <div className="text-[10.5px] font-medium tabular-nums text-text-tertiary">
+            {formatCurrency(total, currency)}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Sort column"
+                className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded transition-colors',
+                  sortKey !== 'manual'
+                    ? 'text-accent'
+                    : 'text-text-tertiary hover:text-text-primary',
+                )}
+              >
+                <ArrowDownUp className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuRadioGroup value={sortKey} onValueChange={(v) => onSortChange(v as SortKey)}>
+                {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([key, label]) => (
+                  <DropdownMenuRadioItem key={key} value={key} className="text-[12.5px]">
+                    {label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -134,6 +202,24 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const [overColumnId, setOverColumnId] = React.useState<string | null>(null)
   const [openSheetId, setOpenSheetId] = React.useState<string | null>(null)
+
+  // Per-column sort keys, persisted in localStorage.
+  const [sortKeys, setSortKeys] = React.useState<Record<string, SortKey>>(() => {
+    try {
+      const raw = localStorage.getItem('xphere:pipeline:sort')
+      return raw ? (JSON.parse(raw) as Record<string, SortKey>) : {}
+    } catch {
+      return {}
+    }
+  })
+
+  function setSortForStage(stageId: string, key: SortKey) {
+    setSortKeys((prev) => {
+      const next = { ...prev, [stageId]: key }
+      try { localStorage.setItem('xphere:pipeline:sort', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
   const celebrate = useCelebrate()
 
   // Track if the deal already lived in a won stage to avoid double-firing.
@@ -337,17 +423,22 @@ export function KanbanBoard({ stages, opportunities, cardFields = DEFAULT_CARD_F
       onDragEnd={handleDragEnd}
     >
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 sm:px-6 lg:px-8 pb-2">
-        {stages.map((s) => (
-          <StageColumn
-            key={s.id}
-            stage={s}
-            opportunities={byStage.get(s.id) ?? []}
-            cardFields={cardFields}
-            onOpen={handleOpen}
-            onAction={handleAction}
-            isOver={overColumnId === s.id}
-          />
-        ))}
+        {stages.map((s) => {
+          const sk = sortKeys[s.id] ?? 'manual'
+          return (
+            <StageColumn
+              key={s.id}
+              stage={s}
+              opportunities={sortOpps(byStage.get(s.id) ?? [], sk)}
+              cardFields={cardFields}
+              onOpen={handleOpen}
+              onAction={handleAction}
+              isOver={overColumnId === s.id}
+              sortKey={sk}
+              onSortChange={(key) => setSortForStage(s.id, key)}
+            />
+          )
+        })}
       </div>
 
       {/* Portal to document.body | parent has framer-motion transform which
