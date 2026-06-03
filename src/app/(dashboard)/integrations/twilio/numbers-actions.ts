@@ -142,21 +142,23 @@ export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
   if (!user) return []
   const supabase = await createClient()
 
-  const { data: members } = await supabase
-    .from('org_members')
-    .select('user_id')
+  const { data: orgIdData } = await supabase.rpc('get_current_org_id')
+  const orgId = orgIdData as string | null
+  if (!orgId) return []
 
-  const ids = (members ?? []).map((m) => m.user_id as string).filter(Boolean)
-  if (ids.length === 0) return []
-
-  // Best-effort: use the member_profiles helper RPC if present (added in 1037).
-  // Fall back to a direct profile lookup if the RPC is unavailable.
+  // Use the member_profiles RPC (SECURITY DEFINER, can read auth.users for names/emails).
+  // Requires p_org_id — previously called without args which caused a silent error and
+  // fell back to raw UUIDs as display names.
   try {
-    const { data, error } = await supabase.rpc('get_org_member_profiles')
+    const { data, error } = await supabase.rpc('get_org_member_profiles', {
+      p_org_id: orgId,
+      p_page: 1,
+      p_per_page: 200,
+    })
     if (!error && Array.isArray(data)) {
       const seen = new Set<string>()
       return (data as Array<{ user_id: string; full_name?: string | null; email?: string | null }>)
-        .filter((row) => row.user_id && ids.includes(row.user_id))
+        .filter((row) => row.user_id)
         .map((row) => ({
           user_id: row.user_id,
           display_name: (row.full_name?.trim() || row.email || row.user_id) as string,
@@ -169,9 +171,15 @@ export async function listOrgMembersForSelect(): Promise<OrgMemberOption[]> {
         })
     }
   } catch {
-    // RPC not available in this environment | swallow and return ids only.
+    // RPC unavailable — fall back to org_members only (no profile names).
   }
-  return ids.map((id) => ({ user_id: id, display_name: id, email: null }))
+
+  // Fallback: list member user_ids without profile data.
+  const { data: members } = await supabase.from('org_members').select('user_id')
+  return (members ?? [])
+    .map((m) => m.user_id as string)
+    .filter(Boolean)
+    .map((id) => ({ user_id: id, display_name: id, email: null }))
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────

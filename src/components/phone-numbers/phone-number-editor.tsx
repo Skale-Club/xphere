@@ -14,7 +14,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2, Star, Power, PowerOff } from 'lucide-react'
+import { Loader2, Star, Power, PowerOff, Bot } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,6 +59,17 @@ export function PhoneNumberEditor({ number, members, onClose }: Props) {
   const [inboxLabel, setInboxLabel] = React.useState(number.inbox_label ?? '')
   const [businessPurpose, setBusinessPurpose] = React.useState(number.business_purpose ?? '')
   const [vapiAssistantId, setVapiAssistantId] = React.useState(number.vapi_assistant_id ?? '')
+  const [vapiAssistants, setVapiAssistants] = React.useState<Array<{ id: string; name: string }>>([])
+  const [loadingAssistants, setLoadingAssistants] = React.useState(false)
+
+  React.useEffect(() => {
+    setLoadingAssistants(true)
+    fetch('/api/vapi/assistants')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setVapiAssistants(Array.isArray(data) ? data : []))
+      .catch(() => setVapiAssistants([]))
+      .finally(() => setLoadingAssistants(false))
+  }, [])
   const [responsibleUserId, setResponsibleUserId] = React.useState<string>(
     number.responsible_user_id ?? UNASSIGNED,
   )
@@ -329,18 +340,46 @@ export function PhoneNumberEditor({ number, members, onClose }: Props) {
         </header>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="vapi_assistant_id">Vapi assistant ID</Label>
-            <Input
-              id="vapi_assistant_id"
-              value={vapiAssistantId}
-              onChange={(e) => setVapiAssistantId(e.target.value)}
-              placeholder="asst_... — leave blank to use the org-level mapping"
-              maxLength={128}
-            />
+            <Label htmlFor="vapi_assistant_id">Vapi assistant</Label>
+            {loadingAssistants ? (
+              <div className="flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-bg-secondary px-3 text-[12.5px] text-text-tertiary">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading assistants…
+              </div>
+            ) : vapiAssistants.length === 0 ? (
+              // Fallback to free-text if Vapi isn't connected or returned nothing.
+              <Input
+                id="vapi_assistant_id"
+                value={vapiAssistantId}
+                onChange={(e) => setVapiAssistantId(e.target.value)}
+                placeholder="asst_… — leave blank to use org-level mapping"
+                maxLength={128}
+              />
+            ) : (
+              <Select
+                value={vapiAssistantId || '__none__'}
+                onValueChange={(v) => setVapiAssistantId(v === '__none__' ? '' : v)}
+              >
+                <SelectTrigger id="vapi_assistant_id">
+                  <SelectValue placeholder="Use org-level mapping" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    <span className="text-text-tertiary">Use org-level mapping</span>
+                  </SelectItem>
+                  {vapiAssistants.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Bot className="h-3.5 w-3.5 text-text-tertiary" />
+                        {a.name || a.id}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <p className="text-[11px] text-text-tertiary">
-              When set, inbound voice tooling treats this assistant as the source of truth
-              for this number. Vapi-side routing must be configured separately in the
-              Vapi dashboard.
+              When set, inbound voice uses this assistant for this number instead of the org default.
             </p>
           </div>
           <div className="space-y-1.5">
