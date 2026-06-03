@@ -111,6 +111,14 @@ export function GoogleAdsOverview({
   useEffect(() => { void fetchData() }, [fetchData])
   useEffect(() => { if (justConnected) toast.success('Google Ads connected successfully!') }, [justConnected])
 
+  // If the selected customer was hidden via "Manage accounts" it's no longer in
+  // connections — fall back to the server's primary so the screen updates.
+  useEffect(() => {
+    if (!connections.some((c) => c.id === activeCustomerId)) {
+      setActiveCustomerId(customerId)
+    }
+  }, [connections, customerId, activeCustomerId])
+
   const m = data?.metrics
   const currency = data?.customer.currency_code ?? 'USD'
 

@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export type ManagedAdAccount = {
@@ -53,6 +54,10 @@ export async function setActiveAdAccounts(
       .in('ad_account_id', activeIds)
     if (e2) return { error: e2.message }
   }
+
+  // Bust the server cache so router.refresh() re-renders with the new active set.
+  revalidatePath('/ads')
+  revalidatePath('/ads/google')
 
   return {}
 }

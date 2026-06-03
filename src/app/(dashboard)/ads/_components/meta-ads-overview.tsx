@@ -126,6 +126,20 @@ export function MetaAdsOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Keep the selection valid when the active account set changes (e.g. the
+  // selected account was hidden via "Manage accounts"). Without this, the
+  // overview keeps showing the now-hidden account after a router.refresh().
+  useEffect(() => {
+    if (!connections.some((c) => c.id === activeAccountId)) {
+      setActiveAccountId(adAccountId)
+      try {
+        localStorage.setItem(ACCOUNT_STORAGE_KEY, adAccountId)
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [connections, adAccountId, activeAccountId])
+
   const handleDisconnect = async () => {
     if (!window.confirm('Disconnect Meta Ads? You can reconnect anytime.')) return
     setDisconnecting(true)
