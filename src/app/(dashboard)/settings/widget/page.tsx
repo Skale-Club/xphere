@@ -5,7 +5,9 @@ import { MessageSquare } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { WidgetSettingsForm } from '@/components/widget/widget-settings-form'
+import { WidgetPlayground } from '@/components/widget/widget-playground'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { getActiveAgents, getChannelDefaults } from '@/app/(dashboard)/agents/actions'
 
 const DEFAULT_WIDGET_SETTINGS = {
   displayName: 'AI Assistant',
@@ -46,17 +48,22 @@ export default async function SettingsWidgetPage() {
     )
   }
 
-  const { data: organization, error } = await supabase
-    .from('organizations')
-    .select(
-      'id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url, accent_color'
-    )
-    .eq('id', activeOrgId)
-    .single()
+  const [orgResult, agents, channelDefaults] = await Promise.all([
+    supabase
+      .from('organizations')
+      .select('id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url, accent_color')
+      .eq('id', activeOrgId)
+      .single(),
+    getActiveAgents(),
+    getChannelDefaults(),
+  ])
 
-  if (error || !organization) {
-    throw new Error(error?.message ?? 'Failed to load widget settings.')
+  if (orgResult.error || !orgResult.data) {
+    throw new Error(orgResult.error?.message ?? 'Failed to load widget settings.')
   }
+
+  const organization = orgResult.data
+  const currentAgentId = channelDefaults.web_widget ?? null
 
   return (
     <PageContainer>
@@ -67,24 +74,34 @@ export default async function SettingsWidgetPage() {
         description={`Configure the public chat widget for ${organization.name}.`}
       />
 
-      <WidgetSettingsForm
-        initialSettings={{
-          displayName: normalizeWidgetValue(
-            organization.widget_display_name,
-            DEFAULT_WIDGET_SETTINGS.displayName
-          ),
-          primaryColor: normalizeWidgetValue(
-            organization.widget_primary_color,
-            normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
-          ),
-          welcomeMessage: normalizeWidgetValue(
-            organization.widget_welcome_message,
-            DEFAULT_WIDGET_SETTINGS.welcomeMessage
-          ),
-          avatarUrl: organization.widget_avatar_url || '',
-        }}
-        widgetToken={organization.widget_token}
-      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Settings */}
+        <WidgetSettingsForm
+          initialSettings={{
+            displayName: normalizeWidgetValue(
+              organization.widget_display_name,
+              DEFAULT_WIDGET_SETTINGS.displayName
+            ),
+            primaryColor: normalizeWidgetValue(
+              organization.widget_primary_color,
+              normalizeWidgetValue(organization.accent_color, DEFAULT_WIDGET_SETTINGS.primaryColor)
+            ),
+            welcomeMessage: normalizeWidgetValue(
+              organization.widget_welcome_message,
+              DEFAULT_WIDGET_SETTINGS.welcomeMessage
+            ),
+            avatarUrl: organization.widget_avatar_url || '',
+          }}
+          widgetToken={organization.widget_token}
+          agents={agents}
+          currentAgentId={currentAgentId}
+        />
+
+        {/* Playground */}
+        <div className="space-y-4">
+          <WidgetPlayground widgetToken={organization.widget_token} />
+        </div>
+      </div>
     </PageContainer>
   )
 }

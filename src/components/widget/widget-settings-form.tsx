@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Copy, Loader2, RefreshCw } from 'lucide-react'
+import { Bot, Copy, Loader2, RefreshCw } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -38,6 +38,14 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { setChannelDefault } from '@/app/(dashboard)/agents/actions'
 
 const widgetSettingsSchema = z.object({
   displayName: z
@@ -59,18 +67,43 @@ const widgetSettingsSchema = z.object({
 
 type WidgetSettingsFormValues = z.infer<typeof widgetSettingsSchema>
 
+interface AgentOption {
+  id: string
+  name: string
+}
+
 interface WidgetSettingsFormProps {
   initialSettings: WidgetSettingsInput
   widgetToken: string
+  agents?: AgentOption[]
+  currentAgentId?: string | null
 }
 
 export function WidgetSettingsForm({
   initialSettings,
   widgetToken,
+  agents = [],
+  currentAgentId = null,
 }: WidgetSettingsFormProps) {
+  const [agentId, setAgentId] = useState<string | null>(currentAgentId)
+  const [savingAgent, setSavingAgent] = useState(false)
   const router = useRouter()
   const [savedSettings, setSavedSettings] = useState(initialSettings)
   const [isSaving, setIsSaving] = useState(false)
+
+  async function handleAgentChange(value: string) {
+    const next = value === '__none__' ? null : value
+    setSavingAgent(true)
+    try {
+      await setChannelDefault('web_widget', next)
+      setAgentId(next)
+      toast.success(next ? 'Agent linked to widget.' : 'Agent unlinked from widget.')
+    } catch {
+      toast.error('Failed to update agent.')
+    } finally {
+      setSavingAgent(false)
+    }
+  }
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [currentToken, setCurrentToken] = useState(widgetToken)
 
@@ -252,6 +285,46 @@ export function WidgetSettingsForm({
             welcomeMessage={previewValues.welcomeMessage}
             avatarUrl={previewValues.avatarUrl}
           />
+        </CardContent>
+      </Card>
+
+      {/* AI Agent */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-accent" />
+            AI Agent
+          </CardTitle>
+          <CardDescription>
+            Select the agent that handles conversations in this widget. Without an agent, the widget
+            collects messages but does not auto-reply.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={agentId ?? '__none__'}
+            onValueChange={handleAgentChange}
+            disabled={savingAgent}
+          >
+            <SelectTrigger className="max-w-xs">
+              <SelectValue placeholder="Select an agent…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">
+                <span className="text-text-tertiary">No agent (manual only)</span>
+              </SelectItem>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {agents.length === 0 && (
+            <p className="mt-2 text-[12px] text-text-tertiary">
+              No active agents found. Create an agent first in the Agents section.
+            </p>
+          )}
         </CardContent>
       </Card>
 
