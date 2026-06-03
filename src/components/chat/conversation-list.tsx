@@ -71,10 +71,13 @@ import {
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
   whatsapp: 'whatsapp',
+  ghl_whatsapp: 'whatsapp',
   instagram: 'instagram',
   messenger: 'messenger',
   sms: 'sms',
+  ghl_sms: 'sms',       // was missing → showed no icon for GHL SMS conversations
   voice: 'voice',
+  email: 'email',
   widget: 'web',
   web: 'web',
   manual: 'direct',
@@ -82,6 +85,7 @@ const CHANNEL_MAP: Record<string, Channel> = {
   zernio_instagram: 'instagram',
   zernio_facebook: 'messenger',
   zernio_whatsapp: 'whatsapp',
+  zernio_telegram: 'telegram',
 }
 
 // Reverse: design-system label → raw DB value for /api filter param

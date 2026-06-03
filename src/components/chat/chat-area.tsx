@@ -330,6 +330,9 @@ export function ChatArea({
     const byChannel = new Map<string, ComposerChannel>()
     const add = (channel: string, label = channelLabel(channel), conversationId?: string) => {
       if (channel === 'zernio') return
+      // 'manual' is a fallback placeholder, not a real deliverable channel —
+      // never show it as a selectable option in the composer.
+      if (channel === 'manual') return
       if (!byChannel.has(channel)) byChannel.set(channel, { channel, label, conversationId })
     }
 
