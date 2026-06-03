@@ -66,6 +66,7 @@ const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
 const INBOX_MAX_WIDTH = 420
 const CHAT_MIN_WIDTH = 420
+const MESSAGE_PAGE_SIZE = 30
 
 function agentSettingsHref(channel: string | null | undefined) {
   const agentChannel = conversationChannelToAgentChannel(channel)
@@ -320,7 +321,9 @@ export function ChatLayout({
     setHasMoreMessages(false)
     setIsLoadingMoreMessages(false)
     try {
-      const res = await fetch(`/api/chat/conversations/${id}/messages?includeInternal=true`)
+      const res = await fetch(
+        `/api/chat/conversations/${id}/messages?includeInternal=true&limit=${MESSAGE_PAGE_SIZE}`,
+      )
       if (!res.ok) return
       const data = await res.json()
       if (selectedIdRef.current === id) {
@@ -341,7 +344,7 @@ export function ChatLayout({
     setIsLoadingMoreMessages(true)
     try {
       const res = await fetch(
-        `/api/chat/conversations/${selectedId}/messages?includeInternal=true&before=${cursor}`,
+        `/api/chat/conversations/${selectedId}/messages?includeInternal=true&limit=${MESSAGE_PAGE_SIZE}&before=${cursor}`,
       )
       if (!res.ok) return
       const data = await res.json()

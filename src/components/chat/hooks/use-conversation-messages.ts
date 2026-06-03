@@ -18,6 +18,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ConversationMessage } from '@/types/chat'
 
+const MESSAGE_PAGE_SIZE = 30
+
 export interface UseConversationMessagesResult {
   messages: ConversationMessage[]
   setMessages: React.Dispatch<React.SetStateAction<ConversationMessage[]>>
@@ -48,7 +50,9 @@ export function useConversationMessages(
     setHasMoreMessages(false)
     setIsLoadingMoreMessages(false)
     try {
-      const res = await fetch(`/api/chat/conversations/${id}/messages?includeInternal=true`)
+      const res = await fetch(
+        `/api/chat/conversations/${id}/messages?includeInternal=true&limit=${MESSAGE_PAGE_SIZE}`,
+      )
       if (!res.ok) return
       const data = await res.json()
       if (selectedIdRef.current === id) {
@@ -69,7 +73,7 @@ export function useConversationMessages(
     setIsLoadingMoreMessages(true)
     try {
       const res = await fetch(
-        `/api/chat/conversations/${selectedId}/messages?includeInternal=true&before=${cursor}`,
+        `/api/chat/conversations/${selectedId}/messages?includeInternal=true&limit=${MESSAGE_PAGE_SIZE}&before=${cursor}`,
       )
       if (!res.ok) return
       const data = await res.json()

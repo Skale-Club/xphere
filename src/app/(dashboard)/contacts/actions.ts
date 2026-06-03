@@ -718,9 +718,13 @@ export async function createContact(
 
   // Auto-create a placeholder "manual" conversation so the new contact shows
   // up as a card in the Chat Inbox immediately, even before any real channel
-  // (WhatsApp, SMS, etc.) is attached. Skip when the contact landed in a
-  // merge_conflict state (admin will review) or as channel_only (already came
-  // from a real channel). Failure here must not block contact creation.
+  // (WhatsApp, SMS, etc.) is attached. The stored channel stays 'manual' (no
+  // real thread exists yet) — the Inbox derives the DISPLAYED channel from the
+  // contact's reachability (phone → SMS, email → Email) in the inbox_entries
+  // RPC, so the card always matches the composer and never goes stale. Skip
+  // when the contact landed in a merge_conflict state (admin will review) or as
+  // channel_only (already came from a real channel). Failure here must not
+  // block contact creation.
   if (identityStatus === 'identified') {
     const { error: convErr } = await supabase.from('conversations').insert({
       org_id: orgId,

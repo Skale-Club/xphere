@@ -39,7 +39,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-  url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID!)
+  url.searchParams.set('client_id', process.env.GOOGLE_CALENDAR_CLIENT_ID!)
   url.searchParams.set('redirect_uri', CALLBACK_URI)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', CALENDAR_SCOPE)

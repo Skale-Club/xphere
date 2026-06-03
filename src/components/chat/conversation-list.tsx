@@ -694,7 +694,9 @@ function ConversationCardBase({
         ? 'before:bg-warning'
         : selected
           ? 'before:bg-accent'
-          : 'before:bg-transparent'
+          : conversation.isUnread
+            ? 'before:bg-emerald-400/70'
+            : 'before:bg-transparent'
 
   const handleArchiveClick = useCallback(
     async (e: React.MouseEvent) => {

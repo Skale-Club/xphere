@@ -18,6 +18,9 @@ import { getProviderKey } from '@/lib/integrations/get-provider-key'
 
 export const runtime = 'nodejs'
 
+const DEFAULT_MESSAGE_LIMIT = 30
+const MAX_MESSAGE_LIMIT = 200
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -27,8 +30,11 @@ export async function GET(
 
   const { id } = await params
   const { searchParams } = new URL(request.url)
-  const limitRaw = parseInt(searchParams.get('limit') ?? '50', 10)
-  const limit = Math.min(Number.isNaN(limitRaw) ? 50 : limitRaw, 200)
+  const limitRaw = parseInt(searchParams.get('limit') ?? String(DEFAULT_MESSAGE_LIMIT), 10)
+  const limit = Math.min(
+    Number.isNaN(limitRaw) ? DEFAULT_MESSAGE_LIMIT : limitRaw,
+    MAX_MESSAGE_LIMIT,
+  )
   const before = searchParams.get('before')
   const includeInternal = searchParams.get('includeInternal') === 'true'
 

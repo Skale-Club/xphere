@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
 
@@ -84,7 +85,7 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
       }
 
       if (result && 'error' in result && result.error) {
-        toast.error('Failed to save organization. Try again.')
+        toast.error(result.error)
         return
       }
 
@@ -103,7 +104,7 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
     try {
       const result = await toggleOrganizationStatus(organization.id, false)
       if (result && 'error' in result && result.error) {
-        toast.error('Failed to save organization. Try again.')
+        toast.error(result.error)
         return
       }
       toast.success('Organization saved.')
@@ -122,7 +123,7 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
     try {
       const result = await toggleOrganizationStatus(organization.id, true)
       if (result && 'error' in result && result.error) {
-        toast.error('Failed to save organization. Try again.')
+        toast.error(result.error)
         return
       }
       toast.success('Organization saved.')
@@ -138,11 +139,11 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h2 className="text-xl font-semibold">
+      <DialogHeader>
+        <DialogTitle>
           {mode === 'create' ? 'New Organization' : 'Edit Organization'}
-        </h2>
-      </div>
+        </DialogTitle>
+      </DialogHeader>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -154,7 +155,7 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
                 <FormLabel>Organization Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Alpha Home Improvements"
+                    placeholder="e.g. Example Organization"
                     disabled={isPending}
                     {...field}
                   />
@@ -212,7 +213,7 @@ export function OrganizationForm({ mode, organization, onSuccess }: Organization
               disabled={isPending}
               onClick={onSuccess}
             >
-              {mode === 'create' ? 'Back to Organizations' : 'Discard Changes'}
+              {mode === 'create' ? 'Cancel' : 'Discard Changes'}
             </Button>
           </div>
         </form>

@@ -24,8 +24,8 @@ async function refreshAccessToken(
   refreshToken: string,
 ): Promise<{ access_token: string; expires_in: number }> {
   const body = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET!,
     refresh_token: refreshToken,
     grant_type: 'refresh_token',
   })

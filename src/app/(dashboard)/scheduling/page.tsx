@@ -50,7 +50,14 @@ export default async function SchedulingPage({ searchParams }: Props) {
             <p className="text-[10.5px] text-muted-foreground uppercase tracking-wider font-medium mb-0.5">
               Your booking page
             </p>
-            <code className="text-sm text-indigo-400 truncate block">{siteUrl}/book/{profile.slug}</code>
+            <a
+              href={`${siteUrl}/book/${profile.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-indigo-400 truncate block hover:text-indigo-300 hover:underline transition-colors"
+            >
+              {siteUrl}/book/{profile.slug}
+            </a>
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0">
             <a href={`${siteUrl}/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">

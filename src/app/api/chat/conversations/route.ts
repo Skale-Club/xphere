@@ -133,6 +133,10 @@ export async function GET(request: Request): Promise<Response> {
   type EntryRow = {
     representative_conversation_id: string
     contact_id: string | null
+    // Effective display channel from inbox_entries: message-less 'manual'
+    // placeholders are re-derived to the contact's reachable channel (sms/email)
+    // so the Inbox badge matches the composer and never goes stale.
+    representative_channel: string | null
     channels: string[] | null
     pinned: boolean
   }
@@ -162,10 +166,12 @@ export async function GET(request: Request): Promise<Response> {
   const totalCount = Number(countRes.data ?? 0)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // Channel set + order index per representative conversation id.
+  // Channel set + effective representative channel per representative conv id.
   const channelsById = new Map<string, string[]>()
+  const effChannelById = new Map<string, string | null>()
   for (const e of [...pinnedEntries, ...pageEntries]) {
     channelsById.set(e.representative_conversation_id, e.channels ?? [])
+    effChannelById.set(e.representative_conversation_id, e.representative_channel ?? null)
   }
 
   // Hydrate representative ids with the full embeds in a single query.
@@ -205,7 +211,14 @@ export async function GET(request: Request): Promise<Response> {
     for (const e of entries) {
       const row = rowsById.get(e.representative_conversation_id)
       if (!row) continue
-      out.push({ ...row, __channels: channelsById.get(e.representative_conversation_id) ?? [] })
+      // Override the stored channel with the RPC's effective channel so the
+      // badge reflects reachability for 'manual' placeholders.
+      const eff = effChannelById.get(e.representative_conversation_id)
+      out.push({
+        ...row,
+        channel: eff ?? row.channel,
+        __channels: channelsById.get(e.representative_conversation_id) ?? [],
+      })
     }
     return out
   }

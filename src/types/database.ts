@@ -6312,6 +6312,7 @@ export interface Database {
         Returns: Array<{
           representative_conversation_id: string
           contact_id: string | null
+          representative_channel: string | null
           channels: string[] | null
           pinned: boolean
           activity_at: string | null

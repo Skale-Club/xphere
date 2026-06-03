@@ -17,7 +17,7 @@
  *     "New messages" pill anchored bottom-right that scrolls back when clicked.
  */
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Info, Loader2, Mail, RadioTower } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
@@ -144,30 +144,90 @@ export function MessageList({
   isLoadingMore = false,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const [hasNew, setHasNew] = useState(false)
   const [atBottom, setAtBottom] = useState(true)
+  const atBottomRef = useRef(true)
+  const initialBottomStickRef = useRef(false)
+  const initialBottomStickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoScrollingRef = useRef(false)
   const lastMessageIdRef = useRef<string | null>(null)
   const firstMessageIdRef = useRef<string | null>(null)
   const prevCountRef = useRef(0)
   const prevScrollHeightRef = useRef(0)
 
-  function getViewport(): HTMLElement | null {
+  const getViewport = useCallback((): HTMLElement | null => {
     return (scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null) ?? null
-  }
+  }, [])
+
+  const stopInitialBottomStick = useCallback(() => {
+    initialBottomStickRef.current = false
+    if (initialBottomStickTimerRef.current) {
+      clearTimeout(initialBottomStickTimerRef.current)
+      initialBottomStickTimerRef.current = null
+    }
+  }, [])
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
+    const viewport = getViewport()
+    if (!viewport) {
+      endRef.current?.scrollIntoView({ behavior, block: 'end' })
+      return
+    }
+
+    autoScrollingRef.current = true
+    if (behavior === 'smooth') {
+      endRef.current?.scrollIntoView({ behavior, block: 'end' })
+    } else {
+      viewport.scrollTop = viewport.scrollHeight
+    }
+    requestAnimationFrame(() => {
+      autoScrollingRef.current = false
+    })
+  }, [getViewport])
+
+  const startInitialBottomStick = useCallback(() => {
+    stopInitialBottomStick()
+    initialBottomStickRef.current = true
+    initialBottomStickTimerRef.current = setTimeout(() => {
+      initialBottomStickRef.current = false
+      initialBottomStickTimerRef.current = null
+    }, 1600)
+  }, [stopInitialBottomStick])
 
   // After the initial fetch completes (isLoading false → messages rendered),
   // re-apply scroll-to-bottom via RAF so images that loaded after the
   // synchronous useLayoutEffect also get accounted for.
   useEffect(() => {
-    if (isLoading) return
-    const viewport = getViewport()
-    if (!viewport) return
+    if (isLoading || messages.length === 0) return
+    let second: number | null = null
     const id = requestAnimationFrame(() => {
-      viewport.scrollTop = viewport.scrollHeight
+      scrollToBottom('instant')
+      second = requestAnimationFrame(() => scrollToBottom('instant'))
     })
-    return () => cancelAnimationFrame(id)
-  }, [isLoading])
+    return () => {
+      cancelAnimationFrame(id)
+      if (second !== null) cancelAnimationFrame(second)
+    }
+  }, [isLoading, messages.length, scrollToBottom])
+
+  useEffect(() => {
+    return () => stopInitialBottomStick()
+  }, [stopInitialBottomStick])
+
+  useEffect(() => {
+    const content = contentRef.current
+    if (!content || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      if (initialBottomStickRef.current || atBottomRef.current) {
+        scrollToBottom('instant')
+      }
+    })
+    observer.observe(content)
+    return () => observer.disconnect()
+  }, [scrollToBottom])
 
   // Track "is the user near the bottom?" via scroll position on the viewport.
   useEffect(() => {
@@ -178,6 +238,7 @@ export function MessageList({
     const onScroll = () => {
       const dist = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
       const isNear = dist < 80
+      atBottomRef.current = isNear
       setAtBottom(isNear)
       if (isNear) setHasNew(false)
     }
@@ -185,6 +246,22 @@ export function MessageList({
     onScroll()
     return () => viewport.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    const viewport = getViewport()
+    if (!viewport) return
+    const cancelInitialStick = () => {
+      if (!autoScrollingRef.current) stopInitialBottomStick()
+    }
+    viewport.addEventListener('wheel', cancelInitialStick, { passive: true })
+    viewport.addEventListener('touchstart', cancelInitialStick, { passive: true })
+    viewport.addEventListener('pointerdown', cancelInitialStick, { passive: true })
+    return () => {
+      viewport.removeEventListener('wheel', cancelInitialStick)
+      viewport.removeEventListener('touchstart', cancelInitialStick)
+      viewport.removeEventListener('pointerdown', cancelInitialStick)
+    }
+  }, [getViewport, stopInitialBottomStick])
 
   // Auto-scroll / scroll-restoration when messages array changes.
   useLayoutEffect(() => {
@@ -205,21 +282,15 @@ export function MessageList({
           prevScrollHeightRef.current = 0
         }
       } else if (isInitialLoad) {
-        // Use scrollTop = scrollHeight directly — more reliable than
-        // scrollIntoView when images in the thread haven't loaded yet
-        // (images increase scrollHeight after paint, pushing content up).
-        const viewport = getViewport()
-        if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight
-        } else {
-          endRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
-        }
+        // Keep the latest message anchored while late media/layout height settles.
+        startInitialBottomStick()
+        scrollToBottom('instant')
       } else if (lastId !== lastMessageIdRef.current) {
         // New message appended at the end
         if (atBottom) {
-          endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+          scrollToBottom('smooth')
         } else {
-          setHasNew(true)
+          requestAnimationFrame(() => setHasNew(true))
         }
       }
     }
@@ -227,10 +298,10 @@ export function MessageList({
     prevCountRef.current = messages.length
     firstMessageIdRef.current = firstId
     lastMessageIdRef.current = lastId
-  }, [messages, atBottom])
+  }, [messages, atBottom, getViewport, scrollToBottom, startInitialBottomStick])
 
   function jumpToBottom() {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    scrollToBottom('smooth')
     setHasNew(false)
   }
 
@@ -289,7 +360,7 @@ export function MessageList({
   return (
     <div className="relative flex-1 min-h-0">
       <ScrollArea ref={scrollRef} className="h-full">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8">
+        <div ref={contentRef} className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8">
           {(hasMore || isLoadingMore) && !isLoading && (
             <div className="flex justify-center pb-4 pt-2">
               {isLoadingMore ? (

@@ -11,8 +11,7 @@ export default async function SchedulingLayout({ children }: { children: React.R
     <SubSidebarLayout
       storageKey="sub-sidebar:scheduling"
       title="Scheduling"
-      autoCollapseBasePath="/scheduling"
-      nav={<SchedulingSubNav />}
+nav={<SchedulingSubNav />}
     >
       {children}
     </SubSidebarLayout>

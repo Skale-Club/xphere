@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 import { Plus, Users, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { EventTypeForm } from './event-type-form'
 import { createEventType } from '@/app/(dashboard)/scheduling/_actions/event-types'
@@ -80,13 +80,13 @@ export function NewEventTypeDialog() {
         <Plus className="h-3.5 w-3.5" /> New event type
       </Button>
 
-      <Sheet open={open} onOpenChange={(o) => { if (!o) setOpen(false) }}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+      <Dialog open={open} onOpenChange={(o) => { if (!o) setOpen(false) }}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           {step === 'type' ? (
             <>
-              <SheetHeader className="mb-6">
-                <SheetTitle>Choose event type</SheetTitle>
-              </SheetHeader>
+              <DialogHeader className="mb-2">
+                <DialogTitle>Choose event type</DialogTitle>
+              </DialogHeader>
               <div className="flex flex-col gap-3">
                 {BOOKING_TYPES.map((t) => (
                   <button
@@ -115,7 +115,7 @@ export function NewEventTypeDialog() {
             </>
           ) : (
             <>
-              <SheetHeader className="mb-4">
+              <DialogHeader className="mb-2">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -125,10 +125,10 @@ export function NewEventTypeDialog() {
                     ← Back
                   </button>
                 </div>
-                <SheetTitle>
+                <DialogTitle>
                   {bookingType === 'personal' ? 'Personal booking' : 'Round robin'}
-                </SheetTitle>
-              </SheetHeader>
+                </DialogTitle>
+              </DialogHeader>
               <EventTypeForm
                 onSubmit={handleSubmit}
                 loading={isPending}
@@ -136,8 +136,8 @@ export function NewEventTypeDialog() {
               />
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -16,12 +16,15 @@ concurrency:
 jobs:
   alert:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - name: Fire obs-alerts endpoint
         run: |
+          # --retry rides out transient proxy errors (503 "no available server")
+          # that occur while Coolify is mid-redeploy; the endpoint itself is healthy.
           STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
-            --max-time 60 \
+            --connect-timeout 15 --max-time 60 \
+            --retry 5 --retry-delay 15 --retry-all-errors \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.SITE_URL }}/api/cron/obs-alerts")
           echo "Status: $STATUS"

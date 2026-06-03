@@ -35,11 +35,14 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
   const supabase = await createClient()
 
   const admin = createServiceRoleClient()
-  const slug = slugify(data.name)
+  const name = data.name.trim()
+  const slug = slugify(name)
+  if (!name) return { error: 'Organization name is required.' }
+  if (!slug) return { error: 'Organization name must include letters or numbers.' }
 
   const { data: org, error: orgError } = await admin
     .from('organizations')
-    .insert({ name: data.name, slug, widget_token: crypto.randomUUID() })
+    .insert({ name, slug, widget_token: crypto.randomUUID() })
     .select('id')
     .single()
   if (orgError) {
@@ -48,16 +51,36 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
   }
 
   // The creator is the org Owner (top of the RBAC hierarchy; can manage roles).
-  const { error: memberError } = await admin
+  const { error: ownerMemberError } = await admin
     .from('org_members')
     .insert({ organization_id: org.id, user_id: user.id, role: 'owner' })
-  if (memberError) return { error: memberError.message }
+  if (ownerMemberError) {
+    // Some environments may lag behind migration 1116, where `owner` was added
+    // to public.user_role. Fall back to legacy admin so org creation still works.
+    const roleMissing =
+      ownerMemberError.code === '22P02' ||
+      ownerMemberError.message.toLowerCase().includes('invalid input value for enum')
 
-  await supabase
+    if (roleMissing) {
+      const { error: adminMemberError } = await admin
+        .from('org_members')
+        .insert({ organization_id: org.id, user_id: user.id, role: 'admin' })
+      if (adminMemberError) {
+        await admin.from('organizations').delete().eq('id', org.id)
+        return { error: adminMemberError.message }
+      }
+    } else {
+      await admin.from('organizations').delete().eq('id', org.id)
+      return { error: ownerMemberError.message }
+    }
+  }
+
+  const { error: activeOrgError } = await supabase
     .from('user_active_org')
     .upsert({ user_id: user.id, organization_id: org.id, updated_at: new Date().toISOString() })
+  if (activeOrgError) return { error: activeOrgError.message }
 
-  await setActiveOrgCookie(org.id, data.name)
+  await setActiveOrgCookie(org.id, name)
   revalidatePath('/', 'layout')
 
   // Seed platform-default workflows for the new org (fire-and-forget).

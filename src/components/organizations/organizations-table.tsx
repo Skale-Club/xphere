@@ -14,7 +14,7 @@ import { format } from 'date-fns'
 import { Building2, MoreHorizontal, ArrowUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
-import { toggleOrganizationStatus } from '@/app/(dashboard)/organizations/actions'
+import { switchOrganization, toggleOrganizationStatus } from '@/app/(dashboard)/organizations/actions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -33,9 +33,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Sheet,
-  SheetContent,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog'
 import { OrganizationForm } from './organization-form'
 
 type Organization = Database['public']['Tables']['organizations']['Row']
@@ -54,22 +54,22 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
   const router = useRouter()
   const [organizations, setOrganizations] = useState<Organization[]>(initialOrganizations)
   const [sorting, setSorting] = useState<SortingState>([])
-  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  function openCreateSheet() {
+  function openCreateDialog() {
     setEditingOrg(null)
-    setIsSheetOpen(true)
+    setIsDialogOpen(true)
   }
 
-  function openEditSheet(org: Organization) {
+  function openEditDialog(org: Organization) {
     setEditingOrg(org)
-    setIsSheetOpen(true)
+    setIsDialogOpen(true)
   }
 
-  function handleSheetSuccess() {
-    setIsSheetOpen(false)
+  function handleDialogSuccess() {
+    setIsDialogOpen(false)
     setEditingOrg(null)
     router.refresh()
   }
@@ -92,6 +92,20 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
     })
   }
 
+  function handleSwitchOrganization(org: Organization) {
+    if (!org.is_active || isPending) return
+    startTransition(async () => {
+      const result = await switchOrganization(org.id)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(`Switched to ${org.name}.`)
+      router.push('/dashboard')
+      router.refresh()
+    })
+  }
+
   const columns: ColumnDef<Organization>[] = [
     {
       accessorKey: 'name',
@@ -106,9 +120,20 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <span className="font-medium">{row.getValue('name')}</span>
-      ),
+      cell: ({ row }) => {
+        const org = row.original
+        return (
+          <button
+            type="button"
+            onClick={() => handleSwitchOrganization(org)}
+            disabled={!org.is_active || isPending}
+            className="font-medium text-left text-text-primary transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:text-text-tertiary"
+            title={org.is_active ? `Switch to ${org.name}` : 'Organization is inactive'}
+          >
+            {row.getValue('name')}
+          </button>
+        )
+      },
     },
     {
       accessorKey: 'is_active',
@@ -144,7 +169,7 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openEditSheet(org)}>
+              <DropdownMenuItem onClick={() => openEditDialog(org)}>
                 Edit Organization
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleToggleStatus(org)}>
@@ -175,7 +200,7 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
       <div className="flex items-center justify-between mb-4">
         <span className="sr-only">Loading organizations...</span>
         <div />
-        <Button onClick={openCreateSheet}>Create Organization</Button>
+        <Button onClick={openCreateDialog}>Create Organization</Button>
       </div>
 
       {organizations.length === 0 ? (
@@ -187,7 +212,7 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
               Create your first organization to start managing tenants.
             </p>
           </div>
-          <Button onClick={openCreateSheet}>Create Organization</Button>
+          <Button onClick={openCreateDialog}>Create Organization</Button>
         </div>
       ) : (
         <div className="rounded-md border">
@@ -228,15 +253,15 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
         </div>
       )}
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="p-0 sm:max-w-lg">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="p-0 sm:max-w-lg">
           <OrganizationForm
             mode={editingOrg ? 'edit' : 'create'}
             organization={editingOrg ?? undefined}
-            onSuccess={handleSheetSuccess}
+            onSuccess={handleDialogSuccess}
           />
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -43,8 +43,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     // Reuse the exchange function but with our callback URI
     const body = new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      client_id: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET!,
       redirect_uri: CALLBACK_URI,
       grant_type: 'authorization_code',
     })

@@ -88,7 +88,7 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                 <FormItem>
                   <FormLabel>Organization name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Alpha Home Improvements" disabled={isPending} {...field} />
+                    <Input placeholder="e.g. Example Organization" disabled={isPending} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
