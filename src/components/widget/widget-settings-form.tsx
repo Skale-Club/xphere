@@ -1,29 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Bot, Copy, Loader2, RefreshCw } from 'lucide-react'
+import { Bot, Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
 import {
-  regenerateWidgetToken,
   saveWidgetSettings,
   type WidgetSettingsInput,
 } from '@/app/(dashboard)/widget/actions'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -99,28 +87,11 @@ export function WidgetSettingsForm({
       setSavingAgent(false)
     }
   }
-  const [isRegenerating, setIsRegenerating] = useState(false)
-  const [currentToken, setCurrentToken] = useState(widgetToken)
-
   const form = useForm<WidgetSettingsFormValues>({
     resolver: zodResolver(widgetSettingsSchema),
     mode: 'onSubmit',
     defaultValues: savedSettings,
   })
-
-  const embedCode = useMemo(
-    () => `<script src="https://xphere.app/widget.js" data-token="${currentToken}"></script>`,
-    [currentToken]
-  )
-
-  async function handleCopyEmbedCode() {
-    try {
-      await navigator.clipboard.writeText(embedCode)
-      toast.success('Embed code copied.')
-    } catch {
-      toast.error('Failed to copy embed code.')
-    }
-  }
 
   async function onSubmit(values: WidgetSettingsFormValues) {
     setIsSaving(true)
@@ -147,31 +118,7 @@ export function WidgetSettingsForm({
     }
   }
 
-  async function handleRegenerateToken() {
-    setIsRegenerating(true)
-
-    try {
-      const result = await regenerateWidgetToken()
-
-      if (result && 'error' in result && result.error) {
-        toast.error(result.error)
-        return
-      }
-
-      if (result?.widgetToken) {
-        setCurrentToken(result.widgetToken)
-      }
-
-      toast.success('Widget token regenerated. Old installs are now invalid.')
-      router.refresh()
-    } catch {
-      toast.error('Failed to regenerate widget token. Try again.')
-    } finally {
-      setIsRegenerating(false)
-    }
-  }
-
-  const isPending = isSaving || isRegenerating
+  const isPending = isSaving
 
   return (
     <div className="space-y-6">
@@ -285,76 +232,6 @@ export function WidgetSettingsForm({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Install snippet</CardTitle>
-          <CardDescription>
-            Use the canonical production widget asset with this org&apos;s current token.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-6">
-            <code>{embedCode}</code>
-          </pre>
-          <Button type="button" variant="outline" onClick={handleCopyEmbedCode}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy script tag
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="border-destructive/40">
-        <CardHeader>
-          <CardTitle>Danger zone</CardTitle>
-          <CardDescription>
-            Regenerating the widget token immediately invalidates every previously installed embed
-            script.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            Replace the old token everywhere the widget is installed as soon as you rotate it.
-          </p>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button type="button" variant="destructive" disabled={isPending}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Regenerate token
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Regenerate widget token?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This change takes effect immediately. All existing embed installs using the old
-                  token will stop working until they are updated.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isRegenerating}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={isRegenerating}
-                  onClick={(event) => {
-                    event.preventDefault()
-                    void handleRegenerateToken()
-                  }}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isRegenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Regenerating...
-                    </>
-                  ) : (
-                    'Regenerate token'
-                  )}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
     </div>
   )
 }

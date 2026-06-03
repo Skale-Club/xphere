@@ -159,13 +159,13 @@ export function WidgetPlayground({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={share} className="gap-1.5">
-            <Share2 className="h-3.5 w-3.5" />
-            Share
-          </Button>
           <Button type="button" variant="outline" size="sm" onClick={reset} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" />
             Reset
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={share} className="gap-1.5">
+            <Share2 className="h-3.5 w-3.5" />
+            Share
           </Button>
         </div>
       </div>
