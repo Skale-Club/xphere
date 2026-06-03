@@ -246,6 +246,8 @@ export interface ProjectTaskRow {
   created_by: string | null
   created_at: string
   updated_at: string
+  archived_at: string | null
+  deleted_at: string | null
 }
 
 export interface ProjectLabelRow {

@@ -48,6 +48,7 @@ import {
   getSubtasks,
   updateTask,
   deleteTask,
+  archiveTask,
   setTaskValidationStatus,
   createTask,
 } from '@/app/(dashboard)/projects/actions'
@@ -221,6 +222,51 @@ function TaskBody({ rootTaskId, projectId, projectName, onClose, onRefresh }: Bo
     }
   }, [task, projectId, focusStack.length, onClose, onRefresh])
 
+  const handleArchive = React.useCallback(async () => {
+    if (!task) return
+    try {
+      await archiveTask(task.id, projectId)
+      toast.success('Task archived')
+      if (focusStack.length > 1) {
+        setFocusStack((s) => s.slice(0, -1))
+        onRefresh()
+      } else {
+        onClose()
+        onRefresh()
+      }
+    } catch {
+      toast.error('Failed to archive')
+    }
+  }, [task, projectId, focusStack.length, onClose, onRefresh])
+
+  const handleDeleteSubtask = React.useCallback(
+    async (sub: ProjectTaskRow) => {
+      try {
+        await deleteTask(sub.id, projectId)
+        setSubtasks((p) => p.filter((s) => s.id !== sub.id))
+        toast.success('Subtask deleted')
+        onRefresh()
+      } catch {
+        toast.error('Failed to delete subtask')
+      }
+    },
+    [projectId, onRefresh],
+  )
+
+  const handleArchiveSubtask = React.useCallback(
+    async (sub: ProjectTaskRow) => {
+      try {
+        await archiveTask(sub.id, projectId)
+        setSubtasks((p) => p.filter((s) => s.id !== sub.id))
+        toast.success('Subtask archived')
+        onRefresh()
+      } catch {
+        toast.error('Failed to archive subtask')
+      }
+    },
+    [projectId, onRefresh],
+  )
+
   const handleAddSubtask = React.useCallback(
     async (name: string) => {
       if (!task) return
@@ -290,6 +336,7 @@ function TaskBody({ rootTaskId, projectId, projectName, onClose, onRefresh }: Bo
         crumbs={crumbs}
         onRename={(next) => save({ name: next })}
         onDelete={handleDelete}
+        onArchive={handleArchive}
       />
 
       {/* Meta row | horizontally scrollable on narrow widths */}
@@ -389,6 +436,8 @@ function TaskBody({ rootTaskId, projectId, projectName, onClose, onRefresh }: Bo
             onToggle={handleToggleSubtask}
             onAdd={handleAddSubtask}
             onDrillInto={handleDrillInto}
+            onDelete={handleDeleteSubtask}
+            onArchive={handleArchiveSubtask}
           />
         </div>
       </div>

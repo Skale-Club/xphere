@@ -9,16 +9,26 @@
 
 import * as React from 'react'
 import {
+  Archive,
   CheckCircle2,
   ChevronRight,
   Circle,
   Loader2,
+  MoreHorizontal,
   Plus,
   ListTree,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { ProjectTaskRow } from '@/types/database'
 
 export interface SubtaskRow extends ProjectTaskRow {
@@ -34,6 +44,8 @@ interface Props {
   onToggle: (sub: SubtaskRow) => void
   onAdd: (name: string) => Promise<void>
   onDrillInto: (sub: SubtaskRow) => void
+  onDelete?: (sub: SubtaskRow) => Promise<void>
+  onArchive?: (sub: SubtaskRow) => Promise<void>
 }
 
 export function SubtasksPanel({
@@ -43,6 +55,8 @@ export function SubtasksPanel({
   onToggle,
   onAdd,
   onDrillInto,
+  onDelete,
+  onArchive,
 }: Props) {
   const [draft, setDraft] = React.useState('')
   const [adding, setAdding] = React.useState(false)
@@ -153,12 +167,52 @@ export function SubtasksPanel({
                       </span>
                     )}
                   </button>
-                  <ChevronRight
-                    className={cn(
-                      'h-3.5 w-3.5 shrink-0 text-text-tertiary opacity-0 group-hover:opacity-100',
-                      'transition-opacity',
-                    )}
-                  />
+                  {(onArchive || onDelete) ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            'h-5 w-5 shrink-0 flex items-center justify-center rounded',
+                            'text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity',
+                            'hover:text-text-primary hover:bg-bg-tertiary',
+                            'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
+                          )}
+                          aria-label="Subtask actions"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {onArchive && (
+                          <DropdownMenuItem
+                            onSelect={(e) => { e.preventDefault(); void onArchive(sub) }}
+                          >
+                            <Archive className="h-3.5 w-3.5 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                        {onArchive && onDelete && <DropdownMenuSeparator />}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            onSelect={(e) => { e.preventDefault(); void onDelete(sub) }}
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <ChevronRight
+                      className={cn(
+                        'h-3.5 w-3.5 shrink-0 text-text-tertiary opacity-0 group-hover:opacity-100',
+                        'transition-opacity',
+                      )}
+                    />
+                  )}
                 </div>
               </li>
             ))}

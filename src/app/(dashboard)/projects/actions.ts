@@ -160,6 +160,8 @@ export async function getSubtasks(parentTaskId: string): Promise<ProjectTaskRow[
     .from('project_tasks')
     .select('*')
     .eq('parent_task_id', parentTaskId)
+    .is('archived_at', null)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
   return (data as ProjectTaskRow[]) ?? []
 }
@@ -272,6 +274,28 @@ export async function deleteTask(id: string, projectId: string): Promise<void> {
   if (!user) return
   const supabase = await createClient()
   await db(supabase).from('project_tasks').delete().eq('id', id)
+  revalidatePath(`/projects/${projectId}`)
+}
+
+export async function archiveTask(id: string, projectId: string): Promise<void> {
+  const user = await getUser()
+  if (!user) return
+  const supabase = await createClient()
+  await db(supabase)
+    .from('project_tasks')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id)
+  revalidatePath(`/projects/${projectId}`)
+}
+
+export async function unarchiveTask(id: string, projectId: string): Promise<void> {
+  const user = await getUser()
+  if (!user) return
+  const supabase = await createClient()
+  await db(supabase)
+    .from('project_tasks')
+    .update({ archived_at: null })
+    .eq('id', id)
   revalidatePath(`/projects/${projectId}`)
 }
 

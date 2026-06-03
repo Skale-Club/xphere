@@ -11,13 +11,14 @@
 //   - saving indicator
 
 import * as React from 'react'
-import { ChevronRight, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Archive, ChevronRight, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -49,6 +50,7 @@ interface Props {
   crumbs?: BreadcrumbCrumb[]
   onRename: (next: string) => void
   onDelete: () => Promise<void>
+  onArchive?: () => Promise<void>
 }
 
 export function TaskHeader({
@@ -59,10 +61,12 @@ export function TaskHeader({
   crumbs,
   onRename,
   onDelete,
+  onArchive,
 }: Props) {
   const [draft, setDraft] = React.useState(name)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
+  const [archiving, setArchiving] = React.useState(false)
 
   // Resync local draft when the task switches (key={taskId} on parent also
   // forces a fresh component, but this guards in-place updates too).
@@ -83,6 +87,16 @@ export function TaskHeader({
       setDeleteOpen(false)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleArchive() {
+    if (!onArchive) return
+    setArchiving(true)
+    try {
+      await onArchive()
+    } finally {
+      setArchiving(false)
     }
   }
 
@@ -138,6 +152,18 @@ export function TaskHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
+              {onArchive && (
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); void handleArchive() }}
+                  disabled={archiving}
+                >
+                  {archiving
+                    ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    : <Archive className="h-3.5 w-3.5 mr-2" />}
+                  Archive task
+                </DropdownMenuItem>
+              )}
+              {onArchive && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault()
