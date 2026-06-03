@@ -1,7 +1,7 @@
 export const runtime = 'nodejs'
 
 import { createClient, getUser } from '@/lib/supabase/server'
-import { verifyTrackingInstallation } from '@/lib/traffic/verify'
+import { verifyTrackingInstallation, type VerificationResult } from '@/lib/traffic/verify'
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +17,9 @@ export async function POST(request: Request) {
     if (!url) return Response.json({ ok: false, error: 'url required' }, { status: 400 })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: setup } = await (supabase as any)
+    const sb = supabase as any
+
+    const { data: setup } = await sb
       .from('traffic_setups')
       .select('script_token')
       .eq('organization_id', orgId)
@@ -25,16 +27,36 @@ export async function POST(request: Request) {
 
     if (!setup) return Response.json({ ok: false, error: 'No setup found' }, { status: 404 })
 
-    const result = await verifyTrackingInstallation(url, setup.script_token as string)
+    // Primary signal: have we actually received tracking data for this org?
+    // This is the only reliable check for scripts injected at runtime by Google
+    // Tag Manager or single-page apps — those never appear in the server-rendered
+    // HTML, so an HTML scrape would report a false "not found" for a correct install.
+    const { count } = await sb
+      .from('traffic_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
 
-    // Update verification state in DB
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    let result: VerificationResult
+    if ((count ?? 0) > 0) {
+      result = 'verified'
+    } else {
+      // Fallback: best-effort scrape of the server-rendered HTML. Catches manual
+      // installs in static/SSR markup before the first visit; a miss here does NOT
+      // mean the script is absent (GTM/SPA inject it client-side).
+      result = await verifyTrackingInstallation(url, setup.script_token as string)
+    }
+
+    const verified = result === 'verified'
+    const installed = verified || result === 'no_events_yet'
+
+    // Persist state. 'verified' = data flowing; 'no_events_yet' = detected in HTML,
+    // awaiting first visit; otherwise keep the user on the verify step ('pending').
+    await sb
       .from('traffic_setups')
       .update({
-        verification_state: result === 'verified' || result === 'no_events_yet' ? result : 'failed',
+        verification_state: verified ? 'verified' : installed ? 'no_events_yet' : 'pending',
         primary_website_url: url,
-        ...(result === 'verified' || result === 'no_events_yet' ? { verified_at: new Date().toISOString() } : {}),
+        ...(installed ? { verified_at: new Date().toISOString() } : {}),
       })
       .eq('organization_id', orgId)
 

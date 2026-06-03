@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/supabase/server'
 import { getOrCreateTrafficSetup } from './actions'
-import { SetupScreen } from './_components/setup-screen'
-import { VerifyScreen } from './_components/verify-screen'
+import { SetupWizard } from './_components/setup-wizard'
 import { WaitingScreen } from './_components/waiting-screen'
 import { DashboardView } from './_components/dashboard-view'
 
@@ -15,18 +14,16 @@ export default async function TrafficPage() {
 
   const state = setup.verification_state
 
-  if (state === 'not_started' || state === 'failed') {
-    return <SetupScreen setup={setup} />
-  }
-
-  if (state === 'pending') {
-    return <VerifyScreen setup={setup} />
-  }
-
+  // Script detected but no traffic yet — dedicated "waiting for first visit" screen.
   if (state === 'no_events_yet') {
     return <WaitingScreen setup={setup} />
   }
 
-  // state === 'verified' — show dashboard
-  return <DashboardView setup={setup} />
+  // Data is flowing — show the dashboard.
+  if (state === 'verified') {
+    return <DashboardView setup={setup} />
+  }
+
+  // not_started | pending | failed — run the step-by-step setup wizard.
+  return <SetupWizard setup={setup} />
 }

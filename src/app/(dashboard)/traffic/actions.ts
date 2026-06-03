@@ -62,13 +62,15 @@ export async function saveTrafficSetup(formData: FormData) {
   const url = (formData.get('website_url') as string)?.trim() || null
   const gtm = (formData.get('gtm_container_id') as string)?.trim() || null
 
+  // Persist the URL/GTM ID without touching verification_state — the verify
+  // endpoint and the ingest pipeline own that transition. Resetting it here would
+  // bounce the user out of the wizard's verify step on every save.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any)
     .from('traffic_setups')
     .update({
       primary_website_url: url,
       gtm_container_id: gtm,
-      verification_state: 'not_started',
     })
     .eq('organization_id', orgId)
 }
