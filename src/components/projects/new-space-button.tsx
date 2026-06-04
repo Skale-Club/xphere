@@ -1,11 +1,8 @@
 'use client'
 
-// R08: small client-side button + dialog that calls the createFolder
-// server action and refreshes the projects page so the new folder appears.
-
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { FolderPlus } from 'lucide-react'
+import { SquareDashed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -21,13 +18,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createFolder } from '@/app/(dashboard)/projects/_actions/folders'
+import { createSpace } from '@/app/(dashboard)/projects/_actions/spaces'
 
-interface NewFolderButtonProps {
+interface NewSpaceButtonProps {
   className?: string
 }
 
-export function NewFolderButton({ className }: NewFolderButtonProps) {
+export function NewSpaceButton({ className }: NewSpaceButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -41,17 +38,17 @@ export function NewFolderButton({ className }: NewFolderButtonProps) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      toast.error('Folder name is required.')
+      toast.error('Space name is required.')
       return
     }
 
     startTransition(async () => {
-      const res = await createFolder({ name: trimmed })
+      const res = await createSpace({ name: trimmed })
       if (!res.ok) {
         toast.error(res.error)
         return
       }
-      toast.success(`Folder "${res.data.name}" created.`)
+      toast.success(`Space "${res.data.name}" created.`)
       reset()
       setOpen(false)
       router.refresh()
@@ -71,27 +68,27 @@ export function NewFolderButton({ className }: NewFolderButtonProps) {
           variant="outline"
           size="sm"
           className={cn('h-8 w-8 px-0 sm:w-auto sm:px-3', className)}
-          aria-label="Folder"
+          aria-label="Space"
         >
-          <FolderPlus className="h-3.5 w-3.5 sm:mr-1.5" />
-          <span className="hidden sm:inline">Folder</span>
+          <SquareDashed className="h-3.5 w-3.5 sm:mr-1.5" />
+          <span className="hidden sm:inline">Space</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New folder</DialogTitle>
+            <DialogTitle>New space</DialogTitle>
             <DialogDescription>
               Group related projects together. You can move projects in from each row&rsquo;s menu.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="folder-name">Name</Label>
+            <Label htmlFor="space-name">Name</Label>
             <Input
-              id="folder-name"
+              id="space-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Clients"
+              placeholder="e.g. Acme Corp"
               autoFocus
               disabled={isPending}
               maxLength={120}
@@ -108,7 +105,7 @@ export function NewFolderButton({ className }: NewFolderButtonProps) {
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={isPending}>
-              {isPending ? 'Creating…' : 'Create folder'}
+              {isPending ? 'Creating…' : 'Create space'}
             </Button>
           </DialogFooter>
         </form>

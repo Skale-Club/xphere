@@ -634,11 +634,11 @@ type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
 
-// ─── Move project into a folder (or to "Unfiled") ─────────────────────────────
+// ─── Move project into a space (or to "Unfiled") ─────────────────────────────
 
-export async function moveProjectToFolder(
+export async function moveProjectToSpace(
   projectId: string,
-  folderId: string | null,
+  spaceId: string | null,
 ): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
@@ -649,7 +649,7 @@ export async function moveProjectToFolder(
   const { data: tail } = await db(supabase)
     .from('projects')
     .select('position')
-    .eq('folder_id', folderId as unknown as string)
+    .eq('space_id', spaceId as unknown as string)
     .order('position', { ascending: false })
     .limit(1)
 
@@ -657,7 +657,7 @@ export async function moveProjectToFolder(
 
   const { error } = await db(supabase)
     .from('projects')
-    .update({ folder_id: folderId, position: nextPosition })
+    .update({ space_id: spaceId, position: nextPosition })
     .eq('id', projectId)
 
   if (error) return { ok: false, error: error.message }
@@ -667,8 +667,8 @@ export async function moveProjectToFolder(
 
 // ─── Reorder within a folder ──────────────────────────────────────────────────
 
-export async function reorderProjectsInFolder(
-  _folderId: string | null,
+export async function reorderProjectsInSpace(
+  _spaceId: string | null,
   orderedIds: string[],
 ): Promise<ActionResult<void>> {
   const user = await getUser()

@@ -1,9 +1,9 @@
 'use server'
 
-// Upload a custom image to use as a project-folder icon. The image is squared,
+// Upload a custom image to use as a project-space icon. The image is squared,
 // downscaled and re-encoded to a small webp, stored in the public `avatars`
 // bucket, and its public URL returned. The caller persists the URL via
-// updateFolderMeta({ icon: url }).
+// updateSpaceMeta({ icon: url }).
 
 import { createClient, getUser } from '@/lib/supabase/server'
 
@@ -19,7 +19,7 @@ const ALLOWED_MIME = new Set([
 
 type Result = { ok: true; url: string } | { ok: false; error: string }
 
-export async function uploadFolderIcon(formData: FormData): Promise<Result> {
+export async function uploadSpaceIcon(formData: FormData): Promise<Result> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
@@ -44,7 +44,7 @@ export async function uploadFolderIcon(formData: FormData): Promise<Result> {
 
   const supabase = await createClient()
   const nonce = Math.random().toString(36).slice(2, 10)
-  const objectPath = `${user.id}/folder-icons/${nonce}.webp`
+  const objectPath = `${user.id}/space-icons/${nonce}.webp`
 
   const { error: uploadErr } = await supabase.storage
     .from('avatars')

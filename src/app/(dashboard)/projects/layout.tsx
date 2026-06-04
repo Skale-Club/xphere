@@ -1,30 +1,30 @@
 import { SubSidebarLayout } from '@/components/layout/sub-sidebar'
 import { ProjectSubNav } from '@/components/projects/project-sub-nav'
 import { getProjects } from './actions'
-import { listFolders } from './_actions/folders'
+import { listSpaces } from './_actions/spaces'
 
 export default async function ProjectsLayout({ children }: { children: React.ReactNode }) {
-  const [projects, foldersRes] = await Promise.all([
+  const [projects, spacesRes] = await Promise.all([
     getProjects({ includeArchived: false }),
-    listFolders(),
+    listSpaces(),
   ])
 
-  const folders = foldersRes.ok ? foldersRes.data : []
+  const spaces = spacesRes.ok ? spacesRes.data : []
 
   const navProjects = projects.map((p) => ({
     id: p.id,
     name: p.name,
     color: p.color,
-    folder_id: p.folder_id,
+    group_id: p.space_id,
   }))
 
-  const navFolders = folders.map((f) => ({
-    id: f.id,
-    name: f.name,
-    color: f.color,
-    icon: f.icon,
-    parent_id: f.parent_id,
-    position: f.position,
+  const navSpaces = spaces.map((s) => ({
+    id: s.id,
+    name: s.name,
+    color: s.color,
+    icon: s.icon,
+    parent_id: s.parent_id,
+    position: s.position,
   }))
 
   return (
@@ -32,7 +32,7 @@ export default async function ProjectsLayout({ children }: { children: React.Rea
       storageKey="sub-sidebar:projects"
       title="Projects"
       autoCollapseBasePath="/projects"
-      nav={<ProjectSubNav projects={navProjects} folders={navFolders} />}
+      nav={<ProjectSubNav projects={navProjects} spaces={navSpaces} />}
     >
       {children}
     </SubSidebarLayout>

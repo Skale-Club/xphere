@@ -12,25 +12,25 @@ import {
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
 import { Button } from '@/components/ui/button'
 import {
-  deleteFolder,
-  renameFolder,
-  reorderFolders,
-  updateFolderMeta,
-} from '@/app/(dashboard)/projects/_actions/folders'
+  deleteSpace,
+  renameSpace,
+  reorderSpaces,
+  updateSpaceMeta,
+} from '@/app/(dashboard)/projects/_actions/spaces'
 import {
-  moveProjectToFolder,
-  reorderProjectsInFolder,
+  moveProjectToSpace,
+  reorderProjectsInSpace,
   softDeleteProject,
 } from '@/app/(dashboard)/projects/actions'
-import { uploadFolderIcon } from '@/app/(dashboard)/projects/_actions/folder-icon'
+import { uploadSpaceIcon } from '@/app/(dashboard)/projects/_actions/space-icon'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
-import { NewFolderButton } from '@/components/projects/new-folder-button'
+import { NewSpaceButton } from '@/components/projects/new-space-button'
 
 interface ProjectItem extends TreeNavItem {
   color: string | null
 }
 
-interface FolderItem {
+interface SpaceItem {
   id: string
   name: string
   color: string | null
@@ -41,17 +41,17 @@ interface FolderItem {
 
 interface Props {
   projects: ProjectItem[]
-  folders: FolderItem[]
+  spaces: SpaceItem[]
 }
 
-export function ProjectSubNav({ projects, folders }: Props) {
+export function ProjectSubNav({ projects, spaces }: Props) {
   const router = useRouter()
   const { onNavigate } = useSubSidebar()
 
   return (
     <DraggableTreeNav<ProjectItem>
       items={projects}
-      folders={folders}
+      folders={spaces}
       itemNoun="project"
       enableFolderIcon
       getHref={(p) => `/projects/${p.id}`}
@@ -71,13 +71,13 @@ export function ProjectSubNav({ projects, folders }: Props) {
         router.refresh()
       }}
       actions={{
-        reorderFolders,
-        deleteFolder,
-        renameFolder,
-        updateFolderMeta,
-        uploadFolderIcon,
-        moveItemToFolder: moveProjectToFolder,
-        reorderItemsInFolder: reorderProjectsInFolder,
+        reorderFolders: reorderSpaces,
+        deleteFolder: deleteSpace,
+        renameFolder: renameSpace,
+        updateFolderMeta: updateSpaceMeta,
+        uploadFolderIcon: uploadSpaceIcon,
+        moveItemToFolder: moveProjectToSpace,
+        reorderItemsInFolder: reorderProjectsInSpace,
       }}
       toolbar={
         <>
@@ -87,7 +87,7 @@ export function ProjectSubNav({ projects, folders }: Props) {
               Project
             </Button>
           </NewProjectDialog>
-          <NewFolderButton className="h-6 w-6 px-0" />
+          <NewSpaceButton className="h-6 w-6 px-0" />
         </>
       }
       footer={

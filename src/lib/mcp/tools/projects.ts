@@ -252,19 +252,19 @@ export const projectsTools: McpToolDef[] = [
       name: z.string().min(1),
       description: z.string().optional(),
       color: z.string().optional(),
-      folder_id: z.string().uuid().optional(),
+      space_id: z.string().uuid().optional(),
       position: z.number().int().optional(),
     }).strict(),
-    handler: async ({ name, description, color, folder_id, position }, { auth }) => {
+    handler: async ({ name, description, color, space_id, position }, { auth }) => {
       const supabase = db()
-      if (folder_id) {
-        const { data: folder } = await supabase
-          .from('project_folders')
+      if (space_id) {
+        const { data: space } = await supabase
+          .from('project_spaces')
           .select('id')
-          .eq('id', folder_id)
+          .eq('id', space_id)
           .eq('org_id', auth.orgId)
           .maybeSingle()
-        if (!folder) return { error: 'not_found', detail: 'folder_id not found in this org', status: 404 }
+        if (!space) return { error: 'not_found', detail: 'space_id not found in this org', status: 404 }
       }
       const { data, error } = await supabase
         .from('projects')
@@ -274,7 +274,7 @@ export const projectsTools: McpToolDef[] = [
           name,
           description: description ?? null,
           color: color ?? null,
-          folder_id: folder_id ?? null,
+          space_id: space_id ?? null,
           position: position ?? 0,
         })
         .select()
@@ -284,9 +284,9 @@ export const projectsTools: McpToolDef[] = [
     },
   },
   {
-    name: 'project_folders_create',
-    title: 'Create project folder',
-    description: 'Create a new project folder, optionally nested inside a parent folder. Returns the full created folder row.',
+    name: 'project_spaces_create',
+    title: 'Create project space',
+    description: 'Create a new project space (client/company container), optionally nested inside a parent space. Returns the full created space row.',
     area: 'projects',
     inputSchema: z.object({
       name: z.string().min(1),
@@ -299,7 +299,7 @@ export const projectsTools: McpToolDef[] = [
       const supabase = db()
       if (parent_id) {
         const { data: parent } = await supabase
-          .from('project_folders')
+          .from('project_spaces')
           .select('id')
           .eq('id', parent_id)
           .eq('org_id', auth.orgId)
@@ -307,7 +307,7 @@ export const projectsTools: McpToolDef[] = [
         if (!parent) return { error: 'not_found', detail: 'parent_id not found in this org', status: 404 }
       }
       const { data, error } = await supabase
-        .from('project_folders')
+        .from('project_spaces')
         .insert({
           org_id: auth.orgId,
           created_by: auth.userId ?? null,
