@@ -40,7 +40,6 @@ import {
 } from "@/app/(dashboard)/contacts/actions";
 import { SortableColumnHeader } from "@/components/data-table/sortable-column-header";
 import { ImportWizardDialog } from "./import-wizard-dialog";
-import type { Database } from "@/types/database";
 import type { TagRow } from "@/app/(dashboard)/settings/tags/actions";
 import type { CustomFieldDefinitionRow } from "@/app/(dashboard)/settings/custom-fields/actions";
 import { FIELD_RENDER_CONFIG } from "@/lib/custom-fields/render-config";
@@ -77,8 +76,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ContactListRow } from "@/app/(dashboard)/contacts/actions";
-
-type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
 const CHANNEL_LABEL: Record<Channel, string> = {
   whatsapp: "WhatsApp", instagram: "Instagram", messenger: "Messenger",
@@ -141,7 +138,6 @@ interface ContactsTableProps {
   currentTag?: string;
   currentSource?: string;
   currentChannel?: ContactChannelFilter;
-  currentSort: string;
   currentQuery?: string;
   visibleDefs?: CustomFieldDefinitionRow[];
   filterableDefs?: CustomFieldDefinitionRow[];
@@ -178,7 +174,6 @@ export function ContactsTable({
   currentTag,
   currentSource,
   currentChannel,
-  currentSort,
   currentQuery,
   visibleDefs = [],
   filterableDefs = [],
@@ -477,7 +472,7 @@ export function ContactsTable({
                       <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                     </div>
                     <div className="mt-0.5 truncate text-[11.5px] text-text-tertiary">
-                      {c.company || formatEmailDisplay(c.email) || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
+                      {c.account_name || formatEmailDisplay(c.email) || (c.phone ? formatPhoneDisplay(c.phone) : null) || "No contact details"}
                     </div>
                     {c.tags.length > 0 && (
                       <div className="mt-1 flex min-w-0 flex-wrap gap-1">
@@ -531,7 +526,7 @@ export function ContactsTable({
           <div
             className="grid items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary"
             style={{
-              gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
+              gridTemplateColumns: `40px minmax(190px,2fr) minmax(140px,1.2fr) minmax(140px,1.2fr) minmax(180px,1.3fr) minmax(140px,1fr) 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
             }}
           >
             <Checkbox
@@ -540,6 +535,7 @@ export function ContactsTable({
               aria-label="Select all"
             />
             <SortableColumnHeader column="name" label="Contact" />
+            <div>Company</div>
             <SortableColumnHeader column="phone" label="Phone" />
             <SortableColumnHeader column="email" label="Email" />
             <div>Tags</div>
@@ -579,7 +575,7 @@ export function ContactsTable({
                       "opacity-30 -translate-x-2 pointer-events-none",
                   )}
                   style={{
-                    gridTemplateColumns: `40px 2fr 1.5fr 1.2fr 1fr 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
+                    gridTemplateColumns: `40px minmax(190px,2fr) minmax(140px,1.2fr) minmax(140px,1.2fr) minmax(180px,1.3fr) minmax(140px,1fr) 0.9fr${visibleDefs.map(() => " 1fr").join("")} 100px`,
                   }}
                 >
                   <div onClick={(e) => e.stopPropagation()}>
@@ -605,12 +601,10 @@ export function ContactsTable({
                         )}</span>
                         <DndBadge dndEnabled={Boolean(c.dnd_enabled)} dndChannels={c.dnd_channels ?? []} />
                       </div>
-                      {c.company && (
-                        <div className="truncate text-[11.5px] text-text-tertiary">
-                          {c.company}
-                        </div>
-                      )}
                     </div>
+                  </div>
+                  <div className="truncate text-[12.5px] text-text-secondary">
+                    {c.account_name || "-"}
                   </div>
                   <div className="truncate text-[12.5px] text-text-secondary tabular-nums">
                     {c.phone ? (

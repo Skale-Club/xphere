@@ -117,7 +117,11 @@ function deriveContactChannels(row: {
   return CHANNEL_PRIORITY.filter((c) => set.has(c))
 }
 
-export type ContactListRow = ContactRow & { channels: Channel[] }
+export type ContactListRow = ContactRow & {
+  channels: Channel[]
+  /** Display name for the linked company/account, falling back to contacts.company. */
+  account_name: string | null
+}
 
 // Contact ids that have an identity for a social channel (used by the Channels
 // filter). Zernio identities encode the platform in the external_id prefix.
@@ -306,11 +310,28 @@ export async function getContacts(
     return { rows: [], total: 0, page: f.page, pageSize: f.pageSize, allTags }
   }
 
-  const rows: ContactListRow[] = (data as Array<ContactRow & {
+  const listRows = data as Array<ContactRow & {
     contact_channel_identities?: { provider: ChannelProvider; external_id?: string | null }[] | null
-  }>).map((r) => {
-    const { contact_channel_identities, ...rest } = r
-    return { ...(rest as ContactRow), channels: deriveContactChannels(r) }
+  }>
+  const accountIds = Array.from(
+    new Set(listRows.map((r) => r.account_id).filter((id): id is string => Boolean(id))),
+  )
+  const accountNameById = new Map<string, string>()
+  if (accountIds.length > 0) {
+    const { data: accounts } = await supabase
+      .from('accounts')
+      .select('id, name')
+      .in('id', accountIds)
+
+    for (const account of accounts ?? []) accountNameById.set(account.id, account.name)
+  }
+
+  const rows: ContactListRow[] = listRows.map((r) => {
+    return {
+      ...(r as ContactRow),
+      account_name: r.account_id ? (accountNameById.get(r.account_id) ?? r.company) : r.company,
+      channels: deriveContactChannels(r),
+    }
   })
 
   return {

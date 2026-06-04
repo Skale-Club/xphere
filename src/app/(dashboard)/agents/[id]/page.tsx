@@ -1,14 +1,11 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import { Suspense } from 'react'
-import { Bot, FlaskConical, History, ListTree } from 'lucide-react'
 
 import { AgentForm } from '@/components/agents/agent-form'
 import { AgentMetricsWidget } from '@/components/agents/agent-metrics-widget'
+import { AgentPlayground } from '@/components/agents/agent-playground'
 import { AgentWorkflowTools } from '@/components/agents/agent-workflow-tools'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { PageContainer } from '@/components/layout/page-header'
 import {
   getAgentById,
   getAgentWorkflows,
@@ -50,70 +47,35 @@ export default async function EditAgentPage({ params }: Props) {
   }
 
   return (
-    <PageContainer size="narrow">
-      <PageHeader
-        eyebrow="Agent"
-        eyebrowIcon={Bot}
-        back={{ href: '/agents', label: 'Back to agents' }}
-        title={
-          <>
-            <span className="truncate">{agent.name}</span>
-            <Badge variant="outline" className="font-mono text-[10px] tracking-tight">
-              {agent.slug}
-            </Badge>
-          </>
-        }
-        description={
-          <span className="inline-flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-[5px] bg-bg-tertiary px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">
-              {agent.model}
-            </span>
-            <span className="text-text-tertiary">·</span>
-            <span>{agent.is_active ? 'Active' : 'Inactive'}</span>
-          </span>
-        }
-        actions={
-          <>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/agents/${id}/invocations`}>
-                <ListTree className="h-3.5 w-3.5" />
-                Invocations
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/agents/${id}/playground`}>
-                <FlaskConical className="h-3.5 w-3.5" />
-                Playground
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/agents/${id}/prompt-history`}>
-                <History className="h-3.5 w-3.5" />
-                History
-              </Link>
-            </Button>
-          </>
-        }
-      />
+    <PageContainer className="py-6" size="full">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,34vw)]">
+        <div className="min-w-0 space-y-6">
+          <Suspense fallback={<div className="h-36 animate-pulse rounded-[12px] border border-border bg-bg-secondary" />}>
+            <AgentMetricsWidget agentId={id} />
+          </Suspense>
 
-      <Suspense fallback={<div className="h-36 animate-pulse rounded-[12px] border border-border bg-bg-secondary" />}>
-        <AgentMetricsWidget agentId={id} />
-      </Suspense>
+          <AgentForm
+            mode="edit"
+            agentId={agent.id}
+            initialValues={initialValues}
+            initialToolIds={agent.tool_ids}
+            toolPickerData={toolPickerData}
+          />
 
-      <AgentForm
-        mode="edit"
-        agentId={agent.id}
-        initialValues={initialValues}
-        initialToolIds={agent.tool_ids}
-        toolPickerData={toolPickerData}
-      />
+          <div className="rounded-[12px] border border-border bg-bg-secondary p-4">
+            <AgentWorkflowTools
+              agentId={agent.id}
+              initialAttached={attachedWorkflows}
+              initialAvailable={availableWorkflows}
+            />
+          </div>
+        </div>
 
-      <div className="mt-6 rounded-[12px] border border-border bg-bg-secondary p-4">
-        <AgentWorkflowTools
-          agentId={agent.id}
-          initialAttached={attachedWorkflows}
-          initialAvailable={availableWorkflows}
-        />
+        <div className="min-w-0 xl:sticky xl:top-4 xl:h-[calc(100vh-6rem)]">
+          <div className="flex h-[720px] min-h-[560px] overflow-hidden rounded-[12px] border border-border bg-bg-secondary xl:h-full">
+            <AgentPlayground agentId={agent.id} agentName={agent.name} />
+          </div>
+        </div>
       </div>
     </PageContainer>
   )

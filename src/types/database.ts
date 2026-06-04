@@ -194,6 +194,9 @@ export interface ProjectRow {
   name: string
   description: string | null
   color: string | null
+  account_id: string | null
+  source_opportunity_id: string | null
+  primary_contact_id: string | null
   folder_id: string | null
   position: number
   archived_at: string | null
@@ -211,6 +214,30 @@ export interface ProjectFolderRow {
   icon: string | null
   parent_id: string | null
   position: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectMemberRow {
+  id: string
+  org_id: string
+  project_id: string
+  user_id: string
+  role: string | null
+  is_owner: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectContactRow {
+  id: string
+  org_id: string
+  project_id: string
+  contact_id: string
+  role: string | null
+  is_primary: boolean
   created_by: string | null
   created_at: string
   updated_at: string

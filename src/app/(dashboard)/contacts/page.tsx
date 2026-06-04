@@ -133,7 +133,6 @@ async function ContactsBody({
       currentTag={tag}
       currentSource={source}
       currentChannel={channel}
-      currentSort={sort ?? "recent"}
       currentQuery={q}
       visibleDefs={visibleDefs}
       filterableDefs={filterableDefs}

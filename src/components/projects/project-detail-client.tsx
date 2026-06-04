@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { KanbanSquare, List, CalendarDays, GanttChartSquare, Plus, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -12,9 +12,10 @@ import { ProjectCalendar } from './project-calendar'
 import { ProjectTimeline } from './project-timeline'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { NewTaskDialog } from './new-task-dialog'
+import { ProjectCrmContextPanel } from './project-crm-context'
 import { getProjectTasks, upsertDefaultSavedView } from '@/app/(dashboard)/projects/actions'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
-import type { TaskWithLabels } from '@/app/(dashboard)/projects/actions'
+import type { ProjectCrmContext, TaskWithLabels } from '@/app/(dashboard)/projects/actions'
 import type { ProjectRow, ProjectLabelRow } from '@/types/database'
 
 type ViewTab = 'board' | 'list' | 'calendar' | 'timeline'
@@ -30,10 +31,11 @@ interface Props {
   project: ProjectRow
   initialTasks: TaskWithLabels[]
   labels: ProjectLabelRow[]
+  crmContext: ProjectCrmContext
   defaultView: ViewTab
 }
 
-export function ProjectDetailClient({ project, initialTasks, labels, defaultView }: Props) {
+export function ProjectDetailClient({ project, initialTasks, labels, crmContext, defaultView }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const { setSegmentLabel, setSuffix } = useBreadcrumbOverride()
@@ -114,6 +116,8 @@ export function ProjectDetailClient({ project, initialTasks, labels, defaultView
       </div>
 
       {/* Board + Calendar — direct flex children so flex-1 inside them works */}
+      <ProjectCrmContextPanel context={crmContext} />
+
       {activeTab === 'board' && (
         <ProjectBoard
           projectId={project.id}

@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 
-import { getProject, getProjectTasks, getProjectLabels, getDefaultSavedView } from '../actions'
+import { getProject, getProjectTasks, getProjectLabels, getDefaultSavedView, getProjectCrmContext } from '../actions'
 import { ProjectDetailClient } from '@/components/projects/project-detail-client'
 import { TableSkeleton } from '@/components/skeletons/table-skeleton'
 import type { ProjectViewType } from '@/types/database'
@@ -14,10 +14,11 @@ interface Props {
 }
 
 async function ProjectDetail({ projectId, urlView }: { projectId: string; urlView: string | undefined }) {
-  const [project, tasks, labels, savedView] = await Promise.all([
+  const [project, tasks, labels, crmContext, savedView] = await Promise.all([
     getProject(projectId),
     getProjectTasks(projectId),
     getProjectLabels(projectId),
+    getProjectCrmContext(projectId),
     urlView ? null : getDefaultSavedView(projectId),
   ])
 
@@ -31,6 +32,7 @@ async function ProjectDetail({ projectId, urlView }: { projectId: string; urlVie
       project={project}
       initialTasks={tasks}
       labels={labels}
+      crmContext={crmContext}
       defaultView={defaultView}
     />
   )
