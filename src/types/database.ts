@@ -6295,6 +6295,59 @@ export interface Database {
           },
         ]
       }
+      meta_audience_config: {
+        Row: {
+          id: string
+          org_id: string
+          meta_business_id: string | null
+          meta_ad_account_id: string
+          custom_audience_id: string | null
+          audience_name: string | null
+          sync_enabled: boolean
+          terms_accepted_at: string | null
+          consent_basis: string
+          last_synced_at: string | null
+          last_sync_stats: { sent?: number; removed?: number; error_count?: number } | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          meta_business_id?: string | null
+          meta_ad_account_id: string
+          custom_audience_id?: string | null
+          audience_name?: string | null
+          sync_enabled?: boolean
+          terms_accepted_at?: string | null
+          consent_basis?: string
+          last_synced_at?: string | null
+          last_sync_stats?: { sent?: number; removed?: number; error_count?: number } | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          meta_business_id?: string | null
+          meta_ad_account_id?: string
+          custom_audience_id?: string | null
+          audience_name?: string | null
+          sync_enabled?: boolean
+          terms_accepted_at?: string | null
+          consent_basis?: string
+          last_synced_at?: string | null
+          last_sync_stats?: { sent?: number; removed?: number; error_count?: number } | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meta_audience_config_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
