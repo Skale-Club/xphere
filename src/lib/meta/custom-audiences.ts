@@ -2,7 +2,7 @@
 // Graph API v20.0, schema: EMAIL_SHA256 + PHONE_SHA256
 // https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences
 
-import { META_ADS_GRAPH_VERSION } from './meta-oauth'
+import { META_ADS_GRAPH_VERSION } from '@/lib/ads/meta-oauth'
 
 const GRAPH_BASE = `https://graph.facebook.com/${META_ADS_GRAPH_VERSION}`
 const BATCH_SIZE = 10_000

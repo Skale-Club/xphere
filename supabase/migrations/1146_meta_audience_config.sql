@@ -1,4 +1,4 @@
--- Migration 1145: meta_audience_config — per-org Meta Custom Audience sync.
+-- Migration 1146: meta_audience_config — per-org Meta Custom Audience sync.
 --
 -- Each org may connect one Custom Audience on their Meta Ad Account.
 -- The sync job (scripts/meta-audience-sync.ts) runs hourly on Hetzner, reads
