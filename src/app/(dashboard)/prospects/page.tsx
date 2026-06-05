@@ -1,12 +1,46 @@
 import { ShieldAlert, UserPlus } from 'lucide-react'
 
-import { getProspects } from './actions'
+import { getProspects, type ProspectFilters, type ProspectKind, type ProspectSort } from './actions'
 import { ProspectsTable } from '@/components/prospects/prospects-table'
 import { EntityPageTemplate } from '@/components/crm/entity-template'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import type {
+  CrmEngagementStatus,
+  CrmIntentLevel,
+  CrmQualificationStatus,
+} from '@/types/database'
 
-export default async function ProspectsPage() {
-  const result = await getProspects()
+type SearchParams = {
+  q?: string
+  kind?: string
+  engagement?: string
+  intent?: string
+  qualification?: string
+  list?: string
+  sort?: string
+  page?: string
+}
+
+export default async function ProspectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const sp = await searchParams
+
+  const filters: ProspectFilters = {
+    q: sp.q,
+    kind: (sp.kind as 'all' | ProspectKind) || 'all',
+    engagement: sp.engagement as CrmEngagementStatus | undefined,
+    intent: sp.intent as CrmIntentLevel | undefined,
+    qualification: sp.qualification as CrmQualificationStatus | undefined,
+    listId: sp.list,
+    sort: (sp.sort as ProspectSort) || 'recent',
+    page: sp.page ? Math.max(1, parseInt(sp.page, 10) || 1) : 1,
+    pageSize: 25,
+  }
+
+  const result = await getProspects(filters)
 
   if (!result.ok) {
     return (
@@ -35,7 +69,14 @@ export default async function ProspectsPage() {
           title="Prospects"
           description="Early-stage records stay here until an admin deliberately converts them into the normal CRM."
         />
-        <ProspectsTable rows={result.rows} total={result.total} />
+        <ProspectsTable
+          rows={result.rows}
+          total={result.total}
+          page={result.page}
+          pageSize={result.pageSize}
+          lists={result.lists}
+          filters={filters}
+        />
       </PageContainer>
     </EntityPageTemplate>
   )

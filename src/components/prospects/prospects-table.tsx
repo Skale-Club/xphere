@@ -1,18 +1,24 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
-import { Building2, CheckCircle2, Plus, UserRound } from 'lucide-react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Building2, Plus, Search, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
-  convertProspectToContact,
+  bulkAssignToList,
+  bulkConvertProspects,
+  bulkDeleteProspects,
+  bulkSetIntent,
+  bulkSetQualification,
   createProspect,
   importProspectsCsv,
+  type ProspectFilters,
   type ProspectKind,
+  type ProspectRef,
   type ProspectRow,
 } from '@/app/(dashboard)/prospects/actions'
-import { EntityListTemplate } from '@/components/crm/entity-template'
+import { ProspectDetailSheet } from '@/components/prospects/prospect-detail-sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,12 +39,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type {
+  CrmEngagementStatus,
+  CrmIntentLevel,
+  CrmQualificationStatus,
+} from '@/types/database'
 import { cn } from '@/lib/utils'
 
 interface ProspectsTableProps {
   rows: ProspectRow[]
   total: number
+  page: number
+  pageSize: number
+  lists: { id: string; name: string }[]
+  filters: ProspectFilters
 }
+
+const ENGAGEMENT_OPTIONS: CrmEngagementStatus[] = [
+  'not_contacted', 'contacted', 'opened', 'clicked', 'replied',
+  'engaged', 'interested', 'needs_follow_up', 'not_interested', 'unsubscribed',
+]
+const INTENT_OPTIONS: CrmIntentLevel[] = ['none', 'low', 'medium', 'high']
+const QUALIFICATION_OPTIONS: CrmQualificationStatus[] = ['unqualified', 'needs_review', 'qualified']
+const ALL = '__all__'
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
@@ -56,50 +79,210 @@ function statusLabel(value: string): string {
   return value.replaceAll('_', ' ')
 }
 
-export function ProspectsTable({ rows, total }: ProspectsTableProps) {
-  const router = useRouter()
-  const [selected, setSelected] = React.useState<ProspectRow | null>(null)
-  const [busyId, setBusyId] = React.useState<string | null>(null)
+function rowKey(row: { kind: ProspectKind; id: string }): string {
+  return `${row.kind}:${row.id}`
+}
 
-  async function handleConvert(row: ProspectRow) {
-    setBusyId(row.id)
-    const res = await convertProspectToContact(row.kind, row.id)
-    setBusyId(null)
+export function ProspectsTable({ rows, total, page, pageSize, lists, filters }: ProspectsTableProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const [selected, setSelected] = React.useState<Set<string>>(new Set())
+  const [detail, setDetail] = React.useState<ProspectRow | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState(filters.q ?? '')
+
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+
+  function updateParam(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || value === '' || value === ALL) params.delete(key)
+      else params.set(key, value)
+    }
+    if (!('page' in updates)) params.delete('page')
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault()
+    updateParam({ q: searchValue.trim() || null })
+  }
+
+  const selectedRefs: ProspectRef[] = React.useMemo(
+    () =>
+      rows
+        .filter((r) => selected.has(rowKey(r)))
+        .map((r) => ({ kind: r.kind, id: r.id })),
+    [rows, selected],
+  )
+
+  const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(rowKey(r)))
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allOnPageSelected) rows.forEach((r) => next.delete(rowKey(r)))
+      else rows.forEach((r) => next.add(rowKey(r)))
+      return next
+    })
+  }
+
+  function toggleOne(row: ProspectRow) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const key = rowKey(row)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  async function runBulk(label: string, fn: () => Promise<{ ok: boolean; error?: string; affected?: number }>) {
+    setBusy(true)
+    const res = await fn()
+    setBusy(false)
     if (!res.ok) {
-      toast.error(res.error)
+      toast.error(res.error ?? 'Action failed')
       return
     }
-    toast.success(row.kind === 'company' ? 'Company promoted to lead' : 'Prospect converted to lead')
-    setSelected(null)
+    toast.success(`${label}: ${res.affected ?? selectedRefs.length} updated`)
+    setSelected(new Set())
     router.refresh()
   }
 
   return (
-    <EntityListTemplate
-      scope={{ entity: 'prospect', lifecycleStage: 'prospect' }}
-      toolbar={
-        <div className="flex flex-row flex-nowrap items-center gap-2 px-4 pb-6 pt-6 sm:px-6 lg:px-8">
-          <NewProspectDialog onCreated={() => router.refresh()} />
-          <ImportProspectsDialog onImported={() => router.refresh()} />
-          <div className="hidden sm:block flex-1" />
+    <div className="flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <NewProspectDialog onCreated={() => router.refresh()} />
+        <ImportProspectsDialog onImported={() => router.refresh()} />
+
+        <form onSubmit={submitSearch} className="relative ml-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary" />
+          <Input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search prospects…"
+            className="h-8 w-[220px] pl-8 text-[13px]"
+          />
+        </form>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          value={filters.kind ?? 'all'}
+          onChange={(v) => updateParam({ kind: v === 'all' ? null : v })}
+          placeholder="Type"
+          options={[
+            { value: 'all', label: 'All types' },
+            { value: 'person', label: 'People' },
+            { value: 'company', label: 'Companies' },
+          ]}
+        />
+        <FilterSelect
+          value={filters.engagement ?? ALL}
+          onChange={(v) => updateParam({ engagement: v })}
+          placeholder="Engagement"
+          options={[
+            { value: ALL, label: 'Any engagement' },
+            ...ENGAGEMENT_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) })),
+          ]}
+        />
+        <FilterSelect
+          value={filters.intent ?? ALL}
+          onChange={(v) => updateParam({ intent: v })}
+          placeholder="Intent"
+          options={[
+            { value: ALL, label: 'Any intent' },
+            ...INTENT_OPTIONS.map((s) => ({ value: s, label: s })),
+          ]}
+        />
+        <FilterSelect
+          value={filters.qualification ?? ALL}
+          onChange={(v) => updateParam({ qualification: v })}
+          placeholder="Qualification"
+          options={[
+            { value: ALL, label: 'Any qualification' },
+            ...QUALIFICATION_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) })),
+          ]}
+        />
+        {lists.length > 0 && (
+          <FilterSelect
+            value={filters.listId ?? ALL}
+            onChange={(v) => updateParam({ list: v })}
+            placeholder="List"
+            options={[
+              { value: ALL, label: 'Any list' },
+              ...lists.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+          />
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <FilterSelect
+            value={filters.sort ?? 'recent'}
+            onChange={(v) => updateParam({ sort: v === 'recent' ? null : v })}
+            placeholder="Sort"
+            options={[
+              { value: 'recent', label: 'Most recent' },
+              { value: 'score', label: 'Highest score' },
+              { value: 'name', label: 'Name (A–Z)' },
+            ]}
+          />
           <Badge variant="secondary">{total}</Badge>
         </div>
-      }
-      detail={
-        <ProspectDetailDialog
-          row={selected}
-          busy={Boolean(selected && busyId === selected.id)}
-          onOpenChange={(open) => {
-            if (!open) setSelected(null)
-          }}
-          onConvert={handleConvert}
-        />
-      }
-    >
+      </div>
+
+      {/* Bulk action bar */}
+      {selectedRefs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-accent/30 bg-accent-muted/40 px-3 py-2">
+          <span className="text-[12.5px] font-medium text-text-primary">
+            {selectedRefs.length} selected
+          </span>
+          <div className="h-4 w-px bg-border" />
+          <Button size="sm" variant="secondary" className="h-7" disabled={busy}
+            onClick={() => runBulk('Converted', () => bulkConvertProspects(selectedRefs))}>
+            Convert to lead
+          </Button>
+          <BulkSelect placeholder="Assign to list" disabled={busy || lists.length === 0}
+            options={lists.map((l) => ({ value: l.id, label: l.name }))}
+            onPick={(listId) => runBulk('Assigned', () => bulkAssignToList(selectedRefs, listId))} />
+          <BulkSelect placeholder="Set qualification" disabled={busy}
+            options={QUALIFICATION_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) }))}
+            onPick={(v) => runBulk('Qualification', () => bulkSetQualification(selectedRefs, v as CrmQualificationStatus))} />
+          <BulkSelect placeholder="Set intent" disabled={busy}
+            options={INTENT_OPTIONS.map((s) => ({ value: s, label: s }))}
+            onPick={(v) => runBulk('Intent', () => bulkSetIntent(selectedRefs, v as CrmIntentLevel))} />
+          <Button size="sm" variant="ghost" className="h-7" disabled title="Coming with Xmail outreach">
+            Start outreach
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7" disabled title="Coming with Xpot field visits">
+            Send to Xpot
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-red-500 hover:text-red-600" disabled={busy}
+            onClick={() => {
+              if (confirm(`Delete ${selectedRefs.length} prospect(s)? This cannot be undone.`)) {
+                runBulk('Deleted', () => bulkDeleteProspects(selectedRefs))
+              }
+            }}>
+            Delete
+          </Button>
+          <button type="button" className="ml-auto text-[12px] text-text-tertiary hover:text-text-primary"
+            onClick={() => setSelected(new Set())}>
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* List */}
       <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
-        <div className="hidden grid-cols-[1.5fr_1fr_1fr_1fr_1fr_90px] items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary sm:grid">
+        <div className="hidden grid-cols-[28px_1.6fr_1fr_70px_1fr_80px_1fr_90px] items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary sm:grid">
+          <input type="checkbox" checked={allOnPageSelected} onChange={toggleAll} className="h-3.5 w-3.5 accent-[var(--accent)]" aria-label="Select all" />
           <div>Prospect</div>
           <div>Source</div>
+          <div className="text-right">Score</div>
           <div>Engagement</div>
           <div>Intent</div>
           <div>Qualification</div>
@@ -108,60 +291,145 @@ export function ProspectsTable({ rows, total }: ProspectsTableProps) {
 
         {rows.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13px] text-text-secondary">
-            No prospects yet.
+            No prospects match these filters.
           </div>
         ) : (
           <div className="divide-y divide-border-subtle">
-            {rows.map((row) => (
-              <button
-                key={`${row.kind}:${row.id}`}
-                type="button"
-                onClick={() => setSelected(row)}
-                className={cn(
-                  'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-tertiary/40',
-                  'sm:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_90px]',
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent-muted text-accent">
-                    {row.kind === 'company' ? (
-                      <Building2 className="h-4 w-4" />
-                    ) : (
-                      <UserRound className="h-4 w-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium text-text-primary">
-                      {row.name || <span className="italic text-text-tertiary">Unnamed prospect</span>}
+            {rows.map((row) => {
+              const isSelected = selected.has(rowKey(row))
+              return (
+                <div
+                  key={rowKey(row)}
+                  className={cn(
+                    'grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-tertiary/40',
+                    'sm:grid-cols-[28px_1.6fr_1fr_70px_1fr_80px_1fr_90px]',
+                    isSelected && 'bg-accent-muted/20',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleOne(row)}
+                    className="h-3.5 w-3.5 accent-[var(--accent)]"
+                    aria-label={`Select ${row.name ?? 'prospect'}`}
+                  />
+                  <button type="button" onClick={() => setDetail(row)} className="flex min-w-0 items-center gap-2.5 text-left">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent-muted text-accent">
+                      {row.kind === 'company' ? <Building2 className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium text-text-primary">
+                        {row.name || <span className="italic text-text-tertiary">Unnamed prospect</span>}
+                      </div>
+                      <div className="truncate text-[11.5px] text-text-tertiary">
+                        {row.company || row.email || row.phone || (row.kind === 'company' ? 'Company' : 'Person')}
+                      </div>
                     </div>
-                    <div className="truncate text-[11.5px] text-text-tertiary">
-                      {row.company || row.email || row.phone || (row.kind === 'company' ? 'Company prospect' : 'Person prospect')}
-                    </div>
+                  </button>
+                  <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
+                    {row.sourceType || row.source}
+                  </div>
+                  <div className="hidden text-right text-[12.5px] font-medium tabular-nums text-text-secondary sm:block">
+                    {row.score}
+                  </div>
+                  <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
+                    {statusLabel(row.engagementStatus)}
+                  </div>
+                  <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
+                    {row.intentLevel}
+                  </div>
+                  <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
+                    {statusLabel(row.qualificationStatus)}
+                  </div>
+                  <div className="hidden text-right text-[11.5px] text-text-tertiary sm:block">
+                    {relativeTime(row.createdAt)}
                   </div>
                 </div>
-
-                <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
-                  {row.sourceType || row.source}
-                  {row.sourceId ? <span className="text-text-tertiary"> · {row.sourceId}</span> : null}
-                </div>
-                <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
-                  {statusLabel(row.engagementStatus)}
-                </div>
-                <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
-                  {row.intentLevel}
-                </div>
-                <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
-                  {statusLabel(row.qualificationStatus)}
-                </div>
-                <div className="text-right text-[11.5px] text-text-tertiary">
-                  {relativeTime(row.createdAt)}
-                </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
-    </EntityListTemplate>
+
+      {/* Pagination */}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between text-[12.5px] text-text-secondary">
+          <span>
+            Page {page} of {pageCount} · {total} total
+          </span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" className="h-7" disabled={page <= 1}
+              onClick={() => updateParam({ page: String(page - 1) })}>
+              Previous
+            </Button>
+            <Button size="sm" variant="secondary" className="h-7" disabled={page >= pageCount}
+              onClick={() => updateParam({ page: String(page + 1) })}>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <ProspectDetailSheet
+        prospect={detail}
+        onOpenChange={(open) => { if (!open) setDetail(null) }}
+        onChanged={() => { setDetail(null); router.refresh() }}
+      />
+    </div>
+  )
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8 w-auto min-w-[130px] text-[12.5px] capitalize">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value} className="text-[12.5px] capitalize">
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function BulkSelect({
+  placeholder,
+  options,
+  onPick,
+  disabled,
+}: {
+  placeholder: string
+  options: { value: string; label: string }[]
+  onPick: (value: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <Select value="" onValueChange={onPick} disabled={disabled}>
+      <SelectTrigger className="h-7 w-auto min-w-[140px] text-[12px] capitalize">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value} className="text-[12px] capitalize">
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -212,65 +480,6 @@ function ImportProspectsDialog({ onImported }: { onImported: () => void }) {
   )
 }
 
-function ProspectDetailDialog({
-  row,
-  busy,
-  onOpenChange,
-  onConvert,
-}: {
-  row: ProspectRow | null
-  busy: boolean
-  onOpenChange: (open: boolean) => void
-  onConvert: (row: ProspectRow) => void
-}) {
-  return (
-    <Dialog open={Boolean(row)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{row?.name || 'Prospect details'}</DialogTitle>
-          <DialogDescription>
-            Review the early-stage record before moving it into the normal CRM.
-          </DialogDescription>
-        </DialogHeader>
-        {row && (
-          <div className="space-y-4">
-            <div className="grid gap-2 text-[13px] text-text-secondary">
-              <DetailRow label="Type" value={row.kind === 'company' ? 'Company' : 'Person'} />
-              <DetailRow label="Company" value={row.company} />
-              <DetailRow label="Email" value={row.email} />
-              <DetailRow label="Phone" value={row.phone} />
-              <DetailRow label="Engagement" value={statusLabel(row.engagementStatus)} />
-              <DetailRow label="Intent" value={row.intentLevel} />
-              <DetailRow label="Qualification" value={statusLabel(row.qualificationStatus)} />
-              <DetailRow label="Source" value={[row.sourceType || row.source, row.sourceId].filter(Boolean).join(' · ')} />
-            </div>
-            <div className="rounded-[10px] border border-border-subtle bg-bg-tertiary/30 p-3 text-[12px] text-text-tertiary">
-              Converting moves this record out of Prospects and into the normal CRM as a lead. Existing source context and conversation links stay on the same record.
-            </div>
-            <Button
-              onClick={() => onConvert(row)}
-              disabled={busy}
-              className="w-full"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {busy ? 'Converting...' : row.kind === 'company' ? 'Promote company to lead' : 'Convert to Contact'}
-            </Button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function DetailRow({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2">
-      <span className="text-text-tertiary">{label}</span>
-      <span className="truncate text-text-primary">{value || '-'}</span>
-    </div>
-  )
-}
-
 function NewProspectDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = React.useState(false)
   const [kind, setKind] = React.useState<ProspectKind>('person')
@@ -292,14 +501,7 @@ function NewProspectDialog({ onCreated }: { onCreated: () => void }) {
 
   function submit() {
     startTransition(async () => {
-      const res = await createProspect({
-        kind,
-        name,
-        email,
-        phone,
-        company,
-        sourceType,
-      })
+      const res = await createProspect({ kind, name, email, phone, company, sourceType })
       if (!res.ok) {
         toast.error(res.error)
         return
