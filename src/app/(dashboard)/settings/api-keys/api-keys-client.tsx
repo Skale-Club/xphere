@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+import { API_KEY_SCOPES, type ApiKeyScope } from '@/lib/api-keys/scopes'
 import { generateApiKey, revokeApiKey, type ApiKeyRow } from './actions'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -83,12 +85,20 @@ function RevealKey({ value }: { value: string }) {
 function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const [scopes, setScopes] = useState<ApiKeyScope[]>(['contacts:write'])
   const [generatedKey, setGeneratedKey] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function reset() {
     setName('')
+    setScopes(['contacts:write'])
     setGeneratedKey(null)
+  }
+
+  function toggleScope(scope: ApiKeyScope) {
+    setScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
+    )
   }
 
   function handleOpenChange(next: boolean) {
@@ -97,9 +107,9 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
   }
 
   function submit() {
-    if (!name.trim()) return
+    if (!name.trim() || scopes.length === 0) return
     startTransition(async () => {
-      const { key, row, error } = await generateApiKey({ name: name.trim() })
+      const { key, row, error } = await generateApiKey({ name: name.trim(), scopes })
       if (error || !key || !row) {
         toast.error(error ?? 'Failed to generate key')
         return
@@ -133,7 +143,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
             <RevealKey value={generatedKey} />
           </div>
         ) : (
-          <div className="space-y-3 py-2">
+          <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="key-name">Name</Label>
               <Input
@@ -145,6 +155,40 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
                 autoFocus
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Scopes</Label>
+              <div className="flex flex-col gap-1.5">
+                {API_KEY_SCOPES.map((scope) => {
+                  const active = scopes.includes(scope.key)
+                  return (
+                    <button
+                      key={scope.key}
+                      type="button"
+                      onClick={() => toggleScope(scope.key)}
+                      className={cn(
+                        'flex items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors',
+                        active
+                          ? 'border-accent bg-accent-muted'
+                          : 'border-border bg-bg-secondary hover:bg-bg-tertiary/50',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                          active ? 'border-accent bg-accent text-white' : 'border-border',
+                        )}
+                      >
+                        {active && <Check className="h-3 w-3" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-mono text-[12px] text-text-primary">{scope.key}</span>
+                        <span className="block text-[11.5px] text-text-tertiary">{scope.description}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -154,7 +198,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
           ) : (
             <>
               <Button variant="ghost" onClick={() => handleOpenChange(false)}>Cancel</Button>
-              <Button onClick={submit} disabled={!name.trim() || pending}>
+              <Button onClick={submit} disabled={!name.trim() || scopes.length === 0 || pending}>
                 {pending ? 'Generating…' : 'Generate'}
               </Button>
             </>
@@ -232,10 +276,10 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[13px] text-text-secondary">
-            Use Bearer tokens to push contacts from external forms and websites directly into your CRM.
+            Use Bearer tokens to push contacts and prospects from external sources directly into your CRM.
           </p>
           <p className="mt-1 font-mono text-[12px] text-text-tertiary">
-            POST https://xphere.app/api/v1/contacts
+            POST https://xphere.app/api/v1/contacts · /api/v1/prospects
           </p>
         </div>
         <GenerateDialog onCreated={handleCreated} />
@@ -257,6 +301,7 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
               <tr className="border-b border-border bg-bg-secondary">
                 <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Name</th>
                 <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Key</th>
+                <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Scopes</th>
                 <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Last used</th>
                 <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Created</th>
                 <th className="px-4 py-2.5" />
@@ -270,6 +315,18 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
                     <span className="font-mono text-[12px] text-text-secondary bg-bg-secondary px-1.5 py-0.5 rounded">
                       {k.key_prefix}…
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(k.scopes ?? []).map((s) => (
+                        <span
+                          key={s}
+                          className="font-mono text-[11px] text-text-secondary bg-bg-secondary px-1.5 py-0.5 rounded"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-text-secondary">{relativeDate(k.last_used_at)}</td>
                   <td className="px-4 py-3 text-text-tertiary">{formatDate(k.created_at)}</td>
@@ -290,7 +347,8 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
           Quick start example
         </summary>
         <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-bg-secondary p-4 text-[12px] text-text-secondary leading-relaxed">
-{`curl -X POST https://xphere.app/api/v1/contacts \\
+{`# Push a contact (scope: contacts:write)
+curl -X POST https://xphere.app/api/v1/contacts \\
   -H "Authorization: Bearer xph_..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -298,11 +356,19 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
     "phone": "+5511987654321",
     "email": "joao@empresa.com",
     "source_label": "skaleclub",
-    "tags": ["lead-quente"],
-    "custom_fields": {
-      "score": 72,
-      "tipo_negocio": "Cleaning Services"
-    }
+    "tags": ["lead-quente"]
+  }'
+
+# Push a batch of prospects (scope: prospects:write)
+curl -X POST https://xphere.app/api/v1/prospects \\
+  -H "Authorization: Bearer xph_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "source": { "type": "xcraper", "external_run_id": "run_123" },
+    "prospects": [
+      { "kind": "company", "name": "Acme Cleaning", "domain": "acme.com",
+        "source_id": "place_abc", "recommended_channel": "email" }
+    ]
   }'`}
         </pre>
       </details>

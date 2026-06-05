@@ -16,6 +16,15 @@ Authorization: Bearer xph_<token>
 
 Tokens are generated in **Settings → API Keys** inside the Xphere dashboard. Each token is scoped to one organization. The full token is shown only once at creation time — copy and store it securely.
 
+**Scopes:** each key holds one or more scopes that gate which endpoints it can call:
+
+| Scope | Grants |
+|-------|--------|
+| `contacts:write` | `POST /api/v1/contacts` |
+| `prospects:write` | `POST /api/v1/prospects` |
+
+A request to an endpoint the key is not scoped for returns `403`.
+
 **Token format:** `xph_` prefix followed by 64 hex characters (32 random bytes).
 
 **Security:** Only the SHA-256 hash is stored in the database. A lost token cannot be recovered — revoke it and generate a new one.
@@ -91,6 +100,109 @@ At least one of `phone`, `email`, or `name` must be provided.
 | 422 | `{ "error": "Invalid request body", "details": [...] }` | Zod validation failed |
 | 422 | `{ "error": "Provide at least one of: phone, email, name" }` | Empty payload |
 | 500 | `{ "error": "Failed to create contact" }` | Database error |
+
+---
+
+### POST /api/v1/prospects
+
+Ingests **prospect-stage** records (people or companies) into your CRM. Prospects
+are created with `lifecycle_stage = 'prospect'` and stay out of the normal
+Contacts / Companies views until an admin deliberately converts them.
+
+Requires the `prospects:write` scope. Accepts either a **single** prospect or a
+**batch**. A batch opens a source/run row (visible under Prospects → Sources) and
+records an `imported` engagement event per record.
+
+**Dedup** is by `source_id` (idempotent re-import) → email/phone (person) or
+domain/name (company). If a match already exists **outside** the prospect stage
+(already promoted into the CRM), it is left untouched and reported as `skipped` —
+ingestion never pulls a real contact back to the prospect stage.
+
+**Body — single**
+
+```json
+{
+  "kind": "person",
+  "name": "João Silva",
+  "email": "joao@empresa.com",
+  "phone": "+5511987654321",
+  "company": "Acme Cleaning",
+  "tags": ["cold"],
+  "intent_level": "low",
+  "qualification_status": "needs_review",
+  "recommended_channel": "email",
+  "score": 20,
+  "source_id": "place_abc",
+  "source_payload": { "raw": "..." }
+}
+```
+
+**Body — batch**
+
+```json
+{
+  "source": {
+    "type": "xcraper",
+    "key": "xcraper",
+    "label": "Google Maps — cleaning São Paulo",
+    "external_run_id": "run_123",
+    "metadata": { "query": "cleaning", "location": "São Paulo" }
+  },
+  "prospects": [
+    { "kind": "company", "name": "Acme Cleaning", "domain": "acme.com", "source_id": "place_abc" },
+    { "kind": "person", "name": "Maria Souza", "email": "maria@acme.com", "source_id": "ct_456" }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | `"person"` \| `"company"` | — | Defaults to `person`. Person → contact, company → account. |
+| `name` | string | — | Person/company name (company falls back to `company`). |
+| `email`, `phone` | string | — | Person identifiers, normalized. |
+| `company`, `domain` | string | — | `domain` is the company dedup key. |
+| `tags` | string[] | — | Tags to assign. |
+| `intent_level` | `none`\|`low`\|`medium`\|`high` | — | Defaults to `none`. |
+| `qualification_status` | `unqualified`\|`needs_review`\|`qualified` | — | Defaults to `needs_review`. |
+| `recommended_channel` | `email`\|`sms`\|`whatsapp`\|`call`\|`visit`\|`linkedin` | — | Suggested next channel. |
+| `score` | integer 0–100 | — | Lead score. |
+| `source_id` | string | — | Stable external id for idempotent re-import. |
+| `source_payload` | object | — | Raw record kept for enrichment/debugging. |
+| `custom_fields` | object | — | Free-form key/value pairs. |
+| `source` | object | — | Batch only — describes the run (`type`, `key`, `label`, `external_run_id`, `metadata`). |
+
+At least one of `name`, `email`, `phone`, or `source_id` must be provided per record.
+
+**Response — single (201 / 200)**
+
+```json
+{ "id": "uuid", "kind": "person", "action": "created" }
+```
+
+**Response — batch (201)**
+
+```json
+{
+  "source_id": "run-uuid",
+  "total": 2,
+  "created": 2,
+  "updated": 0,
+  "skipped": 0,
+  "results": [
+    { "id": "uuid", "kind": "company", "action": "created" },
+    { "id": "uuid", "kind": "person", "action": "created" }
+  ]
+}
+```
+
+**Error responses**
+
+| Status | Body | Cause |
+|--------|------|-------|
+| 401 | `{ "error": "Missing Bearer token" }` | No `Authorization` header |
+| 401 | `{ "error": "Invalid or revoked API key" }` | Token not found or revoked |
+| 403 | `{ "error": "API key is missing the prospects:write scope" }` | Key not scoped for prospects |
+| 422 | `{ "error": "Invalid request body", "details": [...] }` | Zod validation failed |
 
 ---
 

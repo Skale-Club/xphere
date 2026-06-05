@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { API_KEY_SCOPE_KEYS, type ApiKeyScope } from '@/lib/api-keys/scopes'
 
 async function requireOrg() {
   const user = await getUser()
@@ -45,10 +46,16 @@ export async function listApiKeys(): Promise<{ keys: ApiKeyRow[]; error: string 
 
 // ── generateApiKey ────────────────────────────────────────────────────────────
 
-const generateSchema = z.object({ name: z.string().min(1).max(100) })
+const generateSchema = z.object({
+  name: z.string().min(1).max(100),
+  scopes: z
+    .array(z.enum(API_KEY_SCOPE_KEYS as [ApiKeyScope, ...ApiKeyScope[]]))
+    .min(1, 'Select at least one scope')
+    .optional(),
+})
 
 export async function generateApiKey(
-  input: { name: string },
+  input: { name: string; scopes?: ApiKeyScope[] },
 ): Promise<{ key: string | null; row: ApiKeyRow | null; error: string | null }> {
   const parsed = generateSchema.safeParse(input)
   if (!parsed.success) return { key: null, row: null, error: parsed.error.errors[0].message }
@@ -68,7 +75,7 @@ export async function generateApiKey(
       name: parsed.data.name,
       key_hash: hash,
       key_prefix: prefix,
-      scopes: ['contacts:write'],
+      scopes: parsed.data.scopes ?? ['contacts:write'],
       created_by: user.id,
     })
     .select('id, name, key_prefix, scopes, last_used_at, created_at')
