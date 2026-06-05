@@ -95,6 +95,14 @@ export interface TreeNavItem {
   group_id?: string | null
 }
 
+/** A static sub-link revealed when an item row is expanded (e.g. an agent's
+ *  Settings / Invocations / Playground pages). */
+export interface TreeNavChild {
+  label: string
+  href: string
+  icon?: React.ReactNode
+}
+
 export interface TreeNavFolder {
   id: string
   name: string
@@ -137,6 +145,16 @@ interface DraggableTreeNavProps<T extends TreeNavItem> {
   actions: TreeNavActions
   /** Enables the per-folder icon (emoji) picker. Color is always available. */
   enableFolderIcon?: boolean
+  /** When provided AND it returns a non-empty array, each item row gets an
+   *  expandable chevron disclosing these child links. Omit → plain leaf rows
+   *  (Projects/Workflows behavior, unchanged). */
+  getItemChildren?: (item: T) => TreeNavChild[]
+  /** Free-form node rendered at the BOTTOM of the scroll list, after all folders
+   *  and OUTSIDE every SortableContext (so its rows are inert to drag). Agents
+   *  use this for the pinned "Inactive" group. */
+  appendSection?: React.ReactNode
+  /** Label for the per-item delete menu entry. Default "Move to trash". */
+  deleteItemLabel?: string
   toolbar: React.ReactNode
   footer?: React.ReactNode
   emptyState: React.ReactNode
@@ -155,6 +173,9 @@ export function DraggableTreeNav<T extends TreeNavItem>({
   onDeleteItem,
   actions,
   enableFolderIcon,
+  getItemChildren,
+  appendSection,
+  deleteItemLabel,
   toolbar,
   footer,
   emptyState,
@@ -337,6 +358,8 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                 renderItemIcon={renderItemIcon}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
+                getItemChildren={getItemChildren}
+                deleteItemLabel={deleteItemLabel}
               />
             )}
 
@@ -356,6 +379,8 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                   actions={actions}
                   itemNoun={itemNoun}
                   enableFolderIcon={enableFolderIcon}
+                  getItemChildren={getItemChildren}
+                  deleteItemLabel={deleteItemLabel}
                   onPatched={(id, patch) =>
                     setLocalFolders((prev) =>
                       prev.map((f) => (f.id === id ? { ...f, ...patch } : f)),
@@ -366,6 +391,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
             </SortableContext>
 
             {isEmpty && emptyState}
+            {appendSection}
           </div>
         </div>
 
@@ -403,6 +429,8 @@ function UnfiledSection<T extends TreeNavItem>({
   renderItemIcon,
   onDeleteItem,
   itemNoun,
+  getItemChildren,
+  deleteItemLabel,
 }: {
   items: T[]
   isOver: boolean
@@ -410,6 +438,8 @@ function UnfiledSection<T extends TreeNavItem>({
   renderItemIcon: (item: T) => React.ReactNode
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
+  getItemChildren?: (item: T) => TreeNavChild[]
+  deleteItemLabel?: string
 }) {
   const [open, setOpen] = React.useState(true)
   const { setNodeRef } = useDroppable({
@@ -452,6 +482,8 @@ function UnfiledSection<T extends TreeNavItem>({
                 renderItemIcon={renderItemIcon}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
+                getItemChildren={getItemChildren}
+                deleteItemLabel={deleteItemLabel}
               />
             ))}
           </SortableContext>
@@ -473,6 +505,8 @@ function FolderSection<T extends TreeNavItem>({
   actions,
   itemNoun,
   enableFolderIcon,
+  getItemChildren,
+  deleteItemLabel,
   onPatched,
 }: {
   folder: TreeNavFolder
@@ -484,6 +518,8 @@ function FolderSection<T extends TreeNavItem>({
   actions: TreeNavActions
   itemNoun: string
   enableFolderIcon?: boolean
+  getItemChildren?: (item: T) => TreeNavChild[]
+  deleteItemLabel?: string
   onPatched: (
     id: string,
     patch: Partial<Pick<TreeNavFolder, 'name' | 'color' | 'icon'>>,
@@ -785,10 +821,13 @@ function FolderSection<T extends TreeNavItem>({
                 key={it.id}
                 item={it}
                 folderId={folder.id}
+                folderColor={folder.color}
                 getHref={getHref}
                 renderItemIcon={renderItemIcon}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
+                getItemChildren={getItemChildren}
+                deleteItemLabel={deleteItemLabel}
               />
             ))}
           </SortableContext>
@@ -808,22 +847,51 @@ function FolderSection<T extends TreeNavItem>({
 function ItemRow<T extends TreeNavItem>({
   item,
   folderId,
+  folderColor,
   getHref,
   renderItemIcon,
   onDeleteItem,
   itemNoun,
+  getItemChildren,
+  deleteItemLabel,
 }: {
   item: T
   folderId: string | null
+  folderColor?: string | null
   getHref: (item: T) => string
   renderItemIcon: (item: T) => React.ReactNode
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
+  getItemChildren?: (item: T) => TreeNavChild[]
+  deleteItemLabel?: string
 }) {
   const pathname = usePathname()
   const { onNavigate } = useSubSidebar()
   const href = getHref(item)
-  const isActive = pathname === href || pathname.startsWith(href + '/')
+
+  // `expandable` is gated on the PROP, not the per-item result, so consumers
+  // that never pass getItemChildren (Projects/Workflows) render zero extra DOM.
+  const expandable = getItemChildren != null
+  const children = expandable ? getItemChildren!(item) : []
+  const hasChildren = children.length > 0
+
+  // With children, the parent row highlights ONLY on its exact route so a child
+  // route (which is a prefix-match of href) lights up the child, not the parent.
+  // Leaf rows keep the original prefix rule.
+  const selfActive = hasChildren
+    ? pathname === href
+    : pathname === href || pathname.startsWith(href + '/')
+  const childActive = children.some(
+    (c) => pathname === c.href || pathname.startsWith(c.href + '/'),
+  )
+  const isActive = selfActive
+
+  const [open, setOpen] = React.useState(selfActive || childActive)
+  // Keep expanded whenever this row's own or a child route is active (covers
+  // client navigations and direct deep-links); never force-close on navigate-away.
+  React.useEffect(() => {
+    if (selfActive || childActive) setOpen(true)
+  }, [selfActive, childActive])
 
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -835,67 +903,139 @@ function ItemRow<T extends TreeNavItem>({
     <div
       ref={setNodeRef}
       style={style}
+      className={cn('flex flex-col', isDragging && 'opacity-40')}
+    >
+      <div className="group relative flex items-center rounded-[6px] transition-colors">
+        {isActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-[60%] w-[2px] rounded-r-full bg-accent" />
+        )}
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="ml-1 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing text-text-tertiary/60 hover:text-text-secondary transition-opacity shrink-0"
+          aria-label={`Drag ${itemNoun}`}
+          tabIndex={-1}
+        >
+          <GripVertical className="h-3 w-3" />
+        </button>
+        {expandable &&
+          (hasChildren ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setOpen((v) => !v)
+              }}
+              className="flex h-5 w-4 shrink-0 items-center justify-center text-text-tertiary hover:text-text-secondary"
+              aria-label={open ? 'Collapse' : 'Expand'}
+              tabIndex={-1}
+            >
+              <ChevronRight className={cn('h-3 w-3 transition-transform', open && 'rotate-90')} />
+            </button>
+          ) : (
+            <span className="w-4 shrink-0" />
+          ))}
+        <Link
+          href={href}
+          onClick={() => {
+            onNavigate()
+            if (hasChildren) setOpen(true)
+          }}
+          style={!isActive && folderColor ? { color: folderColor } : undefined}
+          className={cn(
+            'flex flex-1 min-w-0 items-center gap-2 px-2 py-1.5 text-[12px] rounded-[6px]',
+            isActive
+              ? 'text-text-primary font-medium bg-accent/8'
+              : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
+          )}
+        >
+          <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+            {renderItemIcon(item)}
+          </span>
+          <span className="truncate">{item.name}</span>
+        </Link>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="mr-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              aria-label={`${itemNoun} actions`}
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem asChild>
+              <Link href={href} onClick={onNavigate}>
+                Open
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-rose-500 focus:text-rose-500"
+              onSelect={() => onDeleteItem(item)}
+            >
+              <Trash2 className="h-3 w-3" />
+              {deleteItemLabel ?? 'Move to trash'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {hasChildren && open && <TreeNavChildLinks links={children} className="ml-[26px]" />}
+    </div>
+  )
+}
+
+// ─── Item child-links (shared by ItemRow + the Inactive section) ────────────────
+
+/** Renders an item's static sub-links (e.g. an agent's Settings / Invocations
+ *  pages) as an indented, left-bordered list. Stateless | the caller owns the
+ *  open/closed gating and outer indent. */
+export function TreeNavChildLinks({
+  links,
+  className,
+}: {
+  links: TreeNavChild[]
+  className?: string
+}) {
+  const pathname = usePathname()
+  const { onNavigate } = useSubSidebar()
+  return (
+    <div
       className={cn(
-        'group relative flex items-center rounded-[6px] transition-colors',
-        isDragging && 'opacity-40',
+        'flex flex-col gap-px border-l border-border-subtle/60 pl-2 py-0.5',
+        className,
       )}
     >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-[60%] w-[2px] rounded-r-full bg-accent" />
-      )}
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="ml-1 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing text-text-tertiary/60 hover:text-text-secondary transition-opacity shrink-0"
-        aria-label={`Drag ${itemNoun}`}
-        tabIndex={-1}
-      >
-        <GripVertical className="h-3 w-3" />
-      </button>
-      <Link
-        href={href}
-        onClick={onNavigate}
-        className={cn(
-          'flex flex-1 min-w-0 items-center gap-2 px-2 py-1.5 text-[12px] rounded-[6px]',
-          isActive
-            ? 'text-text-primary font-medium bg-accent/8'
-            : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
-        )}
-      >
-        <span className="flex h-3 w-3 shrink-0 items-center justify-center">
-          {renderItemIcon(item)}
-        </span>
-        <span className="truncate">{item.name}</span>
-      </Link>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="mr-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-            aria-label={`${itemNoun} actions`}
+      {links.map((c) => {
+        const active = pathname === c.href || pathname.startsWith(c.href + '/')
+        return (
+          <Link
+            key={c.href}
+            href={c.href}
+            onClick={onNavigate}
+            className={cn(
+              'group/child relative flex items-center gap-2 rounded-[6px] px-2 py-1 text-[11px]',
+              active
+                ? 'bg-accent/8 text-text-primary font-medium'
+                : 'text-text-tertiary hover:bg-bg-tertiary/60 hover:text-text-primary',
+            )}
           >
-            <MoreHorizontal className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem asChild>
-            <Link href={href} onClick={onNavigate}>
-              Open
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-rose-500 focus:text-rose-500"
-            onSelect={() => onDeleteItem(item)}
-          >
-            <Trash2 className="h-3 w-3" />
-            Move to trash
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {active && (
+              <span className="absolute left-0 top-1/2 h-[55%] w-[2px] -translate-y-1/2 rounded-r-full bg-accent" />
+            )}
+            {c.icon && (
+              <span className="flex h-3 w-3 shrink-0 items-center justify-center">{c.icon}</span>
+            )}
+            <span className="truncate">{c.label}</span>
+          </Link>
+        )
+      })}
     </div>
   )
 }

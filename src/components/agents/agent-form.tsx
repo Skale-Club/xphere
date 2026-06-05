@@ -60,6 +60,8 @@ interface AgentFormProps {
   initialValues?: Partial<AgentFormInput>
   initialToolIds?: string[]
   toolPickerData: ToolPickerData
+  /** Org agent groups for the "Group" picker (sidebar tree). */
+  groups?: Array<{ id: string; name: string }>
 }
 
 function CollapsibleSection({
@@ -115,6 +117,7 @@ export function AgentForm({
   initialValues,
   initialToolIds,
   toolPickerData,
+  groups = [],
 }: AgentFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -131,6 +134,7 @@ export function AgentForm({
     temperature: initialValues?.temperature ?? null,
     max_tokens: initialValues?.max_tokens ?? null,
     is_active: initialValues?.is_active ?? true,
+    group_id: initialValues?.group_id ?? null,
     allowed_channels: initialValues?.allowed_channels ?? ['web_widget'],
     channel_overrides: initialValues?.channel_overrides ?? {},
     // TOOL-03: deny-by-default. In create mode we IGNORE initialToolIds.
@@ -371,6 +375,38 @@ export function AgentForm({
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="group_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Group</FormLabel>
+                  <Select
+                    value={field.value ?? '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="No group" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="__none__">No group</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Organizes the agent in the sidebar. You can also drag it between groups.
+                  </FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />

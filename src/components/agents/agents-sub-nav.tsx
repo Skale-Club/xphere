@@ -1,195 +1,215 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import {
-  Bot,
-  Circle,
-  History,
-  ListTree,
-  Plus,
-  Settings2,
-  Sparkles,
-} from 'lucide-react'
+// Agents sub-sidebar: a grouped, expandable tree.
+//   - Active agents are organized into user-created groups (folders) via the
+//     shared DraggableTreeNav (drag to file/reorder, rename, color/emoji).
+//   - Each agent row expands to reveal its sub-pages as children (Settings,
+//     Invocations, Playground, Prompt history). Clicking the name navigates to
+//     Settings AND expands; the chevron alone only toggles.
+//   - Inactive agents are pulled into a collapsible "Inactive" group pinned at
+//     the bottom (rendered via DraggableTreeNav's appendSection slot).
 
+import * as React from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Bot, ChevronRight, History, ListTree, Plus, Settings2, Sparkles } from 'lucide-react'
+
+import {
+  DraggableTreeNav,
+  TreeNavChildLinks,
+  type TreeNavChild,
+  type TreeNavItem,
+} from '@/components/layout/draggable-tree-nav'
+import { useSubSidebar } from '@/components/layout/sub-sidebar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useSubSidebar } from '@/components/layout/sub-sidebar'
 import type { AgentListItem } from '@/app/(dashboard)/agents/actions'
+import type { AgentGroupRow } from '@/types/database'
+import {
+  moveAgentToGroup,
+  reorderAgentsInGroup,
+  softDeleteAgent,
+} from '@/app/(dashboard)/agents/actions'
+import {
+  deleteAgentGroup,
+  renameAgentGroup,
+  reorderAgentGroups,
+  updateAgentGroupMeta,
+} from '@/app/(dashboard)/agents/_actions/groups'
+import { NewAgentGroupButton } from '@/components/agents/new-agent-group-button'
+
+interface AgentItem extends TreeNavItem {
+  is_active: boolean
+  slug: string
+}
+
+/** The static sub-pages revealed when an agent row is expanded. Module-scope so
+ *  the reference stays stable across renders (cheap, depends only on the id). */
+function agentChildren(a: AgentItem): TreeNavChild[] {
+  return [
+    { label: 'Settings', href: `/agents/${a.id}`, icon: <Settings2 className="h-3 w-3" /> },
+    { label: 'Invocations', href: `/agents/${a.id}/invocations`, icon: <ListTree className="h-3 w-3" /> },
+    { label: 'Playground', href: `/agents/${a.id}/playground`, icon: <Sparkles className="h-3 w-3" /> },
+    { label: 'Prompt history', href: `/agents/${a.id}/prompt-history`, icon: <History className="h-3 w-3" /> },
+  ]
+}
+
+function toItem(a: AgentListItem): AgentItem {
+  return { id: a.id, name: a.name, group_id: a.group_id, is_active: a.is_active, slug: a.slug }
+}
 
 interface AgentsSubNavProps {
   agents: AgentListItem[]
+  groups: AgentGroupRow[]
 }
 
-function getCurrentAgentId(pathname: string): string | null {
-  const parts = pathname.split('/').filter(Boolean)
-  if (parts[0] !== 'agents') return null
-  const id = parts[1]
-  if (!id || id === 'new') return null
-  return id
-}
-
-function NavLink({
-  href,
-  label,
-  icon: Icon,
-  active,
-  muted,
-}: {
-  href: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  active: boolean
-  muted?: boolean
-}) {
+export function AgentsSubNav({ agents, groups }: AgentsSubNavProps) {
+  const router = useRouter()
   const { onNavigate } = useSubSidebar()
 
+  const activeAgents = agents.filter((a) => a.is_active).map(toItem)
+  const inactiveAgents = agents.filter((a) => !a.is_active).map(toItem)
+
   return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      className={cn(
-        'group relative flex min-w-0 items-center gap-2.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] transition-colors',
-        active
-          ? 'bg-accent/10 text-text-primary'
-          : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
-        muted && !active && 'text-text-tertiary',
-      )}
-    >
-      {active && (
-        <span className="absolute left-0 top-1/2 h-[60%] w-[2.5px] -translate-y-1/2 rounded-r-full bg-accent" />
-      )}
-      <Icon
-        className={cn(
-          'h-3.5 w-3.5 shrink-0',
-          active ? 'text-accent' : muted ? 'text-text-tertiary' : 'text-text-tertiary',
-        )}
-      />
-      <span className="truncate font-medium">{label}</span>
-    </Link>
+    <DraggableTreeNav<AgentItem>
+      items={activeAgents}
+      folders={groups}
+      itemNoun="agent"
+      enableFolderIcon
+      getHref={(a) => `/agents/${a.id}`}
+      renderItemIcon={() => <Bot className="h-3 w-3 text-text-tertiary" />}
+      getItemChildren={agentChildren}
+      deleteItemLabel="Deactivate"
+      onDeleteItem={async (a) => {
+        const res = await softDeleteAgent(a.id)
+        if (res && 'error' in res && res.error) {
+          toast.error(res.error)
+          return
+        }
+        toast.success(`Deactivated "${a.name}"`)
+        router.refresh()
+      }}
+      actions={{
+        reorderFolders: reorderAgentGroups,
+        deleteFolder: deleteAgentGroup,
+        renameFolder: renameAgentGroup,
+        updateFolderMeta: updateAgentGroupMeta,
+        moveItemToFolder: moveAgentToGroup,
+        reorderItemsInFolder: reorderAgentsInGroup,
+      }}
+      toolbar={
+        <>
+          <Button asChild size="sm" className="h-6 flex-1 text-[11px] gap-1">
+            <Link href="/agents/new" onClick={onNavigate}>
+              <Plus className="h-3 w-3" />
+              Agent
+            </Link>
+          </Button>
+          <NewAgentGroupButton />
+          <Button asChild variant="outline" size="sm" className="h-6 w-6 px-0">
+            <Link href="/agents" onClick={onNavigate} aria-label="All agents" title="All agents">
+              <Bot className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </>
+      }
+      appendSection={<InactiveAgentsSection agents={inactiveAgents} />}
+      emptyState={
+        <div className="px-4 py-8 text-center">
+          <Bot className="mx-auto mb-2 h-6 w-6 text-text-tertiary" />
+          <p className="text-[11px] text-text-tertiary">No active agents</p>
+        </div>
+      }
+    />
   )
 }
 
-function Section({
-  title,
-  count,
-  children,
-}: {
-  title: string
-  count?: number
-  children: React.ReactNode
-}) {
+// ─── Inactive section (non-draggable, pinned at the bottom) ─────────────────────
+
+function InactiveAgentsSection({ agents }: { agents: AgentItem[] }) {
+  const pathname = usePathname()
+  const anyActive = agents.some((a) => pathname.startsWith(`/agents/${a.id}`))
+  const [open, setOpen] = React.useState(anyActive)
+  React.useEffect(() => {
+    if (anyActive) setOpen(true)
+  }, [anyActive])
+
+  if (agents.length === 0) return null
+
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between px-2 text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
-        <span>{title}</span>
-        {typeof count === 'number' ? <span>{count}</span> : null}
+    <div className="mt-1 border-t border-border-subtle pt-1">
+      <div className="flex items-center gap-1 rounded-[6px] px-1.5 py-1">
+        <span className="w-3 shrink-0" />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors"
+        >
+          <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform', open && 'rotate-90')} />
+          <span className="flex-1 min-w-0 truncate text-left">Inactive</span>
+          <span className="text-[10px] tabular-nums shrink-0">{agents.length}</span>
+        </button>
+        <span className="w-5 shrink-0" />
       </div>
-      <div className="flex flex-col gap-px">{children}</div>
+      {open && (
+        <div className="pl-5">
+          {agents.map((a) => (
+            <InactiveAgentRow key={a.id} agent={a} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-export function AgentsSubNav({ agents }: AgentsSubNavProps) {
+function InactiveAgentRow({ agent }: { agent: AgentItem }) {
   const pathname = usePathname()
-  const currentAgentId = getCurrentAgentId(pathname)
-  const currentAgent = currentAgentId
-    ? agents.find((agent) => agent.id === currentAgentId)
-    : null
-  const activeAgents = agents.filter((agent) => agent.is_active)
-  const inactiveAgents = agents.filter((agent) => !agent.is_active)
   const { onNavigate } = useSubSidebar()
+  const href = `/agents/${agent.id}`
+  const links = agentChildren(agent)
+  const selfActive = pathname === href
+  const childActive = links.some((c) => pathname === c.href || pathname.startsWith(c.href + '/'))
+  const [open, setOpen] = React.useState(selfActive || childActive)
+  React.useEffect(() => {
+    if (selfActive || childActive) setOpen(true)
+  }, [selfActive, childActive])
 
   return (
-    <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3">
-      <div className="mb-3 grid grid-cols-[1fr_36px] gap-2 px-1">
-        <Button asChild size="sm" className="h-9 justify-start gap-2 text-[12.5px] font-medium">
-          <Link href="/agents/new" onClick={onNavigate}>
-            <Plus className="h-3.5 w-3.5" />
-            Agent
-          </Link>
-        </Button>
-        <Button asChild variant="secondary" size="icon-sm" className="h-9 w-9">
-          <Link href="/agents" onClick={onNavigate} aria-label="All agents" title="All agents">
-            <Bot className="h-4 w-4" />
-          </Link>
-        </Button>
+    <div className="flex flex-col">
+      <div className="group relative flex items-center rounded-[6px]">
+        {selfActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-[60%] w-[2px] rounded-r-full bg-accent" />
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="ml-1 flex h-5 w-4 shrink-0 items-center justify-center text-text-tertiary hover:text-text-secondary"
+          aria-label={open ? 'Collapse' : 'Expand'}
+          tabIndex={-1}
+        >
+          <ChevronRight className={cn('h-3 w-3 transition-transform', open && 'rotate-90')} />
+        </button>
+        <Link
+          href={href}
+          onClick={() => {
+            onNavigate()
+            setOpen(true)
+          }}
+          className={cn(
+            'flex flex-1 min-w-0 items-center gap-2 px-2 py-1.5 text-[12px] rounded-[6px]',
+            selfActive
+              ? 'text-text-primary font-medium bg-accent/8'
+              : 'text-text-tertiary hover:bg-bg-tertiary/60 hover:text-text-primary',
+          )}
+        >
+          <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+            <Bot className="h-3 w-3" />
+          </span>
+          <span className="truncate">{agent.name}</span>
+        </Link>
       </div>
-
-      <div className="flex flex-col gap-4">
-        <Section title="Agents" count={agents.length}>
-          <NavLink
-            href="/agents"
-            label="All agents"
-            icon={Bot}
-            active={pathname === '/agents'}
-          />
-          <NavLink
-            href="/agents/new"
-            label="New agent"
-            icon={Plus}
-            active={pathname === '/agents/new'}
-          />
-        </Section>
-
-        {currentAgent ? (
-          <Section title="Current agent">
-            <div className="mb-1 truncate rounded-[8px] border border-border-subtle bg-bg-tertiary/40 px-2.5 py-2">
-              <div className="truncate text-[12.5px] font-semibold text-text-primary">
-                {currentAgent.name}
-              </div>
-              <div className="truncate font-mono text-[10.5px] text-text-tertiary">
-                {currentAgent.slug}
-              </div>
-            </div>
-            <NavLink
-              href={`/agents/${currentAgent.id}`}
-              label="Settings"
-              icon={Settings2}
-              active={pathname === `/agents/${currentAgent.id}`}
-            />
-            <NavLink
-              href={`/agents/${currentAgent.id}/invocations`}
-              label="Invocations"
-              icon={ListTree}
-              active={pathname === `/agents/${currentAgent.id}/invocations`}
-            />
-            <NavLink
-              href={`/agents/${currentAgent.id}/prompt-history`}
-              label="Prompt history"
-              icon={History}
-              active={pathname === `/agents/${currentAgent.id}/prompt-history`}
-            />
-          </Section>
-        ) : null}
-
-        <Section title="Active" count={activeAgents.length}>
-          {activeAgents.map((agent) => (
-            <NavLink
-              key={agent.id}
-              href={`/agents/${agent.id}`}
-              label={agent.name}
-              icon={Sparkles}
-              active={currentAgentId === agent.id}
-            />
-          ))}
-        </Section>
-
-        {inactiveAgents.length > 0 ? (
-          <Section title="Inactive" count={inactiveAgents.length}>
-            {inactiveAgents.map((agent) => (
-              <NavLink
-                key={agent.id}
-                href={`/agents/${agent.id}`}
-                label={agent.name}
-                icon={Circle}
-                active={currentAgentId === agent.id}
-                muted
-              />
-            ))}
-          </Section>
-        ) : null}
-      </div>
-    </nav>
+      {open && <TreeNavChildLinks links={links} className="ml-[26px]" />}
+    </div>
   )
 }

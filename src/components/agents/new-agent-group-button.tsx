@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { SquareDashed } from 'lucide-react'
+import { FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -18,13 +18,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createSpace } from '@/app/(dashboard)/projects/_actions/spaces'
+import { createAgentGroup } from '@/app/(dashboard)/agents/_actions/groups'
 
-interface NewSpaceButtonProps {
+interface NewAgentGroupButtonProps {
   className?: string
 }
 
-export function NewSpaceButton({ className }: NewSpaceButtonProps) {
+export function NewAgentGroupButton({ className }: NewAgentGroupButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -38,17 +38,17 @@ export function NewSpaceButton({ className }: NewSpaceButtonProps) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) {
-      toast.error('Space name is required.')
+      toast.error('Group name is required.')
       return
     }
 
     startTransition(async () => {
-      const res = await createSpace({ name: trimmed })
+      const res = await createAgentGroup({ name: trimmed })
       if (!res.ok) {
         toast.error(res.error)
         return
       }
-      toast.success(`Space "${res.data.name}" created.`)
+      toast.success(`Group "${res.data.name}" created.`)
       reset()
       setOpen(false)
       router.refresh()
@@ -67,28 +67,29 @@ export function NewSpaceButton({ className }: NewSpaceButtonProps) {
         <Button
           variant="outline"
           size="sm"
-          className={cn('h-6 px-3 text-[11px] gap-1', className)}
-          aria-label="Space"
+          className={cn('h-6 w-6 px-0', className)}
+          aria-label="New group"
+          title="New group"
         >
-          <SquareDashed className="h-3 w-3" />
-          Space
+          <FolderPlus className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New space</DialogTitle>
+            <DialogTitle>New group</DialogTitle>
             <DialogDescription>
-              Group related projects together. You can move projects in from each row&rsquo;s menu.
+              Group related agents together. Drag agents into a group, or pick one from each
+              agent&rsquo;s form.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="space-name">Name</Label>
+            <Label htmlFor="agent-group-name">Name</Label>
             <Input
-              id="space-name"
+              id="agent-group-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Acme Corp"
+              placeholder="e.g. Support bots"
               autoFocus
               disabled={isPending}
               maxLength={120}
@@ -105,7 +106,7 @@ export function NewSpaceButton({ className }: NewSpaceButtonProps) {
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={isPending}>
-              {isPending ? 'Creating…' : 'Create space'}
+              {isPending ? 'Creating…' : 'Create group'}
             </Button>
           </DialogFooter>
         </form>

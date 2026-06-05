@@ -139,6 +139,10 @@ export async function GET(request: Request): Promise<Response> {
     representative_channel: string | null
     channels: string[] | null
     pinned: boolean
+    // Unread flag computed by the RPC on the representative (keyed on inbound
+    // activity vs this user's read marker). Single source of truth shared with
+    // the sidebar Chat badge (inbox_unread_count) so they can never drift.
+    is_unread: boolean
   }
 
   const [pinnedEntriesRes, pageEntriesRes, countRes] = await Promise.all([
@@ -166,12 +170,14 @@ export async function GET(request: Request): Promise<Response> {
   const totalCount = Number(countRes.data ?? 0)
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // Channel set + effective representative channel per representative conv id.
+  // Channel set + effective representative channel + unread flag per rep conv id.
   const channelsById = new Map<string, string[]>()
   const effChannelById = new Map<string, string | null>()
+  const unreadById = new Map<string, boolean>()
   for (const e of [...pinnedEntries, ...pageEntries]) {
     channelsById.set(e.representative_conversation_id, e.channels ?? [])
     effChannelById.set(e.representative_conversation_id, e.representative_channel ?? null)
+    unreadById.set(e.representative_conversation_id, Boolean(e.is_unread))
   }
 
   // Hydrate representative ids with the full embeds in a single query.
@@ -180,17 +186,11 @@ export async function GET(request: Request): Promise<Response> {
     ...pageEntries.map((e) => e.representative_conversation_id),
   ]
   const rowsById = new Map<string, Record<string, unknown>>()
-  const readAtMap = new Map<string, string | null>()
 
   if (repIds.length > 0) {
-    const [hydrateRes, readsRes] = await Promise.all([
-      supabase.from('conversations').select(SELECT_COLS).in('id', repIds),
-      supabase
-        .from('conversation_reads')
-        .select('conversation_id, read_at')
-        .in('conversation_id', repIds)
-        .eq('user_id', userId),
-    ])
+    // Unread state comes from the RPC's is_unread flag (unreadById); here we only
+    // hydrate the representative rows with their full embeds.
+    const hydrateRes = await supabase.from('conversations').select(SELECT_COLS).in('id', repIds)
 
     if (hydrateRes.error) {
       console.error('[GET /api/chat/conversations] hydrate', hydrateRes.error)
@@ -199,9 +199,6 @@ export async function GET(request: Request): Promise<Response> {
 
     for (const r of (hydrateRes.data ?? []) as Record<string, unknown>[]) {
       rowsById.set(r.id as string, r)
-    }
-    for (const r of (readsRes.data ?? [])) {
-      readAtMap.set(r.conversation_id, r.read_at)
     }
   }
 
@@ -273,10 +270,9 @@ export async function GET(request: Request): Promise<Response> {
       ? (phoneNumber.inbox_label?.trim() || phoneNumber.friendly_name?.trim() || phoneNumber.e164 || null)
       : null
     const lastActivity = (row.last_message_at as string | null) ?? null
-    const readAt = readAtMap.has(id) ? (readAtMap.get(id) ?? null) : undefined
-    const isUnread = lastActivity
-      ? readAt === undefined || !readAt || lastActivity > readAt
-      : false
+    // Unread is the RPC's representative-level flag (keyed on inbound activity),
+    // shared with the sidebar badge so the list dot and the count never disagree.
+    const isUnread = unreadById.get(id) ?? false
 
     return {
       id,

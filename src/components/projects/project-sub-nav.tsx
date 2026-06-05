@@ -87,7 +87,7 @@ export function ProjectSubNav({ projects, spaces }: Props) {
               Project
             </Button>
           </NewProjectDialog>
-          <NewSpaceButton className="h-6 w-6 px-0" />
+          <NewSpaceButton />
         </>
       }
       footer={

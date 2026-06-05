@@ -105,8 +105,8 @@ export function WorkflowSubNav({ workflows, folders }: Props) {
       }}
       toolbar={
         <>
-          <NewWorkflowButton label="Workflow" className="h-6 flex-1 text-[11px]" />
-          <NewFolderButton iconOnly className="h-6 w-6 px-0" />
+          <NewWorkflowButton label="Workflow" className="h-6 flex-1 text-[11px] gap-1" />
+          <NewFolderButton className="h-6 px-3 text-[11px] gap-1" />
         </>
       }
       footer={

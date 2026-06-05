@@ -12,6 +12,7 @@ import {
   getAvailableWorkflowsForAgent,
   getToolPickerData,
 } from '../actions'
+import { listAgentGroups } from '../_actions/groups'
 import type { AgentChannel } from '@/lib/agents/channels'
 import type { AvailableModel } from '@/lib/agents/models'
 import type { AgentFormInput } from '@/lib/agents/zod-schemas'
@@ -20,14 +21,16 @@ type Props = { params: Promise<{ id: string }> }
 
 export default async function EditAgentPage({ params }: Props) {
   const { id } = await params
-  const [agent, toolPickerData, attachedWorkflows, availableWorkflows] =
+  const [agent, toolPickerData, attachedWorkflows, availableWorkflows, groupsRes] =
     await Promise.all([
       getAgentById(id),
       getToolPickerData(),
       getAgentWorkflows(id),
       getAvailableWorkflowsForAgent(id),
+      listAgentGroups(),
     ])
   if (!agent) notFound()
+  const groups = groupsRes.ok ? groupsRes.data : []
 
   const initialValues: Partial<AgentFormInput> = {
     name: agent.name,
@@ -40,6 +43,7 @@ export default async function EditAgentPage({ params }: Props) {
     temperature: agent.temperature,
     max_tokens: agent.max_tokens,
     is_active: agent.is_active,
+    group_id: agent.group_id,
     allowed_channels: (agent.allowed_channels ?? []) as AgentChannel[],
     channel_overrides: (agent.channel_overrides ??
       {}) as AgentFormInput['channel_overrides'],
@@ -60,6 +64,7 @@ export default async function EditAgentPage({ params }: Props) {
             initialValues={initialValues}
             initialToolIds={agent.tool_ids}
             toolPickerData={toolPickerData}
+            groups={groups}
           />
 
           <div className="rounded-[12px] border border-border bg-bg-secondary p-4">

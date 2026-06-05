@@ -32,6 +32,7 @@ export async function getAgents(): Promise<AgentListItem[]> {
   const { data, error } = await supabase
     .from('agents')
     .select('*, agent_tools(count)')
+    .order('position', { ascending: true })
     .order('created_at', { ascending: false })
   if (error || !data) return []
   return data.map((a) => {
@@ -196,6 +197,61 @@ export async function softDeleteAgent(
   return { reassignedCount: reassigned?.length ?? 0 }
 }
 
+// ─── Agent grouping: move + reorder (drives the sidebar tree) ──────────────────
+//
+// These return the `{ ok }` shape that DraggableTreeNav's TreeNavActions expects
+// (moveItemToFolder / reorderItemsInFolder). Group CRUD lives in
+// `_actions/groups.ts`; agents are typed so no `any` cast is needed here.
+
+export async function moveAgentToGroup(
+  agentId: string,
+  groupId: string | null,
+): Promise<{ ok: true; data: undefined } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+
+  // Append at the end of the destination group by default.
+  const { data: tail } = await supabase
+    .from('agents')
+    .select('position')
+    .eq('group_id', groupId as unknown as string)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const nextPosition = (tail?.[0]?.position ?? -1) + 1
+
+  const { error } = await supabase
+    .from('agents')
+    .update({ group_id: groupId, position: nextPosition })
+    .eq('id', agentId)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/agents')
+  return { ok: true, data: undefined }
+}
+
+export async function reorderAgentsInGroup(
+  _groupId: string | null,
+  orderedIds: string[],
+): Promise<{ ok: true; data: undefined } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+  if (orderedIds.length === 0) return { ok: true, data: undefined }
+
+  const supabase = await createClient()
+  const updates = orderedIds.map((id, index) =>
+    supabase.from('agents').update({ position: index }).eq('id', id),
+  )
+  const results = await Promise.all(updates)
+  const failed = results.find((r) => r.error)
+  if (failed) return { ok: false, error: 'Failed to save agent order.' }
+
+  revalidatePath('/agents')
+  return { ok: true, data: undefined }
+}
+
 // ───────────────────────── Plan 04: form actions ─────────────────────────
 
 export interface AgentWithToolIds extends AgentRow {
@@ -298,6 +354,8 @@ export async function createAgent(
       temperature: input.temperature ?? null,
       max_tokens: input.max_tokens ?? null,
       is_active: input.is_active,
+      group_id: input.group_id ?? null,
+      position: 0,
       allowed_channels: input.allowed_channels,
       channel_overrides: input.channel_overrides as Database['public']['Tables']['agents']['Insert']['channel_overrides'],
       created_by: user.id,
@@ -352,6 +410,7 @@ export async function updateAgent(
       temperature: input.temperature ?? null,
       max_tokens: input.max_tokens ?? null,
       is_active: input.is_active,
+      group_id: input.group_id ?? null,
       allowed_channels: input.allowed_channels,
       channel_overrides: input.channel_overrides as Database['public']['Tables']['agents']['Update']['channel_overrides'],
       updated_by: user.id,

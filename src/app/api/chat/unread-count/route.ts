@@ -1,6 +1,10 @@
 // GET /api/chat/unread-count
-// Returns the number of conversations with unread messages for the current user.
-// Auth-gated; 401 if no session.
+// Returns the number of INBOX ENTRIES that render as unread for the current user
+// — one representative conversation per contact, exactly matching the dots the
+// inbox shows. Computed by the inbox_unread_count() RPC (migration 1161), which
+// counts inbox_entries rows whose representative is unread (keyed on inbound
+// activity, so an operator's own reply never re-flags a thread). auth.uid()
+// inside the RPC scopes the count to this user. Auth-gated; 401 if no session.
 
 import { createClient, getUser } from '@/lib/supabase/server'
 
@@ -12,29 +16,13 @@ export async function GET(): Promise<Response> {
 
   const supabase = await createClient()
 
-  const [convsRes, readsRes] = await Promise.all([
-    supabase
-      .from('conversations')
-      .select('id, last_message_at')
-      .in('status', ['open', 'pending', 'waiting'])
-      .not('last_message_at', 'is', null)
-      .limit(1000),
-    supabase
-      .from('conversation_reads')
-      .select('conversation_id, read_at')
-      .eq('user_id', user.id),
-  ])
+  const { data, error } = await supabase.rpc('inbox_unread_count')
 
-  if (convsRes.error) return Response.json({ count: 0 })
+  if (error) {
+    // Log so a broken badge is observable instead of silently reading "all read".
+    console.error('[GET /api/chat/unread-count] inbox_unread_count', error)
+    return Response.json({ count: 0 })
+  }
 
-  const readAtMap = new Map(
-    (readsRes.data ?? []).map((r) => [r.conversation_id, r.read_at] as const),
-  )
-
-  const count = (convsRes.data ?? []).filter((c) => {
-    const readAt = readAtMap.get(c.id)
-    return !readAt || (c.last_message_at != null && c.last_message_at > readAt)
-  }).length
-
-  return Response.json({ count })
+  return Response.json({ count: typeof data === 'number' ? data : 0 })
 }

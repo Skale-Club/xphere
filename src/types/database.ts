@@ -255,6 +255,21 @@ export interface ProjectSpaceRow {
   updated_at: string
 }
 
+/** Agent groups (folders) — `agent_groups` table (migration 1160). Not in the
+ *  generated Database type; the groups server actions cast via `db(): any`. */
+export interface AgentGroupRow {
+  id: string
+  org_id: string
+  name: string
+  color: string | null
+  icon: string | null
+  parent_id: string | null
+  position: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface ProjectMemberRow {
   id: string
   org_id: string
@@ -1300,6 +1315,8 @@ export interface Database {
           active_prompt_version_id: string | null
           temperature: number | null
           max_tokens: number | null
+          group_id: string | null
+          position: number
         }
         Insert: {
           id?: string
@@ -1322,6 +1339,8 @@ export interface Database {
           active_prompt_version_id?: string | null
           temperature?: number | null
           max_tokens?: number | null
+          group_id?: string | null
+          position?: number
         }
         Update: {
           name?: string
@@ -1340,6 +1359,8 @@ export interface Database {
           active_prompt_version_id?: string | null
           temperature?: number | null
           max_tokens?: number | null
+          group_id?: string | null
+          position?: number
         }
         Relationships: [
           {
@@ -6873,7 +6894,12 @@ export interface Database {
           channels: string[] | null
           pinned: boolean
           activity_at: string | null
+          is_unread: boolean
         }>
+      }
+      inbox_unread_count: {
+        Args: Record<string, never>
+        Returns: number
       }
       inbox_entries_count: {
         Args: {

@@ -48,6 +48,8 @@ export const agentSchema = z.object({
   temperature: z.number().min(0).max(2).nullable().optional(),
   max_tokens: z.number().int().min(1).max(200000).nullable().optional(),
   is_active: z.boolean(),
+  /** Optional agent group (folder) for the sidebar tree. Null = Unfiled. */
+  group_id: z.string().uuid().nullable().optional(),
   allowed_channels: z
     .array(z.enum(AGENT_CHANNELS))
     .min(1, 'At least one channel is required'),

@@ -51,8 +51,21 @@ export function useUnreadCount(userId: string | null | undefined): number {
       )
       .subscribe()
 
+    // Instant local feedback so the badge reacts on the same tick the user
+    // opens a thread, without waiting for the realtime round-trip:
+    //   - 'xphere:unread-decrement' drops the count by one (opening an unread
+    //     conversation). Realtime then reconciles to the authoritative count.
+    //   - 'xphere:unread-refresh' forces a refetch (e.g. after re-marking the
+    //     open thread read as inbound messages stream in).
+    const onDecrement = () => setCount((c) => Math.max(0, c - 1))
+    const onRefresh = () => { void fetchUnreadCount().then(setCount) }
+    window.addEventListener('xphere:unread-decrement', onDecrement)
+    window.addEventListener('xphere:unread-refresh', onRefresh)
+
     return () => {
       void supabase.removeChannel(channel)
+      window.removeEventListener('xphere:unread-decrement', onDecrement)
+      window.removeEventListener('xphere:unread-refresh', onRefresh)
     }
   }, [userId])
 

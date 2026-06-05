@@ -642,6 +642,15 @@ export function ChatLayout({
             return [...prev, newMsg]
           })
           updateConversationPreview(newMsg)
+          // Keep the actively-open thread marked read as inbound messages
+          // stream in, so the sidebar Chat badge doesn't tick up for a
+          // conversation the operator is already watching. (The invalidate
+          // trigger clears the read row on each inbound message.)
+          if (newMsg.role === 'user' && selectedId) {
+            void fetch(`/api/chat/conversations/${selectedId}/read`, { method: 'POST' })
+              .then(() => window.dispatchEvent(new Event('xphere:unread-refresh')))
+              .catch(() => {})
+          }
         },
       )
       .subscribe()
@@ -1043,7 +1052,12 @@ export function ChatLayout({
             onSelect={(id) => {
               setSelectedId(id)
               const conv = findVisibleConversation(id)
-              if (conv?.isUnread) upsertConversation({ ...conv, isUnread: false })
+              if (conv?.isUnread) {
+                upsertConversation({ ...conv, isUnread: false })
+                // Drop the sidebar Chat badge on the same tick; the
+                // conversation_reads realtime echo reconciles the true count.
+                window.dispatchEvent(new Event('xphere:unread-decrement'))
+              }
               void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
             }}
             onConversationUpdated={refreshConversations}
@@ -1186,7 +1200,10 @@ export function ChatLayout({
                 setSelectedId(id)
                 setMobileView('chat')
                 const conv = findVisibleConversation(id)
-                if (conv?.isUnread) upsertConversation({ ...conv, isUnread: false })
+                if (conv?.isUnread) {
+                  upsertConversation({ ...conv, isUnread: false })
+                  window.dispatchEvent(new Event('xphere:unread-decrement'))
+                }
                 // SEED-035: mark as read when conversation opens
                 void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
               }}
