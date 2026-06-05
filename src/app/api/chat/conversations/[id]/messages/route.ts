@@ -128,6 +128,7 @@ const SendMessageSchema = z.object({
   content: z.string().default(''),
   role: z.literal('assistant'),
   channel: z.string().optional(),
+  delivery_override: z.literal('evolution_manual_escape').optional(),
   // operator_prefix: true → prepend "Name:\n" to outbound GHL messages
   operator_prefix: z.boolean().optional().default(false),
   /** Optional media attachments (uploaded via /api/chat/upload beforehand). */
@@ -158,7 +159,7 @@ export async function POST(
   // Verify conversation belongs to org via RLS
   const { data: conv } = await supabase
     .from('conversations')
-    .select('id, org_id, channel, channel_metadata, assigned_user_id, visitor_phone, visitor_email, phone_number_id, contact_id')
+    .select('id, org_id, channel, channel_metadata, assigned_user_id, visitor_phone, visitor_email, phone_number_id, contact_id, last_inbound_at')
     .eq('id', id)
     .single()
 
@@ -174,7 +175,7 @@ export async function POST(
     return Response.json({ error: parsed.error.errors[0]?.message ?? 'Invalid request' }, { status: 400 })
   }
 
-  const { content, role, operator_prefix, media } = parsed.data
+  const { content, role, operator_prefix, media, delivery_override } = parsed.data
   const messageChannel = parsed.data.channel ?? conv.channel ?? null
   // Email subject: operator-provided, else a sensible default.
   const emailSubject = parsed.data.subject?.trim() || 'New message'
@@ -253,6 +254,79 @@ export async function POST(
   // assistant message as delivered; otherwise the UI would show a false sent
   // bubble for a message that never left Xphere.
   const deliveryMetadata: Record<string, unknown> = {}
+  const wantsEvolutionManualEscape = delivery_override === 'evolution_manual_escape'
+  const canUseEvolutionManualEscape =
+    wantsEvolutionManualEscape &&
+    routeChannel === conv.channel &&
+    conv.channel === 'zernio_whatsapp'
+
+  if (wantsEvolutionManualEscape && !canUseEvolutionManualEscape) {
+    return sendError(
+      'evolution_escape_not_allowed',
+      'Evolution GO fallback is only available for manual Zernio WhatsApp replies.',
+      400,
+    )
+  }
+
+  if (canUseEvolutionManualEscape) {
+    if (media?.length) {
+      return sendError(
+        'evolution_escape_text_only',
+        'Evolution GO fallback currently supports text-only manual replies.',
+        400,
+      )
+    }
+
+    const lastInboundAt = conv.last_inbound_at ? new Date(conv.last_inbound_at).getTime() : 0
+    const outsideWindow =
+      !lastInboundAt || Date.now() - lastInboundAt > 24 * 60 * 60 * 1000
+    if (!outsideWindow) {
+      return sendError(
+        'evolution_escape_window_open',
+        'Use the normal Zernio reply path while the 24-hour WhatsApp window is still open.',
+        400,
+      )
+    }
+
+    const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
+    let to =
+      conv.visitor_phone ??
+      metadata.participant_phone ??
+      metadata.participant_id ??
+      metadata.to_number ??
+      contactPhone ??
+      ''
+    if (!to && conv.contact_id) {
+      const { data: c } = await supabase
+        .from('contacts')
+        .select('phone_e164, phone')
+        .eq('id', conv.contact_id)
+        .maybeSingle()
+      to = c?.phone_e164 ?? c?.phone ?? ''
+    }
+    if (!to) {
+      return sendError(
+        'wa_no_recipient',
+        'This WhatsApp conversation has no recipient phone number or chat ID.',
+        400,
+      )
+    }
+
+    const res = await sendWhatsappMessage({
+      orgId: conv.org_id,
+      to,
+      text: outboundContent,
+      splitIntoChunks: false,
+    })
+    if (!res.ok) {
+      return sendError('wa_send_failed', res.error ?? 'Evolution GO send failed.', 502)
+    }
+
+    deliveryMetadata.delivery_provider = 'evolution_manual_escape'
+    deliveryMetadata.evolution_manual_escape = true
+    deliveryMetadata.evolution_message_ids = res.messageIds
+    deliveryMetadata.to = to
+  }
 
   // Widget / web: no outbound call needed | SSE picks up the persisted message.
   // Messenger / Instagram: call Meta Send API synchronously.
@@ -449,7 +523,7 @@ export async function POST(
   }
 
   // Zernio unified social inbox (Instagram, Facebook, LinkedIn, TikTok, etc.)
-  if (routeChannel === conv.channel && isZernioChannel(conv.channel)) {
+  if (!canUseEvolutionManualEscape && routeChannel === conv.channel && isZernioChannel(conv.channel)) {
     const metadata = (conv.channel_metadata as Record<string, string>) ?? {}
     const zernioAccountId = metadata.account_id ?? ''
 

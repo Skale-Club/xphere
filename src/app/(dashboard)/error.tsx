@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 import { useEffect } from 'react'
 
 /**
@@ -25,12 +27,38 @@ export default function DashboardError({
   reset: () => void
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error('[dashboard error boundary]', {
       digest: error.digest,
       message: error.message,
       stack: error.stack,
     })
+
+    const details = `${error.name}\n${error.message}\n${error.stack ?? ''}`.toLowerCase()
+    const looksLikeStaleChunk =
+      details.includes('chunkloaderror') ||
+      details.includes('failed to load chunk') ||
+      details.includes('/_next/static/chunks/')
+
+    if (!looksLikeStaleChunk || typeof window === 'undefined') return
+
+    const reloadKey = 'xphere.chunk-recovery-reloaded'
+    if (window.sessionStorage.getItem(reloadKey) === '1') return
+    window.sessionStorage.setItem(reloadKey, '1')
+
+    ;(async () => {
+      try {
+        const registrations = await window.navigator.serviceWorker?.getRegistrations?.()
+        await Promise.all(registrations?.map((registration) => registration.unregister()) ?? [])
+        if ('caches' in window) {
+          const names = await window.caches.keys()
+          await Promise.all(names.map((name) => window.caches.delete(name)))
+        }
+      } catch {
+        // The reload is still useful even if cache cleanup is unavailable.
+      } finally {
+        window.location.reload()
+      }
+    })()
   }, [error])
 
   return (

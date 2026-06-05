@@ -16,6 +16,7 @@ vi.mock('@/lib/messaging/normalize-inbound', () => ({
 vi.mock('@/lib/contacts/server', () => ({
   findByChannelIdentity: findByChannelIdentityMock,
   attachChannelIdentity: attachChannelIdentityMock,
+  backfillContactPhone: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/agent-runtime/run-agent', () => ({
@@ -54,6 +55,8 @@ function makeSupabase({
   duplicateEvent = false,
   agentDefault = null as { agent_id: string } | null,
   phoneHit = null as { id: string } | null,
+  existingConversation = null as { id: string; contact_id: string | null; last_message_at: string | null } | null,
+  duplicateMessage = false,
 } = {}) {
   const eventInsert = vi.fn().mockResolvedValue({
     data: null,
@@ -68,12 +71,40 @@ function makeSupabase({
     neq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: phoneHit, error: null }),
   }
+  const conversationInsert = vi.fn(() => chainSingle({ id: 'xphere-conv-out' }))
+  const conversationUpdate = vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+  }))
+  const messageInsert = vi.fn().mockResolvedValue({ data: null, error: null })
+  const messageMaybeSingle = vi.fn().mockResolvedValue({
+    data: duplicateMessage ? { id: 'msg-dup' } : null,
+    error: null,
+  })
   const agentMaybeSingle = vi.fn().mockResolvedValue({ data: agentDefault, error: null })
   const rpc = vi.fn().mockResolvedValue({ data: null, error: null })
 
   const from = vi.fn((table: string) => {
     if (table === 'zernio_webhook_events') return { insert: eventInsert }
     if (table === 'contacts') return { ...contactLookup, insert: contactInsert, delete: contactDelete }
+    if (table === 'conversations') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: existingConversation, error: null }),
+        insert: conversationInsert,
+        update: conversationUpdate,
+      }
+    }
+    if (table === 'conversation_messages') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: messageMaybeSingle,
+        insert: messageInsert,
+      }
+    }
     if (table === 'agent_channel_defaults') {
       return {
         select: vi.fn().mockReturnThis(),
@@ -89,7 +120,7 @@ function makeSupabase({
     }
   })
 
-  return { from, rpc, eventInsert, contactInsert }
+  return { from, rpc, eventInsert, contactInsert, conversationUpdate, messageInsert }
 }
 
 const messagePayload = {
@@ -363,5 +394,68 @@ describe('processZernioEvent', () => {
       text: 'Resposta do agente',
       apiKey: 'ze_key',
     })
+  })
+
+  it('persists outgoing message.received events as assistant history without running the agent', async () => {
+    const db = makeSupabase({
+      existingConversation: {
+        id: 'xphere-conv-1',
+        contact_id: 'contact-1',
+        last_message_at: '2026-06-05T17:00:00.000Z',
+      },
+    })
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const payload = {
+      ...messagePayload,
+      id: 'evt-out-1',
+      timestamp: '2026-06-05T17:13:00.000Z',
+      account: { id: 'acct-wa-1', platform: 'whatsapp', username: '+1 508-801-8190' },
+      conversation: {
+        ...messagePayload.conversation,
+        id: 'zconv-wa-1',
+        platformConversationId: 'wa-thread-1',
+        participantId: '+14439261289',
+        participantName: 'Adriane Shahraki',
+      },
+      message: {
+        ...messagePayload.message,
+        id: 'zmsg-out-1',
+        conversationId: 'zconv-wa-1',
+        platform: 'whatsapp',
+        platformMessageId: 'wamid.out.1',
+        direction: 'outgoing',
+        text: 'Claro que sim',
+        sender: { id: 'operator-1', name: 'Operator' },
+        sentAt: '2026-06-05T17:13:00.000Z',
+        isRead: true,
+      },
+    } as const
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(payload, 'org-1')
+
+    expect(normalizeInboundMock).not.toHaveBeenCalled()
+    expect(runAgentMock).not.toHaveBeenCalled()
+    expect(db.messageInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        org_id: 'org-1',
+        conversation_id: 'xphere-conv-1',
+        role: 'assistant',
+        content: 'Claro que sim',
+        channel: 'zernio_whatsapp',
+        metadata: expect.objectContaining({
+          direction: 'outgoing',
+          source: 'zernio_echo',
+          zernio_message_id: 'zmsg-out-1',
+        }),
+      }),
+    )
+    expect(db.conversationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        last_message: 'Claro que sim',
+        last_message_at: '2026-06-05T17:13:00.000Z',
+      }),
+    )
   })
 })

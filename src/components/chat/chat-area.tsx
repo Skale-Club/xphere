@@ -107,6 +107,7 @@ interface ChatAreaProps {
       conversationId?: string
       /** Email channel: subject line for the outbound email. */
       subject?: string
+      deliveryOverride?: 'evolution_manual_escape'
     },
   ) => Promise<void>
   onTyping?: () => void
@@ -515,6 +516,11 @@ export function ChatArea({
           templateAvailable ? { available: true, outsideWindow } : undefined
         }
         onSendTemplate={() => setTemplateDialogOpen(true)}
+        evolutionManualFallback={
+          conversation.channel === 'zernio_whatsapp' && outsideWindow
+            ? { available: true }
+            : undefined
+        }
         operatorNamePrefix={Boolean(conversation.operatorNamePrefix)}
         onOperatorNamePrefixToggle={
           onOperatorNamePrefixToggle

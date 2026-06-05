@@ -1,4 +1,3 @@
-import { defaultCache } from '@serwist/next/worker'
 import { Serwist, CacheFirst, NetworkOnly, ExpirationPlugin } from 'serwist'
 
 declare const self: EventTarget & {
@@ -10,7 +9,43 @@ declare const self: EventTarget & {
     matchAll: (options?: { type?: string; includeUncontrolled?: boolean }) => Promise<{ url: string; focus: () => Promise<unknown> }[]>
     openWindow: (url: string) => Promise<unknown>
   }
+  caches: {
+    keys: () => Promise<string[]>
+    delete: (cacheName: string) => Promise<boolean>
+  }
 }
+
+const STALE_NEXT_CACHE_NAMES = [
+  'next-static-js-assets',
+  'static-js-assets',
+  'static-style-assets',
+  'next-data',
+  'pages-rsc-prefetch',
+  'pages-rsc',
+  'pages',
+  'others',
+  'apis',
+]
+
+interface SWExtendableEvent extends Event {
+  waitUntil: (promise: Promise<unknown>) => void
+}
+
+self.addEventListener('activate', (event: Event) => {
+  const activateEvent = event as SWExtendableEvent
+  activateEvent.waitUntil(
+    self.caches
+      .keys()
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((name) => STALE_NEXT_CACHE_NAMES.some((stale) => name.includes(stale)))
+            .map((name) => self.caches.delete(name)),
+        ),
+      )
+      .then(() => undefined),
+  )
+})
 
 // Web Push types not available in standard tsconfig lib in this context
 interface PushPayload {
@@ -40,10 +75,30 @@ interface NotificationEvent extends Event {
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
+  precacheOptions: {
+    cleanupOutdatedCaches: true,
+  },
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    {
+      matcher: ({ sameOrigin, url: { pathname } }) =>
+        sameOrigin && pathname.startsWith('/_next/static/'),
+      handler: new NetworkOnly(),
+    },
+    {
+      matcher: ({ request, sameOrigin }) =>
+        sameOrigin && request.headers.get('RSC') === '1',
+      handler: new NetworkOnly(),
+    },
+    {
+      matcher: ({ request, sameOrigin, url: { pathname } }) =>
+        sameOrigin &&
+        request.mode === 'navigate' &&
+        !pathname.startsWith('/api/'),
+      handler: new NetworkOnly(),
+    },
     {
       matcher: /^\/api\/pwa\/icons\//,
       handler: new CacheFirst({
@@ -55,7 +110,6 @@ const serwist = new Serwist({
       matcher: /^\/api\//,
       handler: new NetworkOnly(),
     },
-    ...defaultCache,
   ],
 })
 

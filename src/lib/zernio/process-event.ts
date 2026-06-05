@@ -20,6 +20,7 @@ import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import type {
   ZernioCommentReceivedPayload,
+  ZernioWebhookMessage,
   ZernioMessageReceivedPayload,
   ZernioWebhookPayload,
 } from './types'
@@ -92,6 +93,53 @@ function messageTypeForAttachments(
   if (firstType === 'image') return 'image'
   if (firstType === 'video') return 'video'
   return 'document'
+}
+
+async function buildZernioMedia({
+  supabase,
+  orgId,
+  zernioConversationId,
+  zernioMessageId,
+  attachments,
+}: {
+  supabase: ReturnType<typeof createServiceRoleClient>
+  orgId: string
+  zernioConversationId: string
+  zernioMessageId: string
+  attachments: ZernioWebhookMessage['attachments']
+}): Promise<Array<Record<string, unknown>>> {
+  const zernioMediaKey =
+    attachments.length > 0 ? await getProviderKey('zernio', orgId, supabase) : null
+  const media: Array<Record<string, unknown>> = []
+
+  for (let i = 0; i < attachments.length; i++) {
+    const attachment = attachments[i]
+    const mimeType = mimeTypeForZernioAttachment(attachment)
+    const stored = zernioMediaKey
+      ? await storeMediaFromUrl({
+          url: attachment.url,
+          mimeType,
+          authHeaders: { Authorization: `Bearer ${zernioMediaKey}` },
+          orgId,
+          conversationId: zernioConversationId,
+          messageId: zernioMessageId,
+          idx: i,
+        })
+      : null
+    media.push({
+      url: stored?.publicUrl ?? proxiedZernioMediaUrl(attachment.url),
+      original_url: attachment.url,
+      mime_type: mimeType,
+      filename:
+        typeof attachment.payload?.filename === 'string'
+          ? attachment.payload.filename
+          : `${attachment.type}-${attachment.payload?.id ?? zernioMessageId}`,
+      provider: 'zernio',
+      zernio_media_id: typeof attachment.payload?.id === 'string' ? attachment.payload.id : undefined,
+    })
+  }
+
+  return media
 }
 
 async function markWebhookEventSeen(
@@ -247,6 +295,10 @@ async function processMessageReceived(
   supabase: ReturnType<typeof createServiceRoleClient>,
 ): Promise<void> {
   const msg = payload.message
+  if (msg.direction === 'outgoing') {
+    await processOutgoingMessageReceived(payload, orgId, supabase)
+    return
+  }
   if (msg.direction !== 'incoming') return
 
   const zernioMessageId = msg.id
@@ -292,35 +344,13 @@ async function processMessageReceived(
   // Re-host Zernio media in our chat-media bucket so it survives Zernio URL
   // expiry and never needs the org API key at view time. Falls back to the
   // authenticated proxy URL when ingestion fails (network/storage hiccup).
-  const zernioMediaKey =
-    msg.attachments.length > 0 ? await getProviderKey('zernio', orgId, supabase) : null
-  const media: Array<Record<string, unknown>> = []
-  for (let i = 0; i < msg.attachments.length; i++) {
-    const attachment = msg.attachments[i]
-    const mimeType = mimeTypeForZernioAttachment(attachment)
-    const stored = zernioMediaKey
-      ? await storeMediaFromUrl({
-          url: attachment.url,
-          mimeType,
-          authHeaders: { Authorization: `Bearer ${zernioMediaKey}` },
-          orgId,
-          conversationId: zernioConversationId,
-          messageId: zernioMessageId,
-          idx: i,
-        })
-      : null
-    media.push({
-      url: stored?.publicUrl ?? proxiedZernioMediaUrl(attachment.url),
-      original_url: attachment.url,
-      mime_type: mimeType,
-      filename:
-        typeof attachment.payload?.filename === 'string'
-          ? attachment.payload.filename
-          : `${attachment.type}-${attachment.payload?.id ?? zernioMessageId}`,
-      provider: 'zernio',
-      zernio_media_id: typeof attachment.payload?.id === 'string' ? attachment.payload.id : undefined,
-    })
-  }
+  const media = await buildZernioMedia({
+    supabase,
+    orgId,
+    zernioConversationId,
+    zernioMessageId,
+    attachments: msg.attachments,
+  })
   const updatePayload: Record<string, unknown> = {
     last_message: displayText,
     last_message_at: sentAt,
@@ -419,6 +449,162 @@ async function processMessageReceived(
       await sendZernioDm(zernioConversationId, zernioAccountId, text, apiKey)
     },
   })
+}
+
+async function processOutgoingMessageReceived(
+  payload: ZernioMessageReceivedPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const msg = payload.message
+  const zernioMessageId = msg.id
+  const zernioPlatformMessageId = msg.platformMessageId
+  const zernioConversationId = msg.conversationId || payload.conversation.id
+  const zernioAccountId = payload.account.id
+  const platform = msg.platform || payload.account.platform || 'unknown'
+  const channel = zernioChannel(platform)
+  const participantId =
+    payload.conversation.participantId ??
+    msg.sender.businessScopedUserId ??
+    msg.sender.phoneNumber ??
+    msg.sender.id ??
+    ''
+  const participantName =
+    payload.conversation.participantName ??
+    payload.conversation.participantUsername ??
+    msg.sender.name ??
+    msg.sender.username ??
+    null
+  const participantPhone = platform === 'whatsapp' ? participantId : null
+  const messageText = msg.text ?? ''
+  const fallback = mediaLabel(msg.attachments)
+  const displayText = messageText || fallback
+  const sentAt = msg.sentAt || payload.timestamp || new Date().toISOString()
+
+  if (!zernioConversationId || !zernioAccountId) {
+    console.warn('[zernio/process] Missing outgoing message routing fields; skipping')
+    return
+  }
+
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('id, contact_id, last_message_at')
+    .eq('org_id', orgId)
+    .eq('channel', channel)
+    .eq('channel_metadata->>account_id', zernioAccountId)
+    .eq('channel_metadata->>zernio_conversation_id', zernioConversationId)
+    .maybeSingle()
+
+  const existingRow = existing as { id: string; contact_id: string | null; last_message_at: string | null } | null
+  let conversationId = existingRow?.id ?? null
+  let contactId = existingRow?.contact_id ?? null
+
+  if (!conversationId) {
+    contactId = participantId
+      ? await resolveOrCreateChannelContact({
+          supabase,
+          orgId,
+          platform,
+          accountId: zernioAccountId,
+          participantId,
+          zernioContactId: payload.conversation.contactId ?? null,
+          phoneNumber: participantPhone,
+          displayName: participantName,
+        })
+      : null
+
+    const { data: created, error } = await supabase
+      .from('conversations')
+      .insert({
+        org_id: orgId,
+        widget_token: '',
+        channel,
+        channel_metadata: {
+          thread_type: 'dm',
+          platform,
+          account_id: zernioAccountId,
+          account_username: payload.account.username ?? null,
+          zernio_conversation_id: zernioConversationId,
+          zernio_platform_conversation_id: payload.conversation.platformConversationId,
+          participant_id: participantId,
+          participant_username: payload.conversation.participantUsername ?? null,
+        },
+        visitor_name: participantName,
+        visitor_phone: participantPhone,
+        contact_id: contactId,
+        last_message: displayText,
+        last_message_at: sentAt,
+      } as never)
+      .select('id')
+      .single()
+
+    if (error || !created) {
+      console.error('[zernio/process] create outgoing conversation failed:', error?.message)
+      return
+    }
+    conversationId = (created as { id: string }).id
+  }
+
+  const { data: dup } = await supabase
+    .from('conversation_messages')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('role', 'assistant')
+    .contains('metadata', { zernio_message_id: zernioMessageId } as never)
+    .limit(1)
+    .maybeSingle()
+  if (dup) return
+
+  const media = await buildZernioMedia({
+    supabase,
+    orgId,
+    zernioConversationId,
+    zernioMessageId,
+    attachments: msg.attachments,
+  })
+
+  const { error: msgError } = await supabase
+    .from('conversation_messages')
+    .insert({
+      org_id: orgId,
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: messageText,
+      created_at: sentAt,
+      message_type: messageTypeForAttachments(messageText, msg.attachments),
+      channel,
+      metadata: {
+        direction: 'outgoing',
+        source: 'zernio_echo',
+        zernio_event_id: payload.id,
+        zernio_message_id: zernioMessageId,
+        zernio_platform_message_id: zernioPlatformMessageId,
+        zernio_conversation_id: zernioConversationId,
+        account_id: zernioAccountId,
+        platform,
+        attachments: msg.attachments,
+        media,
+      },
+    } as never)
+
+  if (msgError) {
+    console.error('[zernio/process] insert outgoing message failed:', msgError.message)
+    return
+  }
+
+  const shouldBumpPreview =
+    !existingRow?.last_message_at ||
+    new Date(sentAt).getTime() > new Date(existingRow.last_message_at).getTime()
+  if (shouldBumpPreview) {
+    await supabase
+      .from('conversations')
+      .update({
+        last_message: displayText,
+        last_message_at: sentAt,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq('id', conversationId)
+  }
 }
 
 async function processCommentReceived(

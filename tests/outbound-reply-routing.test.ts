@@ -10,12 +10,17 @@ vi.mock('@/lib/meta/send-message', () => ({
   sendMetaMessage: vi.fn(),
 }))
 
+vi.mock('@/lib/evolution/send-message', () => ({
+  sendWhatsappMessage: vi.fn(),
+}))
+
 vi.mock('@/lib/crypto', () => ({
   decrypt: vi.fn().mockResolvedValue('decrypted-page-token'),
 }))
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { sendMetaMessage } from '@/lib/meta/send-message'
+import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 
 // ---- Supabase mock builder ----
 // Supports the chained query the route uses:
@@ -28,6 +33,7 @@ function buildMockSupabase({
   msgInsertError = null as { message: string } | null,
   metaChannel = null as Record<string, unknown> | null,
 } = {}) {
+  const insertMessageSpy = vi.fn()
   const updateSpy = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   })
@@ -49,7 +55,7 @@ function buildMockSupabase({
         ? null
         : { id: 'msg-1', conversation_id: 'conv-1', role: 'assistant', content: 'hello', created_at: new Date().toISOString(), metadata: null }
       return {
-        insert: vi.fn().mockReturnValue({
+        insert: insertMessageSpy.mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({ data: insertData, error: msgInsertError }),
           }),
@@ -68,7 +74,7 @@ function buildMockSupabase({
     return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() }
   })
 
-  return { from: fromMock, updateSpy }
+  return { from: fromMock, updateSpy, insertMessageSpy }
 }
 
 // ---- Helper: make a POST request to the route ----
@@ -112,6 +118,25 @@ const INSTAGRAM_CONV = {
 
 const META_CHANNEL = {
   encrypted_page_access_token: 'encrypted-token',
+}
+
+const ZERNIO_WHATSAPP_EXPIRED_CONV = {
+  id: 'conv-1',
+  org_id: 'org-1',
+  channel: 'zernio_whatsapp',
+  channel_metadata: {
+    thread_type: 'dm',
+    account_id: 'zernio-acct-1',
+    zernio_conversation_id: 'zernio-conv-1',
+    participant_id: '+15551234567',
+  },
+  visitor_phone: '+15551234567',
+  last_inbound_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+}
+
+const ZERNIO_WHATSAPP_OPEN_CONV = {
+  ...ZERNIO_WHATSAPP_EXPIRED_CONV,
+  last_inbound_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
 }
 
 describe('POST /api/chat/conversations/[id]/messages — outbound reply routing', () => {
@@ -204,6 +229,81 @@ describe('POST /api/chat/conversations/[id]/messages — outbound reply routing'
     const body = await res.json() as { error: string; message: string }
     expect(body.error).toBe('message_persist_failed')
     expect(body.message).toContain('could not save')
+  })
+
+  it('zernio_whatsapp outside 24h: manual Evolution fallback sends and persists audit metadata', async () => {
+    vi.mocked(sendWhatsappMessage).mockResolvedValue({
+      ok: true,
+      messageIds: ['EVO-MANUAL-1'],
+    })
+    const mockSupabase = buildMockSupabase({ conv: ZERNIO_WHATSAPP_EXPIRED_CONV })
+    const res = await callRoute(
+      'conv-1',
+      {
+        content: 'manual escape',
+        role: 'assistant',
+        delivery_override: 'evolution_manual_escape',
+      },
+      mockSupabase,
+    )
+
+    expect(res.status).toBe(201)
+    expect(vi.mocked(sendWhatsappMessage)).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      to: '+15551234567',
+      text: 'manual escape',
+      splitIntoChunks: false,
+    })
+    expect(mockSupabase.insertMessageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversation_id: 'conv-1',
+        org_id: 'org-1',
+        role: 'assistant',
+        content: 'manual escape',
+        channel: 'zernio_whatsapp',
+        metadata: expect.objectContaining({
+          delivery_provider: 'evolution_manual_escape',
+          evolution_manual_escape: true,
+          evolution_message_ids: ['EVO-MANUAL-1'],
+        }),
+      }),
+    )
+  })
+
+  it('blocks manual Evolution fallback while the Zernio WhatsApp window is open', async () => {
+    const mockSupabase = buildMockSupabase({ conv: ZERNIO_WHATSAPP_OPEN_CONV })
+    const res = await callRoute(
+      'conv-1',
+      {
+        content: 'too early',
+        role: 'assistant',
+        delivery_override: 'evolution_manual_escape',
+      },
+      mockSupabase,
+    )
+
+    expect(res.status).toBe(400)
+    expect(vi.mocked(sendWhatsappMessage)).not.toHaveBeenCalled()
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('evolution_escape_window_open')
+  })
+
+  it('blocks manual Evolution fallback on non-Zernio WhatsApp channels', async () => {
+    const mockSupabase = buildMockSupabase({ conv: WIDGET_CONV })
+    const res = await callRoute(
+      'conv-1',
+      {
+        content: 'wrong channel',
+        role: 'assistant',
+        delivery_override: 'evolution_manual_escape',
+      },
+      mockSupabase,
+    )
+
+    expect(res.status).toBe(400)
+    expect(vi.mocked(sendWhatsappMessage)).not.toHaveBeenCalled()
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('evolution_escape_not_allowed')
   })
 })
 

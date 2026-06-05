@@ -766,6 +766,7 @@ export function ChatLayout({
       conversationId?: string
       subject?: string
       media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
+      deliveryOverride?: 'evolution_manual_escape'
     },
   ) {
     if (!selectedId) return
@@ -801,6 +802,7 @@ export function ChatLayout({
           channel: opts?.channel,
           subject: opts?.subject,
           media: opts?.media,
+          delivery_override: opts?.deliveryOverride,
           operator_prefix: Boolean(selectedConv?.operatorNamePrefix),
         }),
       })

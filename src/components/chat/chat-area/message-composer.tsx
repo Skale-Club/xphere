@@ -12,7 +12,7 @@
  */
 
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle, Loader2, Settings } from 'lucide-react'
+import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle, Loader2, Settings, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { useVisualViewport } from '@/hooks/use-visual-viewport'
 import { haptic } from '@/lib/haptics'
@@ -58,6 +69,7 @@ interface MessageComposerProps {
       channel?: string
       conversationId?: string
       subject?: string
+      deliveryOverride?: 'evolution_manual_escape'
       media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
     },
   ) => Promise<void>
@@ -91,6 +103,10 @@ interface MessageComposerProps {
   }
   /** Opens the template selector modal. Required when templateSupport.available. */
   onSendTemplate?: () => void
+  /** Manual fallback for Zernio WhatsApp outside the official 24h window. */
+  evolutionManualFallback?: {
+    available: boolean
+  }
   /** Operator name prefix: current per-conversation setting value. */
   operatorNamePrefix?: boolean
   /** Operator name prefix: toggle the per-conversation setting on/off. */
@@ -143,6 +159,7 @@ export function MessageComposer({
   onPriorityCycle,
   templateSupport,
   onSendTemplate,
+  evolutionManualFallback,
   operatorNamePrefix = false,
   onOperatorNamePrefixToggle,
   operatorName = '',
@@ -298,7 +315,7 @@ export function MessageComposer({
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
   }, [value])
 
-  async function handleSend() {
+  async function handleSend(deliveryOverride?: 'evolution_manual_escape') {
     const content = value.trim()
     if ((!content && attachments.length === 0) || isSending || disabled) return
     const activeOption = availableChannels.find((ch) => ch.channel === activeChannel)
@@ -336,6 +353,7 @@ export function MessageComposer({
         channel: activeOption?.channel ?? activeChannel,
         conversationId: activeOption?.conversationId,
         subject: isEmail ? subject.trim() || undefined : undefined,
+        deliveryOverride,
         media,
       })
       setAttachments([])
@@ -373,6 +391,12 @@ export function MessageComposer({
   // — only templates work. We block the regular Send button to steer the
   // operator to the template path instead of letting them get a Meta error.
   const canSend = (value.trim().length > 0 || attachments.length > 0) && !isDisabled && !outsideWindow
+  const canSendEvolutionFallback =
+    Boolean(evolutionManualFallback?.available) &&
+    outsideWindow &&
+    value.trim().length > 0 &&
+    attachments.length === 0 &&
+    !isDisabled
   const activeOption =
     availableChannels.find((ch) => ch.channel === activeChannel) ??
     availableChannels[0] ??
@@ -762,9 +786,52 @@ export function MessageComposer({
             </Button>
           )}
 
+          {evolutionManualFallback?.available && (
+            <AlertDialog>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        disabled={!canSendEvolutionFallback}
+                        className={cn(
+                          'h-8 w-8 shrink-0 rounded-[8px] transition-colors',
+                          canSendEvolutionFallback
+                            ? 'bg-sky-500/20 text-sky-300 hover:bg-sky-500/30'
+                            : 'text-text-tertiary',
+                        )}
+                        aria-label="Send via Evolution GO"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Send via Evolution GO</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Send via Evolution GO?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This sends a manual WhatsApp Web-style message outside the official Zernio window.
+                    Use it only when the operator intentionally chooses this fallback.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void handleSend('evolution_manual_escape')}>
+                    Send via Evolution GO
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
           <Button
             size="icon"
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={!canSend}
             className={cn(
               'h-8 w-8 shrink-0 rounded-[8px] transition-all',
