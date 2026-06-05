@@ -49,6 +49,11 @@ import { cn } from '@/lib/utils'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { DndBadge } from '@/components/contacts/dnd-badge'
 import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
+import {
+  EntityDetailLoadingState,
+  EntityDetailNotFoundState,
+  EntityDetailTemplate,
+} from '@/components/crm/entity-template'
 
 interface ContactDetailSheetProps {
   contactId: string | null
@@ -117,19 +122,19 @@ export function ContactDetailSheet({ contactId, onOpenChange, initialEditing = f
     <Dialog open={Boolean(contactId)} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(780px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[560px] flex-col overflow-hidden p-0 gap-0">
         {loading && !contact ? (
-          <div className="p-6 space-y-3 animate-pulse">
-            <DialogTitle className="sr-only">Loading contact</DialogTitle>
-            <div className="h-16 w-16 rounded-full bg-bg-tertiary" />
-            <div className="h-5 w-2/3 rounded bg-bg-tertiary" />
-            <div className="h-4 w-1/2 rounded bg-bg-tertiary" />
-          </div>
+          <EntityDetailLoadingState
+            title={
+              <DialogTitle className="sr-only">Loading contact</DialogTitle>
+            }
+          />
         ) : !contact ? (
-          <div className="p-6 text-[13px] text-text-secondary">
-            <DialogTitle className="sr-only">Contact not found</DialogTitle>
+          <EntityDetailNotFoundState
+            title={<DialogTitle className="sr-only">Contact not found</DialogTitle>}
+          >
             Contact not found.
-          </div>
+          </EntityDetailNotFoundState>
         ) : editing ? (
-          <div className="flex flex-col overflow-hidden h-full">
+          <EntityDetailTemplate>
             <DialogHeader className="border-b border-border-subtle px-6 py-4">
               <DialogTitle>Edit contact</DialogTitle>
               <DialogDescription>Update fields below.</DialogDescription>
@@ -161,9 +166,9 @@ export function ContactDetailSheet({ contactId, onOpenChange, initialEditing = f
                 }}
               />
             </div>
-          </div>
+          </EntityDetailTemplate>
         ) : (
-          <div className="flex flex-col overflow-hidden h-full">
+          <EntityDetailTemplate>
             {/* Header */}
             <div className="border-b border-border-subtle px-6 py-5">
               <div className="flex items-start gap-3">
@@ -394,7 +399,7 @@ export function ContactDetailSheet({ contactId, onOpenChange, initialEditing = f
                 </TabsContent>
               </div>
             </Tabs>
-          </div>
+          </EntityDetailTemplate>
         )}
       </DialogContent>
     </Dialog>

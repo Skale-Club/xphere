@@ -3,7 +3,19 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
-import type { ProjectRow, ProjectTaskRow, ProjectLabelRow, ProjectSavedViewRow, ProjectExecutionRunRow, TaskPriority, ProjectTaskStep, ProjectValidationStatus, ProjectViewType } from '@/types/database'
+import type {
+  ProjectRow,
+  ProjectTaskRow,
+  ProjectLabelRow,
+  ProjectSavedViewRow,
+  ProjectExecutionRunRow,
+  ProjectMemberRow,
+  ProjectContactRow,
+  TaskPriority,
+  ProjectTaskStep,
+  ProjectValidationStatus,
+  ProjectViewType,
+} from '@/types/database'
 
 export type AssigneeProfile = {
   user_id: string
@@ -18,9 +30,67 @@ export type TaskWithLabels = ProjectTaskRow & {
   assignee: AssigneeProfile | null
 }
 
+export type DeliveryProjectTemplate = 'general' | 'website'
+
+export type ProjectCrmContext = {
+  account: {
+    id: string
+    name: string
+    domain: string | null
+    website: string | null
+    avatar_url: string | null
+  } | null
+  opportunity: {
+    id: string
+    title: string
+    value: number
+    currency: string
+    status: 'open' | 'won' | 'lost'
+  } | null
+  primaryContact: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    name: string | null
+    email: string | null
+    phone: string | null
+  } | null
+  contacts: Array<ProjectContactRow & {
+    contact: {
+      id: string
+      first_name: string | null
+      last_name: string | null
+      name: string | null
+      email: string | null
+      phone: string | null
+    } | null
+  }>
+  members: Array<ProjectMemberRow & {
+    profile: AssigneeProfile | null
+  }>
+}
+
+const DELIVERY_TEMPLATES: Record<DeliveryProjectTemplate, Array<{
+  name: string
+  description?: string
+  subtasks?: string[]
+}>> = {
+  general: [
+    { name: 'Kickoff', subtasks: ['Confirm scope', 'Confirm stakeholders', 'Confirm delivery timeline'] },
+    { name: 'Execution', subtasks: ['Prepare deliverables', 'Internal review', 'Client review'] },
+    { name: 'Handoff', subtasks: ['Final approval', 'Documentation', 'Delivery closeout'] },
+  ],
+  website: [
+    { name: 'Kickoff', subtasks: ['Confirm website goals', 'Collect brand assets', 'Confirm sitemap'] },
+    { name: 'Content and copy', subtasks: ['Collect existing copy', 'Draft page copy', 'Client copy approval'] },
+    { name: 'Design', subtasks: ['Homepage direction', 'Inner page layouts', 'Responsive review'] },
+    { name: 'Development', subtasks: ['Build core pages', 'Integrations and forms', 'Analytics setup'] },
+    { name: 'QA and launch', subtasks: ['Cross-device QA', 'Client approval', 'Deploy and handoff'] },
+  ],
+}
+
 // Type-cast helper: Supabase doesn't have projects tables in the generated Database type,
 // so we cast via `any` and let the caller's return type guarantee correctness.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db(supabase: Awaited<ReturnType<typeof createClient>>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return supabase as any
@@ -55,7 +125,14 @@ export async function getProject(id: string): Promise<ProjectRow | null> {
   return (data as ProjectRow) ?? null
 }
 
-export async function createProject(input: { name: string; description?: string; color?: string }): Promise<ProjectRow | null> {
+export async function createProject(input: {
+  name: string
+  description?: string
+  color?: string
+  account_id?: string | null
+  source_opportunity_id?: string | null
+  primary_contact_id?: string | null
+}): Promise<ProjectRow | null> {
   const user = await getUser()
   if (!user) return null
   const supabase = await createClient()
@@ -78,6 +155,230 @@ export async function updateProject(id: string, input: Partial<Pick<ProjectRow, 
   await db(supabase).from('projects').update(input).eq('id', id)
   revalidatePath('/projects')
   revalidatePath(`/projects/${id}`)
+}
+
+export async function getProjectCrmContext(projectId: string): Promise<ProjectCrmContext> {
+  const user = await getUser()
+  if (!user) {
+    return { account: null, opportunity: null, primaryContact: null, contacts: [], members: [] }
+  }
+
+  const supabase = await createClient()
+  const { data: project } = await db(supabase)
+    .from('projects')
+    .select('account_id, source_opportunity_id, primary_contact_id')
+    .eq('id', projectId)
+    .maybeSingle()
+
+  const p = project as Pick<ProjectRow, 'account_id' | 'source_opportunity_id' | 'primary_contact_id'> | null
+
+  const [{ data: account }, { data: opportunity }, { data: primaryContact }, { data: contacts }, { data: members }] =
+    await Promise.all([
+      p?.account_id
+        ? db(supabase)
+            .from('accounts')
+            .select('id, name, domain, website, avatar_url')
+            .eq('id', p.account_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      p?.source_opportunity_id
+        ? db(supabase)
+            .from('opportunities')
+            .select('id, title, value, currency, status')
+            .eq('id', p.source_opportunity_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      p?.primary_contact_id
+        ? db(supabase)
+            .from('contacts')
+            .select('id, first_name, last_name, name, email, phone')
+            .eq('id', p.primary_contact_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      db(supabase)
+        .from('project_contacts')
+        .select('*, contact:contacts(id, first_name, last_name, name, email, phone)')
+        .eq('project_id', projectId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true }),
+      db(supabase)
+        .from('project_members')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('is_owner', { ascending: false })
+        .order('created_at', { ascending: true }),
+    ])
+
+  const profiles = await listProjectAssignees()
+  const profileMap = new Map(profiles.map((profile) => [profile.user_id, profile]))
+
+  return {
+    account: account ?? null,
+    opportunity: opportunity
+      ? {
+          ...opportunity,
+          value: Number(opportunity.value ?? 0),
+        }
+      : null,
+    primaryContact: primaryContact ?? null,
+    contacts: (contacts ?? []) as ProjectCrmContext['contacts'],
+    members: ((members ?? []) as ProjectMemberRow[]).map((member) => ({
+      ...member,
+      profile: profileMap.get(member.user_id) ?? null,
+    })),
+  }
+}
+
+export async function createDeliveryProjectFromOpportunity(input: {
+  opportunityId: string
+  template?: DeliveryProjectTemplate
+  name?: string
+}): Promise<{ projectId?: string; error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const { data: opportunity, error: oppError } = await db(supabase)
+    .from('opportunities')
+    .select('id, org_id, title, value, currency, status, account_id, contact_id, assigned_to')
+    .eq('id', input.opportunityId)
+    .maybeSingle()
+
+  if (oppError) return { error: oppError.message }
+  if (!opportunity) return { error: 'Opportunity not found.' }
+
+  const opp = opportunity as {
+    id: string
+    org_id: string
+    title: string
+    value: number | string | null
+    currency: string
+    status: 'open' | 'won' | 'lost'
+    account_id: string | null
+    contact_id: string | null
+    assigned_to: string | null
+  }
+
+  const { data: existing } = await db(supabase)
+    .from('projects')
+    .select('id')
+    .eq('source_opportunity_id', opp.id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (existing?.id) return { projectId: existing.id }
+
+  const { data: account } = opp.account_id
+    ? await db(supabase).from('accounts').select('name').eq('id', opp.account_id).maybeSingle()
+    : { data: null }
+
+  const projectName = input.name?.trim() || `Delivery - ${account?.name ?? opp.title}`
+  const template = input.template ?? 'website'
+  const tasks = DELIVERY_TEMPLATES[template] ?? DELIVERY_TEMPLATES.general
+
+  const { data: project, error: projectError } = await db(supabase)
+    .from('projects')
+    .insert({
+      org_id: opp.org_id,
+      name: projectName,
+      description: `Delivery project generated from opportunity "${opp.title}".`,
+      color: '#6366f1',
+      account_id: opp.account_id,
+      source_opportunity_id: opp.id,
+      primary_contact_id: opp.contact_id,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (projectError || !project?.id) return { error: projectError?.message ?? 'Project creation failed.' }
+
+  const projectId = project.id as string
+
+  const { data: opportunityContacts } = await db(supabase)
+    .from('opportunity_contacts')
+    .select('contact_id, is_primary')
+    .eq('opportunity_id', opp.id)
+
+  const contactIds = new Map<string, boolean>()
+  if (opp.contact_id) contactIds.set(opp.contact_id, true)
+  for (const row of (opportunityContacts ?? []) as { contact_id: string; is_primary: boolean }[]) {
+    contactIds.set(row.contact_id, row.is_primary || contactIds.get(row.contact_id) === true)
+  }
+
+  if (contactIds.size > 0) {
+    await db(supabase).from('project_contacts').insert(
+      Array.from(contactIds.entries()).map(([contact_id, is_primary]) => ({
+        org_id: opp.org_id,
+        project_id: projectId,
+        contact_id,
+        role: is_primary ? 'Primary stakeholder' : 'Stakeholder',
+        is_primary,
+        created_by: user.id,
+      })),
+    )
+  }
+
+  if (opp.assigned_to) {
+    await db(supabase).from('project_members').insert({
+      org_id: opp.org_id,
+      project_id: projectId,
+      user_id: opp.assigned_to,
+      role: 'Project owner',
+      is_owner: true,
+      created_by: user.id,
+    })
+  }
+
+  for (const task of tasks) {
+    const { data: parent } = await db(supabase)
+      .from('project_tasks')
+      .insert({
+        org_id: opp.org_id,
+        project_id: projectId,
+        name: task.name,
+        description: task.description ?? null,
+        step: 'todo',
+        priority: 'medium',
+        assignee_id: opp.assigned_to,
+        responsible_id: opp.assigned_to,
+        created_by: user.id,
+      })
+      .select('id')
+      .single()
+
+    if (parent?.id && task.subtasks?.length) {
+      await db(supabase).from('project_tasks').insert(
+        task.subtasks.map((name) => ({
+          org_id: opp.org_id,
+          project_id: projectId,
+          parent_task_id: parent.id,
+          name,
+          step: 'todo',
+          priority: 'medium',
+          assignee_id: opp.assigned_to,
+          responsible_id: opp.assigned_to,
+          created_by: user.id,
+        })),
+      )
+    }
+  }
+
+  await db(supabase).from('opportunity_activities').insert({
+    org_id: opp.org_id,
+    opportunity_id: opp.id,
+    type: 'note',
+    content: `Delivery project created: ${projectName}`,
+    metadata: { project_id: projectId },
+    created_by: user.id,
+  })
+
+  revalidatePath('/projects')
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath('/pipeline')
+  revalidatePath(`/pipeline/${opp.id}`)
+
+  return { projectId }
 }
 
 export async function deleteProject(id: string): Promise<void> {

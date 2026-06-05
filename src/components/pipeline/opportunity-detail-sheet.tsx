@@ -33,13 +33,13 @@ import {
   StickyNote,
   Activity as ActivityIcon,
   ExternalLink,
-  Check,
   ChevronLeft,
   ChevronRight,
   Pencil,
   Phone as PhoneIcon,
   Mail as MailIcon,
   Building2 as BuildingIcon,
+  FolderKanban,
 } from 'lucide-react'
 
 import {
@@ -89,6 +89,7 @@ import {
   type OpportunityWithContact,
   type ActivityWithMeta,
 } from '@/app/(dashboard)/pipeline/actions'
+import { createDeliveryProjectFromOpportunity } from '@/app/(dashboard)/projects/actions'
 import { updateContactField } from '@/app/(dashboard)/contacts/actions'
 import {
   listTags,
@@ -158,6 +159,7 @@ export function OpportunityDetailSheet({
   const [deleting, setDeleting] = React.useState(false)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [section, setSection] = React.useState<SideSection>('details')
+  const [creatingProject, setCreatingProject] = React.useState(false)
 
   // Lazily-loaded section data
   const [tasks, setTasks] = React.useState<TaskRow[] | null>(null)
@@ -383,6 +385,28 @@ export function OpportunityDetailSheet({
   const stage = opp ? stages.find((s) => s.id === opp.stage_id) : undefined
   const status = (opp?.status as OpportunityStatus) ?? 'open'
 
+  async function createDeliveryProject() {
+    if (!opp) return
+    setCreatingProject(true)
+    try {
+      const result = await createDeliveryProjectFromOpportunity({
+        opportunityId: opp.id,
+        template: 'website',
+      })
+      if (result.error || !result.projectId) {
+        toast.error(result.error ?? 'Failed to create delivery project')
+        return
+      }
+      toast.success('Delivery project ready')
+      router.push(`/projects/${result.projectId}`)
+      onOpenChange(false)
+    } catch {
+      toast.error('Failed to create delivery project')
+    } finally {
+      setCreatingProject(false)
+    }
+  }
+
   return (
     <>
       <Dialog open={Boolean(opportunityId)} onOpenChange={onOpenChange}>
@@ -460,6 +484,25 @@ export function OpportunityDetailSheet({
                     onSave={saveValue}
                   />
                 </div>
+                {status === 'won' && (
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={createDeliveryProject}
+                      disabled={creatingProject}
+                      className="h-8 gap-1.5 rounded-[8px]"
+                    >
+                      {creatingProject ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FolderKanban className="h-3.5 w-3.5" />
+                      )}
+                      Delivery project
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* ── Body: nav + content (column on mobile, row on desktop) ── */}
@@ -1209,15 +1252,6 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
     <div className="space-y-1.5">
       <Label className="text-[12px] font-medium text-text-secondary">{label}</Label>
       {children}
-    </div>
-  )
-}
-
-function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[8px] border border-border-subtle px-3 py-2">
-      <div className="text-[10.5px] uppercase tracking-wide text-text-tertiary">{label}</div>
-      <div className="mt-0.5 truncate text-[12.5px] text-text-primary">{value}</div>
     </div>
   )
 }

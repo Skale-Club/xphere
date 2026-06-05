@@ -156,7 +156,10 @@ export async function getAccounts(
   const f = parsed.data;
 
   const supabase = await createClient();
-  let query = supabase.from("accounts").select("*", { count: "exact" });
+  let query = supabase
+    .from("accounts")
+    .select("*", { count: "exact" })
+    .neq("lifecycle_stage", "prospect");
 
   if (f.q) {
     const escaped = escapeIlike(f.q);
@@ -226,7 +229,11 @@ export async function getAccounts(
     const ids = rows.map((r) => r.id);
 
     const [{ data: contactCounts }, { data: oppData }] = await Promise.all([
-      supabase.from("contacts").select("account_id").in("account_id", ids),
+      supabase
+        .from("contacts")
+        .select("account_id")
+        .in("account_id", ids)
+        .neq("lifecycle_stage", "prospect"),
       supabase
         .from("opportunities")
         .select("account_id, value, status")
@@ -289,7 +296,8 @@ export async function getAccount(
     supabase
       .from("contacts")
       .select("id", { count: "exact", head: true })
-      .eq("account_id", id),
+      .eq("account_id", id)
+      .neq("lifecycle_stage", "prospect"),
     supabase
       .from("opportunities")
       .select("value, status")

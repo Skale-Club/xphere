@@ -61,6 +61,7 @@ import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
 import { cn } from '@/lib/utils'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
+import { InboxTemplate } from '@/components/crm/entity-template'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -1016,7 +1017,7 @@ export function ChatLayout({
   // ───────────────────────── Render ─────────────────────────
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
+    <InboxTemplate className="overflow-hidden bg-bg-primary">
       <PushPermissionBanner />
       {/* Desktop | 3-column grid */}
       <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
@@ -1251,6 +1252,6 @@ export function ChatLayout({
           </div>
         )}
       </div>
-    </div>
+    </InboxTemplate>
   )
 }

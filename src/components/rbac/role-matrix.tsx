@@ -22,6 +22,7 @@ import {
   Mail,
   Settings,
   Users,
+  UserPlus,
   CreditCard,
   Info,
   Search,
@@ -71,6 +72,7 @@ const ICONS: Record<string, LucideIcon> = {
   Mail,
   Settings,
   Users,
+  UserPlus,
   CreditCard,
 }
 

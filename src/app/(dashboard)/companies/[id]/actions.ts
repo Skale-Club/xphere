@@ -31,11 +31,17 @@ export async function getAccountDetail(id: string): Promise<
   const supabase = await createClient()
 
   const [accountResult, contactsResult] = await Promise.all([
-    supabase.from('accounts').select('*').eq('id', id).maybeSingle(),
+    supabase
+      .from('accounts')
+      .select('*')
+      .eq('id', id)
+      .neq('lifecycle_stage', 'prospect')
+      .maybeSingle(),
     supabase
       .from('contacts')
-      .select('id, first_name, last_name, name, phone, email, company, created_at, org_id, notes, tags, custom_fields, source, external_id, account_id, created_by, updated_at')
+      .select('id, first_name, last_name, name, phone, email, company, created_at, org_id, notes, tags, custom_fields, source, lifecycle_stage, engagement_status, intent_level, qualification_status, source_type, source_id, source_payload, external_id, account_id, created_by, updated_at')
       .eq('account_id', id)
+      .neq('lifecycle_stage', 'prospect')
       .order('first_name', { ascending: true, nullsFirst: false })
       .order('last_name', { ascending: true, nullsFirst: false }),
   ])
@@ -62,6 +68,7 @@ export async function getAccountOpportunities(
     .from('contacts')
     .select('id')
     .eq('account_id', accountId)
+    .neq('lifecycle_stage', 'prospect')
   const contactIds = (linkedContacts ?? []).map((c) => c.id)
 
   // 2. Query opportunities: direct account link OR via linked contacts
@@ -97,6 +104,7 @@ export async function getAccountActivities(
     .from('contacts')
     .select('id')
     .eq('account_id', accountId)
+    .neq('lifecycle_stage', 'prospect')
   const contactIds = (linkedContacts ?? []).map((c) => c.id)
 
   let oppQuery = supabase.from('opportunities').select('id')

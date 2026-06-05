@@ -136,6 +136,21 @@ export type ContactIdentityStatus =
   | 'merge_conflict'
   | 'archived_duplicate'
 
+export type CrmLifecycleStage = 'prospect' | 'lead' | 'opportunity' | 'customer' | 'lost' | 'archived'
+export type CrmEngagementStatus =
+  | 'not_contacted'
+  | 'contacted'
+  | 'opened'
+  | 'clicked'
+  | 'replied'
+  | 'engaged'
+  | 'interested'
+  | 'needs_follow_up'
+  | 'not_interested'
+  | 'unsubscribed'
+export type CrmIntentLevel = 'none' | 'low' | 'medium' | 'high'
+export type CrmQualificationStatus = 'unqualified' | 'needs_review' | 'qualified'
+
 // v3.0 Phase 108 — channel identity providers (CID-09 D-01 wide enum)
 export type ChannelProvider =
   | 'whatsapp'
@@ -194,6 +209,9 @@ export interface ProjectRow {
   name: string
   description: string | null
   color: string | null
+  account_id: string | null
+  source_opportunity_id: string | null
+  primary_contact_id: string | null
   folder_id: string | null
   position: number
   archived_at: string | null
@@ -211,6 +229,30 @@ export interface ProjectFolderRow {
   icon: string | null
   parent_id: string | null
   position: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectMemberRow {
+  id: string
+  org_id: string
+  project_id: string
+  user_id: string
+  role: string | null
+  is_owner: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectContactRow {
+  id: string
+  org_id: string
+  project_id: string
+  contact_id: string
+  role: string | null
+  is_primary: boolean
   created_by: string | null
   created_at: string
   updated_at: string
@@ -2202,6 +2244,13 @@ export interface Database {
           tags: string[]
           custom_fields: Record<string, unknown>
           source: ContactSource
+          lifecycle_stage: CrmLifecycleStage
+          engagement_status: CrmEngagementStatus
+          intent_level: CrmIntentLevel
+          qualification_status: CrmQualificationStatus
+          source_type: string | null
+          source_id: string | null
+          source_payload: Json
           external_id: string | null
           account_id: string | null
           created_by: string | null
@@ -2237,6 +2286,13 @@ export interface Database {
           tags?: string[]
           custom_fields?: Record<string, unknown>
           source?: ContactSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           external_id?: string | null
           account_id?: string | null
           created_by?: string | null
@@ -2265,6 +2321,13 @@ export interface Database {
           tags?: string[]
           custom_fields?: Record<string, unknown>
           source?: ContactSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           external_id?: string | null
           account_id?: string | null
           updated_at?: string
@@ -2500,6 +2563,13 @@ export interface Database {
           custom_fields: Record<string, unknown>
           external_id: string | null
           source: AccountSource
+          lifecycle_stage: CrmLifecycleStage
+          engagement_status: CrmEngagementStatus
+          intent_level: CrmIntentLevel
+          qualification_status: CrmQualificationStatus
+          source_type: string | null
+          source_id: string | null
+          source_payload: Json
           assigned_to: string | null
           created_by: string | null
           created_at: string
@@ -2521,6 +2591,13 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           external_id?: string | null
           source?: AccountSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           assigned_to?: string | null
           created_by?: string | null
           created_at?: string
@@ -2540,6 +2617,13 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           external_id?: string | null
           source?: AccountSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           assigned_to?: string | null
           updated_at?: string
         }
@@ -6380,6 +6464,59 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_audience_config: {
+        Row: {
+          id: string
+          org_id: string
+          meta_business_id: string | null
+          meta_ad_account_id: string
+          custom_audience_id: string | null
+          audience_name: string | null
+          sync_enabled: boolean
+          terms_accepted_at: string | null
+          consent_basis: string
+          last_synced_at: string | null
+          last_sync_stats: { sent?: number; removed?: number; error_count?: number } | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          meta_business_id?: string | null
+          meta_ad_account_id: string
+          custom_audience_id?: string | null
+          audience_name?: string | null
+          sync_enabled?: boolean
+          terms_accepted_at?: string | null
+          consent_basis?: string
+          last_synced_at?: string | null
+          last_sync_stats?: { sent?: number; removed?: number; error_count?: number } | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          meta_business_id?: string | null
+          meta_ad_account_id?: string
+          custom_audience_id?: string | null
+          audience_name?: string | null
+          sync_enabled?: boolean
+          terms_accepted_at?: string | null
+          consent_basis?: string
+          last_synced_at?: string | null
+          last_sync_stats?: { sent?: number; removed?: number; error_count?: number } | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meta_audience_config_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
           },
         ]
       }

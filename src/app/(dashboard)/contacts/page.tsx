@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getContacts } from "./actions";
 import { getDefinitions } from "@/app/(dashboard)/settings/custom-fields/actions";
 import { ContactsTable } from "@/components/contacts/contacts-table";
+import { EntityPageTemplate } from "@/components/crm/entity-template";
 import { ContactsPageSkeleton } from "@/components/skeletons/contacts-page-skeleton";
 import {
   CONTACT_SOURCES,
@@ -65,7 +66,9 @@ export default async function ContactsPage({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <EntityPageTemplate
+      scope={{ entity: "contact", lifecycleStage: "all", excludeLifecycleStages: ["prospect"] }}
+    >
       <Suspense fallback={<ContactsPageSkeleton rows={8} />}>
         <ContactsBody
           q={q}
@@ -78,7 +81,7 @@ export default async function ContactsPage({
           identityStatus={identityStatus}
         />
       </Suspense>
-    </div>
+    </EntityPageTemplate>
   );
 }
 
@@ -133,7 +136,6 @@ async function ContactsBody({
       currentTag={tag}
       currentSource={source}
       currentChannel={channel}
-      currentSort={sort ?? "recent"}
       currentQuery={q}
       visibleDefs={visibleDefs}
       filterableDefs={filterableDefs}

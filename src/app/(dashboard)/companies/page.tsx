@@ -3,6 +3,7 @@ import { getAccounts } from './actions'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import { AccountsTable } from '@/components/accounts/accounts-table'
 import { AccountsFilters } from '@/components/accounts/accounts-filters'
+import { CompanyTemplate } from '@/components/crm/entity-template'
 import { CompaniesPageSkeleton } from '@/components/skeletons/companies-page-skeleton'
 import { ACCOUNT_SIZES, ACCOUNT_SOURCES } from '@/lib/accounts'
 
@@ -41,7 +42,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <CompanyTemplate>
       <AccountsFilters
         currentQuery={q}
         currentIndustry={industry}
@@ -64,7 +65,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
           cfFilters={cfFilters}
         />
       </Suspense>
-    </div>
+    </CompanyTemplate>
   )
 }
 

@@ -97,6 +97,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    key: 'prospects',
+    label: 'Prospects',
+    icon: 'UserPlus',
+    permissions: [
+      { key: 'prospects.view', label: 'View prospects' },
+      { key: 'prospects.manage', label: 'View & manage prospects' },
+      { key: 'prospects.import', label: 'Import prospects' },
+    ],
+  },
+  {
     key: 'companies',
     label: 'Companies',
     icon: 'Building2',
