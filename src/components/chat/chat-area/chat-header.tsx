@@ -27,7 +27,6 @@ import {
   Eye,
   EyeOff,
   Pencil,
-  UserCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -311,12 +310,7 @@ export function ChatHeader({
                   {showDebug ? 'Hide internal messages' : 'Show internal messages'}
                 </DropdownMenuItem>
               )}
-              {onOperatorNamePrefixToggle && (
-                <DropdownMenuItem onClick={() => onOperatorNamePrefixToggle(conversation.id, !operatorNamePrefix)}>
-                  <UserCheck className={cn('h-4 w-4', operatorNamePrefix && 'text-accent')} />
-                  {operatorNamePrefix ? 'Disable name prefix' : 'Enable name prefix'}
-                </DropdownMenuItem>
-              )}
+              {/* Operator name prefix moved to the composer gear popover (SEED-011). */}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-rose-400 focus:bg-rose-500/10 focus:text-rose-300"

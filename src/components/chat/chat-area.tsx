@@ -149,6 +149,10 @@ interface ChatAreaProps {
   isLoadingMore?: boolean
   /** Operator name prefix: toggle per-conversation setting. */
   onOperatorNamePrefixToggle?: (id: string, enabled: boolean) => void
+  /** Operator name prefix: the operator's current display name (profile full_name). */
+  operatorName?: string
+  /** Operator name prefix: persist an edited operator display name (updates profile). */
+  onOperatorNameSave?: (name: string) => Promise<void>
   /**
    * Bumped by the parent whenever the contact is edited (e.g. an email or phone
    * added in the INFO panel). Re-runs channel resolution so newly-reachable
@@ -188,6 +192,8 @@ export function ChatArea({
   hasMore = false,
   isLoadingMore = false,
   onOperatorNamePrefixToggle,
+  operatorName,
+  onOperatorNameSave,
   contactEditNonce = 0,
 }: ChatAreaProps) {
   const [showDebug, setShowDebug] = useState(false)
@@ -214,11 +220,18 @@ export function ChatArea({
     conversation?.channelMetadata?.provider === 'meta_cloud' ||
     conversation?.channel === 'zernio_whatsapp'
   const lastInboundAt = conversation?.lastInboundAt ?? null
+  const [serviceWindowNow, setServiceWindowNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!templateAvailable) return
+    const timer = window.setInterval(() => setServiceWindowNow(Date.now()), 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [templateAvailable])
+
   const outsideWindow = useMemo(() => {
     if (!templateAvailable) return false
     if (!lastInboundAt) return true // no inbound ever ⇒ no open service window
-    return Date.now() - new Date(lastInboundAt).getTime() > 24 * 60 * 60 * 1000
-  }, [templateAvailable, lastInboundAt])
+    return serviceWindowNow - new Date(lastInboundAt).getTime() > 24 * 60 * 60 * 1000
+  }, [templateAvailable, lastInboundAt, serviceWindowNow])
 
   // SEED-039: derive distinct channels present in the thread (for filter UI).
   // Must be declared before any early return to satisfy Rules of Hooks.
@@ -502,6 +515,14 @@ export function ChatArea({
           templateAvailable ? { available: true, outsideWindow } : undefined
         }
         onSendTemplate={() => setTemplateDialogOpen(true)}
+        operatorNamePrefix={Boolean(conversation.operatorNamePrefix)}
+        onOperatorNamePrefixToggle={
+          onOperatorNamePrefixToggle
+            ? () => onOperatorNamePrefixToggle(conversation.id, !conversation.operatorNamePrefix)
+            : undefined
+        }
+        operatorName={operatorName}
+        onOperatorNameSave={onOperatorNameSave}
       />
       {templateAvailable && (
         <SendTemplateDialog

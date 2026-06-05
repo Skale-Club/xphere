@@ -59,6 +59,12 @@ export default async function ChatPage({
         <ChatLayout
           currentOrgId={(activeOrgId as string | null) ?? null}
           currentUserId={user?.id ?? null}
+          currentUserName={
+            (user?.user_metadata?.full_name as string | undefined) ??
+            (user?.user_metadata?.name as string | undefined) ??
+            user?.email ??
+            ''
+          }
           agentMap={agentMap}
           initialConversationId={initialConversationId}
           initialContactId={initialContactId}
