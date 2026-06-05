@@ -12,10 +12,12 @@
  */
 
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle, Loader2 } from 'lucide-react'
+import { Send, Paperclip, Smile, Mic, Square, X, FileText, AlertTriangle, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -89,6 +91,14 @@ interface MessageComposerProps {
   }
   /** Opens the template selector modal. Required when templateSupport.available. */
   onSendTemplate?: () => void
+  /** Operator name prefix: current per-conversation setting value. */
+  operatorNamePrefix?: boolean
+  /** Operator name prefix: toggle the per-conversation setting on/off. */
+  onOperatorNamePrefixToggle?: () => void
+  /** Operator name prefix: the operator's current display name (profile full_name). */
+  operatorName?: string
+  /** Operator name prefix: persist an edited operator display name (updates profile). */
+  onOperatorNameSave?: (name: string) => Promise<void>
 }
 
 const MAX_ROWS = 8
@@ -133,6 +143,10 @@ export function MessageComposer({
   onPriorityCycle,
   templateSupport,
   onSendTemplate,
+  operatorNamePrefix = false,
+  onOperatorNamePrefixToggle,
+  operatorName = '',
+  onOperatorNameSave,
 }: MessageComposerProps) {
   const [value, setValue] = useState('')
   const [subject, setSubject] = useState('')
@@ -140,6 +154,29 @@ export function MessageComposer({
   const [sendError, setSendError] = useState<string | null>(null)
   const isEmail = (activeChannel ?? '') === 'email'
   const [emojiOpen, setEmojiOpen] = useState(false)
+  // Operator name prefix popover (gear icon on the channel/status row).
+  const [prefixOpen, setPrefixOpen] = useState(false)
+  const [nameDraft, setNameDraft] = useState(operatorName)
+  const [savingName, setSavingName] = useState(false)
+  // Keep the editable draft in sync when the popover opens or the name changes.
+  useEffect(() => {
+    if (prefixOpen) setNameDraft(operatorName)
+  }, [prefixOpen, operatorName])
+
+  async function handleNameSave() {
+    const next = nameDraft.trim()
+    if (!next) {
+      toast.error('Name cannot be empty')
+      return
+    }
+    if (!onOperatorNameSave || next === operatorName) return
+    setSavingName(true)
+    try {
+      await onOperatorNameSave(next)
+    } finally {
+      setSavingName(false)
+    }
+  }
   const [attachments, setAttachments] = useState<File[]>([])
   const [recording, setRecording] = useState(false)
   const [recordSeconds, setRecordSeconds] = useState(0)
@@ -426,6 +463,86 @@ export function MessageComposer({
               chip
             )
           })()}
+
+          {/* Operator name prefix: gear settings on the far right of this row.
+              Opens a popover with an on/off toggle + editable operator name.
+              Lives on the channel/status line — never inside the input box. */}
+          {onOperatorNamePrefixToggle && (
+            <Popover open={prefixOpen} onOpenChange={setPrefixOpen}>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-7 w-7 shrink-0 text-text-tertiary hover:text-text-primary',
+                          (prefixOpen || operatorNamePrefix) && 'text-accent',
+                        )}
+                        aria-label="Operator name prefix"
+                      >
+                        <Settings className="h-3.5 w-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Name prefix</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent align="end" className="w-[280px] p-3 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <p className="text-[12.5px] font-medium text-text-primary">Prefix with my name</p>
+                    <p className="text-[11px] leading-snug text-text-tertiary">
+                      Adds your name to the start of messages sent in this conversation.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={operatorNamePrefix}
+                    onCheckedChange={() => onOperatorNamePrefixToggle()}
+                    aria-label="Toggle name prefix"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+                    Display name
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void handleNameSave()
+                        }
+                      }}
+                      placeholder="Your name"
+                      maxLength={120}
+                      className="h-8 text-[12.5px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0 px-3 text-[12px]"
+                      disabled={
+                        savingName ||
+                        !nameDraft.trim() ||
+                        nameDraft.trim() === operatorName ||
+                        !onOperatorNameSave
+                      }
+                      onClick={() => void handleNameSave()}
+                    >
+                      {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-text-tertiary">
+                    Preview: <span className="text-text-secondary">{(nameDraft.trim() || 'Name')}: your message</span>
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
 

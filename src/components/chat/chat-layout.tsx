@@ -50,6 +50,7 @@ import {
   type OrgMember,
   type StartChannel,
 } from '@/app/(dashboard)/chat/actions'
+import { updateProfile } from '@/app/(dashboard)/settings/profile/actions'
 import { createClient } from '@/lib/supabase/client'
 import {
   ConversationList,
@@ -105,6 +106,9 @@ function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
     contactVerified: false, // unknown until the paged refetch resolves it
     assignedUserId: (row.assigned_user_id as string | null) ?? null,
     lastInboundAt: (row.last_inbound_at as string | null) ?? null,
+    // Carry the name-prefix flag so a realtime UPDATE echo doesn't wipe the
+    // optimistic toggle (the upsert replaces the row, preserving only a few fields).
+    operatorNamePrefix: Boolean(row.show_operator_name_prefix),
   }
 }
 
@@ -182,6 +186,8 @@ async function readSendFailure(res: Response): Promise<string> {
 interface ChatLayoutProps {
   currentOrgId: string | null
   currentUserId: string | null
+  /** Operator's display name (profile full_name) — used by the name-prefix feature. */
+  currentUserName?: string
   agentMap?: Record<string, string>
   initialConversationId?: string | null
   initialContactId?: string | null
@@ -192,6 +198,7 @@ type MobileView = 'list' | 'chat' | 'info'
 export function ChatLayout({
   currentOrgId,
   currentUserId,
+  currentUserName = '',
   agentMap,
   initialConversationId = null,
   initialContactId = null,
@@ -942,6 +949,22 @@ export function ChatLayout({
     }
   }
 
+  // Operator display name (profile full_name) used by the name-prefix feature.
+  // Editable from the composer gear popover; persists to the auth profile.
+  const [operatorName, setOperatorName] = useState(currentUserName)
+
+  async function handleOperatorNameSave(name: string) {
+    const previous = operatorName
+    setOperatorName(name)
+    const res = await updateProfile({ full_name: name })
+    if (!res.ok) {
+      toast.error(res.error ?? 'Could not save name')
+      setOperatorName(previous)
+      return
+    }
+    toast.success('Name updated')
+  }
+
   async function handleAssign(id: string, userId: string | null) {
     const current = findVisibleConversation(id)
     const previous = current?.assignedUserId ?? null
@@ -1111,6 +1134,8 @@ export function ChatLayout({
             hasMore={hasMoreMessages}
             isLoadingMore={isLoadingMoreMessages}
             onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
+            operatorName={operatorName}
+            onOperatorNameSave={handleOperatorNameSave}
             contactEditNonce={contactEditNonce}
           />
         </div>
@@ -1250,6 +1275,8 @@ export function ChatLayout({
               hasMore={hasMoreMessages}
               isLoadingMore={isLoadingMoreMessages}
               onOperatorNamePrefixToggle={handleOperatorNamePrefixToggle}
+              operatorName={operatorName}
+              onOperatorNameSave={handleOperatorNameSave}
               contactEditNonce={contactEditNonce}
             />
           </div>
