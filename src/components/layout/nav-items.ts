@@ -8,6 +8,7 @@ import {
   Bot,
   TrendingUp,
   Contact,
+  UserPlus,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -23,6 +24,8 @@ export type NavItem = {
   group: string
   /** When true, only shown to PLATFORM_ADMIN users. */
   adminOnly?: boolean
+  /** When true, only shown to org owners/admins or platform admins. */
+  orgAdminOnly?: boolean
   /**
    * RBAC permission key gating this item. When set, the item is hidden unless
    * the user holds the key (or is unrestricted — Owner / platform / unconfigured
@@ -46,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
   { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true, permission: 'ads.view' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view' },
+  { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view' },
   { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales',    permission: 'pipeline.view' },
   { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales',    permission: 'tasks.view' },

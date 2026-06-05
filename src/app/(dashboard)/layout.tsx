@@ -20,7 +20,7 @@ import { PwaInstallDialog } from '@/components/pwa/pwa-install-dialog'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { isDemoSession } from '@/lib/demo/guard'
 import { DemoBanner } from '@/components/demo/demo-banner'
-import { getMyPermissions } from '@/lib/rbac/server'
+import { getMyPermissions, getRbacContext } from '@/lib/rbac/server'
 import { getOrgSettings } from '@/lib/org/settings'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
@@ -84,6 +84,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
 
   const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
+  const rbacContext = await getRbacContext()
+  const isOrgAdmin = rbacContext.role === 'owner' || rbacContext.role === 'admin'
   const isDemo = await isDemoSession()
 
   // RBAC: which nav items this user may see. null = unrestricted (Owner /
@@ -184,6 +186,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   brandName={branding.appName}
                   logoUrl={effectiveLogoUrl}
                   isPlatformAdmin={isPlatformAdmin}
+                  isOrgAdmin={isOrgAdmin}
                   isDemo={isDemo}
                   navPermissions={navPermissions}
                 />

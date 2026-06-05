@@ -96,6 +96,7 @@ import {
   type OpportunityWithStage,
 } from '@/app/(dashboard)/companies/[id]/actions'
 import type { AccountRow } from '@/lib/accounts'
+import { EntityDetailTemplate } from '@/components/crm/entity-template'
 
 export interface AccountDetailSheetProps {
   accountId: string | null
@@ -291,7 +292,7 @@ export function AccountDetailSheet({
               <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
             </div>
           ) : (
-            <>
+            <EntityDetailTemplate>
               {/* ── Header ─────────────────────────────────────────────── */}
               <div className="shrink-0 border-b border-border-subtle px-6 pt-6 pb-4">
                 <div className="flex items-start gap-3">
@@ -522,7 +523,7 @@ export function AccountDetailSheet({
                   </Link>
                 </Button>
               </div>
-            </>
+            </EntityDetailTemplate>
           )}
         </DialogContent>
       </Dialog>

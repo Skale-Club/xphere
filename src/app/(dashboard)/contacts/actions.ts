@@ -211,6 +211,7 @@ export async function getContacts(
   let query = supabase
     .from('contacts')
     .select('*, contact_channel_identities(provider, external_id)', { count: 'exact' })
+    .neq('lifecycle_stage', 'prospect')
 
   if (f.q) {
     const escaped = f.q.replace(/[%_]/g, (m) => `\\${m}`)

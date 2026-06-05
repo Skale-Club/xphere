@@ -52,6 +52,7 @@ import type { CustomFieldType } from "@/types/database";
 import { formatPhoneDisplay } from "@/lib/phone-numbers/format";
 import { formatEmailDisplay } from "@/lib/email-addresses/format";
 import { PhoneDisplay } from "@/components/phone/phone-display";
+import { EntityListTemplate } from "@/components/crm/entity-template";
 
 import {
   displayContactName,
@@ -288,7 +289,10 @@ export function ContactsTable({
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <EntityListTemplate
+      scope={{ entity: "contact", lifecycleStage: "all", excludeLifecycleStages: ["prospect"] }}
+      bodyClassName="space-y-0 px-0 pb-0 sm:px-0 lg:px-0"
+    >
       {/* Toolbar — single line on all breakpoints */}
       <div className="animate-fade-in flex flex-row flex-nowrap items-center gap-1.5 sm:gap-2 px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         <NewContactDialog
@@ -712,7 +716,7 @@ export function ContactsTable({
         )}
       </div>
 
-    </div>
+    </EntityListTemplate>
   );
 }
 

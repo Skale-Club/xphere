@@ -54,6 +54,7 @@ interface SidebarProps {
   /** Optional org logo URL | replaces the default "O" mark when set. */
   logoUrl?: string | null
   isPlatformAdmin?: boolean
+  isOrgAdmin?: boolean
   /** Public read-only demo session | hides settings/credential entry points. */
   isDemo?: boolean
   /**
@@ -84,6 +85,7 @@ interface SidebarBodyProps {
   initials: string
   brandName?: string
   isPlatformAdmin?: boolean
+  isOrgAdmin?: boolean
   isDemo?: boolean
   navPermissions?: string[] | null
   pathname: string
@@ -101,6 +103,7 @@ function SidebarBody({
   initials,
   brandName,
   isPlatformAdmin,
+  isOrgAdmin,
   isDemo,
   navPermissions,
   pathname,
@@ -183,6 +186,7 @@ function SidebarBody({
             (n) =>
               n.group === g.id &&
               (!n.adminOnly || isPlatformAdmin) &&
+              (!n.orgAdminOnly || isPlatformAdmin || isOrgAdmin) &&
               // navPermissions == null → unrestricted; otherwise the user must
               // hold the item's permission key (items without a key stay visible).
               (navPermissions == null || !n.permission || navPermissions.includes(n.permission)),
@@ -310,7 +314,7 @@ function SidebarBody({
   )
 }
 
-export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isDemo, navPermissions }: SidebarProps) {
+export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isOrgAdmin, isDemo, navPermissions }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebarState()
@@ -365,6 +369,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
     initials,
     brandName,
     isPlatformAdmin,
+    isOrgAdmin,
     isDemo,
     navPermissions,
     pathname,

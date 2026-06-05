@@ -18,6 +18,7 @@ import { AccountDetailSheet } from './account-detail-sheet'
 import { Badge } from '@/components/ui/badge'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { SortableColumnHeader } from '@/components/data-table/sortable-column-header'
+import { EntityListTemplate } from '@/components/crm/entity-template'
 
 // Extended row type that includes counts populated by detail queries.
 // The list action (getAccounts) returns AccountRow[]; count fields default to 0
@@ -124,7 +125,9 @@ export function AccountsTable({
   const gridTemplate = `40px 2.5fr 1.5fr 80px 80px 100px 1.2fr${visibleDefs.map(() => ' 1fr').join('')} 90px`
 
   return (
-    <div className="space-y-4 px-4 sm:px-6 lg:px-8 pb-2">
+    <EntityListTemplate
+      scope={{ entity: 'account', lifecycleStage: 'all', excludeLifecycleStages: ['prospect'] }}
+    >
       {filterableDefs.length > 0 && (
         <CustomFieldsFilterBar
           filterableDefs={filterableDefs}
@@ -376,6 +379,6 @@ export function AccountsTable({
         onOpenChange={handleDialogChange}
         onChanged={handleAccountChanged}
       />
-    </div>
+    </EntityListTemplate>
   )
 }

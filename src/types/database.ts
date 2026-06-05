@@ -136,6 +136,21 @@ export type ContactIdentityStatus =
   | 'merge_conflict'
   | 'archived_duplicate'
 
+export type CrmLifecycleStage = 'prospect' | 'lead' | 'opportunity' | 'customer' | 'lost' | 'archived'
+export type CrmEngagementStatus =
+  | 'not_contacted'
+  | 'contacted'
+  | 'opened'
+  | 'clicked'
+  | 'replied'
+  | 'engaged'
+  | 'interested'
+  | 'needs_follow_up'
+  | 'not_interested'
+  | 'unsubscribed'
+export type CrmIntentLevel = 'none' | 'low' | 'medium' | 'high'
+export type CrmQualificationStatus = 'unqualified' | 'needs_review' | 'qualified'
+
 // v3.0 Phase 108 — channel identity providers (CID-09 D-01 wide enum)
 export type ChannelProvider =
   | 'whatsapp'
@@ -2114,6 +2129,13 @@ export interface Database {
           tags: string[]
           custom_fields: Record<string, unknown>
           source: ContactSource
+          lifecycle_stage: CrmLifecycleStage
+          engagement_status: CrmEngagementStatus
+          intent_level: CrmIntentLevel
+          qualification_status: CrmQualificationStatus
+          source_type: string | null
+          source_id: string | null
+          source_payload: Json
           external_id: string | null
           account_id: string | null
           created_by: string | null
@@ -2149,6 +2171,13 @@ export interface Database {
           tags?: string[]
           custom_fields?: Record<string, unknown>
           source?: ContactSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           external_id?: string | null
           account_id?: string | null
           created_by?: string | null
@@ -2177,6 +2206,13 @@ export interface Database {
           tags?: string[]
           custom_fields?: Record<string, unknown>
           source?: ContactSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           external_id?: string | null
           account_id?: string | null
           updated_at?: string
@@ -2412,6 +2448,13 @@ export interface Database {
           custom_fields: Record<string, unknown>
           external_id: string | null
           source: AccountSource
+          lifecycle_stage: CrmLifecycleStage
+          engagement_status: CrmEngagementStatus
+          intent_level: CrmIntentLevel
+          qualification_status: CrmQualificationStatus
+          source_type: string | null
+          source_id: string | null
+          source_payload: Json
           assigned_to: string | null
           created_by: string | null
           created_at: string
@@ -2433,6 +2476,13 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           external_id?: string | null
           source?: AccountSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           assigned_to?: string | null
           created_by?: string | null
           created_at?: string
@@ -2452,6 +2502,13 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           external_id?: string | null
           source?: AccountSource
+          lifecycle_stage?: CrmLifecycleStage
+          engagement_status?: CrmEngagementStatus
+          intent_level?: CrmIntentLevel
+          qualification_status?: CrmQualificationStatus
+          source_type?: string | null
+          source_id?: string | null
+          source_payload?: Json
           assigned_to?: string | null
           updated_at?: string
         }
