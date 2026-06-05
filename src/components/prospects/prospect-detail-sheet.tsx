@@ -8,6 +8,7 @@ import {
   ListTodo,
   Loader2,
   MessageSquare,
+  Sparkles,
   StickyNote,
   UserRound,
 } from 'lucide-react'
@@ -16,10 +17,13 @@ import { toast } from 'sonner'
 import {
   addProspectNote,
   addProspectTask,
+  applyQualification,
   convertProspectToContact,
   getProspectDetail,
+  suggestQualification,
   type ProspectDetail,
   type ProspectRow,
+  type QualificationSuggestion,
 } from '@/app/(dashboard)/prospects/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,6 +55,8 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
   const [detail, setDetail] = React.useState<ProspectDetail | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
+  const [suggestion, setSuggestion] = React.useState<QualificationSuggestion | null>(null)
+  const [aiBusy, setAiBusy] = React.useState(false)
 
   React.useEffect(() => {
     if (!prospect) {
@@ -60,6 +66,7 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
     let cancelled = false
     setLoading(true)
     setDetail(null)
+    setSuggestion(null)
     getProspectDetail(prospect.kind, prospect.id).then((res) => {
       if (cancelled) return
       setLoading(false)
@@ -82,6 +89,37 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
     }
     toast.success(prospect.kind === 'company' ? 'Company promoted to lead' : 'Prospect converted to lead')
     onChanged()
+  }
+
+  async function handleSuggest() {
+    if (!prospect) return
+    setAiBusy(true)
+    const res = await suggestQualification(prospect.kind, prospect.id)
+    setAiBusy(false)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    setSuggestion(res.suggestion)
+  }
+
+  async function handleApplySuggestion() {
+    if (!prospect || !suggestion) return
+    setAiBusy(true)
+    const res = await applyQualification(prospect.kind, prospect.id, {
+      intentLevel: suggestion.intentLevel,
+      qualificationStatus: suggestion.qualificationStatus,
+      recommendedChannel: suggestion.recommendedChannel,
+    })
+    setAiBusy(false)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    toast.success('Qualification applied')
+    setSuggestion(null)
+    const refreshed = await getProspectDetail(prospect.kind, prospect.id)
+    if (refreshed.ok) setDetail(refreshed.detail)
   }
 
   return (
@@ -117,6 +155,38 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
               <Badge variant="outline">score {detail.score}</Badge>
               {detail.recommendedChannel && (
                 <Badge variant="outline" className="capitalize">→ {detail.recommendedChannel}</Badge>
+              )}
+            </div>
+
+            {/* AI qualification */}
+            <div className="rounded-[10px] border border-border-subtle bg-bg-tertiary/30 p-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                  <Sparkles className="h-3.5 w-3.5" /> AI qualification
+                </span>
+                <Button size="sm" variant="ghost" className="h-7" onClick={handleSuggest} disabled={aiBusy}>
+                  {aiBusy && !suggestion ? '…' : 'Suggest'}
+                </Button>
+              </div>
+              {suggestion && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="capitalize">intent: {suggestion.intentLevel}</Badge>
+                    <Badge variant="outline" className="capitalize">{statusLabel(suggestion.qualificationStatus)}</Badge>
+                    {suggestion.recommendedChannel && (
+                      <Badge variant="outline" className="capitalize">→ {suggestion.recommendedChannel}</Badge>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-text-tertiary">{suggestion.rationale}</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="h-7" onClick={handleApplySuggestion} disabled={aiBusy}>
+                      Apply
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => setSuggestion(null)} disabled={aiBusy}>
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 

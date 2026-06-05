@@ -6,6 +6,8 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { getRbacContext } from '@/lib/rbac/server'
 import { parseCsv } from '@/lib/contacts/csv'
 import { normaliseEmail, normalisePhone } from '@/lib/contacts/zod-schemas'
+import { isXmailConfigured, xmailBulkImportLeads, type XmailLead } from '@/lib/xmail/client'
+import { isXpotConfigured, xpotSendLeads, type XpotLead } from '@/lib/xpot/client'
 import type {
   CrmEngagementStatus,
   CrmIntentLevel,
@@ -1103,6 +1105,354 @@ export async function addProspectTask(
     created_by: user?.id ?? null,
   })
   if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/prospects')
+  return { ok: true }
+}
+
+// ─── Outreach (Xmail) ────────────────────────────────────────────────────────
+
+export async function startOutreach(refs: ProspectRef[]): Promise<BulkResult> {
+  const guard = await requireProspectsAdmin()
+  if (!guard.ok) return guard
+  if (!isXmailConfigured()) return { ok: false, error: 'Email outreach (Xmail) is not configured.' }
+  if (refs.length === 0) return { ok: true, affected: 0 }
+
+  const supabase = await createClient()
+  const { contactIds, accountIds } = splitRefs(refs)
+
+  const leads: XmailLead[] = []
+  const touchedContacts: string[] = []
+  const touchedAccounts: string[] = []
+
+  if (contactIds.length) {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, name, email, phone, company')
+      .in('id', contactIds)
+      .eq('lifecycle_stage', 'prospect')
+    for (const c of (data ?? []) as Array<Record<string, unknown>>) {
+      const email = c.email as string | null
+      if (!email) continue
+      leads.push({
+        email,
+        firstName: (c.name as string | null) ?? null,
+        companyName: (c.company as string | null) ?? null,
+        phone: (c.phone as string | null) ?? null,
+        customFields: { xphere_id: c.id, xphere_kind: 'contact' },
+      })
+      touchedContacts.push(c.id as string)
+    }
+  }
+
+  if (accountIds.length) {
+    const { data } = await supabase
+      .from('accounts')
+      .select('id, name, phone, domain, custom_fields')
+      .in('id', accountIds)
+      .eq('lifecycle_stage', 'prospect')
+    for (const a of (data ?? []) as Array<Record<string, unknown>>) {
+      const cf = (a.custom_fields as Record<string, unknown> | null) ?? {}
+      const email = (cf.email as string | null) ?? null
+      if (!email) continue
+      leads.push({
+        email,
+        companyName: (a.name as string | null) ?? null,
+        phone: (a.phone as string | null) ?? null,
+        website: (a.domain as string | null) ?? null,
+        customFields: { xphere_id: a.id, xphere_kind: 'account' },
+      })
+      touchedAccounts.push(a.id as string)
+    }
+  }
+
+  if (leads.length === 0) {
+    return { ok: false, error: 'None of the selected prospects have an email address.' }
+  }
+
+  const result = await xmailBulkImportLeads(leads)
+  if (!result.ok) return { ok: false, error: result.error }
+
+  await markContacted(supabase, touchedContacts, touchedAccounts, 'email', 'xmail')
+
+  revalidatePath('/prospects')
+  return { ok: true, affected: leads.length }
+}
+
+// ─── Field visits (Xpot) ─────────────────────────────────────────────────────
+
+export async function sendToXpot(refs: ProspectRef[]): Promise<BulkResult> {
+  const guard = await requireProspectsAdmin()
+  if (!guard.ok) return guard
+  if (!isXpotConfigured()) return { ok: false, error: 'Field visits (Xpot) are not configured.' }
+  if (refs.length === 0) return { ok: true, affected: 0 }
+
+  const supabase = await createClient()
+  const { contactIds, accountIds } = splitRefs(refs)
+
+  const xpotLeads: XpotLead[] = []
+  const touchedContacts: string[] = []
+  const touchedAccounts: string[] = []
+
+  if (contactIds.length) {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, name, email, phone, company')
+      .in('id', contactIds)
+      .eq('lifecycle_stage', 'prospect')
+    for (const c of (data ?? []) as Array<Record<string, unknown>>) {
+      xpotLeads.push({
+        xphereId: c.id as string,
+        xphereKind: 'contact',
+        name: (c.name as string | null) ?? (c.company as string | null) ?? 'Prospect',
+        email: (c.email as string | null) ?? null,
+        phone: (c.phone as string | null) ?? null,
+        address: null,
+      })
+      touchedContacts.push(c.id as string)
+    }
+  }
+
+  if (accountIds.length) {
+    const { data } = await supabase
+      .from('accounts')
+      .select('id, name, phone, address, custom_fields')
+      .in('id', accountIds)
+      .eq('lifecycle_stage', 'prospect')
+    for (const a of (data ?? []) as Array<Record<string, unknown>>) {
+      const cf = (a.custom_fields as Record<string, unknown> | null) ?? {}
+      xpotLeads.push({
+        xphereId: a.id as string,
+        xphereKind: 'account',
+        name: (a.name as string | null) ?? 'Company',
+        email: (cf.email as string | null) ?? null,
+        phone: (a.phone as string | null) ?? null,
+        address: (a.address as string | null) ?? (cf.address as string | null) ?? null,
+      })
+      touchedAccounts.push(a.id as string)
+    }
+  }
+
+  if (xpotLeads.length === 0) return { ok: false, error: 'No prospects to send.' }
+
+  const result = await xpotSendLeads(xpotLeads)
+  if (!result.ok) return { ok: false, error: result.error }
+
+  await markContacted(supabase, touchedContacts, touchedAccounts, 'visit', 'xpot', 'visit')
+
+  revalidatePath('/prospects')
+  return { ok: true, affected: xpotLeads.length }
+}
+
+/**
+ * Shared helper: mark records as contacted, stamp last_contacted_at, and log an
+ * engagement event. Used by outreach (Xmail) and field-visit dispatch (Xpot).
+ */
+async function markContacted(
+  supabase: ServerClient,
+  contactIds: string[],
+  accountIds: string[],
+  channel: string,
+  sourcePlatform: string,
+  eventType: 'contacted' | 'visit' = 'contacted',
+) {
+  const now = new Date().toISOString()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return
+
+  if (contactIds.length) {
+    await supabase
+      .from('contacts')
+      .update({ engagement_status: 'contacted', last_contacted_at: now, updated_at: now })
+      .in('id', contactIds)
+      .eq('lifecycle_stage', 'prospect')
+      .eq('engagement_status', 'not_contacted')
+  }
+  if (accountIds.length) {
+    await supabase
+      .from('accounts')
+      .update({ engagement_status: 'contacted', last_contacted_at: now, updated_at: now })
+      .in('id', accountIds)
+      .eq('lifecycle_stage', 'prospect')
+      .eq('engagement_status', 'not_contacted')
+  }
+
+  const events = [
+    ...contactIds.map((id) => ({
+      org_id: orgId as string,
+      entity_type: 'contact' as const,
+      entity_id: id,
+      event_type: eventType,
+      channel,
+      source_platform: sourcePlatform,
+      payload: {} as Json,
+    })),
+    ...accountIds.map((id) => ({
+      org_id: orgId as string,
+      entity_type: 'account' as const,
+      entity_id: id,
+      event_type: eventType,
+      channel,
+      source_platform: sourcePlatform,
+      payload: {} as Json,
+    })),
+  ]
+  if (events.length) await supabase.from('prospect_engagement_events').insert(events)
+}
+
+// ─── AI qualification suggestions ────────────────────────────────────────────
+
+export type QualificationSuggestion = {
+  intentLevel: CrmIntentLevel
+  qualificationStatus: CrmQualificationStatus
+  recommendedChannel: CrmRecommendedChannel | null
+  rationale: string
+}
+
+/**
+ * Suggest a qualification for a prospect from its current signals (engagement,
+ * score, reachable channels, recent reply). Deterministic and explainable; this
+ * is the seam where an LLM-backed scorer can later slot in. The suggestion is
+ * advisory — nothing is applied until the user confirms via applyQualification.
+ */
+export async function suggestQualification(
+  kind: ProspectKind,
+  id: string,
+): Promise<
+  { ok: true; suggestion: QualificationSuggestion } | { ok: false; error: string; forbidden?: boolean }
+> {
+  const guard = await requireProspectsAdmin()
+  if (!guard.ok) return guard
+
+  const supabase = await createClient()
+  const base =
+    kind === 'company'
+      ? await supabase
+          .from('accounts')
+          .select('engagement_status, score, phone, address, custom_fields, last_replied_at')
+          .eq('id', id)
+          .eq('lifecycle_stage', 'prospect')
+          .maybeSingle()
+      : await supabase
+          .from('contacts')
+          .select('engagement_status, score, phone, email, last_replied_at')
+          .eq('id', id)
+          .eq('lifecycle_stage', 'prospect')
+          .maybeSingle()
+
+  if (base.error) return { ok: false, error: base.error.message }
+  if (!base.data) return { ok: false, error: 'Prospect not found.' }
+  const row = base.data as Record<string, unknown>
+
+  const engagement = (row.engagement_status as CrmEngagementStatus) ?? 'not_contacted'
+  const score = (row.score as number | null) ?? 0
+  const hasReplied = Boolean(row.last_replied_at)
+  const email =
+    kind === 'company'
+      ? ((row.custom_fields as Record<string, unknown> | null)?.email as string | null) ?? null
+      : (row.email as string | null) ?? null
+  const phone = (row.phone as string | null) ?? null
+  const address =
+    kind === 'company'
+      ? (row.address as string | null) ??
+        ((row.custom_fields as Record<string, unknown> | null)?.address as string | null) ??
+        null
+      : null
+
+  const reasons: string[] = []
+
+  // Intent from engagement signals.
+  let intentLevel: CrmIntentLevel = 'none'
+  if (hasReplied || ['replied', 'interested', 'engaged'].includes(engagement)) {
+    intentLevel = 'high'
+    reasons.push('replied or showed direct interest')
+  } else if (['opened', 'clicked', 'needs_follow_up'].includes(engagement)) {
+    intentLevel = 'medium'
+    reasons.push('opened or clicked outreach')
+  } else if (engagement === 'contacted') {
+    intentLevel = 'low'
+    reasons.push('contacted, awaiting response')
+  } else {
+    reasons.push('no engagement yet')
+  }
+  if (score >= 60 && intentLevel === 'none') {
+    intentLevel = 'low'
+    reasons.push(`lead score ${score}`)
+  }
+
+  // Qualification.
+  let qualificationStatus: CrmQualificationStatus = 'needs_review'
+  if (['not_interested', 'unsubscribed'].includes(engagement)) {
+    qualificationStatus = 'unqualified'
+    reasons.push('opted out / not interested')
+  } else if (intentLevel === 'high' && (email || phone)) {
+    qualificationStatus = 'qualified'
+    reasons.push('high intent with a reachable channel')
+  }
+
+  // Recommended channel — prefer the cheapest reachable channel.
+  let recommendedChannel: CrmRecommendedChannel | null = null
+  if (email) recommendedChannel = 'email'
+  else if (phone) recommendedChannel = 'call'
+  else if (address) recommendedChannel = 'visit'
+  if (recommendedChannel) reasons.push(`reachable via ${recommendedChannel}`)
+
+  return {
+    ok: true,
+    suggestion: {
+      intentLevel,
+      qualificationStatus,
+      recommendedChannel,
+      rationale: reasons.join('; '),
+    },
+  }
+}
+
+export async function applyQualification(
+  kind: ProspectKind,
+  id: string,
+  suggestion: {
+    intentLevel: CrmIntentLevel
+    qualificationStatus: CrmQualificationStatus
+    recommendedChannel: CrmRecommendedChannel | null
+  },
+): Promise<ProspectActionResult> {
+  const guard = await requireProspectsAdmin()
+  if (!guard.ok) return guard
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active workspace found.' }
+
+  const table = kind === 'company' ? 'accounts' : 'contacts'
+  const entityType: ProspectEntityType = kind === 'company' ? 'account' : 'contact'
+
+  const { error } = await supabase
+    .from(table)
+    .update({
+      intent_level: suggestion.intentLevel,
+      qualification_status: suggestion.qualificationStatus,
+      recommended_channel: suggestion.recommendedChannel,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('lifecycle_stage', 'prospect')
+
+  if (error) return { ok: false, error: error.message }
+
+  await supabase.from('prospect_engagement_events').insert({
+    org_id: orgId as string,
+    entity_type: entityType,
+    entity_id: id,
+    event_type: 'status_changed',
+    source_platform: 'xphere',
+    payload: {
+      intent_level: suggestion.intentLevel,
+      qualification_status: suggestion.qualificationStatus,
+      recommended_channel: suggestion.recommendedChannel,
+      via: 'ai_suggestion',
+    } as Json,
+  })
 
   revalidatePath('/prospects')
   return { ok: true }

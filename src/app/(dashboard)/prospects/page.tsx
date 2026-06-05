@@ -4,6 +4,8 @@ import { getProspects, type ProspectFilters, type ProspectKind, type ProspectSor
 import { ProspectsTable } from '@/components/prospects/prospects-table'
 import { EntityPageTemplate } from '@/components/crm/entity-template'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
+import { isXmailConfigured } from '@/lib/xmail/client'
+import { isXpotConfigured } from '@/lib/xpot/client'
 import type {
   CrmEngagementStatus,
   CrmIntentLevel,
@@ -76,6 +78,8 @@ export default async function ProspectsPage({
           pageSize={result.pageSize}
           lists={result.lists}
           filters={filters}
+          outreachEnabled={isXmailConfigured()}
+          xpotEnabled={isXpotConfigured()}
         />
       </PageContainer>
     </EntityPageTemplate>

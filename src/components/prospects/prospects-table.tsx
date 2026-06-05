@@ -13,6 +13,8 @@ import {
   bulkSetQualification,
   createProspect,
   importProspectsCsv,
+  sendToXpot,
+  startOutreach,
   type ProspectFilters,
   type ProspectKind,
   type ProspectRef,
@@ -53,6 +55,8 @@ interface ProspectsTableProps {
   pageSize: number
   lists: { id: string; name: string }[]
   filters: ProspectFilters
+  outreachEnabled: boolean
+  xpotEnabled: boolean
 }
 
 const ENGAGEMENT_OPTIONS: CrmEngagementStatus[] = [
@@ -83,7 +87,16 @@ function rowKey(row: { kind: ProspectKind; id: string }): string {
   return `${row.kind}:${row.id}`
 }
 
-export function ProspectsTable({ rows, total, page, pageSize, lists, filters }: ProspectsTableProps) {
+export function ProspectsTable({
+  rows,
+  total,
+  page,
+  pageSize,
+  lists,
+  filters,
+  outreachEnabled,
+  xpotEnabled,
+}: ProspectsTableProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -255,10 +268,24 @@ export function ProspectsTable({ rows, total, page, pageSize, lists, filters }: 
           <BulkSelect placeholder="Set intent" disabled={busy}
             options={INTENT_OPTIONS.map((s) => ({ value: s, label: s }))}
             onPick={(v) => runBulk('Intent', () => bulkSetIntent(selectedRefs, v as CrmIntentLevel))} />
-          <Button size="sm" variant="ghost" className="h-7" disabled title="Coming with Xmail outreach">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7"
+            disabled={busy || !outreachEnabled}
+            title={outreachEnabled ? 'Start email outreach via Xmail' : 'Configure Xmail to enable outreach'}
+            onClick={() => runBulk('Outreach started', () => startOutreach(selectedRefs))}
+          >
             Start outreach
           </Button>
-          <Button size="sm" variant="ghost" className="h-7" disabled title="Coming with Xpot field visits">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7"
+            disabled={busy || !xpotEnabled}
+            title={xpotEnabled ? 'Send to Xpot for a field visit' : 'Configure Xpot to enable field visits'}
+            onClick={() => runBulk('Sent to Xpot', () => sendToXpot(selectedRefs))}
+          >
             Send to Xpot
           </Button>
           <Button size="sm" variant="ghost" className="h-7 text-red-500 hover:text-red-600" disabled={busy}
