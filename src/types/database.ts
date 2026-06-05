@@ -150,6 +150,27 @@ export type CrmEngagementStatus =
   | 'unsubscribed'
 export type CrmIntentLevel = 'none' | 'low' | 'medium' | 'high'
 export type CrmQualificationStatus = 'unqualified' | 'needs_review' | 'qualified'
+// Prospects full system (migration 1158) — recommended outreach channel for a record
+export type CrmRecommendedChannel = 'email' | 'sms' | 'whatsapp' | 'call' | 'visit' | 'linkedin'
+// Engagement timeline event types (migration 1158 — prospect_engagement_events)
+export type ProspectEventType =
+  | 'imported'
+  | 'contacted'
+  | 'sent'
+  | 'delivered'
+  | 'opened'
+  | 'clicked'
+  | 'replied'
+  | 'bounced'
+  | 'unsubscribed'
+  | 'visit'
+  | 'note'
+  | 'status_changed'
+  | 'converted'
+// Import source / run status (migration 1158 — prospect_sources)
+export type ProspectSourceStatus = 'pending' | 'running' | 'completed' | 'failed'
+// Polymorphic prospect record kind (migration 1158 — conversions + engagement events)
+export type ProspectEntityType = 'contact' | 'account'
 
 // v3.0 Phase 108 — channel identity providers (CID-09 D-01 wide enum)
 export type ChannelProvider =
@@ -2270,6 +2291,12 @@ export interface Database {
           avatar_url: string | null
           /** Migration 1117: RBAC seal — user this contact is assigned to (NULL = unassigned) */
           assigned_to: string | null
+          /** Migration 1158: prospects full system — lead score + engagement summary */
+          score: number
+          recommended_channel: CrmRecommendedChannel | null
+          last_contacted_at: string | null
+          last_replied_at: string | null
+          last_visit_at: string | null
         }
         Insert: {
           id?: string
@@ -2307,6 +2334,11 @@ export interface Database {
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
           assigned_to?: string | null
+          score?: number
+          recommended_channel?: CrmRecommendedChannel | null
+          last_contacted_at?: string | null
+          last_replied_at?: string | null
+          last_visit_at?: string | null
         }
         Update: {
           first_name?: string | null
@@ -2340,6 +2372,11 @@ export interface Database {
           whatsapp_opted_at?: string | null
           avatar_url?: string | null
           assigned_to?: string | null
+          score?: number
+          recommended_channel?: CrmRecommendedChannel | null
+          last_contacted_at?: string | null
+          last_replied_at?: string | null
+          last_visit_at?: string | null
         }
         Relationships: [
           {
@@ -2571,6 +2608,12 @@ export interface Database {
           source_id: string | null
           source_payload: Json
           assigned_to: string | null
+          /** Migration 1158: prospects full system — lead score + engagement summary */
+          score: number
+          recommended_channel: CrmRecommendedChannel | null
+          last_contacted_at: string | null
+          last_replied_at: string | null
+          last_visit_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -2599,6 +2642,11 @@ export interface Database {
           source_id?: string | null
           source_payload?: Json
           assigned_to?: string | null
+          score?: number
+          recommended_channel?: CrmRecommendedChannel | null
+          last_contacted_at?: string | null
+          last_replied_at?: string | null
+          last_visit_at?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -2625,11 +2673,268 @@ export interface Database {
           source_id?: string | null
           source_payload?: Json
           assigned_to?: string | null
+          score?: number
+          recommended_channel?: CrmRecommendedChannel | null
+          last_contacted_at?: string | null
+          last_replied_at?: string | null
+          last_visit_at?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: 'accounts_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      // ----- Prospects full system (migration 1158) ---------------------------
+      prospect_lists: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          color: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          color?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_lists_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      prospect_list_members: {
+        Row: {
+          id: string
+          org_id: string
+          list_id: string
+          contact_id: string | null
+          account_id: string | null
+          added_by: string | null
+          added_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          list_id: string
+          contact_id?: string | null
+          account_id?: string | null
+          added_by?: string | null
+          added_at?: string
+        }
+        Update: {
+          list_id?: string
+          contact_id?: string | null
+          account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_list_members_list_id_fkey'
+            columns: ['list_id']
+            isOneToOne: false
+            referencedRelation: 'prospect_lists'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'prospect_list_members_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'prospect_list_members_account_id_fkey'
+            columns: ['account_id']
+            isOneToOne: false
+            referencedRelation: 'accounts'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      prospect_sources: {
+        Row: {
+          id: string
+          org_id: string
+          source_type: string
+          source_key: string | null
+          label: string | null
+          external_run_id: string | null
+          status: ProspectSourceStatus
+          total_count: number
+          imported_count: number
+          metadata: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          source_type: string
+          source_key?: string | null
+          label?: string | null
+          external_run_id?: string | null
+          status?: ProspectSourceStatus
+          total_count?: number
+          imported_count?: number
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          source_type?: string
+          source_key?: string | null
+          label?: string | null
+          external_run_id?: string | null
+          status?: ProspectSourceStatus
+          total_count?: number
+          imported_count?: number
+          metadata?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_sources_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      prospect_audiences: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          definition: Json
+          synced_platforms: string[]
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          definition?: Json
+          synced_platforms?: string[]
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          definition?: Json
+          synced_platforms?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_audiences_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      prospect_conversions: {
+        Row: {
+          id: string
+          org_id: string
+          entity_type: ProspectEntityType
+          entity_id: string
+          from_stage: string
+          to_stage: string
+          converted_by: string | null
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entity_type: ProspectEntityType
+          entity_id: string
+          from_stage: string
+          to_stage: string
+          converted_by?: string | null
+          payload?: Json
+          created_at?: string
+        }
+        Update: {
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_conversions_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      prospect_engagement_events: {
+        Row: {
+          id: string
+          org_id: string
+          entity_type: ProspectEntityType
+          entity_id: string
+          event_type: ProspectEventType
+          channel: string | null
+          source_platform: string | null
+          occurred_at: string
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entity_type: ProspectEntityType
+          entity_id: string
+          event_type: ProspectEventType
+          channel?: string | null
+          source_platform?: string | null
+          occurred_at?: string
+          payload?: Json
+          created_at?: string
+        }
+        Update: {
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prospect_engagement_events_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
