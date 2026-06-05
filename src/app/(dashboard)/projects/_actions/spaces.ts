@@ -1,16 +1,14 @@
 'use server'
 
-// R08: Project folders.
+// Project spaces (formerly "folders").
 //
-// CRUD for the `project_folders` table plus cascade helpers (archive/delete).
+// CRUD for the `project_spaces` table plus cascade helpers (archive/delete).
 // All actions are org-scoped via RLS | the active org resolves through
 // `get_current_org_id()`, so we never need to filter by org_id manually.
-//
-// Ported from src/app/(dashboard)/workflows/_actions/folders.ts
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
-import type { ProjectFolderRow } from '@/types/database'
+import type { ProjectSpaceRow } from '@/types/database'
 
 // Type-cast helper: Supabase doesn't have project tables in the generated Database type,
 // so we cast via `any` and let the caller's return type guarantee correctness.
@@ -26,29 +24,29 @@ type ActionResult<T = void> =
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
-export async function listFolders(): Promise<ActionResult<ProjectFolderRow[]>> {
+export async function listSpaces(): Promise<ActionResult<ProjectSpaceRow[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
   const { data, error } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .select('*')
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data: (data ?? []) as ProjectFolderRow[] }
+  return { ok: true, data: (data ?? []) as ProjectSpaceRow[] }
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
-export async function createFolder(input: {
+export async function createSpace(input: {
   name: string
   color?: string | null
   icon?: string | null
   parent_id?: string | null
-}): Promise<ActionResult<ProjectFolderRow>> {
+}): Promise<ActionResult<ProjectSpaceRow>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
@@ -61,7 +59,7 @@ export async function createFolder(input: {
 
   // Pick next position within siblings.
   const { data: siblings } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .select('position')
     .eq('parent_id', input.parent_id ?? (null as unknown as string))
     .order('position', { ascending: false })
@@ -70,7 +68,7 @@ export async function createFolder(input: {
   const nextPosition = (siblings?.[0]?.position ?? -1) + 1
 
   const { data, error } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .insert({
       org_id: orgId as string,
       name,
@@ -85,18 +83,18 @@ export async function createFolder(input: {
 
   if (error || !data) {
     if (error?.code === '23505') {
-      return { ok: false, error: 'A folder with this name already exists here.' }
+      return { ok: false, error: 'A space with this name already exists here.' }
     }
     return { ok: false, error: error?.message ?? 'create_failed' }
   }
 
   revalidatePath('/projects')
-  return { ok: true, data: data as ProjectFolderRow }
+  return { ok: true, data: data as ProjectSpaceRow }
 }
 
 // ─── Rename ───────────────────────────────────────────────────────────────────
 
-export async function renameFolder(
+export async function renameSpace(
   id: string,
   input: { name: string },
 ): Promise<ActionResult<void>> {
@@ -108,13 +106,13 @@ export async function renameFolder(
 
   const supabase = await createClient()
   const { error } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .update({ name })
     .eq('id', id)
 
   if (error) {
     if (error.code === '23505') {
-      return { ok: false, error: 'A folder with this name already exists here.' }
+      return { ok: false, error: 'A space with this name already exists here.' }
     }
     return { ok: false, error: error.message }
   }
@@ -125,7 +123,7 @@ export async function renameFolder(
 
 // ─── Update meta (color / icon) ───────────────────────────────────────────────
 
-export async function updateFolderMeta(
+export async function updateSpaceMeta(
   id: string,
   input: { color?: string | null; icon?: string | null },
 ): Promise<ActionResult<void>> {
@@ -139,7 +137,7 @@ export async function updateFolderMeta(
   if (Object.keys(patch).length === 0) return { ok: true, data: undefined }
 
   const { error } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .update(patch)
     .eq('id', id)
 
@@ -148,9 +146,9 @@ export async function updateFolderMeta(
   return { ok: true, data: undefined }
 }
 
-// ─── Reorder folders (siblings) ───────────────────────────────────────────────
+// ─── Reorder spaces (siblings) ────────────────────────────────────────────────
 
-export async function reorderFolders(
+export async function reorderSpaces(
   orderedIds: string[],
 ): Promise<ActionResult<void>> {
   const user = await getUser()
@@ -159,19 +157,19 @@ export async function reorderFolders(
 
   const supabase = await createClient()
   const updates = orderedIds.map((id, index) =>
-    db(supabase).from('project_folders').update({ position: index }).eq('id', id),
+    db(supabase).from('project_spaces').update({ position: index }).eq('id', id),
   )
   const results = await Promise.all(updates)
   const failed = results.find((r: { error: unknown }) => r.error)
-  if (failed) return { ok: false, error: 'Failed to save folder order.' }
+  if (failed) return { ok: false, error: 'Failed to save space order.' }
 
   revalidatePath('/projects')
   return { ok: true, data: undefined }
 }
 
-// ─── Move folder (re-parent) ──────────────────────────────────────────────────
+// ─── Move space (re-parent) ───────────────────────────────────────────────────
 
-export async function moveFolder(
+export async function moveSpace(
   id: string,
   parent_id: string | null,
 ): Promise<ActionResult<void>> {
@@ -181,7 +179,7 @@ export async function moveFolder(
 
   const supabase = await createClient()
   const { error } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .update({ parent_id })
     .eq('id', id)
 
@@ -192,16 +190,16 @@ export async function moveFolder(
 
 // ─── Cascade helpers ──────────────────────────────────────────────────────────
 
-async function collectDescendantFolderIds(
+async function collectDescendantSpaceIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   rootId: string,
 ): Promise<string[]> {
   const ids: string[] = [rootId]
   let frontier: string[] = [rootId]
-  // Bounded loop | practical folder trees are shallow; cap at 16 levels.
+  // Bounded loop | practical space trees are shallow; cap at 16 levels.
   for (let depth = 0; depth < 16 && frontier.length > 0; depth++) {
     const { data: children } = await db(supabase)
-      .from('project_folders')
+      .from('project_spaces')
       .select('id')
       .in('parent_id', frontier)
     const childIds = (children ?? []).map((c: { id: string }) => c.id)
@@ -212,21 +210,21 @@ async function collectDescendantFolderIds(
   return ids
 }
 
-// ─── Archive folder (cascade) ─────────────────────────────────────────────────
+// ─── Archive space (cascade) ──────────────────────────────────────────────────
 
-export async function archiveFolder(id: string): Promise<ActionResult<void>> {
+export async function archiveSpace(id: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
   const now = new Date().toISOString()
-  const folderIds = await collectDescendantFolderIds(supabase, id)
+  const spaceIds = await collectDescendantSpaceIds(supabase, id)
 
   // Archive all projects nested anywhere inside.
   const { error: pErr } = await db(supabase)
     .from('projects')
     .update({ archived_at: now })
-    .in('folder_id', folderIds)
+    .in('space_id', spaceIds)
     .is('deleted_at', null)
     .is('archived_at', null)
 
@@ -236,13 +234,13 @@ export async function archiveFolder(id: string): Promise<ActionResult<void>> {
   return { ok: true, data: undefined }
 }
 
-// ─── Delete folder ────────────────────────────────────────────────────────────
+// ─── Delete space ─────────────────────────────────────────────────────────────
 //
 // Soft-deletes projects inside (sets `deleted_at`) and hard-deletes the
-// folder rows themselves | folders have no lifecycle of their own; the
-// content lives in the trash, the empty folder is gone.
+// space rows themselves | spaces have no lifecycle of their own; the
+// content lives in the trash, the empty space is gone.
 
-export async function deleteFolder(
+export async function deleteSpace(
   id: string,
   opts: { cascadeChildren?: boolean } = {},
 ): Promise<ActionResult<void>> {
@@ -252,34 +250,34 @@ export async function deleteFolder(
   const supabase = await createClient()
 
   const { data: childRows } = await db(supabase)
-    .from('project_folders')
+    .from('project_spaces')
     .select('id')
     .eq('parent_id', id)
     .limit(1)
 
   if ((childRows ?? []).length > 0 && !opts.cascadeChildren) {
-    return { ok: false, error: 'folder_has_children' }
+    return { ok: false, error: 'space_has_children' }
   }
 
-  const folderIds = await collectDescendantFolderIds(supabase, id)
+  const spaceIds = await collectDescendantSpaceIds(supabase, id)
   const now = new Date().toISOString()
 
   // Soft-delete all projects inside (recursive).
   const { error: pErr } = await db(supabase)
     .from('projects')
     .update({ deleted_at: now })
-    .in('folder_id', folderIds)
+    .in('space_id', spaceIds)
     .is('deleted_at', null)
 
   if (pErr) return { ok: false, error: pErr.message }
 
-  // Hard-delete the folder; ON DELETE CASCADE handles nested folders.
-  const { error: fErr } = await db(supabase)
-    .from('project_folders')
+  // Hard-delete the space; ON DELETE CASCADE handles nested spaces.
+  const { error: sErr } = await db(supabase)
+    .from('project_spaces')
     .delete()
     .eq('id', id)
 
-  if (fErr) return { ok: false, error: fErr.message }
+  if (sErr) return { ok: false, error: sErr.message }
 
   revalidatePath('/projects')
   return { ok: true, data: undefined }

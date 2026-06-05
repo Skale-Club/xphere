@@ -92,7 +92,7 @@ function isImageIcon(icon: string | null | undefined): icon is string {
 export interface TreeNavItem {
   id: string
   name: string
-  folder_id?: string | null
+  group_id?: string | null
 }
 
 export interface TreeNavFolder {
@@ -190,7 +190,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
     map.set(null, [])
     for (const f of localFolders) map.set(f.id, [])
     for (const it of localItems) {
-      const key = it.folder_id ?? null
+      const key = it.group_id ?? null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(it)
     }
@@ -262,7 +262,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
         targetFolderId = oData.folderId ?? null
       } else return
 
-      const sourceFolderId = item.folder_id ?? null
+      const sourceFolderId = item.group_id ?? null
       const targetList = (groups.get(targetFolderId) ?? []).filter((it) => it.id !== item.id)
       let insertIdx = targetList.length
       if (oData?.type === 'item' && over.id !== active.id) {
@@ -287,7 +287,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
         )
         const idMap = new Map(updated.map((it) => [it.id, it]))
         const inTarget = newIds.map((id) => idMap.get(id)).filter(Boolean) as T[]
-        const others = updated.filter((it) => (it.folder_id ?? null) !== targetFolderId)
+        const others = updated.filter((it) => (it.group_id ?? null) !== targetFolderId)
         return [...others, ...inTarget]
       })
 

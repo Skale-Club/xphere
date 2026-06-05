@@ -212,7 +212,7 @@ export interface ProjectRow {
   account_id: string | null
   source_opportunity_id: string | null
   primary_contact_id: string | null
-  folder_id: string | null
+  space_id: string | null
   position: number
   archived_at: string | null
   deleted_at: string | null
@@ -221,7 +221,7 @@ export interface ProjectRow {
   updated_at: string
 }
 
-export interface ProjectFolderRow {
+export interface ProjectSpaceRow {
   id: string
   org_id: string
   name: string

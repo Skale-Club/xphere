@@ -243,4 +243,143 @@ export const projectsTools: McpToolDef[] = [
       return { updated: true }
     },
   },
+  {
+    name: 'projects_create',
+    title: 'Create project',
+    description: 'Create a new project in the current org. Returns the full created project row.',
+    area: 'projects',
+    inputSchema: z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      color: z.string().optional(),
+      space_id: z.string().uuid().optional(),
+      position: z.number().int().optional(),
+    }).strict(),
+    handler: async ({ name, description, color, space_id, position }, { auth }) => {
+      const supabase = db()
+      if (space_id) {
+        const { data: space } = await supabase
+          .from('project_spaces')
+          .select('id')
+          .eq('id', space_id)
+          .eq('org_id', auth.orgId)
+          .maybeSingle()
+        if (!space) return { error: 'not_found', detail: 'space_id not found in this org', status: 404 }
+      }
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          org_id: auth.orgId,
+          created_by: auth.userId ?? null,
+          name,
+          description: description ?? null,
+          color: color ?? null,
+          space_id: space_id ?? null,
+          position: position ?? 0,
+        })
+        .select()
+        .single()
+      if (error) return { error: 'insert_failed', detail: error.message }
+      return data
+    },
+  },
+  {
+    name: 'project_spaces_create',
+    title: 'Create project space',
+    description: 'Create a new project space (client/company container), optionally nested inside a parent space. Returns the full created space row.',
+    area: 'projects',
+    inputSchema: z.object({
+      name: z.string().min(1),
+      color: z.string().optional(),
+      icon: z.string().optional(),
+      parent_id: z.string().uuid().optional(),
+      position: z.number().int().optional(),
+    }).strict(),
+    handler: async ({ name, color, icon, parent_id, position }, { auth }) => {
+      const supabase = db()
+      if (parent_id) {
+        const { data: parent } = await supabase
+          .from('project_spaces')
+          .select('id')
+          .eq('id', parent_id)
+          .eq('org_id', auth.orgId)
+          .maybeSingle()
+        if (!parent) return { error: 'not_found', detail: 'parent_id not found in this org', status: 404 }
+      }
+      const { data, error } = await supabase
+        .from('project_spaces')
+        .insert({
+          org_id: auth.orgId,
+          created_by: auth.userId ?? null,
+          name,
+          color: color ?? null,
+          icon: icon ?? null,
+          parent_id: parent_id ?? null,
+          position: position ?? 0,
+        })
+        .select()
+        .single()
+      if (error) return { error: 'insert_failed', detail: error.message }
+      return data
+    },
+  },
+  {
+    name: 'project_tasks_create',
+    title: 'Create project task',
+    description: 'Create a task (or subtask via parent_task_id) inside a project. Returns the full created task row.',
+    area: 'projects',
+    inputSchema: z.object({
+      project_id: z.string().uuid(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      parent_task_id: z.string().uuid().optional(),
+      step: z.enum(['backlog', 'todo', 'doing', 'done']).optional(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+      responsible_id: z.string().uuid().optional(),
+      assignee_id: z.string().uuid().optional(),
+      start_date: z.string().optional(),
+      end_date: z.string().optional(),
+      deliverable: z.string().optional(),
+      expected_deliverable: z.string().optional(),
+      validation_criteria: z.string().optional(),
+      ai_context: z.string().optional(),
+      needs_validation: z.boolean().optional(),
+    }).strict(),
+    handler: async (input, { auth }) => {
+      const supabase = db()
+      // Verify project belongs to this org — prevents cross-org writes via crafted project_id.
+      const { data: project } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', input.project_id)
+        .eq('org_id', auth.orgId)
+        .maybeSingle()
+      if (!project) return { error: 'not_found', detail: 'project_id not found in this org', status: 404 }
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .insert({
+          org_id: auth.orgId,
+          project_id: input.project_id,
+          created_by: auth.userId ?? null,
+          name: input.name,
+          description: input.description ?? null,
+          parent_task_id: input.parent_task_id ?? null,
+          step: input.step ?? 'backlog',
+          priority: input.priority ?? 'medium',
+          responsible_id: input.responsible_id ?? null,
+          assignee_id: input.assignee_id ?? null,
+          start_date: input.start_date ?? null,
+          end_date: input.end_date ?? null,
+          deliverable: input.deliverable ?? null,
+          expected_deliverable: input.expected_deliverable ?? null,
+          validation_criteria: input.validation_criteria ?? null,
+          ai_context: input.ai_context ?? null,
+          needs_validation: input.needs_validation ?? false,
+        })
+        .select()
+        .single()
+      if (error) return { error: 'insert_failed', detail: error.message }
+      return data
+    },
+  },
 ]

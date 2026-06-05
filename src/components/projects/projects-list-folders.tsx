@@ -1,6 +1,6 @@
 "use client";
 
-// R08: folder-aware list for the Projects module.
+// R08: space-aware list for the Projects module.
 // Ported from src/components/workflows/workflows-list.tsx with:
 //   - Trigger column / WorkflowToggle / TRIGGER_META removed (projects have no triggers).
 //   - Row layout reduced to NAME / STATUS / UPDATED columns.
@@ -8,9 +8,9 @@
 //
 // Drag-and-drop:
 //   - Drag a project row to reorder it within a group.
-//   - Drag a project row onto another group (folder header, empty folder, or
+//   - Drag a project row onto another group (space header, empty space, or
 //     any row inside it) to move it there.
-//   - Drag a folder header to reorder folders amongst themselves.
+//   - Drag a space header to reorder spaces amongst themselves.
 
 import {
   useCallback,
@@ -99,16 +99,16 @@ import {
 
 import {
   archiveProject,
-  moveProjectToFolder,
-  reorderProjectsInFolder,
+  moveProjectToSpace,
+  reorderProjectsInSpace,
   softDeleteProject,
   unarchiveProject,
 } from "@/app/(dashboard)/projects/actions";
 import {
-  deleteFolder,
-  renameFolder,
-  reorderFolders,
-} from "@/app/(dashboard)/projects/_actions/folders";
+  deleteSpace,
+  renameSpace,
+  reorderSpaces,
+} from "@/app/(dashboard)/projects/_actions/spaces";
 
 const UNFILED_ID = "__unfiled__";
 
@@ -117,12 +117,12 @@ interface ProjectSummary {
   name: string;
   description: string | null;
   color: string | null;
-  folder_id: string | null;
+  space_id: string | null;
   archived_at: string | null;
   updated_at: string;
 }
 
-interface ProjectFolder {
+interface ProjectSpace {
   id: string;
   org_id: string;
   name: string;
@@ -137,24 +137,24 @@ interface ProjectFolder {
 
 interface Props {
   projects: ProjectSummary[];
-  folders?: ProjectFolder[];
+  spaces?: ProjectSpace[];
 }
 
 type DragData =
-  | { type: "project"; folderId: string | null }
-  | { type: "folder"; folderId: string | null };
+  | { type: "project"; spaceId: string | null }
+  | { type: "space"; spaceId: string | null };
 
-export function ProjectsListFolders({ projects, folders = [] }: Props) {
+export function ProjectsListFolders({ projects, spaces = [] }: Props) {
   const router = useRouter();
 
   // Optimistic local state — drag-and-drop should feel instant.
   const [localProjects, setLocalProjects] = useState(projects);
-  const [localFolders, setLocalFolders] = useState(folders);
+  const [localSpaces, setLocalSpaces] = useState(spaces);
   useEffect(() => setLocalProjects(projects), [projects]);
-  useEffect(() => setLocalFolders(folders), [folders]);
+  useEffect(() => setLocalSpaces(spaces), [spaces]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeType, setActiveType] = useState<"project" | "folder" | null>(
+  const [activeType, setActiveType] = useState<"project" | "space" | null>(
     null,
   );
   const [overGroupId, setOverGroupId] = useState<string | null>(null);
@@ -181,16 +181,16 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
   }, []);
 
   const groups = useMemo(() => {
-    const byFolder = new Map<string | null, ProjectSummary[]>();
-    byFolder.set(null, []);
-    for (const f of localFolders) byFolder.set(f.id, []);
+    const bySpace = new Map<string | null, ProjectSummary[]>();
+    bySpace.set(null, []);
+    for (const f of localSpaces) bySpace.set(f.id, []);
     for (const p of localProjects) {
-      const key = p.folder_id ?? null;
-      if (!byFolder.has(key)) byFolder.set(key, []);
-      byFolder.get(key)!.push(p);
+      const key = p.space_id ?? null;
+      if (!bySpace.has(key)) bySpace.set(key, []);
+      bySpace.get(key)!.push(p);
     }
-    return byFolder;
-  }, [localProjects, localFolders]);
+    return bySpace;
+  }, [localProjects, localSpaces]);
 
   const unfiled = groups.get(null) ?? [];
 
@@ -198,9 +198,9 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
     activeType === "project" && activeId
       ? (localProjects.find((p) => p.id === activeId) ?? null)
       : null;
-  const activeFolder =
-    activeType === "folder" && activeId
-      ? (localFolders.find((f) => f.id === activeId) ?? null)
+  const activeSpace =
+    activeType === "space" && activeId
+      ? (localSpaces.find((f) => f.id === activeId) ?? null)
       : null;
 
   function handleDragStart(event: DragStartEvent) {
@@ -213,10 +213,10 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
     const { over } = event;
     if (!over) return setOverGroupId(null);
     const overData = over.data.current as
-      | { type?: string; folderId?: string | null }
+      | { type?: string; spaceId?: string | null }
       | undefined;
-    if (overData?.type === "folder" || overData?.type === "project") {
-      const fid = overData.folderId ?? null;
+    if (overData?.type === "space" || overData?.type === "project") {
+      const fid = overData.spaceId ?? null;
       setOverGroupId(fid === null ? UNFILED_ID : String(fid));
     } else {
       setOverGroupId(null);
@@ -227,49 +227,49 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
     const { active, over } = event;
     const activeData = active.data.current as DragData | undefined;
     const overData = over?.data.current as
-      | { type?: string; folderId?: string | null }
+      | { type?: string; spaceId?: string | null }
       | undefined;
     setActiveId(null);
     setActiveType(null);
     setOverGroupId(null);
     if (!over || !activeData) return;
 
-    // ─── Folder reorder ────────────────────────────────────────────────────
-    if (activeData.type === "folder") {
-      if (overData?.type !== "folder") return;
+    // ─── Space reorder ─────────────────────────────────────────────────────
+    if (activeData.type === "space") {
+      if (overData?.type !== "space") return;
       if (over.id === active.id) return;
-      const oldIndex = localFolders.findIndex((f) => f.id === active.id);
-      const newIndex = localFolders.findIndex((f) => f.id === over.id);
+      const oldIndex = localSpaces.findIndex((f) => f.id === active.id);
+      const newIndex = localSpaces.findIndex((f) => f.id === over.id);
       if (oldIndex < 0 || newIndex < 0) return;
-      const newOrder = arrayMove(localFolders, oldIndex, newIndex);
-      setLocalFolders(newOrder);
-      const res = await reorderFolders(newOrder.map((f) => f.id));
+      const newOrder = arrayMove(localSpaces, oldIndex, newIndex);
+      setLocalSpaces(newOrder);
+      const res = await reorderSpaces(newOrder.map((f) => f.id));
       if (!res.ok) {
         toast.error(res.error);
-        setLocalFolders(folders);
+        setLocalSpaces(spaces);
         return;
       }
       router.refresh();
       return;
     }
 
-    // ─── Project drag (reorder or move to a folder) ────────────────────────
+    // ─── Project drag (reorder or move to a space) ─────────────────────────
     if (activeData.type === "project") {
       const project = localProjects.find((p) => p.id === active.id);
       if (!project) return;
 
-      // Resolve target folder from whatever we landed on.
-      let targetFolderId: string | null;
-      if (overData?.type === "project" || overData?.type === "folder") {
-        targetFolderId = overData.folderId ?? null;
+      // Resolve target space from whatever we landed on.
+      let targetSpaceId: string | null;
+      if (overData?.type === "project" || overData?.type === "space") {
+        targetSpaceId = overData.spaceId ?? null;
       } else {
         return;
       }
 
-      const sourceFolderId = project.folder_id ?? null;
+      const sourceSpaceId = project.space_id ?? null;
 
-      // Build the new ordered ID list for the target folder.
-      const targetList = (groups.get(targetFolderId) ?? []).filter(
+      // Build the new ordered ID list for the target space.
+      const targetList = (groups.get(targetSpaceId) ?? []).filter(
         (p) => p.id !== project.id,
       );
       let insertIndex = targetList.length;
@@ -283,9 +283,9 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
         ...targetList.slice(insertIndex).map((p) => p.id),
       ];
 
-      // Skip no-op within same folder.
-      if (sourceFolderId === targetFolderId) {
-        const currentIds = (groups.get(sourceFolderId) ?? []).map((p) => p.id);
+      // Skip no-op within same space.
+      if (sourceSpaceId === targetSpaceId) {
+        const currentIds = (groups.get(sourceSpaceId) ?? []).map((p) => p.id);
         const sameOrder =
           currentIds.length === newTargetIds.length &&
           currentIds.every((id, i) => id === newTargetIds[i]);
@@ -295,29 +295,29 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
       // Optimistic local update.
       setLocalProjects((prev) => {
         const updated = prev.map((p) =>
-          p.id === project.id ? { ...p, folder_id: targetFolderId } : p,
+          p.id === project.id ? { ...p, space_id: targetSpaceId } : p,
         );
         const idToProject = new Map(updated.map((p) => [p.id, p]));
         const inTarget = newTargetIds
           .map((id) => idToProject.get(id))
           .filter(Boolean) as ProjectSummary[];
         const others = updated.filter(
-          (p) => (p.folder_id ?? null) !== targetFolderId,
+          (p) => (p.space_id ?? null) !== targetSpaceId,
         );
         return [...others, ...inTarget];
       });
 
       // Persist: re-parent first (if needed), then write positions.
-      if (sourceFolderId !== targetFolderId) {
-        const moveRes = await moveProjectToFolder(project.id, targetFolderId);
+      if (sourceSpaceId !== targetSpaceId) {
+        const moveRes = await moveProjectToSpace(project.id, targetSpaceId);
         if (!moveRes.ok) {
           toast.error(moveRes.error);
           setLocalProjects(projects);
           return;
         }
       }
-      const reorderRes = await reorderProjectsInFolder(
-        targetFolderId,
+      const reorderRes = await reorderProjectsInSpace(
+        targetSpaceId,
         newTargetIds,
       );
       if (!reorderRes.ok) {
@@ -329,7 +329,7 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
     }
   }
 
-  if (localProjects.length === 0 && localFolders.length === 0) {
+  if (localProjects.length === 0 && localSpaces.length === 0) {
     return (
       <Card>
         <CardContent className="p-12 text-center">
@@ -363,22 +363,22 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
         {unfiled.length > 0 && (
           <UnfiledGroup
             projects={unfiled}
-            folders={localFolders}
+            spaces={localSpaces}
             isOver={overGroupId === UNFILED_ID}
           />
         )}
 
         <SortableContext
-          items={localFolders.map((f) => f.id)}
+          items={localSpaces.map((f) => f.id)}
           strategy={verticalListSortingStrategy}
         >
-          {localFolders.map((folder) => (
-            <FolderGroup
-              key={folder.id}
-              folder={folder}
-              projects={groups.get(folder.id) ?? []}
-              folders={localFolders}
-              isOver={overGroupId === folder.id}
+          {localSpaces.map((space) => (
+            <SpaceGroup
+              key={space.id}
+              space={space}
+              projects={groups.get(space.id) ?? []}
+              spaces={localSpaces}
+              isOver={overGroupId === space.id}
             />
           ))}
         </SortableContext>
@@ -394,8 +394,8 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
           >
             {activeProject ? (
               <ProjectDragPreview project={activeProject} />
-            ) : activeFolder ? (
-              <FolderDragPreview folder={activeFolder} />
+            ) : activeSpace ? (
+              <SpaceDragPreview space={activeSpace} />
             ) : null}
           </DragOverlay>,
           document.body,
@@ -408,17 +408,17 @@ export function ProjectsListFolders({ projects, folders = [] }: Props) {
 
 function UnfiledGroup({
   projects,
-  folders,
+  spaces,
   isOver,
 }: {
   projects: ProjectSummary[];
-  folders: ProjectFolder[];
+  spaces: ProjectSpace[];
   isOver: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const { setNodeRef } = useDroppable({
     id: UNFILED_ID,
-    data: { type: "folder", folderId: null },
+    data: { type: "space", spaceId: null },
   });
 
   return (
@@ -452,8 +452,8 @@ function UnfiledGroup({
       {open && (
         <GroupBody
           projects={projects}
-          folders={folders}
-          folderId={null}
+          spaces={spaces}
+          spaceId={null}
           emptyLabel="No projects."
           isOver={isOver}
         />
@@ -462,17 +462,17 @@ function UnfiledGroup({
   );
 }
 
-// ─── Folder group (sortable + droppable) ───────────────────────────────────
+// ─── Space group (sortable + droppable) ────────────────────────────────────
 
-function FolderGroup({
-  folder,
+function SpaceGroup({
+  space,
   projects,
-  folders,
+  spaces,
   isOver,
 }: {
-  folder: ProjectFolder;
+  space: ProjectSpace;
   projects: ProjectSummary[];
-  folders: ProjectFolder[];
+  spaces: ProjectSpace[];
   isOver: boolean;
 }) {
   const [open, setOpen] = useState(true);
@@ -487,8 +487,8 @@ function FolderGroup({
     transition,
     isDragging,
   } = useSortable({
-    id: folder.id,
-    data: { type: "folder", folderId: folder.id },
+    id: space.id,
+    data: { type: "space", spaceId: space.id },
   });
 
   const style: React.CSSProperties = {
@@ -513,7 +513,7 @@ function FolderGroup({
             {...attributes}
             {...listeners}
             className="flex h-6 w-5 items-center justify-center text-text-tertiary hover:text-text-secondary cursor-grab active:cursor-grabbing"
-            aria-label="Drag folder"
+            aria-label="Drag space"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -533,7 +533,7 @@ function FolderGroup({
               <FolderIcon className="h-4 w-4 text-amber-500" />
             )}
             <span className="text-xs font-medium uppercase tracking-wide text-text-secondary truncate">
-              {folder.name}
+              {space.name}
             </span>
             <span className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full bg-bg-tertiary text-[10px] font-semibold text-text-tertiary tabular-nums">
               {projects.length}
@@ -541,7 +541,7 @@ function FolderGroup({
           </button>
         </div>
 
-        <FolderMenu
+        <SpaceMenu
           onRename={() => setRenameOpen(true)}
           onDelete={() => setDeleteOpen(true)}
         />
@@ -550,22 +550,22 @@ function FolderGroup({
       {open && (
         <GroupBody
           projects={projects}
-          folders={folders}
-          folderId={folder.id}
-          emptyLabel="Empty folder. Drop a project here or use the row menu."
+          spaces={spaces}
+          spaceId={space.id}
+          emptyLabel="Empty space. Drop a project here or use the row menu."
           isOver={isOver}
         />
       )}
 
-      <RenameFolderDialog
+      <RenameSpaceDialog
         open={renameOpen}
         onOpenChange={setRenameOpen}
-        folder={folder}
+        space={space}
       />
-      <DeleteFolderDialog
+      <DeleteSpaceDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        folder={folder}
+        space={space}
         projectCount={projects.length}
       />
     </div>
@@ -576,14 +576,14 @@ function FolderGroup({
 
 function GroupBody({
   projects,
-  folders,
-  folderId,
+  spaces,
+  spaceId,
   emptyLabel,
   isOver,
 }: {
   projects: ProjectSummary[];
-  folders: ProjectFolder[];
-  folderId: string | null;
+  spaces: ProjectSpace[];
+  spaceId: string | null;
   emptyLabel: string;
   isOver: boolean;
 }) {
@@ -619,8 +619,8 @@ function GroupBody({
             <SortableProjectRow
               key={p.id}
               project={p}
-              folders={folders}
-              folderId={folderId}
+              spaces={spaces}
+              spaceId={spaceId}
             />
           ))}
         </div>
@@ -633,11 +633,11 @@ function GroupBody({
 
 interface RowProps {
   project: ProjectSummary;
-  folders: ProjectFolder[];
-  folderId: string | null;
+  spaces: ProjectSpace[];
+  spaceId: string | null;
 }
 
-function SortableProjectRow({ project: p, folders, folderId }: RowProps) {
+function SortableProjectRow({ project: p, spaces, spaceId }: RowProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -651,7 +651,7 @@ function SortableProjectRow({ project: p, folders, folderId }: RowProps) {
     isDragging,
   } = useSortable({
     id: p.id,
-    data: { type: "project", folderId },
+    data: { type: "project", spaceId },
   });
 
   const style: React.CSSProperties = {
@@ -659,17 +659,17 @@ function SortableProjectRow({ project: p, folders, folderId }: RowProps) {
     transition,
   };
 
-  function handleMove(targetFolderId: string | null) {
+  function handleMove(targetSpaceId: string | null) {
     startTransition(async () => {
-      const res = await moveProjectToFolder(p.id, targetFolderId);
+      const res = await moveProjectToSpace(p.id, targetSpaceId);
       if (!res.ok) {
         toast.error(`Could not move project: ${res.error}`);
         return;
       }
       toast.success(
-        targetFolderId
-          ? `Moved "${p.name}" to folder.`
-          : `Moved "${p.name}" out of its folder.`,
+        targetSpaceId
+          ? `Moved "${p.name}" to space.`
+          : `Moved "${p.name}" out of its space.`,
       );
       router.refresh();
     });
@@ -704,7 +704,7 @@ function SortableProjectRow({ project: p, folders, folderId }: RowProps) {
     });
   }
 
-  const currentFolderId = p.folder_id ?? null;
+  const currentSpaceId = p.space_id ?? null;
   const isArchived = !!p.archived_at;
 
   return (
@@ -778,31 +778,31 @@ function SortableProjectRow({ project: p, folders, folderId }: RowProps) {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <FolderInput className="h-3.5 w-3.5" />
-                <span>Move to folder</span>
+                <span>Move to space</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent className="w-56">
                   <DropdownMenuItem
-                    disabled={currentFolderId === null}
+                    disabled={currentSpaceId === null}
                     onSelect={() => handleMove(null)}
                   >
                     <FolderIcon className="h-3.5 w-3.5 opacity-50" />
-                    <span>(no folder)</span>
+                    <span>(no space)</span>
                   </DropdownMenuItem>
-                  {folders.length > 0 && <DropdownMenuSeparator />}
-                  {folders.map((f) => (
+                  {spaces.length > 0 && <DropdownMenuSeparator />}
+                  {spaces.map((f) => (
                     <DropdownMenuItem
                       key={f.id}
-                      disabled={currentFolderId === f.id}
+                      disabled={currentSpaceId === f.id}
                       onSelect={() => handleMove(f.id)}
                     >
                       <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
                       <span className="truncate">{f.name}</span>
                     </DropdownMenuItem>
                   ))}
-                  {folders.length === 0 && (
+                  {spaces.length === 0 && (
                     <DropdownMenuItem disabled>
-                      <span className="text-text-tertiary">No folders yet</span>
+                      <span className="text-text-tertiary">No spaces yet</span>
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuSubContent>
@@ -881,26 +881,26 @@ function ProjectDragPreview({ project }: { project: ProjectSummary }) {
   );
 }
 
-function FolderDragPreview({ folder }: { folder: ProjectFolder }) {
+function SpaceDragPreview({ space }: { space: ProjectSpace }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary shadow-lg px-3 py-2">
       <GripVertical className="h-3.5 w-3.5 text-text-tertiary" />
       <FolderIcon className="h-4 w-4 text-amber-500" />
       <span className="text-xs font-medium uppercase tracking-wide text-text-secondary truncate max-w-[260px]">
-        {folder.name}
+        {space.name}
       </span>
     </div>
   );
 }
 
-// ─── Folder menu (header) ───────────────────────────────────────────────────
+// ─── Space menu (header) ────────────────────────────────────────────────────
 
-interface FolderMenuProps {
+interface SpaceMenuProps {
   onRename: () => void;
   onDelete: () => void;
 }
 
-function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
+function SpaceMenu({ onRename, onDelete }: SpaceMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -908,7 +908,7 @@ function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
           variant="ghost"
           size="sm"
           className="h-7 w-7 p-0"
-          aria-label="Folder actions"
+          aria-label="Space actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
@@ -934,39 +934,39 @@ function FolderMenu({ onRename, onDelete }: FolderMenuProps) {
   );
 }
 
-// ─── Rename folder dialog ───────────────────────────────────────────────────
+// ─── Rename space dialog ───────────────────────────────────────────────────
 
-function RenameFolderDialog({
+function RenameSpaceDialog({
   open,
   onOpenChange,
-  folder,
+  space,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folder: ProjectFolder;
+  space: ProjectSpace;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(folder.name);
+  const [name, setName] = useState(space.name);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Folder name is required.");
+      toast.error("Space name is required.");
       return;
     }
-    if (trimmed === folder.name) {
+    if (trimmed === space.name) {
       onOpenChange(false);
       return;
     }
     startTransition(async () => {
-      const res = await renameFolder(folder.id, { name: trimmed });
+      const res = await renameSpace(space.id, { name: trimmed });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
-      toast.success("Folder renamed.");
+      toast.success("Space renamed.");
       onOpenChange(false);
       router.refresh();
     });
@@ -976,22 +976,22 @@ function RenameFolderDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) setName(folder.name);
+        if (!o) setName(space.name);
         onOpenChange(o);
       }}
     >
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Rename folder</DialogTitle>
+            <DialogTitle>Rename space</DialogTitle>
             <DialogDescription>
-              Choose a new name for this folder.
+              Choose a new name for this space.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="folder-rename">Name</Label>
+            <Label htmlFor="space-rename">Name</Label>
             <Input
-              id="folder-rename"
+              id="space-rename"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -1019,17 +1019,17 @@ function RenameFolderDialog({
   );
 }
 
-// ─── Delete folder dialog ───────────────────────────────────────────────────
+// ─── Delete space dialog ───────────────────────────────────────────────────
 
-function DeleteFolderDialog({
+function DeleteSpaceDialog({
   open,
   onOpenChange,
-  folder,
+  space,
   projectCount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folder: ProjectFolder;
+  space: ProjectSpace;
   projectCount: number;
 }) {
   const router = useRouter();
@@ -1037,17 +1037,17 @@ function DeleteFolderDialog({
 
   function handleDelete() {
     startTransition(async () => {
-      const res = await deleteFolder(folder.id, { cascadeChildren: true });
+      const res = await deleteSpace(space.id, { cascadeChildren: true });
       if (!res.ok) {
-        toast.error(`Could not delete folder: ${res.error}`);
+        toast.error(`Could not delete space: ${res.error}`);
         return;
       }
       toast.success(
         projectCount > 0
-          ? `Deleted "${folder.name}". ${projectCount} project${
+          ? `Deleted "${space.name}". ${projectCount} project${
               projectCount !== 1 ? "s" : ""
             } moved to trash.`
-          : `Deleted "${folder.name}".`,
+          : `Deleted "${space.name}".`,
       );
       onOpenChange(false);
       router.refresh();
@@ -1059,14 +1059,14 @@ function DeleteFolderDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Delete folder &ldquo;{folder.name}&rdquo;?
+            Delete space &ldquo;{space.name}&rdquo;?
           </AlertDialogTitle>
           <AlertDialogDescription>
             {projectCount > 0
-              ? `This folder contains ${projectCount} project${
+              ? `This space contains ${projectCount} project${
                   projectCount !== 1 ? "s" : ""
                 }. They will be moved to the Trash. You can restore them from there.`
-              : "The folder will be removed. No projects are inside, so nothing else is affected."}
+              : "The space will be removed. No projects are inside, so nothing else is affected."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -1079,7 +1079,7 @@ function DeleteFolderDialog({
             }}
             className="bg-rose-500 text-white hover:bg-rose-600"
           >
-            Delete folder
+            Delete space
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
