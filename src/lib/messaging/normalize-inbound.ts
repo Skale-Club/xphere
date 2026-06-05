@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { insertNotification } from '@/lib/notifications/insert'
 
 type Db = SupabaseClient<Database>
 
@@ -259,5 +260,64 @@ export async function normalizeInbound(
     }
   }
 
+  // 5. Notify operators of the new inbound message (push fan-out). Fired here,
+  // at the single shared inbound choke point, so EVERY channel that flows
+  // through normalizeInbound (SMS, WhatsApp, Telegram, GHL, email, Zernio…)
+  // produces a notification — previously only Meta/Vapi/flows did, so channels
+  // routed through this helper never pushed at all.
+  void notifyInboundMessage(supabase, orgId, conversationId, isNew, message)
+
   return { conversationId, isNew, existing, messageId: (msg as { id: string }).id, duplicate: false }
+}
+
+/**
+ * Fan a new inbound message out to the assigned operator (falling back to the
+ * whole org when the conversation is unassigned) via insertNotification, which
+ * persists a notification row and invokes the push-sender edge function.
+ *
+ * Fire-and-forget by design: any failure here must never break message
+ * ingestion, so everything is wrapped and the result is ignored.
+ */
+async function notifyInboundMessage(
+  supabase: Db,
+  orgId: string,
+  conversationId: string,
+  isNew: boolean,
+  message: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('assigned_user_id, visitor_name, contacts:contact_id ( first_name, last_name, name )')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    const row = conv as
+      | {
+          assigned_user_id: string | null
+          visitor_name: string | null
+          contacts: { first_name: string | null; last_name: string | null; name: string | null } | null
+        }
+      | null
+
+    const contact = row?.contacts ?? null
+    const contactName =
+      [contact?.first_name, contact?.last_name].filter(Boolean).join(' ').trim() ||
+      contact?.name?.trim() ||
+      row?.visitor_name?.trim() ||
+      undefined
+
+    const messagePreview = typeof message.content === 'string' ? message.content : ''
+    const assigned = row?.assigned_user_id ?? null
+
+    await insertNotification(
+      orgId,
+      isNew ? 'new_conversation' : 'new_message',
+      { conversation_id: conversationId, contact_name: contactName, message_preview: messagePreview },
+      // Assigned operator only; undefined fans out to all org members.
+      assigned ? [assigned] : undefined,
+    )
+  } catch (err) {
+    console.error('[normalize-inbound] notify error:', err)
+  }
 }
