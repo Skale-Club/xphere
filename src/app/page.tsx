@@ -2,28 +2,8 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { LandingPage } from '@/components/landing/landing-page'
 import { getFaviconUrl } from '@/lib/seo'
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { getLandingPublicConfig } from '@/lib/landing/public-config'
 import { getUser } from '@/lib/supabase/server'
-
-const DEFAULT_CTA_IMAGE_URL =
-  'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
-
-async function getLandingPublicConfig(): Promise<{ ctaImageUrl: string; scrollImages: string[] }> {
-  try {
-    const admin = createServiceRoleClient()
-    const { data } = await admin
-      .from('landing_config')
-      .select('cta_image_url, scroll_images')
-      .limit(1)
-      .single()
-    return {
-      ctaImageUrl: data?.cta_image_url || DEFAULT_CTA_IMAGE_URL,
-      scrollImages: data?.scroll_images ?? [],
-    }
-  } catch {
-    return { ctaImageUrl: DEFAULT_CTA_IMAGE_URL, scrollImages: [] }
-  }
-}
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
 

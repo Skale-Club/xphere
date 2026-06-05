@@ -58,11 +58,13 @@ const FALLBACK_CTA_IMAGE_URL =
  * (required for useSearchParams in Next 16).
  */
 function AuthQueryParamSync({
+  initialAuth,
   isAuthenticated,
   setDialogOpen,
   setInitialMode,
   setInitialView,
 }: {
+  initialAuth?: 'login' | 'signup' | 'reset'
   isAuthenticated: boolean
   setDialogOpen: (open: boolean) => void
   setInitialMode: (mode: AuthMode) => void
@@ -70,7 +72,7 @@ function AuthQueryParamSync({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const authParam = searchParams.get('auth')
+  const authParam = initialAuth ?? searchParams.get('auth')
 
   useEffect(() => {
     if (isAuthenticated && authParam) {
@@ -97,12 +99,14 @@ function AuthQueryParamSync({
 }
 
 export function LandingPage({
+  initialAuth,
   faviconUrl,
   ctaImageUrl,
   scrollImages: _scrollImages,
   isAuthenticated = false,
   demoEnabled = false,
 }: {
+  initialAuth?: 'login' | 'signup' | 'reset'
   faviconUrl?: string | null
   ctaImageUrl?: string | null
   scrollImages?: string[]
@@ -111,7 +115,7 @@ export function LandingPage({
 }) {
   const logoSrc = faviconUrl ?? '/favicon.ico'
   const ctaBg = ctaImageUrl || FALLBACK_CTA_IMAGE_URL
-  const startHref = isAuthenticated ? '/dashboard' : '/?auth=login'
+  const startHref = isAuthenticated ? '/dashboard' : '/login'
   const scrollImages = _scrollImages ?? []
   const hasScrollImages = scrollImages.length > 0
 
@@ -245,13 +249,17 @@ export function LandingPage({
       {/* Controlled auth dialog (no trigger, no children) */}
       <LoginDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open)
+          if (!open && initialAuth) window.history.replaceState(null, '', '/')
+        }}
         initialMode={initialMode}
         initialView={initialView}
       />
 
       <Suspense fallback={null}>
         <AuthQueryParamSync
+          initialAuth={initialAuth}
           isAuthenticated={isAuthenticated}
           setDialogOpen={setDialogOpen}
           setInitialMode={setInitialMode}

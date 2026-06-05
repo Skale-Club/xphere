@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     // best-effort | continue to signup regardless
   }
 
-  const response = NextResponse.redirect(`${origin}/?auth=signup`)
+  const response = NextResponse.redirect(`${origin}/signup`)
   response.cookies.set('vo_active_org', '', { path: '/', maxAge: 0 })
   return response
 }
