@@ -9,13 +9,26 @@ import {
   Clock,
   Link2,
   Settings2,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSubSidebar } from '@/components/layout/sub-sidebar-context'
 
-const SECTIONS = [
+interface NavItem {
+  href: string
+  label: string
+  icon: LucideIcon
+  exact?: boolean
+}
+
+interface NavSection {
+  heading: string | null
+  items: NavItem[]
+}
+
+const SECTIONS: NavSection[] = [
   {
-    heading: 'Scheduling',
+    heading: null,
     items: [
       { href: '/scheduling', label: 'Event Types', icon: CalendarDays, exact: true },
       { href: '/scheduling/bookings', label: 'Bookings', icon: BookOpen },
@@ -39,11 +52,13 @@ export function SchedulingSubNav() {
 
   return (
     <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3">
-      {SECTIONS.map((section) => (
-        <div key={section.heading}>
-          <div className="mb-1 px-2 text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
-            {section.heading}
-          </div>
+      {SECTIONS.map((section, index) => (
+        <div key={section.heading ?? index}>
+          {section.heading && (
+            <div className="mb-1 px-2 text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
+              {section.heading}
+            </div>
+          )}
           <div className="flex flex-col gap-px">
             {section.items.map((item) => {
               const Icon = item.icon
