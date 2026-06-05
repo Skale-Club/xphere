@@ -128,7 +128,7 @@ export type AgentInvocationStatus = 'success' | 'error' | 'aborted' | 'skipped' 
 export type AgentInvocationMode = 'production' | 'playground'
 
 // v2.1 | contacts (CRM) source enum
-export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'facebook' | 'messenger' | 'csv_import' | 'ghl_sync'
+export type ContactSource = 'manual' | 'whatsapp' | 'sms' | 'instagram' | 'facebook' | 'messenger' | 'csv_import' | 'ghl_sync' | 'api'
 export type ContactIdentityStatus =
   | 'channel_only'
   | 'identified'
@@ -339,6 +339,45 @@ export type OpportunityActivityType =
 export interface Database {
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          key_hash: string
+          key_prefix: string
+          scopes: string[]
+          created_by: string | null
+          last_used_at: string | null
+          revoked_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          key_hash: string
+          key_prefix: string
+          scopes?: string[]
+          created_by?: string | null
+          last_used_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          key_hash?: string
+          key_prefix?: string
+          scopes?: string[]
+          created_by?: string | null
+          last_used_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           id: string
@@ -350,6 +389,9 @@ export interface Database {
           widget_avatar_url: string | null
           widget_primary_color: string | null
           widget_welcome_message: string | null
+          widget_greeting_enabled: boolean
+          widget_greeting_message: string | null
+          widget_greeting_delay_seconds: number
           daily_cost_cap_usd_override: number | null
           delegation_visibility: string
           logo_url: string | null
@@ -380,6 +422,9 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
+          widget_greeting_enabled?: boolean
+          widget_greeting_message?: string | null
+          widget_greeting_delay_seconds?: number
           daily_cost_cap_usd_override?: number | null
           delegation_visibility?: string
           logo_url?: string | null
@@ -409,6 +454,9 @@ export interface Database {
           widget_avatar_url?: string | null
           widget_primary_color?: string | null
           widget_welcome_message?: string | null
+          widget_greeting_enabled?: boolean
+          widget_greeting_message?: string | null
+          widget_greeting_delay_seconds?: number
           daily_cost_cap_usd_override?: number | null
           delegation_visibility?: string
           logo_url?: string | null
@@ -607,12 +655,74 @@ export interface Database {
         }
         Relationships: []
       }
+      org_custom_roles: {
+        Row: {
+          id: string
+          organization_id: string
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'org_custom_roles_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      custom_role_permissions: {
+        Row: {
+          id: string
+          custom_role_id: string
+          permission_key: string
+          enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          custom_role_id: string
+          permission_key: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'custom_role_permissions_custom_role_id_fkey'
+            columns: ['custom_role_id']
+            isOneToOne: false
+            referencedRelation: 'org_custom_roles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       org_members: {
         Row: {
           id: string
           user_id: string
           organization_id: string
           role: UserRole
+          custom_role_id: string | null
           created_at: string
         }
         Insert: {
@@ -620,10 +730,12 @@ export interface Database {
           user_id: string
           organization_id: string
           role?: UserRole
+          custom_role_id?: string | null
           created_at?: string
         }
         Update: {
           role?: UserRole
+          custom_role_id?: string | null
         }
         Relationships: [
           {
@@ -705,6 +817,7 @@ export interface Database {
           org_id: string
           email: string
           role: UserRole
+          custom_role_id: string | null
           invited_by: string | null
           invited_at: string
           accepted_at: string | null
@@ -715,6 +828,7 @@ export interface Database {
           org_id: string
           email: string
           role?: UserRole
+          custom_role_id?: string | null
           invited_by?: string | null
           invited_at?: string
           accepted_at?: string | null
@@ -725,6 +839,7 @@ export interface Database {
           org_id?: string
           email?: string
           role?: UserRole
+          custom_role_id?: string | null
           invited_by?: string | null
           invited_at?: string
           accepted_at?: string | null

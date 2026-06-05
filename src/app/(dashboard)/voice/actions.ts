@@ -20,7 +20,6 @@ import {
   type CallSettingsFormInput,
 } from '@/lib/calls/zod-schemas'
 
-type CallSettingsRow = Database['public']['Tables']['call_settings']['Row']
 type CallLogRow = Database['public']['Tables']['call_logs']['Row']
 
 export interface CurrentCallSettings {
@@ -137,7 +136,7 @@ export async function saveCallSettings(
     if (error) return { error: error.message }
   }
 
-  revalidatePath('/settings/calls')
+  revalidatePath('/settings/phone-numbers')
   revalidatePath('/voice')
 
   return {
@@ -195,7 +194,7 @@ export async function rotateSipPassword(): Promise<{ error?: string; password?: 
     })
   }
 
-  revalidatePath('/settings/calls')
+  revalidatePath('/settings/phone-numbers')
   return { password, username }
 }
 

@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { GoogleAdsConnect } from '../_components/google-ads-connect'
 import { GoogleAdsOverview } from '../_components/google-ads-overview'
 import { NoAccountsSelected } from '../_components/no-accounts-selected'
-import { ManageAccountsButton } from '../_components/manage-accounts-button'
 
 export default async function GoogleAdsPage() {
   const user = await getUser()
@@ -29,9 +28,6 @@ export default async function GoogleAdsPage() {
   const primary = connections[0]
   return (
     <div>
-      <div className="flex justify-end px-6 pt-4">
-        <ManageAccountsButton platform="google" />
-      </div>
       <GoogleAdsOverview
         customerId={primary.ad_account_id}
         customerName={primary.ad_account_name ?? primary.ad_account_id}

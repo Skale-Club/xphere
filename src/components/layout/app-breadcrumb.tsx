@@ -20,6 +20,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   mcp: 'MCP Server',
   sms: 'SMS',
   api: 'API',
+  workspace: 'Company Info',
 }
 
 function toTitleCase(str: string) {

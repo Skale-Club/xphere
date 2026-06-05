@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import {
   updateCompanyProfile,
   updateDefaultCurrency,
-} from '@/app/(dashboard)/settings/workspace/actions'
+} from '@/app/(dashboard)/settings/company-info/actions'
 
 export interface CompanyProfileShape {
   legal_name: string | null

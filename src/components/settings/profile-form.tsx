@@ -14,7 +14,7 @@ import { updatePassword, updateProfile } from '@/app/(dashboard)/settings/profil
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 interface Props {
-  initial: { email: string; full_name: string; avatar_url: string | null }
+  initial: { email: string; full_name: string; avatar_url: string | null; phone: string }
 }
 
 const MAX_AVATAR_MB = 5
@@ -29,6 +29,7 @@ function initialsFrom(name: string, email: string): string {
 
 export function ProfileForm({ initial }: Props) {
   const [fullName, setFullName] = React.useState(initial.full_name)
+  const [phone, setPhone] = React.useState(initial.phone)
   const [savingName, setSavingName] = React.useState(false)
   const [savedName, setSavedName] = React.useState(false)
 
@@ -46,7 +47,7 @@ export function ProfileForm({ initial }: Props) {
       return
     }
     setSavingName(true)
-    const res = await updateProfile({ full_name: fullName.trim() })
+    const res = await updateProfile({ full_name: fullName.trim(), phone: phone.trim() || null })
     setSavingName(false)
     if (!res.ok) {
       toast.error(res.error ?? 'Failed to save')
@@ -135,132 +136,152 @@ export function ProfileForm({ initial }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Avatar</CardTitle>
-          <CardDescription>
-            Shown in the sidebar, comments, and anywhere your account appears.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-5">
-            <Avatar className="h-20 w-20 ring-1 ring-border">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt="Your avatar" />}
-              <AvatarFallback className="text-[18px] font-semibold bg-accent-muted text-accent">
-                {initialsFrom(fullName, initial.email)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                >
-                  {uploadingAvatar ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="h-3.5 w-3.5" />
-                  )}
-                  {avatarUrl ? 'Change avatar' : 'Upload avatar'}
-                </Button>
-                {avatarUrl && (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+      {/* Left column */}
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Avatar</CardTitle>
+            <CardDescription>
+              Shown in the sidebar, comments, and anywhere your account appears.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-5">
+              <Avatar className="h-20 w-20 shrink-0 ring-1 ring-border">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt="Your avatar" />}
+                <AvatarFallback className="text-[18px] font-semibold bg-accent-muted text-accent">
+                  {initialsFrom(fullName, initial.email)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
                     size="sm"
-                    variant="ghost"
-                    onClick={handleAvatarRemove}
+                    variant="secondary"
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingAvatar}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Remove
+                    {uploadingAvatar ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {avatarUrl ? 'Change avatar' : 'Upload avatar'}
                   </Button>
+                  {avatarUrl && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleAvatarRemove}
+                      disabled={uploadingAvatar}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11.5px] text-text-tertiary">
+                  PNG, JPEG, WEBP or GIF · max {MAX_AVATAR_MB} MB · square works best
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED.join(',')}
+                onChange={handleAvatarSelect}
+                className="hidden"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal info</CardTitle>
+            <CardDescription>How your name appears across the workspace.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={saveName} className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="full_name">Full name</Label>
+                <Input
+                  id="full_name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={120}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={initial.email} disabled className="opacity-70" />
+                <p className="text-[11px] text-text-tertiary">
+                  Email changes happen via your provider | coming soon.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 555 000 0000"
+                  maxLength={30}
+                />
+                <p className="text-[11px] text-text-tertiary">
+                  Visible to org admins in the Members page.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button type="submit" disabled={savingName || (fullName.trim() === initial.full_name && phone.trim() === initial.phone)}>
+                  {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Save
+                </Button>
+                {savedName && (
+                  <span className="flex items-center gap-1 text-[11.5px] text-success">
+                    <Check className="h-3 w-3" /> Saved
+                  </span>
                 )}
               </div>
-              <p className="text-[11.5px] text-text-tertiary">
-                PNG, JPEG, WEBP or GIF · max {MAX_AVATAR_MB} MB · square works best
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED.join(',')}
-              onChange={handleAvatarSelect}
-              className="hidden"
-            />
-          </div>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal info</CardTitle>
-          <CardDescription>How your name appears across the workspace.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={saveName} className="space-y-3 max-w-md">
-            <div className="space-y-1">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-                maxLength={120}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={initial.email} disabled className="opacity-70" />
-              <p className="text-[11px] text-text-tertiary">
-                Email changes happen via your provider | coming soon.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={savingName || fullName.trim() === initial.full_name}>
-                {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Save
+      {/* Right column */}
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Password</CardTitle>
+            <CardDescription>Set a new password. At least 8 characters.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={savePassword} className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="password">New password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button type="submit" disabled={savingPassword || password.length < 8}>
+                {savingPassword ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Update password
               </Button>
-              {savedName && (
-                <span className="flex items-center gap-1 text-[11.5px] text-success">
-                  <Check className="h-3 w-3" /> Saved
-                </span>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Password</CardTitle>
-          <CardDescription>Set a new password. At least 8 characters.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={savePassword} className="space-y-3 max-w-md">
-            <div className="space-y-1">
-              <Label htmlFor="password">New password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-            </div>
-            <Button type="submit" disabled={savingPassword || password.length < 8}>
-              {savingPassword ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              Update password
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <PushNotificationsCard />
+        <PushNotificationsCard />
+      </div>
     </div>
   )
 }
@@ -305,7 +326,7 @@ function PushNotificationsCard() {
             Notifications are blocked. Open your browser site settings to allow them, then reload.
           </p>
         ) : (
-          <div className="flex items-center justify-between max-w-md">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {subscribed ? (
                 <Bell className="h-4 w-4 text-accent" />

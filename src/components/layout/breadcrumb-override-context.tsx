@@ -27,18 +27,25 @@ export function BreadcrumbOverrideProvider({ children }: { children: React.React
   const [nodes, setNodes] = React.useState<Record<string, React.ReactNode>>({})
   const [suffix, setSuffix] = React.useState<React.ReactNode>(null)
 
+  // Stable refs — these setters never change identity so they can safely appear
+  // in useEffect dependency arrays without causing infinite re-render loops.
+  const setSegmentLabel = React.useCallback((segment: string, label: string) =>
+    setOverrides((prev) => (prev[segment] === label ? prev : { ...prev, [segment]: label })),
+  [])
+  const setSegmentNode = React.useCallback((segment: string, node: React.ReactNode) =>
+    setNodes((prev) => (prev[segment] === node ? prev : { ...prev, [segment]: node })),
+  [])
+
   const value = React.useMemo<OverrideContextValue>(
     () => ({
-      setSegmentLabel: (segment, label) =>
-        setOverrides((prev) => (prev[segment] === label ? prev : { ...prev, [segment]: label })),
+      setSegmentLabel,
       getSegmentLabel: (segment) => overrides[segment],
-      setSegmentNode: (segment, node) =>
-        setNodes((prev) => (prev[segment] === node ? prev : { ...prev, [segment]: node })),
+      setSegmentNode,
       getSegmentNode: (segment) => nodes[segment],
       suffix,
       setSuffix,
     }),
-    [overrides, nodes, suffix],
+    [setSegmentLabel, setSegmentNode, overrides, nodes, suffix],
   )
 
   return (

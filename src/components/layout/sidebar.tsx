@@ -18,7 +18,7 @@ import { APP_NAME } from '@/lib/config'
 import { XphereOrb } from '@/components/xphere-orb'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
@@ -82,6 +82,7 @@ interface SidebarBodyProps {
   displayName: string
   email: string
   initials: string
+  avatarUrl?: string | null
   brandName?: string
   isPlatformAdmin?: boolean
   isDemo?: boolean
@@ -99,6 +100,7 @@ function SidebarBody({
   displayName,
   email,
   initials,
+  avatarUrl,
   brandName,
   isPlatformAdmin,
   isDemo,
@@ -268,6 +270,7 @@ function SidebarBody({
               )}
             >
               <Avatar className="h-6 w-6 shrink-0">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
                 <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
               </Avatar>
               {!collapsed && (
@@ -318,6 +321,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
   const displayName = truncate((user.user_metadata?.full_name as string | undefined) ?? user.email ?? '', 24)
   const email = user.email ?? ''
   const initials = getInitials(user)
+  const avatarUrl = (user.user_metadata?.avatar_url as string | undefined) ?? null
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -363,6 +367,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
     displayName,
     email,
     initials,
+    avatarUrl,
     brandName,
     isPlatformAdmin,
     isDemo,

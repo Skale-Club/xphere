@@ -37,9 +37,9 @@ function FunnelRow({
   const barWidth = topValue > 0 ? Math.max((step.value / topValue) * 100, step.value > 0 ? 2 : 0) : 0
 
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="w-28 shrink-0 text-right">
-        <p className="text-[12px] font-medium text-text-secondary">{step.label}</p>
+    <div className="flex items-center gap-2 py-2 overflow-hidden">
+      <div className="w-20 shrink-0 text-right">
+        <p className="text-[11.5px] font-medium text-text-secondary truncate">{step.label}</p>
       </div>
       <div className="flex-1 min-w-0">
         <div className="h-5 rounded-md bg-bg-tertiary overflow-hidden">
@@ -49,14 +49,14 @@ function FunnelRow({
           />
         </div>
       </div>
-      <div className="w-20 shrink-0 text-right">
-        <p className="text-[12.5px] font-semibold text-text-primary">
+      <div className="w-14 shrink-0 text-right">
+        <p className="text-[12px] font-semibold text-text-primary tabular-nums">
           {step.value > 0 ? fmtNum(step.value) : '—'}
         </p>
       </div>
-      <div className="w-24 shrink-0 text-right">
+      <div className="w-20 shrink-0 text-right">
         {!isFirst && (
-          <p className="text-[11px] text-text-tertiary">
+          <p className="text-[10.5px] text-text-tertiary truncate">
             {step.convRate} <span className="opacity-60">{step.convLabel}</span>
           </p>
         )}
@@ -134,11 +134,11 @@ export function MetaFunnel({
       <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-3">
         <p className="text-[12px] font-semibold text-text-primary mb-3">Conversion Funnel</p>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 py-2 animate-pulse">
-            <div className="w-28 h-4 rounded bg-bg-tertiary shrink-0" />
-            <div className="flex-1 h-5 rounded bg-bg-tertiary" />
+          <div key={i} className="flex items-center gap-2 py-2 animate-pulse overflow-hidden">
             <div className="w-20 h-4 rounded bg-bg-tertiary shrink-0" />
-            <div className="w-24 h-3 rounded bg-bg-tertiary shrink-0" />
+            <div className="flex-1 h-5 rounded bg-bg-tertiary" />
+            <div className="w-14 h-4 rounded bg-bg-tertiary shrink-0" />
+            <div className="w-20 h-3 rounded bg-bg-tertiary shrink-0" />
           </div>
         ))}
       </div>

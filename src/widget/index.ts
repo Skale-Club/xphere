@@ -1,16 +1,23 @@
 // src/widget/index.ts
 // Opps embeddable chat widget | standalone vanilla TypeScript, no React/Next.js imports
+import { WIDGET_THEME as T } from './theme'
 
 interface WidgetConfig {
   displayName: string
   primaryColor: string
   welcomeMessage: string
+  greetingEnabled: boolean
+  greetingMessage: string
+  greetingDelaySeconds: number
 }
 
 const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   displayName: 'AI Assistant',
   primaryColor: '#18181B',
   welcomeMessage: 'Hi! How can I help?',
+  greetingEnabled: true,
+  greetingMessage: 'Hi! How can I help?',
+  greetingDelaySeconds: 3,
 }
 
 // --- CSS constant (inline string, full UI-SPEC values) ---
@@ -69,40 +76,186 @@ const WIDGET_CSS = `
   z-index: 2147483646;
   width: 360px;
   height: 520px;
-  background: #ffffff;
-  border: 1px solid #e4e4e7;
+  background: ${T.panelBg};
+  border: 1px solid ${T.borderColor};
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.12);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   transform-origin: bottom right;
+  transition: width 240ms cubic-bezier(0.2,0,0,1), height 240ms cubic-bezier(0.2,0,0,1);
 }
 .opps-panel[aria-hidden="true"] {
   display: none;
 }
+/* Expanded (desktop): a bit larger, still anchored bottom-right */
+.opps-panel.opps-expanded {
+  width: 420px;
+  height: 680px;
+  max-height: calc(100vh - 108px);
+}
+/* Mobile: expanded = fullscreen */
+@media (max-width: 640px) {
+  .opps-panel.opps-expanded {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+}
 .opps-panel-opening {
-  animation: opps-panel-open 200ms ease forwards;
+  animation: opps-panel-open 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 .opps-panel-closing {
-  animation: opps-panel-close 160ms ease forwards;
+  animation: opps-panel-close 220ms cubic-bezier(0.36, 0, 0.66, -0.3) forwards;
 }
 @keyframes opps-panel-open {
-  from { opacity: 0; transform: scale(0.95) translateY(8px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.82) translateY(20px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
 }
 @keyframes opps-panel-close {
-  from { opacity: 1; transform: scale(1) translateY(0); }
-  to   { opacity: 0; transform: scale(0.95) translateY(8px); }
+  from { opacity: 1; transform: scale(1)    translateY(0);    }
+  to   { opacity: 0; transform: scale(0.82) translateY(20px); }
 }
+
+/* Bubble icon flip animation on toggle */
+.opps-bubble-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity   180ms ease;
+}
+.opps-bubble-icon.opps-icon-entering {
+  animation: opps-icon-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes opps-icon-in {
+  from { transform: rotate(-90deg) scale(0.6); opacity: 0; }
+  to   { transform: rotate(0deg)   scale(1);   opacity: 1; }
+}
+
+/* Greeting composer (minimized "Write a message…" prompt) */
+.opps-greeting {
+  position: fixed;
+  /* Anchored to the bubble's vertical centerline (20px bottom + 56/2) and
+     shifted down 50% of its own height, so the pill centers on the bubble
+     regardless of its height. */
+  bottom: 48px;
+  right: 88px;
+  z-index: 2147483646;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 300px;
+  transform: translateY(50%);
+  transform-origin: bottom right;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.opps-greeting[aria-hidden="true"] { display: none; }
+.opps-greeting-opening { animation: opps-greeting-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.opps-greeting-closing { animation: opps-greeting-out 200ms ease forwards; }
+@keyframes opps-greeting-in {
+  from { opacity: 0; transform: translateY(calc(50% + 12px)) scale(0.96); }
+  to   { opacity: 1; transform: translateY(50%)              scale(1);    }
+}
+@keyframes opps-greeting-out {
+  from { opacity: 1; transform: translateY(50%)              scale(1);    }
+  to   { opacity: 0; transform: translateY(calc(50% + 12px)) scale(0.96); }
+}
+.opps-greeting-row { position: relative; display: flex; align-items: center; }
+/* Invisible hover bridge above the pill so moving the cursor up to the × keeps
+   the greeting hovered (otherwise the × re-blurs before you can reach it). */
+.opps-greeting-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -36px;
+  height: 38px;
+}
+.opps-greeting-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 264px;
+  max-width: 72vw;
+  background: ${T.inputFieldBg};
+  border: 1px solid ${T.borderColor};
+  border-radius: 24px;
+  padding: 4px 4px 4px 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.opps-greeting-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: ${T.textPrimary};
+  font-family: inherit;
+}
+.opps-greeting-input::placeholder { color: ${T.textSecondary}; }
+.opps-greeting-send {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--opps-primary-color);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 150ms ease;
+}
+.opps-greeting-send:hover:not(:disabled) { opacity: 0.92; }
+.opps-greeting-send:disabled { background: #d4d4d8; cursor: default; }
+.opps-greeting-close {
+  position: absolute;
+  top: -28px;
+  left: -7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2e2e2e;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  /* Hidden until the visitor hovers the greeting. The blur + alpha exist ONLY
+     during the transition — the destination (hover) state is fully crisp. */
+  opacity: 0;
+  filter: blur(4px);
+  pointer-events: none;
+  transition: opacity 200ms ease, filter 200ms ease, background 150ms ease;
+}
+.opps-greeting:hover .opps-greeting-close,
+.opps-greeting:focus-within .opps-greeting-close {
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+}
+.opps-greeting-close:hover { background: #242424; }
 
 /* Header */
 .opps-header {
   height: 52px;
   min-height: 52px;
-  background: #f4f4f5;
-  border-bottom: 1px solid #e4e4e7;
-  padding: 0 16px;
+  background: ${T.headerBg};
+  border-bottom: 1px solid ${T.borderColor};
+  padding: 0 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -124,19 +277,38 @@ const WIDGET_CSS = `
 .opps-bot-name {
   font-size: 14px;
   font-weight: 600;
-  color: #09090b;
+  color: ${T.textPrimary};
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+.opps-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.opps-header-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease;
+}
+.opps-header-btn:hover { background: rgba(0,0,0,0.06); }
 
 /* Message list */
 .opps-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #ffffff;
+  background: ${T.panelBg};
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   scroll-behavior: smooth;
 }
@@ -198,19 +370,17 @@ const WIDGET_CSS = `
   background: var(--opps-primary-color);
   color: #ffffff;
   padding: 8px 16px;
-  border-radius: 16px 16px 4px 16px;
+  border-radius: ${T.userBubbleRadius};
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
 }
 .opps-bubble-assistant {
-  background: #f4f4f5;
-  color: #09090b;
-  padding: 8px 16px;
-  border-radius: 16px 16px 16px 4px;
+  color: ${T.textPrimary};
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
+  padding: 2px 4px;
 }
 .opps-bubble-error {
   background: #f4f4f5;
@@ -245,11 +415,8 @@ const WIDGET_CSS = `
 
 /* Input area */
 .opps-input-area {
-  height: 56px;
-  min-height: 56px;
-  background: #ffffff;
-  border-top: 1px solid #e4e4e7;
-  padding: 8px 12px;
+  background: ${T.panelBg};
+  padding: 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -257,18 +424,18 @@ const WIDGET_CSS = `
 .opps-input {
   flex: 1;
   height: 36px;
-  background: #f4f4f5;
-  border: 1px solid #e4e4e7;
+  background: ${T.inputFieldBg};
+  border: 1px solid ${T.borderColor};
   border-radius: 18px;
   padding: 0 16px;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.4;
-  color: #09090b;
+  color: ${T.textPrimary};
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   outline: none;
 }
-.opps-input::placeholder { color: #71717a; }
+.opps-input::placeholder { color: ${T.textSecondary}; }
 .opps-input:focus { border-color: #a1a1aa; }
 .opps-input:disabled { opacity: 0.5; pointer-events: none; }
 .opps-send {
@@ -294,7 +461,13 @@ const ICON_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24
 
 const ICON_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
 
-const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`
+const ICON_SEND = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>`
+
+const ICON_CLOSE_SM = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+
+// Header expand / collapse (maximize-2 / minimize-2). Dark stroke for the light header.
+const ICON_EXPAND = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`
+const ICON_COLLAPSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`
 
 // --- Synchronous captures | MUST be before any async boundary ---
 const _script = document.currentScript as HTMLScriptElement | null
@@ -360,10 +533,15 @@ async function fetchWidgetConfig(apiBase: string, token: string): Promise<Widget
 
     const payload = await response.json() as Record<string, unknown>
 
+    const welcomeMessage = normalizeWidgetText(payload.welcomeMessage, DEFAULT_WIDGET_CONFIG.welcomeMessage)
+    const rawDelay = typeof payload.greetingDelaySeconds === 'number' ? payload.greetingDelaySeconds : DEFAULT_WIDGET_CONFIG.greetingDelaySeconds
     return {
       displayName: normalizeWidgetText(payload.displayName, DEFAULT_WIDGET_CONFIG.displayName),
       primaryColor: normalizePrimaryColor(payload.primaryColor),
-      welcomeMessage: normalizeWidgetText(payload.welcomeMessage, DEFAULT_WIDGET_CONFIG.welcomeMessage),
+      welcomeMessage,
+      greetingEnabled: payload.greetingEnabled !== false,
+      greetingMessage: normalizeWidgetText(payload.greetingMessage, welcomeMessage),
+      greetingDelaySeconds: Math.max(0, Math.min(30, rawDelay)),
     }
   } catch {
     return DEFAULT_WIDGET_CONFIG
@@ -447,7 +625,11 @@ function buildPanel(
   token: string,
   apiBase: string,
   _bubble: HTMLButtonElement
-): { panel: HTMLDivElement; applyConfig: (config: WidgetConfig) => void } {
+): {
+  panel: HTMLDivElement
+  applyConfig: (config: WidgetConfig) => void
+  submitMessage: (text: string) => Promise<void>
+} {
   const panel = document.createElement('div')
   panel.className = 'opps-panel'
   panel.setAttribute('role', 'dialog')
@@ -463,8 +645,28 @@ function buildPanel(
   const botName = document.createElement('span')
   botName.className = 'opps-bot-name'
   botName.textContent = DEFAULT_WIDGET_CONFIG.displayName
+
+  // Expand / collapse toggle (desktop: larger panel · mobile: fullscreen)
+  const headerActions = document.createElement('div')
+  headerActions.className = 'opps-header-actions'
+  const expandBtn = document.createElement('button')
+  expandBtn.className = 'opps-header-btn'
+  expandBtn.type = 'button'
+  expandBtn.setAttribute('aria-label', 'Expand chat')
+  expandBtn.innerHTML = ICON_EXPAND
+  headerActions.appendChild(expandBtn)
+
   header.appendChild(avatar)
   header.appendChild(botName)
+  header.appendChild(headerActions)
+
+  let isExpanded = false
+  expandBtn.addEventListener('click', () => {
+    isExpanded = !isExpanded
+    panel.classList.toggle('opps-expanded', isExpanded)
+    expandBtn.innerHTML = isExpanded ? ICON_COLLAPSE : ICON_EXPAND
+    expandBtn.setAttribute('aria-label', isExpanded ? 'Collapse chat' : 'Expand chat')
+  })
 
   // Message list
   const msgList = document.createElement('div')
@@ -550,12 +752,13 @@ function buildPanel(
     sendBtn.setAttribute('aria-disabled', String(!enabled || input.value.trim() === ''))
   }
 
-  async function handleSend(): Promise<void> {
-    const text = input.value.trim()
+  // Core send path | called by the panel input, the greeting composer, and the
+  // public JS API (window.Opps.sendMessage). Caller passes the raw text.
+  async function submitMessage(rawText: string): Promise<void> {
+    const text = rawText.trim()
     if (!text || isStreaming) return
 
     isStreaming = true
-    input.value = ''
     setInputEnabled(false)
     appendMessage(text, 'user')
     const typing = showTyping()
@@ -606,6 +809,14 @@ function buildPanel(
     }
   }
 
+  // Panel input → clear field then submit.
+  function handleSend(): void {
+    const text = input.value.trim()
+    if (!text || isStreaming) return
+    input.value = ''
+    void submitMessage(text)
+  }
+
   // --- Event listeners ---
   input.addEventListener('input', () => {
     sendBtn.disabled = input.value.trim() === '' || isStreaming
@@ -646,7 +857,7 @@ function buildPanel(
     emptyHeading.textContent = config.welcomeMessage
   }
 
-  return { panel, applyConfig }
+  return { panel, applyConfig, submitMessage }
 }
 
 // --- initWidget (top-level orchestrator, per Pattern 3) ---
@@ -668,7 +879,10 @@ function initWidget(token: string, apiBase: string): void {
   bubble.className = 'opps-bubble'
   bubble.setAttribute('aria-label', 'Open chat')
   bubble.setAttribute('tabindex', '0')
-  bubble.innerHTML = ICON_CHAT
+  const initialIcon = document.createElement('span')
+  initialIcon.className = 'opps-bubble-icon'
+  initialIcon.innerHTML = ICON_CHAT
+  bubble.appendChild(initialIcon)
 
   // Show welcome pulse on first load (no stored session)
   if (!readSession(token)) {
@@ -676,28 +890,123 @@ function initWidget(token: string, apiBase: string): void {
   }
 
   // Build panel
-  const { panel, applyConfig } = buildPanel(shadow, token, apiBase, bubble)
+  const { panel, applyConfig, submitMessage } = buildPanel(shadow, token, apiBase, bubble)
   shadow.appendChild(bubble)
   shadow.appendChild(panel)
+
+  // --- Greeting composer (minimized "Write a message…" prompt) ---
+  const greeting = document.createElement('div')
+  greeting.className = 'opps-greeting'
+  greeting.setAttribute('aria-hidden', 'true')
+
+  const greetingRow = document.createElement('div')
+  greetingRow.className = 'opps-greeting-row'
+
+  const greetingClose = document.createElement('button')
+  greetingClose.className = 'opps-greeting-close'
+  greetingClose.setAttribute('aria-label', 'Dismiss greeting')
+  greetingClose.innerHTML = ICON_CLOSE_SM
+
+  const greetingPill = document.createElement('div')
+  greetingPill.className = 'opps-greeting-pill'
+  const greetingInput = document.createElement('input')
+  greetingInput.type = 'text'
+  greetingInput.className = 'opps-greeting-input'
+  greetingInput.placeholder = 'Write a message…'
+  greetingInput.setAttribute('aria-label', 'Write a message')
+  const greetingSend = document.createElement('button')
+  greetingSend.className = 'opps-greeting-send'
+  greetingSend.setAttribute('aria-label', 'Send message')
+  greetingSend.disabled = true
+  greetingSend.innerHTML = ICON_SEND
+  greetingPill.appendChild(greetingInput)
+  greetingPill.appendChild(greetingSend)
+
+  greetingRow.appendChild(greetingClose)
+  greetingRow.appendChild(greetingPill)
+  greeting.appendChild(greetingRow)
+  shadow.appendChild(greeting)
+
+  // sessionStorage flag so a dismissed greeting stays gone for the visit.
+  const greetingDismissKey = `opps_${token}_greetingDismissed`
+  function greetingDismissed(): boolean {
+    try { return sessionStorage.getItem(greetingDismissKey) === '1' } catch { return false }
+  }
+  function markGreetingDismissed(): void {
+    try { sessionStorage.setItem(greetingDismissKey, '1') } catch { /* private mode */ }
+  }
+
+  let greetingShown = false
+  function showGreeting(): void {
+    if (greetingShown || isOpen || greetingDismissed()) return
+    greetingShown = true
+    greeting.setAttribute('aria-hidden', 'false')
+    greeting.classList.remove('opps-greeting-closing')
+    greeting.classList.add('opps-greeting-opening')
+  }
+  function hideGreeting(dismiss: boolean): void {
+    if (dismiss) markGreetingDismissed()
+    if (greeting.getAttribute('aria-hidden') === 'true') { greetingShown = false; return }
+    greeting.classList.remove('opps-greeting-opening')
+    greeting.classList.add('opps-greeting-closing')
+    setTimeout(() => {
+      greeting.setAttribute('aria-hidden', 'true')
+      greeting.classList.remove('opps-greeting-closing')
+    }, 200)
+    greetingShown = false
+  }
+
+  greetingInput.addEventListener('input', () => {
+    greetingSend.disabled = greetingInput.value.trim() === ''
+  })
+  function sendFromGreeting(): void {
+    const text = greetingInput.value.trim()
+    if (!text) return
+    greetingInput.value = ''
+    greetingSend.disabled = true
+    hideGreeting(true)
+    openPanel()
+    void submitMessage(text)
+  }
+  greetingInput.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromGreeting() }
+  })
+  greetingSend.addEventListener('click', () => sendFromGreeting())
+  greetingClose.addEventListener('click', () => hideGreeting(true))
+
+  let greetingTimer: ReturnType<typeof setTimeout> | null = null
 
   void fetchWidgetConfig(apiBase, token).then((config) => {
     host.style.setProperty('--opps-primary-color', config.primaryColor)
     applyConfig(config)
+    if (config.greetingEnabled && !greetingDismissed()) {
+      greetingTimer = setTimeout(showGreeting, config.greetingDelaySeconds * 1000)
+    }
   })
 
   // Toggle open/closed
   let isOpen = false
 
+  function setBubbleIcon(svg: string): void {
+    const wrapper = document.createElement('span')
+    wrapper.className = 'opps-bubble-icon opps-icon-entering'
+    wrapper.innerHTML = svg
+    bubble.innerHTML = ''
+    bubble.appendChild(wrapper)
+  }
+
   function openPanel(): void {
+    if (greetingTimer) { clearTimeout(greetingTimer); greetingTimer = null }
+    hideGreeting(false)
     isOpen = true
     panel.setAttribute('aria-hidden', 'false')
     panel.classList.remove('opps-panel-closing')
     panel.classList.add('opps-panel-opening')
     bubble.setAttribute('aria-label', 'Close chat')
-    bubble.innerHTML = ICON_CLOSE
+    setBubbleIcon(ICON_CLOSE)
     // Focus the input inside the panel
     const input = panel.querySelector<HTMLInputElement>('.opps-input')
-    setTimeout(() => input?.focus(), 210) // after open animation
+    setTimeout(() => input?.focus(), 330) // after open animation (320ms)
   }
 
   function closePanel(): void {
@@ -705,12 +1014,12 @@ function initWidget(token: string, apiBase: string): void {
     panel.classList.remove('opps-panel-opening')
     panel.classList.add('opps-panel-closing')
     bubble.setAttribute('aria-label', 'Open chat')
-    bubble.innerHTML = ICON_CHAT
-    // Hide after animation completes
+    setBubbleIcon(ICON_CHAT)
+    // Hide after animation completes (220ms)
     setTimeout(() => {
       panel.setAttribute('aria-hidden', 'true')
       panel.classList.remove('opps-panel-closing')
-    }, 160)
+    }, 220)
   }
 
   bubble.addEventListener('click', () => {
@@ -726,4 +1035,20 @@ function initWidget(token: string, apiBase: string): void {
       else openPanel()
     }
   })
+
+  // --- Minimal public JS API (window.Opps) ---
+  // Lets the host site control the widget from its own buttons. Guarded so a
+  // second script init never clobbers an existing instance.
+  const w = window as unknown as { Opps?: Record<string, unknown> }
+  if (!w.Opps) {
+    w.Opps = {
+      open: () => { if (!isOpen) openPanel() },
+      close: () => { if (isOpen) closePanel() },
+      sendMessage: (text: string) => {
+        if (typeof text !== 'string' || !text.trim()) return
+        openPanel()
+        void submitMessage(text)
+      },
+    }
+  }
 }

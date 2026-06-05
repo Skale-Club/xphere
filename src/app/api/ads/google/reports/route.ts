@@ -6,7 +6,7 @@ import {
   getAccountOverview,
   listCampaigns,
   listAdGroups,
-  toGaqlDuration,
+  buildGaqlDateCondition,
 } from '@/lib/ads/google-api'
 import { getCustomerInfo, refreshAccessToken } from '@/lib/ads/google-oauth'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -26,6 +26,8 @@ export async function GET(request: NextRequest): Promise<Response> {
   const report = url.searchParams.get('report') ?? 'overview'
   const customerId = url.searchParams.get('customer_id')
   const datePreset = url.searchParams.get('date_preset') ?? 'last_30d'
+  const since = url.searchParams.get('since') ?? undefined
+  const until = url.searchParams.get('until') ?? undefined
   const campaignId = url.searchParams.get('campaign_id') ?? undefined
 
   if (!customerId) return err('customer_id required')
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const decrypted = await decrypt(conn.encrypted_access_token)
   const tokens = parseTokens(decrypted)
-  const duration = toGaqlDuration(datePreset)
+  const duration = buildGaqlDateCondition(datePreset, since, until)
 
   try {
     switch (report) {

@@ -45,20 +45,18 @@ export default async function BillingSettingsPage({
 
   return (
     <PageContainer className="space-y-6">
-      <div className="max-w-2xl space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Billing</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your organization&rsquo;s subscription, payment method, and invoices.
-          </p>
-        </div>
-        <BillingClient
-          isAdmin={ctx.isAdmin}
-          subscription={subscription}
-          plans={configuredPlanKeys()}
-          checkoutResult={checkoutResult}
-        />
+      <div>
+        <h1 className="text-xl font-semibold">Billing</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage your organization&rsquo;s subscription, payment method, and invoices.
+        </p>
       </div>
+      <BillingClient
+        isAdmin={ctx.isAdmin}
+        subscription={subscription}
+        plans={configuredPlanKeys()}
+        checkoutResult={checkoutResult}
+      />
     </PageContainer>
   )
 }

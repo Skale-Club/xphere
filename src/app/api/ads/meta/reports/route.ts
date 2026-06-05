@@ -109,11 +109,11 @@ export async function GET(request: NextRequest): Promise<Response> {
       }
 
       case 'campaign_leads': {
-        const [campaigns, insights] = await Promise.all([
-          listCampaigns(adAccountId, accessToken),
-          getInsights(adAccountId, accessToken, { level: 'campaign', ...dateOpts }),
-        ])
-        const nameMap = new Map(campaigns.map((c) => [c.id, c.name]))
+        const insights = await getInsights(adAccountId, accessToken, {
+          level: 'campaign',
+          ...dateOpts,
+          fields: ['impressions', 'clicks', 'spend', 'reach', 'cpc', 'cpm', 'ctr', 'cpp', 'frequency', 'actions', 'campaign_id', 'campaign_name'],
+        })
         const rows = insights.data
           .map((i) => {
             const raw = i as unknown as Record<string, string>
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest): Promise<Response> {
             const clicks = parseFloat(i.clicks ?? '0')
             return {
               id: campaignId,
-              name: nameMap.get(campaignId) ?? campaignId,
+              name: raw.campaign_name || campaignId,
               leads,
               spend,
               cpl: leads > 0 ? spend / leads : null,

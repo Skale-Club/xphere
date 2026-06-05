@@ -48,7 +48,7 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
     s.from('traffic_sessions')
       .select(`
         id,
-        org_id,
+        organization_id,
         country_code,
         device_type,
         utm_source,
@@ -69,10 +69,10 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
   const total_sessions_30d = sessionsRes.count ?? 0
   const total_visitors_30d = visitorsRes.count ?? 0
 
-  // Build top orgs (group by org_id from recent sessions)
+  // Build top orgs (group by organization_id from recent sessions)
   const sessionData: Array<{
     id: string
-    org_id: string
+    organization_id: string
     country_code: string | null
     device_type: string | null
     utm_source: string | null
@@ -80,8 +80,8 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
     pageview_count: number
   }> = recentSessionsRes.data ?? []
 
-  // Get org names from the org_ids in recent sessions
-  const orgIds = Array.from(new Set(sessionData.map((s) => s.org_id)))
+  // Get org names from the organization_ids in recent sessions
+  const orgIds = Array.from(new Set(sessionData.map((s) => s.organization_id)))
   let orgNames: Record<string, string> = {}
   if (orgIds.length > 0) {
     const orgsRes = await s.from('organizations').select('id, name').in('id', orgIds)
@@ -92,11 +92,11 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
   // Aggregate per-org metrics from session data (approximate from recent window)
   const orgMap = new Map<string, { pageviews: number; sessions: number; last_at: string | null }>()
   for (const s of sessionData) {
-    const cur = orgMap.get(s.org_id) ?? { pageviews: 0, sessions: 0, last_at: null }
+    const cur = orgMap.get(s.organization_id) ?? { pageviews: 0, sessions: 0, last_at: null }
     cur.sessions += 1
     cur.pageviews += s.pageview_count ?? 0
     if (!cur.last_at || s.started_at > cur.last_at) cur.last_at = s.started_at
-    orgMap.set(s.org_id, cur)
+    orgMap.set(s.organization_id, cur)
   }
 
   const top_orgs: TrafficOrgRow[] = Array.from(orgMap.entries())
@@ -114,7 +114,7 @@ export async function getTrafficOverview(): Promise<TrafficPlatformMetrics> {
 
   const recent_sessions = sessionData.slice(0, 10).map((s) => ({
     id: s.id,
-    org_name: orgNames[s.org_id] ?? s.org_id,
+    org_name: orgNames[s.organization_id] ?? s.organization_id,
     country_code: s.country_code,
     device_type: s.device_type,
     utm_source: s.utm_source,

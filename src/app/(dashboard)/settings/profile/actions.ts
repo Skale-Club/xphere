@@ -8,6 +8,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long').optional(),
   avatar_url: z.string().url().max(1024).nullable().optional(),
+  phone: z.string().trim().max(30).nullable().optional(),
 })
 
 const passwordSchema = z.object({
@@ -35,6 +36,7 @@ export async function updateProfile(input: z.infer<typeof profileSchema>): Promi
   const metadata: Record<string, unknown> = {}
   if (parsed.data.full_name !== undefined) metadata.full_name = parsed.data.full_name
   if (parsed.data.avatar_url !== undefined) metadata.avatar_url = parsed.data.avatar_url
+  if (parsed.data.phone !== undefined) metadata.phone = parsed.data.phone ?? ''
 
   if (Object.keys(metadata).length === 0) {
     return { ok: true }

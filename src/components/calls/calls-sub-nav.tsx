@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bot, PhoneCall, Settings2, type LucideIcon } from 'lucide-react'
+import { Bot, PhoneCall, type LucideIcon } from 'lucide-react'
 
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,7 @@ interface NavSection {
   items: NavItem[]
 }
 
-const SUBROUTES = ['/calls/campaigns', '/calls/assistants', '/calls/settings'] as const
+const SUBROUTES = ['/calls/campaigns', '/calls/assistants'] as const
 
 function isTimelineActive(pathname: string): boolean {
   if (pathname === '/calls') return true
@@ -39,13 +39,6 @@ const SECTIONS: NavSection[] = [
         icon: Bot,
         isActive: (pathname) =>
           pathname === '/calls/assistants' || pathname.startsWith('/calls/assistants/'),
-      },
-      {
-        href: '/calls/settings',
-        label: 'Settings',
-        icon: Settings2,
-        isActive: (pathname) =>
-          pathname === '/calls/settings' || pathname.startsWith('/calls/settings/'),
       },
     ],
   },

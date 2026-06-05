@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DEFAULT_ACCENT } from '@/lib/branding'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
-import { updateWorkspaceBranding, updateDailyCostCap, uploadOrgLogo } from '@/app/(dashboard)/settings/workspace/actions'
+import { updateWorkspaceBranding, updateDailyCostCap, uploadOrgLogo } from '@/app/(dashboard)/settings/company-info/actions'
 
 interface OrgBrandingShape {
   id: string

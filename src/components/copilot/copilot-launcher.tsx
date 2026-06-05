@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { CaretLeft, CaretRight, ChatCircle } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useCopilotStore } from "@/stores/copilot-store";
 
 const COLLAPSED_KEY = "copilot-launcher-collapsed";
+const POP = { type: "spring" as const, stiffness: 420, damping: 20, mass: 0.9 };
+// No-overshoot settle for the collapsed tab so the spring never pulls left and
+// exposes its flush right edge against the screen border.
+const SETTLE = { type: "spring" as const, stiffness: 420, damping: 32, mass: 0.9 };
 
 export function CopilotShell() {
   const open = useCopilotStore((s) => s.open);
   const setOpen = useCopilotStore((s) => s.setOpen);
   const [collapsed, setCollapsed] = useState(false);
+  const [didToggle, setDidToggle] = useState(false);
+
+  function toggleCollapsed(next: boolean) {
+    setDidToggle(true);
+    setCollapsed(next);
+  }
 
   useEffect(() => {
     try {
@@ -50,10 +61,16 @@ export function CopilotShell() {
   if (collapsed) {
     return (
       <div className="group fixed bottom-0 -right-1 z-40 flex items-end justify-end pb-5 pl-12 pt-8">
-        <div className="flex items-stretch">
+        <motion.div
+          key="launcher-collapsed"
+          className="flex items-stretch"
+          initial={didToggle ? { x: 44 } : false}
+          animate={{ x: 0 }}
+          transition={SETTLE}
+        >
           <button
             type="button"
-            onClick={() => setCollapsed(false)}
+            onClick={() => toggleCollapsed(false)}
             title="Expand launcher"
             aria-label="Expand Copilot launcher"
             className={cn(
@@ -76,14 +93,20 @@ export function CopilotShell() {
           >
             <ChatCircle size={20} weight="fill" />
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
     <div className="group fixed bottom-0 right-0 z-40 flex items-end justify-end pb-5 pl-12 pt-8">
-      <div className="flex items-center">
+      <motion.div
+        key="launcher-expanded"
+        className="flex items-center"
+        initial={didToggle ? { x: 132 } : false}
+        animate={{ x: 0 }}
+        transition={POP}
+      >
         <button
           type="button"
           onClick={() => { setOpen(true); setCollapsed(true); }}
@@ -100,7 +123,7 @@ export function CopilotShell() {
         <div className="flex w-4 items-center justify-center sm:w-6 lg:w-8">
           <button
             type="button"
-            onClick={() => setCollapsed(true)}
+            onClick={() => toggleCollapsed(true)}
             title="Collapse launcher"
             aria-label="Collapse Copilot launcher"
             className={cn(
@@ -111,7 +134,7 @@ export function CopilotShell() {
             <CaretRight size={16} weight="bold" />
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

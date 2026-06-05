@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { MetaAdsConnect } from './_components/meta-ads-connect'
 import { MetaAdsOverview } from './_components/meta-ads-overview'
 import { NoAccountsSelected } from './_components/no-accounts-selected'
-import { ManageAccountsButton } from './_components/manage-accounts-button'
 
 export default async function AdsPage() {
   const user = await getUser()
@@ -34,9 +33,6 @@ export default async function AdsPage() {
 
   return (
     <div>
-      <div className="flex justify-end px-6 pt-4">
-        <ManageAccountsButton platform="meta" />
-      </div>
       <MetaAdsOverview
         adAccountId={primaryAccount.ad_account_id}
         adAccountName={primaryAccount.ad_account_name ?? primaryAccount.ad_account_id}

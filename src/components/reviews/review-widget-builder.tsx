@@ -1,7 +1,7 @@
 'use client'
 
 import type { ComponentType, ReactNode } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   Code2,
@@ -648,7 +648,7 @@ export function ReviewWidgetBuilder({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {settingsSlot}
+              {settingsSlot && <Fragment key="settings-slot">{settingsSlot}</Fragment>}
               <div className="relative">
                 <Button
                   type="button"

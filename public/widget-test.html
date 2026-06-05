@@ -59,8 +59,19 @@
       <li>Input re-enables and clears after response received</li>
       <li>Clicking X bubble: panel closes with 160ms animation, bubble icon returns to chat</li>
       <li>Reload page: session persists (same sessionId reused, no new session event on first message)</li>
+      <li><strong>Greeting:</strong> after the configured delay, a "Write a message…" pill slides in beside the bubble (with a greeting bubble above it)</li>
+      <li>Typing in the greeting pill + Enter/send opens the panel and sends that message</li>
+      <li>Clicking the greeting × dismisses it; it stays gone on reload (sessionStorage)</li>
+      <li><strong>JS API:</strong> in the console, <code>Opps.open()</code>, <code>Opps.close()</code>, and <code>Opps.sendMessage('hi')</code> all work</li>
     </ol>
   </div>
+
+  <p>
+    Try the JS API from your own buttons:
+    <button onclick="Opps.open()">Open chat</button>
+    <button onclick="Opps.close()">Close chat</button>
+    <button onclick="Opps.sendMessage('Hello from the host page!')">Send a message</button>
+  </p>
 
   <p>Host page content below — widget should float above this without affecting page layout.</p>
   <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>

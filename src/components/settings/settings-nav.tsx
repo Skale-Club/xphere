@@ -9,7 +9,6 @@ import {
   KeyRound,
   Mail,
   Palette,
-  Phone,
   Plug2,
   ShieldCheck,
   User,
@@ -30,14 +29,13 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { href: '/settings/workspace', label: 'Workspace', description: 'Logo, accent, brand', icon: Palette },
+  { href: '/settings/company-info', label: 'Company Info', description: 'Logo, accent, brand', icon: Palette },
   { href: '/settings/profile', label: 'Profile', description: 'Your account', icon: User },
   { href: '/integrations', label: 'Integrations', description: 'WhatsApp, Twilio, Vapi', icon: Plug2 },
-  { href: '/settings/calls', label: 'Calls', description: 'Routing & devices', icon: Phone },
   { href: '/members', label: 'Team', description: 'Members & invites', icon: Users },
   { href: '/settings/billing', label: 'Billing', description: 'Plans & usage', icon: CreditCard, disabled: true },
   { href: '/settings/notifications', label: 'Notifications', description: 'Email & in-app', icon: Bell, disabled: true },
-  { href: '/settings/api-keys', label: 'API Keys', description: 'Developer access', icon: KeyRound, disabled: true },
+  { href: '/settings/api-keys', label: 'API Keys', description: 'Developer access', icon: KeyRound },
   { href: '/settings/email', label: 'Email', description: 'Resend integration', icon: Mail },
   { href: '/admin/settings', label: 'Platform', description: 'AI, email, feature flags — super admin only', icon: ShieldCheck, adminOnly: true },
 ]

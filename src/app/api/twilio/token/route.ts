@@ -28,7 +28,7 @@ export async function POST(): Promise<Response> {
 
   if (!settings?.twilio_client_identity) {
     return Response.json(
-      { error: 'Browser calling is not configured for this user. Pick a Browser identity in /settings/calls.' },
+      { error: 'Browser calling is not configured for this user. Configure call routing on the phone number.' },
       { status: 400 },
     )
   }

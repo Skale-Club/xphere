@@ -151,12 +151,36 @@ export function toGaqlDuration(preset: string): GAdsDuration {
   return map[preset] ?? 'LAST_30_DAYS'
 }
 
+/**
+ * Builds a GAQL WHERE date condition that accepts either a named preset or a
+ * custom since/until range. Handles the new shared presets (last_3m, last_6m,
+ * last_year, last_2y) that the Google API doesn't natively support.
+ */
+export function buildGaqlDateCondition(preset: string, since?: string, until?: string): string {
+  if (since && until) return `segments.date BETWEEN '${since}' AND '${until}'`
+  const nativeMap: Record<string, string> = {
+    today: 'TODAY',
+    yesterday: 'YESTERDAY',
+    last_7d: 'LAST_7_DAYS',
+    last_14d: 'LAST_14_DAYS',
+    last_30d: 'LAST_30_DAYS',
+    last_90d: 'LAST_90_DAYS',
+    this_month: 'THIS_MONTH',
+    last_month: 'LAST_MONTH',
+    last_year: 'LAST_YEAR',
+  }
+  const native = nativeMap[preset]
+  if (native) return `segments.date DURING ${native}`
+  // Non-native: last_3m, last_6m, last_2y — caller should pass since/until
+  return `segments.date DURING LAST_30_DAYS`
+}
+
 // ─── Account overview ──────────────────────────────────────────────────────────
 
 export async function getAccountOverview(
   customerId: string,
   refreshToken: string,
-  duration: GAdsDuration,
+  duration: GAdsDuration | string,
 ): Promise<GAdsAccountOverview> {
   type Row = {
     metrics: {
@@ -168,13 +192,17 @@ export async function getAccountOverview(
       averageCpc: string
     }
   }
+  // duration may be a raw GAQL condition (BETWEEN / DURING) from buildGaqlDateCondition
+  const dateClause = duration.includes('BETWEEN') || duration.includes('DURING')
+    ? `WHERE ${duration}`
+    : `WHERE segments.date DURING ${duration}`
   const rows = await gaqlSearch<Row>(
     customerId,
     refreshToken,
     `SELECT metrics.impressions, metrics.clicks, metrics.cost_micros,
             metrics.conversions, metrics.ctr, metrics.average_cpc
      FROM customer
-     WHERE segments.date DURING ${duration}`,
+     ${dateClause}`,
   )
   if (!rows.length) {
     return { impressions: '0', clicks: '0', costMicros: '0', conversions: '0', ctr: '0', averageCpc: '0' }
@@ -203,7 +231,7 @@ export async function getAccountOverview(
 export async function listCampaigns(
   customerId: string,
   refreshToken: string,
-  duration: GAdsDuration,
+  duration: GAdsDuration | string,
 ): Promise<GAdsCampaignWithMetrics[]> {
   type Row = {
     campaign: {
@@ -235,7 +263,7 @@ export async function listCampaigns(
             metrics.conversions, metrics.ctr, metrics.average_cpc
      FROM campaign
      WHERE campaign.status != 'REMOVED'
-       AND segments.date DURING ${duration}
+       AND ${duration.includes('BETWEEN') || duration.includes('DURING') ? duration : `segments.date DURING ${duration}`}
      ORDER BY metrics.cost_micros DESC`,
   )
 
@@ -261,7 +289,7 @@ export async function listCampaigns(
 export async function listAdGroups(
   customerId: string,
   refreshToken: string,
-  duration: GAdsDuration,
+  duration: GAdsDuration | string,
   campaignId?: string,
 ): Promise<GAdsAdGroup[]> {
   type Row = {
@@ -279,7 +307,7 @@ export async function listAdGroups(
             metrics.impressions, metrics.clicks, metrics.cost_micros
      FROM ad_group
      WHERE ad_group.status != 'REMOVED'${campaignFilter}
-       AND segments.date DURING ${duration}
+       AND ${duration.includes('BETWEEN') || duration.includes('DURING') ? duration : `segments.date DURING ${duration}`}
      ORDER BY metrics.cost_micros DESC`,
   )
 

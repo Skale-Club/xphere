@@ -51,7 +51,7 @@ export default async function SettingsWidgetPage() {
   const [orgResult, agents, channelDefaults] = await Promise.all([
     supabase
       .from('organizations')
-      .select('id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url, accent_color')
+      .select('id, name, widget_display_name, widget_primary_color, widget_welcome_message, widget_token, widget_avatar_url, accent_color, widget_greeting_enabled, widget_greeting_message, widget_greeting_delay_seconds')
       .eq('id', activeOrgId)
       .single(),
     getActiveAgents(),
@@ -73,6 +73,9 @@ export default async function SettingsWidgetPage() {
     ),
     welcomeMessage: normalizeWidgetValue(organization.widget_welcome_message, DEFAULT_WIDGET_SETTINGS.welcomeMessage),
     avatarUrl: organization.widget_avatar_url || '',
+    greetingEnabled: organization.widget_greeting_enabled !== false,
+    greetingMessage: organization.widget_greeting_message || '',
+    greetingDelaySeconds: typeof organization.widget_greeting_delay_seconds === 'number' ? organization.widget_greeting_delay_seconds : 3,
   }
 
   return (
@@ -101,6 +104,9 @@ export default async function SettingsWidgetPage() {
             primaryColor={widgetConfig.primaryColor}
             welcomeMessage={widgetConfig.welcomeMessage}
             avatarUrl={widgetConfig.avatarUrl}
+            greetingEnabled={widgetConfig.greetingEnabled}
+            greetingMessage={widgetConfig.greetingMessage || widgetConfig.welcomeMessage}
+            greetingDelaySeconds={widgetConfig.greetingDelaySeconds}
           />
         </div>
       </div>

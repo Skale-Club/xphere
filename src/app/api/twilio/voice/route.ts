@@ -20,6 +20,7 @@ import {
 } from '@/lib/twilio/voice'
 import {
   resolveRoutingForOrg,
+  resolveRoutingForPhoneNumber,
   buildSipUri,
 } from '@/lib/calls/resolve-routing'
 import {
@@ -154,9 +155,9 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // ── Inbound call routing ────────────────────────────────────────────────
-    const routing = await resolveRoutingForOrg(orgId)
+    const routing = await resolveRoutingForPhoneNumber(orgId, phoneNumberId)
     if (!routing) {
-      console.warn('[twilio/voice] No call_settings for org:', orgId)
+      console.warn('[twilio/voice] No routing configured for org/number:', orgId, phoneNumberId)
       return twimlResponse(
         twimlReject('No agent is currently available. Please leave a message after the tone.'),
       )

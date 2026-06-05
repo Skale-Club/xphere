@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CurrencySelect } from '@/components/pipeline/currency-select'
-import { updateDefaultCurrency } from '@/app/(dashboard)/settings/workspace/actions'
+import { updateDefaultCurrency } from '@/app/(dashboard)/settings/company-info/actions'
 
 interface Props {
   defaultCurrency: string

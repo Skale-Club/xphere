@@ -407,7 +407,12 @@ export function MessageList({
             <div className="flex flex-col gap-1">
               {messages.map((message, i) => {
                 const prev = i > 0 ? messages[i - 1] : null
-                const sameSender = prev && prev.role === message.role && !isSystemMessage(prev) && !isSystemMessage(message)
+                const sameSender = prev
+                  && prev.role === message.role
+                  && !isSystemMessage(prev)
+                  && !isSystemMessage(message)
+                  && !dayDividers[i]
+                  && !channelDividers[i]
                 const dateDivider = dayDividers[i] ? <DateDivider label={dayDividers[i]!} /> : null
 
                 if (isSystemMessage(message)) {
@@ -459,16 +464,12 @@ export function MessageList({
                       >
                       {/* avatar + bubble — centered */}
                       <div className="flex items-center gap-2">
-                        {!sameSender ? (
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarFallback className="bg-bg-tertiary text-text-secondary text-[10.5px] font-medium">
-                              {(message.content.charAt(0) || visitorInitial).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <div className="h-7 w-7 shrink-0" aria-hidden />
-                        )}
-                        <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle">
+                        <Avatar className="h-7 w-7 shrink-0">
+                          <AvatarFallback className="bg-bg-tertiary text-text-secondary text-[10.5px] font-medium">
+                            {(message.content?.charAt(0) || visitorInitial).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle whitespace-pre-wrap break-words">
                           {message.channel === 'email' && message.email_subject && (
                             <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
                               <Mail className="h-3 w-3 shrink-0" />
@@ -504,7 +505,7 @@ export function MessageList({
                     >
                     {/* bubble + avatar — centered */}
                     <div className="flex items-center justify-end gap-2">
-                      <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20">
+                      <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20 whitespace-pre-wrap break-words">
                         {message.channel === 'email' && message.email_subject && (
                           <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
                             <Mail className="h-3 w-3 shrink-0" />
@@ -520,15 +521,11 @@ export function MessageList({
                           </div>
                         )}
                       </div>
-                      {!sameSender ? (
-                        <Avatar className="h-7 w-7 shrink-0">
-                          <AvatarFallback className="bg-accent text-white text-[10.5px] font-medium">
-                            Op
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="h-7 w-7 shrink-0" aria-hidden />
-                      )}
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarFallback className="bg-accent text-white text-[10.5px] font-medium">
+                          Op
+                        </AvatarFallback>
+                      </Avatar>
                     </div>
                     {/* timestamp — outside alignment row */}
                     <div className="mt-0.5 pr-9 flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">

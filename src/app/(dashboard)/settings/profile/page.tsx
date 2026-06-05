@@ -22,6 +22,7 @@ export default async function ProfilePage() {
           email: user.email ?? '',
           full_name: (user.user_metadata?.full_name as string | undefined) ?? '',
           avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+          phone: (user.user_metadata?.phone as string | undefined) ?? '',
         }}
       />
     </PageContainer>

@@ -35,13 +35,18 @@ export async function GET(
   const supabase = createServiceRoleClient()
   const { data: org, error } = await supabase
     .from('organizations')
-    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color')
+    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color, widget_greeting_enabled, widget_greeting_message, widget_greeting_delay_seconds')
     .eq('widget_token', token)
     .single()
 
   if (error || !org || !org.is_active) {
     return Response.json({ error: 'Invalid or inactive token' }, { status: 401 })
   }
+
+  const welcomeMessage = normalizeWidgetValue(org.widget_welcome_message, DEFAULT_WIDGET_CONFIG.welcomeMessage)
+  // Clamp the greeting delay to 0–30s so a bad value can't hide the composer forever.
+  const rawDelay = typeof org.widget_greeting_delay_seconds === 'number' ? org.widget_greeting_delay_seconds : 3
+  const greetingDelaySeconds = Math.max(0, Math.min(30, rawDelay))
 
   return Response.json({
     displayName: normalizeWidgetValue(org.widget_display_name, DEFAULT_WIDGET_CONFIG.displayName),
@@ -51,7 +56,12 @@ export async function GET(
       org.widget_primary_color,
       normalizeWidgetValue(org.accent_color, DEFAULT_WIDGET_CONFIG.primaryColor),
     ),
-    welcomeMessage: normalizeWidgetValue(org.widget_welcome_message, DEFAULT_WIDGET_CONFIG.welcomeMessage),
+    welcomeMessage,
     avatarUrl: org.widget_avatar_url || null,
+    // Greeting composer config (migration 1148). Greeting text falls back to the
+    // welcome message when not explicitly set.
+    greetingEnabled: org.widget_greeting_enabled !== false,
+    greetingMessage: normalizeWidgetValue(org.widget_greeting_message, welcomeMessage),
+    greetingDelaySeconds,
   })
 }

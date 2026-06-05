@@ -41,6 +41,7 @@ export type MemberProfile = {
   email: string | null
   phone: string | null
   full_name: string | null
+  avatar_url: string | null
   total_count: number
 }
 
@@ -112,6 +113,7 @@ export async function inviteMember(formData: FormData) {
   }
 
   revalidatePath('/members')
+  revalidatePath('/settings/members')
   return { error: null }
 }
 
@@ -131,6 +133,7 @@ export async function revokeInvite(inviteId: string) {
   if (dbError) return { error: dbError.message }
 
   revalidatePath('/members')
+  revalidatePath('/settings/members')
   return { error: null }
 }
 
@@ -162,6 +165,7 @@ export async function updateMemberRole(memberId: string, role: 'admin' | 'member
   if (dbError) return { error: dbError.message }
 
   revalidatePath('/members')
+  revalidatePath('/settings/members')
   return { error: null }
 }
 
@@ -193,5 +197,6 @@ export async function removeMember(memberId: string) {
   if (dbError) return { error: dbError.message }
 
   revalidatePath('/members')
+  revalidatePath('/settings/members')
   return { error: null }
 }

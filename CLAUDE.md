@@ -41,7 +41,8 @@ const supabase = await createClient()
 `cache()` deduplicates these across the render tree per request. Auth gating happens in layouts, pages, route handlers, and server actions instead of middleware.
 
 ### API Routes
-Inbound webhooks (Vapi, Meta, ManyChat, etc.) always return HTTP 200:
+
+**Inbound webhooks** (Vapi, Meta, ManyChat, etc.) always return HTTP 200:
 
 ```ts
 export const runtime = 'nodejs'
@@ -60,6 +61,31 @@ Production webhook endpoints:
 - `https://xphere.app/api/vapi/tools`
 - `https://xphere.app/api/vapi/calls`
 - `https://xphere.app/api/vapi/campaigns`
+
+**Public REST API** (`/api/v1/`) uses Bearer token auth via the `api_keys` table — different pattern from webhooks:
+
+```ts
+export const runtime = 'nodejs'
+
+export async function POST(request: Request) {
+  const token = request.headers.get('authorization')?.slice(7)
+  const supabase = createServiceRoleClient()
+  const { data: apiKey } = await supabase
+    .from('api_keys')
+    .select('id, org_id')
+    .eq('key_hash', hashToken(token))
+    .is('revoked_at', null)
+    .maybeSingle()
+  if (!apiKey) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  // ... process with apiKey.org_id
+}
+```
+
+- Tokens: `xph_<64 hex>` — SHA-256 hash stored, plaintext never persisted
+- Managed via `Settings → API Keys` UI
+- Returns proper HTTP status codes (201/200/401/422) — NOT always-200 like webhooks
+- CORS headers included — external sites call this cross-origin
+- Full reference: `docs/api/public-api.md`
 
 ### Components
 - Server components by default
@@ -81,6 +107,8 @@ Migrations live in `supabase/migrations/`. After adding a migration:
 src/
   app/(auth)/          login page
   app/(dashboard)/     protected pages
+  app/api/v1/          public REST API (Bearer token auth via api_keys table)
+    contacts/          POST /api/v1/contacts — upsert contact from external source
   app/api/vapi/        webhook receivers (Node.js runtime)
   app/api/campaigns/   campaign control API
   components/layout/   AppSidebar, OrgSwitcher
@@ -95,6 +123,8 @@ src/
 supabase/
   migrations/          numbered SQL files
   functions/           Deno edge functions
+docs/
+  api/public-api.md    Full public API reference for integrators
 tests/                 Vitest tests
 ```
 

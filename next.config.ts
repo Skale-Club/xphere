@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       // Legacy /accounts URLs now point to the canonical /companies route.
       { source: '/accounts', destination: '/companies', permanent: true },
       { source: '/accounts/:path*', destination: '/companies/:path*', permanent: true },
+      // /settings/workspace renamed to /settings/company-info
+      { source: '/settings/workspace', destination: '/settings/company-info', permanent: true },
     ]
   },
   async headers() {

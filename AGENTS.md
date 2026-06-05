@@ -4,7 +4,7 @@ This file is for AI coding agents and automation working inside the Xphere repos
 
 ## Mission
 
-Xphere is a multi-tenant operations platform spanning voice AI (Vapi), chat (embeddable widget + multi-channel agents on WhatsApp/Instagram/Messenger), inbound webhook integrations (ManyChat, GHL, Meta), CRM, scheduling, unified workflows, knowledge, and outbound campaigns.
+Xphere is a multi-tenant operations platform spanning voice AI (Vapi), chat (embeddable widget + multi-channel agents on WhatsApp/Instagram/Messenger), inbound webhook integrations (ManyChat, GHL, Meta), CRM, scheduling, unified workflows, knowledge, outbound campaigns, and a public REST API for external integrations.
 
 The most important invariant in the system is the **Action Engine path** — the shared executor at `src/lib/action-engine/execute-action.ts` that every runtime calls into:
 
@@ -154,9 +154,35 @@ This platform has a **single unified workflow system**. There is no separate "Au
 
 **Coordinate seeds.** SEED-025 (data model + engine), SEED-026 (AI authoring), SEED-027 (calendar triggers), SEED-028 (meeting locations). Status of each is in the `.planning/seeds/` frontmatter (`planted` / `shipped`).
 
+## Public REST API (`/api/v1/`)
+
+The platform exposes a versioned public REST API at `/api/v1/` for external applications (forms, websites, Zapier, n8n, etc.) to push data into Xphere without a user session.
+
+**Auth pattern:** `Authorization: Bearer xph_<64-hex>` — different from webhooks.
+
+- Tokens are generated in `Settings → API Keys` and stored as SHA-256 hashes in the `api_keys` table.
+- Route handlers use `createServiceRoleClient()` to look up the hash, resolve `org_id`, then operate on behalf of that org with explicit `org_id` filters (no RLS session cookie available).
+- These routes return proper HTTP status codes (201/200/401/422/500) — **not** always-200 like inbound webhooks.
+- CORS headers (`Access-Control-Allow-Origin: *`) are set so external sites can call cross-origin.
+
+**Current endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/contacts` | Upsert a contact. Deduplicates by phone → email. |
+
+See `docs/api/public-api.md` for the full integrator reference.
+
+**When extending the public API:**
+- New endpoints go under `src/app/api/v1/<resource>/route.ts`
+- Always export an `OPTIONS` handler for CORS preflight
+- Validate the Bearer token at the top of every handler (copy the pattern from `contacts/route.ts`)
+- Update `docs/api/public-api.md` with the new endpoint
+
 ## Areas To Be Extra Careful With
 
 - [`src/app/api/vapi/tools/route.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/api/vapi/tools/route.ts): latency-sensitive live-call path
+- [`src/app/api/v1/contacts/route.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/api/v1/contacts/route.ts): public API — any regression breaks external integrations silently
 - [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/crypto.ts): encryption format compatibility
 - [`src/lib/supabase/server.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/supabase/server.ts): cached auth and client creation
 - [`src/app/(dashboard)/outbound/actions.ts`](/c:/Users/Vanildo/Dev/xphere/src/app/(dashboard)/outbound/actions.ts): service-role and campaign control paths

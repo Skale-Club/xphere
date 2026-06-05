@@ -25,7 +25,7 @@ import {
   getActiveWhatsAppProvider,
   saveWhatsAppProvider,
   type ActiveWhatsAppProvider,
-} from '@/app/(dashboard)/settings/workspace/actions'
+} from '@/app/(dashboard)/settings/company-info/actions'
 import type { CustomPanelProps } from '@/lib/integrations/registry'
 import type { WhatsAppProvider } from '@/lib/whatsapp/types'
 

@@ -451,7 +451,7 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     // SEED-039: bookings for this contact (event_type joined for label)
     supabase
       .from('bookings')
-      .select('id, booker_name, start_at, end_at, status, event_types(name)')
+      .select('id, booker_name, start_at, end_at, status, event_types(title)')
       .eq('linked_contact_id', id)
       .order('start_at', { ascending: false })
       .limit(5),

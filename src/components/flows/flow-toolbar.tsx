@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, CheckCircle2, AlertCircle, Loader2, Play, History, Pencil } from 'lucide-react'
+import { Save, CheckCircle2, AlertCircle, Loader2, Play, History, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WorkflowToggle } from '@/components/workflows/workflow-toggle'
 import { useFlowStore } from '@/stores/flow-store'
@@ -141,12 +141,6 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
       {/* Left | back + name (flex-grow) */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <Button asChild variant="ghost" size="sm" className="shrink-0 px-2">
-          <Link href="/workflows" aria-label="Back to workflows">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden md:inline ml-1">Workflows</span>
-          </Link>
-        </Button>
         <div className="min-w-0 flex items-center gap-1.5">
           {editing ? (
             <input

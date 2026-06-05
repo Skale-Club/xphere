@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { TrendingUp, Eye, MousePointerClick, DollarSign, Target, Loader2, AlertCircle, MessageSquare, LayoutGrid } from 'lucide-react'
+import { TrendingUp, Eye, MousePointerClick, DollarSign, Target, Loader2, AlertCircle, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
+import { AdsDateFilter } from './ads-date-filter'
+import { type DateFilter, applyGoogleDateParams, filterLabel as getFilterLabel } from './ads-date-filter.utils'
+import { useCampaignsPanel } from './ads-campaigns-context'
 
 type Metrics = {
   impressions: string
@@ -23,15 +24,6 @@ type OverviewData = {
   metrics: Metrics
 }
 
-const DATE_PRESETS = [
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 7 days', value: 'last_7d' },
-  { label: 'Last 30 days', value: 'last_30d' },
-  { label: 'Last 90 days', value: 'last_90d' },
-  { label: 'This month', value: 'this_month' },
-  { label: 'Last month', value: 'last_month' },
-]
 
 function microsToUsd(micros: string | undefined, currency = 'USD'): string {
   if (!micros) return '—'
@@ -83,8 +75,9 @@ export function GoogleAdsOverview({
   const searchParams = useSearchParams()
   const justConnected = searchParams.get('connected') === 'true'
 
-  const [datePreset, setDatePreset] = useState('last_30d')
+  const [filter, setFilter] = useState<DateFilter>({ type: 'preset', value: 'last_30d' })
   const [activeCustomerId, setActiveCustomerId] = useState(customerId)
+  const { openPanel: openCampaigns } = useCampaignsPanel()
   const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -93,9 +86,9 @@ export function GoogleAdsOverview({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
-        `/api/ads/google/reports?report=overview&customer_id=${activeCustomerId}&date_preset=${datePreset}`,
-      )
+      const params = new URLSearchParams({ report: 'overview', customer_id: activeCustomerId })
+      applyGoogleDateParams(params, filter)
+      const res = await fetch(`/api/ads/google/reports?${params.toString()}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error((body as { error?: string }).error ?? 'Failed to load data')
@@ -106,7 +99,7 @@ export function GoogleAdsOverview({
     } finally {
       setLoading(false)
     }
-  }, [activeCustomerId, datePreset])
+  }, [activeCustomerId, filter])
 
   useEffect(() => { void fetchData() }, [fetchData])
   useEffect(() => { if (justConnected) toast.success('Google Ads connected successfully!') }, [justConnected])
@@ -144,33 +137,19 @@ export function GoogleAdsOverview({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
-            {DATE_PRESETS.slice(0, 4).map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setDatePreset(p.value)}
-                className={cn(
-                  'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                  datePreset === p.value ? 'bg-bg-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-            <select
-              value={DATE_PRESETS.slice(4).some((p) => p.value === datePreset) ? datePreset : ''}
-              onChange={(e) => e.target.value && setDatePreset(e.target.value)}
-              className="rounded-[5px] bg-transparent px-1 py-1 text-[11.5px] text-text-secondary focus:outline-none"
-            >
-              <option value="">More</option>
-              {DATE_PRESETS.slice(4).map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/ads/google/chat"><MessageSquare className="h-3.5 w-3.5 mr-1.5" />AI Chat</Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/ads/google/campaigns"><LayoutGrid className="h-3.5 w-3.5 mr-1.5" />Campaigns</Link>
+          <AdsDateFilter platform="google" value={filter} onChange={setFilter} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openCampaigns({
+              adAccountId: activeCustomerId,
+              currency: data?.customer?.currency_code ?? 'USD',
+              dateQuery: new URLSearchParams({ customer_id: activeCustomerId }).toString(),
+              platform: 'google',
+            })}
+          >
+            <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
+            Campaigns
           </Button>
         </div>
       </div>
@@ -183,7 +162,7 @@ export function GoogleAdsOverview({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard label="Spend" value={microsToUsd(m?.costMicros, currency)} icon={DollarSign} sub={datePreset.replace(/_/g, ' ')} />
+          <StatCard label="Spend" value={microsToUsd(m?.costMicros, currency)} icon={DollarSign} sub={getFilterLabel(filter)} />
           <StatCard label="Impressions" value={fmtNum(m?.impressions)} icon={Eye} />
           <StatCard label="Clicks" value={fmtNum(m?.clicks)} icon={MousePointerClick} sub={`CTR: ${fmtPct(m?.ctr)}`} />
           <StatCard label="Avg CPC" value={microsToUsd(m?.averageCpc, currency)} icon={TrendingUp} />
@@ -208,7 +187,9 @@ export function GoogleAdsOverview({
         </div>
         <AdsAttribution
           platform="google"
-          datePreset={datePreset}
+          datePreset={filter.type === 'preset' ? filter.value : 'last_30d'}
+          since={filter.type === 'custom' ? filter.since : undefined}
+          until={filter.type === 'custom' ? filter.until : undefined}
           currency={data?.customer?.currency_code ?? 'USD'}
         />
       </div>

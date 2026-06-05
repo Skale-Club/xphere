@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { ManageAccountsButton } from './manage-accounts-button'
 
 const PLATFORM_TABS = [
   { label: 'Meta Ads', href: '/ads', value: 'meta' },
@@ -40,14 +41,20 @@ export function AdsPlatformSwitcher() {
         ))}
       </div>
 
-      {/* Journey — separated on the right */}
-      <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
-        <Link
-          href={JOURNEY_TAB.href}
-          className={tabClass(JOURNEY_TAB.value === activeValue)}
-        >
-          {JOURNEY_TAB.label}
-        </Link>
+      {/* Journey + Manage accounts — on the right */}
+      <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
+          <Link
+            href={JOURNEY_TAB.href}
+            className={tabClass(JOURNEY_TAB.value === activeValue)}
+          >
+            {JOURNEY_TAB.label}
+          </Link>
+        </div>
+
+        {activeValue !== 'journey' && (
+          <ManageAccountsButton platform={activeValue as 'meta' | 'google'} />
+        )}
       </div>
     </div>
   )

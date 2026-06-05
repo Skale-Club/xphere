@@ -8,6 +8,7 @@ import {
   Bot,
   CreditCard,
   Download,
+  KeyRound,
   Mail,
   MapPin,
   MessageSquare,
@@ -42,9 +43,9 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Workspace',
     items: [
-      { href: '/settings/workspace', label: 'Company Info', icon: Settings2 },
-      { href: '/settings/tags', label: 'Tags & labels', icon: Tag },
-      { href: '/settings/custom-fields', label: 'Custom fields', icon: Settings2 },
+      { href: '/settings/company-info', label: 'Company Info', icon: Settings2 },
+      { href: '/settings/tags', label: 'Tags & Labels', icon: Tag },
+      { href: '/settings/custom-fields', label: 'Custom Fields', icon: Settings2 },
       { href: '/settings/locations', label: 'Locations', icon: MapPin },
       { href: '/settings/members', label: 'Members', icon: UsersRound },
       { href: '/settings/copilot', label: 'Copilot', icon: Bot },
@@ -53,22 +54,28 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Communications',
     items: [
-      { href: '/settings/phone-numbers', label: 'Phone numbers', icon: Phone },
-      { href: '/settings/email-templates', label: 'Email templates', icon: Mail },
-      { href: '/settings/widget', label: 'Chat widget', icon: MessageSquare },
-      { href: '/settings/mcp', label: 'MCP server', icon: Plug },
+      { href: '/settings/phone-numbers', label: 'Phone Numbers', icon: Phone },
+      { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
+      { href: '/settings/widget', label: 'Chat Widget', icon: MessageSquare },
     ],
   },
   {
     heading: 'Build',
     items: [
-      { href: '/settings/integrations', label: 'Integrations', icon: Plug2 },
       { href: '/settings/knowledge', label: 'Knowledge', icon: BookOpen },
     ],
   },
   {
     heading: 'App',
-    items: [{ href: '/settings/install', label: 'Install app', icon: Download }],
+    items: [{ href: '/settings/install', label: 'Install App', icon: Download }],
+  },
+  {
+    heading: 'Developer',
+    items: [
+      { href: '/settings/integrations', label: 'Integrations', icon: Plug2 },
+      { href: '/settings/mcp', label: 'MCP Server', icon: Plug },
+      { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound },
+    ],
   },
   {
     heading: 'Billing',

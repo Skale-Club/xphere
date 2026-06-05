@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getUser } from '@/lib/supabase/server'
 import { AdsPlatformSwitcher } from './_components/ads-platform-switcher'
+import { AdsShell } from './_components/ads-shell'
 
 export default async function AdsLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -17,8 +17,8 @@ export default async function AdsLayout({ children }: { children: React.ReactNod
       <div className="flex items-center gap-4 border-b border-border-subtle px-6 py-3 bg-bg-secondary shrink-0">
         <AdsPlatformSwitcher />
       </div>
-      <div className="flex-1 min-h-0 overflow-auto">
-        {children}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <AdsShell>{children}</AdsShell>
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ export const CONTACT_SOURCES = [
   'messenger',
   'csv_import',
   'ghl_sync',
+  'api',
 ] as const
 export type ContactSourceLiteral = (typeof CONTACT_SOURCES)[number]
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   PaperPlaneTilt,
   Pencil,
@@ -845,31 +846,41 @@ export function CopilotPanel({ hasProvider }: CopilotPanelProps) {
   return (
     <>
       {/* ── Desktop: right sidebar with drag-to-resize ── */}
-      <aside
-        className={cn(
-          "relative hidden md:block border-l border-border shrink-0",
-          "transition-[width] duration-200 ease-in-out overflow-visible",
-          open ? "w-[380px]" : "w-0",
-        )}
+      <motion.aside
+        className="relative hidden md:block border-l border-border shrink-0 overflow-hidden"
+        initial={false}
+        animate={{ width: open ? 380 : 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.85 }}
       >
-        {/* Panel anchored to bottom of sidebar, height controlled by drag */}
-        <div
-          className={cn(
-            "absolute bottom-0 left-0 right-0 flex flex-col bg-bg-primary overflow-hidden",
-            "border-t border-border",
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="copilot-panel-desktop"
+              initial={{ x: 30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -24, opacity: 0 }}
+              transition={{
+                x: { type: "spring", stiffness: 380, damping: 28 },
+                opacity: { duration: 0.12 },
+              }}
+              className={cn(
+                "absolute bottom-0 left-0 right-0 flex flex-col bg-bg-primary overflow-hidden",
+                "border-t border-border",
+              )}
+              style={
+                desktopHeight !== null
+                  ? { height: desktopHeight }
+                  : { top: 0, bottom: 0 }
+              }
+            >
+              <DragHandle onPointerDown={startDesktopDrag} />
+              <div className="w-[380px] flex flex-1 min-h-0 flex-col">
+                {desktopPanelInner}
+              </div>
+            </motion.div>
           )}
-          style={
-            desktopHeight !== null
-              ? { height: desktopHeight }
-              : { top: 0, bottom: 0 } // before hydration: full height
-          }
-        >
-          <DragHandle onPointerDown={startDesktopDrag} />
-          <div className="w-[380px] flex flex-1 min-h-0 flex-col">
-            {desktopPanelInner}
-          </div>
-        </div>
-      </aside>
+        </AnimatePresence>
+      </motion.aside>
 
       {/* ── Mobile: bottom sheet with drag handle ── */}
       {open && (

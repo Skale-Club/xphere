@@ -6,21 +6,26 @@ import {
   Loader2,
   AlertCircle,
   LayoutGrid,
-  SlidersHorizontal,
-  ChevronDown,
   Unlink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
 import { AccountSelector } from './account-selector'
-import { CampaignsModal } from './campaigns-modal'
+
 import { MetaKpiCards } from './meta-kpi-cards'
 import { MetaFunnel } from './meta-funnel'
 import { MetaTrendCharts, type DailyTrendRow } from './meta-trend-charts'
 import { MetaTopCampaigns, type CampaignLeadRow } from './meta-top-campaigns'
+import { AdsDateFilter } from './ads-date-filter'
+import {
+  type DateFilter,
+  applyMetaDateParams,
+  metaDateQuery,
+  filterLabel as getFilterLabel,
+} from './ads-date-filter.utils'
+import { useCampaignsPanel } from './ads-campaigns-context'
 
 const ACCOUNT_STORAGE_KEY = 'xphere:meta_ads_account'
 
@@ -47,24 +52,6 @@ type AttributionTotals = {
   revenue: number
 }
 
-// A date filter is either a named Meta preset or an explicit custom range.
-type DateFilter =
-  | { type: 'preset'; value: string }
-  | { type: 'custom'; since: string; until: string }
-
-const PRESET_LABELS: Record<string, string> = {
-  today: 'Today',
-  yesterday: 'Yesterday',
-  last_7d: 'Last 7 days',
-  last_14d: 'Last 14 days',
-  last_30d: 'Last 30 days',
-  last_90d: 'Last 90 days',
-  this_month: 'This month',
-  last_month: 'Last month',
-  maximum: 'All time',
-}
-const QUICK_PRESETS = ['today', 'yesterday', 'last_7d', 'last_30d']
-const MORE_PRESETS = ['last_14d', 'last_90d', 'this_month', 'last_month', 'maximum']
 
 export function MetaAdsOverview({
   adAccountId,
@@ -79,11 +66,8 @@ export function MetaAdsOverview({
   const justConnected = searchParams.get('connected') === 'true'
 
   const [filter, setFilter] = useState<DateFilter>({ type: 'preset', value: 'last_30d' })
-  const [filterOpen, setFilterOpen] = useState(false)
-  const [customSince, setCustomSince] = useState('')
-  const [customUntil, setCustomUntil] = useState('')
   const [activeAccountId, setActiveAccountId] = useState(adAccountId)
-  const [campaignsOpen, setCampaignsOpen] = useState(false)
+  const { openPanel: openCampaigns } = useCampaignsPanel()
 
   // Overview data
   const [data, setData] = useState<OverviewData | null>(null)
@@ -157,23 +141,11 @@ export function MetaAdsOverview({
     }
   }
 
-  const filterLabel =
-    filter.type === 'preset'
-      ? PRESET_LABELS[filter.value] ?? filter.value
-      : `${filter.since} → ${filter.until}`
-
-  const dateQuery =
-    filter.type === 'preset'
-      ? `date_preset=${filter.value}`
-      : `since=${filter.since}&until=${filter.until}`
+  const filterLabel = getFilterLabel(filter)
+  const dateQuery = metaDateQuery(filter)
 
   function applyDateParams(params: URLSearchParams) {
-    if (filter.type === 'preset') {
-      params.set('date_preset', filter.value)
-    } else {
-      params.set('since', filter.since)
-      params.set('until', filter.until)
-    }
+    applyMetaDateParams(params, filter)
   }
 
   const fetchOverview = useCallback(async () => {
@@ -301,108 +273,20 @@ export function MetaAdsOverview({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-1">
-            {QUICK_PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setFilter({ type: 'preset', value: p })}
-                className={cn(
-                  'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                  filter.type === 'preset' && filter.value === p
-                    ? 'bg-bg-primary text-text-primary shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary',
-                )}
-              >
-                {PRESET_LABELS[p]}
-              </button>
-            ))}
+          <AdsDateFilter platform="meta" value={filter} onChange={setFilter} />
 
-            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  className={cn(
-                    'flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                    filter.type === 'custom' || (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
-                      ? 'bg-bg-primary text-text-primary shadow-sm'
-                      : 'text-text-secondary hover:text-text-primary',
-                  )}
-                >
-                  <SlidersHorizontal className="h-3 w-3" />
-                  {filter.type === 'custom' || (filter.type === 'preset' && MORE_PRESETS.includes(filter.value))
-                    ? filterLabel
-                    : 'More'}
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-64 p-2">
-                <div className="space-y-0.5">
-                  {MORE_PRESETS.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => { setFilter({ type: 'preset', value: p }); setFilterOpen(false) }}
-                      className={cn(
-                        'w-full rounded-md px-2.5 py-1.5 text-left text-[12.5px] transition-colors',
-                        filter.type === 'preset' && filter.value === p
-                          ? 'bg-accent/10 text-accent'
-                          : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
-                      )}
-                    >
-                      {PRESET_LABELS[p]}
-                    </button>
-                  ))}
-                </div>
-                <div className="my-2 border-t border-border-subtle" />
-                <div className="space-y-2 px-1 pb-1">
-                  <p className="text-[11px] font-medium text-text-secondary">Custom range</p>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 text-[11px] text-text-tertiary">
-                      <span className="w-8 shrink-0">From</span>
-                      <input
-                        type="date"
-                        value={customSince}
-                        max={customUntil || undefined}
-                        onChange={(e) => setCustomSince(e.target.value)}
-                        className="min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-[11px] text-text-tertiary">
-                      <span className="w-8 shrink-0">To</span>
-                      <input
-                        type="date"
-                        value={customUntil}
-                        min={customSince || undefined}
-                        onChange={(e) => setCustomUntil(e.target.value)}
-                        className="min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-primary [color-scheme:dark] focus:outline-none focus:ring-1 focus:ring-accent"
-                      />
-                    </label>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={!customSince || !customUntil}
-                    onClick={() => { setFilter({ type: 'custom', since: customSince, until: customUntil }); setFilterOpen(false) }}
-                  >
-                    Apply range
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => setCampaignsOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openCampaigns({ adAccountId: activeAccountId, currency, dateQuery, platform: 'meta' })}
+          >
             <LayoutGrid className="h-3.5 w-3.5 mr-1.5" />
             Campaigns
           </Button>
         </div>
       </div>
 
-      <CampaignsModal
-        open={campaignsOpen}
-        onOpenChange={setCampaignsOpen}
-        adAccountId={activeAccountId}
-        currency={currency}
-        dateQuery={dateQuery}
-      />
+
 
       {/* ── Error ─────────────────────────────────────────────────── */}
       {!loading && error && (

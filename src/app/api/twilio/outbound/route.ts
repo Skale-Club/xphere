@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!settings) {
     return Response.json(
-      { error: 'No call settings | configure them in /settings/calls first.' },
+      { error: 'No call settings found for this user.' },
       { status: 400 },
     )
   }

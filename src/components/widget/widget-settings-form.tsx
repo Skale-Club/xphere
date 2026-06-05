@@ -1,15 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Bot, Loader2 } from 'lucide-react'
+import { Bot, Loader2, Trash2, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
 import {
   saveWidgetSettings,
+  uploadWidgetAvatar,
   type WidgetSettingsInput,
 } from '@/app/(dashboard)/widget/actions'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -46,6 +48,9 @@ const widgetSettingsSchema = z.object({
     .min(1, 'Welcome message is required.')
     .max(280, 'Welcome message must be 280 characters or fewer.'),
   avatarUrl: z.string().trim().optional().nullable(),
+  greetingEnabled: z.boolean().optional(),
+  greetingMessage: z.string().trim().max(160, 'Greeting must be 160 characters or fewer.').optional().nullable(),
+  greetingDelaySeconds: z.coerce.number().int().min(0).max(30).optional(),
 })
 
 type WidgetSettingsFormValues = z.infer<typeof widgetSettingsSchema>
@@ -73,6 +78,9 @@ export function WidgetSettingsForm({
   const router = useRouter()
   const [savedSettings, setSavedSettings] = useState(initialSettings)
   const [isSaving, setIsSaving] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialSettings.avatarUrl ?? null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   async function handleAgentChange(value: string) {
     const next = value === '__none__' ? null : value
@@ -90,7 +98,14 @@ export function WidgetSettingsForm({
   const form = useForm<WidgetSettingsFormValues>({
     resolver: zodResolver(widgetSettingsSchema),
     mode: 'onSubmit',
-    defaultValues: savedSettings,
+    defaultValues: {
+      displayName: savedSettings.displayName,
+      welcomeMessage: savedSettings.welcomeMessage,
+      avatarUrl: savedSettings.avatarUrl ?? null,
+      greetingEnabled: savedSettings.greetingEnabled ?? true,
+      greetingMessage: savedSettings.greetingMessage ?? '',
+      greetingDelaySeconds: savedSettings.greetingDelaySeconds ?? 3,
+    },
   })
 
   async function onSubmit(values: WidgetSettingsFormValues) {
@@ -118,10 +133,107 @@ export function WidgetSettingsForm({
     }
   }
 
+  const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp']
+
+  async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    if (!ACCEPTED.includes(file.type)) { toast.error('Use PNG, JPEG or WEBP'); return }
+    if (file.size > 4 * 1024 * 1024) { toast.error('Image must be under 4 MB'); return }
+    setUploadingAvatar(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await uploadWidgetAvatar(fd)
+      if (!res.ok) throw new Error(res.error)
+      const url = res.url
+      setAvatarUrl(url)
+      // Persist immediately so the widget preview updates
+      await saveWidgetSettings({ ...form.getValues(), avatarUrl: url })
+      toast.success('Avatar updated')
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Avatar upload failed')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setUploadingAvatar(true)
+    try {
+      setAvatarUrl(null)
+      await saveWidgetSettings({ ...form.getValues(), avatarUrl: null })
+      toast.success('Avatar removed')
+      router.refresh()
+    } catch {
+      toast.error('Failed to remove avatar')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   const isPending = isSaving
+
+  const initials = (form.watch('displayName') || 'AI').trim().slice(0, 2).toUpperCase()
 
   return (
     <div className="space-y-6">
+      {/* Avatar card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Chatbot avatar</CardTitle>
+          <CardDescription>
+            Square image shown in the widget header and bubble. PNG, JPEG or WEBP, max 4 MB.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-5">
+            {/* Preview */}
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white ring-1 ring-border"
+              style={{ backgroundColor: '#6366F1' }}
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Bot avatar" className="h-full w-full object-cover" />
+              ) : (
+                initials
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {avatarUrl ? 'Change' : 'Upload'}
+                </Button>
+                {avatarUrl && (
+                  <Button type="button" size="sm" variant="ghost" onClick={handleAvatarRemove} disabled={uploadingAvatar}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11.5px] text-text-tertiary">Square works best · max 4 MB</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED.join(',')}
+              onChange={handleAvatarSelect}
+              className="hidden"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Widget settings</CardTitle>
@@ -167,6 +279,52 @@ export function WidgetSettingsForm({
                 )}
               />
 
+              {/* Greeting composer — minimized "Write a message…" prompt */}
+              <div className="space-y-4 rounded-[10px] border border-border bg-bg-secondary/40 p-4">
+                <FormField
+                  control={form.control}
+                  name="greetingEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between gap-3 space-y-0">
+                      <div className="space-y-0.5">
+                        <FormLabel>Greeting composer</FormLabel>
+                        <FormDescription>
+                          Slide a &ldquo;Write a message…&rdquo; prompt in beside the bubble after a short delay.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value ?? true}
+                          onCheckedChange={field.onChange}
+                          disabled={isPending}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="greetingDelaySeconds"
+                  render={({ field }) => (
+                    <FormItem className="max-w-[160px]">
+                      <FormLabel>Delay (seconds)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={30}
+                          disabled={isPending || !form.watch('greetingEnabled')}
+                          value={field.value ?? 3}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 <Button type="submit" disabled={isPending}>
                   {isSaving ? (
@@ -177,14 +335,6 @@ export function WidgetSettingsForm({
                   ) : (
                     'Save settings'
                   )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPending}
-                  onClick={() => form.reset(savedSettings)}
-                >
-                  Reset
                 </Button>
               </div>
             </form>

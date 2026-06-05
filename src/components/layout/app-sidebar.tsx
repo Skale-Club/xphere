@@ -48,7 +48,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/', active: true },
@@ -104,6 +104,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
     truncate((user.user_metadata?.full_name as string | undefined) ?? user.email ?? '', 24)
   const email = user.email ?? ''
   const initials = getInitials(user)
+  const avatarUrl = (user.user_metadata?.avatar_url as string | undefined) ?? null
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -197,6 +198,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 w-full px-2 py-2 rounded-md hover:bg-sidebar-accent transition-colors text-left">
               <Avatar className="h-8 w-8 shrink-0">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
                 <AvatarFallback className="text-xs font-semibold">
                   {initials}
                 </AvatarFallback>
