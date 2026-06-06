@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
+import { PageContainer } from '@/components/layout/page-header'
 
 function PreviewReviewCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
@@ -28,6 +29,7 @@ function PreviewReviewCardSkeleton({ compact = false }: { compact?: boolean }) {
 
 export function ReviewsPageSkeleton() {
   return (
+    <PageContainer>
     <section className="overflow-hidden rounded-[8px] border border-border bg-bg-secondary">
       <div className="grid gap-0 lg:grid-cols-[360px_1fr]">
         <aside className="border-b border-border-subtle p-5 lg:border-b-0 lg:border-r">
@@ -72,13 +74,11 @@ export function ReviewsPageSkeleton() {
             ))}
 
             <div className="space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-9 w-full rounded-md" />
-            </div>
-
-            <div className="rounded-[8px] border border-border bg-bg-tertiary/50 p-3 space-y-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-8 w-full rounded-md" />
+              <Skeleton className="h-3 w-12" />
+              <div className="grid grid-cols-2 overflow-hidden rounded-[8px] border border-border bg-bg-tertiary/50 p-1">
+                <Skeleton className="h-7 rounded-[6px]" />
+                <Skeleton className="h-7 rounded-[6px] opacity-0" />
+              </div>
             </div>
           </div>
         </aside>
@@ -90,8 +90,7 @@ export function ReviewsPageSkeleton() {
           </div>
 
           <div
-            className="max-h-[760px] overflow-auto rounded-[16px] border border-zinc-200 p-4 dark:border-zinc-800"
-            style={{ backgroundColor: '#fafaf7' }}
+            className="max-h-[760px] overflow-auto rounded-[16px] border border-zinc-200 bg-[#fafaf7] p-4 dark:border-zinc-800 dark:bg-zinc-950"
           >
             <section className="mb-4 rounded-[16px] border border-zinc-200 p-5 dark:border-white/10">
               <div className="grid gap-5 md:grid-cols-[1fr_220px] md:items-center">
@@ -132,5 +131,6 @@ export function ReviewsPageSkeleton() {
         </div>
       </div>
     </section>
+    </PageContainer>
   )
 }

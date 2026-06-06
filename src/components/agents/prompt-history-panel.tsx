@@ -7,8 +7,10 @@ import { CheckCircle, Clock, RotateCcw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { activatePromptVersion } from '@/app/(dashboard)/agents/actions'
-import type { PromptVersionListItem } from '@/app/(dashboard)/agents/actions'
+import {
+  activatePromptVersion,
+  type PromptVersionListItem,
+} from '@/app/(dashboard)/agents/_actions/prompts'
 
 interface PromptHistoryPanelProps {
   agentId: string

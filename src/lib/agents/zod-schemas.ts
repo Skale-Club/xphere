@@ -26,9 +26,6 @@ export const channelOverrideSchema = z
     return out
   })
 
-export type ChannelOverrideInput = z.input<typeof channelOverrideSchema>
-export type ChannelOverride = z.output<typeof channelOverrideSchema>
-
 /**
  * Full agent CRUD form payload. Maps to Database['public']['Tables']['agents']['Insert']
  * (with temperature + max_tokens added in Plan 01) plus a tool_ids list for the picker.

@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import { History } from 'lucide-react'
 
-import { getAgentById, getPromptVersionHistory } from '../../actions'
+import { getAgentById } from '../../actions'
+import { getPromptVersionHistory } from '../../_actions/prompts'
 import { PromptHistoryPanel } from '@/components/agents/prompt-history-panel'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 

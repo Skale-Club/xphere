@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react'
 
 import { AgentForm } from '@/components/agents/agent-form'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
-import { getToolPickerData } from '../actions'
+import { getToolPickerData } from '../_actions/tools'
 import { listAgentGroups } from '../_actions/groups'
 
 export default async function NewAgentPage() {

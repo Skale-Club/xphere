@@ -14,17 +14,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Send, RotateCcw, Bot, User, Wrench, Clock } from 'lucide-react'
+import { type AgentChannel } from '@/lib/agents/channels'
 
-type AgentChannel =
-  | 'web_widget'
-  | 'whatsapp'
-  | 'sms'
-  | 'messenger'
-  | 'instagram'
-  | 'manychat'
-  | 'telegram'
+// Channels exposed in the playground — excludes internal-only channels
+const PLAYGROUND_CHANNELS: AgentChannel[] = [
+  'web_widget', 'whatsapp', 'sms', 'messenger', 'instagram', 'manychat', 'telegram',
+]
 
-const CHANNEL_LABELS: Record<AgentChannel, string> = {
+const CHANNEL_LABELS: Partial<Record<AgentChannel, string>> = {
   web_widget: 'Web Widget',
   whatsapp: 'WhatsApp',
   sms: 'SMS',
@@ -319,13 +316,11 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.entries(CHANNEL_LABELS) as [AgentChannel, string][]).map(
-                ([value, label]) => (
+              {PLAYGROUND_CHANNELS.map((value) => (
                   <SelectItem key={value} value={value} className="text-xs">
-                    {label}
+                    {CHANNEL_LABELS[value]}
                   </SelectItem>
-                )
-              )}
+                ))}
             </SelectContent>
           </Select>
 

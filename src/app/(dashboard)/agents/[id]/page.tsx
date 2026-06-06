@@ -6,12 +6,9 @@ import { AgentMetricsWidget } from '@/components/agents/agent-metrics-widget'
 import { AgentPlayground } from '@/components/agents/agent-playground'
 import { AgentWorkflowTools } from '@/components/agents/agent-workflow-tools'
 import { PageContainer } from '@/components/layout/page-header'
-import {
-  getAgentById,
-  getAgentWorkflows,
-  getAvailableWorkflowsForAgent,
-  getToolPickerData,
-} from '../actions'
+import { getAgentById } from '../actions'
+import { getToolPickerData } from '../_actions/tools'
+import { getAgentWorkflows, getAvailableWorkflowsForAgent } from '../_actions/workflows'
 import { listAgentGroups } from '../_actions/groups'
 import type { AgentChannel } from '@/lib/agents/channels'
 import type { AvailableModel } from '@/lib/agents/models'

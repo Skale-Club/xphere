@@ -23,7 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { ToolPickerData } from '@/app/(dashboard)/agents/actions'
+import type { ToolPickerData } from '@/app/(dashboard)/agents/_actions/tools'
 
 interface ToolPickerProps {
   data: ToolPickerData

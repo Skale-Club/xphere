@@ -8,7 +8,7 @@ import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { runAgent } from '@/lib/agent-runtime'
 import { rateLimit } from '@/lib/rate-limit'
-import type { AgentChannel } from '@/lib/agent-runtime/types'
+import type { AgentChannel } from '@/lib/agents/channels'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -22,7 +22,7 @@ const PLAYGROUND_WINDOW_SECONDS = 60
 const PlaygroundRequestSchema = z.object({
   message: z.string().min(1, 'message is required'),
   channel: z
-    .enum(['web_widget', 'whatsapp', 'messenger', 'instagram', 'manychat', 'telegram'])
+    .enum(['web_widget', 'sms', 'whatsapp', 'messenger', 'instagram', 'manychat', 'telegram', 'zernio'])
     .default('web_widget'),
   sessionId: z.string().optional(),
   historyWindow: z

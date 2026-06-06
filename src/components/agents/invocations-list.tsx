@@ -10,11 +10,19 @@ import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { InvocationDetailDrawer } from './invocation-detail-drawer'
 import {
   getInvocationDelegationTree,
   type InvocationListItem,
 } from '@/lib/agent-runtime/observability'
+import { INVOCATIONS_PAGE_SIZE } from '@/lib/agent-runtime/constants'
 
 const STATUS_OPTIONS = ['success', 'error', 'aborted', 'skipped', 'denied'] as const
 
@@ -55,8 +63,6 @@ interface InvocationsListProps {
   currentPage: number
 }
 
-const PAGE_SIZE = 20
-
 export function InvocationsList({
   agentId,
   initialRows,
@@ -70,7 +76,7 @@ export function InvocationsList({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const totalPages = Math.ceil(initialTotal / PAGE_SIZE)
+  const totalPages = Math.ceil(initialTotal / INVOCATIONS_PAGE_SIZE)
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -102,18 +108,20 @@ export function InvocationsList({
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <select
-          className="text-sm border rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring h-8"
+        <Select
           value={searchParams.get('status') ?? ''}
-          onChange={(e) => updateParam('status', e.target.value)}
+          onValueChange={(v) => updateParam('status', v === '_all' ? '' : v)}
         >
-          <option value="">All statuses</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-36 text-sm">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All statuses</SelectItem>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Input
           placeholder="Min cost (USD)"
           type="number"

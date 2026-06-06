@@ -47,12 +47,9 @@ import {
 } from '@/lib/agents/channels'
 import { ToolPicker } from './tool-picker'
 import { ChannelOverridesEditor } from './channel-overrides-editor'
-import {
-  createAgent,
-  updateAgent,
-  savePromptDraft,
-  type ToolPickerData,
-} from '@/app/(dashboard)/agents/actions'
+import { createAgent, updateAgent } from '@/app/(dashboard)/agents/actions'
+import { savePromptDraft } from '@/app/(dashboard)/agents/_actions/prompts'
+import type { ToolPickerData } from '@/app/(dashboard)/agents/_actions/tools'
 
 interface AgentFormProps {
   mode: 'create' | 'edit'
@@ -283,7 +280,7 @@ export function AgentForm({
                     <FormLabel>System prompt</FormLabel>
                     {mode === 'edit' && agentId && (
                       <Link
-                        href={`/dashboard/agents/${agentId}/prompt-history`}
+                        href={`/agents/${agentId}/prompt-history`}
                         className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline ml-auto"
                       >
                         View history

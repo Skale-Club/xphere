@@ -60,6 +60,19 @@ export async function GET(request: Request) {
 
   if (resolvedOrgId) {
     console.log('[auth/callback:existing-member-found] org_id=', resolvedOrgId)
+    // Respect the user's previously-saved org preference so that logging in
+    // again doesn't silently switch to a different org than the one they last
+    // used — which would cause a cookie/DB desync (UI shows org A, RLS
+    // resolves org B → empty data pages).
+    const { data: savedOrg } = await supabase
+      .from('user_active_org')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (savedOrg?.organization_id) {
+      resolvedOrgId = savedOrg.organization_id
+      console.log('[auth/callback:using-saved-org] org_id=', resolvedOrgId)
+    }
   }
 
   // 2) Invite path: only run if the user has no existing membership.

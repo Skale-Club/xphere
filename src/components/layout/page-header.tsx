@@ -1,6 +1,4 @@
 import * as React from 'react'
-import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -15,42 +13,32 @@ interface PageHeaderProps {
   description?: React.ReactNode
   /** Right-aligned action area (buttons, switches, etc.). Still rendered. */
   actions?: React.ReactNode
-  /** Optional back link. Still rendered. */
+  /** Kept for API compatibility | no longer rendered. */
   back?: { href: string; label: string }
   className?: string
 }
 
 /**
- * Page header. The title/description/eyebrow used to render here, but the
+ * Page header. The title/description/eyebrow/back used to render here, but the
  * top-bar breadcrumb already shows the page name + icon, so rendering them
  * again on every screen was redundant. This component now only renders the
- * `back` link and the right-aligned `actions` row. The other props are
- * accepted for backward compatibility (so we don't have to edit 68 pages).
+ * right-aligned `actions` row. The other props are accepted for backward
+ * compatibility (so we don't have to edit 68 pages).
  */
 export function PageHeader({
   actions,
-  back,
   className,
   // intentionally unused | kept for backward compatibility:
+  back: _back,
   eyebrow: _eyebrow,
   eyebrowIcon: _eyebrowIcon,
   title: _title,
   description: _description,
 }: PageHeaderProps) {
-  if (!back && !actions) return null
+  if (!actions) return null
 
   return (
     <div className={cn('animate-fade-in flex flex-col gap-3', className)}>
-      {back && (
-        <Link
-          href={back.href}
-          className="group inline-flex w-fit items-center gap-1 text-[12.5px] font-medium text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          <ChevronLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
-          {back.label}
-        </Link>
-      )}
-
       {actions && (
         <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
       )}
