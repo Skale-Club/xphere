@@ -308,13 +308,30 @@ function PreviewCarousel({
   const advance = useCallback(() => {
     const vp = viewportRef.current
     if (!vp) return
-    const max = vp.scrollWidth - vp.clientWidth
-    vp.scrollTo({ left: vp.scrollLeft >= max - 4 ? 0 : vp.scrollLeft + getStep(), behavior: 'smooth' })
+    vp.scrollTo({ left: vp.scrollLeft + getStep(), behavior: 'smooth' })
   }, [getStep])
 
   const scrollDir = useCallback((dir: 1 | -1) => {
     viewportRef.current?.scrollBy({ left: dir * getStep(), behavior: 'smooth' })
   }, [getStep])
+
+  // Infinite loop: silently reset scroll when entering the cloned half
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    let lock = false
+    const onScroll = () => {
+      if (lock) return
+      const half = vp.scrollWidth / 2
+      if (vp.scrollLeft >= half) {
+        lock = true
+        vp.scrollLeft -= half
+        lock = false
+      }
+    }
+    vp.addEventListener('scroll', onScroll, { passive: true })
+    return () => vp.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (hovered) return
@@ -368,8 +385,8 @@ function PreviewCarousel({
         onPointerLeave={onPointerUp}
       >
         <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
-          {reviews.map((review) => (
-            <div key={review.id} data-card className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
+          {[...reviews, ...reviews].map((review, i) => (
+            <div key={`${review.id}-${i}`} data-card aria-hidden={i >= reviews.length || undefined} className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
               <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} />
             </div>
           ))}

@@ -555,9 +555,25 @@ function wireCarousel(root: HTMLElement): void {
 
   const AUTOPLAY_MS = 4000
 
-  // Native horizontal scroll + drag (mirrors the builder preview). The
-  // `.orw-carousel-viewport` base CSS already provides overflow-x:auto,
-  // scroll-snap, and the grab cursor — no `.orw-auto` marquee here.
+  // ── Infinite loop: duplicate all cards so the carousel never hits a wall ──
+  Array.from(track.querySelectorAll<HTMLElement>('.orw-card')).forEach(c => {
+    const clone = c.cloneNode(true) as HTMLElement
+    clone.setAttribute('aria-hidden', 'true')
+    track.appendChild(clone)
+  })
+  // When scrollLeft reaches the midpoint (= original content width) silently
+  // reset to the mirrored position in the first half — user sees no jump.
+  let loopLock = false
+  viewport.addEventListener('scroll', () => {
+    if (loopLock) return
+    const half = track.scrollWidth / 2
+    if (viewport.scrollLeft >= half) {
+      loopLock = true
+      viewport.scrollLeft -= half
+      loopLock = false
+    }
+  }, { passive: true })
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Step = one card width + the track gap, so paging snaps card-to-card.
   const getStep = (): number => {
@@ -581,23 +597,21 @@ function wireCarousel(root: HTMLElement): void {
   prev.addEventListener('click', () => viewport.scrollBy({ left: -getStep(), behavior: 'smooth' }))
   next.addEventListener('click', () => viewport.scrollBy({ left: getStep(), behavior: 'smooth' }))
 
+  // Buttons: prev disables only at position 0; next is always enabled (infinite).
   const updateButtons = (): void => {
-    const max = viewport.scrollWidth - viewport.clientWidth
     prev.toggleAttribute('disabled', viewport.scrollLeft <= 2)
-    next.toggleAttribute('disabled', viewport.scrollLeft >= max - 2 || max <= 0)
+    next.removeAttribute('disabled')
   }
   viewport.addEventListener('scroll', updateButtons, { passive: true })
   window.addEventListener('resize', updateButtons)
   requestAnimationFrame(updateButtons)
 
-  // Autoplay — advance one step every 4s, looping back at the end. Pauses on
-  // hover and while dragging.
+  // Autoplay — advance one step every 4s. The loop listener handles the reset.
   let hovered = false
   let timer: ReturnType<typeof setInterval> | null = null
   const advance = (): void => {
-    const max = viewport.scrollWidth - viewport.clientWidth
     viewport.scrollTo({
-      left: viewport.scrollLeft >= max - 4 ? 0 : viewport.scrollLeft + getStep(),
+      left: viewport.scrollLeft + getStep(),
       behavior: 'smooth',
     })
   }
