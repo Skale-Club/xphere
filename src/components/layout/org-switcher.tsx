@@ -73,7 +73,6 @@ type CreateOrgValues = z.infer<typeof createOrgSchema>
 
 function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
   const pathname = usePathname()
 
   const form = useForm<CreateOrgValues>({
@@ -88,14 +87,9 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         toast.error(result.error)
         return
       }
-      toast.success('Organization created.')
-      onOpenChange(false)
-      form.reset()
-      // Creating an org switches the active org. A deep org-scoped URL would now
-      // 404, so leave it for the section root before refreshing.
-      const dest = sectionRootForPath(pathname)
-      if (dest !== pathname) router.replace(dest)
-      router.refresh()
+      // Creating an org switches the active org. Hard reload to the section root
+      // so the whole tab re-renders under the new org (coherent, no stale cache).
+      window.location.assign(sectionRootForPath(pathname))
     })
   }
 
@@ -165,12 +159,10 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
         toast.error(result.error)
         return
       }
-      // The deep org-scoped URL (e.g. /workflows/flows/{id}) belongs to the old
-      // org and would 404 under the new org's RLS. Leave it for the section root
-      // before refreshing so the switch never strands the user on a 404.
-      const dest = sectionRootForPath(pathname)
-      if (dest !== pathname) router.replace(dest)
-      router.refresh()
+      // Hard reload to the section root so the ENTIRE tab re-renders under the
+      // new org resolved from the DB (topbar, theme, data, RLS all coherent) —
+      // no stale Router/ISR cache, no split-brain, and no 404 on deep routes.
+      window.location.assign(sectionRootForPath(pathname))
     })
   }
 
