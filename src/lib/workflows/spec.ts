@@ -234,6 +234,22 @@ export const TRIGGERS: TriggerSpec[] = [
     },
   },
 
+  // ─── Social comment events (Zernio). Emitted by lib/zernio/events.ts after
+  // processCommentReceived stores the comment and runs any agent reply.
+  {
+    type: 'event:comment.received',
+    description:
+      'A comment was received on an Instagram or Facebook post managed via Zernio. ' +
+      'Exposes comment text, author info, and post identifiers.',
+    variables: [
+      'comment.platform', 'comment.post_id', 'comment.comment_id',
+      'comment.text', 'comment.author_id', 'comment.author_name',
+      'comment.author_username', 'comment.is_reply', 'comment.is_ad_comment',
+      'comment.conversation_id', 'comment.contact_id',
+      'contact.*', 'trigger.fired_at',
+    ],
+  },
+
   // ─── Traffic events (Traffic module). Tenant-scoped only — emitted by the
   // ingest pipeline when a visitor or session event matches a conversion or
   // behavioral condition. NOT available in Superadmin Traffic scope.
@@ -515,6 +531,37 @@ export const NODES: NodeSpec[] = [
     },
   },
 
+  // ─── Action | Zernio (Instagram / Facebook DMs)
+  {
+    type: 'send_zernio_dm',
+    kind: 'action',
+    description:
+      'Send a private Instagram or Facebook DM to the author of a comment. ' +
+      'Use in flows triggered by event:comment.received. ' +
+      'Pass {{comment.conversation_id}} as conversation_id to address the commenter automatically.',
+    integration_required: ['zernio'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        conversation_id: {
+          type: 'string',
+          description: 'Xphere conversation ID for the comment (use {{comment.conversation_id}}).',
+        },
+        message: {
+          type: 'string',
+          description: 'Text to send as a private DM. Supports {{variables}}.',
+        },
+      },
+      required: ['conversation_id', 'message'],
+    },
+    examples: [
+      {
+        conversation_id: '{{comment.conversation_id}}',
+        message: 'Oi {{comment.author_name}}, obrigado pelo comentário! Veja nossa oferta em: ...',
+      },
+    ],
+  },
+
   // ─── Action | webhook escape hatch
   {
     type: 'custom_webhook',
@@ -683,6 +730,10 @@ export const VARIABLE_NAMESPACES = {
   phone:
     'Phone number metadata for inbound SMS/call events. Exposes phone.id, phone.e164, ' +
     'phone.friendly_name, phone.inbox_label, phone.business_purpose.',
+  comment:
+    'Comment fields for event:comment.received. Includes platform, post_id, comment_id, ' +
+    'text, author_id, author_name, author_username, is_reply, is_ad_comment, ' +
+    'conversation_id, contact_id.',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

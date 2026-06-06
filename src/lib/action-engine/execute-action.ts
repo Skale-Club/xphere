@@ -35,6 +35,7 @@ import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/execut
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
 import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
+import { executeSendZernioDm } from '@/lib/action-engine/executors/send-zernio-dm'
 import { getXkeduleCredentialsForOrg } from '@/lib/xkedule/credentials'
 import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
@@ -334,6 +335,12 @@ async function _executeActionInner(
     }
     case 'send_platform_email': {
       return executeSendPlatformEmail(params)
+    }
+    case 'send_zernio_dm': {
+      if (!ctx?.organizationId) {
+        throw new Error('send_zernio_dm requires ctx.organizationId')
+      }
+      return executeSendZernioDm(params, ctx)
     }
     case 'xkedule_get_services': {
       if (!ctx?.organizationId || !ctx?.supabase) {

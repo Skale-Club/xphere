@@ -348,6 +348,27 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     ],
   },
 
+  {
+    id: 'xkedule',
+    name: 'Xkedule',
+    description: 'Booking platform integration. Query availability, create bookings and sync contacts from AI agents.',
+    category: 'scheduling',
+    logo: { letter: 'X', color: 'bg-blue-600' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: false,
+    fields: [
+      {
+        key: 'api_key',
+        label: 'Tenant Base URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://yourbusiness.xkedule.com',
+        hint: 'The public URL of the Xkedule tenant (no trailing slash). No API key needed — booking endpoints are public.',
+      },
+    ],
+  },
+
   // ── Reviews ───────────────────────────────────────────────────────────────
   {
     id: 'google_reviews',

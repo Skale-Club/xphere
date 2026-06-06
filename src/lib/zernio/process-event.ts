@@ -15,6 +15,7 @@ import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } fr
 import { sendZernioDm } from './send-dm'
 import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
+import { emitCommentEvent } from './events'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
@@ -705,6 +706,28 @@ async function processCommentReceived(
   }
   if (norm.duplicate) return
 
+  // Persist author avatar on the contact when the platform sends one.
+  // Only update when the contact has no avatar yet — never overwrite a manually uploaded photo.
+  const inboundPicture = comment.author.picture ?? null
+  if (contactId && inboundPicture) {
+    supabase
+      .from('contacts')
+      .select('avatar_url')
+      .eq('id', contactId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data?.avatar_url) {
+          supabase
+            .from('contacts')
+            .update({ avatar_url: inboundPicture })
+            .eq('id', contactId)
+            .then(({ error }) => {
+              if (error) console.warn('[zernio/process] comment avatar update failed:', error.message)
+            })
+        }
+      })
+  }
+
   await maybeRunAgentAndReply({
     supabase,
     orgId,
@@ -722,6 +745,20 @@ async function processCommentReceived(
       })
     },
   })
+
+  void emitCommentEvent(orgId, {
+    platform,
+    post_id: postId,
+    comment_id: comment.id,
+    text: comment.text,
+    author_id: participantId,
+    author_name: senderName,
+    author_username: comment.author.username ?? null,
+    is_reply: Boolean(comment.isReply),
+    is_ad_comment: Boolean(comment.ad),
+    conversation_id: norm.conversationId,
+    contact_id: contactId ?? null,
+  }, { supabase }).catch(() => {})
 }
 
 async function maybeRunAgentAndReply({
