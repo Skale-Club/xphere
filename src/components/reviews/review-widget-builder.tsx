@@ -192,16 +192,6 @@ function PreviewCard({
             <p className="truncate text-[13px] font-semibold">
               {review.reviewerName ?? 'Anonymous'}
             </p>
-            {review.isLocalGuide ? (
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
-                )}
-                style={{ backgroundColor: brandSoft, color: brandAccent }}
-              >
-                Local Guide
-              </span>
-            ) : null}
             <span className="ml-auto"><GoogleIcon /></span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">

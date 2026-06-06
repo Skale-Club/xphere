@@ -210,11 +210,6 @@ const CSS = `
 .orw-name { font-weight: 600; font-size: 14px; line-height: 1.2; }
 .orw-name a { color: inherit; text-decoration: none; }
 .orw-name a:hover { text-decoration: underline; }
-.orw-localguide {
-  display: inline-block; padding: 1px 6px; margin-left: 6px; font-size: 10px;
-  border-radius: 999px; background: var(--orw-brand-soft); color: var(--orw-brand);
-  vertical-align: middle;
-}
 .orw-meta-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--orw-muted); margin-top: 2px; }
 
 .orw-stars { display: inline-flex; gap: 2px; }
@@ -500,7 +495,7 @@ function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerRespon
       <header class="orw-card-head">
         <span class="orw-avatar">${avatar}</span>
         <div style="min-width:0;flex:1">
-          <div class="orw-name" style="display:flex;align-items:center;gap:6px">${name}${r.isLocalGuide ? '<span class="orw-localguide">Local Guide</span>' : ''}<span class="orw-google-badge">${GOOGLE_G_SVG}</span></div>
+          <div class="orw-name" style="display:flex;align-items:center;gap:6px">${name}<span class="orw-google-badge">${GOOGLE_G_SVG}</span></div>
           <div class="orw-meta-row">
             ${stars(r.rating)}
             ${r.dateText ? `<span>${escapeHtml(r.dateText)}</span>` : ''}
