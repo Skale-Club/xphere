@@ -220,14 +220,14 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => { setDropdownOpen(false); setCreateOpen(true) }}
-            className="cursor-pointer gap-2 text-text-tertiary"
+            className="cursor-pointer gap-2 text-text-secondary"
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
             Add organization
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => { setDropdownOpen(false); router.push('/organizations') }}
-            className="cursor-pointer gap-2 text-text-tertiary"
+            className="cursor-pointer gap-2 text-text-secondary"
           >
             <Settings2 className="h-3.5 w-3.5 shrink-0" />
             Manage organizations
