@@ -12,6 +12,8 @@ export type SavedWidgetSettings = {
   equalHeight?: boolean
   footerCta?: boolean
   embedMode?: string
+  maxChars?: string
+  showOwnerResponse?: boolean
 }
 
 export async function saveWidgetSettings(profileId: string, settings: SavedWidgetSettings): Promise<void> {

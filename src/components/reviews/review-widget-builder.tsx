@@ -82,11 +82,6 @@ function initials(name: string | null): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function firstText(text: string | null): string {
-  if (!text) return 'No written review.'
-  if (text.length <= 220) return text
-  return `${text.slice(0, 220).trim()}...`
-}
 
 function escapeAttribute(value: string): string {
   return value
@@ -138,14 +133,30 @@ function PreviewCard({
   brandAccent,
   compact = false,
   fill = false,
+  maxChars = 220,
+  showOwnerResponse = true,
 }: {
   review: ReviewWidgetPreviewReview
   theme: Theme
   brandAccent: string
   compact?: boolean
   fill?: boolean
+  maxChars?: number
+  showOwnerResponse?: boolean
 }) {
+  const [textExpanded, setTextExpanded] = useState(false)
+  const [responseExpanded, setResponseExpanded] = useState(false)
   const brandSoft = hexToRgba(brandAccent, theme === 'dark' ? 0.22 : 0.12)
+  const rawText = review.text ?? ''
+  const textTruncable = rawText.length > maxChars
+  const displayText = textTruncable && !textExpanded
+    ? `${rawText.slice(0, maxChars).trimEnd()}…`
+    : rawText
+  const rawResponse = review.ownerResponse ?? ''
+  const responseTruncable = rawResponse.length > maxChars
+  const displayResponse = responseTruncable && !responseExpanded
+    ? `${rawResponse.slice(0, maxChars).trimEnd()}…`
+    : rawResponse
   return (
     <article
       className={cn(
@@ -193,15 +204,26 @@ function PreviewCard({
         </div>
       </header>
 
-      <p
-        className={cn(
-          'mt-3 whitespace-pre-line text-[13px] leading-relaxed',
-          theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
-          compact && 'line-clamp-4',
+      <div className="mt-3">
+        <p
+          className={cn(
+            'whitespace-pre-line text-[13px] leading-relaxed',
+            theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
+          )}
+        >
+          {displayText || 'No written review.'}
+        </p>
+        {textTruncable && (
+          <button
+            type="button"
+            onClick={() => setTextExpanded((v) => !v)}
+            className="mt-1 text-[11px] font-medium hover:underline"
+            style={{ color: brandAccent }}
+          >
+            {textExpanded ? 'Show less' : 'Read more'}
+          </button>
         )}
-      >
-        {firstText(review.text)}
-      </p>
+      </div>
 
       {review.photos.length > 0 ? (
         <div className="mt-3 flex gap-1.5 overflow-hidden">
@@ -218,7 +240,7 @@ function PreviewCard({
         </div>
       ) : null}
 
-      {review.ownerResponse ? (
+      {showOwnerResponse && review.ownerResponse ? (
         <div
           className={cn(
             'mt-3 rounded-[10px] border-l-2 px-3 py-2',
@@ -229,7 +251,17 @@ function PreviewCard({
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: brandAccent }}>
             Owner response
           </p>
-          <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed">{review.ownerResponse}</p>
+          <p className="mt-1 text-[12px] leading-relaxed">{displayResponse}</p>
+          {responseTruncable && (
+            <button
+              type="button"
+              onClick={() => setResponseExpanded((v) => !v)}
+              className="mt-1 text-[11px] font-medium hover:underline"
+              style={{ color: brandAccent }}
+            >
+              {responseExpanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
         </div>
       ) : null}
     </article>
@@ -241,11 +273,15 @@ function PreviewCarousel({
   theme,
   brandAccent,
   equalHeight,
+  maxChars,
+  showOwnerResponse,
 }: {
   reviews: ReviewWidgetPreviewReview[]
   theme: Theme
   brandAccent: string
   equalHeight: boolean
+  maxChars: number
+  showOwnerResponse: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -323,7 +359,7 @@ function PreviewCarousel({
         <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
           {reviews.map((review) => (
             <div key={review.id} data-card className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
-              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} />
+              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} />
             </div>
           ))}
         </div>
@@ -351,6 +387,8 @@ export function ReviewWidgetBuilder({
   const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
   const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
   const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
+  const [maxChars, setMaxChars] = useState(savedSettings?.maxChars ?? '220')
+  const [showOwnerResponse, setShowOwnerResponse] = useState(savedSettings?.showOwnerResponse ?? true)
   const [embedMode, setEmbedMode] = useState<EmbedMode>((savedSettings?.embedMode as EmbedMode) ?? 'iframe')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -438,7 +476,7 @@ export function ReviewWidgetBuilder({
     if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
-      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode })
+      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
       setSaveState('saved')
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
@@ -574,6 +612,32 @@ export function ReviewWidgetBuilder({
                 &ldquo;Write a review&rdquo; below cards
               </Label>
               <Switch id="reviews-widget-cta" checked={footerCta} onCheckedChange={setFooterCta} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <Label htmlFor="reviews-widget-owner" className="text-[12px] font-medium text-text-secondary">
+                Owner responses
+              </Label>
+              <Switch id="reviews-widget-owner" checked={showOwnerResponse} onCheckedChange={setShowOwnerResponse} />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                Max review length
+              </Label>
+              <Select value={maxChars} onValueChange={setMaxChars}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="100">100 chars</SelectItem>
+                  <SelectItem value="150">150 chars</SelectItem>
+                  <SelectItem value="220">220 chars</SelectItem>
+                  <SelectItem value="350">350 chars</SelectItem>
+                  <SelectItem value="500">500 chars</SelectItem>
+                  <SelectItem value="2000">No limit</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -768,15 +832,15 @@ export function ReviewWidgetBuilder({
             ) : layout === 'list' ? (
               <div className="space-y-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
                 ))}
               </div>
             ) : layout === 'carousel' ? (
-              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} />
+              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
             ) : (
               <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
                 ))}
               </div>
             )}

@@ -32,6 +32,8 @@ type WidgetSettingsPayload = {
   showHero: boolean
   equalHeight: boolean
   footerCta: boolean
+  maxChars: number
+  showOwnerResponse: boolean
 }
 
 type ProfileRow = {
@@ -147,6 +149,8 @@ function normalizeWidgetSettings(raw: unknown): WidgetSettingsPayload {
     showHero: readBooleanSetting(source, 'showHero', true),
     equalHeight: readBooleanSetting(source, 'equalHeight', true),
     footerCta: readBooleanSetting(source, 'footerCta', false),
+    maxChars: clampInt(readStringSetting(source, 'maxChars') ?? null, 50, 2000, 220),
+    showOwnerResponse: readBooleanSetting(source, 'showOwnerResponse', true),
   }
 }
 
