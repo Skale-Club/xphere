@@ -73,3 +73,13 @@ export function findNavItemForPath(pathname: string): NavItem | null {
   const first = '/' + pathname.split('/').filter(Boolean)[0]
   return NAV_ITEMS.find((n) => n.href === first) ?? null
 }
+
+/**
+ * Guaranteed-valid landing route for a path's section. Used when an org switch
+ * (or a stale/deleted resource) invalidates a deep org-scoped URL: nav hrefs and
+ * `/dashboard` always have a page, so the destination never 404s and can't loop.
+ * e.g. `/workflows/flows/{id}` → `/workflows`; non-nav routes → `/dashboard`.
+ */
+export function sectionRootForPath(pathname: string): string {
+  return findNavItemForPath(pathname)?.href ?? '/dashboard'
+}

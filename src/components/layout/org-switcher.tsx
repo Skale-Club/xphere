@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { switchOrganization, createOrganization, getUserOrgs } from '@/app/(dashboard)/organizations/actions'
+import { sectionRootForPath } from '@/components/layout/nav-items'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -73,6 +74,7 @@ type CreateOrgValues = z.infer<typeof createOrgSchema>
 function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const pathname = usePathname()
 
   const form = useForm<CreateOrgValues>({
     resolver: zodResolver(createOrgSchema),
@@ -89,6 +91,10 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       toast.success('Organization created.')
       onOpenChange(false)
       form.reset()
+      // Creating an org switches the active org. A deep org-scoped URL would now
+      // 404, so leave it for the section root before refreshing.
+      const dest = sectionRootForPath(pathname)
+      if (dest !== pathname) router.replace(dest)
       router.refresh()
     })
   }
@@ -136,6 +142,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
   const [orgs, setOrgs] = useState<Org[] | null>(null)
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   async function handleDropdownOpen(open: boolean) {
     setDropdownOpen(open)
@@ -158,6 +165,11 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
         toast.error(result.error)
         return
       }
+      // The deep org-scoped URL (e.g. /workflows/flows/{id}) belongs to the old
+      // org and would 404 under the new org's RLS. Leave it for the section root
+      // before refreshing so the switch never strands the user on a 404.
+      const dest = sectionRootForPath(pathname)
+      if (dest !== pathname) router.replace(dest)
       router.refresh()
     })
   }
