@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { ChatLayout } from '@/components/chat/chat-layout'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getActiveAgents } from '@/app/(dashboard)/agents/actions'
+import { InboxTemplate } from '@/components/crm/entity-template'
 
 export default async function ChatPage({
   searchParams,
@@ -54,7 +55,9 @@ export default async function ChatPage({
     // Lock the chat tree to the viewport (minus the dashboard top bar h-14 = 3.5rem)
     // so each inner panel can scroll independently and the dashboard sidebar/top bar
     // never scroll out of view.
-    <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden">
+    // InboxTemplate marks this surface as the shared inbox context so Prospects can
+    // reuse the same conversation thread and composer without duplicating the Inbox UI.
+    <InboxTemplate className="h-[calc(100dvh-3.5rem)]">
       <div className="min-h-0 flex-1 overflow-hidden">
         <ChatLayout
           currentOrgId={(activeOrgId as string | null) ?? null}
@@ -70,6 +73,6 @@ export default async function ChatPage({
           initialContactId={initialContactId}
         />
       </div>
-    </div>
+    </InboxTemplate>
   )
 }
