@@ -65,6 +65,22 @@ export function deriveAccentHover(hex: string): string {
 }
 
 /**
+ * Derive a soft, lightened tint of the accent for subdued UI (e.g. sidebar
+ * section labels). Mixes the accent toward white so it stays legible but quiet
+ * on dark surfaces, while still following whichever accent the org picks.
+ */
+export function deriveAccentSoft(hex: string): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex)
+  if (!m) return '#A5A6D6'
+  const n = parseInt(m[1], 16)
+  const mix = (c: number) => Math.round(c + (255 - c) * 0.45)
+  const r = mix((n >> 16) & 0xff)
+  const g = mix((n >> 8) & 0xff)
+  const b = mix(n & 0xff)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
+/**
  * Convert a hex color to an rgba string with the given alpha. Used to
  * compute --accent-muted and --accent-glow tokens.
  */

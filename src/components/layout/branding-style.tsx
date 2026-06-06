@@ -1,4 +1,4 @@
-import { DEFAULT_ACCENT, deriveAccentHover, hexToRgba, type OrgBranding } from '@/lib/branding'
+import { DEFAULT_ACCENT, deriveAccentHover, deriveAccentSoft, hexToRgba, type OrgBranding } from '@/lib/branding'
 
 interface BrandingStyleProps {
   branding: OrgBranding
@@ -15,6 +15,7 @@ export function BrandingStyle({ branding }: BrandingStyleProps) {
   if (branding.accent === DEFAULT_ACCENT) return null
   const accent = branding.accent
   const hover = deriveAccentHover(accent)
+  const soft = deriveAccentSoft(accent)
   const muted = hexToRgba(accent, 0.08)
   const glow = hexToRgba(accent, 0.2)
   const ring = hexToRgba(accent, 0.35)
@@ -22,6 +23,7 @@ export function BrandingStyle({ branding }: BrandingStyleProps) {
   const css = `:root, .dark {
   --accent: ${accent};
   --accent-hover: ${hover};
+  --accent-soft: ${soft};
   --accent-muted: ${muted};
   --accent-glow: ${glow};
   --ring: ${accent};
