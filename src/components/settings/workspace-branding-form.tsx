@@ -73,6 +73,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('orgId', org.id)
       const res = await uploadOrgLogo(fd)
       if (!res.ok) { toast.error(res.error); return }
       setLogoUrl(res.url)
@@ -111,6 +112,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
     try {
       if (brandingDirty) {
         const result = await updateWorkspaceBranding({
+          orgId: org.id,
           logo_url: logoUrl.trim() || null,
           accent_color: accentInput,
         })
@@ -121,7 +123,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
       }
       if (capDirty) {
         const val = capInput.trim() === '' ? null : parseFloat(capInput)
-        const result = await updateDailyCostCap({ daily_cost_cap_usd: val })
+        const result = await updateDailyCostCap({ orgId: org.id, daily_cost_cap_usd: val })
         if (!result.ok) {
           toast.error(result.error ?? 'Failed to save cost cap')
           return false
