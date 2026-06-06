@@ -42,6 +42,7 @@ interface ApiPayload {
     equalHeight?: boolean
     footerCta?: boolean
     showOwnerResponse?: boolean
+    maxChars?: number
   }
   distribution: { rating: number; count: number }[]
   reviews: ReviewItem[]
@@ -80,6 +81,7 @@ interface WidgetConfig {
   equalHeight: boolean
   footerCta: boolean
   showOwnerResponse: boolean
+  maxChars: number
 }
 
 const DEFAULTS: Omit<WidgetConfig, 'token'> = {
@@ -93,6 +95,7 @@ const DEFAULTS: Omit<WidgetConfig, 'token'> = {
   equalHeight: true,
   footerCta: false,
   showOwnerResponse: true,
+  maxChars: 220,
 }
 
 const CSS = `
@@ -222,9 +225,6 @@ const CSS = `
 .orw-text {
   font-size: 14px; line-height: 1.55; margin: 0; color: var(--orw-text);
   white-space: pre-line;
-}
-.orw-text.orw-collapsed {
-  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
 }
 .orw-more {
   align-self: flex-start; background: none; border: 0; padding: 0; cursor: pointer;
@@ -377,6 +377,7 @@ function getConfig(): WidgetConfig | null {
       equalHeight: sp.get('eqh') !== '0',
       footerCta: sp.get('cta') === '1',
       showOwnerResponse: DEFAULTS.showOwnerResponse,
+      maxChars: DEFAULTS.maxChars,
     }
   }
 
@@ -395,6 +396,7 @@ function getConfig(): WidgetConfig | null {
     equalHeight: host.dataset.equalHeight !== '0',
     footerCta: host.dataset.footerCta === '1',
     showOwnerResponse: DEFAULTS.showOwnerResponse,
+    maxChars: DEFAULTS.maxChars,
   }
 }
 
@@ -410,6 +412,7 @@ function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings'
     equalHeight: settings.equalHeight ?? config.equalHeight,
     footerCta: settings.footerCta ?? config.footerCta,
     showOwnerResponse: settings.showOwnerResponse ?? config.showOwnerResponse,
+    maxChars: settings.maxChars ?? config.maxChars,
   }
 }
 
@@ -446,7 +449,15 @@ function renderHero(p: ApiPayload): string {
   `
 }
 
-function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerResponse'>): string {
+function truncateText(raw: string, max: number): { display: string; full: string; truncated: boolean } {
+  const t = raw.trim()
+  if (t.length <= max) return { display: t, full: t, truncated: false }
+  return { display: t.slice(0, max).trimEnd() + '…', full: t, truncated: true }
+}
+
+function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerResponse' | 'maxChars'>): string {
+  const MAX = config.maxChars
+
   const photos = r.photos.length > 0 ? `
     <div class="orw-photos">
       ${r.photos.map((p) => `
@@ -454,13 +465,6 @@ function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerRespon
           <img src="${escapeHtml(p.url)}" alt="Review photo" loading="lazy" referrerpolicy="no-referrer">
         </button>
       `).join('')}
-    </div>
-  ` : ''
-
-  const owner = config.showOwnerResponse && r.ownerResponse ? `
-    <div class="orw-owner">
-      <div class="orw-owner-label">Owner response${r.ownerResponseDate ? ` · ${escapeHtml(r.ownerResponseDate)}` : ''}</div>
-      <p class="orw-owner-text">${escapeHtml(r.ownerResponse)}</p>
     </div>
   ` : ''
 
@@ -472,10 +476,24 @@ function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerRespon
     ? `<a href="${escapeHtml(r.reviewerProfileUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.reviewerName ?? 'Anonymous')}</a>`
     : escapeHtml(r.reviewerName ?? 'Anonymous')
 
-  const text = r.text ? `
-    <p class="orw-text orw-collapsed" data-orw-collapsible>${escapeHtml(r.text)}</p>
-    <button type="button" class="orw-more" data-orw-more hidden>Read more</button>
-  ` : ''
+  let text = ''
+  if (r.text) {
+    const { display, full, truncated } = truncateText(r.text, MAX)
+    text = `<p class="orw-text">${escapeHtml(display)}</p>`
+    if (truncated) text += `<button type="button" class="orw-more" data-orw-expand="${escapeHtml(full)}">Read more</button>`
+  }
+
+  let owner = ''
+  if (config.showOwnerResponse && r.ownerResponse) {
+    const { display, full, truncated } = truncateText(r.ownerResponse, MAX)
+    owner = `
+      <div class="orw-owner">
+        <div class="orw-owner-label">Owner response${r.ownerResponseDate ? ` · ${escapeHtml(r.ownerResponseDate)}` : ''}</div>
+        <p class="orw-owner-text">${escapeHtml(display)}</p>
+        ${truncated ? `<button type="button" class="orw-more" data-orw-expand="${escapeHtml(full)}">Read more</button>` : ''}
+      </div>
+    `
+  }
 
   return `
     <article class="orw-card">
@@ -546,14 +564,6 @@ function wireCarousel(root: HTMLElement): void {
     const first = track.querySelector<HTMLElement>('.orw-card')
     return first ? first.offsetWidth + 16 : 292
   }
-
-  // Show "Read more" on cards whose clamped text overflows.
-  root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-    requestAnimationFrame(() => {
-      const btn = el.nextElementSibling as HTMLButtonElement | null
-      if (btn?.hasAttribute('data-orw-more')) btn.hidden = !(el.scrollHeight > el.clientHeight + 4)
-    })
-  })
 
   // Prev / next arrows.
   const prev = document.createElement('button')
@@ -631,26 +641,14 @@ function wireCarousel(root: HTMLElement): void {
 }
 
 function wireInteractions(root: HTMLElement): void {
-  // Show "Read more" buttons for non-carousel layouts (carousel re-checks after cloning).
-  const isCarousel = !!root.querySelector('.orw-carousel-viewport')
-  if (!isCarousel) {
-    root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-      requestAnimationFrame(() => {
-        if (el.scrollHeight > el.clientHeight + 4) {
-          const btn = el.nextElementSibling as HTMLButtonElement | null
-          if (btn?.hasAttribute('data-orw-more')) btn.hidden = false
-        }
-      })
-    })
-  }
-
-  // Event delegation — works for original cards AND cloned carousel cards.
+  // Event delegation for "Read more" — works for original cards AND cloned carousel cards.
+  // data-orw-expand holds the full text; clicking replaces the preceding <p>'s textContent.
   root.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orw-more]')
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orw-expand]')
     if (!btn) return
     const prev = btn.previousElementSibling as HTMLElement | null
     if (!prev) return
-    prev.classList.remove('orw-collapsed')
+    prev.textContent = btn.dataset.orwExpand ?? ''
     btn.remove()
   })
 
