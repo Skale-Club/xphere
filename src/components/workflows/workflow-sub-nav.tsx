@@ -27,6 +27,7 @@ import {
 } from '@/app/(dashboard)/workflows/_actions/folders'
 import {
   moveWorkflowToFolder,
+  renameWorkflow,
   reorderWorkflowsInFolder,
   softDeleteWorkflow,
 } from '@/app/(dashboard)/workflows/_actions/workflows'
@@ -82,9 +83,15 @@ export function WorkflowSubNav({ workflows, folders }: Props) {
       folders={folders}
       itemNoun="workflow"
       getHref={workflowHref}
-      renderItemIcon={(w) => {
+      renderItemIcon={(w, context) => {
         const Icon = TRIGGER_ICONS[w.trigger_type]
-        return <Icon className="h-3 w-3" weight="fill" style={{ color: TRIGGER_COLORS[w.trigger_type] }} />
+        return (
+          <Icon
+            className="h-3 w-3"
+            weight="fill"
+            style={{ color: context?.folderColor ?? TRIGGER_COLORS[w.trigger_type] }}
+          />
+        )
       }}
       onDeleteItem={async (w) => {
         const res = await softDeleteWorkflow(w.id)
@@ -100,6 +107,7 @@ export function WorkflowSubNav({ workflows, folders }: Props) {
         deleteFolder,
         renameFolder,
         updateFolderMeta,
+        renameItem: renameWorkflow,
         moveItemToFolder: moveWorkflowToFolder,
         reorderItemsInFolder: reorderWorkflowsInFolder,
       }}

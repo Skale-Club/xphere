@@ -56,6 +56,16 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -103,6 +113,10 @@ export interface TreeNavChild {
   icon?: React.ReactNode
 }
 
+export interface TreeNavItemIconContext {
+  folderColor?: string | null
+}
+
 export interface TreeNavFolder {
   id: string
   name: string
@@ -131,6 +145,7 @@ export interface TreeNavActions {
     folderId: string | null,
     orderedIds: string[],
   ) => Promise<ActionResult>
+  renameItem?: (itemId: string, input: { name: string }) => Promise<ActionResult>
 }
 
 interface DraggableTreeNavProps<T extends TreeNavItem> {
@@ -139,7 +154,7 @@ interface DraggableTreeNavProps<T extends TreeNavItem> {
   /** Singular noun for aria labels and empty-folder hint, e.g. "workflow". */
   itemNoun: string
   getHref: (item: T) => string
-  renderItemIcon: (item: T) => React.ReactNode
+  renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
   /** Performs the soft-delete (incl. its own toast). Refresh is handled here. */
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
@@ -218,7 +233,44 @@ export function DraggableTreeNav<T extends TreeNavItem>({
     return map
   }, [localItems, localFolders])
 
+  const folderColorById = React.useMemo(() => {
+    const foldersById = new Map(localFolders.map((folder) => [folder.id, folder]))
+    const colorById = new Map<string, string | null>()
+    const resolving = new Set<string>()
+
+    function resolveColor(folder: TreeNavFolder): string | null {
+      if (colorById.has(folder.id)) return colorById.get(folder.id) ?? null
+      if (folder.color) {
+        colorById.set(folder.id, folder.color)
+        return folder.color
+      }
+      if (!folder.parent_id || resolving.has(folder.id)) {
+        colorById.set(folder.id, null)
+        return null
+      }
+      resolving.add(folder.id)
+      const parentColor = foldersById.get(folder.parent_id)
+        ? resolveColor(foldersById.get(folder.parent_id)!)
+        : null
+      resolving.delete(folder.id)
+      colorById.set(folder.id, parentColor)
+      return parentColor
+    }
+
+    for (const folder of localFolders) resolveColor(folder)
+    return colorById
+  }, [localFolders])
+
   const unfiled = groups.get(null) ?? []
+
+  async function handleRenameItem(item: T, name: string): Promise<ActionResult> {
+    if (!actions.renameItem) return { ok: false, error: 'Rename is not available.' }
+    const res = await actions.renameItem(item.id, { name })
+    if (!res.ok) return res
+    setLocalItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, name } : it)))
+    router.refresh()
+    return res
+  }
 
   const activeItem =
     activeType === 'item' && activeId
@@ -228,6 +280,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
     activeType === 'folder' && activeId
       ? (localFolders.find((f) => f.id === activeId) ?? null)
       : null
+  const activeFolderColor = activeFolder ? (folderColorById.get(activeFolder.id) ?? null) : null
 
   function handleDragStart(e: DragStartEvent) {
     const data = e.active.data.current as DragData | undefined
@@ -304,7 +357,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
 
       setLocalItems((prev) => {
         const updated = prev.map((it) =>
-          it.id === item.id ? { ...it, folder_id: targetFolderId } : it,
+          it.id === item.id ? { ...it, group_id: targetFolderId } : it,
         )
         const idMap = new Map(updated.map((it) => [it.id, it]))
         const inTarget = newIds.map((id) => idMap.get(id)).filter(Boolean) as T[]
@@ -360,6 +413,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
                 deleteItemLabel={deleteItemLabel}
+                onRenameItem={actions.renameItem ? handleRenameItem : undefined}
               />
             )}
 
@@ -371,6 +425,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                 <FolderSection
                   key={folder.id}
                   folder={folder}
+                  folderColor={folderColorById.get(folder.id) ?? null}
                   items={groups.get(folder.id) ?? []}
                   isOver={overGroupId === folder.id}
                   getHref={getHref}
@@ -381,6 +436,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                   enableFolderIcon={enableFolderIcon}
                   getItemChildren={getItemChildren}
                   deleteItemLabel={deleteItemLabel}
+                  onRenameItem={actions.renameItem ? handleRenameItem : undefined}
                   onPatched={(id, patch) =>
                     setLocalFolders((prev) =>
                       prev.map((f) => (f.id === id ? { ...f, ...patch } : f)),
@@ -411,7 +467,7 @@ export function DraggableTreeNav<T extends TreeNavItem>({
             {activeItem ? (
               <ItemDragGhost name={activeItem.name} icon={renderItemIcon(activeItem)} />
             ) : activeFolder ? (
-              <FolderDragGhost folder={activeFolder} />
+              <FolderDragGhost folder={activeFolder} folderColor={activeFolderColor} />
             ) : null}
           </DragOverlay>,
           document.body,
@@ -431,15 +487,17 @@ function UnfiledSection<T extends TreeNavItem>({
   itemNoun,
   getItemChildren,
   deleteItemLabel,
+  onRenameItem,
 }: {
   items: T[]
   isOver: boolean
   getHref: (item: T) => string
-  renderItemIcon: (item: T) => React.ReactNode
+  renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
   getItemChildren?: (item: T) => TreeNavChild[]
   deleteItemLabel?: string
+  onRenameItem?: (item: T, name: string) => Promise<ActionResult>
 }) {
   const [open, setOpen] = React.useState(true)
   const { setNodeRef } = useDroppable({
@@ -484,6 +542,7 @@ function UnfiledSection<T extends TreeNavItem>({
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
                 deleteItemLabel={deleteItemLabel}
+                onRenameItem={onRenameItem}
               />
             ))}
           </SortableContext>
@@ -497,6 +556,7 @@ function UnfiledSection<T extends TreeNavItem>({
 
 function FolderSection<T extends TreeNavItem>({
   folder,
+  folderColor,
   items,
   isOver,
   getHref,
@@ -507,19 +567,22 @@ function FolderSection<T extends TreeNavItem>({
   enableFolderIcon,
   getItemChildren,
   deleteItemLabel,
+  onRenameItem,
   onPatched,
 }: {
   folder: TreeNavFolder
+  folderColor: string | null
   items: T[]
   isOver: boolean
   getHref: (item: T) => string
-  renderItemIcon: (item: T) => React.ReactNode
+  renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
   itemNoun: string
   enableFolderIcon?: boolean
   getItemChildren?: (item: T) => TreeNavChild[]
   deleteItemLabel?: string
+  onRenameItem?: (item: T, name: string) => Promise<ActionResult>
   onPatched: (
     id: string,
     patch: Partial<Pick<TreeNavFolder, 'name' | 'color' | 'icon'>>,
@@ -531,6 +594,7 @@ function FolderSection<T extends TreeNavItem>({
   const [draft, setDraft] = React.useState(folder.name)
   const [saving, setSaving] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -540,7 +604,7 @@ function FolderSection<T extends TreeNavItem>({
   })
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition }
 
-  const colorStyle = folder.color ? { color: folder.color } : { color: '#f59e0b' }
+  const colorStyle = folderColor ? { color: folderColor } : { color: '#f59e0b' }
   // The folder glyph: an uploaded image (rounded mask) or a chosen emoji when
   // set, otherwise the colored open/closed folder icon.
   const glyph = isImageIcon(folder.icon) ? (
@@ -612,7 +676,10 @@ function FolderSection<T extends TreeNavItem>({
   async function handleDelete() {
     const res = await actions.deleteFolder(folder.id, { cascadeChildren: true })
     if (!res.ok) toast.error(res.error)
-    else router.refresh()
+    else {
+      setConfirmDeleteOpen(false)
+      router.refresh()
+    }
   }
 
   return (
@@ -799,13 +866,34 @@ function FolderSection<T extends TreeNavItem>({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-rose-500 focus:text-rose-500"
-                  onSelect={handleDelete}
+                  onSelect={() => setConfirmDeleteOpen(true)}
                 >
                   <Trash2 className="h-3 w-3" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {items.length > 0
+                      ? `This will delete "${folder.name}". Everything inside this folder will be moved to trash.`
+                      : `This will delete "${folder.name}".`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-rose-600 text-white hover:bg-rose-700"
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </div>
@@ -821,13 +909,14 @@ function FolderSection<T extends TreeNavItem>({
                 key={it.id}
                 item={it}
                 folderId={folder.id}
-                folderColor={folder.color}
+                folderColor={folderColor}
                 getHref={getHref}
                 renderItemIcon={renderItemIcon}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
                 deleteItemLabel={deleteItemLabel}
+                onRenameItem={onRenameItem}
               />
             ))}
           </SortableContext>
@@ -854,16 +943,18 @@ function ItemRow<T extends TreeNavItem>({
   itemNoun,
   getItemChildren,
   deleteItemLabel,
+  onRenameItem,
 }: {
   item: T
   folderId: string | null
   folderColor?: string | null
   getHref: (item: T) => string
-  renderItemIcon: (item: T) => React.ReactNode
+  renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
   getItemChildren?: (item: T) => TreeNavChild[]
   deleteItemLabel?: string
+  onRenameItem?: (item: T, name: string) => Promise<ActionResult>
 }) {
   const pathname = usePathname()
   const { onNavigate } = useSubSidebar()
@@ -887,6 +978,11 @@ function ItemRow<T extends TreeNavItem>({
   const isActive = selfActive
 
   const [open, setOpen] = React.useState(selfActive || childActive)
+  const [editing, setEditing] = React.useState(false)
+  const [draft, setDraft] = React.useState(item.name)
+  const [saving, setSaving] = React.useState(false)
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   // Keep expanded whenever this row's own or a child route is active (covers
   // client navigations and direct deep-links); never force-close on navigate-away.
   React.useEffect(() => {
@@ -898,6 +994,44 @@ function ItemRow<T extends TreeNavItem>({
     data: { type: 'item', folderId },
   })
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition }
+
+  function beginRename() {
+    setDraft(item.name)
+    setEditing(true)
+    setMenuOpen(false)
+  }
+
+  async function commitRename() {
+    const name = draft.trim()
+    if (!name) {
+      toast.error(`${itemNoun[0]?.toUpperCase() ?? 'I'}${itemNoun.slice(1)} name is required.`)
+      return
+    }
+    if (name === item.name) {
+      setEditing(false)
+      return
+    }
+    if (!onRenameItem) return
+    setSaving(true)
+    try {
+      const res = await onRenameItem(item, name)
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      setEditing(false)
+      toast.success('Renamed')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Failed to rename ${itemNoun}.`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    await onDeleteItem(item)
+    setConfirmDeleteOpen(false)
+  }
 
   return (
     <div
@@ -937,53 +1071,125 @@ function ItemRow<T extends TreeNavItem>({
           ) : (
             <span className="w-4 shrink-0" />
           ))}
-        <Link
-          href={href}
-          onClick={() => {
-            onNavigate()
-            if (hasChildren) setOpen(true)
-          }}
-          style={!isActive && folderColor ? { color: folderColor } : undefined}
-          className={cn(
-            'flex flex-1 min-w-0 items-center gap-2 px-2 py-1.5 text-[12px] rounded-[6px]',
-            isActive
-              ? 'text-text-primary font-medium bg-accent/8'
-              : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
-          )}
-        >
-          <span className="flex h-3 w-3 shrink-0 items-center justify-center">
-            {renderItemIcon(item)}
-          </span>
-          <span className="truncate">{item.name}</span>
-        </Link>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {editing ? (
+          <div className="flex flex-1 min-w-0 items-center gap-1 px-2 py-1">
+            <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+              {renderItemIcon(item, { folderColor })}
+            </span>
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename()
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              autoFocus
+              disabled={saving}
+              maxLength={120}
+              className="h-6 flex-1 min-w-0 px-1.5 py-0 text-[12px]"
+            />
             <Button
               variant="ghost"
               size="icon-sm"
-              className="mr-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              aria-label={`${itemNoun} actions`}
+              className="h-5 w-5 shrink-0 text-emerald-500"
+              onClick={commitRename}
+              disabled={saving}
+              aria-label={`Save ${itemNoun} name`}
             >
-              <MoreHorizontal className="h-3 w-3" />
+              <Check className="h-3 w-3" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem asChild>
-              <Link href={href} onClick={onNavigate}>
-                Open
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-rose-500 focus:text-rose-500"
-              onSelect={() => onDeleteItem(item)}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-5 w-5 shrink-0 text-text-tertiary"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              aria-label="Cancel rename"
             >
-              <Trash2 className="h-3 w-3" />
-              {deleteItemLabel ?? 'Move to trash'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Link
+              href={href}
+              onClick={() => {
+                onNavigate()
+                if (hasChildren) setOpen(true)
+              }}
+              className={cn(
+                'flex flex-1 min-w-0 items-center gap-2 px-2 py-1.5 text-[12px] rounded-[6px]',
+                isActive
+                  ? 'text-text-primary font-medium bg-accent/8'
+                  : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
+              )}
+            >
+              <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                {renderItemIcon(item, { folderColor })}
+              </span>
+              <span className="truncate">{item.name}</span>
+            </Link>
+
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="mr-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  aria-label={`${itemNoun} actions`}
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem asChild>
+                  <Link href={href} onClick={onNavigate}>
+                    Open
+                  </Link>
+                </DropdownMenuItem>
+                {onRenameItem && (
+                  <DropdownMenuItem onSelect={beginRename}>
+                    <Pencil className="h-3 w-3" />
+                    Rename
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-rose-500 focus:text-rose-500"
+                  onSelect={() => setConfirmDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  {deleteItemLabel ?? 'Move to trash'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {deleteItemLabel === 'Delete'
+                      ? `Delete ${itemNoun}?`
+                      : `Move ${itemNoun} to trash?`}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {deleteItemLabel === 'Delete'
+                      ? `This will delete "${item.name}".`
+                      : `This will move "${item.name}" to trash.`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-rose-600 text-white hover:bg-rose-700"
+                    onClick={handleDelete}
+                  >
+                    {deleteItemLabel ?? 'Move to trash'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
       </div>
 
       {hasChildren && open && <TreeNavChildLinks links={children} className="ml-[26px]" />}
@@ -1053,7 +1259,13 @@ function ItemDragGhost({ name, icon }: { name: string; icon: React.ReactNode }) 
   )
 }
 
-function FolderDragGhost({ folder }: { folder: TreeNavFolder }) {
+function FolderDragGhost({
+  folder,
+  folderColor,
+}: {
+  folder: TreeNavFolder
+  folderColor: string | null
+}) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary px-3 py-1.5 shadow-lg">
       {isImageIcon(folder.icon) ? (
@@ -1070,7 +1282,7 @@ function FolderDragGhost({ folder }: { folder: TreeNavFolder }) {
       ) : (
         <FolderIcon
           className="h-3.5 w-3.5 shrink-0"
-          style={folder.color ? { color: folder.color } : { color: '#f59e0b' }}
+          style={folderColor ? { color: folderColor } : { color: '#f59e0b' }}
         />
       )}
       <span className="max-w-[180px] truncate text-[12px] font-medium text-text-secondary">

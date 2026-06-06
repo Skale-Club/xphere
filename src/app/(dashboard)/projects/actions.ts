@@ -28,6 +28,7 @@ export type TaskWithLabels = ProjectTaskRow & {
   subtask_count: number
   completed_subtask_count: number
   assignee: AssigneeProfile | null
+  responsible: AssigneeProfile | null
 }
 
 export type DeliveryProjectTemplate = 'general' | 'website'
@@ -434,13 +435,17 @@ export async function getProjectTasks(projectId: string): Promise<TaskWithLabels
     if (sub.completed) counts.completed++
   }
 
-  // Attach assignee profiles by fetching org members once and mapping by user_id.
-  const assigneeIds = new Set(taskList.map((t) => t.assignee_id).filter(Boolean) as string[])
-  const assigneeMap = new Map<string, AssigneeProfile>()
-  if (assigneeIds.size > 0) {
+  // Attach people profiles by fetching org members once and mapping by user_id.
+  const personIds = new Set(
+    taskList
+      .flatMap((t) => [t.assignee_id, t.responsible_id])
+      .filter(Boolean) as string[],
+  )
+  const personMap = new Map<string, AssigneeProfile>()
+  if (personIds.size > 0) {
     const members = await listProjectAssignees()
     for (const m of members) {
-      if (assigneeIds.has(m.user_id)) assigneeMap.set(m.user_id, m)
+      if (personIds.has(m.user_id)) personMap.set(m.user_id, m)
     }
   }
 
@@ -449,7 +454,8 @@ export async function getProjectTasks(projectId: string): Promise<TaskWithLabels
     labels: labelMap.get(t.id) ?? [],
     subtask_count: subtaskCountMap.get(t.id)?.total ?? 0,
     completed_subtask_count: subtaskCountMap.get(t.id)?.completed ?? 0,
-    assignee: t.assignee_id ? assigneeMap.get(t.assignee_id) ?? null : null,
+    assignee: t.assignee_id ? personMap.get(t.assignee_id) ?? null : null,
+    responsible: t.responsible_id ? personMap.get(t.responsible_id) ?? null : null,
   }))
 }
 
@@ -497,9 +503,15 @@ export async function getTask(id: string): Promise<TaskWithLabels | null> {
   const t = task as ProjectTaskRow
 
   let assignee: AssigneeProfile | null = null
-  if (t.assignee_id) {
+  let responsible: AssigneeProfile | null = null
+  if (t.assignee_id || t.responsible_id) {
     const members = await listProjectAssignees()
-    assignee = members.find((m) => m.user_id === t.assignee_id) ?? null
+    assignee = t.assignee_id
+      ? members.find((m) => m.user_id === t.assignee_id) ?? null
+      : null
+    responsible = t.responsible_id
+      ? members.find((m) => m.user_id === t.responsible_id) ?? null
+      : null
   }
 
   return {
@@ -508,6 +520,7 @@ export async function getTask(id: string): Promise<TaskWithLabels | null> {
     subtask_count: (subtasksAll as { id: string; completed: boolean }[])?.length ?? 0,
     completed_subtask_count: (subtasksAll as { id: string; completed: boolean }[])?.filter((s) => s.completed).length ?? 0,
     assignee,
+    responsible,
   }
 }
 

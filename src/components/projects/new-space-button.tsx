@@ -22,9 +22,10 @@ import { createSpace } from '@/app/(dashboard)/projects/_actions/spaces'
 
 interface NewSpaceButtonProps {
   className?: string
+  iconOnly?: boolean
 }
 
-export function NewSpaceButton({ className }: NewSpaceButtonProps) {
+export function NewSpaceButton({ className, iconOnly = false }: NewSpaceButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -68,10 +69,11 @@ export function NewSpaceButton({ className }: NewSpaceButtonProps) {
           variant="outline"
           size="sm"
           className={cn('h-6 px-3 text-[11px] gap-1', className)}
-          aria-label="Space"
+          aria-label={iconOnly ? 'New space' : 'Space'}
+          title={iconOnly ? 'New space' : undefined}
         >
           <SquareDashed className="h-3 w-3" />
-          Space
+          {!iconOnly && 'Space'}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">

@@ -35,7 +35,11 @@ export function AppBreadcrumb() {
   const rawSegments = pathname.split('/').filter(Boolean)
   const segments = rawSegments
     .map((segment, index) => ({ segment, rawIndex: index }))
-    .filter(({ segment, rawIndex }) => !(rawSegments[0] === 'workflows' && rawSegments[1] === 'flows' && rawIndex === 1))
+    .filter(({ rawIndex }) => {
+      const isFlowRoute = rawSegments[0] === 'workflows' && rawSegments[1] === 'flows'
+      if (!isFlowRoute) return true
+      return rawIndex !== 1
+    })
   const { getSegmentLabel, getSegmentNode, suffix } = useBreadcrumbOverride()
 
   // Match the top-level path segment to a sidebar nav item so the icon

@@ -528,9 +528,23 @@ function SpaceGroup({
               }`}
             />
             {open ? (
-              <FolderOpen className="h-4 w-4 text-amber-500" />
+              <FolderOpen
+                className="h-4 w-4"
+                style={
+                  space.color
+                    ? { color: space.color }
+                    : { color: "var(--text-tertiary)" }
+                }
+              />
             ) : (
-              <FolderIcon className="h-4 w-4 text-amber-500" />
+              <FolderIcon
+                className="h-4 w-4"
+                style={
+                  space.color
+                    ? { color: space.color }
+                    : { color: "var(--text-tertiary)" }
+                }
+              />
             )}
             <span className="text-xs font-medium uppercase tracking-wide text-text-secondary truncate">
               {space.name}
@@ -796,7 +810,14 @@ function SortableProjectRow({ project: p, spaces, spaceId }: RowProps) {
                       disabled={currentSpaceId === f.id}
                       onSelect={() => handleMove(f.id)}
                     >
-                      <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
+                      <FolderIcon
+                        className="h-3.5 w-3.5"
+                        style={
+                          f.color
+                            ? { color: f.color }
+                            : { color: "var(--text-tertiary)" }
+                        }
+                      />
                       <span className="truncate">{f.name}</span>
                     </DropdownMenuItem>
                   ))}
@@ -885,7 +906,14 @@ function SpaceDragPreview({ space }: { space: ProjectSpace }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary shadow-lg px-3 py-2">
       <GripVertical className="h-3.5 w-3.5 text-text-tertiary" />
-      <FolderIcon className="h-4 w-4 text-amber-500" />
+      <FolderIcon
+        className="h-4 w-4"
+        style={
+          space.color
+            ? { color: space.color }
+            : { color: "var(--text-tertiary)" }
+        }
+      />
       <span className="text-xs font-medium uppercase tracking-wide text-text-secondary truncate max-w-[260px]">
         {space.name}
       </span>

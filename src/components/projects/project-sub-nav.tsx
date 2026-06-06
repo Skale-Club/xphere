@@ -21,6 +21,7 @@ import {
   moveProjectToSpace,
   reorderProjectsInSpace,
   softDeleteProject,
+  updateProject,
 } from '@/app/(dashboard)/projects/actions'
 import { uploadSpaceIcon } from '@/app/(dashboard)/projects/_actions/space-icon'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
@@ -55,10 +56,10 @@ export function ProjectSubNav({ projects, spaces }: Props) {
       itemNoun="project"
       enableFolderIcon
       getHref={(p) => `/projects/${p.id}`}
-      renderItemIcon={(p) => (
+      renderItemIcon={(p, context) => (
         <span
           className="h-2.5 w-2.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: p.color ?? 'var(--text-tertiary)' }}
+          style={{ backgroundColor: context?.folderColor ?? p.color ?? 'var(--text-tertiary)' }}
         />
       )}
       onDeleteItem={async (p) => {
@@ -76,6 +77,12 @@ export function ProjectSubNav({ projects, spaces }: Props) {
         renameFolder: renameSpace,
         updateFolderMeta: updateSpaceMeta,
         uploadFolderIcon: uploadSpaceIcon,
+        renameItem: async (id, input) => {
+          const name = input.name.trim()
+          if (!name) return { ok: false, error: 'Project name is required.' }
+          await updateProject(id, { name })
+          return { ok: true }
+        },
         moveItemToFolder: moveProjectToSpace,
         reorderItemsInFolder: reorderProjectsInSpace,
       }}

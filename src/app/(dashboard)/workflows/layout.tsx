@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { SubSidebarLayout } from '@/components/layout/sub-sidebar'
 import { WorkflowSubNav } from '@/components/workflows/workflow-sub-nav'
+import { NewWorkflowButton } from '@/components/flows/new-workflow-button'
+import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import { listUnifiedWorkflows } from '@/lib/workflows/list'
 import type { Database } from '@/types/database'
 
@@ -48,8 +50,17 @@ export default async function WorkflowsLayout({ children }: { children: React.Re
     <SubSidebarLayout
       storageKey="sub-sidebar:workflows"
       title="Workflows"
-      autoCollapseBasePath="/workflows"
       nav={<WorkflowSubNav workflows={navWorkflows} folders={navFolders} />}
+      collapsedActions={
+        <>
+          <NewWorkflowButton
+            label="New workflow"
+            iconOnly
+            className="h-7 w-7 p-0"
+          />
+          <NewFolderButton iconOnly className="h-7 w-7 p-0" />
+        </>
+      }
     >
       {children}
     </SubSidebarLayout>

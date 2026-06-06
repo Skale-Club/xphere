@@ -1,5 +1,9 @@
 import { SubSidebarLayout } from '@/components/layout/sub-sidebar'
 import { ProjectSubNav } from '@/components/projects/project-sub-nav'
+import { NewProjectDialog } from '@/components/projects/new-project-dialog'
+import { NewSpaceButton } from '@/components/projects/new-space-button'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 import { getProjects } from './actions'
 import { listSpaces } from './_actions/spaces'
 
@@ -31,8 +35,22 @@ export default async function ProjectsLayout({ children }: { children: React.Rea
     <SubSidebarLayout
       storageKey="sub-sidebar:projects"
       title="Projects"
-      autoCollapseBasePath="/projects"
       nav={<ProjectSubNav projects={navProjects} spaces={navSpaces} />}
+      collapsedActions={
+        <>
+          <NewProjectDialog>
+            <Button
+              size="icon-sm"
+              className="h-7 w-7"
+              aria-label="New project"
+              title="New project"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </NewProjectDialog>
+          <NewSpaceButton iconOnly className="h-7 w-7 p-0" />
+        </>
+      }
     >
       {children}
     </SubSidebarLayout>

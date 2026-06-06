@@ -1,14 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
-import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Save, CheckCircle2, AlertCircle, Loader2, Play, History, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WorkflowToggle } from '@/components/workflows/workflow-toggle'
 import { useFlowStore } from '@/stores/flow-store'
-import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { validateFlow } from '@/lib/flows/schema'
 import {
   saveWorkflowDefinition,
@@ -17,6 +15,7 @@ import {
 import { runFlowNow } from '@/app/(dashboard)/workflows/flows/_actions/runs'
 import { RunsDialog } from '@/components/flows/runs-dialog'
 import { cn } from '@/lib/utils'
+import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 
 interface FlowToolbarProps {
   workflowId: string
@@ -33,7 +32,7 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
   const [runsOpen, setRunsOpen] = useState(false)
   const [runsInitialId, setRunsInitialId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { setSegmentLabel } = useBreadcrumbOverride()
+  const { setSegmentLabel, setSegmentNode } = useBreadcrumbOverride()
 
   const dirty = useFlowStore((s) => s.dirty)
   const lastSavedAt = useFlowStore((s) => s.lastSavedAt)
@@ -44,11 +43,6 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
     setName(workflowName)
   }, [workflowName])
 
-  // Override the workflow ID segment in the breadcrumb with the friendly name.
-  useEffect(() => {
-    if (name) setSegmentLabel(workflowId, name)
-  }, [workflowId, name, setSegmentLabel])
-
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus()
@@ -56,7 +50,7 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
     }
   }, [editing])
 
-  async function commitName() {
+  const commitName = useCallback(async () => {
     setEditing(false)
     const trimmed = name.trim()
     if (!trimmed || trimmed === workflowName) {
@@ -71,7 +65,53 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
     }
     toast.success('Flow renamed')
     router.refresh()
-  }
+  }, [name, router, workflowId, workflowName])
+
+  useEffect(() => {
+    setSegmentLabel(workflowId, name || workflowName || 'Untitled flow')
+    setSegmentNode(
+      workflowId,
+      editing ? (
+        <input
+          autoFocus
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={commitName}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitName()
+            if (e.key === 'Escape') {
+              setName(workflowName)
+              setEditing(false)
+            }
+          }}
+          className={cn(
+            'h-7 w-[min(48vw,320px)] rounded-[6px] border border-border bg-bg-secondary px-2',
+            'text-sm font-medium text-text-primary outline-none focus:border-accent',
+          )}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="group/flow-breadcrumb inline-flex min-w-0 max-w-[min(48vw,360px)] items-center gap-1 rounded-[6px] px-1 py-0.5 text-left text-sm font-medium text-inherit hover:bg-bg-tertiary/70"
+          title="Rename flow"
+        >
+          <span className="truncate">{name || 'Untitled flow'}</span>
+          <Pencil className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/flow-breadcrumb:opacity-70" />
+        </button>
+      ),
+    )
+  }, [
+    commitName,
+    editing,
+    name,
+    setSegmentLabel,
+    setSegmentNode,
+    workflowId,
+    workflowName,
+  ])
 
   function handleSaveVersion() {
     startTransition(async () => {
@@ -141,47 +181,17 @@ export function FlowToolbar({ workflowId, workflowName, isActive }: FlowToolbarP
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
       {/* Left | back + name (flex-grow) */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="min-w-0 flex items-center gap-1.5">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitName()
-                if (e.key === 'Escape') {
-                  setName(workflowName)
-                  setEditing(false)
-                }
-              }}
-              className={cn(
-                'h-7 w-full max-w-[280px] rounded-[6px] border border-border bg-bg-secondary px-2',
-                'text-sm font-medium text-text-primary outline-none focus:border-accent',
-              )}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="group inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-sm font-medium text-text-primary hover:bg-bg-secondary motion-fast min-w-0"
-            >
-              <span className="truncate">{name || 'Untitled flow'}</span>
-              <Pencil className="h-3 w-3 text-text-tertiary opacity-0 group-hover:opacity-100" />
-            </button>
-          )}
-        </div>
         {statusEl && <div className="hidden lg:flex">{statusEl}</div>}
-      </div>
-
-      {/* Right | actions (shrink-0, gracefully collapse labels on small widths) */}
-      <div className="flex items-center gap-1.5 shrink-0">
+        {statusEl && <div className="hidden h-4 w-px bg-border lg:block" />}
         <WorkflowToggle
           workflowId={workflowId}
           initialActive={isActive}
           showLabel
         />
-        <div className="w-px h-4 bg-border mx-1" />
+      </div>
+
+      {/* Right | actions (shrink-0, gracefully collapse labels on small widths) */}
+      <div className="flex items-center gap-1.5 shrink-0">
         <Button
           size="sm"
           variant="ghost"
