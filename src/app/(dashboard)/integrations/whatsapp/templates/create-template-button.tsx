@@ -6,8 +6,14 @@ import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { TemplateComposerDialog } from '@/components/integrations/whatsapp/template-composer-dialog'
+import { ZernioTemplateComposerDialog } from '@/components/integrations/whatsapp/zernio-template-composer-dialog'
 
-export function CreateTemplateButton() {
+interface CreateTemplateButtonProps {
+  provider?: 'cloud' | 'zernio'
+  accountId?: string
+}
+
+export function CreateTemplateButton({ provider = 'cloud', accountId }: CreateTemplateButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
@@ -17,7 +23,21 @@ export function CreateTemplateButton() {
         <Plus className="h-3.5 w-3.5" />
         Create Template
       </Button>
-      <TemplateComposerDialog open={open} onOpenChange={setOpen} onCreated={() => router.refresh()} />
+
+      {provider === 'zernio' && accountId ? (
+        <ZernioTemplateComposerDialog
+          open={open}
+          onOpenChange={setOpen}
+          accountId={accountId}
+          onCreated={() => router.refresh()}
+        />
+      ) : (
+        <TemplateComposerDialog
+          open={open}
+          onOpenChange={setOpen}
+          onCreated={() => router.refresh()}
+        />
+      )}
     </>
   )
 }

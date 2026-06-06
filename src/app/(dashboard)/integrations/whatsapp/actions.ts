@@ -16,6 +16,12 @@ import { verifyCredentials } from '@/lib/whatsapp/cloud/verify-credentials'
 import { subscribeApp, unsubscribeApp } from '@/lib/whatsapp/cloud/subscribe-webhook'
 import { syncTemplates, createCloudTemplate, type CreateTemplateInput } from '@/lib/whatsapp/cloud/templates'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
+import {
+  listZernioWhatsAppAccounts,
+  listZernioWhatsappTemplates,
+  createZernioWhatsappTemplateApi,
+  type ZernioCreateTemplateInput,
+} from '@/lib/zernio/whatsapp-templates'
 
 export interface CloudAccountSummary {
   id: string
@@ -277,6 +283,199 @@ function extractBody(components: unknown): string | null {
     (c) => c.type === 'BODY',
   )
   return block?.text ?? null
+}
+
+// ── Zernio template actions ──────────────────────────────────────────────────
+
+export interface ZernioAccount {
+  id: string
+  name: string
+}
+
+export interface ZernioIntegrationSummary {
+  integrationId: string
+  accounts: ZernioAccount[]
+}
+
+/** Returns the active Zernio integration + discoverable WhatsApp accounts. */
+export async function getZernioIntegrationSummary(): Promise<ZernioIntegrationSummary | null> {
+  const user = await getUser()
+  if (!user) return null
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+
+  const { data: row } = await supabase
+    .from('integrations')
+    .select('id, encrypted_api_key')
+    .eq('organization_id', orgId)
+    .eq('provider', 'zernio')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (!row) return null
+
+  let apiKey: string
+  try {
+    apiKey = await decrypt(row.encrypted_api_key)
+  } catch {
+    return null
+  }
+
+  let accounts: ZernioAccount[] = []
+  try {
+    accounts = await listZernioWhatsAppAccounts(apiKey)
+  } catch {
+    // Non-fatal — return the integration info even if account discovery fails
+  }
+
+  return { integrationId: row.id, accounts }
+}
+
+export interface ZernioCreateInput extends ZernioCreateTemplateInput {
+  accountId: string
+}
+
+/** Creates a WhatsApp template via Zernio API and persists it locally. */
+export async function createZernioTemplateAction(
+  input: ZernioCreateInput,
+): Promise<{ ok: true; status: string } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active organization' }
+
+  const name = input.name?.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+  if (!name) return { ok: false, error: 'Template name is required.' }
+  if (!input.bodyText?.trim()) return { ok: false, error: 'Body text is required.' }
+  if (!input.accountId) return { ok: false, error: 'WhatsApp account ID is required.' }
+
+  // Get Zernio integration
+  const { data: row } = await supabase
+    .from('integrations')
+    .select('id, encrypted_api_key')
+    .eq('organization_id', orgId)
+    .eq('provider', 'zernio')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (!row) return { ok: false, error: 'Zernio integration not found.' }
+
+  let apiKey: string
+  try {
+    apiKey = await decrypt(row.encrypted_api_key)
+  } catch {
+    return { ok: false, error: 'Could not decrypt Zernio API key.' }
+  }
+
+  const result = await createZernioWhatsappTemplateApi(input.accountId, apiKey, {
+    ...input,
+    name,
+  })
+
+  if (!result.ok) return { ok: false, error: result.error }
+
+  const normalizedStatus = result.status?.toUpperCase() ?? 'PENDING'
+  const svc = createServiceRoleClient()
+  await svc.from('zernio_whatsapp_templates').upsert(
+    {
+      org_id: orgId,
+      integration_id: row.id,
+      zernio_account_id: input.accountId,
+      name,
+      category: input.category,
+      language: input.language,
+      status: ['PENDING', 'APPROVED', 'REJECTED', 'DISABLED'].includes(normalizedStatus)
+        ? normalizedStatus
+        : 'PENDING',
+      components: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'org_id,zernio_account_id,name,language', ignoreDuplicates: false },
+  )
+
+  revalidatePath('/integrations/whatsapp/templates')
+  return { ok: true, status: result.status }
+}
+
+/** Fetches all Zernio templates for the org and upserts their status locally. */
+export async function syncZernioTemplatesAction(): Promise<
+  { ok: true; synced: number } | { ok: false; error: string }
+> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active organization' }
+
+  const { data: row } = await supabase
+    .from('integrations')
+    .select('id, encrypted_api_key')
+    .eq('organization_id', orgId)
+    .eq('provider', 'zernio')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (!row) return { ok: false, error: 'Zernio integration not found.' }
+
+  let apiKey: string
+  try {
+    apiKey = await decrypt(row.encrypted_api_key)
+  } catch {
+    return { ok: false, error: 'Could not decrypt Zernio API key.' }
+  }
+
+  // Resolve WhatsApp account(s)
+  let accounts: ZernioAccount[] = []
+  try {
+    accounts = await listZernioWhatsAppAccounts(apiKey)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Could not list Zernio accounts.' }
+  }
+
+  if (accounts.length === 0) {
+    return { ok: false, error: 'No WhatsApp accounts found in this Zernio workspace.' }
+  }
+
+  const svc = createServiceRoleClient()
+  let synced = 0
+
+  for (const account of accounts) {
+    let templates: Awaited<ReturnType<typeof listZernioWhatsappTemplates>> = []
+    try {
+      templates = await listZernioWhatsappTemplates(account.id, apiKey)
+    } catch {
+      continue
+    }
+
+    for (const tpl of templates) {
+      const normalizedStatus = tpl.status?.toUpperCase() ?? 'PENDING'
+      await svc.from('zernio_whatsapp_templates').upsert(
+        {
+          org_id: orgId,
+          integration_id: row.id,
+          zernio_account_id: account.id,
+          name: tpl.name,
+          category: tpl.category ?? 'UTILITY',
+          language: tpl.language,
+          status: ['PENDING', 'APPROVED', 'REJECTED', 'DISABLED'].includes(normalizedStatus)
+            ? normalizedStatus
+            : 'PENDING',
+          components: tpl.components ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'org_id,zernio_account_id,name,language', ignoreDuplicates: false },
+      )
+      synced++
+    }
+  }
+
+  revalidatePath('/integrations/whatsapp/templates')
+  return { ok: true, synced }
 }
 
 // ── Disconnect ──────────────────────────────────────────────────────────────

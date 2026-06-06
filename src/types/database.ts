@@ -5552,6 +5552,63 @@ export interface Database {
         }
         Relationships: []
       }
+      zernio_whatsapp_templates: {
+        Row: {
+          id: string
+          org_id: string
+          integration_id: string
+          zernio_account_id: string
+          name: string
+          category: string
+          language: string
+          status: string
+          components: unknown | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          integration_id: string
+          zernio_account_id: string
+          name: string
+          category: string
+          language: string
+          status?: string
+          components?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          integration_id?: string
+          zernio_account_id?: string
+          name?: string
+          category?: string
+          language?: string
+          status?: string
+          components?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'zernio_whatsapp_templates_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'zernio_whatsapp_templates_integration_id_fkey'
+            columns: ['integration_id']
+            isOneToOne: false
+            referencedRelation: 'integrations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       zernio_webhook_events: {
         Row: {
           id: string
