@@ -125,34 +125,11 @@ function iframeHeight(layout: Layout, showHero: boolean): number {
 function buildWidgetUrl({
   baseUrl,
   widgetToken,
-  layout,
-  minRating,
-  theme,
-  limit,
-  showHero,
-  equalHeight,
-  footerCta,
 }: {
   baseUrl: string
   widgetToken: string
-  layout: Layout
-  minRating: string
-  theme: Theme
-  limit: string
-  showHero: boolean
-  equalHeight: boolean
-  footerCta: boolean
 }) {
-  const params = new URLSearchParams({
-    layout,
-    min_rating: minRating,
-    theme,
-    limit: limit === 'all' ? '500' : limit,
-  })
-  if (!showHero) params.set('hero', '0')
-  if (!equalHeight) params.set('eqh', '0')
-  if (footerCta) params.set('cta', '1')
-  return `${baseUrl}/widget/reviews/${widgetToken}?${params.toString()}`
+  return `${baseUrl}/widget/reviews/${widgetToken}`
 }
 
 function PreviewCard({
@@ -380,7 +357,6 @@ export function ReviewWidgetBuilder({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const accent = isHexColor(brandAccent) ? brandAccent : '#6366F1'
-  const brandSoft = hexToRgba(accent, theme === 'dark' ? 0.22 : 0.12)
   const heroSolidStart = theme === 'dark'
     ? hexBlendSolid(accent, 0.22, 24, 24, 27)
     : hexBlendSolid(accent, 0.12, 255, 255, 255)
@@ -395,18 +371,10 @@ export function ReviewWidgetBuilder({
   const widgetUrl = buildWidgetUrl({
     baseUrl,
     widgetToken,
-    layout,
-    minRating,
-    theme,
-    limit,
-    showHero,
-    equalHeight,
-    footerCta,
   })
   const height = iframeHeight(layout, showHero)
   const title = `${business.name ?? 'Google'} reviews`
   const safeTitle = escapeAttribute(title)
-  const embedLimit = limit === 'all' ? '500' : limit
   const embedOrigin = (() => {
     try {
       return new URL(baseUrl).origin
@@ -431,14 +399,7 @@ export function ReviewWidgetBuilder({
 
   const scriptSnippet = `<div
   data-operator-reviews
-  data-token="${widgetToken}"
-  data-layout="${layout}"
-  data-theme="${theme}"
-  data-min-rating="${minRating}"
-  data-limit="${embedLimit}"
-  data-hero="${showHero ? '1' : '0'}"
-  data-equal-height="${equalHeight ? '1' : '0'}"
-  data-footer-cta="${footerCta ? '1' : '0'}">
+  data-token="${widgetToken}">
 </div>
 <script src="${baseUrl}/reviews-widget.js" defer></script>`
 

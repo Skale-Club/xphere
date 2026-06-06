@@ -33,6 +33,15 @@ interface ApiPayload {
   brand?: {
     accent?: string | null
   }
+  settings?: {
+    layout?: Layout
+    theme?: Theme
+    minRating?: number
+    limit?: number
+    showHero?: boolean
+    equalHeight?: boolean
+    footerCta?: boolean
+  }
   distribution: { rating: number; count: number }[]
   reviews: ReviewItem[]
   total: number
@@ -72,9 +81,9 @@ interface WidgetConfig {
 }
 
 const DEFAULTS: Omit<WidgetConfig, 'token'> = {
-  layout: 'grid',
+  layout: 'carousel',
   theme: 'light',
-  minRating: 1,
+  minRating: 4,
   sort: 'recent',
   limit: 12,
   apiBase: '',
@@ -380,6 +389,20 @@ function getConfig(): WidgetConfig | null {
   }
 }
 
+function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings']): WidgetConfig {
+  if (!settings) return config
+  return {
+    ...config,
+    layout: settings.layout ?? config.layout,
+    theme: settings.theme ?? config.theme,
+    minRating: settings.minRating ?? config.minRating,
+    limit: settings.limit ?? config.limit,
+    showHero: settings.showHero ?? config.showHero,
+    equalHeight: settings.equalHeight ?? config.equalHeight,
+    footerCta: settings.footerCta ?? config.footerCta,
+  }
+}
+
 function renderHero(p: ApiPayload): string {
   const avg = p.business.averageRating ?? 0
   const total = p.business.totalReviewsCount ?? p.distribution.reduce((s, d) => s + d.count, 0)
@@ -492,84 +515,109 @@ function renderShell(config: WidgetConfig, payload: ApiPayload): string {
   return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-grid">${cards}</div>${footerHtml}</div>`
 }
 
-// Measure a card's natural (unconstrained) height by cloning it off-screen.
-function measureCardNaturalHeight(card: HTMLElement, root: HTMLElement): number {
-  const wrapper = document.createElement('div')
-  wrapper.className = root.className
-  if (root.dataset.theme) wrapper.dataset.theme = root.dataset.theme
-  wrapper.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;pointer-events:none;'
-  const clone = card.cloneNode(true) as HTMLElement
-  clone.style.cssText = 'width:300px;height:auto;max-height:none;overflow:visible;'
-  wrapper.appendChild(clone)
-  document.body.appendChild(wrapper)
-  const h = clone.scrollHeight
-  document.body.removeChild(wrapper)
-  return h
-}
-
 function wireCarousel(root: HTMLElement): void {
   const viewportEl = root.querySelector<HTMLElement>('.orw-carousel-viewport')
   const trackEl = root.querySelector<HTMLElement>('.orw-carousel-track')
-  if (!viewportEl || !trackEl) return
+  const wrapEl = root.querySelector<HTMLElement>('.orw-carousel-wrap')
+  if (!viewportEl || !trackEl || !wrapEl) return
 
   const viewport: HTMLElement = viewportEl
   const track: HTMLElement = trackEl
+  const wrap: HTMLElement = wrapEl
 
-  const MAX_H = 380
-  const SPEED = 55 // px per second — adjust for faster/slower feel
+  const AUTOPLAY_MS = 4000
 
-  // 1. Hide owner response on cards whose full content would exceed max height.
-  Array.from(track.children).forEach((child) => {
-    const card = child as HTMLElement
-    const owner = card.querySelector<HTMLElement>('.orw-owner')
-    if (!owner) return
-    const naturalH = measureCardNaturalHeight(card, root)
-    if (naturalH > MAX_H) owner.hidden = true
-  })
+  // Native horizontal scroll + drag (mirrors the builder preview). The
+  // `.orw-carousel-viewport` base CSS already provides overflow-x:auto,
+  // scroll-snap, and the grab cursor — no `.orw-auto` marquee here.
 
-  // 2. Switch to marquee mode (CSS class applies flex layout + max-height on cards).
-  viewport.classList.add('orw-auto')
-
-  // 3. Duplicate cards for a seamless infinite loop.
-  //    Keep cloning sets until the total content is at least 2× the viewport width
-  //    so the loop never shows empty space on wide screens.
-  const originals = Array.from(track.children) as HTMLElement[]
-  let sets = 1
-  originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
-  sets++
-  // Ensure we have enough content for the viewport.
-  if (originals.length < 6) {
-    originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
-    sets++
+  // Step = one card width + the track gap, so paging snaps card-to-card.
+  const getStep = (): number => {
+    const first = track.querySelector<HTMLElement>('.orw-card')
+    return first ? first.offsetWidth + 16 : 292
   }
 
-  // 4. After layout settles: measure, animate, and wire hover-pause.
-  requestAnimationFrame(() => {
+  // Show "Read more" on cards whose clamped text overflows.
+  root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
     requestAnimationFrame(() => {
-      // Each "set" has the same width. The animation moves exactly one set width,
-      // then CSS loops the animation — the duplicate set makes it seamless.
-      const oneSetWidth = Math.ceil(track.scrollWidth / sets)
-      const duration = Math.round(oneSetWidth / SPEED)
-
-      track.style.setProperty('--orw-marquee-end', `-${oneSetWidth}px`)
-      track.style.animation = `orw-marquee ${duration}s linear infinite`
-
-      // Pause on hover.
-      viewport.addEventListener('mouseenter', () => {
-        track.style.animationPlayState = 'paused'
-      })
-      viewport.addEventListener('mouseleave', () => {
-        track.style.animationPlayState = 'running'
-      })
-
-      // Show "Read more" buttons on any card (original or clone) whose text is clamped.
-      root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-        const btn = el.nextElementSibling as HTMLButtonElement | null
-        if (!btn?.hasAttribute('data-orw-more')) return
-        btn.hidden = !(el.scrollHeight > el.clientHeight + 4)
-      })
+      const btn = el.nextElementSibling as HTMLButtonElement | null
+      if (btn?.hasAttribute('data-orw-more')) btn.hidden = !(el.scrollHeight > el.clientHeight + 4)
     })
   })
+
+  // Prev / next arrows.
+  const prev = document.createElement('button')
+  prev.type = 'button'
+  prev.className = 'orw-carousel-btn orw-carousel-prev'
+  prev.setAttribute('aria-label', 'Previous')
+  prev.innerHTML = '&#8249;'
+  const next = document.createElement('button')
+  next.type = 'button'
+  next.className = 'orw-carousel-btn orw-carousel-next'
+  next.setAttribute('aria-label', 'Next')
+  next.innerHTML = '&#8250;'
+  wrap.appendChild(prev)
+  wrap.appendChild(next)
+  prev.addEventListener('click', () => viewport.scrollBy({ left: -getStep(), behavior: 'smooth' }))
+  next.addEventListener('click', () => viewport.scrollBy({ left: getStep(), behavior: 'smooth' }))
+
+  const updateButtons = (): void => {
+    const max = viewport.scrollWidth - viewport.clientWidth
+    prev.toggleAttribute('disabled', viewport.scrollLeft <= 2)
+    next.toggleAttribute('disabled', viewport.scrollLeft >= max - 2 || max <= 0)
+  }
+  viewport.addEventListener('scroll', updateButtons, { passive: true })
+  window.addEventListener('resize', updateButtons)
+  requestAnimationFrame(updateButtons)
+
+  // Autoplay — advance one step every 4s, looping back at the end. Pauses on
+  // hover and while dragging.
+  let hovered = false
+  let timer: ReturnType<typeof setInterval> | null = null
+  const advance = (): void => {
+    const max = viewport.scrollWidth - viewport.clientWidth
+    viewport.scrollTo({
+      left: viewport.scrollLeft >= max - 4 ? 0 : viewport.scrollLeft + getStep(),
+      behavior: 'smooth',
+    })
+  }
+  const startAuto = (): void => {
+    if (!timer && !hovered) timer = setInterval(advance, AUTOPLAY_MS)
+  }
+  const stopAuto = (): void => {
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+  }
+  viewport.addEventListener('mouseenter', () => { hovered = true; stopAuto() })
+  viewport.addEventListener('mouseleave', () => { hovered = false; startAuto() })
+  startAuto()
+
+  // Drag-to-scroll (mouse only — touch uses native momentum scrolling).
+  const drag = { active: false, startX: 0, startScroll: 0 }
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') return
+    drag.active = true
+    drag.startX = e.clientX
+    drag.startScroll = viewport.scrollLeft
+    viewport.setPointerCapture(e.pointerId)
+    viewport.classList.add('orw-dragging')
+    stopAuto()
+  })
+  viewport.addEventListener('pointermove', (e) => {
+    if (!drag.active || e.pointerType !== 'mouse') return
+    e.preventDefault()
+    viewport.scrollLeft = drag.startScroll + (drag.startX - e.clientX)
+  })
+  const endDrag = (e: PointerEvent): void => {
+    if (e.pointerType !== 'mouse' || !drag.active) return
+    drag.active = false
+    viewport.classList.remove('orw-dragging')
+    if (!hovered) startAuto()
+  }
+  viewport.addEventListener('pointerup', endDrag)
+  viewport.addEventListener('pointercancel', endDrag)
 }
 
 function wireInteractions(root: HTMLElement): void {
@@ -655,9 +703,8 @@ async function main() {
   }
 
   const params = new URLSearchParams({
-    min_rating: String(config.minRating),
+    settings: '1',
     sort: config.sort,
-    limit: String(config.limit),
   })
   const url = `${config.apiBase}/api/reviews/${encodeURIComponent(config.token)}?${params.toString()}`
 
@@ -671,7 +718,8 @@ async function main() {
     return
   }
 
-  const html = renderShell(config, payload)
+  const effectiveConfig = withSavedSettings(config, payload.settings)
+  const html = renderShell(effectiveConfig, payload)
 
   // Mount: iframe/standalone uses document.body; embed uses [data-token] host
   const sp = new URLSearchParams(window.location.search)
@@ -683,7 +731,7 @@ async function main() {
   wireInteractions(host)
 
   // Iframe embeds: auto-resize the frame to content height.
-  if (sp.has('token')) setupAutoHeight(config.token)
+  if (sp.has('token')) setupAutoHeight(effectiveConfig.token)
 }
 
 if (document.readyState === 'loading') {
