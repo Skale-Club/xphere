@@ -1553,6 +1553,65 @@ export interface Database {
           }
         ]
       }
+      // Q7 — Project 2: agent quality feedback signals
+      agent_feedback: {
+        Row: {
+          id: string
+          org_id: string
+          invocation_id: string | null
+          conversation_id: string | null
+          message_id: string | null
+          signal: Database['public']['Enums']['agent_feedback_signal']
+          note: string | null
+          submitted_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          invocation_id?: string | null
+          conversation_id?: string | null
+          message_id?: string | null
+          signal: Database['public']['Enums']['agent_feedback_signal']
+          note?: string | null
+          submitted_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          invocation_id?: string | null
+          conversation_id?: string | null
+          message_id?: string | null
+          signal?: Database['public']['Enums']['agent_feedback_signal']
+          note?: string | null
+          submitted_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_feedback_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_feedback_invocation_id_fkey'
+            columns: ['invocation_id']
+            isOneToOne: false
+            referencedRelation: 'agent_invocations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_feedback_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'conversations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       agent_invocations: {
         Row: {
           id: string
@@ -6965,6 +7024,8 @@ export interface Database {
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
       agent_invocation_mode: AgentInvocationMode
+      // Q7 — Project 2: quality feedback signal enum (migration 1162)
+      agent_feedback_signal: 'thumbs_up' | 'thumbs_down' | 'handoff' | 'idk'
       // v2.5 � tasks & notes enums
       task_priority: TaskPriority
       task_status: TaskStatus

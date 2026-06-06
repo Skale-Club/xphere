@@ -18,7 +18,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Info, Loader2, Mail, RadioTower } from 'lucide-react'
+import { ChevronDown, Info, Loader2, Mail, RadioTower, ThumbsUp, ThumbsDown } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -103,6 +103,81 @@ interface MessageListProps {
   hasMore?: boolean
   /** Pagination: true while older messages are being fetched. */
   isLoadingMore?: boolean
+  /** Q7: Conversation ID for feedback submission (thumbs up/down on agent messages). */
+  conversationId?: string
+}
+
+// ---------------------------------------------------------------------------
+// Q7: Feedback buttons (thumbs up / thumbs down on agent messages)
+// ---------------------------------------------------------------------------
+
+function AgentFeedbackButtons({
+  conversationId,
+  messageId,
+  invocationId,
+}: {
+  conversationId: string
+  messageId: string
+  invocationId?: string
+}) {
+  const [submitted, setSubmitted] = useState<'thumbs_up' | 'thumbs_down' | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submitFeedback(signal: 'thumbs_up' | 'thumbs_down') {
+    if (submitted || busy) return
+    setBusy(true)
+    try {
+      await fetch(`/api/chat/conversations/${conversationId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signal,
+          message_id: messageId,
+          invocation_id: invocationId ?? null,
+        }),
+      })
+      setSubmitted(signal)
+    } catch {
+      // Silently fail — feedback is non-critical
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <button
+        type="button"
+        aria-label="Good response"
+        disabled={busy || submitted !== null}
+        onClick={() => submitFeedback('thumbs_up')}
+        className={cn(
+          'rounded p-0.5 transition-colors',
+          submitted === 'thumbs_up'
+            ? 'text-green-400'
+            : 'text-text-tertiary hover:text-green-400',
+          (busy || submitted !== null) && submitted !== 'thumbs_up' ? 'opacity-30' : '',
+        )}
+      >
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        aria-label="Bad response"
+        disabled={busy || submitted !== null}
+        onClick={() => submitFeedback('thumbs_down')}
+        className={cn(
+          'rounded p-0.5 transition-colors',
+          submitted === 'thumbs_down'
+            ? 'text-red-400'
+            : 'text-text-tertiary hover:text-red-400',
+          (busy || submitted !== null) && submitted !== 'thumbs_down' ? 'opacity-30' : '',
+        )}
+      >
+        <ThumbsDown className="h-3 w-3" />
+      </button>
+    </span>
+  )
 }
 
 function formatTime(iso: string): string {
@@ -142,6 +217,7 @@ export function MessageList({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  conversationId,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -527,10 +603,18 @@ export function MessageList({
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    {/* timestamp — outside alignment row */}
+                    {/* timestamp + feedback — outside alignment row */}
                     <div className="mt-0.5 pr-9 flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       {agentName && (
                         <span className="text-[10.5px] text-text-tertiary">via {agentName}</span>
+                      )}
+                      {/* Q7: thumbs up/down only on agent-generated messages */}
+                      {agentName && conversationId && (
+                        <AgentFeedbackButtons
+                          conversationId={conversationId}
+                          messageId={message.id}
+                          invocationId={message.metadata?.invocation_id as string | undefined}
+                        />
                       )}
                       <span className="text-[10.5px] tabular-nums text-text-tertiary">
                         {formatTime(message.createdAt)}

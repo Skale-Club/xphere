@@ -82,6 +82,12 @@ export async function resolveAgent(
     ? channelOverride.max_history
     : (agent.max_history ?? 20)
 
+  // max_steps: channel-specific LLM step cap (Q6).
+  // opts.maxSteps from callers (e.g. workflow node) takes precedence at runtime.
+  const maxSteps = typeof channelOverride.max_steps === 'number'
+    ? Math.max(1, Math.min(50, channelOverride.max_steps))
+    : undefined
+
   return {
     agentId: agent.id,
     orgId,
@@ -91,6 +97,7 @@ export async function resolveAgent(
     temperature,
     maxTokens,
     maxHistory,
+    maxSteps,
     fallbackMessage: agent.fallback_message ?? "I can't help with that right now | let me transfer you to a human.",
     allowedChannels: (agent.allowed_channels ?? []) as AgentChannel[],
     isActive: agent.is_active ?? false,

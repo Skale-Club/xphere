@@ -1,0 +1,70 @@
+name: Agent Eval Harness
+
+# Q3 (Project 2) — runs the LLM-judge eval suite against a real agent.
+# Triggered manually or on schedule so it doesn't block every PR.
+# Uses EVAL_ORG_ID + EVAL_AGENT_ID secrets to target the evaluation agent.
+#
+# Gate thresholds (defined in tests/evals/runner.ts):
+#   Average score  >= 3.5 / 5
+#   No case        <  2.0 / 5
+
+on:
+  workflow_dispatch:
+    inputs:
+      eval_org_id:
+        description: 'Org ID to run evals against (overrides secret)'
+        required: false
+      eval_agent_id:
+        description: 'Agent ID to evaluate (overrides secret)'
+        required: false
+  schedule:
+    # Runs every Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+
+concurrency:
+  group: eval-harness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: Run eval suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run eval harness
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ORG_ID: ${{ inputs.eval_org_id || secrets.EVAL_ORG_ID }}
+          EVAL_AGENT_ID: ${{ inputs.eval_agent_id || secrets.EVAL_AGENT_ID }}
+          # Resolve provider keys used inside runAgent()
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          npx vitest run tests/evals/runner.ts --reporter=verbose
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: |
+            eval-report*.json
+          if-no-files-found: ignore
+          retention-days: 30

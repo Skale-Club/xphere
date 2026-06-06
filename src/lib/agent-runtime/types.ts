@@ -82,6 +82,12 @@ export type ResolvedAgent = {
   temperature?: number
   maxTokens: number
   maxHistory: number
+  /**
+   * Per-channel LLM step cap from channel_overrides.max_steps (Q6).
+   * When set, used as the default stopWhen: stepCountIs() cap in runAgent().
+   * opts.maxSteps (e.g. from workflow node) takes precedence over this.
+   */
+  maxSteps?: number
   fallbackMessage: string
   allowedChannels: AgentChannel[]
   isActive: boolean

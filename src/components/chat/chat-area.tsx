@@ -470,6 +470,7 @@ export function ChatArea({
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
+        conversationId={conversation.id}
         visitorInitial={
           (conversation.contactName || conversation.visitorName || conversation.visitorPhone || '')
             .replace(/[^a-zA-Z0-9]/g, '')
