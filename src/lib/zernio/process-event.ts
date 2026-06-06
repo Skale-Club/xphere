@@ -12,6 +12,7 @@ import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
+import { storeContactAvatarFromUrl } from '@/lib/contacts/store-avatar'
 import { sendZernioDm } from './send-dm'
 import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
@@ -66,6 +67,72 @@ function splitDisplayName(displayName: string | null): { first_name: string | nu
     first_name: parts[0] ?? null,
     last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
   }
+}
+
+// Um "nome" que na verdade é só o telefone (caso comum do WhatsApp Cloud, onde o
+// Zernio manda participantUsername = número) não deve poluir o contato — assim ele
+// continua enriquecível e a UI cai no fallback de telefone (displayNameOf).
+function realDisplayName(name: string | null, phone: string | null): string | null {
+  const trimmed = name?.trim() || null
+  if (!trimmed) return null
+  const nameDigits = trimmed.replace(/[^0-9]/g, '')
+  const phoneDigits = (phone ?? '').replace(/[^0-9]/g, '')
+  if (nameDigits && phoneDigits && nameDigits === phoneDigits) return null
+  return trimmed
+}
+
+// Preenche o nome do contato quando um nome real aparece, sem nunca sobrescrever
+// um nome já definido por operador/CRM. "Vazio" = null/branco ou só o telefone.
+// Fire-and-forget (non-fatal).
+async function maybeBackfillContactName(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  contactId: string,
+  realName: string | null,
+  phone: string | null,
+): Promise<void> {
+  if (!contactId || !realName) return
+  const { data } = await supabase
+    .from('contacts')
+    .select('name, phone_e164')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (realDisplayName(data?.name ?? null, data?.phone_e164 ?? phone)) return // já tem nome real
+  const parts = splitDisplayName(realName)
+  const { error } = await supabase
+    .from('contacts')
+    .update({ name: realName, first_name: parts.first_name, last_name: parts.last_name })
+    .eq('id', contactId)
+  if (error) console.warn('[zernio/process] name backfill failed:', error.message)
+}
+
+// Persists the sender's avatar on the contact when the platform sends one
+// (Instagram/Messenger/Facebook — WhatsApp Cloud never does). Re-hosts the image
+// into our `avatars` bucket so it survives the source URL's expiry. Only fills
+// when empty — never overwrites a photo an operator uploaded. AWAITED: a prior
+// fire-and-forget version lost writes in the webhook's after() context.
+// Non-fatal: avatars are best-effort.
+async function maybeStoreContactAvatar(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  contactId: string,
+  pictureUrl: string | null,
+): Promise<void> {
+  if (!contactId || !pictureUrl) return
+  const { data } = await supabase
+    .from('contacts')
+    .select('avatar_url')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (data?.avatar_url) return // already has an avatar (incl. manual upload)
+
+  const publicUrl = await storeContactAvatarFromUrl({ supabase, orgId, contactId, sourceUrl: pictureUrl })
+  if (!publicUrl) return
+
+  const { error } = await supabase
+    .from('contacts')
+    .update({ avatar_url: publicUrl })
+    .eq('id', contactId)
+  if (error) console.warn('[zernio/process] avatar update failed:', error.message)
 }
 
 function mimeTypeForZernioAttachment(attachment: { type: string; payload?: Record<string, unknown> }): string {
@@ -325,12 +392,14 @@ async function processMessageReceived(
     msg.sender.id ??
     payload.conversation.participantId ??
     ''
-  const senderName =
+  const rawName =
     msg.sender.name ??
     payload.conversation.participantName ??
     msg.sender.username ??
     payload.conversation.participantUsername ??
     null
+  const phoneForName = msg.sender.phoneNumber ?? (platform === 'whatsapp' ? participantId : null)
+  const senderName = realDisplayName(rawName, phoneForName)
   const messageText = msg.text ?? ''
   const channel = zernioChannel(platform)
 
@@ -369,9 +438,11 @@ async function processMessageReceived(
     last_message_at: sentAt,
     last_inbound_at: sentAt,
     updated_at: new Date().toISOString(),
-    visitor_name: senderName,
     visitor_phone: msg.sender.phoneNumber ?? null,
   }
+  // Só atualiza o nome quando há um nome real — evita que uma mensagem posterior
+  // só-com-número apague um nome já conhecido na conversa.
+  if (senderName) updatePayload.visitor_name = senderName
   if (contactId) updatePayload.contact_id = contactId
 
   const norm = await normalizeInbound({
@@ -428,28 +499,13 @@ async function processMessageReceived(
   }
   if (norm.duplicate) return
 
-  // Persist sender avatar on the contact when the platform sends one.
-  // Only update when the contact has no avatar yet — never overwrite a photo
-  // the operator uploaded manually. Fire-and-forget (non-fatal).
+  // Persist sender avatar (re-hosted) when the platform sends one.
   const inboundPicture = msg.sender.picture ?? payload.conversation.participantPicture ?? null
-  if (contactId && inboundPicture) {
-    supabase
-      .from('contacts')
-      .select('avatar_url')
-      .eq('id', contactId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.avatar_url) {
-          supabase
-            .from('contacts')
-            .update({ avatar_url: inboundPicture })
-            .eq('id', contactId)
-            .then(({ error }) => {
-              if (error) console.warn('[zernio/process] avatar update failed:', error.message)
-            })
-        }
-      })
-  }
+  if (contactId) await maybeStoreContactAvatar(supabase, orgId, contactId, inboundPicture)
+
+  // Preenche o nome do contato assim que um nome real chega (conversa nova ou
+  // existente). Não sobrescreve nome já definido.
+  if (contactId) await maybeBackfillContactName(supabase, contactId, senderName, phoneForName)
 
   await maybeRunAgentAndReply({
     supabase,
@@ -629,7 +685,7 @@ async function processCommentReceived(
   const zernioAccountId = payload.account.id
   const platform = comment.platform || payload.account.platform || 'unknown'
   const participantId = comment.author.id
-  const senderName = comment.author.name ?? comment.author.username ?? null
+  const senderName = realDisplayName(comment.author.name ?? comment.author.username ?? null, null)
   const postId = payload.post.id ?? comment.postId ?? comment.platformPostId
   const channel = zernioChannel(platform)
   const now = new Date().toISOString()
@@ -706,27 +762,11 @@ async function processCommentReceived(
   }
   if (norm.duplicate) return
 
-  // Persist author avatar on the contact when the platform sends one.
-  // Only update when the contact has no avatar yet — never overwrite a manually uploaded photo.
+  // Persist author avatar (re-hosted) when the platform sends one.
   const inboundPicture = comment.author.picture ?? null
-  if (contactId && inboundPicture) {
-    supabase
-      .from('contacts')
-      .select('avatar_url')
-      .eq('id', contactId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.avatar_url) {
-          supabase
-            .from('contacts')
-            .update({ avatar_url: inboundPicture })
-            .eq('id', contactId)
-            .then(({ error }) => {
-              if (error) console.warn('[zernio/process] comment avatar update failed:', error.message)
-            })
-        }
-      })
-  }
+  if (contactId) await maybeStoreContactAvatar(supabase, orgId, contactId, inboundPicture)
+
+  if (contactId) await maybeBackfillContactName(supabase, contactId, senderName, null)
 
   await maybeRunAgentAndReply({
     supabase,

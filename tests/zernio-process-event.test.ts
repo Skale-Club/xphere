@@ -8,6 +8,7 @@ const sendZernioDmMock = vi.fn()
 const sendZernioCommentReplyMock = vi.fn()
 const getProviderKeyMock = vi.fn()
 const storeMediaFromUrlMock = vi.fn()
+const storeContactAvatarFromUrlMock = vi.fn()
 
 vi.mock('@/lib/messaging/normalize-inbound', () => ({
   normalizeInbound: normalizeInboundMock,
@@ -17,6 +18,10 @@ vi.mock('@/lib/contacts/server', () => ({
   findByChannelIdentity: findByChannelIdentityMock,
   attachChannelIdentity: attachChannelIdentityMock,
   backfillContactPhone: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/contacts/store-avatar', () => ({
+  storeContactAvatarFromUrl: storeContactAvatarFromUrlMock,
 }))
 
 vi.mock('@/lib/agent-runtime/run-agent', () => ({
@@ -65,6 +70,7 @@ function makeSupabase({
   const contactInsert = vi.fn(() => chainSingle({ id: 'contact-1' }))
   const contactDeleteEq = vi.fn().mockResolvedValue({ data: null, error: null })
   const contactDelete = vi.fn(() => ({ eq: contactDeleteEq }))
+  const contactUpdate = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: null, error: null }) }))
   const contactLookup = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
@@ -85,7 +91,7 @@ function makeSupabase({
 
   const from = vi.fn((table: string) => {
     if (table === 'zernio_webhook_events') return { insert: eventInsert }
-    if (table === 'contacts') return { ...contactLookup, insert: contactInsert, delete: contactDelete }
+    if (table === 'contacts') return { ...contactLookup, insert: contactInsert, delete: contactDelete, update: contactUpdate }
     if (table === 'conversations') {
       return {
         select: vi.fn().mockReturnThis(),
@@ -120,7 +126,7 @@ function makeSupabase({
     }
   })
 
-  return { from, rpc, eventInsert, contactInsert, conversationUpdate, messageInsert }
+  return { from, rpc, eventInsert, contactInsert, contactUpdate, conversationUpdate, messageInsert }
 }
 
 const messagePayload = {
@@ -166,6 +172,7 @@ describe('processZernioEvent', () => {
     sendZernioCommentReplyMock.mockResolvedValue({ commentId: 'comment-reply-1' })
     getProviderKeyMock.mockResolvedValue('ze_key')
     storeMediaFromUrlMock.mockResolvedValue(null)
+    storeContactAvatarFromUrlMock.mockResolvedValue(null)
   })
 
   it('maps message.received into contact identity + zernio conversation metadata', async () => {
@@ -202,6 +209,87 @@ describe('processZernioEvent', () => {
           }),
         }),
         idempotencyMetadata: { zernio_message_id: 'msg-1' },
+      }),
+    )
+  })
+
+  it('does not store the phone number as the contact name when WhatsApp sends no real name', async () => {
+    const db = makeSupabase()
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    // Official WhatsApp Cloud number (e.g. "Xtimator"): Zernio relays only the
+    // phone as participantUsername — no name, no picture.
+    const payload = {
+      ...messagePayload,
+      id: 'evt-wa-noname',
+      account: { id: 'acct-1', platform: 'whatsapp', username: '+1 508-801-8190' },
+      conversation: {
+        id: 'zconv-wa-noname',
+        platformConversationId: '15082058044',
+        participantId: '+15082058044',
+        participantUsername: '+15082058044',
+        status: 'active',
+      },
+      message: {
+        ...messagePayload.message,
+        id: 'zmsg-wa-noname',
+        conversationId: 'zconv-wa-noname',
+        platform: 'whatsapp',
+        platformMessageId: 'wamid.noname.1',
+        text: 'Oi',
+        sender: { id: '+15082058044', phoneNumber: '+15082058044' },
+      },
+    } as const
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(payload, 'org-1')
+
+    // Contact is created phone-first, NOT named after its own number, so it stays
+    // enrichable and the inbox falls back to the phone for display.
+    expect(db.contactInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: null, first_name: null, last_name: null, source: 'whatsapp' }),
+    )
+    // No real name → no name backfill update on the contact.
+    expect(db.contactUpdate).not.toHaveBeenCalled()
+    // New conversation: visitor_name is null (display falls back to visitor_phone).
+    expect(normalizeInboundMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createPayload: expect.objectContaining({ visitor_name: null, visitor_phone: '+15082058044' }),
+      }),
+    )
+  })
+
+  it('re-hosts the sender avatar into the avatars bucket when the platform sends one', async () => {
+    storeContactAvatarFromUrlMock.mockResolvedValue(
+      'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/avatars/org-1/contacts/contact-1-abc.webp',
+    )
+    const db = makeSupabase()
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const payload = {
+      ...messagePayload,
+      id: 'evt-ig-avatar',
+      message: {
+        ...messagePayload.message,
+        sender: { id: 'user-1', name: 'Ana', username: 'ana', picture: 'https://scontent.cdninstagram.com/pic.jpg?token=expiring' },
+      },
+    } as const
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(payload, 'org-1')
+
+    // Downloads + re-hosts the external CDN URL (not stored raw).
+    expect(storeContactAvatarFromUrlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        sourceUrl: 'https://scontent.cdninstagram.com/pic.jpg?token=expiring',
+      }),
+    )
+    // Persists the re-hosted (avatars-bucket) URL on the contact.
+    expect(db.contactUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatar_url: 'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/avatars/org-1/contacts/contact-1-abc.webp',
       }),
     )
   })
