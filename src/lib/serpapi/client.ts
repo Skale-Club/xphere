@@ -102,9 +102,9 @@ export class SerpApiClient {
       engine: 'google_maps_reviews',
       place_id: placeId,
       api_key: this.apiKey,
-      hl: opts.hl ?? 'pt',
-      gl: opts.gl ?? 'br',
     })
+    if (opts.hl) params.set('hl', opts.hl)
+    if (opts.gl) params.set('gl', opts.gl)
     if (opts.sortBy === 'newest') params.set('sort_by', 'newestFirst')
     if (opts.sortBy === 'rating_high') params.set('sort_by', 'ratingHigh')
     if (opts.sortBy === 'rating_low') params.set('sort_by', 'ratingLow')
@@ -150,10 +150,10 @@ export class SerpApiClient {
       engine: 'google_maps',
       q: query,
       api_key: this.apiKey,
-      hl: opts.hl ?? 'pt',
-      gl: opts.gl ?? 'br',
       type: 'search',
     })
+    if (opts.hl) params.set('hl', opts.hl)
+    if (opts.gl) params.set('gl', opts.gl)
     if (location) params.set('location', location)
 
     const url = `${SERPAPI_BASE}?${params.toString()}`
