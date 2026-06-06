@@ -24,8 +24,6 @@ interface BeforeInstallPromptEvent extends Event {
 
 const FIRST_SEEN_KEY = 'xphere.pwa.first_seen_at'
 const DISMISSED_KEY = 'xphere.pwa.dismissed_at'
-const FIRST_PROMPT_DELAY_MS = 24 * 60 * 60 * 1000 // 24h after first visit
-const REPROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000 // 30 days after dismiss
 
 interface ContextValue {
   /** App is already installed and running standalone. */
@@ -34,8 +32,6 @@ interface ContextValue {
   isIos: boolean
   /** A beforeinstallprompt event was captured and is ready to fire. */
   canInstall: boolean
-  /** The dialog should auto-render this session (delays + cooldowns met). */
-  shouldAutoOpen: boolean
   /** Whether the dialog is currently open. */
   open: boolean
   /** Force the dialog open (used by Settings card and the push banner). */
@@ -53,7 +49,6 @@ const Ctx = React.createContext<ContextValue>({
   isStandalone: false,
   isIos: false,
   canInstall: false,
-  shouldAutoOpen: false,
   open: false,
   openDialog: noop,
   closeDialog: noop,
@@ -69,7 +64,6 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   const [isStandalone, setIsStandalone] = React.useState(false)
   const [isIos, setIsIos] = React.useState(false)
   const [canInstall, setCanInstall] = React.useState(false)
-  const [shouldAutoOpen, setShouldAutoOpen] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const promptEventRef = React.useRef<BeforeInstallPromptEvent | null>(null)
 
@@ -119,36 +113,8 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     }
   }, [])
 
-  // Decide whether to auto-open this session
-  React.useEffect(() => {
-    if (isStandalone) {
-      setShouldAutoOpen(false)
-      return
-    }
-    if (!isIos && !canInstall) {
-      // Nothing to offer (browser not supported, or evt not fired yet)
-      setShouldAutoOpen(false)
-      return
-    }
-    try {
-      const firstSeen = Number(window.localStorage.getItem(FIRST_SEEN_KEY) ?? Date.now())
-      const dismissed = Number(window.localStorage.getItem(DISMISSED_KEY) ?? 0)
-      const now = Date.now()
-      const eligibleByFirstSeen = now - firstSeen >= FIRST_PROMPT_DELAY_MS
-      const eligibleByCooldown = !dismissed || now - dismissed >= REPROMPT_COOLDOWN_MS
-      setShouldAutoOpen(eligibleByFirstSeen && eligibleByCooldown)
-    } catch {
-      setShouldAutoOpen(false)
-    }
-  }, [isStandalone, isIos, canInstall])
-
-  // Open the dialog once when conditions are met
-  const autoOpenedRef = React.useRef(false)
-  React.useEffect(() => {
-    if (!shouldAutoOpen || autoOpenedRef.current || open) return
-    autoOpenedRef.current = true
-    setOpen(true)
-  }, [shouldAutoOpen, open])
+  // Auto-open intentionally disabled — install prompt is available on
+  // Settings → Install without interrupting the user mid-session.
 
   const openDialog = React.useCallback(() => setOpen(true), [])
   const closeDialog = React.useCallback(() => setOpen(false), [])
@@ -187,7 +153,6 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       isStandalone,
       isIos,
       canInstall,
-      shouldAutoOpen,
       open,
       openDialog,
       closeDialog,
@@ -198,7 +163,6 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       isStandalone,
       isIos,
       canInstall,
-      shouldAutoOpen,
       open,
       openDialog,
       closeDialog,
