@@ -20,3 +20,7 @@ export {
 export { TableSkeleton } from '@/components/skeletons/table-skeleton'
 export { ListSkeleton } from '@/components/skeletons/list-skeleton'
 export { CardSkeleton } from '@/components/skeletons/card-skeleton'
+export { ProjectBoardSkeleton } from '@/components/skeletons/project-board-skeleton'
+export { TrafficPageSkeleton } from '@/components/skeletons/traffic-page-skeleton'
+export { AdsPageSkeleton } from '@/components/skeletons/ads-page-skeleton'
+export { ReviewsPageSkeleton } from '@/components/skeletons/reviews-page-skeleton'
