@@ -4,6 +4,7 @@
 // RLS explicitly blocks authenticated INSERT | must use service-role client.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { createLogger } from '@/lib/obs/logger'
 import type { Json } from '@/types/database'
 import type { AgentChannel } from './types'
 
@@ -61,15 +62,8 @@ export async function insertInvocationStart(
     .single()
 
   if (error) {
-    console.error(
-      JSON.stringify({
-        event: 'invocation_insert_failed',
-        error: error.message,
-        traceId: params.traceId,
-        agentId: params.agentId,
-        orgId: params.organizationId,
-      })
-    )
+    createLogger({ traceId: params.traceId, agentId: params.agentId, orgId: params.organizationId })
+      .error('invocation_insert_failed', { error: error.message })
     // Return a placeholder | the invocation proceeds even if logging fails
     return 'insert-failed'
   }
@@ -98,13 +92,8 @@ export async function updateInvocationEnd(
         (params.tokensIn / 1_000_000) * Number(pricing.input_per_1m_usd) +
         (params.tokensOut / 1_000_000) * Number(pricing.output_per_1m_usd)
     } else {
-      console.warn(
-        JSON.stringify({
-          event: 'agent_model_pricing_missing',
-          model: params.model,
-          agentId: params.agentId,
-        })
-      )
+      createLogger({ agentId: params.agentId })
+        .warn('agent_model_pricing_missing', { model: params.model })
     }
   }
 
@@ -125,12 +114,7 @@ export async function updateInvocationEnd(
     .eq('id', params.invocationId)
 
   if (error) {
-    console.error(
-      JSON.stringify({
-        event: 'invocation_update_failed',
-        error: error.message,
-        invocationId: params.invocationId,
-      })
-    )
+    createLogger({ invocationId: params.invocationId })
+      .error('invocation_update_failed', { error: error.message })
   }
 }

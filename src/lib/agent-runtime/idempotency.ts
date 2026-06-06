@@ -6,6 +6,7 @@
 
 import crypto from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { createLogger } from '@/lib/obs/logger'
 
 // ---------------------------------------------------------------------------
 // IDEMP-03: Key derivation
@@ -94,14 +95,8 @@ export async function recordIdempotency(params: {
 
   if (error) {
     // Non-fatal | log and continue; the tool already executed
-    console.warn(
-      JSON.stringify({
-        event: 'idempotency_record_failed',
-        toolName: params.toolName,
-        idempotencyKey: params.idempotencyKey,
-        error: error.message,
-      })
-    )
+    createLogger({ toolName: params.toolName })
+      .warn('idempotency_record_failed', { idempotencyKey: params.idempotencyKey, error: error.message })
   }
 }
 

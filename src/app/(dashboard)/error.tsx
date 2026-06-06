@@ -32,6 +32,9 @@ export default function DashboardError({
       message: error.message,
       stack: error.stack,
     })
+    // Dynamic import keeps this boundary truly dependency-free at parse time.
+    // If Sentry itself fails to load, the boundary still renders correctly.
+    import('@sentry/nextjs').then(({ captureException }) => captureException(error)).catch(() => {})
 
     const details = `${error.name}\n${error.message}\n${error.stack ?? ''}`.toLowerCase()
     const looksLikeStaleChunk =

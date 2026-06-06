@@ -4,6 +4,7 @@
 // RUNTIME-04, RUNTIME-05, RUNTIME-06, RUNTIME-07, RUNTIME-08, RUNTIME-09, GATE-03
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { createLogger } from '@/lib/obs/logger'
 import type { AgentRunResult } from './types'
 
 // ---------------------------------------------------------------------------
@@ -37,13 +38,7 @@ export function checkKillSwitch(traceId: string): AgentRunResult | null {
   const enabled = process.env.AGENT_RUNTIME_ENABLED !== 'false'
   if (enabled) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'kill_switch',
-      traceId,
-    })
-  )
+  createLogger({ traceId }).warn('guardrail_tripped', { cap: 'kill_switch' })
 
   return {
     text: 'Service temporarily unavailable',
@@ -70,16 +65,7 @@ export function checkDelegationDepth(
   const cap = getMaxDelegationDepth()
   if (depth < cap) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'delegation_depth',
-      value: depth,
-      limit: cap,
-      orgId,
-      agentId,
-    })
-  )
+  createLogger({ orgId, agentId }).warn('guardrail_tripped', { cap: 'delegation_depth', value: depth, limit: cap })
 
   return 'Delegation depth exceeded | answer from current agent'
 }
@@ -98,15 +84,7 @@ export function checkVisitedSet(
 ): string | null {
   if (!visitedAgentIds.has(agentId)) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'delegation_cycle',
-      agentId,
-      visitedSet: Array.from(visitedAgentIds),
-      orgId,
-    })
-  )
+  createLogger({ orgId, agentId }).warn('guardrail_tripped', { cap: 'delegation_cycle', visitedSet: Array.from(visitedAgentIds) })
 
   return 'Cycle detected | answer from current agent'
 }
@@ -127,16 +105,7 @@ export function checkLlmCallCount(
   const cap = getMaxLlmCallsPerTurn()
   if (callCount < cap) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'max_llm_calls_per_turn',
-      value: callCount,
-      limit: cap,
-      orgId,
-      agentId,
-    })
-  )
+  createLogger({ orgId, agentId }).warn('guardrail_tripped', { cap: 'max_llm_calls_per_turn', value: callCount, limit: cap })
 
   return fallbackMessage
 }
@@ -156,16 +125,7 @@ export function checkTokenCap(
   const cap = getMaxConvTokens()
   if (cumulativeTokens < cap) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'max_conv_tokens',
-      value: cumulativeTokens,
-      limit: cap,
-      orgId,
-      agentId,
-    })
-  )
+  createLogger({ orgId, agentId }).warn('guardrail_tripped', { cap: 'max_conv_tokens', value: cumulativeTokens, limit: cap })
 
   return 'conversation length exceeded | please start a new chat'
 }
@@ -213,16 +173,7 @@ export async function checkDailyCostCap(
 
   if (dailyTotal < capUsd) return null
 
-  console.warn(
-    JSON.stringify({
-      event: 'guardrail_tripped',
-      cap: 'daily_cost_cap_usd',
-      value: dailyTotal,
-      limit: capUsd,
-      orgId,
-      agentId,
-    })
-  )
+  createLogger({ orgId, agentId }).warn('guardrail_tripped', { cap: 'daily_cost_cap_usd', value: dailyTotal, limit: capUsd })
 
   return 'Daily cost limit reached | service temporarily restricted'
 }

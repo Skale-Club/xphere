@@ -4,6 +4,7 @@
 // D-34-11: channel_overrides deep-merge (system_prompt suffix-append; model/temp/tokens/history replace).
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { createLogger } from '@/lib/obs/logger'
 import type { AgentChannel, ResolvedAgent } from './types'
 
 export async function resolveAgent(
@@ -46,15 +47,8 @@ export async function resolveAgent(
     : agent.agent_prompt_versions
 
   if (!promptVersionRow?.system_prompt) {
-    console.error(
-      JSON.stringify({
-        event: 'agent_prompt_version_missing',
-        agentId,
-        orgId,
-        active_prompt_version_id: agent.active_prompt_version_id,
-        resolution: 'returning_null_to_caller',
-      })
-    )
+    createLogger({ agentId, orgId })
+      .error('agent_prompt_version_missing', { active_prompt_version_id: agent.active_prompt_version_id, resolution: 'returning_null_to_caller' })
     return null
   }
   const baseSystemPrompt = promptVersionRow.system_prompt
