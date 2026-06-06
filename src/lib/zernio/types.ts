@@ -1,7 +1,10 @@
 // Current Zernio inbox webhook contract.
 // Source: https://zernio.com/openapi.yaml (WebhookPayloadMessage / WebhookPayloadComment)
 
-export type ZernioWebhookEventName = 'message.received' | 'comment.received'
+export type ZernioWebhookEventName =
+  | 'message.received'
+  | 'comment.received'
+  | 'whatsapp.template.status_changed'
 
 export interface ZernioWebhookAccount {
   id: string
@@ -93,9 +96,24 @@ export interface ZernioCommentReceivedPayload {
   timestamp: string
 }
 
+export interface ZernioTemplateStatusChangedPayload {
+  id: string
+  event: 'whatsapp.template.status_changed'
+  account: ZernioWebhookAccount
+  template: {
+    name: string
+    status: string      // APPROVED | REJECTED | DISABLED | PENDING
+    language: string
+    category?: string
+    reason?: string | null  // rejection reason when REJECTED
+  }
+  timestamp: string
+}
+
 export type ZernioWebhookPayload =
   | ZernioMessageReceivedPayload
   | ZernioCommentReceivedPayload
+  | ZernioTemplateStatusChangedPayload
   | {
       id?: string
       event?: string

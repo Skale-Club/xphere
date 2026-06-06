@@ -413,7 +413,7 @@ export async function syncZernioTemplatesAction(): Promise<
 
   const { data: row } = await supabase
     .from('integrations')
-    .select('id, encrypted_api_key')
+    .select('id, encrypted_api_key, config')
     .eq('organization_id', orgId)
     .eq('provider', 'zernio')
     .eq('is_active', true)
@@ -427,6 +427,18 @@ export async function syncZernioTemplatesAction(): Promise<
     apiKey = await decrypt(row.encrypted_api_key)
   } catch {
     return { ok: false, error: 'Could not decrypt Zernio API key.' }
+  }
+
+  // Ensure the Zernio webhook is subscribed to whatsapp.template.status_changed.
+  // This is a silent PUT to Zernio — idempotent, safe to run on every sync.
+  try {
+    const cfg = (row.config ?? {}) as Record<string, string>
+    if (cfg.webhook_id && cfg.webhook_url && cfg.webhook_secret) {
+      const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
+      await registerZernioWebhook(apiKey, cfg.webhook_url, cfg.webhook_secret, cfg.webhook_id)
+    }
+  } catch {
+    // Non-fatal — proceed with sync even if webhook update fails
   }
 
   // Resolve WhatsApp account(s)

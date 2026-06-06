@@ -20,6 +20,7 @@ interface ZernioWebhookResponse {
 const SUBSCRIBED_EVENTS = [
   'message.received',
   'comment.received',
+  'whatsapp.template.status_changed',
 ]
 
 export async function registerZernioWebhook(

@@ -22,6 +22,7 @@ import type {
   ZernioCommentReceivedPayload,
   ZernioWebhookMessage,
   ZernioMessageReceivedPayload,
+  ZernioTemplateStatusChangedPayload,
   ZernioWebhookPayload,
 } from './types'
 
@@ -33,6 +34,12 @@ function isMessageReceived(payload: ZernioWebhookPayload): payload is ZernioMess
 
 function isCommentReceived(payload: ZernioWebhookPayload): payload is ZernioCommentReceivedPayload {
   return payload.event === 'comment.received' && typeof payload.comment === 'object'
+}
+
+function isTemplateStatusChanged(
+  payload: ZernioWebhookPayload,
+): payload is ZernioTemplateStatusChangedPayload {
+  return payload.event === 'whatsapp.template.status_changed' && typeof (payload as ZernioTemplateStatusChangedPayload).template === 'object'
 }
 
 function identityKey(platform: string, accountId: string, participantId: string): string {
@@ -286,6 +293,11 @@ export async function processZernioEvent(
 
   if (isCommentReceived(payload)) {
     await processCommentReceived(payload, orgId, supabase)
+    return
+  }
+
+  if (isTemplateStatusChanged(payload)) {
+    await processTemplateStatusChanged(payload, orgId, supabase)
   }
 }
 
@@ -768,5 +780,31 @@ async function maybeRunAgentAndReply({
     await reply(result.text, apiKey)
   } catch (err) {
     console.error('[zernio/process] runAgent/send error:', err)
+  }
+}
+
+// ── Template status tracking ──────────────────────────────────────────────────
+
+async function processTemplateStatusChanged(
+  payload: ZernioTemplateStatusChangedPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const { name, status, language } = payload.template
+  if (!name || !status) return
+
+  const normalizedStatus = status.toUpperCase()
+  const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'DISABLED']
+  if (!validStatuses.includes(normalizedStatus)) return
+
+  const { error } = await supabase
+    .from('zernio_whatsapp_templates')
+    .update({ status: normalizedStatus, updated_at: new Date().toISOString() })
+    .eq('org_id', orgId)
+    .eq('name', name)
+    .eq('language', language)
+
+  if (error) {
+    console.error('[zernio/process] template status update error:', error)
   }
 }
