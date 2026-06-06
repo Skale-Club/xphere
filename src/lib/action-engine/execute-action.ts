@@ -35,6 +35,10 @@ import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/execut
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
 import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
+import { getXkeduleCredentialsForOrg } from '@/lib/xkedule/credentials'
+import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
+import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
+import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -330,6 +334,30 @@ async function _executeActionInner(
     }
     case 'send_platform_email': {
       return executeSendPlatformEmail(params)
+    }
+    case 'xkedule_get_services': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_get_services requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return getXkeduleServices(params, xkCreds)
+    }
+    case 'xkedule_check_availability': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_check_availability requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return checkXkeduleAvailability(params, xkCreds)
+    }
+    case 'xkedule_create_booking': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_create_booking requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return createXkeduleBooking(params, xkCreds)
     }
     default: {
       // TypeScript exhaustiveness check
