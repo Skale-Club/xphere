@@ -57,7 +57,7 @@ const navItems = [
   { icon: Bot, label: 'Agents', href: '/agents', active: true },
   { icon: BookOpen, label: 'Knowledge', href: '/knowledge', active: true },
   { icon: Plug2, label: 'Integrations', href: '/integrations', active: true },
-  { icon: MessageSquare, label: 'Chat', href: '/chat', active: true },
+  { icon: MessageSquare, label: 'Inbox', href: '/inbox', active: true },
   { icon: Contact2, label: 'Contacts', href: '/contacts', active: true },
   { icon: Building2, label: 'Companies', href: '/companies', active: true },
   { icon: TrendingUp, label: 'Pipeline', href: '/pipeline', active: true },
@@ -126,7 +126,7 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
             <SidebarMenu>
               {navItems.map((item) => {
                 const Icon = item.icon
-                const isChatItem = item.href === '/chat'
+                const isChatItem = item.href === '/inbox'
                 const isCallsItem = item.href === '/calls'
                 const isCurrentPage =
                   pathname === item.href ||

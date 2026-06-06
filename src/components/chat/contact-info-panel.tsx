@@ -97,7 +97,7 @@ import { toast } from 'sonner'
 import { MergedBanner } from '@/components/contacts/merged-banner'
 import { IdentityStatusBadge } from '@/components/contacts/identity-status-badge'
 import { markContactVerified } from '@/app/(dashboard)/contacts/_actions/verify'
-import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
+import { getSurvivorDisplayName } from '@/app/(dashboard)/inbox/_actions/survivor'
 import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 
 export interface ContactInfoPanelProps {
@@ -515,9 +515,10 @@ export function ContactInfoPanel({
               avatarUrl={contact.avatar_url ?? null}
               initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
               isVerified={isVerifiedContact}
-              onAvatarChange={(url) =>
+              onAvatarChange={(url) => {
                 setContact((prev) => (prev ? { ...prev, avatar_url: url } : prev))
-              }
+                if (contact) onContactUpdated?.({ ...contact, avatar_url: url })
+              }}
             />
             {/* Phase 110 D-07a + D-01a: identity status visuals.
                 - verified (is_verified flag OR identity_status='verified')

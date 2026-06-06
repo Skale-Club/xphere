@@ -124,7 +124,7 @@ self.addEventListener('push', (event: Event) => {
       body: data.body ?? '',
       icon: '/api/pwa/icons/192',
       badge: '/api/pwa/icons/72',
-      data: { url: data.url ?? '/chat' },
+      data: { url: data.url ?? '/inbox' },
       tag: data.tag,
       renotify: true,
     }),
@@ -134,7 +134,7 @@ self.addEventListener('push', (event: Event) => {
 self.addEventListener('notificationclick', (event: Event) => {
   const notifEvent = event as NotificationEvent
   notifEvent.notification.close()
-  const url: string = notifEvent.notification.data?.url ?? '/chat'
+  const url: string = notifEvent.notification.data?.url ?? '/inbox'
   notifEvent.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })

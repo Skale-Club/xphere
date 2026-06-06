@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
-import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star, CheckCircle2 } from 'lucide-react'
+import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star, CheckCircle2, MessageSquare } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 import { ConversationSummary } from '@/types/chat'
@@ -66,7 +66,7 @@ import {
   deleteSavedView,
   type SavedView,
   type OrgMember,
-} from '@/app/(dashboard)/chat/actions'
+} from '@/app/(dashboard)/inbox/actions'
 
 // Map raw `channel` strings (DB) → design-system Channel enum
 const CHANNEL_MAP: Record<string, Channel> = {
@@ -162,6 +162,11 @@ interface ConversationListProps {
   members?: OrgMember[]
   /** Active Twilio phone numbers to filter by */
   phoneNumbers?: Array<{ id: string; label: string; e164: string }>
+  /** Show "Comments" tab when Instagram or Facebook is connected */
+  hasCommentsChannel?: boolean
+  /** Controlled inbox tab — lifted to ChatLayout so Comments replaces the full layout */
+  inboxTab?: 'chat' | 'comments'
+  onTabChange?: (tab: 'chat' | 'comments') => void
 }
 
 function formatRelative(c: ConversationSummary): string {
@@ -222,7 +227,16 @@ export function ConversationList({
   orgLabels = [],
   members = [],
   phoneNumbers = [],
+  hasCommentsChannel = false,
+  inboxTab: inboxTabProp,
+  onTabChange,
 }: ConversationListProps) {
+  const [inboxTabInternal, setInboxTabInternal] = useState<'chat' | 'comments'>('chat')
+  const inboxTab = inboxTabProp ?? inboxTabInternal
+  const setInboxTab = (tab: 'chat' | 'comments') => {
+    setInboxTabInternal(tab)
+    onTabChange?.(tab)
+  }
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusId>('all')
@@ -425,9 +439,38 @@ export function ConversationList({
       {/* Sticky header */}
       <div className="sticky top-0 z-10 border-b border-border-subtle bg-bg-secondary/95 backdrop-blur px-4 pt-4 pb-3">
         <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-          <h2 className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-text-primary">
-            Inbox
-          </h2>
+          {hasCommentsChannel ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => setInboxTab('chat')}
+                className={cn(
+                  'rounded-full px-3 py-0.5 text-[13px] font-semibold transition-colors',
+                  inboxTab === 'chat'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary',
+                )}
+              >
+                Inbox
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxTab('comments')}
+                className={cn(
+                  'rounded-full px-3 py-0.5 text-[13px] font-semibold transition-colors',
+                  inboxTab === 'comments'
+                    ? 'bg-accent text-white'
+                    : 'text-text-secondary hover:text-text-primary',
+                )}
+              >
+                Comments
+              </button>
+            </div>
+          ) : (
+            <h2 className="min-w-0 truncate text-[15px] font-semibold tracking-tight text-text-primary">
+              Inbox
+            </h2>
+          )}
           <div className="flex items-center gap-2 shrink-0">
             {totalCount > 0 && (
               <span className="text-[11px] tabular-nums text-text-tertiary">
@@ -531,9 +574,20 @@ export function ConversationList({
         )}
       </div>
 
+      {/* Comments tab body */}
+      {inboxTab === 'comments' && (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <MessageSquare className="h-8 w-8 text-text-tertiary" />
+          <p className="text-[13px] font-medium text-text-secondary">Comments</p>
+          <p className="text-[12px] text-text-tertiary">
+            Comments from Instagram and Facebook posts will appear here.
+          </p>
+        </div>
+      )}
+
       {/* List | min-h-0 lets the flex child shrink below content size so
           the internal ScrollArea actually scrolls instead of overflowing. */}
-      <ScrollArea className="min-h-0 flex-1" viewportRef={scrollViewportRef}>
+      {inboxTab === 'chat' && <ScrollArea className="min-h-0 flex-1" viewportRef={scrollViewportRef}>
         <div className="p-2 space-y-1">
           {isLoading ? (
             <div className="p-3">
@@ -605,10 +659,10 @@ export function ConversationList({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </ScrollArea>}
 
-      {/* Sticky pagination footer */}
-      {totalCount > 0 && (
+      {/* Sticky pagination footer — only when on Chat tab */}
+      {inboxTab === 'chat' && totalCount > 0 && (
         <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t border-border-subtle bg-bg-secondary/95 backdrop-blur px-3 py-2">
           <button
             type="button"

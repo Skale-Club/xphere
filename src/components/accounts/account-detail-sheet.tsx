@@ -436,7 +436,7 @@ export function AccountDetailSheet({
                         {contacts.map((c) => (
                           <Link
                             key={c.id}
-                            href={`/chat?contact=${c.id}`}
+                            href={`/inbox?contact=${c.id}`}
                             className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-bg-tertiary/40"
                             onClick={() => onOpenChange(false)}
                           >

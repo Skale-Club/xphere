@@ -30,7 +30,7 @@ import {
   starConversation,
   setConversationPriority,
   assignConversation,
-} from '@/app/(dashboard)/chat/actions'
+} from '@/app/(dashboard)/inbox/actions'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 
 interface UseConversationMutationsParams {

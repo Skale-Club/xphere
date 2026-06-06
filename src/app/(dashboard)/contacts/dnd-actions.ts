@@ -64,7 +64,7 @@ export async function setContactDnd(input: SetDndInput): Promise<DndActionResult
   }
 
   revalidatePath('/contacts')
-  revalidatePath('/chat')
+  revalidatePath('/inbox')
 
   return { ok: true }
 }
@@ -118,7 +118,7 @@ export async function toggleDndChannel(
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/contacts')
-  revalidatePath('/chat')
+  revalidatePath('/inbox')
 
   return { ok: true }
 }

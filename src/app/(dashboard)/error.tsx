@@ -106,8 +106,8 @@ export default function DashboardError({
           Try again
         </button>
         <div style={{ marginTop: 32, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <a href="/chat" style={{ color: '#818CF8', fontSize: 13 }}>
-            Chat
+          <a href="/inbox" style={{ color: '#818CF8', fontSize: 13 }}>
+            Inbox
           </a>
           <a href="/contacts" style={{ color: '#818CF8', fontSize: 13 }}>
             Contacts

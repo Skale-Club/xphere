@@ -91,7 +91,7 @@ export async function RecentConversations() {
   }
 
   return (
-    <WidgetCard title="Recent activity in Inbox" icon={Inbox} href="/chat">
+    <WidgetCard title="Recent activity in Inbox" icon={Inbox} href="/inbox">
       {rows.length === 0 ? (
         <WidgetEmpty
           icon={MessageSquare}

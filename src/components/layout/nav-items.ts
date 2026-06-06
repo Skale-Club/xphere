@@ -43,7 +43,7 @@ export type NavItem = {
  */
 export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview', permission: 'dashboard.view' },
-  { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage',   permission: 'chat.view' },
+  { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },

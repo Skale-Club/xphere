@@ -54,7 +54,7 @@ export default async function ConversationDetailPage({ params }: Props) {
       <PageHeader
         eyebrow="Conversation"
         eyebrowIcon={Workflow}
-        back={{ href: '/chat', label: 'Back to inbox' }}
+        back={{ href: '/inbox', label: 'Back to inbox' }}
         title={<span className="truncate">{visitorLabel}</span>}
         description={
           <span className="inline-flex items-center gap-2">

@@ -22,6 +22,24 @@ export default async function ChatPage({
     getUser(),
   ])
 
+  // Detect if any comment-capable channel (Meta OAuth or Zernio) is connected
+  const [{ data: metaCommentChannels }, { data: zernioRow }] = await Promise.all([
+    supabase
+      .from('meta_channels')
+      .select('id')
+      .eq('is_active', true)
+      .in('channel_type', ['instagram', 'messenger'])
+      .limit(1),
+    supabase
+      .from('integrations')
+      .select('id')
+      .eq('provider', 'zernio')
+      .eq('is_active', true)
+      .limit(1),
+  ])
+  const hasCommentsChannel =
+    (metaCommentChannels?.length ?? 0) > 0 || (zernioRow?.length ?? 0) > 0
+
   // Resolve initial conversation:
   //  - explicit ?conversation=ID wins
   //  - else ?contact=ID → most-recent conversation for that contact
@@ -71,6 +89,7 @@ export default async function ChatPage({
           agentMap={agentMap}
           initialConversationId={initialConversationId}
           initialContactId={initialContactId}
+          hasCommentsChannel={hasCommentsChannel}
         />
       </div>
     </InboxTemplate>
