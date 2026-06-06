@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  BarChart3,
   BookOpen,
   Bot,
   CreditCard,
@@ -57,6 +58,12 @@ const SECTIONS: NavSection[] = [
       { href: '/settings/phone-numbers', label: 'Phone Numbers', icon: Phone },
       { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
       { href: '/settings/widget', label: 'Chat Widget', icon: MessageSquare },
+    ],
+  },
+  {
+    heading: 'Analytics',
+    items: [
+      { href: '/settings/traffic', label: 'Traffic', icon: BarChart3 },
     ],
   },
   {
