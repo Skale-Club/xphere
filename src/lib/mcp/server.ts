@@ -7,7 +7,7 @@ import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { McpAuthContext } from './auth'
 import { writeMcpAuditLog } from './auth'
-import { assertUserInOrg } from './membership'
+import { resolveEffectiveOrg } from './membership'
 import { ALL_MCP_TOOLS } from './registry'
 import { isToolError, type McpToolDef } from './tool-types'
 
@@ -91,29 +91,21 @@ function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext)
       const requestedOrgId = rawInput.org_id as string | undefined
       delete rawInput.org_id
 
-      let effectiveAuth: McpAuthContext = auth
+      const { effectiveAuth, denial } = await resolveEffectiveOrg(auth, requestedOrgId)
 
-      if (requestedOrgId) {
-        if (auth.kind === 'oauth' && auth.userId) {
-          // Security-critical: validate membership before allowing cross-org access.
-          const isMember = await assertUserInOrg(auth.userId, requestedOrgId)
-          if (!isMember) {
-            void writeMcpAuditLog({
-              orgId: auth.orgId,
-              actor: auth.actor,
-              area: tool.area,
-              action: tool.name,
-              status: 'blocked',
-              notes: `org_id ${requestedOrgId} denied — user is not a member`,
-            })
-            return {
-              content: [{ type: 'text', text: JSON.stringify({ error: 'not_member', detail: 'User is not a member of the requested organization' }) }],
-              isError: true,
-            }
-          }
-          effectiveAuth = { ...auth, orgId: requestedOrgId }
+      if (denial) {
+        void writeMcpAuditLog({
+          orgId: auth.orgId,
+          actor: auth.actor,
+          area: tool.area,
+          action: tool.name,
+          status: 'blocked',
+          notes: `org_id ${requestedOrgId} denied — user is not a member`,
+        })
+        return {
+          content: [{ type: 'text', text: JSON.stringify(denial) }],
+          isError: true,
         }
-        // Legacy tokens: org_id param is silently ignored — single-org only.
       }
 
       // --- Tool execution ----------------------------------------------------

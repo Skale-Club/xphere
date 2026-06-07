@@ -5,6 +5,8 @@
 // user from acting on an org they don't belong to.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import type { McpAuthContext } from './auth'
+import type { McpToolError } from './tool-types'
 
 /**
  * Returns true only when a (userId, orgId) row exists in org_members.
@@ -20,4 +22,34 @@ export async function assertUserInOrg(userId: string, orgId: string): Promise<bo
     .eq('organization_id', orgId)
     .maybeSingle()
   return data !== null
+}
+
+export interface OrgResolutionResult {
+  effectiveAuth: McpAuthContext
+  denial?: McpToolError
+}
+
+/**
+ * Resolves the effective org for a per-call org_id parameter.
+ *
+ * Rules:
+ * - No org_id supplied, or legacy token: use auth.orgId unchanged.
+ * - OAuth + org_id: validate membership; deny if not a member.
+ * - Each call gets an independent McpAuthContext — auth is never mutated.
+ */
+export async function resolveEffectiveOrg(
+  auth: McpAuthContext,
+  requestedOrgId: string | undefined,
+): Promise<OrgResolutionResult> {
+  if (!requestedOrgId || auth.kind !== 'oauth' || !auth.userId) {
+    return { effectiveAuth: auth }
+  }
+  const isMember = await assertUserInOrg(auth.userId, requestedOrgId)
+  if (!isMember) {
+    return {
+      effectiveAuth: auth,
+      denial: { error: 'not_member', detail: 'User is not a member of the requested organization', status: 403 },
+    }
+  }
+  return { effectiveAuth: { ...auth, orgId: requestedOrgId } }
 }
