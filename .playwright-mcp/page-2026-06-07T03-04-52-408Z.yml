@@ -1,0 +1,772 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button "Close" [ref=e1199] [cursor=pointer]:
+          - img [ref=e1202]: close
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e27]:
+          - generic [ref=e33]:
+            - img [ref=e36]: search
+            - generic [ref=e37]:
+              - generic:
+                - generic: "\"What are my top performing campaigns?\""
+              - combobox "\"What are my top performing campaigns?\"" [ref=e38]
+          - text: Search
+        - generic [ref=e39]:
+          - button "Appearance" [ref=e42] [cursor=pointer]:
+            - generic [ref=e44]:
+              - img [ref=e45]: responsive_layout
+              - text: Appearance
+          - button "Open the quick help panel" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]:
+              - text: Help
+              - generic [ref=e57]:
+                - img [ref=e58]: help_outline
+                - text: Help
+          - button "Notifications" [ref=e65] [cursor=pointer]:
+            - generic [ref=e67]:
+              - img [ref=e70]: notifications
+              - generic [ref=e72]: Notifications
+          - button "Ask Advisor" [ref=e74] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e78]: button_magic
+              - generic [ref=e79]: Ask Advisor
+              - generic [ref=e80]: Beta
+      - button "Google account" [ref=e87] [cursor=pointer]:
+        - img "Google account (skale.club@gmail.com)" [ref=e88]
+    - generic [ref=e90]:
+      - generic [ref=e95]:
+        - img [ref=e97]: report_problem
+        - generic [ref=e99]:
+          - status [ref=e100]:
+            - generic [ref=e102]: Accept Call and Messaging Ads Terms - You need to review and accept these terms in order to create and edit call ads and call assets.
+          - generic [ref=e104]:
+            - button "Fix it" [ref=e1205] [cursor=pointer]:
+              - generic [ref=e1206]: Fix it
+            - button "Learn more" [ref=e1210] [cursor=pointer]:
+              - generic [ref=e1211]: Learn more
+            - button "Dismiss" [ref=e1214] [cursor=pointer]:
+              - generic [ref=e1215]: Dismiss
+      - main [ref=e1221]:
+        - generic [ref=e1223]:
+          - generic [ref=e1228]:
+            - generic [ref=e1229]:
+              - generic [ref=e1230]:
+                - generic [ref=e1231]: "Ad group:"
+                - generic [ref=e1232]:
+                  - generic [ref=e1233]: Ad group 1
+                  - generic [ref=e1234]: Search | Bathroom | LeadGen | 2 Jun 2026
+              - generic [ref=e1235]:
+                - generic [ref=e1236]: "Keywords:"
+                - generic [ref=e1237]:
+                  - text: bathroom remodeling in, bathroom renovation company, bathroom remodel contractors, bathroom renovation contractors, "bathroom remodeling contractor", bath remodel company, "bathroom remodel contractors near me" + 1 more
+                  - button "Show more" [ref=e1238] [cursor=pointer]:
+                    - img [ref=e1240]: expand_more
+                    - text: Show more
+            - heading "Asset generation Information Want more personalized help? Chat with Ask Advisor to get asset suggestions. Open chat Google AI will use your URL and the information you provide to generate assets, like headlines and descriptions, for you to review. Your use is subject to additional terms." [level=2] [ref=e1245]:
+              - generic [ref=e1246]:
+                - heading "Asset generation Information Want more personalized help? Chat with Ask Advisor to get asset suggestions. Open chat" [level=2] [ref=e1247]:
+                  - paragraph [ref=e1248]: Asset generation
+                  - generic [ref=e1250]:
+                    - img "Information" [ref=e1252]
+                    - generic [ref=e1253]:
+                      - paragraph [ref=e1255]: Want more personalized help? Chat with Ask Advisor to get asset suggestions.
+                      - button "Open chat" [ref=e1258] [cursor=pointer]:
+                        - generic [ref=e1259]: Open chat
+                - paragraph
+                - paragraph [ref=e1261]: Google AI will use your URL and the information you provide to generate assets, like headlines and descriptions, for you to review. Your use is subject to additional terms.
+              - button "Show panel" [ref=e1262] [cursor=pointer]:
+                - img "Show panel" [ref=e1263]: expand_less
+            - generic [ref=e1268]:
+              - generic [ref=e1271]:
+                - generic [ref=e1277]: Add 4 more sitelinks in your ad
+                - generic [ref=e1279]:
+                  - progressbar "Ad strength overall score is Good" [ref=e1803]
+                  - generic [ref=e1288]:
+                    - generic [ref=e1289]:
+                      - generic [ref=e1290]: Ad strength
+                      - button "More information" [ref=e1291] [cursor=pointer]:
+                        - img [ref=e1293]: help_outline
+                    - generic "Ad Strength overall score is Good" [ref=e1804]: Good
+                - generic [ref=e1296]:
+                  - generic [ref=e1298]:
+                    - img [ref=e1806]: done
+                    - note "Category score is high for category Add more headlines" [ref=e1807]:
+                      - text: Add more headlines
+                      - button "View ideas" [ref=e1305] [cursor=pointer]
+                  - generic [ref=e1307]:
+                    - img [ref=e1809]: done
+                    - note "Category score is high for category Include popular keywords in your headlines" [ref=e1810]:
+                      - text: Include popular keywords in your headlines
+                      - button "View ideas" [ref=e1314] [cursor=pointer]
+                  - generic [ref=e1316]:
+                    - img [ref=e1812]: done
+                    - note "Category score is high for category Make your headlines more unique" [ref=e1813]:
+                      - text: Make your headlines more unique
+                      - button "View ideas" [ref=e1323] [cursor=pointer]
+                  - generic [ref=e1325]:
+                    - img [ref=e1815]: done
+                    - note "Category score is high for category Make your descriptions more unique" [ref=e1816]:
+                      - text: Make your descriptions more unique
+                      - button "View ideas" [ref=e1332] [cursor=pointer]
+                  - note "Category score is medium for category Add more sitelinks" [ref=e1824]:
+                    - text: Add more sitelinks
+                    - button "View ideas" [ref=e1825] [cursor=pointer]
+              - generic [ref=e1333]:
+                - generic [ref=e1335]:
+                  - generic [ref=e1336]:
+                    - text: With responsive search ads, you enter multiple headlines and descriptions and Google combines them into ads.
+                    - button "More information" [ref=e1337] [cursor=pointer]:
+                      - img [ref=e1339]: help_outline
+                  - generic [ref=e1342]:
+                    - button "Final URL More information" [expanded] [ref=e1344] [cursor=pointer]:
+                      - generic [ref=e1347]:
+                        - generic [ref=e1348]: Final URL
+                        - button [ref=e1349]:
+                          - img [ref=e1351]: help_outline
+                      - img [ref=e1352]: expand_less
+                    - region "Final URL More information" [ref=e1353]:
+                      - generic [ref=e1359]:
+                        - generic [ref=e1362]:
+                          - generic:
+                            - generic: Final URL
+                          - textbox "Final URL" [ref=e1363]: https://www.gthomeimprovementma.com/
+                        - generic [ref=e1365]: This will be used to suggest assets for your ad
+                  - generic [ref=e1374]:
+                    - button "Display path More information" [expanded] [ref=e1376] [cursor=pointer]:
+                      - generic [ref=e1379]:
+                        - generic [ref=e1380]: Display path
+                        - button [ref=e1381]:
+                          - img [ref=e1383]: help_outline
+                      - img [ref=e1384]: expand_less
+                    - region "Display path More information" [ref=e1385]:
+                      - generic [ref=e1390]:
+                        - generic [ref=e1391]: gthomeimprovementma.com
+                        - generic [ref=e1392]:
+                          - generic [ref=e1393]: /
+                          - generic [ref=e1395]:
+                            - textbox "Path 1" [ref=e1399]: bathroom
+                            - generic [ref=e1402]:
+                              - generic [ref=e1403]: 8 / 15
+                              - generic [ref=e1404]: Text is 8 characters out of 15
+                          - generic [ref=e1405]: /
+                          - generic [ref=e1407]:
+                            - textbox "Path 2" [ref=e1411]: remodeling
+                            - generic [ref=e1414]:
+                              - generic [ref=e1415]: 10 / 15
+                              - generic [ref=e1416]: Text is 10 characters out of 15
+                  - generic [ref=e1827]:
+                    - img "Information" [ref=e1829]
+                    - generic [ref=e1830]:
+                      - paragraph [ref=e2397]: You can get more help by chatting with Ask Advisor.
+                      - button "Open chat" [ref=e1839]:
+                        - generic [ref=e1842]: Open chat
+                  - generic [ref=e1433]:
+                    - button "Calls Learn more Add a phone number" [expanded] [ref=e1435] [cursor=pointer]:
+                      - generic [ref=e1436]:
+                        - generic [ref=e1438]:
+                          - generic [ref=e1439]:
+                            - img [ref=e1442]: call
+                            - generic [ref=e1443]: Calls
+                            - button "Learn more" [ref=e1444]:
+                              - img [ref=e1446]: help_outline
+                          - generic [ref=e1448]: Add a phone number
+                        - paragraph
+                      - img [ref=e1449]: expand_less
+                    - region "Calls Learn more Add a phone number" [ref=e1450]:
+                      - generic [ref=e1453]:
+                        - generic [ref=e1457]:
+                          - img [ref=e1459]: subdirectory_arrow_right
+                          - button "Account-level calls" [ref=e1460] [cursor=pointer]
+                        - button "Calls" [ref=e1463] [cursor=pointer]:
+                          - generic [ref=e1464]:
+                            - img [ref=e1466]: add
+                            - text: Calls
+                  - generic [ref=e1470]:
+                    - button "text_fields Headlines ‪0/15‬ More information" [expanded] [ref=e2398] [cursor=pointer]:
+                      - generic [ref=e1475]:
+                        - img [ref=e1477]: text_fields
+                        - generic [ref=e1478]: Headlines ‪0/15‬
+                        - button [ref=e1479]:
+                          - img [ref=e1481]: help_outline
+                      - img [ref=e1485]: expand_less
+                    - region "text_fields Headlines ‪0/15‬ More information" [ref=e2399]:
+                      - generic [ref=e1845]:
+                        - group [ref=e1846]:
+                          - heading "For optimal ad performance, include these keywords in your headlines" [level=2] [ref=e1847]:
+                            - button "For optimal ad performance, include these keywords in your headlines" [expanded] [ref=e1848] [cursor=pointer]:
+                              - img [ref=e1850]: expand_more
+                              - generic [ref=e1851]: For optimal ad performance, include these keywords in your headlines
+                          - generic [ref=e1853]:
+                            - listbox "Relevant keywords" [ref=e1855]:
+                              - option "bathroom remodeling in" [ref=e1856] [cursor=pointer]:
+                                - generic [ref=e1857]:
+                                  - img [ref=e1859]: check_circle_filled
+                                  - generic [ref=e1860]: bathroom remodeling in
+                              - option "bathroom renovation company" [ref=e1861] [cursor=pointer]:
+                                - generic [ref=e1862]:
+                                  - img [ref=e1864]: check_circle_filled
+                                  - generic [ref=e1865]: bathroom renovation company
+                              - option "bathroom remodel contractors" [ref=e1866] [cursor=pointer]:
+                                - generic [ref=e1867]:
+                                  - img [ref=e1869]: check_circle_filled
+                                  - generic [ref=e1870]: bathroom remodel contractors
+                              - option "bathroom renovation contractors" [ref=e1871] [cursor=pointer]:
+                                - generic [ref=e1872]:
+                                  - img [ref=e1874]: check_circle_filled
+                                  - generic [ref=e1875]: bathroom renovation contractors
+                              - option "\"bathroom remodeling contractor\"" [ref=e1876] [cursor=pointer]:
+                                - generic [ref=e1877]:
+                                  - img [ref=e1879]: check_circle_filled
+                                  - generic [ref=e1880]: "\"bathroom remodeling contractor\""
+                              - option "bath remodel company" [ref=e1881] [cursor=pointer]:
+                                - generic [ref=e1882]:
+                                  - img [ref=e1884]: check_circle_filled
+                                  - generic [ref=e1885]: bath remodel company
+                              - option "\"bathroom remodel contractors near me\"" [ref=e1886] [cursor=pointer]:
+                                - generic [ref=e1888]: "\"bathroom remodel contractors near me\""
+                              - option "Curbless shower" [ref=e1889] [cursor=pointer]:
+                                - generic [ref=e1890]:
+                                  - img [ref=e1892]: check_circle_filled
+                                  - generic [ref=e1893]: Curbless shower
+                            - button "More ideas" [ref=e1895] [cursor=pointer]:
+                              - generic [ref=e1896]: More ideas
+                              - img [ref=e1898]: chevron_right
+                        - generic [ref=e1901]:
+                          - generic [ref=e1903]:
+                            - generic [ref=e1904]:
+                              - generic [ref=e1906]:
+                                - generic [ref=e1907]:
+                                  - generic:
+                                    - generic: Headline
+                                  - textbox "Headline" [ref=e1908]
+                                - generic [ref=e1911]:
+                                  - button "Please select pin options" [ref=e1912] [cursor=pointer]:
+                                    - img [ref=e1915]: keep
+                                  - button "Learn more about Pinning" [ref=e1917] [cursor=pointer]:
+                                    - img [ref=e1919]: help_outline
+                              - generic [ref=e1922]:
+                                - generic [ref=e1923]: 0 / 30
+                                - generic [ref=e1924]: Text is 0 characters out of 30
+                            - generic [ref=e2402]: At least 3 headlines are required
+                          - generic [ref=e1926]:
+                            - generic [ref=e1927]:
+                              - generic [ref=e1929]:
+                                - generic [ref=e1930]:
+                                  - generic:
+                                    - generic: Headline
+                                  - textbox "Headline" [ref=e1931]
+                                - generic [ref=e1934]:
+                                  - button "Please select pin options" [ref=e1935] [cursor=pointer]:
+                                    - img [ref=e1938]: keep
+                                  - button "Learn more about Pinning" [ref=e1940] [cursor=pointer]:
+                                    - img [ref=e1942]: help_outline
+                              - generic [ref=e1945]:
+                                - generic [ref=e1946]: 0 / 30
+                                - generic [ref=e1947]: Text is 0 characters out of 30
+                            - generic [ref=e2405]: At least 3 headlines are required
+                          - generic [ref=e1949]:
+                            - generic [ref=e1950]:
+                              - generic [ref=e1952]:
+                                - generic [ref=e1953]:
+                                  - generic:
+                                    - generic: Headline
+                                  - textbox "Headline" [ref=e1954]
+                                - generic [ref=e1957]:
+                                  - button "Please select pin options" [ref=e1958] [cursor=pointer]:
+                                    - img [ref=e1961]: keep
+                                  - button "Learn more about Pinning" [ref=e1963] [cursor=pointer]:
+                                    - img [ref=e1965]: help_outline
+                              - generic [ref=e1968]:
+                                - generic [ref=e1969]: 0 / 30
+                                - generic [ref=e1970]: Text is 0 characters out of 30
+                            - generic [ref=e2408]: At least 3 headlines are required
+                          - generic [ref=e1973]:
+                            - generic [ref=e1975]:
+                              - generic [ref=e1976]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e1977]
+                              - generic [ref=e1980]:
+                                - button "Please select pin options" [ref=e1981] [cursor=pointer]:
+                                  - img [ref=e1984]: keep
+                                - button "Learn more about Pinning" [ref=e1986] [cursor=pointer]:
+                                  - img [ref=e1988]: help_outline
+                            - generic [ref=e1991]:
+                              - generic [ref=e1992]: 0 / 30
+                              - generic [ref=e1993]: Text is 0 characters out of 30
+                          - generic [ref=e1996]:
+                            - generic [ref=e1998]:
+                              - generic [ref=e1999]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2000]
+                              - generic [ref=e2003]:
+                                - button "Please select pin options" [ref=e2004] [cursor=pointer]:
+                                  - img [ref=e2007]: keep
+                                - button "Learn more about Pinning" [ref=e2009] [cursor=pointer]:
+                                  - img [ref=e2011]: help_outline
+                            - generic [ref=e2014]:
+                              - generic [ref=e2015]: 0 / 30
+                              - generic [ref=e2016]: Text is 0 characters out of 30
+                          - generic [ref=e2019]:
+                            - generic [ref=e2021]:
+                              - generic [ref=e2022]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2023]
+                              - generic [ref=e2026]:
+                                - button "Please select pin options" [ref=e2027] [cursor=pointer]:
+                                  - img [ref=e2030]: keep
+                                - button "Learn more about Pinning" [ref=e2032] [cursor=pointer]:
+                                  - img [ref=e2034]: help_outline
+                            - generic [ref=e2037]:
+                              - generic [ref=e2038]: 0 / 30
+                              - generic [ref=e2039]: Text is 0 characters out of 30
+                          - generic [ref=e2042]:
+                            - generic [ref=e2044]:
+                              - generic [ref=e2045]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2046]
+                              - generic [ref=e2049]:
+                                - button "Please select pin options" [ref=e2050] [cursor=pointer]:
+                                  - img [ref=e2053]: keep
+                                - button "Learn more about Pinning" [ref=e2055] [cursor=pointer]:
+                                  - img [ref=e2057]: help_outline
+                            - generic [ref=e2060]:
+                              - generic [ref=e2061]: 0 / 30
+                              - generic [ref=e2062]: Text is 0 characters out of 30
+                          - generic [ref=e2065]:
+                            - generic [ref=e2067]:
+                              - generic [ref=e2068]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2069]
+                              - generic [ref=e2072]:
+                                - button "Please select pin options" [ref=e2073] [cursor=pointer]:
+                                  - img [ref=e2076]: keep
+                                - button "Learn more about Pinning" [ref=e2078] [cursor=pointer]:
+                                  - img [ref=e2080]: help_outline
+                            - generic [ref=e2083]:
+                              - generic [ref=e2084]: 0 / 30
+                              - generic [ref=e2085]: Text is 0 characters out of 30
+                          - generic [ref=e2088]:
+                            - generic [ref=e2090]:
+                              - generic [ref=e2091]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2092]
+                              - generic [ref=e2095]:
+                                - button "Please select pin options" [ref=e2096] [cursor=pointer]:
+                                  - img [ref=e2099]: keep
+                                - button "Learn more about Pinning" [ref=e2101] [cursor=pointer]:
+                                  - img [ref=e2103]: help_outline
+                            - generic [ref=e2106]:
+                              - generic [ref=e2107]: 0 / 30
+                              - generic [ref=e2108]: Text is 0 characters out of 30
+                          - generic [ref=e2111]:
+                            - generic [ref=e2113]:
+                              - generic [ref=e2114]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2115]
+                              - generic [ref=e2118]:
+                                - button "Please select pin options" [ref=e2119] [cursor=pointer]:
+                                  - img [ref=e2122]: keep
+                                - button "Learn more about Pinning" [ref=e2124] [cursor=pointer]:
+                                  - img [ref=e2126]: help_outline
+                            - generic [ref=e2129]:
+                              - generic [ref=e2130]: 0 / 30
+                              - generic [ref=e2131]: Text is 0 characters out of 30
+                          - generic [ref=e2134]:
+                            - generic [ref=e2136]:
+                              - generic [ref=e2137]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2138]
+                              - generic [ref=e2141]:
+                                - button "Please select pin options" [ref=e2142] [cursor=pointer]:
+                                  - img [ref=e2145]: keep
+                                - button "Learn more about Pinning" [ref=e2147] [cursor=pointer]:
+                                  - img [ref=e2149]: help_outline
+                            - generic [ref=e2152]:
+                              - generic [ref=e2153]: 0 / 30
+                              - generic [ref=e2154]: Text is 0 characters out of 30
+                          - generic [ref=e2157]:
+                            - generic [ref=e2159]:
+                              - generic [ref=e2160]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2161]
+                              - generic [ref=e2164]:
+                                - button "Please select pin options" [ref=e2165] [cursor=pointer]:
+                                  - img [ref=e2168]: keep
+                                - button "Learn more about Pinning" [ref=e2170] [cursor=pointer]:
+                                  - img [ref=e2172]: help_outline
+                            - generic [ref=e2175]:
+                              - generic [ref=e2176]: 0 / 30
+                              - generic [ref=e2177]: Text is 0 characters out of 30
+                          - generic [ref=e2180]:
+                            - generic [ref=e2182]:
+                              - generic [ref=e2183]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2184]
+                              - generic [ref=e2187]:
+                                - button "Please select pin options" [ref=e2188] [cursor=pointer]:
+                                  - img [ref=e2191]: keep
+                                - button "Learn more about Pinning" [ref=e2193] [cursor=pointer]:
+                                  - img [ref=e2195]: help_outline
+                            - generic [ref=e2198]:
+                              - generic [ref=e2199]: 0 / 30
+                              - generic [ref=e2200]: Text is 0 characters out of 30
+                          - generic [ref=e2203]:
+                            - generic [ref=e2205]:
+                              - generic [ref=e2206]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2207]
+                              - generic [ref=e2210]:
+                                - button "Please select pin options" [ref=e2211] [cursor=pointer]:
+                                  - img [ref=e2214]: keep
+                                - button "Learn more about Pinning" [ref=e2216] [cursor=pointer]:
+                                  - img [ref=e2218]: help_outline
+                            - generic [ref=e2221]:
+                              - generic [ref=e2222]: 0 / 30
+                              - generic [ref=e2223]: Text is 0 characters out of 30
+                          - generic [ref=e2226]:
+                            - generic [ref=e2228]:
+                              - generic [ref=e2229]:
+                                - generic:
+                                  - generic: Headline
+                                - textbox "Headline" [ref=e2230]
+                              - generic [ref=e2233]:
+                                - button "Please select pin options" [ref=e2234] [cursor=pointer]:
+                                  - img [ref=e2237]: keep
+                                - button "Learn more about Pinning" [ref=e2239] [cursor=pointer]:
+                                  - img [ref=e2241]: help_outline
+                            - generic [ref=e2244]:
+                              - generic [ref=e2245]: 0 / 30
+                              - generic [ref=e2246]: Text is 0 characters out of 30
+                  - generic [ref=e1493]:
+                    - button "text_fields Descriptions ‪0/4‬ More information View ideas" [expanded] [ref=e2409] [cursor=pointer]:
+                      - generic [ref=e1498]:
+                        - img [ref=e1500]: text_fields
+                        - generic [ref=e1501]: Descriptions ‪0/4‬
+                        - button [ref=e1502]:
+                          - img [ref=e1504]: help_outline
+                        - button [ref=e1506]:
+                          - generic [ref=e1507]: View ideas
+                      - img [ref=e1508]: expand_less
+                    - region "text_fields Descriptions ‪0/4‬ More information View ideas" [ref=e2410]:
+                      - generic [ref=e2249]:
+                        - generic [ref=e2251]:
+                          - generic [ref=e2252]:
+                            - generic [ref=e2254]:
+                              - generic [ref=e2255]:
+                                - generic:
+                                  - generic: Description
+                                - textbox "Description" [ref=e2257]
+                              - generic [ref=e2260]:
+                                - button "Please select pin options" [ref=e2261] [cursor=pointer]:
+                                  - img [ref=e2264]: keep
+                                - button "Learn more about Pinning" [ref=e2266] [cursor=pointer]:
+                                  - img [ref=e2268]: help_outline
+                            - generic [ref=e2271]:
+                              - generic [ref=e2272]: 0 / 90
+                              - generic [ref=e2273]: Text is 0 characters out of 90
+                          - generic [ref=e2413]: At least 2 descriptions are required
+                        - generic [ref=e2275]:
+                          - generic [ref=e2276]:
+                            - generic [ref=e2278]:
+                              - generic [ref=e2279]:
+                                - generic:
+                                  - generic: Description
+                                - textbox "Description" [ref=e2281]
+                              - generic [ref=e2284]:
+                                - button "Please select pin options" [ref=e2285] [cursor=pointer]:
+                                  - img [ref=e2288]: keep
+                                - button "Learn more about Pinning" [ref=e2290] [cursor=pointer]:
+                                  - img [ref=e2292]: help_outline
+                            - generic [ref=e2295]:
+                              - generic [ref=e2296]: 0 / 90
+                              - generic [ref=e2297]: Text is 0 characters out of 90
+                          - generic [ref=e2416]: At least 2 descriptions are required
+                        - generic [ref=e2300]:
+                          - generic [ref=e2302]:
+                            - generic [ref=e2303]:
+                              - generic:
+                                - generic: Description
+                              - textbox "Description" [ref=e2305]
+                            - generic [ref=e2308]:
+                              - button "Please select pin options" [ref=e2309] [cursor=pointer]:
+                                - img [ref=e2312]: keep
+                              - button "Learn more about Pinning" [ref=e2314] [cursor=pointer]:
+                                - img [ref=e2316]: help_outline
+                          - generic [ref=e2319]:
+                            - generic [ref=e2320]: 0 / 90
+                            - generic [ref=e2321]: Text is 0 characters out of 90
+                        - generic [ref=e2324]:
+                          - generic [ref=e2326]:
+                            - generic [ref=e2327]:
+                              - generic:
+                                - generic: Description
+                              - textbox "Description" [ref=e2329]
+                            - generic [ref=e2332]:
+                              - button "Please select pin options" [ref=e2333] [cursor=pointer]:
+                                - img [ref=e2336]: keep
+                              - button "Learn more about Pinning" [ref=e2338] [cursor=pointer]:
+                                - img [ref=e2340]: help_outline
+                          - generic [ref=e2343]:
+                            - generic [ref=e2344]: 0 / 90
+                            - generic [ref=e2345]: Text is 0 characters out of 90
+                  - generic [ref=e1517]:
+                    - button "Business name This name should match your URL or your verified advertiser name, which is Giovanni Tonin." [expanded] [ref=e1519] [cursor=pointer]:
+                      - generic [ref=e1522]:
+                        - generic [ref=e1524]: Business name
+                        - generic [ref=e1527]: This name should match your URL or your verified advertiser name, which is Giovanni Tonin.
+                      - img [ref=e1528]: expand_less
+                    - region "Business name This name should match your URL or your verified advertiser name, which is Giovanni Tonin." [ref=e1529]:
+                      - generic [ref=e1533]:
+                        - generic [ref=e1535]:
+                          - textbox "Business name" [ref=e1539]
+                          - generic [ref=e1542]:
+                            - generic [ref=e1543]: 0 / 25
+                            - generic [ref=e1544]: Text is 0 characters out of 25
+                        - generic [ref=e1545]:
+                          - text: Until you add an
+                          - link "approved name" [ref=e1547] [cursor=pointer]:
+                            - /url: https://support.google.com/adspolicy/answer/12499303?hl=en_US
+                          - text: ", your campaign will run with a placeholder name created from your URL."
+                  - generic [ref=e1551]:
+                    - button "Business logo Add business logo to your campaign" [expanded] [ref=e1553] [cursor=pointer]:
+                      - generic [ref=e1554]:
+                        - generic [ref=e1556]:
+                          - generic [ref=e1557]:
+                            - img [ref=e1560]: image
+                            - generic [ref=e1561]: Business logo
+                          - generic [ref=e1563]: Add business logo to your campaign
+                        - paragraph
+                      - img [ref=e1564]: expand_less
+                    - region "Business logo Add business logo to your campaign" [ref=e1565]:
+                      - button "Business logo" [ref=e1571] [cursor=pointer]:
+                        - generic [ref=e1572]:
+                          - img [ref=e1574]: add
+                          - text: Business logo
+                  - generic [ref=e1579]:
+                    - button "Sitelinks Help center tooltip button for sitelinks Add links to your ads to take people to specific pages on your website." [expanded] [ref=e1581] [cursor=pointer]:
+                      - generic [ref=e1582]:
+                        - generic [ref=e1584]:
+                          - generic [ref=e1585]:
+                            - img [ref=e1588]: link
+                            - generic [ref=e1589]: Sitelinks
+                            - button "Help center tooltip button for sitelinks" [ref=e1590]:
+                              - img [ref=e1592]: help_outline
+                          - generic [ref=e1594]: Add links to your ads to take people to specific pages on your website.
+                        - paragraph
+                      - img [ref=e1595]: expand_less
+                    - region "Sitelinks Help center tooltip button for sitelinks Add links to your ads to take people to specific pages on your website." [ref=e1596]:
+                      - generic [ref=e1599]:
+                        - generic [ref=e1600]:
+                          - generic [ref=e1601]:
+                            - generic "Asset Item" [ref=e2417]:
+                              - generic [ref=e2419]:
+                                - generic [ref=e2422]:
+                                  - link "Bathroom Remodeling" [ref=e2423] [cursor=pointer]:
+                                    - /url: https://gthomeimprovementma.com/services/bathroom-remodeling/
+                                  - generic [ref=e2424]: Our team transforms outdated · baths into personalized retreats.
+                                - generic [ref=e2425]:
+                                  - button "Edit Bathroom Remodeling" [ref=e2426] [cursor=pointer]:
+                                    - img [ref=e2429]: edit
+                                  - button "Remove Bathroom Remodeling" [ref=e2431] [cursor=pointer]:
+                                    - img [ref=e2434]: delete
+                            - generic "Asset Item" [ref=e2436]:
+                              - generic [ref=e2438]:
+                                - generic [ref=e2441]:
+                                  - link "Kitchen Remodeling" [ref=e2442] [cursor=pointer]:
+                                    - /url: https://gthomeimprovementma.com/services/kitchen-remodeling/
+                                  - generic [ref=e2443]: With precision craftsmanship · and personalized service.
+                                - generic [ref=e2444]:
+                                  - button "Edit Kitchen Remodeling" [ref=e2445] [cursor=pointer]:
+                                    - img [ref=e2448]: edit
+                                  - button "Remove Kitchen Remodeling" [ref=e2450] [cursor=pointer]:
+                                    - img [ref=e2453]: delete
+                          - generic "Add" [ref=e1640]:
+                            - generic "Asset Item" [ref=e1641]:
+                              - generic [ref=e1643]:
+                                - generic [ref=e1646]:
+                                  - generic [ref=e1647]: Sitelink 3
+                                  - generic [ref=e1648]: Recommended
+                                - button "Add" [ref=e1650] [cursor=pointer]:
+                                  - img [ref=e1653]: add
+                            - generic "Asset Item" [ref=e1655]:
+                              - generic [ref=e1657]:
+                                - generic [ref=e1660]:
+                                  - generic [ref=e1661]: Sitelink 4
+                                  - generic [ref=e1662]: Recommended
+                                - button "Add" [ref=e1664] [cursor=pointer]:
+                                  - img [ref=e1667]: add
+                            - generic "Asset Item" [ref=e1669]:
+                              - generic [ref=e1671]:
+                                - generic [ref=e1674]:
+                                  - generic [ref=e1675]: Sitelink 5
+                                  - generic [ref=e1676]: Recommended
+                                - button "Add" [ref=e1678] [cursor=pointer]:
+                                  - img [ref=e1681]: add
+                            - generic "Asset Item" [ref=e1683]:
+                              - generic [ref=e1685]:
+                                - generic [ref=e1688]:
+                                  - generic [ref=e1689]: Sitelink 6
+                                  - generic [ref=e1690]: Recommended
+                                - button "Add" [ref=e1692] [cursor=pointer]:
+                                  - img [ref=e1695]: add
+                        - button "Edit sitelinks" [ref=e1698] [cursor=pointer]:
+                          - generic [ref=e1699]:
+                            - img [ref=e1701]: edit
+                            - text: Edit
+                  - group [ref=e1703]:
+                    - heading "More asset types (0/6) Improve your ad performance and make your ad more interactive by adding more details about your business and website" [level=2] [ref=e1704]:
+                      - button "More asset types (0/6)" [ref=e1705] [cursor=pointer]:
+                        - img [ref=e1707]: expand_more
+                        - generic [ref=e1708]: More asset types (0/6)
+                      - generic [ref=e1711]: Improve your ad performance and make your ad more interactive by adding more details about your business and website
+                  - group [ref=e1713]:
+                    - heading "Ad URL options" [level=2] [ref=e1714]:
+                      - button "Ad URL options" [ref=e1715] [cursor=pointer]:
+                        - img [ref=e1717]: expand_more
+                        - generic [ref=e1718]: Ad URL options
+                - generic [ref=e1723]:
+                  - generic [ref=e1725]:
+                    - heading "Preview" [level=2] [ref=e1726]
+                    - generic [ref=e1727]:
+                      - button "Share" [ref=e1729]:
+                        - generic [ref=e1732]: Share
+                      - button "Preview ads" [ref=e1734]:
+                        - generic [ref=e1737]: Preview ads
+                  - generic [ref=e1740]:
+                    - button "Previous preview" [disabled] [ref=e1741]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - generic [ref=e2392]:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img: menu
+                              - img "Google logo"
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img: search
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - tablist:
+                                    - tab "All" [disabled] [selected]:
+                                      - generic:
+                                        - generic:
+                                          - generic: All
+                                    - tab "Images" [disabled]:
+                                      - generic:
+                                        - generic:
+                                          - generic: Images
+                                    - tab "Shopping" [disabled]:
+                                      - generic:
+                                        - generic:
+                                          - generic: Shopping
+                                    - tab "Videos" [disabled]:
+                                      - generic:
+                                        - generic:
+                                          - generic: Videos
+                                    - tab "News" [disabled]:
+                                      - generic:
+                                        - generic:
+                                          - generic: News
+                          - iframe [ref=e2393]
+                    - button "Next preview" [ref=e1763] [cursor=pointer]:
+                      - img [ref=e1766]: chevron_right
+                  - paragraph [ref=e1774]: Previews shown here are examples and don't include all possible formats. You're responsible for the content of your ads. Please make sure that your provided assets don't violate any Google policies or applicable laws, either individually, or in combination.
+            - generic [ref=e1777]:
+              - button "Save ad" [ref=e1778] [cursor=pointer]:
+                - generic [ref=e1779]: Save ad
+              - button "Cancel" [ref=e1781] [cursor=pointer]:
+                - generic [ref=e1782]: Cancel
+          - generic [ref=e1785]: © Google, 2026.
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog":
+          - generic [ref=e1790]: info
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog":
+          - generic [ref=e1793]: · · · · · · · ·
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+      - generic:
+        - dialog "dialog"

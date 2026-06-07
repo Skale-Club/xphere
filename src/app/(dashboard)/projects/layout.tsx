@@ -4,13 +4,14 @@ import { NewProjectDialog } from '@/components/projects/new-project-dialog'
 import { NewSpaceButton } from '@/components/projects/new-space-button'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { getProjects } from './actions'
+import { getProjects, getMyUrgentTaskCount } from './actions'
 import { listSpaces } from './_actions/spaces'
 
 export default async function ProjectsLayout({ children }: { children: React.ReactNode }) {
-  const [projects, spacesRes] = await Promise.all([
+  const [projects, spacesRes, urgentCount] = await Promise.all([
     getProjects({ includeArchived: false }),
     listSpaces(),
+    getMyUrgentTaskCount(),
   ])
 
   const spaces = spacesRes.ok ? spacesRes.data : []
@@ -35,7 +36,7 @@ export default async function ProjectsLayout({ children }: { children: React.Rea
     <SubSidebarLayout
       storageKey="sub-sidebar:projects"
       title="Projects"
-      nav={<ProjectSubNav projects={navProjects} spaces={navSpaces} />}
+      nav={<ProjectSubNav projects={navProjects} spaces={navSpaces} urgentCount={urgentCount} />}
       collapsedActions={
         <>
           <NewProjectDialog>

@@ -362,6 +362,20 @@ export interface ProjectSavedViewRow {
   updated_at: string
 }
 
+// pipeline_saved_views (migration 1203) — personal filter views for Pipeline module
+export interface PipelineSavedViewRow {
+  id: string
+  org_id: string
+  pipeline_id: string | null
+  owner_id: string | null
+  name: string
+  filters: Record<string, unknown>
+  sorting: Record<string, unknown>
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface ProjectExecutionRunRow {
   id: string
   org_id: string
@@ -4459,7 +4473,7 @@ export interface Database {
           }
         ]
       }
-      scheduling_profiles: {
+      calendar_profiles: {
         Row: {
           user_id: string
           org_id: string

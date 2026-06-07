@@ -112,7 +112,7 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
   {
     key: 'booking.created',
     label: 'Booking created',
-    description: 'A new scheduling booking was made',
+    description: 'A new calendar booking was made',
     icon: CalendarCheck,
     iconClass: 'bg-cyan-500/15 text-cyan-300',
     group: 'General',

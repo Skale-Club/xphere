@@ -1,0 +1,1263 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button [ref=e8] [cursor=pointer]:
+          - img [ref=e11]: menu
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e27]:
+          - generic [ref=e33]:
+            - img [ref=e36]: search
+            - generic [ref=e37]:
+              - generic:
+                - generic: "\"What are my top performing campaigns?\""
+              - combobox "\"What are my top performing campaigns?\"" [ref=e38]
+          - text: Search
+        - generic [ref=e39]:
+          - button "Appearance" [ref=e42] [cursor=pointer]:
+            - generic [ref=e44]:
+              - img [ref=e45]: responsive_layout
+              - text: Appearance
+          - button "Refresh" [ref=e49] [cursor=pointer]:
+            - generic [ref=e51]:
+              - img [ref=e52]: refresh
+              - text: Refresh
+          - button "Open the quick help panel" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]:
+              - text: Help
+              - generic [ref=e57]:
+                - img [ref=e58]: help_outline
+                - text: Help
+          - button "Notifications" [ref=e65] [cursor=pointer]:
+            - generic [ref=e67]:
+              - img [ref=e70]: notifications
+              - generic [ref=e72]: Notifications
+          - button "Ask Advisor" [ref=e74] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e78]: button_magic
+              - generic [ref=e79]: Ask Advisor
+              - generic [ref=e80]: Beta
+      - button "Google account" [ref=e87] [cursor=pointer]:
+        - img "Google account (skale.club@gmail.com)" [ref=e88]
+    - generic [ref=e91]:
+      - generic [ref=e94]:
+        - generic [ref=e95]:
+          - button "Create" [ref=e97] [cursor=pointer]:
+            - img [ref=e100]
+          - generic [ref=e102]: Create
+        - menu [ref=e103]:
+          - menu [ref=e104]:
+            - menuitem "Campaigns" [ref=e107] [cursor=pointer]:
+              - generic [ref=e108]:
+                - img [ref=e110]: campaign
+                - generic [ref=e111]: Campaigns
+            - menuitem "Goals" [ref=e115] [cursor=pointer]:
+              - generic [ref=e116]:
+                - img [ref=e118]: rewarded_ads
+                - generic [ref=e119]: Goals
+            - menuitem "Tools" [ref=e122] [cursor=pointer]:
+              - generic [ref=e123]:
+                - img [ref=e125]: construction
+                - generic [ref=e126]: Tools
+            - menuitem "Billing" [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]:
+                - img [ref=e132]: credit_card
+                - generic [ref=e133]: Billing
+            - menuitem "Admin" [ref=e136] [cursor=pointer]:
+              - generic [ref=e137]:
+                - img [ref=e139]: settings
+                - generic [ref=e140]: Admin
+      - generic [ref=e141]:
+        - generic [ref=e144]:
+          - button "View (2 filters) All campaigns" [ref=e149] [cursor=pointer]:
+            - generic [ref=e150]:
+              - generic [ref=e151]: View (2 filters)
+              - generic [ref=e152]:
+                - img [ref=e155]: home
+                - button "All campaigns" [ref=e156]
+            - img [ref=e158]: arrow_drop_down
+          - button "Campaigns (5) Select a campaign" [ref=e163] [cursor=pointer]:
+            - generic [ref=e164]:
+              - generic [ref=e165]: Campaigns (5)
+              - generic [ref=e166]: Select a campaign
+            - img [ref=e168]: arrow_drop_down
+        - group [ref=e172]:
+          - generic [ref=e173]:
+            - generic [ref=e174] [cursor=pointer]:
+              - generic: Filters
+            - generic: "Filters Applied:"
+            - grid "Filters Applied:" [ref=e175]:
+              - 'row "Campaign status: All" [ref=e177] [cursor=pointer]':
+                - 'gridcell "Campaign status: All" [ref=e178]':
+                  - 'button "Campaign status: All" [ref=e179]': "Campaign status: All"
+              - 'row "Ad group status: Enabled, Paused" [ref=e181] [cursor=pointer]':
+                - 'gridcell "Ad group status: Enabled, Paused" [ref=e182]':
+                  - 'button "Ad group status: Enabled, Paused" [ref=e183]': "Ad group status: Enabled, Paused"
+              - row [ref=e184]:
+                - gridcell [ref=e185]:
+                  - combobox "Add filter" [ref=e186]
+                  - status [ref=e187]
+            - button "Save" [ref=e190] [cursor=pointer]:
+              - generic [ref=e191]:
+                - img [ref=e193]: save
+                - generic [ref=e194]: Save
+        - generic [ref=e197]:
+          - generic [ref=e199]:
+            - heading "Overview" [level=2] [ref=e202]
+            - generic [ref=e205]:
+              - generic [ref=e207] [cursor=pointer]:
+                - generic [ref=e208]: All time
+                - generic [ref=e210]:
+                  - button "May 9, 2025 – Jun 6, 2026 Not applicable" [ref=e212]:
+                    - generic [ref=e213]: May 9, 2025 – Jun 6, 2026
+                    - img [ref=e215]: arrow_drop_down
+                  - generic [ref=e216]:
+                    - button "Previous" [disabled]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - button "Next" [disabled]:
+                      - generic:
+                        - generic:
+                          - img: chevron_right
+              - button "Show last 30 days" [ref=e217] [cursor=pointer]:
+                - generic [ref=e218]: Show last 30 days
+          - main [ref=e224]:
+            - generic [ref=e226]:
+              - application [ref=e229]:
+                - application [ref=e231]:
+                  - generic [ref=e232]:
+                    - button "New campaign" [ref=e236] [cursor=pointer]:
+                      - img [ref=e238]: add
+                      - generic [ref=e239]: New campaign
+                    - generic [ref=e240]:
+                      - button "Button to download the overview cards content in a selected format." [ref=e243] [cursor=pointer]:
+                        - generic [ref=e245]:
+                          - img [ref=e246]: file_download
+                          - text: Download
+                      - button "Button to submit feedback about the overview page." [ref=e250] [cursor=pointer]:
+                        - generic [ref=e252]:
+                          - img [ref=e253]: feedback
+                          - text: Feedback
+                  - list [ref=e255]:
+                    - generic [ref=e262]:
+                      - img [ref=e264]: tips_and_updates
+                      - generic "title" [ref=e265]: Generating your performance summary...
+                    - generic [ref=e275]:
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e276]:
+                        - generic [ref=e278]:
+                          - heading "Time series" [level=1]
+                          - generic [ref=e279]:
+                            - generic [ref=e280]:
+                              - generic [ref=e281] [cursor=pointer]:
+                                - 'button "Choose metric 1 of 4 for the Time series card. Current metric: Conversions" [ref=e282]':
+                                  - 'generic "Choose metric 1 of 4 for the Time series card. Current metric: Conversions" [ref=e283]':
+                                    - generic [ref=e284]: Conversions
+                                    - text: arrow_drop_down
+                                - button "Conversions. 23.00. Hide this metric in the time series chart." [ref=e285]:
+                                  - generic "23.00" [ref=e286]
+                              - generic [ref=e287] [cursor=pointer]:
+                                - 'button "Choose metric 2 of 4 for the Time series card. Current metric: Impressions" [ref=e288]':
+                                  - 'generic "Choose metric 2 of 4 for the Time series card. Current metric: Impressions" [ref=e289]':
+                                    - generic [ref=e290]: Impressions
+                                    - text: arrow_drop_down
+                                - button "Impressions. 88,196. Hide this metric in the time series chart." [ref=e291]:
+                                  - generic "88,196" [ref=e292]: 88.2K
+                              - generic [ref=e293] [cursor=pointer]:
+                                - 'button "Choose metric 3 of 4 for the Time series card. Current metric: Clicks" [ref=e294]':
+                                  - 'generic "Choose metric 3 of 4 for the Time series card. Current metric: Clicks" [ref=e295]':
+                                    - generic [ref=e296]: Clicks
+                                    - text: arrow_drop_down
+                                - button "Clicks. 1,800. Hide this metric in the time series chart." [ref=e297]:
+                                  - generic "1,800" [ref=e298]: 1.8K
+                              - generic [ref=e299] [cursor=pointer]:
+                                - 'button "Choose metric 4 of 4 for the Time series card. Current metric: Cost" [ref=e300]':
+                                  - 'generic "Choose metric 4 of 4 for the Time series card. Current metric: Cost" [ref=e301]':
+                                    - generic [ref=e302]: Cost
+                                    - text: arrow_drop_down
+                                - button "Cost. $9,993.87. Hide this metric in the time series chart." [ref=e303]:
+                                  - generic "$9,993.87" [ref=e304]: $9.99K
+                            - button "A menu with additional card options. Press enter to open." [ref=e306] [cursor=pointer]:
+                              - img [ref=e309]: more_vert
+                          - generic [ref=e316]: Time series chart showing the performance of your account over time for up to 4 selected metrics. Use left and right keys to move between date points.
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e317]:
+                        - generic [ref=e319]:
+                          - generic [ref=e320]:
+                            - generic [ref=e321]:
+                              - img [ref=e323]: troubleshoot
+                              - heading "Account diagnostics" [level=1] [ref=e324]
+                            - button "A menu with additional card options. Press enter to open." [ref=e328] [cursor=pointer]:
+                              - img [ref=e331]: more_vert
+                          - generic [ref=e338]:
+                            - button "A few recent campaigns need attention" [expanded] [ref=e340] [cursor=pointer]:
+                              - generic [ref=e341]:
+                                - generic [ref=e344]: A few recent campaigns need attention
+                                - paragraph
+                              - img [ref=e345]: expand_less
+                            - region "A few recent campaigns need attention" [ref=e346]:
+                              - generic [ref=e353]:
+                                - generic [ref=e354]:
+                                  - generic [ref=e356]:
+                                    - generic [ref=e357]:
+                                      - link "Search | Kitchen | LeadGen | 21 Abr 2026" [ref=e359]
+                                      - generic [ref=e361]: Eligible (Limited)
+                                    - generic [ref=e362]: Campaign is limited by budget, missing enough relevant keywords
+                                    - button "View details" [ref=e364]:
+                                      - generic [ref=e367]: View details
+                                  - generic [ref=e369]:
+                                    - generic [ref=e370]:
+                                      - link "Search | Bathroom | LeadGen | 4 Nov 2025 | New" [ref=e372]
+                                      - generic [ref=e374]: Paused
+                                    - generic [ref=e375]: Campaign is paused, missing enough relevant keywords
+                                    - button "View details" [ref=e377]:
+                                      - generic [ref=e380]: View details
+                                  - generic [ref=e382]:
+                                    - generic [ref=e383]:
+                                      - link "[DESATIVADA] Bathroom Remodel Near You" [ref=e385]
+                                      - generic [ref=e387]: Paused
+                                    - generic [ref=e388]: Campaign is paused
+                                    - button "View details" [ref=e390]:
+                                      - generic [ref=e393]: View details
+                                  - generic [ref=e395]:
+                                    - generic [ref=e396]:
+                                      - link "[DESATIVADA] GT Home Improvement - Leads (Google Build)" [ref=e398]
+                                      - generic [ref=e400]: Paused
+                                    - generic [ref=e401]: Campaign is paused
+                                    - button "View details" [ref=e403]:
+                                      - generic [ref=e406]: View details
+                                  - generic [ref=e408]:
+                                    - generic [ref=e409]:
+                                      - link "Search | Bathroom | LeadGen | 4 Nov 2025" [ref=e411]
+                                      - generic [ref=e413]: Paused
+                                    - generic [ref=e414]: Campaign is paused
+                                    - button "View details" [ref=e416]:
+                                      - generic [ref=e419]: View details
+                                - button [ref=e420] [cursor=pointer]:
+                                  - img [ref=e423]: chevron_right
+                    - generic [ref=e427]:
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e428]:
+                        - generic [ref=e430]:
+                          - generic [ref=e431]:
+                            - generic [ref=e432]:
+                              - img [ref=e434]: lightbulb
+                              - heading "Recommendation" [level=1] [ref=e435]
+                            - button "A menu with additional card options. Press enter to open." [ref=e439] [cursor=pointer]:
+                              - img [ref=e442]: more_vert
+                          - generic [ref=e446]:
+                            - generic [ref=e447]:
+                              - generic [ref=e450]: Add structured snippets to your ads
+                              - button "Apply this recommendation to increase your optimization score by 2.4%" [ref=e453] [cursor=pointer]: +2.4%
+                            - generic [ref=e454]:
+                              - generic [ref=e455]: Structured snippets are missing from 1 campaign
+                              - generic [ref=e456]:
+                                - text: Recommended because structured snippets can improve your CTR
+                                - button "More information" [ref=e457] [cursor=pointer]:
+                                  - img [ref=e459]: help_outline
+                            - button "View" [ref=e463] [cursor=pointer]:
+                              - generic [ref=e464]: View
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e466]:
+                        - generic [ref=e468]:
+                          - generic [ref=e469]:
+                            - generic [ref=e470]:
+                              - img [ref=e472]: bar_chart
+                              - heading "Campaigns" [level=1] [ref=e473]
+                            - button "A menu with additional card options. Press enter to open." [ref=e477] [cursor=pointer]:
+                              - img [ref=e480]: more_vert
+                          - region "Campaigns sorted by Cost, in high to low order. Use arrow keys to select, E to edit budget, enter to navigate to an overview page for that campaign" [ref=e483]:
+                            - generic [ref=e484]: Summary of how your campaigns are performing
+                            - generic:
+                              - generic: Campaigns sorted by Cost, in high to low order. Use arrow keys to select, E to edit budget, enter to navigate to an overview page for that campaign
+                            - generic [ref=e486]:
+                              - generic [ref=e490]:
+                                - generic [ref=e497] [cursor=pointer]:
+                                  - img [ref=e499]: pause_circle_filled
+                                  - generic [ref=e500]: Search | Bathroom | LeadGen | 4 Nov 2025
+                                - generic [ref=e507] [cursor=pointer]:
+                                  - img [ref=e509]: pause_circle_filled
+                                  - generic [ref=e510]: "[DESATIVADA] GT Home Improvement - Leads (Google Build)"
+                                - generic [ref=e517] [cursor=pointer]:
+                                  - img [ref=e519]: pause_circle_filled
+                                  - generic [ref=e520]: Search | Bathroom | LeadGen | 4 Nov 2025 | New
+                                - generic [ref=e527] [cursor=pointer]:
+                                  - img [ref=e529]: circle
+                                  - generic [ref=e530]: Search | Kitchen | LeadGen | 21 Abr 2026
+                                - generic [ref=e537] [cursor=pointer]:
+                                  - img [ref=e539]: pause_circle_filled
+                                  - generic [ref=e540]: "[DESATIVADA] Bathroom Remodel Near You"
+                              - generic [ref=e541]:
+                                - 'button "Choose metric 1 of 3 for the Campaigns card. Current metric: Cost" [ref=e543]':
+                                  - 'generic "Choose metric 1 of 3 for the Campaigns card. Current metric: Cost" [ref=e544] [cursor=pointer]':
+                                    - generic [ref=e545]: Cost
+                                    - text: arrow_drop_down
+                                - generic [ref=e547]:
+                                  - generic [ref=e552]: $3,808.51
+                                  - generic [ref=e557]: $2,695.05
+                                  - generic [ref=e562]: $2,270.06
+                                  - generic [ref=e567]: $963.96
+                                  - generic [ref=e572]: $256.29
+                              - generic [ref=e573]:
+                                - 'button "Choose metric 2 of 3 for the Campaigns card. Current metric: Clicks" [ref=e575]':
+                                  - 'generic "Choose metric 2 of 3 for the Campaigns card. Current metric: Clicks" [ref=e576] [cursor=pointer]':
+                                    - generic [ref=e577]: Clicks
+                                    - text: arrow_drop_down
+                                - generic [ref=e579]:
+                                  - generic [ref=e584]: "244"
+                                  - generic [ref=e589]: "607"
+                                  - generic [ref=e594]: "117"
+                                  - generic [ref=e599]: "97"
+                                  - generic [ref=e604]: "735"
+                              - generic [ref=e605]:
+                                - 'button "Choose metric 3 of 3 for the Campaigns card. Current metric: CTR" [ref=e607]':
+                                  - 'generic "Choose metric 3 of 3 for the Campaigns card. Current metric: CTR" [ref=e608] [cursor=pointer]':
+                                    - generic [ref=e609]: CTR
+                                    - text: arrow_drop_down
+                                - generic [ref=e611]:
+                                  - generic [ref=e616]: 4.33%
+                                  - generic [ref=e621]: 3.52%
+                                  - generic [ref=e626]: 4.41%
+                                  - generic [ref=e631]: 7.16%
+                                  - generic [ref=e636]: 1.20%
+                          - generic [ref=e637]:
+                            - button "Go to the campaigns table" [ref=e639] [cursor=pointer]:
+                              - generic [ref=e640]: All campaigns
+                            - generic [ref=e642]:
+                              - generic:
+                                - img: keyboard_arrow_left
+                              - generic [ref=e643]: 1 / 1
+                              - generic:
+                                - img: keyboard_arrow_right
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e644]:
+                        - generic [ref=e646]:
+                          - generic [ref=e647]:
+                            - generic [ref=e648]:
+                              - img [ref=e650]: lightbulb
+                              - heading "Optimization score" [level=1] [ref=e651]
+                            - button "A menu with additional card options. Press enter to open." [ref=e655] [cursor=pointer]:
+                              - img [ref=e658]: more_vert
+                          - generic [ref=e661]:
+                            - generic [ref=e662]:
+                              - generic [ref=e663]:
+                                - link "Your optimization score is 91.9%." [ref=e664] [cursor=pointer]: 91.9%
+                                - progressbar "active progress" [ref=e667]
+                              - generic [ref=e671]:
+                                - generic [ref=e672]:
+                                  - generic [ref=e673]: Your optimization score
+                                  - button "More information" [ref=e675] [cursor=pointer]:
+                                    - img [ref=e677]: help_outline
+                                - generic [ref=e678]: Increase your score by applying the recommendations in these campaigns
+                            - grid "Use arrow keys to move between rows" [ref=e679]:
+                              - rowgroup [ref=e680]:
+                                - row "The optimization score for Search | Kitchen | LeadGen | 21 Abr 2026 is 92.5%. Use Enter key to go to the corresponding recommendations." [ref=e681] [cursor=pointer]:
+                                  - gridcell "92.5%" [ref=e682]
+                                  - gridcell "Search | Kitchen | LeadGen | 21 Abr 2026" [ref=e683]
+                                  - gridcell [ref=e684]:
+                                    - img [ref=e686]: east
+                          - generic [ref=e687]:
+                            - button "Go to the recommendations place" [ref=e689] [cursor=pointer]:
+                              - generic [ref=e690]: All recommendations
+                            - generic [ref=e692]:
+                              - generic:
+                                - img: keyboard_arrow_left
+                              - generic [ref=e693]: 1 / 1
+                              - generic:
+                                - img: keyboard_arrow_right
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e694]:
+                        - generic [ref=e696]:
+                          - generic [ref=e697]:
+                            - generic [ref=e698]:
+                              - img [ref=e700]: devices
+                              - heading "Devices" [level=1] [ref=e701]
+                            - button "A menu with additional card options. Press enter to open." [ref=e705] [cursor=pointer]:
+                              - img [ref=e708]: more_vert
+                          - generic [ref=e711]:
+                            - generic [ref=e712]: Ad performance across devices
+                            - generic [ref=e713]:
+                              - generic [ref=e714]:
+                                - generic [ref=e715]:
+                                  - generic [ref=e716]:
+                                    - generic [ref=e717]: smartphone
+                                    - generic [ref=e718]: Mobile phones
+                                  - generic [ref=e719]:
+                                    - generic [ref=e720]: tablet
+                                    - generic [ref=e721]: Tablets
+                                  - generic [ref=e722]:
+                                    - generic [ref=e723]: laptop
+                                    - generic [ref=e724]: Computers
+                                - table "Segmented data. Use arrow keys to navigate between cells." [ref=e725]:
+                                  - generic [ref=e726]:
+                                    - row [ref=e727]:
+                                      - cell [ref=e728]
+                                      - cell [ref=e729]
+                                      - cell [ref=e730]
+                                    - row "70.9% 3.8% 25.2%" [ref=e731]:
+                                      - cell "70.9%" [ref=e732]:
+                                        - generic [ref=e734]: 70.9%
+                                      - cell "3.8%" [ref=e735]:
+                                        - generic [ref=e737]: 3.8%
+                                      - cell "25.2%" [ref=e738]:
+                                        - generic [ref=e740]: 25.2%
+                                  - generic [ref=e741]:
+                                    - row [ref=e742]:
+                                      - cell [ref=e743]
+                                      - cell [ref=e744]
+                                      - cell [ref=e745]
+                                    - row "72.4% 21.3% 6.3%" [ref=e746]:
+                                      - cell "72.4%" [ref=e747]:
+                                        - generic [ref=e749]: 72.4%
+                                      - cell "21.3%" [ref=e750]:
+                                        - generic [ref=e752]: 21.3%
+                                      - cell "6.3%" [ref=e753]:
+                                        - generic [ref=e755]: 6.3%
+                                  - generic [ref=e756]:
+                                    - row [ref=e757]:
+                                      - cell [ref=e758]
+                                      - cell [ref=e759]
+                                      - cell [ref=e760]
+                                    - row "71.5% 15.6% 12.9%" [ref=e761]:
+                                      - cell "71.5%" [ref=e762]:
+                                        - generic [ref=e764]: 71.5%
+                                      - cell "15.6%" [ref=e765]:
+                                        - generic [ref=e767]: 15.6%
+                                      - cell "12.9%" [ref=e768]:
+                                        - generic [ref=e770]: 12.9%
+                              - generic [ref=e771]:
+                                - 'button "Choose metric 1 of 3 for the Devices card. Current metric: Cost" [ref=e773]':
+                                  - 'generic "Choose metric 1 of 3 for the Devices card. Current metric: Cost" [ref=e774] [cursor=pointer]':
+                                    - generic [ref=e775]: Cost
+                                    - text: arrow_drop_down
+                                - 'button "Choose metric 2 of 3 for the Devices card. Current metric: Impressions" [ref=e777]':
+                                  - 'generic "Choose metric 2 of 3 for the Devices card. Current metric: Impressions" [ref=e778] [cursor=pointer]':
+                                    - generic [ref=e779]: Impressions
+                                    - text: arrow_drop_down
+                                - 'button "Choose metric 3 of 3 for the Devices card. Current metric: Clicks" [ref=e781]':
+                                  - 'generic "Choose metric 3 of 3 for the Devices card. Current metric: Clicks" [ref=e782] [cursor=pointer]':
+                                    - generic [ref=e783]: Clicks
+                                    - text: arrow_drop_down
+                          - button "Go to the devices table" [ref=e786] [cursor=pointer]:
+                            - generic [ref=e787]: Devices
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e789]:
+                        - generic [ref=e791]:
+                          - generic [ref=e792]:
+                            - generic [ref=e793]:
+                              - img [ref=e795]: user_attributes
+                              - heading "Demographics" [level=1] [ref=e796]
+                            - generic [ref=e798]:
+                              - 'button "Choose a metric for the Demographics card. Current metric: Impressions" [ref=e799]':
+                                - 'generic "Choose a metric for the Demographics card. Current metric: Impressions" [ref=e800] [cursor=pointer]':
+                                  - generic [ref=e801]: Impressions
+                                  - text: arrow_drop_down
+                              - button "A menu with additional card options. Press enter to open." [ref=e803] [cursor=pointer]:
+                                - img [ref=e806]: more_vert
+                          - generic [ref=e809]:
+                            - generic [ref=e810]: Summary of the demographic groups your ads are reaching by age and gender
+                            - tablist [ref=e812]:
+                              - tab "Gender" [ref=e814] [cursor=pointer]:
+                                - generic [ref=e815]: Gender
+                              - tab "Gender & Age" [selected] [ref=e817] [cursor=pointer]:
+                                - generic [ref=e818]: Gender & Age
+                              - tab "Age" [ref=e820] [cursor=pointer]:
+                                - generic [ref=e821]: Age
+                            - generic [ref=e823]:
+                              - generic [ref=e824]:
+                                - generic [ref=e825]: Male
+                                - generic [ref=e826]: Female
+                              - grid [ref=e827]:
+                                - generic [ref=e828]:
+                                  - row [ref=e829]:
+                                    - gridcell [ref=e830]
+                                    - gridcell [ref=e831]
+                                    - gridcell [ref=e832]
+                                    - gridcell [ref=e833]
+                                    - gridcell [ref=e834]
+                                    - gridcell [ref=e835]
+                                  - row [ref=e836]:
+                                    - gridcell [ref=e837]
+                                    - gridcell [ref=e838]
+                                    - gridcell [ref=e839]
+                                    - gridcell [ref=e840]
+                                    - gridcell [ref=e841]
+                                    - gridcell [ref=e842]
+                              - generic [ref=e844]:
+                                - generic [ref=e845]: 18-24
+                                - generic [ref=e846]: 25-34
+                                - generic [ref=e847]: 35-44
+                                - generic [ref=e848]: 45-54
+                                - generic [ref=e849]: 55-64
+                                - generic [ref=e850]: 65+
+                            - generic [ref=e851]:
+                              - text: Based on the 72% of your impressions with known gender and age.
+                              - button "More information" [ref=e853] [cursor=pointer]:
+                                - img [ref=e855]: help_outline
+                          - button "Gender & Age" [ref=e858] [cursor=pointer]:
+                            - generic [ref=e859]: Gender & Age
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e861]:
+                        - generic [ref=e863]:
+                          - generic [ref=e864]:
+                            - generic [ref=e865]:
+                              - img [ref=e867]: share_eta
+                              - heading "Day & hour" [level=1] [ref=e868]
+                            - generic [ref=e870]:
+                              - 'button "Choose a metric for the Day & hour card. Current metric: Impressions" [ref=e871]':
+                                - 'generic "Choose a metric for the Day & hour card. Current metric: Impressions" [ref=e872] [cursor=pointer]':
+                                  - generic [ref=e873]: Impressions
+                                  - text: arrow_drop_down
+                              - button "A menu with additional card options. Press enter to open." [ref=e875] [cursor=pointer]:
+                                - img [ref=e878]: more_vert
+                          - generic [ref=e881]:
+                            - generic [ref=e882]: Your performance by day of week and time of day
+                            - tablist [ref=e884]:
+                              - tab "Day" [ref=e886] [cursor=pointer]:
+                                - generic [ref=e887]: Day
+                              - tab "Day & Hour" [selected] [ref=e889] [cursor=pointer]:
+                                - generic [ref=e890]: Day & Hour
+                              - tab "Hour" [ref=e892] [cursor=pointer]:
+                                - generic [ref=e893]: Hour
+                            - generic [ref=e895]:
+                              - generic [ref=e896]:
+                                - generic [ref=e897]: S
+                                - generic [ref=e898]: M
+                                - generic [ref=e899]: T
+                                - generic [ref=e900]: W
+                                - generic [ref=e901]: T
+                                - generic [ref=e902]: F
+                                - generic [ref=e903]: S
+                              - grid [ref=e904]:
+                                - generic [ref=e905]:
+                                  - row [ref=e906]:
+                                    - gridcell [ref=e907]
+                                    - gridcell [ref=e908]
+                                    - gridcell [ref=e909]
+                                    - gridcell [ref=e910]
+                                    - gridcell [ref=e911]
+                                    - gridcell [ref=e912]
+                                    - gridcell [ref=e913]
+                                    - gridcell [ref=e914]
+                                    - gridcell [ref=e915]
+                                    - gridcell [ref=e916]
+                                    - gridcell [ref=e917]
+                                    - gridcell [ref=e918]
+                                    - gridcell [ref=e919]
+                                    - gridcell [ref=e920]
+                                    - gridcell [ref=e921]
+                                    - gridcell [ref=e922]
+                                    - gridcell [ref=e923]
+                                    - gridcell [ref=e924]
+                                    - gridcell [ref=e925]
+                                    - gridcell [ref=e926]
+                                    - gridcell [ref=e927]
+                                    - gridcell [ref=e928]
+                                    - gridcell [ref=e929]
+                                    - gridcell [ref=e930]
+                                  - row [ref=e931]:
+                                    - gridcell [ref=e932]
+                                    - gridcell [ref=e933]
+                                    - gridcell [ref=e934]
+                                    - gridcell [ref=e935]
+                                    - gridcell [ref=e936]
+                                    - gridcell [ref=e937]
+                                    - gridcell [ref=e938]
+                                    - gridcell [ref=e939]
+                                    - gridcell [ref=e940]
+                                    - gridcell [ref=e941]
+                                    - gridcell [ref=e942]
+                                    - gridcell [ref=e943]
+                                    - gridcell [ref=e944]
+                                    - gridcell [ref=e945]
+                                    - gridcell [ref=e946]
+                                    - gridcell [ref=e947]
+                                    - gridcell [ref=e948]
+                                    - gridcell [ref=e949]
+                                    - gridcell [ref=e950]
+                                    - gridcell [ref=e951]
+                                    - gridcell [ref=e952]
+                                    - gridcell [ref=e953]
+                                    - gridcell [ref=e954]
+                                    - gridcell [ref=e955]
+                                  - row [ref=e956]:
+                                    - gridcell [ref=e957]
+                                    - gridcell [ref=e958]
+                                    - gridcell [ref=e959]
+                                    - gridcell [ref=e960]
+                                    - gridcell [ref=e961]
+                                    - gridcell [ref=e962]
+                                    - gridcell [ref=e963]
+                                    - gridcell [ref=e964]
+                                    - gridcell [ref=e965]
+                                    - gridcell [ref=e966]
+                                    - gridcell [ref=e967]
+                                    - gridcell [ref=e968]
+                                    - gridcell [ref=e969]
+                                    - gridcell [ref=e970]
+                                    - gridcell [ref=e971]
+                                    - gridcell [ref=e972]
+                                    - gridcell [ref=e973]
+                                    - gridcell [ref=e974]
+                                    - gridcell [ref=e975]
+                                    - gridcell [ref=e976]
+                                    - gridcell [ref=e977]
+                                    - gridcell [ref=e978]
+                                    - gridcell [ref=e979]
+                                    - gridcell [ref=e980]
+                                  - row [ref=e981]:
+                                    - gridcell [ref=e982]
+                                    - gridcell [ref=e983]
+                                    - gridcell [ref=e984]
+                                    - gridcell [ref=e985]
+                                    - gridcell [ref=e986]
+                                    - gridcell [ref=e987]
+                                    - gridcell [ref=e988]
+                                    - gridcell [ref=e989]
+                                    - gridcell [ref=e990]
+                                    - gridcell [ref=e991]
+                                    - gridcell [ref=e992]
+                                    - gridcell [ref=e993]
+                                    - gridcell [ref=e994]
+                                    - gridcell [ref=e995]
+                                    - gridcell [ref=e996]
+                                    - gridcell [ref=e997]
+                                    - gridcell [ref=e998]
+                                    - gridcell [ref=e999]
+                                    - gridcell [ref=e1000]
+                                    - gridcell [ref=e1001]
+                                    - gridcell [ref=e1002]
+                                    - gridcell [ref=e1003]
+                                    - gridcell [ref=e1004]
+                                    - gridcell [ref=e1005]
+                                  - row [ref=e1006]:
+                                    - gridcell [ref=e1007]
+                                    - gridcell [ref=e1008]
+                                    - gridcell [ref=e1009]
+                                    - gridcell [ref=e1010]
+                                    - gridcell [ref=e1011]
+                                    - gridcell [ref=e1012]
+                                    - gridcell [ref=e1013]
+                                    - gridcell [ref=e1014]
+                                    - gridcell [ref=e1015]
+                                    - gridcell [ref=e1016]
+                                    - gridcell [ref=e1017]
+                                    - gridcell [ref=e1018]
+                                    - gridcell [ref=e1019]
+                                    - gridcell [ref=e1020]
+                                    - gridcell [ref=e1021]
+                                    - gridcell [ref=e1022]
+                                    - gridcell [ref=e1023]
+                                    - gridcell [ref=e1024]
+                                    - gridcell [ref=e1025]
+                                    - gridcell [ref=e1026]
+                                    - gridcell [ref=e1027]
+                                    - gridcell [ref=e1028]
+                                    - gridcell [ref=e1029]
+                                    - gridcell [ref=e1030]
+                                  - row [ref=e1031]:
+                                    - gridcell [ref=e1032]
+                                    - gridcell [ref=e1033]
+                                    - gridcell [ref=e1034]
+                                    - gridcell [ref=e1035]
+                                    - gridcell [ref=e1036]
+                                    - gridcell [ref=e1037]
+                                    - gridcell [ref=e1038]
+                                    - gridcell [ref=e1039]
+                                    - gridcell [ref=e1040]
+                                    - gridcell [ref=e1041]
+                                    - gridcell [ref=e1042]
+                                    - gridcell [ref=e1043]
+                                    - gridcell [ref=e1044]
+                                    - gridcell [ref=e1045]
+                                    - gridcell [ref=e1046]
+                                    - gridcell [ref=e1047]
+                                    - gridcell [ref=e1048]
+                                    - gridcell [ref=e1049]
+                                    - gridcell [ref=e1050]
+                                    - gridcell [ref=e1051]
+                                    - gridcell [ref=e1052]
+                                    - gridcell [ref=e1053]
+                                    - gridcell [ref=e1054]
+                                    - gridcell [ref=e1055]
+                                  - row [ref=e1056]:
+                                    - gridcell [ref=e1057]
+                                    - gridcell [ref=e1058]
+                                    - gridcell [ref=e1059]
+                                    - gridcell [ref=e1060]
+                                    - gridcell [ref=e1061]
+                                    - gridcell [ref=e1062]
+                                    - gridcell [ref=e1063]
+                                    - gridcell [ref=e1064]
+                                    - gridcell [ref=e1065]
+                                    - gridcell [ref=e1066]
+                                    - gridcell [ref=e1067]
+                                    - gridcell [ref=e1068]
+                                    - gridcell [ref=e1069]
+                                    - gridcell [ref=e1070]
+                                    - gridcell [ref=e1071]
+                                    - gridcell [ref=e1072]
+                                    - gridcell [ref=e1073]
+                                    - gridcell [ref=e1074]
+                                    - gridcell [ref=e1075]
+                                    - gridcell [ref=e1076]
+                                    - gridcell [ref=e1077]
+                                    - gridcell [ref=e1078]
+                                    - gridcell [ref=e1079]
+                                    - gridcell [ref=e1080]
+                              - generic [ref=e1088]:
+                                - generic [ref=e1089]: 12 AM
+                                - generic [ref=e1090]: 6 AM
+                                - generic [ref=e1091]: 12 PM
+                                - generic [ref=e1092]: 6 PM
+                                - generic [ref=e1093]: 12 AM
+                          - button "Go to the ad schedule table" [ref=e1096] [cursor=pointer]:
+                            - generic [ref=e1097]: Ad schedule
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1099]:
+                        - generic [ref=e1101]:
+                          - generic [ref=e1102]:
+                            - generic [ref=e1103]:
+                              - img [ref=e1105]: search
+                              - button "Searches" [ref=e1106]:
+                                - heading "Searches" [level=1] [ref=e1107] [cursor=pointer]
+                            - generic [ref=e1109]:
+                              - generic [ref=e1110]: "Sort by:"
+                              - 'button "Choose a metric for the Searches card. Current metric: Impressions" [ref=e1111]':
+                                - 'generic "Choose a metric for the Searches card. Current metric: Impressions" [ref=e1112] [cursor=pointer]':
+                                  - generic [ref=e1113]: Impressions
+                                  - text: arrow_drop_down
+                              - button "A menu with additional card options. Press enter to open." [ref=e1115] [cursor=pointer]:
+                                - img [ref=e1118]: more_vert
+                          - generic [ref=e1121]:
+                            - generic [ref=e1122]: Top searches and words within searches where people saw your ads
+                            - tablist [ref=e1124]:
+                              - tab "Searches" [selected] [ref=e1126] [cursor=pointer]:
+                                - generic [ref=e1127]: Searches
+                              - tab "Words" [ref=e1129] [cursor=pointer]:
+                                - generic [ref=e1130]: Words
+                            - 'listbox "100 results including: jacuzzi bath remodel, bathroom remodel, bathroom remodel near me" [ref=e1134]':
+                              - option "jacuzzi bath remodel" [ref=e1135] [cursor=pointer]:
+                                - generic [ref=e1136]: jacuzzi bath remodel
+                              - option "bathroom remodel" [ref=e1137] [cursor=pointer]:
+                                - generic [ref=e1138]: bathroom remodel
+                              - option "bathroom remodel near me" [ref=e1139] [cursor=pointer]:
+                                - generic [ref=e1140]: bathroom remodel near me
+                              - option "ferguson home" [ref=e1141] [cursor=pointer]:
+                                - generic [ref=e1142]: ferguson home
+                              - option "construction companies near me" [ref=e1143] [cursor=pointer]:
+                                - generic [ref=e1144]: construction companies near me
+                              - option "bathroom remodeling" [ref=e1145] [cursor=pointer]:
+                                - generic [ref=e1146]: bathroom remodeling
+                              - option "contractors near me" [ref=e1147] [cursor=pointer]:
+                                - generic [ref=e1148]: contractors near me
+                              - option "kitchen" [ref=e1149] [cursor=pointer]:
+                                - generic [ref=e1150]: kitchen
+                              - option "general contractors near me" [ref=e1151] [cursor=pointer]:
+                                - generic [ref=e1152]: general contractors near me
+                              - option "splash newton" [ref=e1153] [cursor=pointer]:
+                                - generic [ref=e1154]: splash newton
+                              - option "bathroom remodelers near me" [ref=e1155] [cursor=pointer]:
+                                - generic [ref=e1156]: bathroom remodelers near me
+                              - option "kitchen sales west bridgewater" [ref=e1157] [cursor=pointer]:
+                                - generic [ref=e1158]: kitchen sales west bridgewater
+                              - option "bathroom remodeling near me" [ref=e1159] [cursor=pointer]:
+                                - generic [ref=e1160]: bathroom remodeling near me
+                              - option "biviano construction" [ref=e1161] [cursor=pointer]:
+                                - generic [ref=e1162]: biviano construction
+                              - option "creative home improvements" [ref=e1163] [cursor=pointer]:
+                                - generic [ref=e1164]: creative home improvements
+                              - option "hood remodeling plymouth ma" [ref=e1165] [cursor=pointer]:
+                                - generic [ref=e1166]: hood remodeling plymouth ma
+                              - option "bathroom remodel contractors near me" [ref=e1167] [cursor=pointer]:
+                                - generic [ref=e1168]: bathroom remodel contractors near me
+                              - option "bathroom renovation" [ref=e1169] [cursor=pointer]:
+                                - generic [ref=e1170]: bathroom renovation
+                              - option "gledhill construction" [ref=e1171] [cursor=pointer]:
+                                - generic [ref=e1172]: gledhill construction
+                              - option "bath remodeling near me" [ref=e1173] [cursor=pointer]:
+                                - generic [ref=e1174]: bath remodeling near me
+                              - option "bellew tile rockland" [ref=e1175] [cursor=pointer]:
+                                - generic [ref=e1176]: bellew tile rockland
+                              - option "frank webb home" [ref=e1177] [cursor=pointer]:
+                                - generic [ref=e1178]: frank webb home
+                              - option "general contractor" [ref=e1179] [cursor=pointer]:
+                                - generic [ref=e1180]: general contractor
+                              - option "gk construction scituate" [ref=e1181] [cursor=pointer]:
+                                - generic [ref=e1182]: gk construction scituate
+                              - option "home improvement near me" [ref=e1183] [cursor=pointer]:
+                                - generic [ref=e1184]: home improvement near me
+                              - option "mbo construction" [ref=e1185] [cursor=pointer]:
+                                - generic [ref=e1186]: mbo construction
+                              - option "bathroom remodel ideas" [ref=e1187] [cursor=pointer]:
+                                - generic [ref=e1188]: bathroom remodel ideas
+                              - option "ciarlone brothers" [ref=e1189] [cursor=pointer]:
+                                - generic [ref=e1190]: ciarlone brothers
+                              - option "kitchen remodeling near me" [ref=e1191] [cursor=pointer]:
+                                - generic [ref=e1192]: kitchen remodeling near me
+                              - option "metropolitan cabinets norwood" [ref=e1193] [cursor=pointer]:
+                                - generic [ref=e1194]: metropolitan cabinets norwood
+                              - option "small job contractors near me" [ref=e1195] [cursor=pointer]:
+                                - generic [ref=e1196]: small job contractors near me
+                              - option "baystate bath reviews" [ref=e1197] [cursor=pointer]:
+                                - generic [ref=e1198]: baystate bath reviews
+                              - option "cape cod lumber kitchen design" [ref=e1199] [cursor=pointer]:
+                                - generic [ref=e1200]: cape cod lumber kitchen design
+                              - option "delprete home improvement" [ref=e1201] [cursor=pointer]:
+                                - generic [ref=e1202]: delprete home improvement
+                              - option "kitchen remodel" [ref=e1203] [cursor=pointer]:
+                                - generic [ref=e1204]: kitchen remodel
+                              - option "ldl design center" [ref=e1205] [cursor=pointer]:
+                                - generic [ref=e1206]: ldl design center
+                              - option "newpro home solutions" [ref=e1207] [cursor=pointer]:
+                                - generic [ref=e1208]: newpro home solutions
+                              - option "angie's list" [ref=e1209] [cursor=pointer]:
+                                - generic [ref=e1210]: angie's list
+                              - option "bathroom ideas" [ref=e1211] [cursor=pointer]:
+                                - generic [ref=e1212]: bathroom ideas
+                              - option "bethany builders" [ref=e1213] [cursor=pointer]:
+                                - generic [ref=e1214]: bethany builders
+                              - option "classic kitchens pembroke" [ref=e1215] [cursor=pointer]:
+                                - generic [ref=e1216]: classic kitchens pembroke
+                              - option "finishing touch construction" [ref=e1217] [cursor=pointer]:
+                                - generic [ref=e1218]: finishing touch construction
+                              - option "general flooring weymouth" [ref=e1219] [cursor=pointer]:
+                                - generic [ref=e1220]: general flooring weymouth
+                              - option "interior details norwell" [ref=e1221] [cursor=pointer]:
+                                - generic [ref=e1222]: interior details norwell
+                              - option "jennifer bylo" [ref=e1223] [cursor=pointer]:
+                                - generic [ref=e1224]: jennifer bylo
+                              - option "kohler" [ref=e1225] [cursor=pointer]:
+                                - generic [ref=e1226]: kohler
+                              - option "monique's watertown" [ref=e1227] [cursor=pointer]:
+                                - generic [ref=e1228]: monique's watertown
+                              - option "select pro contracting" [ref=e1229] [cursor=pointer]:
+                                - generic [ref=e1230]: select pro contracting
+                              - option "sun shore construction" [ref=e1231] [cursor=pointer]:
+                                - generic [ref=e1232]: sun shore construction
+                              - option "tile installers near me" [ref=e1233] [cursor=pointer]:
+                                - generic [ref=e1234]: tile installers near me
+                              - option "transitions norwell" [ref=e1235] [cursor=pointer]:
+                                - generic [ref=e1236]: transitions norwell
+                              - option "alluring concepts" [ref=e1237] [cursor=pointer]:
+                                - generic [ref=e1238]: alluring concepts
+                              - option "bathroom stores near me" [ref=e1239] [cursor=pointer]:
+                                - generic [ref=e1240]: bathroom stores near me
+                              - option "build com" [ref=e1241] [cursor=pointer]:
+                                - generic [ref=e1242]: build com
+                              - option "build with ferguson" [ref=e1243] [cursor=pointer]:
+                                - generic [ref=e1244]: build with ferguson
+                              - option "floor and decor dorchester" [ref=e1245] [cursor=pointer]:
+                                - generic [ref=e1246]: floor and decor dorchester
+                              - option "gannon construction" [ref=e1247] [cursor=pointer]:
+                                - generic [ref=e1248]: gannon construction
+                              - option "in house kitchen design" [ref=e1249] [cursor=pointer]:
+                                - generic [ref=e1250]: in house kitchen design
+                              - option "jm construction" [ref=e1251] [cursor=pointer]:
+                                - generic [ref=e1252]: jm construction
+                              - option "joanna gaines kitchen renovation" [ref=e1253] [cursor=pointer]:
+                                - generic [ref=e1254]: joanna gaines kitchen renovation
+                              - option "lumber liquidators braintree" [ref=e1255] [cursor=pointer]:
+                                - generic [ref=e1256]: lumber liquidators braintree
+                              - option "luxury makeover leominster" [ref=e1257] [cursor=pointer]:
+                                - generic [ref=e1258]: luxury makeover leominster
+                              - option "maize remodeling group" [ref=e1259] [cursor=pointer]:
+                                - generic [ref=e1260]: maize remodeling group
+                              - option "new kitchen photos" [ref=e1261] [cursor=pointer]:
+                                - generic [ref=e1262]: new kitchen photos
+                              - option "remodelers outlet fall river" [ref=e1263] [cursor=pointer]:
+                                - generic [ref=e1264]: remodelers outlet fall river
+                              - option "remodeling" [ref=e1265] [cursor=pointer]:
+                                - generic [ref=e1266]: remodeling
+                              - option "small bathroom remodel" [ref=e1267] [cursor=pointer]:
+                                - generic [ref=e1268]: small bathroom remodel
+                              - option "small bathroom remodel ideas" [ref=e1269] [cursor=pointer]:
+                                - generic [ref=e1270]: small bathroom remodel ideas
+                              - option "south shore bathroom remodeling" [ref=e1271] [cursor=pointer]:
+                                - generic [ref=e1272]: south shore bathroom remodeling
+                              - option "suffolk construction boston" [ref=e1273] [cursor=pointer]:
+                                - generic [ref=e1274]: suffolk construction boston
+                              - option "us pro paint and renovation" [ref=e1275] [cursor=pointer]:
+                                - generic [ref=e1276]: us pro paint and renovation
+                              - option "us propaint renovation inc" [ref=e1277] [cursor=pointer]:
+                                - generic [ref=e1278]: us propaint renovation inc
+                              - option "angi" [ref=e1279] [cursor=pointer]:
+                                - generic [ref=e1280]: angi
+                              - option "bathroom contractors near me" [ref=e1281] [cursor=pointer]:
+                                - generic [ref=e1282]: bathroom contractors near me
+                              - option "build by ferguson" [ref=e1283] [cursor=pointer]:
+                                - generic [ref=e1284]: build by ferguson
+                              - option "bylo bath" [ref=e1285] [cursor=pointer]:
+                                - generic [ref=e1286]: bylo bath
+                              - option "classic kitchens pembroke ma" [ref=e1287] [cursor=pointer]:
+                                - generic [ref=e1288]: classic kitchens pembroke ma
+                              - option "coady built" [ref=e1289] [cursor=pointer]:
+                                - generic [ref=e1290]: coady built
+                              - option "construction" [ref=e1291] [cursor=pointer]:
+                                - generic [ref=e1292]: construction
+                              - option "grit and grace construction" [ref=e1293] [cursor=pointer]:
+                                - generic [ref=e1294]: grit and grace construction
+                              - option "haggerty home improvement" [ref=e1295] [cursor=pointer]:
+                                - generic [ref=e1296]: haggerty home improvement
+                              - option "holland construction" [ref=e1297] [cursor=pointer]:
+                                - generic [ref=e1298]: holland construction
+                              - option "interior design norwell ma" [ref=e1299] [cursor=pointer]:
+                                - generic [ref=e1300]: interior design norwell ma
+                              - option "kitchen and bath remodel near me" [ref=e1301] [cursor=pointer]:
+                                - generic [ref=e1302]: kitchen and bath remodel near me
+                              - option "kitchen and bath stores near me" [ref=e1303] [cursor=pointer]:
+                                - generic [ref=e1304]: kitchen and bath stores near me
+                              - option "kitchen remodeling" [ref=e1305] [cursor=pointer]:
+                                - generic [ref=e1306]: kitchen remodeling
+                              - option "kitchens" [ref=e1307] [cursor=pointer]:
+                                - generic [ref=e1308]: kitchens
+                              - option "msi norwood" [ref=e1309] [cursor=pointer]:
+                                - generic [ref=e1310]: msi norwood
+                              - option "on the level construction" [ref=e1311] [cursor=pointer]:
+                                - generic [ref=e1312]: on the level construction
+                              - option "republic weymouth" [ref=e1313] [cursor=pointer]:
+                                - generic [ref=e1314]: republic weymouth
+                              - option "tile by design danvers" [ref=e1315] [cursor=pointer]:
+                                - generic [ref=e1316]: tile by design danvers
+                              - option "top notch kitchen" [ref=e1317] [cursor=pointer]:
+                                - generic [ref=e1318]: top notch kitchen
+                              - option "west shore home" [ref=e1319] [cursor=pointer]:
+                                - generic [ref=e1320]: west shore home
+                              - option "white wood kitchens pembroke" [ref=e1321] [cursor=pointer]:
+                                - generic [ref=e1322]: white wood kitchens pembroke
+                              - option "wms home improvement" [ref=e1323] [cursor=pointer]:
+                                - generic [ref=e1324]: wms home improvement
+                              - option "absolute stone rockland ma" [ref=e1325] [cursor=pointer]:
+                                - generic [ref=e1326]: absolute stone rockland ma
+                              - option "almar building" [ref=e1327] [cursor=pointer]:
+                                - generic [ref=e1328]: almar building
+                              - option "ave maria remodeling" [ref=e1329] [cursor=pointer]:
+                                - generic [ref=e1330]: ave maria remodeling
+                              - option "bathroom" [ref=e1331] [cursor=pointer]:
+                                - generic [ref=e1332]: bathroom
+                              - option "bathroom contractors" [ref=e1333] [cursor=pointer]:
+                                - generic [ref=e1334]: bathroom contractors
+                          - generic [ref=e1335]:
+                            - button "Navigate to the Searches table" [ref=e1337] [cursor=pointer]:
+                              - generic [ref=e1338]: All searches
+                            - generic [ref=e1340]:
+                              - generic:
+                                - img: keyboard_arrow_left
+                              - generic [ref=e1341]: 1 / 8
+                              - img [ref=e1343] [cursor=pointer]: keyboard_arrow_right
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1344]:
+                        - generic [ref=e1346]:
+                          - generic [ref=e1347]:
+                            - generic [ref=e1348]:
+                              - img [ref=e1350]: bar_chart
+                              - heading "Auction insights" [level=1] [ref=e1351]
+                            - generic [ref=e1353]:
+                              - 'button "Auction insights Card: Mouseover or press enter on this icon for more information" [ref=e1354] [cursor=pointer]':
+                                - img [ref=e1356]: help_outline
+                              - button "Compare metrics" [ref=e1357]: bubble_chart
+                              - button "Show metric over time" [ref=e1358]: show_chart
+                              - button "A menu with additional card options. Press enter to open." [ref=e1360] [cursor=pointer]:
+                                - img [ref=e1363]: more_vert
+                          - generic [ref=e1366]:
+                            - generic [ref=e1367]: Other advertisers who are participating in the same ad auctions
+                            - 'button "Choose metric 1 of 2 for the Auction insights card. Current metric: Impression share" [ref=e1370]':
+                              - 'generic "Choose metric 1 of 2 for the Auction insights card. Current metric: Impression share" [ref=e1371] [cursor=pointer]':
+                                - generic [ref=e1372]: Impression share
+                                - text: arrow_drop_down
+                            - generic [ref=e1374]:
+                              - generic [ref=e1375]:
+                                - generic [ref=e1377]:
+                                  - generic [ref=e1379]: 20.00%
+                                  - generic [ref=e1381]: 15.00%
+                                  - generic [ref=e1383]: < 10%
+                                - generic [ref=e1395]:
+                                  - generic [ref=e1398]: 0.00%
+                                  - generic [ref=e1401]: 100.00%
+                              - generic [ref=e1402]:
+                                - generic [ref=e1405]: You
+                                - generic [ref=e1408]: angi.com
+                                - generic [ref=e1411]: thumbtack.com
+                            - 'button "Choose metric 2 of 2 for the Auction insights card. Current metric: Top of page rate" [ref=e1414]':
+                              - 'generic "Choose metric 2 of 2 for the Auction insights card. Current metric: Top of page rate" [ref=e1415] [cursor=pointer]':
+                                - generic [ref=e1416]: Top of page rate
+                                - text: arrow_drop_down
+                          - button "Navigate to the Search Auction Insights table" [ref=e1419] [cursor=pointer]:
+                            - generic [ref=e1420]: Auction insights
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1422]:
+                        - generic [ref=e1424]:
+                          - generic [ref=e1425]:
+                            - generic [ref=e1426]:
+                              - img [ref=e1428]: add_ad
+                              - heading "Most-shown search ads" [level=1] [ref=e1429]
+                            - button "A menu with additional card options. Press enter to open." [ref=e1433] [cursor=pointer]:
+                              - img [ref=e1436]: more_vert
+                          - list "Use left/right keys to move between ads, E to edit an ad, C to copy and enter to navigate to the ad url." [ref=e1439]:
+                            - listitem [ref=e1440]:
+                              - generic [ref=e1441]:
+                                - link "Found in campaign [DESATIVADA] GT Home Improvement - Leads (Google Build) with status paused" [ref=e1442] [cursor=pointer]:
+                                  - generic [ref=e1445]: "[DESATIVADA] GT Home Improvement - Leads (Google Build)"
+                                - generic [ref=e1446]: ›
+                                - link "ad group Bathroom Remodeling with status active" [ref=e1447] [cursor=pointer]:
+                                  - generic [ref=e1450]: Bathroom Remodeling
+                            - listitem [ref=e1451]:
+                              - generic [ref=e1458]:
+                                - generic [ref=e1460]:
+                                  - generic [ref=e1461]:
+                                    - generic [ref=e1462]: Dream Bathroom Starts Here
+                                    - generic [ref=e1464]: "|"
+                                    - generic [ref=e1466]: Small Bath, Big Style
+                                    - generic [ref=e1468]: "|"
+                                    - generic [ref=e1470]: Bath Remodel
+                                  - generic [ref=e1472]:
+                                    - generic [ref=e1473]: Ad
+                                    - text: www.gthomeimprovementma.com
+                                - generic [ref=e1478]:
+                                  - generic [ref=e1480]: Upgrade your bathroom with expert remodeling tailored to your style and budget. Affordable, stylish bathroom remodels done right—on time and on budget.
+                                  - generic [ref=e1482]:
+                                    - generic [ref=e1484]: About Us
+                                    - generic [ref=e1486]: Contact
+                                    - generic [ref=e1488]: Customer Testimonials
+                                    - generic [ref=e1490]: Become A Member
+                            - listitem [ref=e1491]
+                            - listitem [ref=e1492]
+                            - listitem [ref=e1493]
+                            - listitem [ref=e1494]
+                            - listitem [ref=e1495]
+                            - listitem [ref=e1496]
+                            - listitem [ref=e1497]
+                            - listitem [ref=e1498]
+                            - listitem [ref=e1499]
+                            - generic [ref=e1500]:
+                              - generic [ref=e1501]: Ad
+                              - generic [ref=e1503]:
+                                - img [ref=e1505]: circle
+                                - generic [ref=e1506]: Enabled
+                            - 'listitem "Status: Not eligible. Press F to focus onto the hovercard." [ref=e1507]':
+                              - generic [ref=e1508]: Status
+                              - generic [ref=e1509] [cursor=pointer]: Not eligible
+                            - generic [ref=e1510]:
+                              - generic [ref=e1511]: Impressions
+                              - generic [ref=e1512]: 5,995
+                            - 'listitem "Choose metric 1 of 2 for the Most-shown search ads card. Current metric: Clicks" [ref=e1515]':
+                              - 'generic "Choose metric 1 of 2 for the Most-shown search ads card. Current metric: Clicks" [ref=e1516] [cursor=pointer]':
+                                - generic [ref=e1517]: Clicks
+                                - text: arrow_drop_down
+                            - generic [ref=e1518]: "163"
+                            - 'listitem "Choose metric 2 of 2 for the Most-shown search ads card. Current metric: CTR" [ref=e1521]':
+                              - 'generic "Choose metric 2 of 2 for the Most-shown search ads card. Current metric: CTR" [ref=e1522] [cursor=pointer]':
+                                - generic [ref=e1523]: CTR
+                                - text: arrow_drop_down
+                            - generic [ref=e1524]: 2.72%
+                            - generic [ref=e1525]: Dream Bathroom Starts Here | Small Bath, Big Style | Bath Remodel
+                          - generic [ref=e1526]:
+                            - generic [ref=e1527]:
+                              - button "Go to the ads table" [ref=e1528] [cursor=pointer]:
+                                - generic [ref=e1529]: All search ads
+                              - button "Go to the assets table" [ref=e1531] [cursor=pointer]:
+                                - generic [ref=e1532]: All assets
+                            - generic [ref=e1534]:
+                              - generic:
+                                - img: keyboard_arrow_left
+                              - generic [ref=e1535]: 1 / 10
+                              - img [ref=e1537] [cursor=pointer]: keyboard_arrow_right
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1538]:
+                        - generic [ref=e1540]:
+                          - generic [ref=e1541]:
+                            - generic [ref=e1542]:
+                              - img [ref=e1544]: query_stats
+                              - heading "Keywords" [level=1] [ref=e1545]
+                            - generic [ref=e1547]:
+                              - link "Add a keyword" [ref=e1548] [cursor=pointer]:
+                                - generic [ref=e1549]:
+                                  - img [ref=e1551]: add
+                                  - text: Add keyword
+                              - button "A menu with additional card options. Press enter to open." [ref=e1554] [cursor=pointer]:
+                                - img [ref=e1557]: more_vert
+                          - generic "Keywords sorted by Cost, in high to low order. Use arrow keys to select, E to edit budget, enter to navigate to an overview page for that keyword" [ref=e1560]:
+                            - generic [ref=e1561]: Summary of how your keywords are performing
+                            - generic:
+                              - generic: Keywords sorted by Cost, in high to low order. Use arrow keys to select, E to edit budget, enter to navigate to an overview page for that keyword
+                            - generic [ref=e1563]:
+                              - generic [ref=e1567]:
+                                - generic [ref=e1574] [cursor=pointer]:
+                                  - img [ref=e1576]: circle
+                                  - generic [ref=e1577]: local licensed contractors
+                                - generic [ref=e1581] [cursor=pointer]:
+                                  - img [ref=e1583]: cancel
+                                  - generic [ref=e1584]: "\"bathroom renovation in\""
+                                - generic [ref=e1591] [cursor=pointer]:
+                                  - img [ref=e1593]: circle
+                                  - generic [ref=e1594]: bathroom remodeling in
+                                - generic [ref=e1601] [cursor=pointer]:
+                                  - img [ref=e1603]: circle
+                                  - generic [ref=e1604]: bath remodel company
+                                - generic [ref=e1611] [cursor=pointer]:
+                                  - img [ref=e1613]: circle
+                                  - generic [ref=e1614]: kitchen design and renovation
+                              - generic [ref=e1616]:
+                                - 'button "Choose metric 1 of 3 for the Keywords card. Current metric: Cost" [ref=e1618]':
+                                  - 'generic "Choose metric 1 of 3 for the Keywords card. Current metric: Cost" [ref=e1619] [cursor=pointer]':
+                                    - generic [ref=e1620]: Cost
+                                    - text: arrow_drop_down
+                                - generic [ref=e1622]:
+                                  - generic [ref=e1627]: $597.52
+                                  - generic [ref=e1632]: $521.65
+                                  - generic [ref=e1637]: $492.38
+                                  - generic [ref=e1642]: $456.99
+                                  - generic [ref=e1647]: $381.13
+                              - generic [ref=e1649]:
+                                - 'button "Choose metric 2 of 3 for the Keywords card. Current metric: Clicks" [ref=e1651]':
+                                  - 'generic "Choose metric 2 of 3 for the Keywords card. Current metric: Clicks" [ref=e1652] [cursor=pointer]':
+                                    - generic [ref=e1653]: Clicks
+                                    - text: arrow_drop_down
+                                - generic [ref=e1655]:
+                                  - generic [ref=e1660]: "87"
+                                  - generic [ref=e1665]: "18"
+                                  - generic [ref=e1670]: "30"
+                                  - generic [ref=e1675]: "27"
+                                  - generic [ref=e1680]: "37"
+                              - generic [ref=e1682]:
+                                - 'button "Choose metric 3 of 3 for the Keywords card. Current metric: CTR" [ref=e1684]':
+                                  - 'generic "Choose metric 3 of 3 for the Keywords card. Current metric: CTR" [ref=e1685] [cursor=pointer]':
+                                    - generic [ref=e1686]: CTR
+                                    - text: arrow_drop_down
+                                - generic [ref=e1688]:
+                                  - generic [ref=e1693]: 3.35%
+                                  - generic [ref=e1698]: 7.03%
+                                  - generic [ref=e1703]: 6.91%
+                                  - generic [ref=e1708]: 2.70%
+                                  - generic [ref=e1713]: 5.41%
+                          - generic [ref=e1715]:
+                            - generic [ref=e1716]:
+                              - button "Go to the keywords table" [ref=e1717] [cursor=pointer]:
+                                - generic [ref=e1718]: Keywords
+                              - button "Go to the negative keywords table" [ref=e1720] [cursor=pointer]:
+                                - generic [ref=e1721]: Negative keywords
+                            - generic [ref=e1723]:
+                              - generic:
+                                - img: keyboard_arrow_left
+                              - generic [ref=e1724]: 1 / 10
+                              - img [ref=e1726] [cursor=pointer]: keyboard_arrow_right
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1727]:
+                        - generic [ref=e1729]:
+                          - generic [ref=e1730]:
+                            - generic [ref=e1731]:
+                              - img [ref=e1733]: payments
+                              - heading "Billing" [level=1] [ref=e1734]
+                            - button "A menu with additional card options. Press enter to open." [ref=e1738] [cursor=pointer]:
+                              - img [ref=e1741]: more_vert
+                          - generic [ref=e1745]:
+                            - generic [ref=e1746]:
+                              - generic [ref=e1748]:
+                                - generic [ref=e1749]: Balance as of Jun 6, 2026
+                                - generic [ref=e1750]: $212.16
+                              - generic [ref=e1752]:
+                                - generic [ref=e1753]:
+                                  - text: Next automatic payment
+                                  - button "More information" [ref=e1755] [cursor=pointer]:
+                                    - img "More information" [ref=e1756]: help_outline
+                                - generic [ref=e1758]:
+                                  - generic [ref=e1759]: Jul 1, 2026
+                                  - generic [ref=e1762]:
+                                    - text: or when your balance
+                                    - text: reaches $500.00
+                            - generic [ref=e1764]:
+                              - generic [ref=e1765]: Payment methods
+                              - generic [ref=e1766]:
+                                - generic [ref=e1767]:
+                                  - text: Primary
+                                  - button "Amex •••• 1006 is your primary payment method. Press enter to change your payment method" [ref=e1768] [cursor=pointer]:
+                                    - generic [ref=e1770]: Amex •••• 1006
+                                - generic [ref=e1772]:
+                                  - text: Backup
+                                  - button "You don't have a backup payment method. Press enter to add now" [ref=e1773] [cursor=pointer]:
+                                    - generic [ref=e1775]: Add a backup
+                          - generic [ref=e1778]:
+                            - button "View billing" [ref=e1779] [cursor=pointer]:
+                              - generic [ref=e1780]: View billing
+                            - button "View statements and tax documents" [ref=e1782] [cursor=pointer]:
+                              - generic [ref=e1783]: View statements and tax documents
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1785]:
+                        - generic [ref=e1787]:
+                          - generic [ref=e1788]:
+                            - generic [ref=e1789]:
+                              - img [ref=e1791]: filter_list
+                              - button "Lead funnel. Press Enter to focus on the tooltip." [ref=e1792]:
+                                - heading "Lead funnel. Press Enter to focus on the tooltip." [level=1] [ref=e1793] [cursor=pointer]: Lead funnel
+                            - button "A menu with additional card options. Press enter to open." [ref=e1797] [cursor=pointer]:
+                              - img [ref=e1800]: more_vert
+                          - generic [ref=e1803]:
+                            - generic [ref=e1804]: Total conversions through your entire lead funnel
+                            - generic [ref=e1807]:
+                              - generic "Hover on the chart and it will show the numbers of 4 lead stages. Lead stages include interactions, raw leads, qualified leads, converted leads. Use arrow keys to navigate between bars." [ref=e1808]:
+                                - generic [ref=e1811]: A chart to show conversions through different lead funnel stages. Press arrow keys to navigate from one bar to the next to see the hovercard. Tab to go to x-axis label.
+                              - generic [ref=e1812]:
+                                - generic [ref=e1813]:
+                                  - generic [ref=e1814]: 2,489
+                                  - generic "Interactions. Press Enter to focus on the tooltip." [ref=e1815]: Interactions
+                                - generic [ref=e1816]:
+                                  - generic [ref=e1817]: "24.00"
+                                  - generic "Raw leads. Press enter to focus on the tooltip." [ref=e1818]: Raw leads
+                                - generic [ref=e1819]:
+                                  - generic [ref=e1820]: "-"
+                                  - generic "Qualified leads. Press Enter to focus on the tooltip." [ref=e1821]: Qualified leads
+                                - generic [ref=e1822]:
+                                  - generic [ref=e1823]: "-"
+                                  - generic "Converted leads. Press Enter to focus on the tooltip." [ref=e1824]: Converted leads
+                      - listitem "Card 1 of 0. Use arrow keys to move to another card, tab to enter card content." [ref=e1825]:
+                        - generic [ref=e1827]:
+                          - generic [ref=e1828]:
+                            - generic [ref=e1829]:
+                              - img [ref=e1831]: bar_chart
+                              - heading "Conversion tracking status" [level=1] [ref=e1832]
+                            - generic [ref=e1834]:
+                              - button "All" [ref=e1838] [cursor=pointer]:
+                                - generic [ref=e1839]: All
+                                - img [ref=e1841]: arrow_drop_down
+                              - button "Conversion paths" [ref=e1842] [cursor=pointer]:
+                                - img [ref=e1845]: conversion_path
+                              - button "A menu with additional card options. Press enter to open." [ref=e1848] [cursor=pointer]:
+                                - img [ref=e1851]: more_vert
+                          - grid "Horizontal bar chart. Use arrow keys to move between rows" [ref=e1857]:
+                            - 'row "Name: Tag inactive, value: 0" [ref=e1858]':
+                              - gridcell "Tag inactive" [ref=e1859]
+                              - gridcell "0" [ref=e1860]:
+                                - generic [ref=e1862]: "0"
+                            - 'row "Name: Unverified, value: 0" [ref=e1863]':
+                              - gridcell "Unverified" [ref=e1864]
+                              - gridcell "0" [ref=e1865]:
+                                - generic [ref=e1867]: "0"
+                            - 'row "Name: No recent conversions, value: 6" [ref=e1868]':
+                              - gridcell "No recent conversions" [ref=e1869]
+                              - gridcell "6" [ref=e1870]:
+                                - generic [ref=e1872]: "6"
+                            - 'row "Name: Recording conversions, value: 0" [ref=e1873]':
+                              - gridcell "Recording conversions" [ref=e1874]
+                              - gridcell "0" [ref=e1875]:
+                                - generic [ref=e1877]: "0"
+                          - button "Go to the conversions table" [ref=e1880] [cursor=pointer]:
+                            - generic [ref=e1881]: Manage conversions
+              - generic [ref=e1884]:
+                - generic [ref=e1885]:
+                  - link "Reporting is not real-time." [ref=e1887] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_2544985&hl=en_US
+                  - text: "Time zone for all dates and times: (GMT-04:00) Eastern Time."
+                  - link "Learn more about changing your Google Ads account settings" [ref=e1889] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_9842104&hl=en_US
+                    - text: Learn more
+                  - generic [ref=e1890]: Some inventory may be provided through third party intermediaries.
+                  - generic [ref=e1891]: You'll see Media Rating Council (MRC) accreditation noted in the column header's hover text for accredited metrics.
+                - generic [ref=e1892]: © Google, 2026.
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"

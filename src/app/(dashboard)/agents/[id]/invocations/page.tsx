@@ -1,11 +1,10 @@
 // src/app/(dashboard)/agents/[id]/invocations/page.tsx
 // Phase 40 OBS-07: Agent invocations list with status/cost/error filters.
 // Clicking a row opens InvocationDetailDrawer showing the delegation tree.
+// Rendered inside the agent [id] layout (header + Test Your Bot rail).
 
 import { notFound } from 'next/navigation'
-import { ListTree } from 'lucide-react'
 
-import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { getAgentById } from '../../actions'
 import { getAgentInvocations } from '@/lib/agent-runtime/observability'
 import { InvocationsList } from '@/components/agents/invocations-list'
@@ -41,26 +40,19 @@ export default async function AgentInvocationsPage({ params, searchParams }: Pro
   if (!agent) notFound()
 
   return (
-    <PageContainer>
-      <PageHeader
-        eyebrow="Observability"
-        eyebrowIcon={ListTree}
-        title="Invocations"
-        description={
-          <>
-            <span className="font-medium text-text-primary">{agent.name}</span>{' '}
-            <span className="text-text-tertiary">·</span>{' '}
-            <span className="tabular">{invocations.total.toLocaleString()}</span> total
-          </>
-        }
-        back={{ href: `/agents/${id}`, label: `Back to ${agent.name}` }}
-      />
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-text-primary">Invocations</h2>
+        <p className="text-sm text-text-secondary">
+          {invocations.total.toLocaleString()} total
+        </p>
+      </div>
       <InvocationsList
         agentId={id}
         initialRows={invocations.rows}
         initialTotal={invocations.total}
         currentPage={page}
       />
-    </PageContainer>
+    </div>
   )
 }

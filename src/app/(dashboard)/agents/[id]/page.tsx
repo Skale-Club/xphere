@@ -1,84 +1,88 @@
 import { notFound } from 'next/navigation'
-import { Suspense } from 'react'
 
-import { AgentForm } from '@/components/agents/agent-form'
-import { AgentMetricsWidget } from '@/components/agents/agent-metrics-widget'
-import { AgentPlayground } from '@/components/agents/agent-playground'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AgentPromptEditor } from '@/components/agents/agent-prompt-editor'
+import { AgentToolsCard } from '@/components/agents/agent-tools-card'
 import { AgentWorkflowTools } from '@/components/agents/agent-workflow-tools'
-import { PageContainer } from '@/components/layout/page-header'
-import { getAgentById } from '../actions'
+import { AgentPartnersManager } from '@/components/agents/agent-partners-manager'
+import { getAgentById, getActiveAgents } from '../actions'
 import { getToolPickerData } from '../_actions/tools'
 import { getAgentWorkflows, getAvailableWorkflowsForAgent } from '../_actions/workflows'
-import { listAgentGroups } from '../_actions/groups'
-import type { AgentChannel } from '@/lib/agents/channels'
-import type { AvailableModel } from '@/lib/agents/models'
-import type { AgentFormInput } from '@/lib/agents/zod-schemas'
+import { listAgentPartners } from '../_actions/partners'
 
 type Props = { params: Promise<{ id: string }> }
 
-export default async function EditAgentPage({ params }: Props) {
+/**
+ * "Prompt & Actions" — the agent's primary section (landing page when you click
+ * the agent in the sidebar). The system prompt plus everything the agent can
+ * DO: call tools, run workflows, and delegate to other agents. "Test Your Bot"
+ * stays visible on the right (rendered by the layout).
+ */
+export default async function AgentPromptActionsPage({ params }: Props) {
   const { id } = await params
-  const [agent, toolPickerData, attachedWorkflows, availableWorkflows, groupsRes] =
+  const [agent, toolPickerData, attachedWorkflows, availableWorkflows, partners, activeAgents] =
     await Promise.all([
       getAgentById(id),
       getToolPickerData(),
       getAgentWorkflows(id),
       getAvailableWorkflowsForAgent(id),
-      listAgentGroups(),
+      listAgentPartners(id),
+      getActiveAgents(),
     ])
   if (!agent) notFound()
-  const groups = groupsRes.ok ? groupsRes.data : []
-
-  const initialValues: Partial<AgentFormInput> = {
-    name: agent.name,
-    slug: agent.slug,
-    description: agent.description,
-    system_prompt: agent.system_prompt,
-    model: agent.model as AvailableModel,
-    fallback_message: agent.fallback_message,
-    max_history: agent.max_history,
-    temperature: agent.temperature,
-    max_tokens: agent.max_tokens,
-    is_active: agent.is_active,
-    group_id: agent.group_id,
-    allowed_channels: (agent.allowed_channels ?? []) as AgentChannel[],
-    channel_overrides: (agent.channel_overrides ??
-      {}) as AgentFormInput['channel_overrides'],
-    tool_ids: agent.tool_ids,
-  }
 
   return (
-    <PageContainer className="py-6" size="full">
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,34vw)]">
-        <div className="min-w-0 space-y-6">
-          <Suspense fallback={<div className="h-36 animate-pulse rounded-[12px] border border-border bg-bg-secondary" />}>
-            <AgentMetricsWidget agentId={id} />
-          </Suspense>
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Prompt */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Prompt</CardTitle>
+          <CardDescription>
+            How the agent should behave. Saving creates a draft version.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AgentPromptEditor agentId={agent.id} initialPrompt={agent.system_prompt} />
+        </CardContent>
+      </Card>
 
-          <AgentForm
-            mode="edit"
-            agentId={agent.id}
-            initialValues={initialValues}
-            initialToolIds={agent.tool_ids}
-            toolPickerData={toolPickerData}
-            groups={groups}
-          />
+      {/* Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Actions</CardTitle>
+          <CardDescription>
+            Functions the agent can call, workflows it can run, and other agents
+            it can delegate to.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-text-primary">Tools</h3>
+            <AgentToolsCard
+              agentId={agent.id}
+              toolPickerData={toolPickerData}
+              initialToolIds={agent.tool_ids}
+            />
+          </section>
 
-          <div className="rounded-[12px] border border-border bg-bg-secondary p-4">
+          <div className="border-t border-border pt-6">
             <AgentWorkflowTools
               agentId={agent.id}
               initialAttached={attachedWorkflows}
               initialAvailable={availableWorkflows}
             />
           </div>
-        </div>
 
-        <div className="min-w-0 xl:sticky xl:top-4 xl:h-[calc(100vh-6rem)]">
-          <div className="flex h-[720px] min-h-[560px] overflow-hidden rounded-[12px] border border-border bg-bg-secondary xl:h-full">
-            <AgentPlayground agentId={agent.id} agentName={agent.name} />
-          </div>
-        </div>
-      </div>
-    </PageContainer>
+          <section className="space-y-2 border-t border-border pt-6">
+            <h3 className="text-sm font-semibold text-text-primary">Partner agents (delegation)</h3>
+            <AgentPartnersManager
+              agentId={agent.id}
+              initialPartners={partners}
+              availableAgents={activeAgents.map((a) => ({ id: a.id, name: a.name, slug: a.slug }))}
+            />
+          </section>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

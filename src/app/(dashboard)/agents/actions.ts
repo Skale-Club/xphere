@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 import type { AgentChannel } from '@/lib/agents/channels'
-import type { AgentFormOutput } from '@/lib/agents/zod-schemas'
+import type { AgentFormOutput, AgentSettingsOutput } from '@/lib/agents/zod-schemas'
+import { slugify } from '@/lib/agents/slug'
+import { DEFAULT_MODEL } from '@/lib/agents/models'
 import { setAgentTools, getToolPickerData } from './_actions/tools'
 
 // Re-export sub-module functions so consumers can import from a single path
@@ -206,6 +208,39 @@ export async function createAgent(
 }
 
 /**
+ * Lightweight creation for the "New agent" popup. Collects only a name (and
+ * optional description) and births the agent with sensible defaults; the rest
+ * (prompt, tools, channels, …) is configured on the agent page afterwards.
+ * Delegates to createAgent so insert/slug-collision handling stays in one place.
+ */
+export async function createAgentQuick(input: {
+  name: string
+  description?: string | null
+}): Promise<{ error?: string; id?: string }> {
+  const name = input.name.trim()
+  if (!name) return { error: 'Name is required.' }
+
+  const payload = {
+    name,
+    slug: slugify(name),
+    description: input.description?.trim() || null,
+    system_prompt: 'You are a helpful assistant.',
+    model: DEFAULT_MODEL,
+    fallback_message: 'I cannot help with that right now.',
+    max_history: 20,
+    temperature: null,
+    max_tokens: null,
+    is_active: true,
+    group_id: null,
+    allowed_channels: ['web_widget'],
+    channel_overrides: {},
+    tool_ids: [],
+  } as unknown as AgentFormOutput
+
+  return createAgent(payload)
+}
+
+/**
  * Updates an agent row + diffs its attached tools.
  */
 export async function updateAgent(
@@ -250,6 +285,95 @@ export async function updateAgent(
 
   revalidatePath('/agents')
   revalidatePath(`/agents/${id}`)
+}
+
+/**
+ * Updates ONLY the settings fields of an agent row (name, slug, description,
+ * model, fallback, generation params, channels, overrides, active, group).
+ *
+ * Unlike `updateAgent`, this does NOT touch `system_prompt` or attached tools —
+ * those are owned by the "Prompt & Actions" section. Used by the Settings tab.
+ */
+export async function updateAgentSettings(
+  id: string,
+  input: AgentSettingsOutput
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('agents')
+    .update({
+      name: input.name,
+      slug: input.slug,
+      description: input.description ?? null,
+      model: input.model,
+      fallback_message: input.fallback_message,
+      max_history: input.max_history,
+      temperature: input.temperature ?? null,
+      max_tokens: input.max_tokens ?? null,
+      is_active: input.is_active,
+      group_id: input.group_id ?? null,
+      allowed_channels: input.allowed_channels,
+      channel_overrides: input.channel_overrides as Database['public']['Tables']['agents']['Update']['channel_overrides'],
+      updated_by: user.id,
+    })
+    .eq('id', id)
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'An agent with this slug already exists for your organization.' }
+    }
+    return { error: error.message }
+  }
+
+  revalidatePath('/agents')
+  revalidatePath(`/agents/${id}`)
+}
+
+/**
+ * Renames an agent — updates ONLY `agents.name`. The slug is an identifier and
+ * is intentionally left untouched so existing references stay stable. Used by
+ * the inline-editable header title.
+ */
+export async function renameAgent(
+  id: string,
+  name: string
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const trimmed = name.trim()
+  if (!trimmed) return { error: 'Name is required.' }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('agents')
+    .update({ name: trimmed, updated_by: user.id })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/agents')
+  revalidatePath(`/agents/${id}`)
+}
+
+/**
+ * Sets which org knowledge sources this agent may use (agents.kb_scope).
+ * Pass `null` or an empty array to mean "use all org knowledge".
+ */
+export async function setAgentKbScope(
+  id: string,
+  sourceIds: string[] | null
+): Promise<{ error?: string } | void> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  const next = sourceIds && sourceIds.length > 0 ? sourceIds : null
+  const { error } = await supabase
+    .from('agents')
+    .update({ kb_scope: next, updated_by: user.id })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath(`/agents/${id}`)
+  revalidatePath(`/agents/${id}/knowledge`)
 }
 
 /**

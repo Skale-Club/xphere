@@ -29,7 +29,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const base =
     storedReturn && storedReturn.startsWith('/') && !storedReturn.startsWith('//')
       ? storedReturn
-      : '/scheduling'
+      : '/calendar'
 
   if (!code) return NextResponse.redirect(new URL(`${base}?error=missing_code`, request.url))
   if (!state || !storedState || state !== storedState)
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     )
 
     // Reopen the integration panel when returning to /integrations; the
-    // /scheduling page ignores `open` and reads `calendar_connected`.
+    // /calendar page ignores `open` and reads `calendar_connected`.
     const successQuery = base.startsWith('/integrations')
       ? 'open=google_calendar'
       : 'calendar_connected=true'

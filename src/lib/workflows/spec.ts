@@ -163,8 +163,8 @@ export const TRIGGERS: TriggerSpec[] = [
     variables: ['opportunity.*', 'contact.*', 'changes.*', 'trigger.fired_at'],
   },
 
-  // ─── Pipeline time-based events (SEED-036). Emitted by the scheduling
-  // tick cron (src/app/api/cron/scheduling-tick/route.ts).
+  // ─── Pipeline time-based events (SEED-036). Emitted by the calendar
+  // tick cron (src/app/api/cron/calendar-tick/route.ts).
   {
     type: 'event:opportunity.aged_in_stage',
     description:

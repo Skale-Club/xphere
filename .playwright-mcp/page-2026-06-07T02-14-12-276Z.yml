@@ -1,0 +1,136 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button [ref=e8] [cursor=pointer]:
+          - img [ref=e11]: menu
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - button "Open google account menu" [ref=e27]
+    - generic [ref=e30]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - button "Create" [ref=e36] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e41]: Create
+        - menu [ref=e42]:
+          - menu [ref=e43]:
+            - menuitem "Campaigns" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]:
+                - img [ref=e49]: campaign
+                - generic [ref=e50]: Campaigns
+            - menuitem "Goals" [ref=e53] [cursor=pointer]:
+              - generic [ref=e54]:
+                - img [ref=e56]: rewarded_ads
+                - generic [ref=e57]: Goals
+            - menuitem "Tools" [ref=e60] [cursor=pointer]:
+              - generic [ref=e61]:
+                - img [ref=e63]: construction
+                - generic [ref=e64]: Tools
+            - menuitem "Billing" [ref=e67] [cursor=pointer]:
+              - generic [ref=e68]:
+                - img [ref=e70]: credit_card
+                - generic [ref=e71]: Billing
+            - menuitem "Admin" [ref=e74] [cursor=pointer]:
+              - generic [ref=e75]:
+                - img [ref=e77]: settings
+                - generic [ref=e78]: Admin
+      - generic [ref=e79]:
+        - generic [ref=e82]:
+          - button "View (2 filters) All campaigns" [ref=e87] [cursor=pointer]:
+            - generic [ref=e88]:
+              - generic [ref=e89]: View (2 filters)
+              - generic [ref=e90]:
+                - img [ref=e93]: home
+                - button "All campaigns" [ref=e94]
+            - img [ref=e96]: arrow_drop_down
+          - button "Campaign Search | Bathroom | LeadGen | 2 Jun 2026" [ref=e101] [cursor=pointer]:
+            - generic [ref=e102]:
+              - generic [ref=e103]: Campaign
+              - button "Search | Bathroom | LeadGen | 2 Jun 2026" [ref=e106]
+            - img [ref=e108]: arrow_drop_down
+          - button "Ad groups (1) Select an ad group" [ref=e113] [cursor=pointer]:
+            - generic [ref=e114]:
+              - generic [ref=e115]: Ad groups (1)
+              - generic [ref=e116]: Select an ad group
+            - img [ref=e118]: arrow_drop_down
+        - main [ref=e125]:
+          - generic [ref=e127]:
+            - generic [ref=e130]:
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - generic [ref=e133]:
+                    - generic [ref=e134]: Audience segments
+                    - generic [ref=e135]: Add segments to reach people with certain interests, behaviors, or detailed demographics
+                  - button "Add audience segments" [ref=e139] [cursor=pointer]:
+                    - generic [ref=e141]: Add audience segments
+                - text: Chart type Adjust
+              - generic [ref=e143]:
+                - generic [ref=e145]: Demographics
+                - generic [ref=e146]:
+                  - tablist [ref=e148]:
+                    - tab "Age" [selected] [ref=e150] [cursor=pointer]:
+                      - generic [ref=e151]: Age
+                    - tab "Gender" [ref=e153] [cursor=pointer]:
+                      - generic [ref=e154]: Gender
+                    - tab "Household income" [ref=e156] [cursor=pointer]:
+                      - generic [ref=e157]: Household income
+                  - tabpanel "Age" [ref=e159]:
+                    - generic [ref=e162]:
+                      - generic [ref=e168]:
+                        - generic [ref=e170]:
+                          - generic [ref=e174]:
+                            - button "Chart, line one Clicks dropdown" [ref=e175]:
+                              - generic [ref=e177] [cursor=pointer]:
+                                - generic [ref=e178]: Clicks
+                                - img [ref=e180]: arrow_drop_down
+                            - status [ref=e181]
+                          - generic [ref=e184]:
+                            - button "Chart, line two None dropdown" [ref=e185]:
+                              - generic [ref=e187] [cursor=pointer]:
+                                - generic [ref=e188]: None
+                                - img [ref=e190]: arrow_drop_down
+                            - status [ref=e191]
+                          - button "Chart type" [ref=e193] [cursor=pointer]:
+                            - generic [ref=e196]:
+                              - img [ref=e197]: bar_chart
+                              - text: Chart type
+                        - application [ref=e202]:
+                          - generic [ref=e204]: Bar chart showing Clicks from Jun 2 – 6, 2026. Use arrow keys to navigate.
+                      - generic [ref=e208]:
+                        - button "Show table" [ref=e209] [cursor=pointer]:
+                          - img [ref=e211]: expand_less
+                          - generic [ref=e212]: Show table
+                        - button "Edit demographics" [ref=e215] [cursor=pointer]:
+                          - generic [ref=e216]: Edit demographics
+                  - tabpanel "Gender"
+                  - tabpanel "Household income"
+              - generic [ref=e218]:
+                - generic [ref=e221]: Exclusions
+                - generic [ref=e227]:
+                  - button "Show table" [ref=e228] [cursor=pointer]:
+                    - img [ref=e230]: expand_less
+                    - generic [ref=e231]: Show table
+                  - button "Edit exclusions" [ref=e236] [cursor=pointer]:
+                    - generic [ref=e238]: Edit exclusions
+            - generic [ref=e241]: © Google, 2026.
+  - generic [ref=e247]:
+    - img [ref=e248]
+    - img [ref=e250]
+    - img [ref=e252]
+    - img [ref=e254]
+    - img [ref=e256]
+    - img [ref=e258]
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic [ref=e261]: Loading data. Please wait.

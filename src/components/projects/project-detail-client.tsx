@@ -15,10 +15,19 @@ import { ProjectTimeline } from './project-timeline'
 import { TaskDetailSheet } from './task-detail-sheet'
 import { NewTaskDialog } from './new-task-dialog'
 import { ProjectCrmContextPanel } from './project-crm-context'
-import { getProjectTasks, updateProject, upsertDefaultSavedView } from '@/app/(dashboard)/projects/actions'
+import { ProjectFilterBar } from './project-filter-bar'
+import {
+  getProjectTasks,
+  updateProject,
+  upsertDefaultSavedView,
+  createProjectSavedView,
+  deleteProjectSavedView,
+} from '@/app/(dashboard)/projects/actions'
+import { applyProjectFilters } from '@/lib/projects/filter-utils'
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import type { ProjectCrmContext, TaskWithLabels } from '@/app/(dashboard)/projects/actions'
-import type { ProjectRow, ProjectLabelRow } from '@/types/database'
+import type { ProjectFilterState } from '@/components/projects/project-filter-bar'
+import type { ProjectRow, ProjectLabelRow, ProjectSavedViewRow } from '@/types/database'
 
 type ViewTab = 'board' | 'list' | 'calendar' | 'timeline'
 
@@ -36,6 +45,9 @@ interface Props {
   labels: ProjectLabelRow[]
   crmContext: ProjectCrmContext
   defaultView: ViewTab
+  initialSavedViews?: ProjectSavedViewRow[]
+  defaultSavedView?: ProjectSavedViewRow | null
+  assignees?: { id: string; full_name: string | null; avatar_url: string | null; email: string }[]
 }
 
 export function ProjectDetailClient({
@@ -45,6 +57,9 @@ export function ProjectDetailClient({
   labels,
   crmContext,
   defaultView,
+  initialSavedViews = [],
+  defaultSavedView = null,
+  assignees = [],
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -52,6 +67,53 @@ export function ProjectDetailClient({
   const [activeTab, setActiveTab] = React.useState<ViewTab>(defaultView)
   const [tasks, setTasks] = React.useState<TaskWithLabels[]>(initialTasks)
   const [openTaskId, setOpenTaskId] = React.useState<string | null>(null)
+  const [savedViews, setSavedViews] = React.useState<ProjectSavedViewRow[]>(initialSavedViews)
+  const [activeViewId, setActiveViewId] = React.useState<string | null>(defaultSavedView?.id ?? null)
+  const [filterState, setFilterState] = React.useState<ProjectFilterState>(
+    (defaultSavedView?.filters as ProjectFilterState | undefined) ?? {},
+  )
+
+  const filteredTasks = React.useMemo(
+    () => applyProjectFilters(tasks, filterState),
+    [tasks, filterState],
+  )
+
+  // ---------------------------------------------------------------------------
+  // Filter bar handlers
+  // ---------------------------------------------------------------------------
+
+  async function handleViewSave(name: string, setAsDefault: boolean) {
+    const result = await createProjectSavedView(
+      project.id,
+      name,
+      filterState as Record<string, unknown>,
+      {},
+      activeTab,
+      setAsDefault,
+    )
+    if ('error' in result) {
+      toast.error(result.error)
+      return
+    }
+    setSavedViews((prev) => [...prev, result.view])
+    setActiveViewId(result.view.id)
+    toast.success('View saved')
+  }
+
+  async function handleViewDelete(id: string) {
+    const result = await deleteProjectSavedView(id)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    setSavedViews((prev) => prev.filter((v) => v.id !== id))
+    if (activeViewId === id) setActiveViewId(null)
+  }
+
+  function handleViewSelect(view: ProjectSavedViewRow) {
+    setFilterState((view.filters as ProjectFilterState | undefined) ?? {})
+    setActiveViewId(view.id)
+  }
 
   React.useEffect(() => {
     const segments = pathname.split('/').filter(Boolean)
@@ -136,13 +198,28 @@ export function ProjectDetailClient({
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="px-4 sm:px-6 lg:px-8 border-b border-border-subtle">
+        <ProjectFilterBar
+          filters={filterState}
+          onFiltersChange={(f) => { setFilterState(f); setActiveViewId(null) }}
+          savedViews={savedViews}
+          activeViewId={activeViewId}
+          onViewSelect={handleViewSelect}
+          onViewSave={handleViewSave}
+          onViewDelete={handleViewDelete}
+          assignees={assignees}
+          labels={labels.map((l) => ({ id: l.id, name: l.name, color: l.color ?? '#6366f1' }))}
+        />
+      </div>
+
       {/* Board + Calendar — direct flex children so flex-1 inside them works */}
       <ProjectCrmContextPanel context={crmContext} />
 
       {activeTab === 'board' && (
         <ProjectBoard
           projectId={project.id}
-          tasks={tasks}
+          tasks={filteredTasks}
           onOpenTask={setOpenTaskId}
           onRefresh={refresh}
         />
@@ -150,7 +227,7 @@ export function ProjectDetailClient({
       {activeTab === 'calendar' && (
         <ProjectCalendar
           projectId={project.id}
-          tasks={tasks}
+          tasks={filteredTasks}
           onOpenTask={setOpenTaskId}
           onRefresh={refresh}
         />
@@ -160,7 +237,7 @@ export function ProjectDetailClient({
       {activeTab === 'timeline' && (
         <ProjectTimeline
           projectId={project.id}
-          tasks={tasks}
+          tasks={filteredTasks}
           onOpenTask={setOpenTaskId}
           onRefresh={refresh}
         />
@@ -171,7 +248,7 @@ export function ProjectDetailClient({
         <div className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-4">
           <ProjectList
             projectId={project.id}
-            tasks={tasks}
+            tasks={filteredTasks}
             onOpenTask={setOpenTaskId}
             onRefresh={refresh}
           />

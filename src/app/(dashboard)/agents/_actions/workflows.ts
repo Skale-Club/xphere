@@ -69,7 +69,12 @@ export async function getAgentWorkflows(
 
 /**
  * Returns org workflows that can be attached as agent tools:
- * kind in ('tool','flow'), is_active=true, tool_name set, not already attached.
+ * kind in ('tool','flow'), is_active=true, tool_name set, NOT health-blocked,
+ * not already attached.
+ *
+ * The `health_blocked=false` filter matches the runtime: buildWorkflowTools
+ * excludes health-blocked workflows, so offering them here would let a user
+ * attach a workflow that then silently never appears to the agent.
  */
 export async function getAvailableWorkflowsForAgent(
   agentId: string,
@@ -83,6 +88,7 @@ export async function getAvailableWorkflowsForAgent(
       .select('id, tool_name, name, description, kind, is_active, health_blocked')
       .in('kind', ['tool', 'flow'])
       .eq('is_active', true)
+      .eq('health_blocked', false)
       .not('tool_name', 'is', null)
       .order('name', { ascending: true }),
     supabase

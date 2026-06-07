@@ -69,5 +69,6 @@ export const opportunityFilterSchema = z.object({
   q: z.string().optional(),
   min_value: z.number().optional(),
   max_value: z.number().optional(),
+  stage_id: z.string().uuid().optional(),
 })
 export type OpportunityFilters = z.infer<typeof opportunityFilterSchema>

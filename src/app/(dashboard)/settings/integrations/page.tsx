@@ -33,7 +33,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: Props) 
         eyebrow="Connections"
         eyebrowIcon={Plug}
         title="Integrations"
-        description="Wire Xphere into the rest of your stack | messaging, voice, CRM, scheduling, and AI providers."
+        description="Wire Xphere into the rest of your stack | messaging, voice, CRM, calendar, and AI providers."
       />
       <Suspense fallback={null}>
         <IntegrationList saved={saved} initialOpen={open} />

@@ -1,7 +1,7 @@
 // SEED-036: pipeline event emitter.
 //
 // Bridges the sales pipeline lifecycle into the unified workflow engine.
-// Mirrors the calendar event pattern from src/lib/scheduling/transition.ts:
+// Mirrors the calendar event pattern from src/lib/calendar/transition.ts:
 //   1. Record an audit row in event_dispatches.
 //   2. Look up active workflows whose trigger_config.event matches.
 //   3. Dispatch each via the unified workflow runner (runFlowSync).
@@ -29,7 +29,7 @@ export type OpportunityEventType =
   | 'opportunity.assigned'
   | 'opportunity.value_changed'
   | 'opportunity.deleted'
-  // Time-based events emitted by src/app/api/cron/scheduling-tick/route.ts
+  // Time-based events emitted by src/app/api/cron/calendar-tick/route.ts
   // (SEED-036 scheduler). These are NOT emitted on user request paths.
   | 'opportunity.aged_in_stage'
   | 'opportunity.no_activity'

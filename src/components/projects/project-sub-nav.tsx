@@ -2,15 +2,17 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { FolderKanban, Plus, Trash } from 'lucide-react'
+import { FolderKanban, Inbox, Plus, Trash } from 'lucide-react'
 import {
   DraggableTreeNav,
   type TreeNavItem,
 } from '@/components/layout/draggable-tree-nav'
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   deleteSpace,
   renameSpace,
@@ -43,14 +45,49 @@ interface SpaceItem {
 interface Props {
   projects: ProjectItem[]
   spaces: SpaceItem[]
+  urgentCount?: { overdue: number; dueToday: number }
 }
 
-export function ProjectSubNav({ projects, spaces }: Props) {
+export function ProjectSubNav({ projects, spaces, urgentCount }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const { onNavigate } = useSubSidebar()
+  const urgentTotal = (urgentCount?.overdue ?? 0) + (urgentCount?.dueToday ?? 0)
+  const inboxActive = pathname === '/projects/inbox'
 
   return (
-    <DraggableTreeNav<ProjectItem>
+    <div className="flex flex-col h-full min-h-0">
+      {/* My Inbox entry */}
+      <div className="px-2 pt-2 pb-1 shrink-0">
+        <Link
+          href="/projects/inbox"
+          onClick={onNavigate}
+          className={cn(
+            'flex items-center justify-between gap-2 rounded-[6px] px-2.5 py-1.5',
+            'text-[12px] font-medium transition-colors',
+            inboxActive
+              ? 'bg-bg-tertiary text-text-primary'
+              : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <Inbox className="h-3.5 w-3.5 shrink-0" />
+            My Inbox
+          </span>
+          {urgentTotal > 0 && (
+            <Badge
+              variant="destructive"
+              className="h-4 min-w-4 px-1 text-[10px] font-bold rounded-full leading-none"
+            >
+              {urgentTotal}
+            </Badge>
+          )}
+        </Link>
+      </div>
+
+      {/* Project tree */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+      <DraggableTreeNav<ProjectItem>
       items={projects}
       folders={spaces}
       itemNoun="project"
@@ -114,5 +151,7 @@ export function ProjectSubNav({ projects, spaces }: Props) {
         </div>
       }
     />
+      </div>
+    </div>
   )
 }

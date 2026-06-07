@@ -1,0 +1,325 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button [ref=e8] [cursor=pointer]:
+          - img [ref=e11]: menu
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - button "Open google account menu" [ref=e27]
+    - generic [ref=e30]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - button "Create" [ref=e36] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e41]: Create
+        - menu [ref=e42]:
+          - menu [ref=e43]:
+            - menuitem "Campaigns" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]:
+                - img [ref=e49]: campaign
+                - generic [ref=e50]: Campaigns
+            - menuitem "Goals" [ref=e54] [cursor=pointer]:
+              - generic [ref=e55]:
+                - img [ref=e57]: rewarded_ads
+                - generic [ref=e58]: Goals
+            - menuitem "Tools" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]:
+                - img [ref=e64]: construction
+                - generic [ref=e65]: Tools
+            - menuitem "Billing" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]:
+                - img [ref=e71]: credit_card
+                - generic [ref=e72]: Billing
+            - menuitem "Admin" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - img [ref=e78]: settings
+                - generic [ref=e79]: Admin
+      - generic [ref=e80]:
+        - generic [ref=e83]:
+          - button "View (2 filters) All campaigns" [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]:
+              - generic [ref=e90]: View (2 filters)
+              - generic [ref=e91]:
+                - img [ref=e94]: home
+                - button "All campaigns" [ref=e95]
+            - img [ref=e97]: arrow_drop_down
+          - button "Campaigns (1) Select a campaign" [ref=e102] [cursor=pointer]:
+            - generic [ref=e103]:
+              - generic [ref=e104]: Campaigns (1)
+              - generic [ref=e105]: Select a campaign
+            - img [ref=e107]: arrow_drop_down
+        - group [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e113] [cursor=pointer]:
+              - generic: Filters
+            - generic: "Filters Applied:"
+            - grid "Filters Applied:" [ref=e114]:
+              - 'row "Campaign status: Enabled, Paused" [ref=e116] [cursor=pointer]':
+                - 'gridcell "Campaign status: Enabled, Paused" [ref=e117]':
+                  - 'button "Campaign status: Enabled, Paused" [ref=e118]': "Campaign status: Enabled, Paused"
+              - 'row "Ad group status: Enabled, Paused" [ref=e120] [cursor=pointer]':
+                - 'gridcell "Ad group status: Enabled, Paused" [ref=e121]':
+                  - 'button "Ad group status: Enabled, Paused" [ref=e122]': "Ad group status: Enabled, Paused"
+              - row [ref=e123]:
+                - gridcell [ref=e124]:
+                  - combobox "Add filter" [ref=e125]
+                  - status [ref=e126]
+            - button "Save" [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]:
+                - img [ref=e132]: save
+                - generic [ref=e133]: Save
+        - main [ref=e141]:
+          - generic [ref=e143]:
+            - generic [ref=e148]:
+              - generic [ref=e157]:
+                - generic [ref=e162]:
+                  - generic [ref=e164]:
+                    - generic [ref=e165]: Impr.
+                    - 'button "Impr.: — for this time period. Hide this metric from the chart. . . ." [ref=e169] [cursor=pointer]'
+                  - generic [ref=e171]:
+                    - generic [ref=e172]: Cost
+                    - 'button "Cost: —. Show this metric in the chart. . . ." [ref=e176] [cursor=pointer]'
+                  - generic [ref=e178]:
+                    - generic [ref=e179]: Conversions
+                    - 'button "Conversions: —. Show this metric in the chart. . . ." [ref=e183] [cursor=pointer]'
+                - generic [ref=e185]:
+                  - button "Metrics" [ref=e186] [cursor=pointer]:
+                    - generic [ref=e188]:
+                      - img [ref=e190]: add_chart
+                      - generic [ref=e191]: Metrics
+                  - button "Adjust" [ref=e195] [cursor=pointer]:
+                    - generic [ref=e197]:
+                      - img [ref=e199]: tune
+                      - generic [ref=e200]: Adjust
+                  - button "Download" [ref=e203] [cursor=pointer]:
+                    - generic [ref=e205]:
+                      - img [ref=e207]: file_download
+                      - generic [ref=e208]: Download
+                  - button "Expand chart" [ref=e210] [cursor=pointer]:
+                    - generic [ref=e211]:
+                      - img [ref=e213]: fullscreen
+                      - generic [ref=e214]: Expand
+              - region "Primary toolbelt for Ads" [ref=e221]:
+                - generic [ref=e222]:
+                  - button "Create ad" [ref=e226] [cursor=pointer]:
+                    - img [ref=e229]: add
+                  - generic [ref=e233] [cursor=pointer]:
+                    - group [ref=e234]:
+                      - generic [ref=e235]:
+                        - button "Show 1 active filters" [ref=e238]:
+                          - generic [ref=e240]:
+                            - img [ref=e242]: filter_alt
+                            - generic [ref=e243]: "1"
+                        - generic: "Filters Applied:"
+                        - grid "Filters Applied:" [ref=e245]:
+                          - 'row "Ad status: Enabled, Paused" [ref=e247]':
+                            - 'gridcell "Ad status: Enabled, Paused" [ref=e248]':
+                              - 'button "Ad status: Enabled, Paused" [ref=e249]': "Ad status: Enabled, Paused"
+                    - button "Add filter" [ref=e251]:
+                      - generic [ref=e252]: Add filter
+                - generic [ref=e254]:
+                  - search [ref=e257] [cursor=pointer]:
+                    - button "Search" [ref=e260]:
+                      - generic [ref=e261]:
+                        - img [ref=e263]: search
+                        - generic [ref=e264]: Search
+                  - button "Segment. Segmentation off" [ref=e270] [cursor=pointer]:
+                    - generic [ref=e271]:
+                      - img [ref=e273]: segment
+                      - generic [ref=e274]: Segment
+                  - button "Columns" [ref=e280] [cursor=pointer]:
+                    - generic [ref=e281]:
+                      - img [ref=e283]: view_column
+                      - generic [ref=e284]: Columns
+                  - button "Reports" [ref=e290] [cursor=pointer]:
+                    - generic [ref=e291]:
+                      - img [ref=e293]: assessment
+                      - generic [ref=e294]: Reports
+                  - button "Download" [ref=e300] [cursor=pointer]:
+                    - generic [ref=e301]:
+                      - img [ref=e303]: file_download
+                      - generic [ref=e304]: Download
+                  - button "Expand" [ref=e310] [cursor=pointer]:
+                    - generic [ref=e311]:
+                      - img [ref=e313]: fullscreen
+                      - generic [ref=e314]: Expand
+                  - button "More options" [ref=e320] [cursor=pointer]:
+                    - generic [ref=e321]:
+                      - img [ref=e323]: more_vert
+                      - generic [ref=e324]: More
+                  - button "Hide chart" [ref=e333] [cursor=pointer]:
+                    - img [ref=e336]: keyboard_arrow_up
+              - generic [ref=e338]:
+                - grid "Ads" [ref=e341]:
+                  - row "Ad status Ad Campaign Ad group Status Ad strength Ad type Clicks Impr. CTR Avg. CPC Cost Conv. rate Conversions Cost / conv." [ref=e342]:
+                    - gridcell [ref=e343]
+                    - columnheader "Ad status" [ref=e344] [cursor=pointer]:
+                      - img "Ad status" [ref=e345]
+                    - columnheader "Ad" [ref=e346] [cursor=pointer]
+                    - columnheader "Campaign" [ref=e347] [cursor=pointer]
+                    - columnheader "Ad group" [ref=e348] [cursor=pointer]
+                    - columnheader "Status" [ref=e349] [cursor=pointer]:
+                      - text: Status
+                      - img [ref=e351]: help_outline
+                    - columnheader "Ad strength" [ref=e352] [cursor=pointer]:
+                      - text: Ad strength
+                      - img [ref=e354]: help_outline
+                    - columnheader "Ad type" [ref=e355] [cursor=pointer]
+                    - columnheader "Clicks" [ref=e356] [cursor=pointer]:
+                      - text: Clicks
+                      - img [ref=e358]: help_outline
+                    - columnheader "Impr." [ref=e359] [cursor=pointer]:
+                      - text: Impr.
+                      - img [ref=e361]: help_outline
+                    - columnheader "CTR" [ref=e362] [cursor=pointer]:
+                      - text: CTR
+                      - img [ref=e364]: help_outline
+                    - columnheader "Avg. CPC" [ref=e365] [cursor=pointer]:
+                      - text: Avg. CPC
+                      - img [ref=e367]: help_outline
+                    - columnheader "Cost" [ref=e368] [cursor=pointer]:
+                      - text: Cost
+                      - img [ref=e370]: help_outline
+                    - columnheader "Conv. rate" [ref=e371] [cursor=pointer]:
+                      - text: Conv. rate
+                      - img [ref=e373]: help_outline
+                    - columnheader "Conversions" [ref=e374] [cursor=pointer]:
+                      - text: Conversions
+                      - img [ref=e376]: help_outline
+                    - columnheader "Cost / conv." [ref=e377] [cursor=pointer]:
+                      - text: Cost / conv.
+                      - img [ref=e379]: help_outline
+                  - 'row "Select row Enabled Your {LOCATION(City):South Shore} Bath Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA +12 more ‪gthomeimprovementma.com/bathroom/remodeling‬ A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We''ve remodeled bathrooms across South Shore. Yours could be next. +2 more View assets details · Preview ads Search | Bathroom | LeadGen | 2 Jun 2026 Ad group 1 Eligible Average Responsive search ad 0 32 0.00% — $0.00 0.00% 0.00 $0.00" [ref=e380]':
+                    - gridcell "Select row" [ref=e381]:
+                      - checkbox "Select row" [ref=e383] [cursor=pointer]:
+                        - img [ref=e385]
+                    - gridcell "Enabled" [ref=e386]:
+                      - img "Enabled" [ref=e388]
+                    - 'gridcell "Your {LOCATION(City):South Shore} Bath Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA +12 more ‪gthomeimprovementma.com/bathroom/remodeling‬ A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We''ve remodeled bathrooms across South Shore. Yours could be next. +2 more View assets details · Preview ads" [ref=e389]':
+                      - generic [ref=e391]:
+                        - generic [ref=e392]:
+                          - 'link "Your {LOCATION(City):South Shore} Bath Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA" [ref=e393] [cursor=pointer]':
+                            - /url: https://www.gthomeimprovementma.com/
+                          - text: +12 more
+                        - generic [ref=e394]: ‪gthomeimprovementma.com/bathroom/remodeling‬
+                        - generic [ref=e395]: A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We've remodeled bathrooms across South Shore. Yours could be next. +2 more
+                        - generic [ref=e396]:
+                          - button "View assets details" [ref=e397] [cursor=pointer]
+                          - generic [ref=e398]: ·
+                          - button "Preview ads" [ref=e399] [cursor=pointer]
+                    - gridcell "Search | Bathroom | LeadGen | 2 Jun 2026" [ref=e400]:
+                      - generic [ref=e403] [cursor=pointer]: Search | Bathroom | LeadGen | 2 Jun 2026
+                    - gridcell "Ad group 1" [ref=e404]:
+                      - generic [ref=e407] [cursor=pointer]: Ad group 1
+                    - gridcell "Eligible" [ref=e408]:
+                      - generic [ref=e413]: Eligible
+                    - gridcell "Average" [ref=e414]:
+                      - generic [ref=e417] [cursor=pointer]: Average
+                    - gridcell "Responsive search ad" [ref=e418]:
+                      - generic [ref=e420]: Responsive search ad
+                    - gridcell "0" [ref=e421]:
+                      - generic [ref=e423]: "0"
+                    - gridcell "32" [ref=e424]:
+                      - generic [ref=e426]: "32"
+                    - gridcell "0.00%" [ref=e427]:
+                      - generic [ref=e429]: 0.00%
+                    - gridcell "—" [ref=e430]:
+                      - generic [ref=e432]: —
+                    - gridcell "$0.00" [ref=e433]:
+                      - generic [ref=e435]: $0.00
+                    - gridcell "0.00%" [ref=e436]:
+                      - generic [ref=e438]: 0.00%
+                    - gridcell "0.00" [ref=e439]:
+                      - generic [ref=e441]: "0.00"
+                    - gridcell "$0.00" [ref=e442]:
+                      - generic [ref=e444]: $0.00
+                  - 'row "Total: Ads in your current view 0 32 0.00% — $0.00 0.00% 0.00 $0.00" [ref=e445]':
+                    - gridcell [ref=e446]
+                    - gridcell [ref=e447]:
+                      - button [ref=e449] [cursor=pointer]:
+                        - img [ref=e450]
+                    - 'gridcell "Total: Ads in your current view"':
+                      - generic [ref=e451]:
+                        - generic [ref=e452]: "Total: Ads in your current view"
+                        - img [ref=e456] [cursor=pointer]
+                    - gridcell [ref=e457]
+                    - gridcell [ref=e458]
+                    - gridcell [ref=e459]
+                    - gridcell [ref=e460]
+                    - gridcell [ref=e461]
+                    - gridcell [ref=e462]
+                    - gridcell "0" [ref=e463]:
+                      - generic [ref=e465]: "0"
+                    - gridcell "32" [ref=e466]:
+                      - generic [ref=e468]: "32"
+                    - gridcell "0.00%" [ref=e469]:
+                      - generic [ref=e471]: 0.00%
+                    - gridcell "—" [ref=e472]:
+                      - generic [ref=e474]: —
+                    - gridcell "$0.00" [ref=e475]:
+                      - generic [ref=e477]: $0.00
+                    - gridcell "0.00%" [ref=e478]:
+                      - generic [ref=e480]: 0.00%
+                    - gridcell "0.00" [ref=e481]:
+                      - generic [ref=e483]: "0.00"
+                    - gridcell "$0.00" [ref=e484]:
+                      - generic [ref=e486]: $0.00
+                  - 'row "Total: Account 0 32 0.00% — $0.00 0.00% 0.00 $0.00" [ref=e487]':
+                    - gridcell [ref=e488]
+                    - gridcell [ref=e489]:
+                      - button [ref=e491] [cursor=pointer]:
+                        - img [ref=e492]
+                    - 'gridcell "Total: Account"':
+                      - generic [ref=e493]:
+                        - generic [ref=e494]: "Total: Account"
+                        - img [ref=e498] [cursor=pointer]
+                    - gridcell [ref=e499]
+                    - gridcell [ref=e500]
+                    - gridcell [ref=e501]
+                    - gridcell [ref=e502]
+                    - gridcell [ref=e503]
+                    - gridcell [ref=e504]
+                    - gridcell "0" [ref=e505]:
+                      - generic [ref=e507]: "0"
+                    - gridcell "32" [ref=e508]:
+                      - generic [ref=e510]: "32"
+                    - gridcell "0.00%" [ref=e511]:
+                      - generic [ref=e513]: 0.00%
+                    - gridcell "—" [ref=e514]:
+                      - generic [ref=e516]: —
+                    - gridcell "$0.00" [ref=e517]:
+                      - generic [ref=e519]: $0.00
+                    - gridcell "0.00%" [ref=e520]:
+                      - generic [ref=e522]: 0.00%
+                    - gridcell "0.00" [ref=e523]:
+                      - generic [ref=e525]: "0.00"
+                    - gridcell "$0.00" [ref=e526]:
+                      - generic [ref=e528]: $0.00
+                - generic [ref=e537]: 1 - 1 of 1
+            - generic [ref=e538]:
+              - generic [ref=e539]:
+                - link "Reporting is not real-time." [ref=e541] [cursor=pointer]:
+                  - /url: https://support.google.com/google-ads/?p=help_2544985&hl=en_US
+                - text: "Time zone for all dates and times: (GMT-04:00) Eastern Time."
+                - link "Learn more about changing your Google Ads account settings" [ref=e543] [cursor=pointer]:
+                  - /url: https://support.google.com/google-ads/?p=help_9842104&hl=en_US
+                  - text: Learn more
+                - generic [ref=e544]: Some inventory may be provided through third party intermediaries.
+                - generic [ref=e545]: You'll see Media Rating Council (MRC) accreditation noted in the column header's hover text for accredited metrics.
+              - generic [ref=e546]: © Google, 2026.
+  - generic [ref=e553]:
+    - img [ref=e554]
+    - img [ref=e556]
+    - img [ref=e558]
+    - img [ref=e560]
+    - img [ref=e562]
+    - img [ref=e564]
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.

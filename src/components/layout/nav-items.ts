@@ -56,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build',    permission: 'agents.view' },
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view' },
   { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view' },
-  { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build',    permission: 'scheduling.view' },
+  { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view' },
 ]
 

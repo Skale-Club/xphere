@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 
-import { getProject, getProjectTasks, getProjectLabels, getDefaultSavedView, getProjectCrmContext } from '../actions'
+import { getProject, getProjectTasks, getProjectLabels, getDefaultSavedView, getProjectCrmContext, listProjectSavedViews, listProjectAssignees } from '../actions'
 import { listSpaces } from '../_actions/spaces'
 import { ProjectDetailClient } from '@/components/projects/project-detail-client'
 import { ProjectBoardSkeleton } from '@/components/skeletons/project-board-skeleton'
@@ -31,13 +31,15 @@ function getEffectiveProjectColor(project: ProjectRow, spaces: ProjectSpaceRow[]
 }
 
 async function ProjectDetail({ projectId, urlView }: { projectId: string; urlView: string | undefined }) {
-  const [project, tasks, labels, crmContext, savedView, spacesRes] = await Promise.all([
+  const [project, tasks, labels, crmContext, savedView, spacesRes, savedViews, assignees] = await Promise.all([
     getProject(projectId),
     getProjectTasks(projectId),
     getProjectLabels(projectId),
     getProjectCrmContext(projectId),
     urlView ? null : getDefaultSavedView(projectId),
     listSpaces(),
+    listProjectSavedViews(projectId),
+    listProjectAssignees(),
   ])
 
   if (!project) notFound()
@@ -47,6 +49,14 @@ async function ProjectDetail({ projectId, urlView }: { projectId: string; urlVie
   const spaces = spacesRes.ok ? spacesRes.data : []
   const effectiveColor = getEffectiveProjectColor(project, spaces)
 
+  // Map AssigneeProfile to the shape ProjectFilterBar expects
+  const filterAssignees = assignees.map((a) => ({
+    id: a.user_id,
+    full_name: a.full_name,
+    avatar_url: null as string | null,
+    email: a.email ?? '',
+  }))
+
   return (
     <ProjectDetailClient
       project={project}
@@ -55,6 +65,9 @@ async function ProjectDetail({ projectId, urlView }: { projectId: string; urlVie
       labels={labels}
       crmContext={crmContext}
       defaultView={defaultView}
+      initialSavedViews={savedViews}
+      defaultSavedView={savedView ?? null}
+      assignees={filterAssignees}
     />
   )
 }

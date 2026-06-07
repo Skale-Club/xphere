@@ -1,4 +1,4 @@
-// MCP tools for scheduling event types.
+// MCP tools for calendar event types.
 
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'

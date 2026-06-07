@@ -1131,3 +1131,177 @@ export async function emptyProjectsTrash(): Promise<ActionResult<{ count: number
   revalidatePath('/projects/trash')
   return { ok: true, data: { count: ids.length } }
 }
+
+// ─── Saved Views ──────────────────────────────────────────────────────────────
+
+export async function listProjectSavedViews(projectId: string): Promise<ProjectSavedViewRow[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await db(supabase)
+    .from('project_saved_views')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('owner_id', user.id)
+    .eq('scope', 'personal')
+    .order('created_at', { ascending: true })
+  return (data as ProjectSavedViewRow[]) ?? []
+}
+
+export async function createProjectSavedView(
+  projectId: string,
+  name: string,
+  filters: Record<string, unknown>,
+  sorting: Record<string, unknown>,
+  viewType: string,
+  setAsDefault: boolean,
+): Promise<{ view: ProjectSavedViewRow } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'not_authenticated' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'no_active_org' }
+
+  if (setAsDefault) {
+    await db(supabase)
+      .from('project_saved_views')
+      .update({ is_default: false })
+      .eq('project_id', projectId)
+      .eq('owner_id', user.id)
+      .eq('scope', 'personal')
+  }
+
+  const { data, error } = await db(supabase)
+    .from('project_saved_views')
+    .insert({
+      project_id: projectId,
+      owner_id: user.id,
+      org_id: orgId,
+      name,
+      view_type: viewType,
+      scope: 'personal',
+      is_default: setAsDefault,
+      filters,
+      sorting,
+    })
+    .select('*')
+    .single()
+
+  if (error) return { error: error.message }
+  return { view: data as ProjectSavedViewRow }
+}
+
+export async function deleteProjectSavedView(id: string): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'not_authenticated' }
+  const supabase = await createClient()
+  const { error } = await db(supabase)
+    .from('project_saved_views')
+    .delete()
+    .eq('id', id)
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function setDefaultProjectSavedView(
+  projectId: string,
+  id: string | null,
+): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'not_authenticated' }
+  const supabase = await createClient()
+
+  const { error: clearError } = await db(supabase)
+    .from('project_saved_views')
+    .update({ is_default: false })
+    .eq('project_id', projectId)
+    .eq('owner_id', user.id)
+    .eq('scope', 'personal')
+
+  if (clearError) return { error: clearError.message }
+
+  if (id) {
+    const { error: setError } = await db(supabase)
+      .from('project_saved_views')
+      .update({ is_default: true })
+      .eq('id', id)
+    if (setError) return { error: setError.message }
+  }
+
+  return {}
+}
+
+// ─── My Tasks ─────────────────────────────────────────────────────────────────
+
+export type MyProjectTask = ProjectTaskRow & {
+  project_name: string
+  project_color: string | null
+}
+
+export async function getMyProjectTasks(): Promise<MyProjectTask[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+
+  const { data } = await db(supabase)
+    .from('project_tasks')
+    .select('*, projects(name, color)')
+    .or(`assignee_id.eq.${user.id},responsible_id.eq.${user.id}`)
+    .is('archived_at', null)
+    .is('deleted_at', null)
+
+  if (!data) return []
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().slice(0, 10)
+
+  const rows = (data as Array<ProjectTaskRow & { projects: { name: string; color: string | null } | null }>)
+  const withProject: MyProjectTask[] = rows.map((r) => ({
+    ...r,
+    project_name: r.projects?.name ?? '',
+    project_color: r.projects?.color ?? null,
+  }))
+
+  return withProject.sort((a, b) => {
+    const aOverdue = !a.completed && a.end_date != null && a.end_date < todayStr
+    const bOverdue = !b.completed && b.end_date != null && b.end_date < todayStr
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1
+    if (a.end_date && b.end_date) return a.end_date < b.end_date ? -1 : a.end_date > b.end_date ? 1 : 0
+    if (a.end_date && !b.end_date) return -1
+    if (!a.end_date && b.end_date) return 1
+    return b.created_at < a.created_at ? -1 : 1
+  })
+}
+
+export async function getMyUrgentTaskCount(): Promise<{ overdue: number; dueToday: number }> {
+  const user = await getUser()
+  if (!user) return { overdue: 0, dueToday: 0 }
+  const supabase = await createClient()
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().slice(0, 10)
+
+  const { data } = await db(supabase)
+    .from('project_tasks')
+    .select('end_date')
+    .or(`assignee_id.eq.${user.id},responsible_id.eq.${user.id}`)
+    .eq('completed', false)
+    .is('archived_at', null)
+    .is('deleted_at', null)
+    .not('end_date', 'is', null)
+    .lte('end_date', todayStr)
+
+  if (!data) return { overdue: 0, dueToday: 0 }
+
+  let overdue = 0
+  let dueToday = 0
+  for (const row of data as { end_date: string | null }[]) {
+    if (!row.end_date) continue
+    if (row.end_date < todayStr) overdue++
+    else if (row.end_date === todayStr) dueToday++
+  }
+
+  return { overdue, dueToday }
+}
