@@ -385,7 +385,7 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
             </button>
           </div>
 
-          <div className="flex-1 sm:flex-none min-h-0 p-6 sm:p-4 flex flex-col gap-4 sm:gap-0 sm:space-y-4 overflow-y-auto">
+          <div className="flex-1 min-h-0 p-6 sm:p-4 flex flex-col gap-4 sm:gap-0 sm:space-y-4 overflow-y-auto">
             {/* Contact search | name / company / phone, min 3 chars */}
             <div className="relative">
               <div className="relative">
@@ -538,7 +538,10 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                 </select>
               </div>
             )}
+          </div>
 
+          {/* Pinned footer | stays visible so the Call button never scrolls out of view */}
+          <div className="shrink-0 border-t border-border px-6 sm:px-4 py-4 sm:py-3 flex flex-col gap-4 sm:gap-3">
             {/* Action row: backspace + call */}
             {!device.activeCall && (
               <div className="flex items-center gap-2 sm:gap-2">
@@ -575,9 +578,9 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                 aria-label="Toggle call recording"
               />
             </div>
+          </div>
         </div>
       </div>
-    </div>
   </>
 )
 }
