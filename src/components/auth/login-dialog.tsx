@@ -1,12 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { unstable_rethrow } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/client'
@@ -157,17 +156,15 @@ function AuthError({ message }: { message: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Step 1 — Email + Turnstile + Google                                       */
+/*  Step 1 — Email + Google                                                   */
 /* -------------------------------------------------------------------------- */
 
 function Step1Form({
   initialEmail,
-  captchaToken,
   onContinue,
   onError,
 }: {
   initialEmail: string
-  captchaToken: string | null
   onContinue: (email: string) => void
   onError: (msg: string | null) => void
 }) {
@@ -178,7 +175,6 @@ function Step1Form({
   })
 
   const isSubmitting = form.formState.isSubmitting
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
   function onSubmit(values: EmailValues) {
     onError(null)
@@ -215,7 +211,7 @@ function Step1Form({
           <Button
             type="submit"
             className="w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={(!!siteKey && !captchaToken) || isSubmitting}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>
@@ -241,23 +237,14 @@ function Step1Form({
 
 interface Step2CommonProps {
   email: string
-  captchaToken: string | null
   onBack: () => void
-  onCaptchaInvalid: () => void
-  onResetCaptcha: () => void
   onError: (msg: string | null) => void
 }
 
-// A live site key means a captcha token is required for submission.
-const captchaSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-
 function Step2SignInForm({
   email,
-  captchaToken,
   onBack,
   onForgot,
-  onCaptchaInvalid,
-  onResetCaptcha,
   onError,
 }: Step2CommonProps & { onForgot: () => void }) {
   const form = useForm<SignInPasswordValues>({
@@ -266,7 +253,6 @@ function Step2SignInForm({
     defaultValues: { password: '' },
   })
   const isSubmitting = form.formState.isSubmitting
-  const captchaPending = !!captchaSiteKey && !captchaToken
 
   async function handleSubmit(values: SignInPasswordValues) {
     onError(null)
@@ -274,24 +260,13 @@ function Step2SignInForm({
       const result = await signInWithEmail({
         email,
         password: values.password,
-        captchaToken,
       })
       if (!result.ok) {
-        if (result.errorCode === 'captcha_failed') {
-          onError(authErrorCodeToMessage('captcha_failed'))
-          onCaptchaInvalid()
-          return
-        }
-        // The single-use captcha token was consumed by this attempt. Issue a
-        // fresh one so a retry (e.g. corrected password) isn't rejected as a
-        // duplicate token.
-        onResetCaptcha()
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
     } catch (err) {
       unstable_rethrow(err)
-      onResetCaptcha()
       onError('Unable to connect. Check your internet connection and try again.')
     }
   }
@@ -351,7 +326,7 @@ function Step2SignInForm({
           <Button
             type="submit"
             className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting || captchaPending}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>
@@ -373,10 +348,7 @@ function Step2SignInForm({
 
 function Step2SignUpForm({
   email,
-  captchaToken,
   onBack,
-  onCaptchaInvalid,
-  onResetCaptcha,
   onEmailSent,
   onError,
 }: Step2CommonProps & { onEmailSent: (email: string) => void }) {
@@ -386,7 +358,6 @@ function Step2SignUpForm({
     defaultValues: { password: '', confirmPassword: '' },
   })
   const isSubmitting = form.formState.isSubmitting
-  const captchaPending = !!captchaSiteKey && !captchaToken
 
   async function handleSubmit(values: SignUpPasswordValues) {
     onError(null)
@@ -395,17 +366,9 @@ function Step2SignUpForm({
       const result = await signUpWithEmail({
         email,
         password: values.password,
-        captchaToken,
         emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
       })
       if (!result.ok) {
-        if (result.errorCode === 'captcha_failed') {
-          onError(authErrorCodeToMessage('captcha_failed'))
-          onCaptchaInvalid()
-          return
-        }
-        // Re-issue the single-use captcha token for the next attempt.
-        onResetCaptcha()
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
@@ -414,7 +377,6 @@ function Step2SignUpForm({
       }
     } catch (err) {
       unstable_rethrow(err)
-      onResetCaptcha()
       onError('Unable to connect. Check your internet connection and try again.')
     }
   }
@@ -483,7 +445,7 @@ function Step2SignUpForm({
           <Button
             type="submit"
             className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting || captchaPending}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>
@@ -506,21 +468,15 @@ function Step2SignUpForm({
 function Step2Form({
   mode,
   email,
-  captchaToken,
   onBack,
   onForgot,
-  onCaptchaInvalid,
-  onResetCaptcha,
   onEmailSent,
   onError,
 }: {
   mode: AuthMode
   email: string
-  captchaToken: string | null
   onBack: () => void
   onForgot: () => void
-  onCaptchaInvalid: () => void
-  onResetCaptcha: () => void
   onEmailSent: (email: string) => void
   onError: (msg: string | null) => void
 }) {
@@ -528,10 +484,7 @@ function Step2Form({
     return (
       <Step2SignUpForm
         email={email}
-        captchaToken={captchaToken}
         onBack={onBack}
-        onCaptchaInvalid={onCaptchaInvalid}
-        onResetCaptcha={onResetCaptcha}
         onEmailSent={onEmailSent}
         onError={onError}
       />
@@ -540,11 +493,8 @@ function Step2Form({
   return (
     <Step2SignInForm
       email={email}
-      captchaToken={captchaToken}
       onBack={onBack}
       onForgot={onForgot}
-      onCaptchaInvalid={onCaptchaInvalid}
-      onResetCaptcha={onResetCaptcha}
       onError={onError}
     />
   )
@@ -681,20 +631,9 @@ export function LoginDialog(props: LoginDialogProps) {
   const [view, setView] = useState<AuthView>(props.initialView ?? 'step1')
   const [mode, setMode] = useState<AuthMode>(props.initialMode ?? 'signin')
   const [email, setEmail] = useState('')
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
-  const turnstileRef = useRef<TurnstileInstance | null>(null)
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-
-  // Turnstile tokens are single-use; after a token is spent on a verification
-  // attempt, drop it and re-execute the widget so the next attempt gets a fresh
-  // token instead of replaying a duplicate (which the server rejects).
-  const resetCaptcha = useCallback(() => {
-    setCaptchaToken(null)
-    turnstileRef.current?.reset()
-  }, [])
 
   // Sync internal state when controlled dialog opens with a requested initial view/mode.
   useEffect(() => {
@@ -708,7 +647,6 @@ export function LoginDialog(props: LoginDialogProps) {
     setMode(m)
     setView('step1')
     setEmail('')
-    resetCaptcha()
     setEmailSent(null)
     setResetSent(null)
     setAuthError(null)
@@ -772,31 +710,9 @@ export function LoginDialog(props: LoginDialogProps) {
             </div>
           ) : null}
 
-          {/*
-            Invisible Turnstile lives here at the dialog level (not inside a
-            step) so it stays mounted across step 1 → step 2 and can be reset to
-            mint a fresh single-use token for each verification attempt.
-          */}
-          {siteKey && open ? (
-            <div className="hidden">
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={siteKey}
-                options={{ size: 'invisible' }}
-                onSuccess={(token) => setCaptchaToken(token)}
-                onError={() => {
-                  setCaptchaToken(null)
-                  setAuthError(authErrorCodeToMessage('captcha_failed'))
-                }}
-                onExpire={() => setCaptchaToken(null)}
-              />
-            </div>
-          ) : null}
-
           {view === 'step1' && !emailSent ? (
             <Step1Form
               initialEmail={email}
-              captchaToken={captchaToken}
               onContinue={(em) => {
                 setEmail(em)
                 setView('step2')
@@ -809,14 +725,8 @@ export function LoginDialog(props: LoginDialogProps) {
             <Step2Form
               mode={mode}
               email={email}
-              captchaToken={captchaToken}
               onBack={() => setView('step1')}
               onForgot={() => setView('reset')}
-              onCaptchaInvalid={() => {
-                resetCaptcha()
-                setView('step1')
-              }}
-              onResetCaptcha={resetCaptcha}
               onEmailSent={setEmailSent}
               onError={setAuthError}
             />

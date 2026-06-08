@@ -1,9 +1,7 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { verifyTurnstile } from '@/lib/auth/verify-turnstile'
 import { mapSupabaseError, type AuthErrorCode } from '@/lib/auth/errors'
 
 export type AuthActionResult =
@@ -13,31 +11,15 @@ export type AuthActionResult =
 interface EmailPasswordInput {
   email: string
   password: string
-  captchaToken: string | null
 }
 
 interface SignUpInput extends EmailPasswordInput {
   emailRedirectTo?: string
 }
 
-async function getRemoteIp(): Promise<string | null> {
-  const h = await headers()
-  return (
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    h.get('x-real-ip') ||
-    null
-  )
-}
-
 export async function signInWithEmail(
   input: EmailPasswordInput,
 ): Promise<AuthActionResult> {
-  const remoteIp = await getRemoteIp()
-  const { success } = await verifyTurnstile(input.captchaToken, remoteIp)
-  if (!success) {
-    return { ok: false, errorCode: 'captcha_failed' }
-  }
-
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword({
     email: input.email,
@@ -62,12 +44,6 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   input: SignUpInput,
 ): Promise<AuthActionResult> {
-  const remoteIp = await getRemoteIp()
-  const { success } = await verifyTurnstile(input.captchaToken, remoteIp)
-  if (!success) {
-    return { ok: false, errorCode: 'captcha_failed' }
-  }
-
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
