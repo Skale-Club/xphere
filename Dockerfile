@@ -73,6 +73,24 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+# playwright + playwright-core are in serverExternalPackages so they are NOT
+# traced into the standalone output. Copy them explicitly from the deps stage
+# so dynamic import('playwright') resolves at runtime.
+COPY --from=deps --chown=node:node /app/node_modules/playwright ./node_modules/playwright
+COPY --from=deps --chown=node:node /app/node_modules/playwright-core ./node_modules/playwright-core
+# cheerio and its full dependency tree (htmlparser2, domhandler, etc.)
+COPY --from=deps --chown=node:node /app/node_modules/cheerio ./node_modules/cheerio
+COPY --from=deps --chown=node:node /app/node_modules/htmlparser2 ./node_modules/htmlparser2
+COPY --from=deps --chown=node:node /app/node_modules/domhandler ./node_modules/domhandler
+COPY --from=deps --chown=node:node /app/node_modules/domutils ./node_modules/domutils
+COPY --from=deps --chown=node:node /app/node_modules/css-select ./node_modules/css-select
+COPY --from=deps --chown=node:node /app/node_modules/css-what ./node_modules/css-what
+COPY --from=deps --chown=node:node /app/node_modules/entities ./node_modules/entities
+COPY --from=deps --chown=node:node /app/node_modules/parse5 ./node_modules/parse5
+COPY --from=deps --chown=node:node /app/node_modules/boolbase ./node_modules/boolbase
+COPY --from=deps --chown=node:node /app/node_modules/nth-check ./node_modules/nth-check
+
 USER node
 EXPOSE 3000
 # Health probe — Docker (and Coolify) wait for this to pass before routing

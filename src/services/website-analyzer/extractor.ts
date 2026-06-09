@@ -4,8 +4,10 @@
 //       And Chromium must be available: npx playwright install chromium
 //       In Docker: add --no-sandbox flag (already set below) + install deps.
 
-import { chromium } from 'playwright'
-import * as cheerio from 'cheerio'
+// playwright and cheerio are loaded dynamically so this module can be
+// imported (and GET /analyze routes can respond) even when the packages
+// are not yet available in the standalone output. The actual browser
+// and parser are only needed when analyzeWebsite() is called.
 import type { BrandColor, RawExtraction } from './types'
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 }
@@ -120,7 +122,8 @@ async function extractLogo(page: import('playwright').Page, baseUrl: string): Pr
 }
 
 /** Parse headings, nav items and hero text with cheerio. */
-function extractContent(html: string): { headings: string[]; navItems: string[]; heroText: string[] } {
+async function extractContent(html: string): Promise<{ headings: string[]; navItems: string[]; heroText: string[] }> {
+  const cheerio = await import('cheerio')
   const $ = cheerio.load(html)
 
   const headings: string[] = []
@@ -192,6 +195,10 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
   const url = normaliseUrl(rawUrl)
   const startMs = Date.now()
 
+  // Dynamic import — loaded here (not at module top-level) so that GET
+  // requests to /analyze can succeed even if playwright is unavailable.
+  const { chromium } = await import('playwright')
+
   // In Docker (Alpine), use the system Chromium via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
   // In local dev, leave executablePath undefined so Playwright uses its own bundled binary.
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
@@ -261,7 +268,7 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
     const mobileScreenshot = await mobilePage.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
     await mobileCtx.close()
 
-    const { headings, navItems, heroText } = extractContent(html)
+    const { headings, navItems, heroText } = await extractContent(html)
 
     return {
       resolvedUrl,
