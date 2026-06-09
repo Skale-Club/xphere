@@ -109,6 +109,9 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    // Clear the active-org cookie so the next account on this browser doesn't
+    // inherit a stale org name (the cookie is non-httpOnly, 30-day).
+    document.cookie = 'vo_active_org=; path=/; max-age=0; samesite=lax'
     router.push('/')
   }
 

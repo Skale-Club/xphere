@@ -577,7 +577,7 @@ function ResetForm({
       const supabase = createClient()
       const origin = getSiteOrigin()
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${origin}/auth/callback?next=/dashboard`,
+        redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
       })
       if (error) {
         onError(mapSupabaseError(error.message))
