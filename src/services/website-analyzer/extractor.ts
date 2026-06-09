@@ -212,6 +212,7 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-software-rasterizer',
+      '--ignore-certificate-errors', // many small-business sites have expired/self-signed certs
     ],
   })
 
