@@ -9,7 +9,7 @@ import { testResendApiKey } from '@/lib/email/resend'
 export type IntegrationForDisplay = {
   id: string
   organization_id: string
-  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio'
+  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule'
   name: string
   masked_api_key: string // ••••••••last4 | never full key
   location_id: string | null
@@ -429,7 +429,17 @@ export async function saveIntegrationCredentials(
       const webhookUrl = `https://xphere.app/api/zernio/webhook?t=${webhookToken}`
 
       const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
-      const { webhookId } = await registerZernioWebhook(webhookApiKey, webhookUrl, webhookSecret, existingWebhookId)
+      const { webhookId, missingEvents } = await registerZernioWebhook(
+        webhookApiKey,
+        webhookUrl,
+        webhookSecret,
+        existingWebhookId,
+      )
+      if (missingEvents.length > 0) {
+        console.error(
+          `[saveIntegrationCredentials] Zernio webhook ${webhookId} did not persist events: ${missingEvents.join(', ')}`,
+        )
+      }
 
       const { error } = await supabase
         .from('integrations')

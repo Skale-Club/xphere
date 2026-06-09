@@ -3,9 +3,11 @@
 // Agents sub-sidebar: a grouped, expandable tree.
 //   - Active agents are organized into user-created groups (folders) via the
 //     shared DraggableTreeNav (drag to file/reorder, rename, color/emoji).
-//   - Each agent row expands to reveal its sub-pages as children (Settings,
-//     Invocations, Playground, Prompt history). Clicking the name navigates to
-//     Settings AND expands; the chevron alone only toggles.
+//   - Each agent row expands to reveal its sections as children (Prompt &
+//     Actions, Knowledge, Settings, Dashboard). Clicking the name navigates to
+//     Prompt & Actions AND expands; the chevron alone only toggles. The
+//     playground is always visible as a rail in the agent layout, so it is not
+//     a sidebar item.
 //   - Inactive agents are pulled into a collapsible "Inactive" group pinned at
 //     the bottom (rendered via DraggableTreeNav's appendSection slot).
 
@@ -13,7 +15,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Bot, ChevronRight, History, ListTree, Plus, Settings2, Sparkles } from 'lucide-react'
+import { BookOpen, Bot, ChevronRight, LayoutDashboard, MessageSquare, Plus, Settings2 } from 'lucide-react'
 
 import {
   DraggableTreeNav,
@@ -38,6 +40,7 @@ import {
   updateAgentGroupMeta,
 } from '@/app/(dashboard)/agents/_actions/groups'
 import { NewAgentGroupButton } from '@/components/agents/new-agent-group-button'
+import { NewAgentDialog } from '@/components/agents/new-agent-dialog'
 
 interface AgentItem extends TreeNavItem {
   is_active: boolean
@@ -48,10 +51,10 @@ interface AgentItem extends TreeNavItem {
  *  the reference stays stable across renders (cheap, depends only on the id). */
 function agentChildren(a: AgentItem): TreeNavChild[] {
   return [
-    { label: 'Settings', href: `/agents/${a.id}`, icon: <Settings2 className="h-3 w-3" /> },
-    { label: 'Invocations', href: `/agents/${a.id}/invocations`, icon: <ListTree className="h-3 w-3" /> },
-    { label: 'Playground', href: `/agents/${a.id}/playground`, icon: <Sparkles className="h-3 w-3" /> },
-    { label: 'Prompt history', href: `/agents/${a.id}/prompt-history`, icon: <History className="h-3 w-3" /> },
+    { label: 'Prompt & Actions', href: `/agents/${a.id}`, icon: <MessageSquare className="h-3 w-3" />, exact: true },
+    { label: 'Knowledge', href: `/agents/${a.id}/knowledge`, icon: <BookOpen className="h-3 w-3" /> },
+    { label: 'Settings', href: `/agents/${a.id}/settings`, icon: <Settings2 className="h-3 w-3" /> },
+    { label: 'Dashboard', href: `/agents/${a.id}/dashboard`, icon: <LayoutDashboard className="h-3 w-3" /> },
   ]
 }
 
@@ -100,12 +103,12 @@ export function AgentsSubNav({ agents, groups }: AgentsSubNavProps) {
       }}
       toolbar={
         <>
-          <Button asChild size="sm" className="h-6 flex-1 text-[11px] gap-1">
-            <Link href="/agents/new" onClick={onNavigate}>
+          <NewAgentDialog>
+            <Button size="sm" className="h-6 flex-1 text-[11px] gap-1">
               <Plus className="h-3 w-3" />
               Agent
-            </Link>
-          </Button>
+            </Button>
+          </NewAgentDialog>
           <NewAgentGroupButton />
           <Button asChild variant="outline" size="sm" className="h-6 w-6 px-0">
             <Link href="/agents" onClick={onNavigate} aria-label="All agents" title="All agents">

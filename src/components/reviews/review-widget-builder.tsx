@@ -82,10 +82,15 @@ function initials(name: string | null): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function firstText(text: string | null): string {
-  if (!text) return 'No written review.'
-  if (text.length <= 220) return text
-  return `${text.slice(0, 220).trim()}...`
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-label="Google review" role="img" className="shrink-0">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
 }
 
 function escapeAttribute(value: string): string {
@@ -125,34 +130,11 @@ function iframeHeight(layout: Layout, showHero: boolean): number {
 function buildWidgetUrl({
   baseUrl,
   widgetToken,
-  layout,
-  minRating,
-  theme,
-  limit,
-  showHero,
-  equalHeight,
-  footerCta,
 }: {
   baseUrl: string
   widgetToken: string
-  layout: Layout
-  minRating: string
-  theme: Theme
-  limit: string
-  showHero: boolean
-  equalHeight: boolean
-  footerCta: boolean
 }) {
-  const params = new URLSearchParams({
-    layout,
-    min_rating: minRating,
-    theme,
-    limit: limit === 'all' ? '500' : limit,
-  })
-  if (!showHero) params.set('hero', '0')
-  if (!equalHeight) params.set('eqh', '0')
-  if (footerCta) params.set('cta', '1')
-  return `${baseUrl}/widget/reviews/${widgetToken}?${params.toString()}`
+  return `${baseUrl}/widget/reviews/${widgetToken}`
 }
 
 function PreviewCard({
@@ -161,14 +143,30 @@ function PreviewCard({
   brandAccent,
   compact = false,
   fill = false,
+  maxChars = 220,
+  showOwnerResponse = true,
 }: {
   review: ReviewWidgetPreviewReview
   theme: Theme
   brandAccent: string
   compact?: boolean
   fill?: boolean
+  maxChars?: number
+  showOwnerResponse?: boolean
 }) {
+  const [textExpanded, setTextExpanded] = useState(false)
+  const [responseExpanded, setResponseExpanded] = useState(false)
   const brandSoft = hexToRgba(brandAccent, theme === 'dark' ? 0.22 : 0.12)
+  const rawText = review.text ?? ''
+  const textTruncable = rawText.length > maxChars
+  const displayText = textTruncable && !textExpanded
+    ? `${rawText.slice(0, maxChars).trimEnd()}…`
+    : rawText
+  const rawResponse = review.ownerResponse ?? ''
+  const responseTruncable = rawResponse.length > maxChars
+  const displayResponse = responseTruncable && !responseExpanded
+    ? `${rawResponse.slice(0, maxChars).trimEnd()}…`
+    : rawResponse
   return (
     <article
       className={cn(
@@ -194,16 +192,7 @@ function PreviewCard({
             <p className="truncate text-[13px] font-semibold">
               {review.reviewerName ?? 'Anonymous'}
             </p>
-            {review.isLocalGuide ? (
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
-                )}
-                style={{ backgroundColor: brandSoft, color: brandAccent }}
-              >
-                Local Guide
-              </span>
-            ) : null}
+            <span className="ml-auto"><GoogleIcon /></span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <StarRating rating={review.rating} size="sm" />
@@ -216,15 +205,26 @@ function PreviewCard({
         </div>
       </header>
 
-      <p
-        className={cn(
-          'mt-3 whitespace-pre-line text-[13px] leading-relaxed',
-          theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
-          compact && 'line-clamp-4',
+      <div className="mt-3">
+        <p
+          className={cn(
+            'whitespace-pre-line text-[13px] leading-relaxed',
+            theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
+          )}
+        >
+          {displayText || 'No written review.'}
+        </p>
+        {textTruncable && (
+          <button
+            type="button"
+            onClick={() => setTextExpanded((v) => !v)}
+            className="mt-1 text-[11px] font-medium hover:underline"
+            style={{ color: brandAccent }}
+          >
+            {textExpanded ? 'Show less' : 'Read more'}
+          </button>
         )}
-      >
-        {firstText(review.text)}
-      </p>
+      </div>
 
       {review.photos.length > 0 ? (
         <div className="mt-3 flex gap-1.5 overflow-hidden">
@@ -241,7 +241,7 @@ function PreviewCard({
         </div>
       ) : null}
 
-      {review.ownerResponse ? (
+      {showOwnerResponse && review.ownerResponse ? (
         <div
           className={cn(
             'mt-3 rounded-[10px] border-l-2 px-3 py-2',
@@ -252,7 +252,17 @@ function PreviewCard({
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: brandAccent }}>
             Owner response
           </p>
-          <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed">{review.ownerResponse}</p>
+          <p className="mt-1 text-[12px] leading-relaxed">{displayResponse}</p>
+          {responseTruncable && (
+            <button
+              type="button"
+              onClick={() => setResponseExpanded((v) => !v)}
+              className="mt-1 text-[11px] font-medium hover:underline"
+              style={{ color: brandAccent }}
+            >
+              {responseExpanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
         </div>
       ) : null}
     </article>
@@ -264,11 +274,15 @@ function PreviewCarousel({
   theme,
   brandAccent,
   equalHeight,
+  maxChars,
+  showOwnerResponse,
 }: {
   reviews: ReviewWidgetPreviewReview[]
   theme: Theme
   brandAccent: string
   equalHeight: boolean
+  maxChars: number
+  showOwnerResponse: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -284,13 +298,30 @@ function PreviewCarousel({
   const advance = useCallback(() => {
     const vp = viewportRef.current
     if (!vp) return
-    const max = vp.scrollWidth - vp.clientWidth
-    vp.scrollTo({ left: vp.scrollLeft >= max - 4 ? 0 : vp.scrollLeft + getStep(), behavior: 'smooth' })
+    vp.scrollTo({ left: vp.scrollLeft + getStep(), behavior: 'smooth' })
   }, [getStep])
 
   const scrollDir = useCallback((dir: 1 | -1) => {
     viewportRef.current?.scrollBy({ left: dir * getStep(), behavior: 'smooth' })
   }, [getStep])
+
+  // Infinite loop: silently reset scroll when entering the cloned half
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    let lock = false
+    const onScroll = () => {
+      if (lock) return
+      const half = vp.scrollWidth / 2
+      if (vp.scrollLeft >= half) {
+        lock = true
+        vp.scrollLeft -= half
+        lock = false
+      }
+    }
+    vp.addEventListener('scroll', onScroll, { passive: true })
+    return () => vp.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (hovered) return
@@ -344,9 +375,9 @@ function PreviewCarousel({
         onPointerLeave={onPointerUp}
       >
         <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
-          {reviews.map((review) => (
-            <div key={review.id} data-card className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
-              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} />
+          {[...reviews, ...reviews].map((review, i) => (
+            <div key={`${review.id}-${i}`} data-card aria-hidden={i >= reviews.length || undefined} className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
+              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} />
             </div>
           ))}
         </div>
@@ -374,13 +405,14 @@ export function ReviewWidgetBuilder({
   const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
   const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
   const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
+  const [maxChars, setMaxChars] = useState(savedSettings?.maxChars ?? '220')
+  const [showOwnerResponse, setShowOwnerResponse] = useState(savedSettings?.showOwnerResponse ?? true)
   const [embedMode, setEmbedMode] = useState<EmbedMode>((savedSettings?.embedMode as EmbedMode) ?? 'iframe')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const accent = isHexColor(brandAccent) ? brandAccent : '#6366F1'
-  const brandSoft = hexToRgba(accent, theme === 'dark' ? 0.22 : 0.12)
   const heroSolidStart = theme === 'dark'
     ? hexBlendSolid(accent, 0.22, 24, 24, 27)
     : hexBlendSolid(accent, 0.12, 255, 255, 255)
@@ -395,18 +427,10 @@ export function ReviewWidgetBuilder({
   const widgetUrl = buildWidgetUrl({
     baseUrl,
     widgetToken,
-    layout,
-    minRating,
-    theme,
-    limit,
-    showHero,
-    equalHeight,
-    footerCta,
   })
   const height = iframeHeight(layout, showHero)
   const title = `${business.name ?? 'Google'} reviews`
   const safeTitle = escapeAttribute(title)
-  const embedLimit = limit === 'all' ? '500' : limit
   const embedOrigin = (() => {
     try {
       return new URL(baseUrl).origin
@@ -431,14 +455,7 @@ export function ReviewWidgetBuilder({
 
   const scriptSnippet = `<div
   data-operator-reviews
-  data-token="${widgetToken}"
-  data-layout="${layout}"
-  data-theme="${theme}"
-  data-min-rating="${minRating}"
-  data-limit="${embedLimit}"
-  data-hero="${showHero ? '1' : '0'}"
-  data-equal-height="${equalHeight ? '1' : '0'}"
-  data-footer-cta="${footerCta ? '1' : '0'}">
+  data-token="${widgetToken}">
 </div>
 <script src="${baseUrl}/reviews-widget.js" defer></script>`
 
@@ -477,7 +494,7 @@ export function ReviewWidgetBuilder({
     if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
-      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode })
+      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
       setSaveState('saved')
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
@@ -613,6 +630,32 @@ export function ReviewWidgetBuilder({
                 &ldquo;Write a review&rdquo; below cards
               </Label>
               <Switch id="reviews-widget-cta" checked={footerCta} onCheckedChange={setFooterCta} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <Label htmlFor="reviews-widget-owner" className="text-[12px] font-medium text-text-secondary">
+                Owner responses
+              </Label>
+              <Switch id="reviews-widget-owner" checked={showOwnerResponse} onCheckedChange={setShowOwnerResponse} />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                Max review length
+              </Label>
+              <Select value={maxChars} onValueChange={setMaxChars}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="100">100 chars</SelectItem>
+                  <SelectItem value="150">150 chars</SelectItem>
+                  <SelectItem value="220">220 chars</SelectItem>
+                  <SelectItem value="350">350 chars</SelectItem>
+                  <SelectItem value="500">500 chars</SelectItem>
+                  <SelectItem value="2000">No limit</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -807,15 +850,15 @@ export function ReviewWidgetBuilder({
             ) : layout === 'list' ? (
               <div className="space-y-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
                 ))}
               </div>
             ) : layout === 'carousel' ? (
-              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} />
+              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
             ) : (
               <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
                 ))}
               </div>
             )}

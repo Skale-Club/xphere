@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import {
   ClockCountdown,
   FlowArrow,
@@ -33,6 +34,7 @@ export function FlowPalette() {
   // We render a card-shaped preview that matches the canvas node appearance
   // and set it as the drag image so users see a real preview while dragging.
   const ghostRef = useRef<HTMLDivElement>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   function handleDragStart(event: React.DragEvent, item: PaletteItem) {
     event.dataTransfer.setData('application/reactflow', item.type)
@@ -75,22 +77,53 @@ export function FlowPalette() {
         </div>
       </div>
 
-      <div className="w-56 border-r border-border bg-card flex flex-col shrink-0">
-        <div className="px-3 py-3 border-b border-border">
-          <p className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Nodes
-          </p>
-          <p className="text-[11.5px] text-muted-foreground mt-0.5">
-            Drag onto the canvas
-          </p>
+      <div
+        className={
+          collapsed
+            ? 'w-16 border-r border-border bg-card flex flex-col shrink-0'
+            : 'w-56 border-r border-border bg-card flex flex-col shrink-0'
+        }
+      >
+        <div className={collapsed ? 'px-2 py-3 border-b border-border' : 'px-3 py-3 border-b border-border'}>
+          <div className={collapsed ? 'flex justify-center' : 'flex items-start justify-between gap-2'}>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Nodes
+                </p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Drag onto the canvas
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setCollapsed((value) => !value)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={collapsed ? 'Expand nodes panel' : 'Collapse nodes panel'}
+              title={collapsed ? 'Expand nodes panel' : 'Collapse nodes panel'}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className={collapsed ? 'flex-1 overflow-y-auto p-2 space-y-2' : 'flex-1 overflow-y-auto p-2 space-y-1.5'}>
           {ITEMS.map((item) => (
             <div
               key={item.type}
               draggable
               onDragStart={(e) => handleDragStart(e, item)}
-              className="group flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 cursor-grab active:cursor-grabbing transition-colors"
+              className={
+                collapsed
+                  ? 'group flex h-11 w-11 items-center justify-center rounded-md border border-border bg-background hover:bg-muted/50 cursor-grab active:cursor-grabbing transition-colors'
+                  : 'group flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 cursor-grab active:cursor-grabbing transition-colors'
+              }
+              aria-label={item.label}
+              title={collapsed ? item.label : undefined}
             >
               <div
                 className="h-9 w-9 rounded-[8px] flex items-center justify-center shrink-0 text-white"
@@ -98,12 +131,14 @@ export function FlowPalette() {
               >
                 {item.icon}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium leading-tight">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                  {item.description}
-                </p>
-              </div>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium leading-tight">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                    {item.description}
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>

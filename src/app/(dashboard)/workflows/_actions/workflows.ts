@@ -68,6 +68,32 @@ export async function reorderWorkflowsInFolder(
 
 // ─── Archive / unarchive ─────────────────────────────────────────────────────
 
+export async function renameWorkflow(
+  workflowId: string,
+  input: { name: string },
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const name = input.name.trim()
+  if (!name) return { ok: false, error: 'Workflow name is required.' }
+  if (name.length > 120) return { ok: false, error: 'Workflow name must be 120 characters or fewer.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('workflows')
+    .update({ name })
+    .eq('id', workflowId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/workflows')
+  revalidatePath('/workflows/flows')
+  revalidatePath(`/workflows/${workflowId}`)
+  revalidatePath(`/workflows/flows/${workflowId}`)
+  return { ok: true, data: undefined }
+}
+
 export async function archiveWorkflow(
   workflowId: string,
 ): Promise<ActionResult<void>> {

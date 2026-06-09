@@ -12,9 +12,11 @@ import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
+import { storeContactAvatarFromUrl } from '@/lib/contacts/store-avatar'
 import { sendZernioDm } from './send-dm'
 import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
+import { emitCommentEvent } from './events'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
@@ -22,6 +24,10 @@ import type {
   ZernioCommentReceivedPayload,
   ZernioWebhookMessage,
   ZernioMessageReceivedPayload,
+  ZernioMessageSentPayload,
+  ZernioMessageStatusPayload,
+  ZernioDeliveryStatus,
+  ZernioTemplateStatusChangedPayload,
   ZernioWebhookPayload,
 } from './types'
 
@@ -31,8 +37,86 @@ function isMessageReceived(payload: ZernioWebhookPayload): payload is ZernioMess
   return payload.event === 'message.received' && typeof payload.message === 'object'
 }
 
+function isMessageSent(payload: ZernioWebhookPayload): payload is ZernioMessageSentPayload {
+  return payload.event === 'message.sent' && typeof payload.message === 'object'
+}
+
+function isMessageStatusChanged(payload: ZernioWebhookPayload): payload is ZernioMessageStatusPayload {
+  return (
+    (payload.event === 'message.delivered' ||
+      payload.event === 'message.read' ||
+      payload.event === 'message.failed') &&
+    typeof payload.message === 'object'
+  )
+}
+
+// Outbound delivery lifecycle, ascending. Never let a later/out-of-order event
+// downgrade the status; `failed` is terminal and only `sent` may precede it.
+const DELIVERY_STATUS_RANK: Record<ZernioDeliveryStatus, number> = {
+  sent: 0,
+  delivered: 1,
+  read: 2,
+  failed: 3,
+}
+
+function eventToDeliveryStatus(event: string): ZernioDeliveryStatus | null {
+  if (event === 'message.delivered') return 'delivered'
+  if (event === 'message.read') return 'read'
+  if (event === 'message.failed') return 'failed'
+  return null
+}
+
+// The send-API messageId stored by the Xphere UI (route.ts) may equal either the
+// webhook msg.id or its platformMessageId, so we probe every id pairing. Used for
+// both echo dedup and delivery-status matching.
+function outgoingIdCandidates(
+  messageId: string | undefined,
+  platformMessageId: string | undefined,
+): Array<Record<string, string>> {
+  const out: Array<Record<string, string>> = []
+  if (messageId) out.push({ zernio_message_id: messageId })
+  if (platformMessageId) {
+    out.push({ zernio_platform_message_id: platformMessageId })
+    out.push({ zernio_message_id: platformMessageId })
+  }
+  return out
+}
+
+// Finds an existing outbound (role='assistant') message by any id candidate.
+// Uses one .contains() per candidate (supabase-js URL-encodes the jsonb value,
+// unlike an inline .or() filter which mis-parses ids containing dots/=, e.g.
+// WhatsApp wamids).
+async function findOutgoingMessageByIds(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  candidates: Array<Record<string, string>>,
+  scope: { conversationId?: string; orgId?: string },
+): Promise<{ id: string; metadata: Record<string, unknown> | null } | null> {
+  for (const candidate of candidates) {
+    let query = supabase
+      .from('conversation_messages')
+      .select('id, metadata')
+      .eq('role', 'assistant')
+      .contains('metadata', candidate as never)
+    if (scope.conversationId) query = query.eq('conversation_id', scope.conversationId)
+    if (scope.orgId) query = query.eq('org_id', scope.orgId)
+    const { data } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (data) return data as { id: string; metadata: Record<string, unknown> | null }
+  }
+  return null
+}
+
 function isCommentReceived(payload: ZernioWebhookPayload): payload is ZernioCommentReceivedPayload {
   return payload.event === 'comment.received' && typeof payload.comment === 'object'
+}
+
+function isTemplateStatusChanged(
+  payload: ZernioWebhookPayload,
+): payload is ZernioTemplateStatusChangedPayload {
+  return (
+    (payload.event === 'whatsapp.template.status_updated' ||
+      payload.event === 'whatsapp.template.status_changed') &&
+    typeof (payload as ZernioTemplateStatusChangedPayload).template === 'object'
+  )
 }
 
 function identityKey(platform: string, accountId: string, participantId: string): string {
@@ -58,6 +142,72 @@ function splitDisplayName(displayName: string | null): { first_name: string | nu
     first_name: parts[0] ?? null,
     last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
   }
+}
+
+// Um "nome" que na verdade é só o telefone (caso comum do WhatsApp Cloud, onde o
+// Zernio manda participantUsername = número) não deve poluir o contato — assim ele
+// continua enriquecível e a UI cai no fallback de telefone (displayNameOf).
+function realDisplayName(name: string | null, phone: string | null): string | null {
+  const trimmed = name?.trim() || null
+  if (!trimmed) return null
+  const nameDigits = trimmed.replace(/[^0-9]/g, '')
+  const phoneDigits = (phone ?? '').replace(/[^0-9]/g, '')
+  if (nameDigits && phoneDigits && nameDigits === phoneDigits) return null
+  return trimmed
+}
+
+// Preenche o nome do contato quando um nome real aparece, sem nunca sobrescrever
+// um nome já definido por operador/CRM. "Vazio" = null/branco ou só o telefone.
+// Fire-and-forget (non-fatal).
+async function maybeBackfillContactName(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  contactId: string,
+  realName: string | null,
+  phone: string | null,
+): Promise<void> {
+  if (!contactId || !realName) return
+  const { data } = await supabase
+    .from('contacts')
+    .select('name, phone_e164')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (realDisplayName(data?.name ?? null, data?.phone_e164 ?? phone)) return // já tem nome real
+  const parts = splitDisplayName(realName)
+  const { error } = await supabase
+    .from('contacts')
+    .update({ name: realName, first_name: parts.first_name, last_name: parts.last_name })
+    .eq('id', contactId)
+  if (error) console.warn('[zernio/process] name backfill failed:', error.message)
+}
+
+// Persists the sender's avatar on the contact when the platform sends one
+// (Instagram/Messenger/Facebook — WhatsApp Cloud never does). Re-hosts the image
+// into our `avatars` bucket so it survives the source URL's expiry. Only fills
+// when empty — never overwrites a photo an operator uploaded. AWAITED: a prior
+// fire-and-forget version lost writes in the webhook's after() context.
+// Non-fatal: avatars are best-effort.
+async function maybeStoreContactAvatar(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  orgId: string,
+  contactId: string,
+  pictureUrl: string | null,
+): Promise<void> {
+  if (!contactId || !pictureUrl) return
+  const { data } = await supabase
+    .from('contacts')
+    .select('avatar_url')
+    .eq('id', contactId)
+    .maybeSingle()
+  if (data?.avatar_url) return // already has an avatar (incl. manual upload)
+
+  const publicUrl = await storeContactAvatarFromUrl({ supabase, orgId, contactId, sourceUrl: pictureUrl })
+  if (!publicUrl) return
+
+  const { error } = await supabase
+    .from('contacts')
+    .update({ avatar_url: publicUrl })
+    .eq('id', contactId)
+  if (error) console.warn('[zernio/process] avatar update failed:', error.message)
 }
 
 function mimeTypeForZernioAttachment(attachment: { type: string; payload?: Record<string, unknown> }): string {
@@ -284,8 +434,26 @@ export async function processZernioEvent(
     return
   }
 
+  // Outbound echo — messages sent by the operator (incl. replies sent from the
+  // WhatsApp app, which Zernio captures and re-emits as message.sent).
+  if (isMessageSent(payload)) {
+    await processOutgoingMessage(payload, orgId, supabase)
+    return
+  }
+
+  // Delivery lifecycle for an outbound message: update its delivery_status.
+  if (isMessageStatusChanged(payload)) {
+    await processMessageStatusChanged(payload, orgId, supabase)
+    return
+  }
+
   if (isCommentReceived(payload)) {
     await processCommentReceived(payload, orgId, supabase)
+    return
+  }
+
+  if (isTemplateStatusChanged(payload)) {
+    await processTemplateStatusChanged(payload, orgId, supabase)
   }
 }
 
@@ -296,7 +464,7 @@ async function processMessageReceived(
 ): Promise<void> {
   const msg = payload.message
   if (msg.direction === 'outgoing') {
-    await processOutgoingMessageReceived(payload, orgId, supabase)
+    await processOutgoingMessage(payload, orgId, supabase)
     return
   }
   if (msg.direction !== 'incoming') return
@@ -312,12 +480,14 @@ async function processMessageReceived(
     msg.sender.id ??
     payload.conversation.participantId ??
     ''
-  const senderName =
+  const rawName =
     msg.sender.name ??
     payload.conversation.participantName ??
     msg.sender.username ??
     payload.conversation.participantUsername ??
     null
+  const phoneForName = msg.sender.phoneNumber ?? (platform === 'whatsapp' ? participantId : null)
+  const senderName = realDisplayName(rawName, phoneForName)
   const messageText = msg.text ?? ''
   const channel = zernioChannel(platform)
 
@@ -356,9 +526,11 @@ async function processMessageReceived(
     last_message_at: sentAt,
     last_inbound_at: sentAt,
     updated_at: new Date().toISOString(),
-    visitor_name: senderName,
     visitor_phone: msg.sender.phoneNumber ?? null,
   }
+  // Só atualiza o nome quando há um nome real — evita que uma mensagem posterior
+  // só-com-número apague um nome já conhecido na conversa.
+  if (senderName) updatePayload.visitor_name = senderName
   if (contactId) updatePayload.contact_id = contactId
 
   const norm = await normalizeInbound({
@@ -415,28 +587,13 @@ async function processMessageReceived(
   }
   if (norm.duplicate) return
 
-  // Persist sender avatar on the contact when the platform sends one.
-  // Only update when the contact has no avatar yet — never overwrite a photo
-  // the operator uploaded manually. Fire-and-forget (non-fatal).
+  // Persist sender avatar (re-hosted) when the platform sends one.
   const inboundPicture = msg.sender.picture ?? payload.conversation.participantPicture ?? null
-  if (contactId && inboundPicture) {
-    supabase
-      .from('contacts')
-      .select('avatar_url')
-      .eq('id', contactId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.avatar_url) {
-          supabase
-            .from('contacts')
-            .update({ avatar_url: inboundPicture })
-            .eq('id', contactId)
-            .then(({ error }) => {
-              if (error) console.warn('[zernio/process] avatar update failed:', error.message)
-            })
-        }
-      })
-  }
+  if (contactId) await maybeStoreContactAvatar(supabase, orgId, contactId, inboundPicture)
+
+  // Preenche o nome do contato assim que um nome real chega (conversa nova ou
+  // existente). Não sobrescreve nome já definido.
+  if (contactId) await maybeBackfillContactName(supabase, contactId, senderName, phoneForName)
 
   await maybeRunAgentAndReply({
     supabase,
@@ -451,8 +608,8 @@ async function processMessageReceived(
   })
 }
 
-async function processOutgoingMessageReceived(
-  payload: ZernioMessageReceivedPayload,
+async function processOutgoingMessage(
+  payload: ZernioMessageReceivedPayload | ZernioMessageSentPayload,
   orgId: string,
   supabase: ReturnType<typeof createServiceRoleClient>,
 ): Promise<void> {
@@ -545,14 +702,14 @@ async function processOutgoingMessageReceived(
     conversationId = (created as { id: string }).id
   }
 
-  const { data: dup } = await supabase
-    .from('conversation_messages')
-    .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('role', 'assistant')
-    .contains('metadata', { zernio_message_id: zernioMessageId } as never)
-    .limit(1)
-    .maybeSingle()
+  // Dedup against a message already inserted by the Xphere send path
+  // (route.ts stamps metadata.zernio_message_id with the send-API messageId) and
+  // against a re-delivered webhook.
+  const dup = await findOutgoingMessageByIds(
+    supabase,
+    outgoingIdCandidates(zernioMessageId, zernioPlatformMessageId),
+    { conversationId: conversationId as string },
+  )
   if (dup) return
 
   const media = await buildZernioMedia({
@@ -576,6 +733,7 @@ async function processOutgoingMessageReceived(
       metadata: {
         direction: 'outgoing',
         source: 'zernio_echo',
+        delivery_status: 'sent',
         zernio_event_id: payload.id,
         zernio_message_id: zernioMessageId,
         zernio_platform_message_id: zernioPlatformMessageId,
@@ -607,6 +765,49 @@ async function processOutgoingMessageReceived(
   }
 }
 
+// Updates the delivery_status of a previously-stored outbound message when
+// Zernio reports delivered/read/failed. Matches the row by zernio_message_id or
+// zernio_platform_message_id and never downgrades a higher status (out-of-order
+// safe). A status event may arrive before its message.sent echo — in that case
+// there is no row yet and we simply skip; the next status (or a re-delivery)
+// reconciles it.
+async function processMessageStatusChanged(
+  payload: ZernioMessageStatusPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const newStatus = eventToDeliveryStatus(payload.event)
+  if (!newStatus) return
+
+  const zernioMessageId = payload.message.id
+  const zernioPlatformMessageId = payload.message.platformMessageId
+  if (!zernioMessageId && !zernioPlatformMessageId) {
+    console.warn('[zernio/process] status event missing message id; skipping')
+    return
+  }
+
+  const target = await findOutgoingMessageByIds(
+    supabase,
+    outgoingIdCandidates(zernioMessageId, zernioPlatformMessageId),
+    { orgId },
+  )
+  if (!target) return // message.sent echo not yet stored; skip
+
+  const current = (target.metadata?.delivery_status as ZernioDeliveryStatus | undefined) ?? 'sent'
+  // Don't downgrade (delivered after read) and don't move off the terminal failed.
+  if (current === 'failed') return
+  if (DELIVERY_STATUS_RANK[newStatus] <= DELIVERY_STATUS_RANK[current]) return
+
+  const { error } = await supabase
+    .from('conversation_messages')
+    .update({ metadata: { ...(target.metadata ?? {}), delivery_status: newStatus } } as never)
+    .eq('id', target.id)
+
+  if (error) {
+    console.error('[zernio/process] delivery status update failed:', error.message)
+  }
+}
+
 async function processCommentReceived(
   payload: ZernioCommentReceivedPayload,
   orgId: string,
@@ -616,7 +817,7 @@ async function processCommentReceived(
   const zernioAccountId = payload.account.id
   const platform = comment.platform || payload.account.platform || 'unknown'
   const participantId = comment.author.id
-  const senderName = comment.author.name ?? comment.author.username ?? null
+  const senderName = realDisplayName(comment.author.name ?? comment.author.username ?? null, null)
   const postId = payload.post.id ?? comment.postId ?? comment.platformPostId
   const channel = zernioChannel(platform)
   const now = new Date().toISOString()
@@ -693,6 +894,12 @@ async function processCommentReceived(
   }
   if (norm.duplicate) return
 
+  // Persist author avatar (re-hosted) when the platform sends one.
+  const inboundPicture = comment.author.picture ?? null
+  if (contactId) await maybeStoreContactAvatar(supabase, orgId, contactId, inboundPicture)
+
+  if (contactId) await maybeBackfillContactName(supabase, contactId, senderName, null)
+
   await maybeRunAgentAndReply({
     supabase,
     orgId,
@@ -710,6 +917,20 @@ async function processCommentReceived(
       })
     },
   })
+
+  void emitCommentEvent(orgId, {
+    platform,
+    post_id: postId,
+    comment_id: comment.id,
+    text: comment.text,
+    author_id: participantId,
+    author_name: senderName,
+    author_username: comment.author.username ?? null,
+    is_reply: Boolean(comment.isReply),
+    is_ad_comment: Boolean(comment.ad),
+    conversation_id: norm.conversationId,
+    contact_id: contactId ?? null,
+  }, { supabase }).catch(() => {})
 }
 
 async function maybeRunAgentAndReply({
@@ -768,5 +989,31 @@ async function maybeRunAgentAndReply({
     await reply(result.text, apiKey)
   } catch (err) {
     console.error('[zernio/process] runAgent/send error:', err)
+  }
+}
+
+// ── Template status tracking ──────────────────────────────────────────────────
+
+async function processTemplateStatusChanged(
+  payload: ZernioTemplateStatusChangedPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const { name, status, language } = payload.template
+  if (!name || !status) return
+
+  const normalizedStatus = status.toUpperCase()
+  const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'DISABLED']
+  if (!validStatuses.includes(normalizedStatus)) return
+
+  const { error } = await supabase
+    .from('zernio_whatsapp_templates')
+    .update({ status: normalizedStatus, updated_at: new Date().toISOString() })
+    .eq('org_id', orgId)
+    .eq('name', name)
+    .eq('language', language)
+
+  if (error) {
+    console.error('[zernio/process] template status update error:', error)
   }
 }

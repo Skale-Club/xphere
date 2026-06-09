@@ -49,7 +49,7 @@ import {
   prepareContactConversationForOpen,
   type OrgMember,
   type StartChannel,
-} from '@/app/(dashboard)/chat/actions'
+} from '@/app/(dashboard)/inbox/actions'
 import { updateProfile } from '@/app/(dashboard)/settings/profile/actions'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -57,6 +57,7 @@ import {
   type ConversationFilterChange,
 } from '@/components/chat/conversation-list'
 import { ChatArea } from '@/components/chat/chat-area'
+import { CommentsLayout } from '@/components/chat/comments/comments-layout'
 import { ContactInfoPanel } from '@/components/chat/contact-info-panel'
 import { usePaginatedConversations } from '@/hooks/use-paginated-conversations'
 import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
@@ -191,6 +192,7 @@ interface ChatLayoutProps {
   agentMap?: Record<string, string>
   initialConversationId?: string | null
   initialContactId?: string | null
+  hasCommentsChannel?: boolean
 }
 
 type MobileView = 'list' | 'chat' | 'info'
@@ -202,7 +204,11 @@ export function ChatLayout({
   agentMap,
   initialConversationId = null,
   initialContactId = null,
+  hasCommentsChannel = false,
 }: ChatLayoutProps) {
+  // ─────────── Inbox tab (Chat vs Comments) ───────────
+  const [inboxTab, setInboxTab] = useState<'chat' | 'comments'>('chat')
+
   // ─────────── Filters (server-side) ───────────
   const [filters, setFilters] = useState<ConversationFilterChange>({
     status: null,
@@ -660,6 +666,27 @@ export function ChatLayout({
           }
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_messages',
+          filter: `conversation_id=eq.${selectedId}`,
+        },
+        (payload) => {
+          // Reflect in-place changes (e.g. delivery_status sent→delivered→read)
+          // on an already-rendered message without a refetch.
+          const updated = mapMessageRow(payload.new)
+          setMessages((prev) => {
+            const idx = prev.findIndex((m) => m.id === updated.id)
+            if (idx < 0) return prev
+            const next = [...prev]
+            next[idx] = { ...prev[idx], ...updated }
+            return next
+          })
+        },
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -1053,8 +1080,19 @@ export function ChatLayout({
   return (
     <InboxTemplate className="overflow-hidden bg-bg-primary">
       <PushPermissionBanner />
-      {/* Desktop | 3-column grid */}
-      <div className="hidden md:flex h-full min-h-0 w-full overflow-hidden">
+
+      {/* Comments tab — full-width two-panel layout */}
+      {inboxTab === 'comments' && currentOrgId && (
+        <CommentsLayout
+          orgId={currentOrgId}
+          inboxTab={inboxTab}
+          onTabChange={setInboxTab}
+          hasCommentsChannel={hasCommentsChannel}
+        />
+      )}
+
+      {/* Chat tab — Desktop | 3-column grid */}
+      <div className={inboxTab === 'comments' ? 'hidden' : 'hidden md:flex h-full min-h-0 w-full overflow-hidden'}>
         <div className="h-full min-h-0 shrink-0 overflow-hidden" style={{ width: inboxWidth }}>
           <ConversationList
             conversations={visibleConversations}
@@ -1096,6 +1134,9 @@ export function ChatLayout({
             onPin={handlePinToggle}
             onStar={handleStarToggle}
             phoneNumbers={phoneNumbers}
+            hasCommentsChannel={hasCommentsChannel}
+            inboxTab={inboxTab}
+            onTabChange={setInboxTab}
           />
         </div>
         <button
@@ -1202,7 +1243,7 @@ export function ChatLayout({
       </div>
 
       {/* Mobile | single-column with drawer-style navigation */}
-      <div className="md:hidden flex h-full min-h-0 w-full overflow-hidden">
+      <div className={inboxTab === 'comments' ? 'hidden' : 'md:hidden flex h-full min-h-0 w-full overflow-hidden'}>
         {mobileView === 'list' && (
           <div className="h-full min-h-0 w-full">
             <ConversationList
@@ -1245,6 +1286,9 @@ export function ChatLayout({
               onPin={handlePinToggle}
               onStar={handleStarToggle}
               phoneNumbers={phoneNumbers}
+              hasCommentsChannel={hasCommentsChannel}
+              inboxTab={inboxTab}
+              onTabChange={setInboxTab}
             />
           </div>
         )}

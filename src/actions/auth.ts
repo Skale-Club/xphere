@@ -1,24 +1,9 @@
 'use server'
 
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { verifyTurnstile } from '@/lib/auth/verify-turnstile'
 import { mapSupabaseError, type AuthErrorCode } from '@/lib/auth/errors'
-
-export type AuthActionResult =
-  | { ok: true; hasSession: boolean }
-  | { ok: false; errorCode: AuthErrorCode; errorMessage?: string }
-
-interface EmailPasswordInput {
-  email: string
-  password: string
-  captchaToken: string | null
-}
-
-interface SignUpInput extends EmailPasswordInput {
-  emailRedirectTo?: string
-}
 
 /**
  * Mirrors the cookie written by /auth/callback/route.ts so that email-based
@@ -45,24 +30,22 @@ async function setActiveOrgCookie(
   })
 }
 
-async function getRemoteIp(): Promise<string | null> {
-  const h = await headers()
-  return (
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    h.get('x-real-ip') ||
-    null
-  )
+export type AuthActionResult =
+  | { ok: true; hasSession: boolean }
+  | { ok: false; errorCode: AuthErrorCode; errorMessage?: string }
+
+interface EmailPasswordInput {
+  email: string
+  password: string
+}
+
+interface SignUpInput extends EmailPasswordInput {
+  emailRedirectTo?: string
 }
 
 export async function signInWithEmail(
   input: EmailPasswordInput,
 ): Promise<AuthActionResult> {
-  const remoteIp = await getRemoteIp()
-  const { success } = await verifyTurnstile(input.captchaToken, remoteIp)
-  if (!success) {
-    return { ok: false, errorCode: 'captcha_failed' }
-  }
-
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword({
     email: input.email,
@@ -88,12 +71,6 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   input: SignUpInput,
 ): Promise<AuthActionResult> {
-  const remoteIp = await getRemoteIp()
-  const { success } = await verifyTurnstile(input.captchaToken, remoteIp)
-  if (!success) {
-    return { ok: false, errorCode: 'captcha_failed' }
-  }
-
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signUp({
     email: input.email,

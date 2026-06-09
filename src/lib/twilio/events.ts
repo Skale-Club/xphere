@@ -1,7 +1,7 @@
 // SEED-044+ (phone-numbers Phase 3): inbound phone-number event emitter.
 //
 // Mirrors src/lib/pipeline/events.ts (emitOpportunityEvent) and
-// src/lib/scheduling/transition.ts (emitCalendarEvent):
+// src/lib/calendar/transition.ts (emitCalendarEvent):
 //   1. Build {{phone.*}} + {{contact.*}} scope.
 //   2. Look up active event-trigger workflows whose trigger_config.event matches.
 //      Optional trigger_config.phone_number_id narrows the match to one number.

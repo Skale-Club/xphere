@@ -44,7 +44,7 @@ export default async function PublicBookingProfilePage({ params }: Props) {
 
   // Resolve profile by slug
   const { data: profile } = await supabase
-    .from('scheduling_profiles')
+    .from('calendar_profiles')
     .select('user_id, timezone')
     .eq('slug', slug)
     .single()

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { cancelBookingByToken } from '@/app/(dashboard)/scheduling/_actions/bookings'
+import { cancelBookingByToken } from '@/app/(dashboard)/calendar/_actions/bookings'
 
 interface Props {
   params: Promise<{ id: string }>

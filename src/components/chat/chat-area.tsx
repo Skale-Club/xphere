@@ -29,8 +29,8 @@ import {
 } from '@/components/chat/chat-area/message-composer'
 import { SendTemplateDialog } from '@/components/chat/chat-area/send-template-dialog'
 import { EmptyState } from '@/components/empty-states/empty-state'
-import type { OrgMember } from '@/app/(dashboard)/chat/actions'
-import { resolveContactStartChannels } from '@/app/(dashboard)/chat/actions'
+import type { OrgMember } from '@/app/(dashboard)/inbox/actions'
+import { resolveContactStartChannels } from '@/app/(dashboard)/inbox/actions'
 import { getContact } from '@/app/(dashboard)/contacts/actions'
 import { DND_CHANNEL_LABELS } from '@/lib/dnd'
 
@@ -470,6 +470,7 @@ export function ChatArea({
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}
+        conversationId={conversation.id}
         visitorInitial={
           (conversation.contactName || conversation.visitorName || conversation.visitorPhone || '')
             .replace(/[^a-zA-Z0-9]/g, '')

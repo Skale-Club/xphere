@@ -153,7 +153,7 @@ describe('AGENT-11: DB trigger auto-snapshots system_prompt on UPDATE', () => {
     const client = buildRlsClient({
       versionRow: { id: 'version-2', version: 2 },
     })
-    const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
+    const { savePromptDraft } = await import('@/app/(dashboard)/agents/_actions/prompts')
     await savePromptDraft('agent-1', 'NEW PROMPT CONTENT')
 
     // Verify the agent was updated (trigger fires on this UPDATE)
@@ -167,7 +167,7 @@ describe('AGENT-11: DB trigger auto-snapshots system_prompt on UPDATE', () => {
     buildRlsClient({
       versionRow: { id: 'version-3', version: 3 },
     })
-    const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
+    const { savePromptDraft } = await import('@/app/(dashboard)/agents/_actions/prompts')
     const result = await savePromptDraft('agent-1', 'UPDATED PROMPT')
     expect('error' in result ? result.error : result.version).toBe(3)
   })
@@ -211,7 +211,7 @@ describe('AGENT-11: DB trigger auto-snapshots system_prompt on UPDATE', () => {
       return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() }
     }) as never)
 
-    const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
+    const { savePromptDraft } = await import('@/app/(dashboard)/agents/_actions/prompts')
     await savePromptDraft('agent-1', 'UPDATED PROMPT')
 
     // Verify updated_by was set in the update payload so trigger can capture author
@@ -344,7 +344,7 @@ describe('AGENT-15: draft/publish flow', () => {
     }
     vi.mocked(createClient).mockResolvedValue(mockClient as never)
 
-    const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
+    const { savePromptDraft } = await import('@/app/(dashboard)/agents/_actions/prompts')
     await savePromptDraft('agent-1', 'NEW DRAFT PROMPT')
 
     // Verify: update payload contains system_prompt but NOT active_prompt_version_id
@@ -383,7 +383,7 @@ describe('AGENT-15: draft/publish flow', () => {
     }
     vi.mocked(createClient).mockResolvedValue(mockClient as never)
 
-    const { publishPromptVersion } = await import('@/app/(dashboard)/agents/actions')
+    const { publishPromptVersion } = await import('@/app/(dashboard)/agents/_actions/prompts')
     await publishPromptVersion('agent-1', 'version-2')
 
     // Verify: update payload contains active_prompt_version_id but NOT system_prompt
@@ -426,7 +426,7 @@ describe('AGENT-15: draft/publish flow', () => {
     }
     vi.mocked(createClient).mockResolvedValue(mockClient as never)
 
-    const { savePromptDraft } = await import('@/app/(dashboard)/agents/actions')
+    const { savePromptDraft } = await import('@/app/(dashboard)/agents/_actions/prompts')
     const result1 = await savePromptDraft('agent-1', 'DRAFT 1')
     const result2 = await savePromptDraft('agent-1', 'DRAFT 2')
 
@@ -476,7 +476,7 @@ describe('AGENT-14: rollback (Activate)', () => {
     }
     vi.mocked(createClient).mockResolvedValue(mockClient as never)
 
-    const { activatePromptVersion } = await import('@/app/(dashboard)/agents/actions')
+    const { activatePromptVersion } = await import('@/app/(dashboard)/agents/_actions/prompts')
     await activatePromptVersion('agent-1', 'old-version')
 
     // agents table was updated
@@ -511,7 +511,7 @@ describe('AGENT-14: rollback (Activate)', () => {
     }
     vi.mocked(createClient).mockResolvedValue(mockClient as never)
 
-    const { activatePromptVersion } = await import('@/app/(dashboard)/agents/actions')
+    const { activatePromptVersion } = await import('@/app/(dashboard)/agents/_actions/prompts')
     const result1 = await activatePromptVersion('agent-1', 'prior-version')
     const result2 = await activatePromptVersion('agent-1', 'prior-version')
 
@@ -564,7 +564,7 @@ describe('AGENT-13: version history list', () => {
     }
     vi.mocked(createServiceRoleClient).mockReturnValue(mockAdmin as never)
 
-    const { getPromptVersionHistory } = await import('@/app/(dashboard)/agents/actions')
+    const { getPromptVersionHistory } = await import('@/app/(dashboard)/agents/_actions/prompts')
     const history = await getPromptVersionHistory('agent-1')
 
     // Returns versions with highest version first (DESC ordering from DB)
@@ -604,7 +604,7 @@ describe('AGENT-13: version history list', () => {
     }
     vi.mocked(createServiceRoleClient).mockReturnValue(mockAdmin as never)
 
-    const { getPromptVersionHistory } = await import('@/app/(dashboard)/agents/actions')
+    const { getPromptVersionHistory } = await import('@/app/(dashboard)/agents/_actions/prompts')
     const history = await getPromptVersionHistory('agent-1')
 
     expect(history[0]).toMatchObject({

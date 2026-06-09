@@ -176,11 +176,15 @@ describe('AGENT-02 persistence', () => {
 })
 
 describe('Plan 04 actions module surface', () => {
-  it('exports getAgentById, createAgent, updateAgent, setAgentTools, getToolPickerData', async () => {
+  it('core actions exports getAgentById, createAgent, updateAgent', async () => {
     const mod = await import('@/app/(dashboard)/agents/actions')
     expect(typeof mod.getAgentById).toBe('function')
     expect(typeof mod.createAgent).toBe('function')
     expect(typeof mod.updateAgent).toBe('function')
+  })
+
+  it('tools sub-module exports setAgentTools, getToolPickerData', async () => {
+    const mod = await import('@/app/(dashboard)/agents/_actions/tools')
     expect(typeof mod.setAgentTools).toBe('function')
     expect(typeof mod.getToolPickerData).toBe('function')
   })

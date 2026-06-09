@@ -5,6 +5,8 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+import { getBaseUrl } from '@/lib/billing/context'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -15,8 +17,8 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
 
-export async function GET(request: Request) {
-  const origin = new URL(request.url).origin
+export async function GET(_request: Request) {
+  const origin = await getBaseUrl()
   return Response.json(
     {
       issuer: origin,

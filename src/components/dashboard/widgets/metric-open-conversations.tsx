@@ -83,7 +83,7 @@ export async function MetricOpenConversations({ range }: Props) {
       trend={trend}
       data={series}
       tone="info"
-      href="/chat"
+      href="/inbox"
       hint={range.label}
       index={0}
     />

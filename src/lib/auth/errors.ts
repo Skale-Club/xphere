@@ -20,12 +20,10 @@ export function mapSupabaseError(message: string): string {
  * Stable error codes returned by the auth server actions.
  * The dialog maps these to user-facing copy.
  */
-export type AuthErrorCode = 'captcha_failed' | 'unknown_error'
+export type AuthErrorCode = 'unknown_error'
 
 export function authErrorCodeToMessage(code: AuthErrorCode): string {
   switch (code) {
-    case 'captcha_failed':
-      return 'Captcha verification failed. Please try again.'
     case 'unknown_error':
     default:
       return 'Something went wrong. Please try again.'

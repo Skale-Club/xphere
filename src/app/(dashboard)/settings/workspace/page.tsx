@@ -36,6 +36,7 @@ export default async function WorkspaceSettingsPage() {
 
       <WorkspaceSaveProvider>
         <CompanyProfileForm
+          orgId={org.id}
           initial={{
             legal_name: org.legal_name,
             tax_id: org.tax_id,

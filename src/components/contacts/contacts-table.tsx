@@ -439,11 +439,11 @@ export function ContactsTable({
                   key={c.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => router.push(`/chat?contact=${c.id}`)}
+                  onClick={() => router.push(`/inbox?contact=${c.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      router.push(`/chat?contact=${c.id}`);
+                      router.push(`/inbox?contact=${c.id}`);
                     }
                   }}
                   className={cn(
@@ -565,11 +565,11 @@ export function ContactsTable({
                   key={c.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => router.push(`/chat?contact=${c.id}`)}
+                  onClick={() => router.push(`/inbox?contact=${c.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      router.push(`/chat?contact=${c.id}`);
+                      router.push(`/inbox?contact=${c.id}`);
                     }
                   }}
                   className={cn(

@@ -1,0 +1,505 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button [ref=e8] [cursor=pointer]:
+          - img [ref=e11]: menu
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - generic [ref=e730]:
+        - generic [ref=e732]:
+          - generic [ref=e738]:
+            - img [ref=e741]: search
+            - generic [ref=e742]:
+              - generic:
+                - generic: "\"What are my top performing campaigns?\""
+              - combobox "\"What are my top performing campaigns?\"" [ref=e743]
+          - text: Search
+        - generic [ref=e744]:
+          - button "Appearance" [ref=e747] [cursor=pointer]:
+            - generic [ref=e749]:
+              - img [ref=e750]: responsive_layout
+              - text: Appearance
+          - button "Refresh" [ref=e754] [cursor=pointer]:
+            - generic [ref=e756]:
+              - img [ref=e757]: refresh
+              - text: Refresh
+          - button "Open the quick help panel" [ref=e760] [cursor=pointer]:
+            - generic [ref=e761]:
+              - text: Help
+              - generic [ref=e762]:
+                - img [ref=e763]: help_outline
+                - text: Help
+          - generic [ref=e767]:
+            - button "Notifications" [ref=e770] [cursor=pointer]:
+              - generic [ref=e772]:
+                - img [ref=e775]: notifications
+                - generic [ref=e777]: Notifications
+            - dialog "Notifications" [ref=e779]:
+              - generic [ref=e783]:
+                - generic [ref=e784]:
+                  - img "Informational notification icon" [ref=e786]: info_outline
+                  - button "Optimize campaigns with new recommendations Get started" [ref=e787] [cursor=pointer]:
+                    - text: Optimize campaigns with new recommendations
+                    - generic [ref=e788]: Get started
+                - button "Close notifications" [ref=e789] [cursor=pointer]:
+                  - img [ref=e792]: clear
+          - button "Ask Advisor" [ref=e794] [cursor=pointer]:
+            - generic [ref=e796]:
+              - img [ref=e798]: button_magic
+              - generic [ref=e799]: Ask Advisor
+              - generic [ref=e800]: Beta
+      - button "Google account" [ref=e805] [cursor=pointer]:
+        - img "Google account (skale.club@gmail.com)" [ref=e806]
+    - generic [ref=e30]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - button "Create" [ref=e36] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e41]: Create
+        - menu [ref=e42]:
+          - menu [ref=e43]:
+            - menuitem "Campaigns" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]:
+                - img [ref=e49]: campaign
+                - generic [ref=e50]: Campaigns
+            - menuitem "Goals" [ref=e54] [cursor=pointer]:
+              - generic [ref=e55]:
+                - img [ref=e57]: rewarded_ads
+                - generic [ref=e58]: Goals
+            - menuitem "Tools" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]:
+                - img [ref=e64]: construction
+                - generic [ref=e65]: Tools
+            - menuitem "Billing" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]:
+                - img [ref=e71]: credit_card
+                - generic [ref=e72]: Billing
+            - menuitem "Admin" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - img [ref=e78]: settings
+                - generic [ref=e79]: Admin
+      - generic [ref=e171]:
+        - generic [ref=e174]:
+          - button "View (2 filters) All campaigns" [ref=e179] [cursor=pointer]:
+            - generic [ref=e180]:
+              - generic [ref=e181]: View (2 filters)
+              - generic [ref=e182]:
+                - img [ref=e185]: home
+                - button "All campaigns" [ref=e186]
+            - img [ref=e188]: arrow_drop_down
+          - button "Campaigns (5) Select a campaign" [ref=e193] [cursor=pointer]:
+            - generic [ref=e194]:
+              - generic [ref=e195]: Campaigns (5)
+              - generic [ref=e196]: Select a campaign
+            - img [ref=e198]: arrow_drop_down
+        - group [ref=e202]:
+          - generic [ref=e203]:
+            - generic [ref=e204] [cursor=pointer]:
+              - generic: Filters
+            - generic: "Filters Applied:"
+            - grid "Filters Applied:" [ref=e205]:
+              - 'row "Campaign status: All" [ref=e207] [cursor=pointer]':
+                - 'gridcell "Campaign status: All" [ref=e208]':
+                  - 'button "Campaign status: All" [ref=e209]': "Campaign status: All"
+              - 'row "Ad group status: Enabled, Paused" [ref=e211] [cursor=pointer]':
+                - 'gridcell "Ad group status: Enabled, Paused" [ref=e212]':
+                  - 'button "Ad group status: Enabled, Paused" [ref=e213]': "Ad group status: Enabled, Paused"
+              - row [ref=e214]:
+                - gridcell [ref=e215]:
+                  - combobox "Add filter" [ref=e216]
+                  - status [ref=e217]
+            - button "Save" [ref=e220] [cursor=pointer]:
+              - generic [ref=e221]:
+                - img [ref=e223]: save
+                - generic [ref=e224]: Save
+        - generic [ref=e227]:
+          - generic [ref=e808]:
+            - heading "Ads" [level=2] [ref=e811]
+            - generic [ref=e814]:
+              - generic [ref=e816] [cursor=pointer]:
+                - generic [ref=e817]: All time
+                - generic [ref=e819]:
+                  - button "May 9, 2025 – Jun 6, 2026 Not applicable" [ref=e821]:
+                    - generic [ref=e822]: May 9, 2025 – Jun 6, 2026
+                    - img [ref=e824]: arrow_drop_down
+                  - generic [ref=e825]:
+                    - button "Previous" [disabled]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - button "Next" [disabled]:
+                      - generic:
+                        - generic:
+                          - img: chevron_right
+              - button "Show last 30 days" [ref=e826] [cursor=pointer]:
+                - generic [ref=e827]: Show last 30 days
+          - main [ref=e232]:
+            - generic [ref=e234]:
+              - generic [ref=e239]:
+                - generic [ref=e836]:
+                  - generic [ref=e837]:
+                    - generic [ref=e841]:
+                      - generic [ref=e842]:
+                        - generic [ref=e844]:
+                          - generic [ref=e845]: Impr.
+                          - generic [ref=e846]: 1,361
+                          - 'button "Impr.: 1,361 for this time period. Hide this metric from the chart. An impression is counted each time your ad is served. Impressions help you understand how often your ad is being seen.. . ." [ref=e847] [cursor=pointer]'
+                        - generic [ref=e849]:
+                          - generic [ref=e850]: Cost
+                          - generic [ref=e851]: $963.96
+                          - 'button "Cost: $963.96. Show this metric in the chart. Cost is the sum of your spend during this period.. . ." [ref=e852] [cursor=pointer]'
+                        - generic [ref=e854]:
+                          - generic [ref=e855]: Conversions
+                          - generic [ref=e856]: "5.00"
+                          - 'button "Conversions: 5.00. Show this metric in the chart. \"Conversions\" shows the number of conversions you received after ad interactions (such as text ad clicks or video ad views) from all actions you''ve included in this column.. . ." [ref=e857] [cursor=pointer]'
+                        - generic [ref=e859]:
+                          - generic [ref=e860]: Clicks
+                          - generic [ref=e861]: "97"
+                          - 'button "Clicks: 97. Show this metric in the chart. When someone clicks your ad, it''s counted here.. . ." [ref=e862] [cursor=pointer]'
+                      - button [ref=e863] [cursor=pointer]:
+                        - img [ref=e866]: chevron_right
+                    - generic [ref=e869]:
+                      - button "Metrics" [ref=e870] [cursor=pointer]:
+                        - generic [ref=e872]:
+                          - img [ref=e874]: add_chart
+                          - generic [ref=e875]: Metrics
+                      - button "Adjust" [ref=e879] [cursor=pointer]:
+                        - generic [ref=e881]:
+                          - img [ref=e883]: tune
+                          - generic [ref=e884]: Adjust
+                      - button "Download" [ref=e887] [cursor=pointer]:
+                        - generic [ref=e889]:
+                          - img [ref=e891]: file_download
+                          - generic [ref=e892]: Download
+                      - button "Expand chart" [ref=e894] [cursor=pointer]:
+                        - generic [ref=e895]:
+                          - img [ref=e897]: fullscreen
+                          - generic [ref=e898]: Expand
+                  - application [ref=e902]:
+                    - generic [ref=e904]: Time series chart showing Impr. from May 2025 to June 2026. Use arrow keys to navigate.
+                - region "Primary toolbelt for Ads" [ref=e244]:
+                  - generic [ref=e245]:
+                    - button "Create ad" [ref=e249] [cursor=pointer]:
+                      - img [ref=e252]: add
+                    - generic [ref=e256] [cursor=pointer]:
+                      - group [ref=e257]:
+                        - generic [ref=e258]:
+                          - button "Show 2 active filters" [ref=e261]:
+                            - generic [ref=e263]:
+                              - img [ref=e265]: filter_alt
+                              - generic [ref=e266]: "2"
+                          - generic: "Filters Applied:"
+                          - grid "Filters Applied:"
+                      - generic [ref=e278]:
+                        - generic [ref=e905]: + 2 more
+                        - button "Add filter" [ref=e279]:
+                          - generic [ref=e280]: Add filter
+                  - generic [ref=e282]:
+                    - search [ref=e285] [cursor=pointer]:
+                      - button "Search" [ref=e288]:
+                        - generic [ref=e289]:
+                          - img [ref=e291]: search
+                          - generic [ref=e292]: Search
+                    - button "Segment. Segmentation off" [ref=e298] [cursor=pointer]:
+                      - generic [ref=e299]:
+                        - img [ref=e301]: segment
+                        - generic [ref=e302]: Segment
+                    - button "Columns" [ref=e308] [cursor=pointer]:
+                      - generic [ref=e309]:
+                        - img [ref=e311]: view_column
+                        - generic [ref=e312]: Columns
+                    - button "Reports" [ref=e318] [cursor=pointer]:
+                      - generic [ref=e319]:
+                        - img [ref=e321]: assessment
+                        - generic [ref=e322]: Reports
+                    - button "Download" [ref=e328] [cursor=pointer]:
+                      - generic [ref=e329]:
+                        - img [ref=e331]: file_download
+                        - generic [ref=e332]: Download
+                    - button "Expand" [ref=e338] [cursor=pointer]:
+                      - generic [ref=e339]:
+                        - img [ref=e341]: fullscreen
+                        - generic [ref=e342]: Expand
+                    - button "More options" [ref=e348] [cursor=pointer]:
+                      - generic [ref=e349]:
+                        - img [ref=e351]: more_vert
+                        - generic [ref=e352]: More
+                    - button "Hide chart" [ref=e361] [cursor=pointer]:
+                      - img [ref=e364]: keyboard_arrow_up
+                - generic [ref=e366]:
+                  - grid "Ads" [ref=e368]:
+                    - row "Select all rows Ad status Ad Campaign Ad group Status Ad strength Ad type Impr. Interactions Interaction rate Avg. cost Cost Conv. rate Conversions Cost / conv." [ref=e369]:
+                      - gridcell "Select all rows" [ref=e370]:
+                        - checkbox "Select all rows" [ref=e372] [cursor=pointer]:
+                          - img [ref=e374]
+                      - columnheader "Ad status" [ref=e375] [cursor=pointer]:
+                        - img "Ad status" [ref=e376]
+                      - columnheader "Ad" [ref=e377] [cursor=pointer]
+                      - columnheader "Campaign" [ref=e378] [cursor=pointer]
+                      - columnheader "Ad group" [ref=e379] [cursor=pointer]
+                      - columnheader "Status" [ref=e380] [cursor=pointer]:
+                        - text: Status
+                        - img [ref=e382]: help_outline
+                      - columnheader "Ad strength" [ref=e383] [cursor=pointer]:
+                        - text: Ad strength
+                        - img [ref=e385]: help_outline
+                      - columnheader "Ad type" [ref=e386] [cursor=pointer]
+                      - columnheader "Impr." [ref=e387] [cursor=pointer]:
+                        - text: Impr.
+                        - img [ref=e389]: help_outline
+                      - columnheader "Interactions" [ref=e390] [cursor=pointer]:
+                        - text: Interactions
+                        - img [ref=e392]: help_outline
+                      - columnheader "Interaction rate" [ref=e393] [cursor=pointer]:
+                        - text: Interaction rate
+                        - img [ref=e395]: help_outline
+                      - columnheader "Avg. cost" [ref=e396] [cursor=pointer]:
+                        - text: Avg. cost
+                        - img [ref=e398]: help_outline
+                      - columnheader "Cost" [ref=e399] [cursor=pointer]:
+                        - text: Cost
+                        - img [ref=e401]: help_outline
+                      - columnheader "Conv. rate" [ref=e402] [cursor=pointer]:
+                        - text: Conv. rate
+                        - img [ref=e404]: help_outline
+                      - columnheader "Conversions" [ref=e405] [cursor=pointer]:
+                        - text: Conversions
+                        - img [ref=e407]: help_outline
+                      - columnheader "Cost / conv." [ref=e408] [cursor=pointer]:
+                        - text: Cost / conv.
+                        - img [ref=e410]: help_outline
+                    - 'row "Select row Enabled Full Kitchen Remodel | Free Quote on Your Kitchen | Dream Kitchen, Built for You +3 more ‪gthomeimprovementma.com/kitchen/remodeling‬ From outdated to stunning. Kitchen designed for your lifestyle and personal taste. Licensed remodeling experts delivering high-quality kitchen renovations. +2 more View assets details · Preview ads Search | Kitchen | LeadGen | 21 Abr 2026 South Shore | Int: Home Improvements Eligible Poor Responsive search ad 400 34 clicks 8.50% $8.99 $305.62 0.00% 0.00 $0.00" [ref=e411]':
+                      - gridcell "Select row" [ref=e412]:
+                        - checkbox "Select row" [ref=e414] [cursor=pointer]:
+                          - img [ref=e416]
+                      - gridcell "Enabled" [ref=e417]:
+                        - img "Enabled" [ref=e419]
+                      - gridcell "Full Kitchen Remodel | Free Quote on Your Kitchen | Dream Kitchen, Built for You +3 more ‪gthomeimprovementma.com/kitchen/remodeling‬ From outdated to stunning. Kitchen designed for your lifestyle and personal taste. Licensed remodeling experts delivering high-quality kitchen renovations. +2 more View assets details · Preview ads" [ref=e420]:
+                        - generic [ref=e422]:
+                          - generic [ref=e423]:
+                            - link "Full Kitchen Remodel | Free Quote on Your Kitchen | Dream Kitchen, Built for You" [ref=e424] [cursor=pointer]:
+                              - /url: https://www.gthomeimprovementma.com/
+                            - text: +3 more
+                          - generic [ref=e425]: ‪gthomeimprovementma.com/kitchen/remodeling‬
+                          - generic [ref=e426]: From outdated to stunning. Kitchen designed for your lifestyle and personal taste. Licensed remodeling experts delivering high-quality kitchen renovations. +2 more
+                          - generic [ref=e427]:
+                            - button "View assets details" [ref=e428] [cursor=pointer]
+                            - generic [ref=e429]: ·
+                            - button "Preview ads" [ref=e430] [cursor=pointer]
+                      - gridcell "Search | Kitchen | LeadGen | 21 Abr 2026" [ref=e431]:
+                        - generic [ref=e434] [cursor=pointer]: Search | Kitchen | LeadGen | 21 Abr 2026
+                      - 'gridcell "South Shore | Int: Home Improvements" [ref=e435]':
+                        - generic [ref=e438] [cursor=pointer]: "South Shore | Int: Home Improvements"
+                      - gridcell "Eligible" [ref=e439]:
+                        - generic [ref=e444]: Eligible
+                      - gridcell "Poor" [ref=e445]:
+                        - generic [ref=e448] [cursor=pointer]: Poor
+                      - gridcell "Responsive search ad" [ref=e449]:
+                        - generic [ref=e451]: Responsive search ad
+                      - gridcell "400" [ref=e452]:
+                        - generic [ref=e454]: "400"
+                      - gridcell "34 clicks" [ref=e455]:
+                        - generic [ref=e456]:
+                          - generic [ref=e457]: "34"
+                          - generic [ref=e458]: clicks
+                      - gridcell "8.50%" [ref=e459]:
+                        - generic [ref=e461]: 8.50%
+                      - gridcell "$8.99" [ref=e462]:
+                        - generic [ref=e464]: $8.99
+                      - gridcell "$305.62" [ref=e465]:
+                        - generic [ref=e467]: $305.62
+                      - gridcell "0.00%" [ref=e468]:
+                        - generic [ref=e470]: 0.00%
+                      - gridcell "0.00" [ref=e471]:
+                        - generic [ref=e473]: "0.00"
+                      - gridcell "$0.00" [ref=e474]:
+                        - generic [ref=e476]: $0.00
+                    - 'row "Select row Enabled 5-Star Reviews on Google | {KeyWord:Kitchen Remodeling} Pros | Licensed & Insured +4 more ‪gthomeimprovementma.com/kitchen/remodeling‬ 5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused. Free estimates. Transparent pricing and craftsmanship you can count on. +2 more View assets details · Preview ads Search | Kitchen | LeadGen | 21 Abr 2026 South Shore | Int: Home Improvements Eligible Average Responsive search ad 379 34 clicks 8.97% $12.29 $417.79 0.00% 0.00 $0.00" [ref=e477]':
+                      - gridcell "Select row" [ref=e478]:
+                        - checkbox "Select row" [ref=e480] [cursor=pointer]:
+                          - img [ref=e482]
+                      - gridcell "Enabled" [ref=e483]:
+                        - img "Enabled" [ref=e485]
+                      - 'gridcell "5-Star Reviews on Google | {KeyWord:Kitchen Remodeling} Pros | Licensed & Insured +4 more ‪gthomeimprovementma.com/kitchen/remodeling‬ 5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused. Free estimates. Transparent pricing and craftsmanship you can count on. +2 more View assets details · Preview ads" [ref=e486]':
+                        - generic [ref=e488]:
+                          - generic [ref=e489]:
+                            - 'link "5-Star Reviews on Google | {KeyWord:Kitchen Remodeling} Pros | Licensed & Insured" [ref=e490] [cursor=pointer]':
+                              - /url: https://www.gthomeimprovementma.com/
+                            - text: +4 more
+                          - generic [ref=e491]: ‪gthomeimprovementma.com/kitchen/remodeling‬
+                          - generic [ref=e492]: 5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused. Free estimates. Transparent pricing and craftsmanship you can count on. +2 more
+                          - generic [ref=e493]:
+                            - button "View assets details" [ref=e494] [cursor=pointer]
+                            - generic [ref=e495]: ·
+                            - button "Preview ads" [ref=e496] [cursor=pointer]
+                      - gridcell "Search | Kitchen | LeadGen | 21 Abr 2026" [ref=e497]:
+                        - generic [ref=e500] [cursor=pointer]: Search | Kitchen | LeadGen | 21 Abr 2026
+                      - 'gridcell "South Shore | Int: Home Improvements" [ref=e501]':
+                        - generic [ref=e504] [cursor=pointer]: "South Shore | Int: Home Improvements"
+                      - gridcell "Eligible" [ref=e505]:
+                        - generic [ref=e510]: Eligible
+                      - gridcell "Average" [ref=e511]:
+                        - generic [ref=e514] [cursor=pointer]: Average
+                      - gridcell "Responsive search ad" [ref=e515]:
+                        - generic [ref=e517]: Responsive search ad
+                      - gridcell "379" [ref=e518]:
+                        - generic [ref=e520]: "379"
+                      - gridcell "34 clicks" [ref=e521]:
+                        - generic [ref=e522]:
+                          - generic [ref=e523]: "34"
+                          - generic [ref=e524]: clicks
+                      - gridcell "8.97%" [ref=e525]:
+                        - generic [ref=e527]: 8.97%
+                      - gridcell "$12.29" [ref=e528]:
+                        - generic [ref=e530]: $12.29
+                      - gridcell "$417.79" [ref=e531]:
+                        - generic [ref=e533]: $417.79
+                      - gridcell "0.00%" [ref=e534]:
+                        - generic [ref=e536]: 0.00%
+                      - gridcell "0.00" [ref=e537]:
+                        - generic [ref=e539]: "0.00"
+                      - gridcell "$0.00" [ref=e540]:
+                        - generic [ref=e542]: $0.00
+                    - 'row "Select row Enabled Your {LOCATION(City):MA} Kitchen Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA +12 more ‪gthomeimprovementma.com/kitchen/remodeling‬ A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We''ve remodeled kitchen across South Shore. Yours could be next. +2 more View assets details · Preview ads Search | Kitchen | LeadGen | 21 Abr 2026 South Shore | Int: Home Improvements Eligible Average Responsive search ad 582 29 clicks 4.98% $8.29 $240.55 17.24% 5.00 $48.11" [ref=e543]':
+                      - gridcell "Select row" [ref=e544]:
+                        - checkbox "Select row" [ref=e546] [cursor=pointer]:
+                          - img [ref=e548]
+                      - gridcell "Enabled" [ref=e549]:
+                        - img "Enabled" [ref=e551]
+                      - 'gridcell "Your {LOCATION(City):MA} Kitchen Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA +12 more ‪gthomeimprovementma.com/kitchen/remodeling‬ A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We''ve remodeled kitchen across South Shore. Yours could be next. +2 more View assets details · Preview ads" [ref=e552]':
+                        - generic [ref=e554]:
+                          - generic [ref=e555]:
+                            - 'link "Your {LOCATION(City):MA} Kitchen Experts | Remodelers in {LOCATION(City):South Shore}, MA | Serving {LOCATION(City):South Shore}, MA" [ref=e556] [cursor=pointer]':
+                              - /url: https://www.gthomeimprovementma.com/
+                            - text: +12 more
+                          - generic [ref=e557]: ‪gthomeimprovementma.com/kitchen/remodeling‬
+                          - generic [ref=e558]: A South Shore team you can trust. Licensed, 5-star rated, and ready to serve your area. We've remodeled kitchen across South Shore. Yours could be next. +2 more
+                          - generic [ref=e559]:
+                            - button "View assets details" [ref=e560] [cursor=pointer]
+                            - generic [ref=e561]: ·
+                            - button "Preview ads" [ref=e562] [cursor=pointer]
+                      - gridcell "Search | Kitchen | LeadGen | 21 Abr 2026" [ref=e563]:
+                        - generic [ref=e566] [cursor=pointer]: Search | Kitchen | LeadGen | 21 Abr 2026
+                      - 'gridcell "South Shore | Int: Home Improvements" [ref=e567]':
+                        - generic [ref=e570] [cursor=pointer]: "South Shore | Int: Home Improvements"
+                      - gridcell "Eligible" [ref=e571]:
+                        - generic [ref=e576]: Eligible
+                      - gridcell "Average" [ref=e577]:
+                        - generic [ref=e580] [cursor=pointer]: Average
+                      - gridcell "Responsive search ad" [ref=e581]:
+                        - generic [ref=e583]: Responsive search ad
+                      - gridcell "582" [ref=e584]:
+                        - generic [ref=e586]: "582"
+                      - gridcell "29 clicks" [ref=e587]:
+                        - generic [ref=e588]:
+                          - generic [ref=e589]: "29"
+                          - generic [ref=e590]: clicks
+                      - gridcell "4.98%" [ref=e591]:
+                        - generic [ref=e593]: 4.98%
+                      - gridcell "$8.29" [ref=e594]:
+                        - generic [ref=e596]: $8.29
+                      - gridcell "$240.55" [ref=e597]:
+                        - generic [ref=e599]: $240.55
+                      - gridcell "17.24%" [ref=e600]:
+                        - generic [ref=e602]: 17.24%
+                      - gridcell "5.00" [ref=e603]:
+                        - generic [ref=e605]: "5.00"
+                      - gridcell "$48.11" [ref=e606]:
+                        - generic [ref=e608]: $48.11
+                    - 'row "Total: Filtered ads More information 1,361 97 clicks 7.13% $9.94 $963.96 5.15% 5.00 $192.79" [ref=e907]':
+                      - gridcell [ref=e908]
+                      - gridcell [ref=e909]:
+                        - button [ref=e911] [cursor=pointer]:
+                          - img [ref=e912]: expand_more
+                      - 'gridcell "Total: Filtered ads More information"':
+                        - generic [ref=e913]:
+                          - generic [ref=e914]: "Total: Filtered ads"
+                          - button "More information" [ref=e916] [cursor=pointer]:
+                            - img [ref=e918]: help_outline
+                      - gridcell [ref=e919]
+                      - gridcell [ref=e920]
+                      - gridcell [ref=e921]
+                      - gridcell [ref=e922]
+                      - gridcell [ref=e923]
+                      - gridcell [ref=e924]
+                      - gridcell "1,361" [ref=e925]:
+                        - generic [ref=e927]: 1,361
+                      - gridcell "97 clicks" [ref=e928]:
+                        - generic [ref=e929]:
+                          - generic [ref=e930]: "97"
+                          - generic [ref=e931]: clicks
+                      - gridcell "7.13%" [ref=e932]:
+                        - generic [ref=e934]: 7.13%
+                      - gridcell "$9.94" [ref=e935]:
+                        - generic [ref=e937]: $9.94
+                      - gridcell "$963.96" [ref=e938]:
+                        - generic [ref=e940]: $963.96
+                      - gridcell "5.15%" [ref=e941]:
+                        - generic [ref=e943]: 5.15%
+                      - gridcell "5.00" [ref=e944]:
+                        - generic [ref=e946]: "5.00"
+                      - gridcell "$192.79" [ref=e947]:
+                        - generic [ref=e949]: $192.79
+                    - 'row "Expand row Total: Account More information 88,202 2,489 clicks, engagements 2.82% $4.02 $9,993.87 0.92% 23.00 $434.52" [ref=e950]':
+                      - gridcell [ref=e951]
+                      - gridcell "Expand row" [ref=e952]:
+                        - button "Expand row" [ref=e954] [cursor=pointer]:
+                          - img "Expand row" [ref=e955]: expand_more
+                      - 'gridcell "Total: Account More information"':
+                        - generic [ref=e956]:
+                          - generic [ref=e957]: "Total: Account"
+                          - button "More information" [ref=e959] [cursor=pointer]:
+                            - img [ref=e961]: help_outline
+                      - gridcell [ref=e962]
+                      - gridcell [ref=e963]
+                      - gridcell [ref=e964]
+                      - gridcell [ref=e965]
+                      - gridcell [ref=e966]
+                      - gridcell [ref=e967]
+                      - gridcell "88,202" [ref=e968]:
+                        - generic [ref=e970]: 88,202
+                      - gridcell "2,489 clicks, engagements" [ref=e971]:
+                        - generic [ref=e972]:
+                          - generic [ref=e973]: 2,489
+                          - generic [ref=e974]: clicks, engagements
+                      - gridcell "2.82%" [ref=e975]:
+                        - generic [ref=e977]: 2.82%
+                      - gridcell "$4.02" [ref=e978]:
+                        - generic [ref=e980]: $4.02
+                      - gridcell "$9,993.87" [ref=e981]:
+                        - generic [ref=e983]: $9,993.87
+                      - gridcell "0.92%" [ref=e984]:
+                        - generic [ref=e986]: 0.92%
+                      - gridcell "23.00" [ref=e987]:
+                        - generic [ref=e989]: "23.00"
+                      - gridcell "$434.52" [ref=e990]:
+                        - generic [ref=e992]: $434.52
+                  - generic [ref=e701]: 1 - 3 of 3
+              - generic [ref=e702]:
+                - generic [ref=e703]:
+                  - link "Reporting is not real-time." [ref=e705] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_2544985&hl=en_US
+                  - text: "Time zone for all dates and times: (GMT-04:00) Eastern Time."
+                  - link "Learn more about changing your Google Ads account settings" [ref=e707] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_9842104&hl=en_US
+                    - text: Learn more
+                  - generic [ref=e708]: Some inventory may be provided through third party intermediaries.
+                  - generic [ref=e709]: You'll see Media Rating Council (MRC) accreditation noted in the column header's hover text for accredited metrics.
+                - generic [ref=e710]: © Google, 2026.
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"

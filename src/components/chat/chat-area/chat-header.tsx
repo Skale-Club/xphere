@@ -59,7 +59,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import type { OrgMember } from '@/app/(dashboard)/inbox/actions'
 import { DndBadge } from '@/components/contacts/dnd-badge'
 import { ContactDetailSheet } from '@/components/contacts/contact-detail-sheet'
 

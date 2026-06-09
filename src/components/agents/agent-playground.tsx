@@ -14,17 +14,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Send, RotateCcw, Bot, User, Wrench, Clock } from 'lucide-react'
+import { type AgentChannel } from '@/lib/agents/channels'
 
-type AgentChannel =
-  | 'web_widget'
-  | 'whatsapp'
-  | 'sms'
-  | 'messenger'
-  | 'instagram'
-  | 'manychat'
-  | 'telegram'
+// Channels exposed in the playground — excludes internal-only channels
+const PLAYGROUND_CHANNELS: AgentChannel[] = [
+  'web_widget', 'whatsapp', 'sms', 'messenger', 'instagram', 'manychat', 'telegram',
+]
 
-const CHANNEL_LABELS: Record<AgentChannel, string> = {
+const CHANNEL_LABELS: Partial<Record<AgentChannel, string>> = {
   web_widget: 'Web Widget',
   whatsapp: 'WhatsApp',
   sms: 'SMS',
@@ -319,13 +316,11 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.entries(CHANNEL_LABELS) as [AgentChannel, string][]).map(
-                ([value, label]) => (
+              {PLAYGROUND_CHANNELS.map((value) => (
                   <SelectItem key={value} value={value} className="text-xs">
-                    {label}
+                    {CHANNEL_LABELS[value]}
                   </SelectItem>
-                )
-              )}
+                ))}
             </SelectContent>
           </Select>
 
@@ -350,7 +345,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 bg-neutral-50/50 dark:bg-neutral-900/20">
-        <div className="py-4 space-y-4 max-w-2xl mx-auto">
+        <div className="py-4 space-y-4 w-full">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
               <Bot className="h-10 w-10 mb-3 opacity-30" />
@@ -492,7 +487,7 @@ export function AgentPlayground({ agentId, agentName }: AgentPlaygroundProps) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t bg-background shrink-0">
-        <div className="max-w-2xl mx-auto flex gap-2 items-end">
+        <div className="w-full flex gap-2 items-end">
           <Textarea
             ref={textareaRef}
             value={input}

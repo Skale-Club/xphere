@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { cn } from '@/lib/utils'
 import { formatEmailDisplay } from '@/lib/email-addresses/format'
-import type { OrgMember } from '@/app/(dashboard)/chat/actions'
+import type { OrgMember } from '@/app/(dashboard)/inbox/actions'
 
 export type InboxViewFilter = 'all' | 'unread' | 'mine'
 

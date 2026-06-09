@@ -27,7 +27,7 @@ import {
   detachWorkflowFromAgent,
   type AttachedWorkflow,
   type WorkflowPickerItem,
-} from '@/app/(dashboard)/agents/actions'
+} from '@/app/(dashboard)/agents/_actions/workflows'
 
 interface AgentWorkflowToolsProps {
   agentId: string

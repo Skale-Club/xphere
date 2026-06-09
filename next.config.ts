@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import withSerwistInit from '@serwist/next'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const withSerwist = withSerwistInit({
   swSrc: 'src/sw.ts',
@@ -9,7 +10,9 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  serverExternalPackages: ['sharp'],
+  // playwright and cheerio use native modules / dynamic requires — they must
+  // NOT be bundled by webpack. sharp is excluded for the same reason.
+  serverExternalPackages: ['sharp', 'playwright', 'playwright-core', 'cheerio'],
   turbopack: {},
   async redirects() {
     return [
@@ -77,4 +80,16 @@ const nextConfig: NextConfig = {
 
 nextConfig.allowedDevOrigins = ['192.168.56.1']
 
-export default withSerwist(nextConfig)
+export default withSentryConfig(withSerwist(nextConfig), {
+  // No telemetry from our builds
+  telemetry: false,
+  // Silent in build output (set CI=true to see warnings)
+  silent: true,
+  // Sentry org + project for source-map upload (set via env in Coolify)
+  org: process.env.SENTRY_ORG ?? 'skale-club',
+  project: process.env.SENTRY_PROJECT ?? 'xphere',
+  // Source-map upload only when auth token is present (optional, never required for runtime)
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // Don't auto-create releases; we control that separately
+  release: { create: false, finalize: false },
+})

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { Clock, MapPin, Phone, Video, CalendarCheck } from 'lucide-react'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { BookingPageClient } from '@/components/scheduling/booking-page-client'
-import { BookingDebugBanner } from '@/components/scheduling/booking-debug-banner'
+import { BookingPageClient } from '@/components/calendar/booking-page-client'
+import { BookingDebugBanner } from '@/components/calendar/booking-debug-banner'
 
 const LOCATION_ICONS = { video: Video, phone: Phone, in_person: MapPin }
 const LOCATION_LABELS = { video: 'Video call', phone: 'Phone call', in_person: 'In person' }
@@ -21,7 +21,7 @@ export default async function PublicBookingPage({ params, searchParams }: Props)
 
   // Resolve profile by slug
   const { data: profile } = await supabase
-    .from('scheduling_profiles')
+    .from('calendar_profiles')
     .select('user_id, timezone, org_id')
     .eq('slug', slug)
     .single()

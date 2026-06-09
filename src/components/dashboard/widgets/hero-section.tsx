@@ -92,7 +92,7 @@ export async function HeroSection() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <QuickChip href="/chat" icon={MessageSquarePlus} label="New conversation" />
+          <QuickChip href="/inbox" icon={MessageSquarePlus} label="New conversation" />
 
           <NewContactDialog
             trigger={

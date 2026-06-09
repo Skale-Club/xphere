@@ -13,6 +13,7 @@ import { dynamicTool } from 'ai'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import type { AgentChannel } from './types'
+import { createLogger } from '@/lib/obs/logger'
 import { resolveAgentTool } from './resolve-agent-tool'
 import { executeWorkflowTool } from './execute-workflow-tool'
 import {
@@ -168,13 +169,8 @@ export async function buildWorkflowTools(
                 chain: currentChain,
                 blocking_agent: chainAgentId,
               })
-              console.warn(JSON.stringify({
-                event: 'intersection_authz_denied_workflow',
-                tool: capturedToolName,
-                chainAgentId,
-                chain: currentChain,
-                traceId,
-              }))
+              createLogger({ traceId })
+                .warn('intersection_authz_denied_workflow', { tool: capturedToolName, chainAgentId, chain: currentChain })
               return `Tool execution denied: delegation chain agent ${chainAgentId} does not have permission for ${capturedToolName}`
             }
           }

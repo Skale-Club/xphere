@@ -1,7 +1,7 @@
 // SEED-044+ (phone-numbers Phase 3): builds the {{phone.*}} variable scope
 // consumed by inbound-to-number workflow triggers.
 // Mirrors src/lib/pipeline/scope.ts (buildOpportunityScope) and
-// src/lib/scheduling/scope.ts (buildMeetingScope).
+// src/lib/calendar/scope.ts (buildMeetingScope).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'

@@ -32,10 +32,22 @@ function withCors(res: Response): Response {
   return new Response(res.body, { status: res.status, headers })
 }
 
+// Coolify/Traefik passes the public hostname in X-Forwarded-Host (or Host).
+// request.url resolves to the internal container address (0.0.0.0:3000),
+// so we must read from headers to get the real public origin.
+function getPublicOrigin(request: Request): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  if (host) {
+    const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https'
+    return `${proto}://${host}`
+  }
+  return 'https://xphere.app'
+}
+
 function unauthorizedResponse(request: Request): Response {
   // Per RFC 9728 / MCP spec: tell the client where to find resource metadata
   // so it can discover the authorization server and start the OAuth flow.
-  const origin = new URL(request.url).origin
+  const origin = getPublicOrigin(request)
   const metadataUrl = `${origin}/.well-known/oauth-protected-resource`
   const wwwAuth = `Bearer realm="xphere-mcp", resource_metadata="${metadataUrl}"`
   return new Response(
@@ -69,8 +81,8 @@ export async function GET(request: Request) {
     protocol: 'MCP Streamable HTTP',
     auth: {
       schemes: ['oauth2', 'bearer'],
-      oauth_metadata: new URL('/.well-known/oauth-authorization-server', request.url).toString(),
-      resource_metadata: new URL('/.well-known/oauth-protected-resource', request.url).toString(),
+      oauth_metadata: `${getPublicOrigin(request)}/.well-known/oauth-authorization-server`,
+      resource_metadata: `${getPublicOrigin(request)}/.well-known/oauth-protected-resource`,
     },
     tool_count: ALL_MCP_TOOLS.length,
   }))

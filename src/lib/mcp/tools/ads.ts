@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
 import type { AdsMemoryType, AdsMemorySource } from '@/lib/ads/journey-db'
+import { decrypt } from '@/lib/crypto'
+import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
+import type { DatePreset } from '@/lib/ads/meta-api'
 import type { McpToolDef } from '../tool-types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,6 +12,33 @@ function db() { return createServiceRoleClient() as any }
 
 const DaysSchema = z.number().int().positive().max(365)
 const PlatformSchema = z.enum(['meta', 'google']).optional()
+
+const MetaDatePresetSchema = z.enum([
+  'today', 'yesterday', 'last_7d', 'last_14d', 'last_30d',
+  'last_90d', 'this_month', 'last_month', 'maximum',
+]).default('last_30d')
+
+async function getMetaAccessToken(orgId: string, adAccountId?: string): Promise<{ token: string; accountId: string } | null> {
+  let q = db()
+    .from('ads_connections')
+    .select('ad_account_id, encrypted_access_token, status')
+    .eq('org_id', orgId)
+    .eq('platform', 'meta')
+    .in('status', ['active', 'available'])
+    .order('status') // 'active' sorts before 'available'
+
+  if (adAccountId) q = q.eq('ad_account_id', adAccountId)
+  else q = q.limit(1)
+
+  const { data } = await q
+  const conn = (data as { ad_account_id: string; encrypted_access_token: string }[] | null)?.[0]
+  if (!conn) return null
+  return { token: await decrypt(conn.encrypted_access_token), accountId: conn.ad_account_id }
+}
+
+function parseLeads(actions?: Array<{ action_type: string; value: string }>): number {
+  return parseFloat(actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+}
 
 export const adsTools: McpToolDef[] = [
   // ─── Connections ──────────────────────────────────────────────────────────────
@@ -32,6 +62,127 @@ export const adsTools: McpToolDef[] = [
       const { data, error } = await q
       if (error) return { error: 'query_failed', detail: error.message }
       return { connections: data ?? [] }
+    },
+  },
+
+  // ─── Meta Ads live metrics ────────────────────────────────────────────────────
+
+  {
+    name: 'ads_meta_get_overview',
+    title: 'Get Meta Ads overview',
+    description:
+      'Get account-level Meta Ads performance metrics: spend, impressions, clicks, CTR, CPM, CPC, reach, and leads. Pass ad_account_id to target a specific account, otherwise uses the first active Meta connection for the org.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      ad_account_id: z.string().optional(),
+      date_preset: MetaDatePresetSchema,
+    }).strict(),
+    handler: async ({ ad_account_id, date_preset }, { auth }) => {
+      const conn = await getMetaAccessToken(auth.orgId, ad_account_id)
+      if (!conn) return { error: 'no_connection', detail: 'No active Meta Ads connection found for this org.' }
+
+      try {
+        const [accountInfo, insights] = await Promise.all([
+          getAdAccountInfo(conn.accountId, conn.token),
+          getInsights(conn.accountId, conn.token, { level: 'account', datePreset: date_preset as DatePreset }),
+        ])
+        const raw = insights.data[0] ?? null
+        const leads = raw ? parseLeads(raw.actions) : 0
+        const spend = raw ? parseFloat(raw.spend ?? '0') : 0
+        return {
+          ad_account_id: conn.accountId,
+          ad_account_name: accountInfo.name,
+          currency: accountInfo.currency,
+          date_preset,
+          metrics: raw ? {
+            spend,
+            impressions: parseInt(raw.impressions ?? '0', 10),
+            clicks: parseInt(raw.clicks ?? '0', 10),
+            reach: parseInt(raw.reach ?? '0', 10),
+            leads,
+            ctr: raw.ctr ? parseFloat(raw.ctr) : null,
+            cpm: raw.cpm ? parseFloat(raw.cpm) : null,
+            cpc: raw.cpc ? parseFloat(raw.cpc) : null,
+            cpp: raw.cpp ? parseFloat(raw.cpp) : null,
+            frequency: raw.frequency ? parseFloat(raw.frequency) : null,
+            cpl: leads > 0 ? spend / leads : null,
+            date_start: raw.date_start,
+            date_stop: raw.date_stop,
+          } : null,
+        }
+      } catch (e) {
+        return { error: 'meta_api_error', detail: e instanceof Error ? e.message : 'Unknown error' }
+      }
+    },
+  },
+
+  {
+    name: 'ads_meta_list_campaigns',
+    title: 'List Meta Ads campaigns',
+    description:
+      'List Meta Ads campaigns for the org with enriched performance insights: status, spend, impressions, clicks, CTR, CPM, CPC, leads, and CPL. Use this to analyze which campaigns are active and performing.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      ad_account_id: z.string().optional(),
+      date_preset: MetaDatePresetSchema,
+    }).strict(),
+    handler: async ({ ad_account_id, date_preset }, { auth }) => {
+      const conn = await getMetaAccessToken(auth.orgId, ad_account_id)
+      if (!conn) return { error: 'no_connection', detail: 'No active Meta Ads connection found for this org.' }
+
+      try {
+        const [campaigns, insights] = await Promise.all([
+          listCampaigns(conn.accountId, conn.token),
+          getInsights(conn.accountId, conn.token, {
+            level: 'campaign',
+            datePreset: date_preset as DatePreset,
+            fields: ['impressions', 'clicks', 'spend', 'reach', 'cpc', 'cpm', 'ctr', 'actions', 'campaign_id', 'campaign_name'],
+          }),
+        ])
+
+        const insightMap = new Map(
+          insights.data.map((i) => {
+            const raw = i as unknown as Record<string, string>
+            return [raw.campaign_id, i]
+          })
+        )
+
+        const enriched = campaigns.map((c) => {
+          const ins = insightMap.get(c.id)
+          const leads = ins ? parseLeads(ins.actions) : 0
+          const spend = ins ? parseFloat(ins.spend ?? '0') : 0
+          return {
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            effective_status: c.effective_status,
+            objective: c.objective,
+            daily_budget: c.daily_budget ? parseFloat(c.daily_budget) / 100 : null,
+            lifetime_budget: c.lifetime_budget ? parseFloat(c.lifetime_budget) / 100 : null,
+            insights: ins ? {
+              spend,
+              impressions: parseInt(ins.impressions ?? '0', 10),
+              clicks: parseInt(ins.clicks ?? '0', 10),
+              reach: parseInt(ins.reach ?? '0', 10),
+              leads,
+              ctr: ins.ctr ? parseFloat(ins.ctr) : null,
+              cpm: ins.cpm ? parseFloat(ins.cpm) : null,
+              cpc: ins.cpc ? parseFloat(ins.cpc) : null,
+              cpl: leads > 0 ? spend / leads : null,
+            } : null,
+          }
+        })
+
+        return {
+          ad_account_id: conn.accountId,
+          date_preset,
+          campaigns: enriched,
+          total_campaigns: enriched.length,
+          active_campaigns: enriched.filter((c) => c.effective_status === 'ACTIVE').length,
+        }
+      } catch (e) {
+        return { error: 'meta_api_error', detail: e instanceof Error ? e.message : 'Unknown error' }
+      }
     },
   },
 

@@ -57,6 +57,7 @@ export async function getAgentMetrics(
     .select('duration_ms, cost_usd, tool_calls, status')
     .eq('agent_id', agentId)
     .neq('status', 'running')
+    .neq('mode', 'playground')
     .gte('created_at', windowStart(window))
     .order('created_at', { ascending: false })
     .limit(10000)
@@ -245,7 +246,7 @@ export async function getConversationDelegationTree(
 
 // ─── OBS-07: Agent invocations list ──────────────────────────────────────────
 
-const PAGE_SIZE = 20
+import { INVOCATIONS_PAGE_SIZE } from './constants'
 
 export interface InvocationListItem {
   id: string
@@ -281,8 +282,9 @@ export async function getAgentInvocations(params: {
     )
     .eq('agent_id', agentId)
     .neq('status', 'running')
+    .neq('mode', 'playground')
     .order('created_at', { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+    .range((page - 1) * INVOCATIONS_PAGE_SIZE, page * INVOCATIONS_PAGE_SIZE - 1)
 
   if (status) query = query.eq('status', status as AgentInvocationStatus)
   if (minCostUsd !== undefined) query = query.gte('cost_usd', minCostUsd)

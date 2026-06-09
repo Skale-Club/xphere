@@ -26,9 +26,6 @@ export const channelOverrideSchema = z
     return out
   })
 
-export type ChannelOverrideInput = z.input<typeof channelOverrideSchema>
-export type ChannelOverride = z.output<typeof channelOverrideSchema>
-
 /**
  * Full agent CRUD form payload. Maps to Database['public']['Tables']['agents']['Insert']
  * (with temperature + max_tokens added in Plan 01) plus a tool_ids list for the picker.
@@ -59,3 +56,16 @@ export const agentSchema = z.object({
 
 export type AgentFormInput = z.input<typeof agentSchema>
 export type AgentFormOutput = z.output<typeof agentSchema>
+
+/**
+ * Settings-only payload (Prompt & Actions section owns system_prompt + tools).
+ * Same shape as agentSchema minus `system_prompt` and `tool_ids`, so the
+ * Settings form saves config without touching the prompt or attached tools.
+ */
+export const agentSettingsSchema = agentSchema.omit({
+  system_prompt: true,
+  tool_ids: true,
+})
+
+export type AgentSettingsInput = z.input<typeof agentSettingsSchema>
+export type AgentSettingsOutput = z.output<typeof agentSettingsSchema>

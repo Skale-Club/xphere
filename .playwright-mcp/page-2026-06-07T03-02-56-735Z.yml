@@ -1,0 +1,452 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button "Close" [ref=e1199] [cursor=pointer]:
+          - img [ref=e1202]: close
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e27]:
+          - generic [ref=e33]:
+            - img [ref=e36]: search
+            - generic [ref=e37]:
+              - generic:
+                - generic: "\"What are my top performing campaigns?\""
+              - combobox "\"What are my top performing campaigns?\"" [ref=e38]
+          - text: Search
+        - generic [ref=e39]:
+          - button "Appearance" [ref=e42] [cursor=pointer]:
+            - generic [ref=e44]:
+              - img [ref=e45]: responsive_layout
+              - text: Appearance
+          - button "Open the quick help panel" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]:
+              - text: Help
+              - generic [ref=e57]:
+                - img [ref=e58]: help_outline
+                - text: Help
+          - button "Notifications" [ref=e65] [cursor=pointer]:
+            - generic [ref=e67]:
+              - img [ref=e70]: notifications
+              - generic [ref=e72]: Notifications
+          - button "Ask Advisor" [ref=e74] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e78]: button_magic
+              - generic [ref=e79]: Ask Advisor
+              - generic [ref=e80]: Beta
+      - button "Google account" [ref=e87] [cursor=pointer]:
+        - img "Google account (skale.club@gmail.com)" [ref=e88]
+    - generic [ref=e90]:
+      - generic [ref=e95]:
+        - img [ref=e97]: report_problem
+        - generic [ref=e99]:
+          - status [ref=e100]:
+            - generic [ref=e102]: Accept Call and Messaging Ads Terms - You need to review and accept these terms in order to create and edit call ads and call assets.
+          - generic [ref=e104]:
+            - button "Fix it" [ref=e1205] [cursor=pointer]:
+              - generic [ref=e1206]: Fix it
+            - button "Learn more" [ref=e1210] [cursor=pointer]:
+              - generic [ref=e1211]: Learn more
+            - button "Dismiss" [ref=e1214] [cursor=pointer]:
+              - generic [ref=e1215]: Dismiss
+      - main [ref=e1221]:
+        - generic [ref=e1223]:
+          - generic [ref=e1228]:
+            - generic [ref=e1229]:
+              - generic [ref=e1230]:
+                - generic [ref=e1231]: "Ad group:"
+                - generic [ref=e1232]:
+                  - generic [ref=e1233]: Ad group 1
+                  - generic [ref=e1234]: Search | Bathroom | LeadGen | 2 Jun 2026
+              - generic [ref=e1235]:
+                - generic [ref=e1236]: "Keywords:"
+                - generic [ref=e1237]:
+                  - text: bathroom remodeling in, bathroom renovation company, bathroom remodel contractors, bathroom renovation contractors, "bathroom remodeling contractor", bath remodel company, "bathroom remodel contractors near me" + 1 more
+                  - button "Show more" [ref=e1238] [cursor=pointer]:
+                    - img [ref=e1240]: expand_more
+                    - text: Show more
+            - heading "Asset generation Information Want more personalized help? Chat with Ask Advisor to get asset suggestions. Open chat Google AI will use your URL and the information you provide to generate assets, like headlines and descriptions, for you to review. Your use is subject to additional terms." [level=2] [ref=e1245]:
+              - generic [ref=e1246]:
+                - heading "Asset generation Information Want more personalized help? Chat with Ask Advisor to get asset suggestions. Open chat" [level=2] [ref=e1247]:
+                  - paragraph [ref=e1248]: Asset generation
+                  - generic [ref=e1250]:
+                    - img "Information" [ref=e1252]
+                    - generic [ref=e1253]:
+                      - paragraph [ref=e1255]: Want more personalized help? Chat with Ask Advisor to get asset suggestions.
+                      - button "Open chat" [ref=e1258] [cursor=pointer]:
+                        - generic [ref=e1259]: Open chat
+                - paragraph
+                - paragraph [ref=e1261]: Google AI will use your URL and the information you provide to generate assets, like headlines and descriptions, for you to review. Your use is subject to additional terms.
+              - button "Show panel" [ref=e1262] [cursor=pointer]:
+                - img "Show panel" [ref=e1263]: expand_less
+            - generic [ref=e1268]:
+              - generic [ref=e1271]:
+                - generic [ref=e1277]: Add a final URL to see headline and description suggestions
+                - generic [ref=e1279]:
+                  - progressbar "Ad strength overall score is Incomplete" [ref=e1281]
+                  - generic [ref=e1288]:
+                    - generic [ref=e1289]:
+                      - generic [ref=e1290]: Ad strength
+                      - button "More information" [ref=e1291] [cursor=pointer]:
+                        - img [ref=e1293]: help_outline
+                    - generic "Ad Strength overall score is Incomplete" [ref=e1294]: Incomplete
+                - generic [ref=e1296]:
+                  - note "Category score is low for category Add more headlines" [ref=e1304]:
+                    - text: Add more headlines
+                    - button "View ideas" [ref=e1305] [cursor=pointer]
+                  - note "Category score is low for category Include popular keywords in your headlines" [ref=e1313]:
+                    - text: Include popular keywords in your headlines
+                    - button "View ideas" [ref=e1314] [cursor=pointer]
+                  - note "Category score is low for category Make your headlines more unique" [ref=e1322]:
+                    - text: Make your headlines more unique
+                    - button "View ideas" [ref=e1323] [cursor=pointer]
+                  - note "Category score is low for category Make your descriptions more unique" [ref=e1331]:
+                    - text: Make your descriptions more unique
+                    - button "View ideas" [ref=e1332] [cursor=pointer]
+              - generic [ref=e1333]:
+                - generic [ref=e1335]:
+                  - generic [ref=e1336]:
+                    - text: With responsive search ads, you enter multiple headlines and descriptions and Google combines them into ads.
+                    - button "More information" [ref=e1337] [cursor=pointer]:
+                      - img [ref=e1339]: help_outline
+                  - generic [ref=e1342]:
+                    - button "Final URL More information" [expanded] [ref=e1344] [cursor=pointer]:
+                      - generic [ref=e1347]:
+                        - generic [ref=e1348]: Final URL
+                        - button [ref=e1349]:
+                          - img [ref=e1351]: help_outline
+                      - img [ref=e1352]: expand_less
+                    - region "Final URL More information" [ref=e1353]:
+                      - generic [ref=e1359]:
+                        - generic [ref=e1362]:
+                          - generic:
+                            - generic: Final URL
+                          - textbox "Final URL" [ref=e1363]: https://www.gthomeimprovementma.com/
+                        - generic [ref=e1365]: This will be used to suggest assets for your ad
+                  - generic [ref=e1374]:
+                    - button "Display path More information" [expanded] [ref=e1376] [cursor=pointer]:
+                      - generic [ref=e1379]:
+                        - generic [ref=e1380]: Display path
+                        - button [ref=e1381]:
+                          - img [ref=e1383]: help_outline
+                      - img [ref=e1384]: expand_less
+                    - region "Display path More information" [ref=e1385]:
+                      - generic [ref=e1390]:
+                        - generic [ref=e1391]: www.gthomeimprovementma.com
+                        - generic [ref=e1392]:
+                          - generic [ref=e1393]: /
+                          - generic [ref=e1395]:
+                            - textbox "Path 1" [ref=e1399]: bathroom
+                            - generic [ref=e1402]:
+                              - generic [ref=e1403]: 8 / 15
+                              - generic [ref=e1404]: Text is 8 characters out of 15
+                          - generic [ref=e1405]: /
+                          - generic [ref=e1407]:
+                            - textbox "Path 2" [ref=e1411]: remodeling
+                            - generic [ref=e1414]:
+                              - generic [ref=e1415]: 10 / 15
+                              - generic [ref=e1416]: Text is 10 characters out of 15
+                  - generic [ref=e1418]:
+                    - img "Information" [ref=e1420]: info
+                    - generic [ref=e1421]:
+                      - paragraph [ref=e1423]: Some of the headlines and descriptions for this ad have been prefilled with suggestions from your final URL and previous high-performing ads.
+                      - button "Clear prefills" [ref=e1426]:
+                        - generic [ref=e1429]: Clear prefills
+                  - generic [ref=e1433]:
+                    - button "Calls Learn more Add a phone number" [expanded] [ref=e1435] [cursor=pointer]:
+                      - generic [ref=e1436]:
+                        - generic [ref=e1438]:
+                          - generic [ref=e1439]:
+                            - img [ref=e1442]: call
+                            - generic [ref=e1443]: Calls
+                            - button "Learn more" [ref=e1444]:
+                              - img [ref=e1446]: help_outline
+                          - generic [ref=e1448]: Add a phone number
+                        - paragraph
+                      - img [ref=e1449]: expand_less
+                    - region "Calls Learn more Add a phone number" [ref=e1450]:
+                      - generic [ref=e1453]:
+                        - generic [ref=e1457]:
+                          - img [ref=e1459]: subdirectory_arrow_right
+                          - button "Account-level calls" [ref=e1460] [cursor=pointer]
+                        - button "Calls" [ref=e1463] [cursor=pointer]:
+                          - generic [ref=e1464]:
+                            - img [ref=e1466]: add
+                            - text: Calls
+                  - generic [ref=e1470]:
+                    - button "text_fields Headlines ‪15/15‬ More information View ideas" [expanded] [ref=e1472] [cursor=pointer]:
+                      - generic [ref=e1475]:
+                        - img [ref=e1477]: text_fields
+                        - generic [ref=e1478]: Headlines ‪15/15‬
+                        - button [ref=e1479]:
+                          - img [ref=e1481]: help_outline
+                        - button [ref=e1483]:
+                          - generic [ref=e1484]: View ideas
+                      - img [ref=e1485]: expand_less
+                    - region "text_fields Headlines ‪15/15‬ More information View ideas" [ref=e1486]:
+                      - generic [ref=e1490]: Generating...
+                  - generic [ref=e1493]:
+                    - button "text_fields Descriptions ‪4/4‬ More information View ideas" [expanded] [ref=e1495] [cursor=pointer]:
+                      - generic [ref=e1498]:
+                        - img [ref=e1500]: text_fields
+                        - generic [ref=e1501]: Descriptions ‪4/4‬
+                        - button [ref=e1502]:
+                          - img [ref=e1504]: help_outline
+                        - button [ref=e1506]:
+                          - generic [ref=e1507]: View ideas
+                      - img [ref=e1508]: expand_less
+                    - region "text_fields Descriptions ‪4/4‬ More information View ideas" [ref=e1509]:
+                      - generic [ref=e1513]: Generating...
+                  - generic [ref=e1517]:
+                    - button "Business name This name should match your URL or your verified advertiser name, which is Giovanni Tonin." [expanded] [ref=e1519] [cursor=pointer]:
+                      - generic [ref=e1522]:
+                        - generic [ref=e1524]: Business name
+                        - generic [ref=e1527]: This name should match your URL or your verified advertiser name, which is Giovanni Tonin.
+                      - img [ref=e1528]: expand_less
+                    - region "Business name This name should match your URL or your verified advertiser name, which is Giovanni Tonin." [ref=e1529]:
+                      - generic [ref=e1533]:
+                        - generic [ref=e1535]:
+                          - textbox "Business name" [ref=e1539]
+                          - generic [ref=e1542]:
+                            - generic [ref=e1543]: 0 / 25
+                            - generic [ref=e1544]: Text is 0 characters out of 25
+                        - generic [ref=e1545]:
+                          - text: Until you add an
+                          - link "approved name" [ref=e1547] [cursor=pointer]:
+                            - /url: https://support.google.com/adspolicy/answer/12499303?hl=en_US
+                          - text: ", your campaign will run with a placeholder name created from your URL."
+                  - generic [ref=e1551]:
+                    - button "Business logo Add business logo to your campaign" [expanded] [ref=e1553] [cursor=pointer]:
+                      - generic [ref=e1554]:
+                        - generic [ref=e1556]:
+                          - generic [ref=e1557]:
+                            - img [ref=e1560]: image
+                            - generic [ref=e1561]: Business logo
+                          - generic [ref=e1563]: Add business logo to your campaign
+                        - paragraph
+                      - img [ref=e1564]: expand_less
+                    - region "Business logo Add business logo to your campaign" [ref=e1565]:
+                      - button "Business logo" [ref=e1571] [cursor=pointer]:
+                        - generic [ref=e1572]:
+                          - img [ref=e1574]: add
+                          - text: Business logo
+                  - generic [ref=e1579]:
+                    - button "Sitelinks Help center tooltip button for sitelinks Add links to your ads to take people to specific pages on your website." [expanded] [ref=e1581] [cursor=pointer]:
+                      - generic [ref=e1582]:
+                        - generic [ref=e1584]:
+                          - generic [ref=e1585]:
+                            - img [ref=e1588]: link
+                            - generic [ref=e1589]: Sitelinks
+                            - button "Help center tooltip button for sitelinks" [ref=e1590]:
+                              - img [ref=e1592]: help_outline
+                          - generic [ref=e1594]: Add links to your ads to take people to specific pages on your website.
+                        - paragraph
+                      - img [ref=e1595]: expand_less
+                    - region "Sitelinks Help center tooltip button for sitelinks Add links to your ads to take people to specific pages on your website." [ref=e1596]:
+                      - generic [ref=e1599]:
+                        - generic [ref=e1600]:
+                          - generic [ref=e1601]:
+                            - generic "Asset Item" [ref=e1602]:
+                              - generic [ref=e1604]:
+                                - generic [ref=e1607]:
+                                  - link "Bathroom Remodeling" [ref=e1608] [cursor=pointer]:
+                                    - /url: https://gthomeimprovementma.com/services/bathroom-remodeling/
+                                  - generic [ref=e1609]: Our team transforms outdated · baths into personalized retreats.
+                                - generic [ref=e1610]:
+                                  - button "Edit Bathroom Remodeling" [ref=e1611] [cursor=pointer]:
+                                    - img [ref=e1614]: edit
+                                  - button "Remove Bathroom Remodeling" [ref=e1616] [cursor=pointer]:
+                                    - img [ref=e1619]: delete
+                            - generic "Asset Item" [ref=e1621]:
+                              - generic [ref=e1623]:
+                                - generic [ref=e1626]:
+                                  - link "Kitchen Remodeling" [ref=e1627] [cursor=pointer]:
+                                    - /url: https://gthomeimprovementma.com/services/kitchen-remodeling/
+                                  - generic [ref=e1628]: With precision craftsmanship · and personalized service.
+                                - generic [ref=e1629]:
+                                  - button "Edit Kitchen Remodeling" [ref=e1630] [cursor=pointer]:
+                                    - img [ref=e1633]: edit
+                                  - button "Remove Kitchen Remodeling" [ref=e1635] [cursor=pointer]:
+                                    - img [ref=e1638]: delete
+                          - generic "Add" [ref=e1640]:
+                            - generic "Asset Item" [ref=e1641]:
+                              - generic [ref=e1643]:
+                                - generic [ref=e1646]:
+                                  - generic [ref=e1647]: Sitelink 3
+                                  - generic [ref=e1648]: Recommended
+                                - button "Add" [ref=e1650] [cursor=pointer]:
+                                  - img [ref=e1653]: add
+                            - generic "Asset Item" [ref=e1655]:
+                              - generic [ref=e1657]:
+                                - generic [ref=e1660]:
+                                  - generic [ref=e1661]: Sitelink 4
+                                  - generic [ref=e1662]: Recommended
+                                - button "Add" [ref=e1664] [cursor=pointer]:
+                                  - img [ref=e1667]: add
+                            - generic "Asset Item" [ref=e1669]:
+                              - generic [ref=e1671]:
+                                - generic [ref=e1674]:
+                                  - generic [ref=e1675]: Sitelink 5
+                                  - generic [ref=e1676]: Recommended
+                                - button "Add" [ref=e1678] [cursor=pointer]:
+                                  - img [ref=e1681]: add
+                            - generic "Asset Item" [ref=e1683]:
+                              - generic [ref=e1685]:
+                                - generic [ref=e1688]:
+                                  - generic [ref=e1689]: Sitelink 6
+                                  - generic [ref=e1690]: Recommended
+                                - button "Add" [ref=e1692] [cursor=pointer]:
+                                  - img [ref=e1695]: add
+                        - button "Edit sitelinks" [ref=e1698] [cursor=pointer]:
+                          - generic [ref=e1699]:
+                            - img [ref=e1701]: edit
+                            - text: Edit
+                  - group [ref=e1703]:
+                    - heading "More asset types (0/6) Improve your ad performance and make your ad more interactive by adding more details about your business and website" [level=2] [ref=e1704]:
+                      - button "More asset types (0/6)" [ref=e1705] [cursor=pointer]:
+                        - img [ref=e1707]: expand_more
+                        - generic [ref=e1708]: More asset types (0/6)
+                      - generic [ref=e1711]: Improve your ad performance and make your ad more interactive by adding more details about your business and website
+                  - group [ref=e1713]:
+                    - heading "Ad URL options" [level=2] [ref=e1714]:
+                      - button "Ad URL options" [ref=e1715] [cursor=pointer]:
+                        - img [ref=e1717]: expand_more
+                        - generic [ref=e1718]: Ad URL options
+                - generic [ref=e1723]:
+                  - generic [ref=e1725]:
+                    - heading "Preview" [level=2] [ref=e1726]
+                    - generic [ref=e1727]:
+                      - button "Share" [ref=e1729]:
+                        - generic [ref=e1732]: Share
+                      - button "Preview ads" [ref=e1734]:
+                        - generic [ref=e1737]: Preview ads
+                  - generic [ref=e1740]:
+                    - button "Previous preview" [disabled] [ref=e1741]:
+                      - generic:
+                        - generic:
+                          - img: chevron_left
+                    - generic [ref=e1745]:
+                      - generic [ref=e1750]:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img: menu
+                                - img "Google logo"
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img: search
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - tablist:
+                                      - tab "All" [disabled] [selected]:
+                                        - generic:
+                                          - generic:
+                                            - generic: All
+                                      - tab "Images" [disabled]:
+                                        - generic:
+                                          - generic:
+                                            - generic: Images
+                                      - tab "Shopping" [disabled]:
+                                        - generic:
+                                          - generic:
+                                            - generic: Shopping
+                                      - tab "Videos" [disabled]:
+                                        - generic:
+                                          - generic:
+                                            - generic: Videos
+                                      - tab "News" [disabled]:
+                                        - generic:
+                                          - generic:
+                                            - generic: News
+                      - generic [ref=e1754]:
+                        - img "Warning" [ref=e1756]: warning_amber
+                        - generic [ref=e1759]:
+                          - paragraph [ref=e1760]: "To unlock this format, add the following assets:"
+                          - list [ref=e1761]:
+                            - listitem [ref=e1762]: 1 headline and description
+                    - button "Next preview" [ref=e1763] [cursor=pointer]:
+                      - img [ref=e1766]: chevron_right
+                  - paragraph [ref=e1774]: Previews shown here are examples and don't include all possible formats. You're responsible for the content of your ads. Please make sure that your provided assets don't violate any Google policies or applicable laws, either individually, or in combination.
+            - generic [ref=e1777]:
+              - button "Save ad" [ref=e1778] [cursor=pointer]:
+                - generic [ref=e1779]: Save ad
+              - button "Cancel" [ref=e1781] [cursor=pointer]:
+                - generic [ref=e1782]: Cancel
+          - generic [ref=e1785]: © Google, 2026.
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog":
+          - generic [ref=e1790]: info
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog":
+          - generic [ref=e1793]: · · · · · · · ·
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+      - generic:
+        - dialog "dialog"

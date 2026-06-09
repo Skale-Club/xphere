@@ -30,6 +30,10 @@
   --accent-hover:  #4F46E5;
   --accent-muted:  rgba(99, 102, 241, 0.08);
   --accent-glow:   rgba(99, 102, 241, 0.18);
+  /* Soft tint of the accent for subdued UI like sidebar section labels.
+     Overridden per-org by BrandingStyle (deriveAccentSoft) so it follows the
+     selected accent. Default value matches the historical indigo label color. */
+  --accent-soft:   #A5A6D6;
 
   /* ---- Semantic ---- */
   --success: #16A34A;
@@ -124,6 +128,7 @@
   --accent-hover:  #818CF8;
   --accent-muted:  rgba(99, 102, 241, 0.12);
   --accent-glow:   rgba(99, 102, 241, 0.28);
+  --accent-soft:   #A5A6D6;
 
   /* ---- Semantic ---- */
   --success: #22C55E;
@@ -193,6 +198,7 @@
   --color-accent:        var(--accent);
   --color-accent-hover:  var(--accent-hover);
   --color-accent-muted:  var(--accent-muted);
+  --color-accent-soft:   var(--accent-soft);
 
   --color-success: var(--success);
   --color-warning: var(--warning);

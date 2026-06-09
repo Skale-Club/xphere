@@ -26,7 +26,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   })
 
   // Where to send the user after the callback. Only same-origin paths are
-  // honored; anything else falls back to the default (/scheduling).
+  // honored; anything else falls back to the default (/calendar).
   const requestedReturn = request.nextUrl.searchParams.get('return')
   if (requestedReturn && requestedReturn.startsWith('/') && !requestedReturn.startsWith('//')) {
     jar.set(RETURN_COOKIE, requestedReturn, {

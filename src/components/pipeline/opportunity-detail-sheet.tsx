@@ -102,11 +102,11 @@ import { getNotes, type NoteRow } from '@/app/(dashboard)/notes/actions'
 import {
   getSchedulingProfile,
   type SchedulingProfile,
-} from '@/app/(dashboard)/scheduling/_actions/scheduling-profile'
+} from '@/app/(dashboard)/calendar/_actions/calendar-profile'
 import {
   getEventTypes,
   type EventTypeRow,
-} from '@/app/(dashboard)/scheduling/_actions/event-types'
+} from '@/app/(dashboard)/calendar/_actions/event-types'
 import { formatCurrency } from '@/lib/pipeline/format'
 import { formatDateTime as formatDateTimeTz } from '@/lib/datetime'
 import { useOrgSettings } from '@/components/providers/org-settings-provider'
@@ -116,7 +116,7 @@ import { cn } from '@/lib/utils'
 
 type StageRow = Database['public']['Tables']['pipeline_stages']['Row']
 type OpportunityStatus = 'open' | 'won' | 'lost'
-type SideSection = 'details' | 'contact' | 'activity' | 'tasks' | 'notes' | 'scheduling'
+type SideSection = 'details' | 'contact' | 'activity' | 'tasks' | 'notes' | 'calendar'
 
 interface ContactSuggestion {
   id: string
@@ -140,7 +140,7 @@ const SIDE_ITEMS: { id: SideSection; label: string; icon: React.ComponentType<{ 
   { id: 'activity', label: 'Activity', icon: ActivityIcon },
   { id: 'tasks', label: 'Tasks', icon: ListChecks },
   { id: 'notes', label: 'Notes', icon: StickyNote },
-  { id: 'scheduling', label: 'Scheduling', icon: CalendarDays },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
 ]
 
 export function OpportunityDetailSheet({
@@ -245,7 +245,7 @@ export function OpportunityDetailSheet({
     if (!oppId) return
     if (section === 'tasks' && tasks === null) void fetchTasks()
     if (section === 'notes' && notes === null) void fetchNotes()
-    if (section === 'scheduling' && !schedLoaded) void fetchScheduling()
+    if (section === 'calendar' && !schedLoaded) void fetchScheduling()
   }, [section, oppId, tasks, notes, schedLoaded, fetchTasks, fetchNotes, fetchScheduling])
 
   // TasksTable / NotesGrid mutate via their own slide-overs + router.refresh().
@@ -709,8 +709,8 @@ export function OpportunityDetailSheet({
                     </div>
                   )}
 
-                  {/* SCHEDULING */}
-                  {section === 'scheduling' && (
+                  {/* CALENDAR */}
+                  {section === 'calendar' && (
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                       {!schedLoaded ? (
                         <Loading />
@@ -719,7 +719,7 @@ export function OpportunityDetailSheet({
                           <CalendarPlus className="h-8 w-8 text-text-tertiary" />
                           <div>
                             <p className="text-[13px] font-medium text-text-secondary">
-                              Scheduling isn&apos;t set up yet
+                              Calendar isn&apos;t set up yet
                             </p>
                             <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-text-tertiary">
                               Connect a calendar and create an event type to start booking
@@ -727,9 +727,9 @@ export function OpportunityDetailSheet({
                             </p>
                           </div>
                           <Button asChild size="sm" className="gap-1.5">
-                            <Link href="/scheduling" onClick={() => onOpenChange(false)}>
+                            <Link href="/calendar" onClick={() => onOpenChange(false)}>
                               <CalendarDays className="h-3.5 w-3.5" />
-                              Set up scheduling
+                              Set up calendar
                             </Link>
                           </Button>
                         </div>
@@ -759,8 +759,8 @@ export function OpportunityDetailSheet({
                             ))}
                           </div>
                           <Button asChild variant="ghost" size="sm" className="gap-1.5">
-                            <Link href="/scheduling" onClick={() => onOpenChange(false)}>
-                              Manage scheduling <ExternalLink className="h-3.5 w-3.5" />
+                            <Link href="/calendar" onClick={() => onOpenChange(false)}>
+                              Manage calendar <ExternalLink className="h-3.5 w-3.5" />
                             </Link>
                           </Button>
                         </div>

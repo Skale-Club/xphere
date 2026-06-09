@@ -40,6 +40,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   telegram: 'Telegram',
   resend: 'Resend',
   zernio: 'Zernio',
+  xkedule: 'Xkedule',
 }
 
 const integrationSchema = z.object({

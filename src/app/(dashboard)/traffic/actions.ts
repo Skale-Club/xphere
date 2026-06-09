@@ -75,6 +75,22 @@ export async function saveTrafficSetup(formData: FormData) {
     .eq('organization_id', orgId)
 }
 
+export async function resetTrafficSetup() {
+  const { supabase, orgId } = await getOrgAndClient()
+
+  // Reset the install back to "not started" so the wizard runs again. We
+  // intentionally keep the script_token stable — rotating it would silently
+  // break any tag already deployed on the customer's website.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from('traffic_setups')
+    .update({
+      verification_state: 'not_started',
+      verified_at: null,
+    })
+    .eq('organization_id', orgId)
+}
+
 export async function getDashboardData(from: string, to: string) {
   const { supabase, orgId } = await getOrgAndClient()
 

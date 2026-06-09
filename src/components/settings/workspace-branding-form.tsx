@@ -8,6 +8,7 @@ import { Check, Loader2, Upload, X, ImageUp } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ColorPicker } from '@/components/ui/color-picker'
 import { cn } from '@/lib/utils'
 import { DEFAULT_ACCENT } from '@/lib/branding'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
@@ -72,6 +73,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('orgId', org.id)
       const res = await uploadOrgLogo(fd)
       if (!res.ok) { toast.error(res.error); return }
       setLogoUrl(res.url)
@@ -110,6 +112,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
     try {
       if (brandingDirty) {
         const result = await updateWorkspaceBranding({
+          orgId: org.id,
           logo_url: logoUrl.trim() || null,
           accent_color: accentInput,
         })
@@ -120,7 +123,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
       }
       if (capDirty) {
         const val = capInput.trim() === '' ? null : parseFloat(capInput)
-        const result = await updateDailyCostCap({ daily_cost_cap_usd: val })
+        const result = await updateDailyCostCap({ orgId: org.id, daily_cost_cap_usd: val })
         if (!result.ok) {
           toast.error(result.error ?? 'Failed to save cost cap')
           return false
@@ -253,22 +256,15 @@ export function WorkspaceBrandingForm({ org }: Props) {
             ))}
           </div>
           <div className="flex items-center gap-2 max-w-xs">
-            <div
-              className="relative h-9 w-9 shrink-0 overflow-hidden rounded-[8px] border border-border"
-              style={{ backgroundColor: pickerColor }}
-              title="Pick custom color"
-            >
-              <Input
-                type="color"
-                value={pickerColor}
-                onChange={(e) => setAccentInput(e.target.value.toUpperCase())}
-                aria-label="Pick custom accent color"
-                className="absolute inset-0 h-full w-full cursor-pointer border-0 p-0 opacity-0"
-              />
-            </div>
+            <ColorPicker value={pickerColor} onChange={(hex) => setAccentInput(hex)} />
             <Input
               value={accentInput}
-              onChange={(e) => setAccentInput(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const raw = e.target.value
+                const stripped = raw.replace(/^#+/, '')
+                const hexOnly = stripped.replace(/[^0-9a-fA-F]/g, '').toUpperCase()
+                setAccentInput('#' + hexOnly)
+              }}
               placeholder="#6366F1"
               className="font-mono"
               maxLength={7}

@@ -16,6 +16,7 @@ import { CustomFieldsDisplay } from '@/components/custom-fields/custom-fields-di
 import { TasksPanel } from '@/components/tasks/tasks-panel'
 import { NotesPanel } from '@/components/notes/notes-panel'
 import { PageContainer } from '@/components/layout/page-header'
+import { EntityDetailTemplate } from '@/components/crm/entity-template'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -36,6 +37,9 @@ export default async function AccountDetailPage({ params }: Props) {
   const activities = activitiesResult.ok ? activitiesResult.data : []
 
   return (
+    // EntityDetailTemplate marks this as a shared CRM detail surface so Prospects
+    // can build a /prospects/[id] detail using the same primitive.
+    <EntityDetailTemplate>
     <PageContainer className="space-y-6">
       <Button asChild variant="ghost" size="sm">
         <Link href="/accounts">
@@ -75,5 +79,6 @@ export default async function AccountDetailPage({ params }: Props) {
         </TabsContent>
       </Tabs>
     </PageContainer>
+    </EntityDetailTemplate>
   )
 }

@@ -30,15 +30,16 @@ export function InvocationDetailDrawer({
 }: InvocationDetailDrawerProps) {
   const [tree, setTree] = useState<InvocationTreeNode[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
-  // Fetch tree when dialog opens or invocationId changes
   useEffect(() => {
     if (!open) return
     setTree(null)
+    setFetchError(null)
     setLoading(true)
     fetchTree(invocationId)
       .then(setTree)
-      .catch(() => setTree([]))
+      .catch(() => setFetchError('Failed to load delegation tree.'))
       .finally(() => setLoading(false))
   }, [open, invocationId, fetchTree])
 
@@ -61,7 +62,10 @@ export function InvocationDetailDrawer({
               ))}
             </div>
           )}
-          {!loading && tree !== null && <DelegationTree roots={tree} />}
+          {!loading && fetchError && (
+            <p className="text-sm text-destructive">{fetchError}</p>
+          )}
+          {!loading && !fetchError && tree !== null && <DelegationTree roots={tree} />}
         </div>
       </DialogContent>
     </Dialog>

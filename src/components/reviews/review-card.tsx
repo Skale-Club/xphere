@@ -1,4 +1,4 @@
-import { BadgeCheck, MessageSquareQuote } from 'lucide-react'
+import { MessageSquareQuote } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -57,15 +57,6 @@ export function ReviewCard({ review }: ReviewCardProps) {
                 <>{review.reviewer_name ?? 'Anonymous'}</>
               )}
             </p>
-            {review.is_local_guide ? (
-              <Badge variant="secondary" className="gap-1 text-[10px]">
-                <BadgeCheck className="h-3 w-3" />
-                Local Guide
-                {review.local_guide_reviews_count ? (
-                  <span className="opacity-70">· {review.local_guide_reviews_count}</span>
-                ) : null}
-              </Badge>
-            ) : null}
           </div>
           <div className="mt-1 flex items-center gap-2">
             <StarRating rating={review.rating} size="sm" />

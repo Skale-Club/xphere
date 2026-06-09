@@ -33,6 +33,17 @@ interface ApiPayload {
   brand?: {
     accent?: string | null
   }
+  settings?: {
+    layout?: Layout
+    theme?: Theme
+    minRating?: number
+    limit?: number
+    showHero?: boolean
+    equalHeight?: boolean
+    footerCta?: boolean
+    showOwnerResponse?: boolean
+    maxChars?: number
+  }
   distribution: { rating: number; count: number }[]
   reviews: ReviewItem[]
   total: number
@@ -69,18 +80,22 @@ interface WidgetConfig {
   showHero: boolean
   equalHeight: boolean
   footerCta: boolean
+  showOwnerResponse: boolean
+  maxChars: number
 }
 
 const DEFAULTS: Omit<WidgetConfig, 'token'> = {
-  layout: 'grid',
+  layout: 'carousel',
   theme: 'light',
-  minRating: 1,
+  minRating: 4,
   sort: 'recent',
   limit: 12,
   apiBase: '',
   showHero: true,
   equalHeight: true,
   footerCta: false,
+  showOwnerResponse: true,
+  maxChars: 220,
 }
 
 const CSS = `
@@ -195,11 +210,6 @@ const CSS = `
 .orw-name { font-weight: 600; font-size: 14px; line-height: 1.2; }
 .orw-name a { color: inherit; text-decoration: none; }
 .orw-name a:hover { text-decoration: underline; }
-.orw-localguide {
-  display: inline-block; padding: 1px 6px; margin-left: 6px; font-size: 10px;
-  border-radius: 999px; background: var(--orw-brand-soft); color: var(--orw-brand);
-  vertical-align: middle;
-}
 .orw-meta-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--orw-muted); margin-top: 2px; }
 
 .orw-stars { display: inline-flex; gap: 2px; }
@@ -210,9 +220,6 @@ const CSS = `
 .orw-text {
   font-size: 14px; line-height: 1.55; margin: 0; color: var(--orw-text);
   white-space: pre-line;
-}
-.orw-text.orw-collapsed {
-  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
 }
 .orw-more {
   align-self: flex-start; background: none; border: 0; padding: 0; cursor: pointer;
@@ -269,6 +276,8 @@ const CSS = `
   border: 0; border-radius: 999px; width: 36px; height: 36px; font-size: 20px; cursor: pointer;
 }
 
+.orw-google-badge { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; }
+
 @media (max-width: 540px) {
   .orw-hero-rating-num { font-size: 44px; }
   .orw-grid { grid-template-columns: 1fr; }
@@ -302,6 +311,8 @@ const CSS = `
 /* hide scroll-snap in marquee mode */
 .orw-carousel-viewport.orw-auto { scroll-snap-type: none; }
 `
+
+const GOOGLE_G_SVG = `<svg viewBox="0 0 24 24" width="16" height="16" aria-label="Google review" role="img"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`
 
 const STAR_PATH =
   'M12 2.5l2.95 6.0 6.62.96-4.79 4.66 1.13 6.59L12 17.77 6.09 20.71 7.22 14.12 2.43 9.46 9.05 8.5z'
@@ -360,6 +371,8 @@ function getConfig(): WidgetConfig | null {
       showHero: sp.get('hero') !== '0',
       equalHeight: sp.get('eqh') !== '0',
       footerCta: sp.get('cta') === '1',
+      showOwnerResponse: DEFAULTS.showOwnerResponse,
+      maxChars: DEFAULTS.maxChars,
     }
   }
 
@@ -377,6 +390,24 @@ function getConfig(): WidgetConfig | null {
     showHero: host.dataset.hero !== '0',
     equalHeight: host.dataset.equalHeight !== '0',
     footerCta: host.dataset.footerCta === '1',
+    showOwnerResponse: DEFAULTS.showOwnerResponse,
+    maxChars: DEFAULTS.maxChars,
+  }
+}
+
+function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings']): WidgetConfig {
+  if (!settings) return config
+  return {
+    ...config,
+    layout: settings.layout ?? config.layout,
+    theme: settings.theme ?? config.theme,
+    minRating: settings.minRating ?? config.minRating,
+    limit: settings.limit ?? config.limit,
+    showHero: settings.showHero ?? config.showHero,
+    equalHeight: settings.equalHeight ?? config.equalHeight,
+    footerCta: settings.footerCta ?? config.footerCta,
+    showOwnerResponse: settings.showOwnerResponse ?? config.showOwnerResponse,
+    maxChars: settings.maxChars ?? config.maxChars,
   }
 }
 
@@ -413,7 +444,15 @@ function renderHero(p: ApiPayload): string {
   `
 }
 
-function renderReview(r: ReviewItem): string {
+function truncateText(raw: string, max: number): { display: string; full: string; truncated: boolean } {
+  const t = raw.trim()
+  if (t.length <= max) return { display: t, full: t, truncated: false }
+  return { display: t.slice(0, max).trimEnd() + '…', full: t, truncated: true }
+}
+
+function renderReview(r: ReviewItem, config: Pick<WidgetConfig, 'showOwnerResponse' | 'maxChars'>): string {
+  const MAX = config.maxChars
+
   const photos = r.photos.length > 0 ? `
     <div class="orw-photos">
       ${r.photos.map((p) => `
@@ -421,13 +460,6 @@ function renderReview(r: ReviewItem): string {
           <img src="${escapeHtml(p.url)}" alt="Review photo" loading="lazy" referrerpolicy="no-referrer">
         </button>
       `).join('')}
-    </div>
-  ` : ''
-
-  const owner = r.ownerResponse ? `
-    <div class="orw-owner">
-      <div class="orw-owner-label">Owner response${r.ownerResponseDate ? ` · ${escapeHtml(r.ownerResponseDate)}` : ''}</div>
-      <p class="orw-owner-text">${escapeHtml(r.ownerResponse)}</p>
     </div>
   ` : ''
 
@@ -439,17 +471,31 @@ function renderReview(r: ReviewItem): string {
     ? `<a href="${escapeHtml(r.reviewerProfileUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.reviewerName ?? 'Anonymous')}</a>`
     : escapeHtml(r.reviewerName ?? 'Anonymous')
 
-  const text = r.text ? `
-    <p class="orw-text orw-collapsed" data-orw-collapsible>${escapeHtml(r.text)}</p>
-    <button type="button" class="orw-more" data-orw-more hidden>Read more</button>
-  ` : ''
+  let text = ''
+  if (r.text) {
+    const { display, full, truncated } = truncateText(r.text, MAX)
+    text = `<p class="orw-text">${escapeHtml(display)}</p>`
+    if (truncated) text += `<button type="button" class="orw-more" data-orw-expand="${escapeHtml(full)}">Read more</button>`
+  }
+
+  let owner = ''
+  if (config.showOwnerResponse && r.ownerResponse) {
+    const { display, full, truncated } = truncateText(r.ownerResponse, MAX)
+    owner = `
+      <div class="orw-owner">
+        <div class="orw-owner-label">Owner response${r.ownerResponseDate ? ` · ${escapeHtml(r.ownerResponseDate)}` : ''}</div>
+        <p class="orw-owner-text">${escapeHtml(display)}</p>
+        ${truncated ? `<button type="button" class="orw-more" data-orw-expand="${escapeHtml(full)}">Read more</button>` : ''}
+      </div>
+    `
+  }
 
   return `
     <article class="orw-card">
       <header class="orw-card-head">
         <span class="orw-avatar">${avatar}</span>
-        <div>
-          <div class="orw-name">${name}${r.isLocalGuide ? '<span class="orw-localguide">Local Guide</span>' : ''}</div>
+        <div style="min-width:0;flex:1">
+          <div class="orw-name" style="display:flex;align-items:center;gap:6px">${name}<span class="orw-google-badge">${GOOGLE_G_SVG}</span></div>
           <div class="orw-meta-row">
             ${stars(r.rating)}
             ${r.dateText ? `<span>${escapeHtml(r.dateText)}</span>` : ''}
@@ -471,7 +517,7 @@ function renderFooterCta(config: WidgetConfig, p: ApiPayload): string {
 }
 
 function renderShell(config: WidgetConfig, payload: ApiPayload): string {
-  const cards = payload.reviews.map(renderReview).join('')
+  const cards = payload.reviews.map((r) => renderReview(r, config)).join('')
   const heroHtml = config.showHero ? renderHero(payload) : ''
   const footerHtml = renderFooterCta(config, payload)
   const empty = payload.reviews.length === 0
@@ -492,107 +538,126 @@ function renderShell(config: WidgetConfig, payload: ApiPayload): string {
   return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}<div class="orw-grid">${cards}</div>${footerHtml}</div>`
 }
 
-// Measure a card's natural (unconstrained) height by cloning it off-screen.
-function measureCardNaturalHeight(card: HTMLElement, root: HTMLElement): number {
-  const wrapper = document.createElement('div')
-  wrapper.className = root.className
-  if (root.dataset.theme) wrapper.dataset.theme = root.dataset.theme
-  wrapper.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:-9999px;pointer-events:none;'
-  const clone = card.cloneNode(true) as HTMLElement
-  clone.style.cssText = 'width:300px;height:auto;max-height:none;overflow:visible;'
-  wrapper.appendChild(clone)
-  document.body.appendChild(wrapper)
-  const h = clone.scrollHeight
-  document.body.removeChild(wrapper)
-  return h
-}
-
 function wireCarousel(root: HTMLElement): void {
   const viewportEl = root.querySelector<HTMLElement>('.orw-carousel-viewport')
   const trackEl = root.querySelector<HTMLElement>('.orw-carousel-track')
-  if (!viewportEl || !trackEl) return
+  const wrapEl = root.querySelector<HTMLElement>('.orw-carousel-wrap')
+  if (!viewportEl || !trackEl || !wrapEl) return
 
   const viewport: HTMLElement = viewportEl
   const track: HTMLElement = trackEl
+  const wrap: HTMLElement = wrapEl
 
-  const MAX_H = 380
-  const SPEED = 55 // px per second — adjust for faster/slower feel
+  const AUTOPLAY_MS = 4000
 
-  // 1. Hide owner response on cards whose full content would exceed max height.
-  Array.from(track.children).forEach((child) => {
-    const card = child as HTMLElement
-    const owner = card.querySelector<HTMLElement>('.orw-owner')
-    if (!owner) return
-    const naturalH = measureCardNaturalHeight(card, root)
-    if (naturalH > MAX_H) owner.hidden = true
+  // ── Infinite loop: duplicate all cards so the carousel never hits a wall ──
+  Array.from(track.querySelectorAll<HTMLElement>('.orw-card')).forEach(c => {
+    const clone = c.cloneNode(true) as HTMLElement
+    clone.setAttribute('aria-hidden', 'true')
+    track.appendChild(clone)
   })
+  // When scrollLeft reaches the midpoint (= original content width) silently
+  // reset to the mirrored position in the first half — user sees no jump.
+  let loopLock = false
+  viewport.addEventListener('scroll', () => {
+    if (loopLock) return
+    const half = track.scrollWidth / 2
+    if (viewport.scrollLeft >= half) {
+      loopLock = true
+      viewport.scrollLeft -= half
+      loopLock = false
+    }
+  }, { passive: true })
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // 2. Switch to marquee mode (CSS class applies flex layout + max-height on cards).
-  viewport.classList.add('orw-auto')
-
-  // 3. Duplicate cards for a seamless infinite loop.
-  //    Keep cloning sets until the total content is at least 2× the viewport width
-  //    so the loop never shows empty space on wide screens.
-  const originals = Array.from(track.children) as HTMLElement[]
-  let sets = 1
-  originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
-  sets++
-  // Ensure we have enough content for the viewport.
-  if (originals.length < 6) {
-    originals.forEach((c) => track.appendChild(c.cloneNode(true) as HTMLElement))
-    sets++
+  // Step = one card width + the track gap, so paging snaps card-to-card.
+  const getStep = (): number => {
+    const first = track.querySelector<HTMLElement>('.orw-card')
+    return first ? first.offsetWidth + 16 : 292
   }
 
-  // 4. After layout settles: measure, animate, and wire hover-pause.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      // Each "set" has the same width. The animation moves exactly one set width,
-      // then CSS loops the animation — the duplicate set makes it seamless.
-      const oneSetWidth = Math.ceil(track.scrollWidth / sets)
-      const duration = Math.round(oneSetWidth / SPEED)
+  // Prev / next arrows.
+  const prev = document.createElement('button')
+  prev.type = 'button'
+  prev.className = 'orw-carousel-btn orw-carousel-prev'
+  prev.setAttribute('aria-label', 'Previous')
+  prev.innerHTML = '&#8249;'
+  const next = document.createElement('button')
+  next.type = 'button'
+  next.className = 'orw-carousel-btn orw-carousel-next'
+  next.setAttribute('aria-label', 'Next')
+  next.innerHTML = '&#8250;'
+  wrap.appendChild(prev)
+  wrap.appendChild(next)
+  prev.addEventListener('click', () => viewport.scrollBy({ left: -getStep(), behavior: 'smooth' }))
+  next.addEventListener('click', () => viewport.scrollBy({ left: getStep(), behavior: 'smooth' }))
 
-      track.style.setProperty('--orw-marquee-end', `-${oneSetWidth}px`)
-      track.style.animation = `orw-marquee ${duration}s linear infinite`
+  // Buttons: prev disables only at position 0; next is always enabled (infinite).
+  const updateButtons = (): void => {
+    prev.toggleAttribute('disabled', viewport.scrollLeft <= 2)
+    next.removeAttribute('disabled')
+  }
+  viewport.addEventListener('scroll', updateButtons, { passive: true })
+  window.addEventListener('resize', updateButtons)
+  requestAnimationFrame(updateButtons)
 
-      // Pause on hover.
-      viewport.addEventListener('mouseenter', () => {
-        track.style.animationPlayState = 'paused'
-      })
-      viewport.addEventListener('mouseleave', () => {
-        track.style.animationPlayState = 'running'
-      })
-
-      // Show "Read more" buttons on any card (original or clone) whose text is clamped.
-      root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-        const btn = el.nextElementSibling as HTMLButtonElement | null
-        if (!btn?.hasAttribute('data-orw-more')) return
-        btn.hidden = !(el.scrollHeight > el.clientHeight + 4)
-      })
+  // Autoplay — advance one step every 4s. The loop listener handles the reset.
+  let hovered = false
+  let timer: ReturnType<typeof setInterval> | null = null
+  const advance = (): void => {
+    viewport.scrollTo({
+      left: viewport.scrollLeft + getStep(),
+      behavior: 'smooth',
     })
+  }
+  const startAuto = (): void => {
+    if (!timer && !hovered) timer = setInterval(advance, AUTOPLAY_MS)
+  }
+  const stopAuto = (): void => {
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+  }
+  viewport.addEventListener('mouseenter', () => { hovered = true; stopAuto() })
+  viewport.addEventListener('mouseleave', () => { hovered = false; startAuto() })
+  startAuto()
+
+  // Drag-to-scroll (mouse only — touch uses native momentum scrolling).
+  const drag = { active: false, startX: 0, startScroll: 0 }
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') return
+    drag.active = true
+    drag.startX = e.clientX
+    drag.startScroll = viewport.scrollLeft
+    viewport.setPointerCapture(e.pointerId)
+    viewport.classList.add('orw-dragging')
+    stopAuto()
   })
+  viewport.addEventListener('pointermove', (e) => {
+    if (!drag.active || e.pointerType !== 'mouse') return
+    e.preventDefault()
+    viewport.scrollLeft = drag.startScroll + (drag.startX - e.clientX)
+  })
+  const endDrag = (e: PointerEvent): void => {
+    if (e.pointerType !== 'mouse' || !drag.active) return
+    drag.active = false
+    viewport.classList.remove('orw-dragging')
+    if (!hovered) startAuto()
+  }
+  viewport.addEventListener('pointerup', endDrag)
+  viewport.addEventListener('pointercancel', endDrag)
 }
 
 function wireInteractions(root: HTMLElement): void {
-  // Show "Read more" buttons for non-carousel layouts (carousel re-checks after cloning).
-  const isCarousel = !!root.querySelector('.orw-carousel-viewport')
-  if (!isCarousel) {
-    root.querySelectorAll<HTMLElement>('[data-orw-collapsible]').forEach((el) => {
-      requestAnimationFrame(() => {
-        if (el.scrollHeight > el.clientHeight + 4) {
-          const btn = el.nextElementSibling as HTMLButtonElement | null
-          if (btn?.hasAttribute('data-orw-more')) btn.hidden = false
-        }
-      })
-    })
-  }
-
-  // Event delegation — works for original cards AND cloned carousel cards.
+  // Event delegation for "Read more" — works for original cards AND cloned carousel cards.
+  // data-orw-expand holds the full text; clicking replaces the preceding <p>'s textContent.
   root.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orw-more]')
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orw-expand]')
     if (!btn) return
     const prev = btn.previousElementSibling as HTMLElement | null
     if (!prev) return
-    prev.classList.remove('orw-collapsed')
+    prev.textContent = btn.dataset.orwExpand ?? ''
     btn.remove()
   })
 
@@ -655,9 +720,8 @@ async function main() {
   }
 
   const params = new URLSearchParams({
-    min_rating: String(config.minRating),
+    settings: '1',
     sort: config.sort,
-    limit: String(config.limit),
   })
   const url = `${config.apiBase}/api/reviews/${encodeURIComponent(config.token)}?${params.toString()}`
 
@@ -671,7 +735,8 @@ async function main() {
     return
   }
 
-  const html = renderShell(config, payload)
+  const effectiveConfig = withSavedSettings(config, payload.settings)
+  const html = renderShell(effectiveConfig, payload)
 
   // Mount: iframe/standalone uses document.body; embed uses [data-token] host
   const sp = new URLSearchParams(window.location.search)
@@ -683,7 +748,7 @@ async function main() {
   wireInteractions(host)
 
   // Iframe embeds: auto-resize the frame to content height.
-  if (sp.has('token')) setupAutoHeight(config.token)
+  if (sp.has('token')) setupAutoHeight(effectiveConfig.token)
 }
 
 if (document.readyState === 'loading') {

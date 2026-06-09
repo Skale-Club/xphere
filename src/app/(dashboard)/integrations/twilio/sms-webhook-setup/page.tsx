@@ -242,7 +242,7 @@ export default async function TwilioSmsWebhookSetupPage() {
             </div>
           </div>
           <Button asChild variant="secondary" size="sm">
-            <Link href="/chat">Open Chat</Link>
+            <Link href="/inbox">Open Chat</Link>
           </Button>
         </div>
       </section>

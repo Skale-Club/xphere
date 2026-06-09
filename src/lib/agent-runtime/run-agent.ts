@@ -392,11 +392,13 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
   // Step 7b: KB injection | ALWAYS query knowledge (null kbScope = full org KB, matching legacy stream.ts)
   // D-35-02: unconditional call before LLM | kbScope field preserved on ResolvedAgent for future Phase 37 use
+  // Q5: rawMode=true injects full chunk text + citations so the agent LLM has
+  // rich context rather than a pre-synthesised summary.
   let systemPrompt = resolvedAgent.systemPrompt
   const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
   try {
     const kbClient = createServiceRoleClient()
-    const kbContext = await queryKnowledge(userMessage, orgId, kbClient)
+    const kbContext = await queryKnowledge(userMessage, orgId, kbClient, { rawMode: true })
     if (kbContext && kbContext !== FALLBACK_KB_RESPONSE) {
       systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
     }
@@ -722,15 +724,18 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       ]
 
       // Call LLM via ai@^6 generateText (ADOPT path | locked in 34-01-SUMMARY.md)
-      // stopWhen: stepCountIs caps the LLM→tool→LLM loop at MAX_LLM_CALLS_PER_TURN
+      // stopWhen: stepCountIs caps the LLM→tool→LLM loop.
+      // Priority: opts.maxSteps (caller override) > resolvedAgent.maxSteps
+      //           (channel_override.max_steps — Q6) > env default.
+      const effectiveMaxSteps = opts.maxSteps
+        ? Math.min(50, Math.max(1, opts.maxSteps))
+        : (resolvedAgent.maxSteps ?? MAX_LLM_CALLS_PER_TURN)
       const llmResult = await generateText({
         model: anthropic(resolvedAgent.model),
         system: systemPrompt,
         messages,
         tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
-        stopWhen: stepCountIs(
-          opts.maxSteps ? Math.min(50, Math.max(1, opts.maxSteps)) : MAX_LLM_CALLS_PER_TURN,
-        ),
+        stopWhen: stepCountIs(effectiveMaxSteps),
         abortSignal: controller.signal,
         ...(resolvedAgent.temperature !== undefined
           ? { temperature: resolvedAgent.temperature }
@@ -920,11 +925,12 @@ function runAgentStreaming(
         const currentChain = [...delegationChain, resolvedAgentId]
 
         // KB injection | UNCONDITIONAL (GATE-01: matches legacy stream.ts behavior)
+        // Q5: rawMode=true — inject full chunks with citations for richer LLM context.
         let systemPrompt = resolvedAgent.systemPrompt
         const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
         try {
           const kbClient = createServiceRoleClient()
-          const kbContext = await queryKnowledge(userMessage, orgId, kbClient)
+          const kbContext = await queryKnowledge(userMessage, orgId, kbClient, { rawMode: true })
           if (kbContext && kbContext !== FALLBACK_KB_RESPONSE) {
             systemPrompt = `${systemPrompt}\n\nRelevant knowledge base content:\n${kbContext}`
           }

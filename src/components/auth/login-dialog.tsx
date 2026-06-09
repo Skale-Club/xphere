@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
-import { Turnstile } from '@marsidev/react-turnstile'
 import { unstable_rethrow } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/client'
@@ -157,19 +156,15 @@ function AuthError({ message }: { message: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Step 1 — Email + Turnstile + Google                                       */
+/*  Step 1 — Email + Google                                                   */
 /* -------------------------------------------------------------------------- */
 
 function Step1Form({
   initialEmail,
-  captchaToken,
-  onCaptchaToken,
   onContinue,
   onError,
 }: {
   initialEmail: string
-  captchaToken: string | null
-  onCaptchaToken: (token: string | null) => void
   onContinue: (email: string) => void
   onError: (msg: string | null) => void
 }) {
@@ -180,7 +175,6 @@ function Step1Form({
   })
 
   const isSubmitting = form.formState.isSubmitting
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
   function onSubmit(values: EmailValues) {
     onError(null)
@@ -214,24 +208,10 @@ function Step1Form({
               </FormItem>
             )}
           />
-          {siteKey ? (
-            <div className="hidden">
-              <Turnstile
-                siteKey={siteKey}
-                options={{ appearance: 'interaction-only', size: 'invisible' }}
-                onSuccess={(token) => onCaptchaToken(token)}
-                onError={() => {
-                  onCaptchaToken(null)
-                  onError(authErrorCodeToMessage('captcha_failed'))
-                }}
-                onExpire={() => onCaptchaToken(null)}
-              />
-            </div>
-          ) : null}
           <Button
             type="submit"
             className="w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={(!!siteKey && !captchaToken) || isSubmitting}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>
@@ -257,18 +237,14 @@ function Step1Form({
 
 interface Step2CommonProps {
   email: string
-  captchaToken: string | null
   onBack: () => void
-  onCaptchaInvalid: () => void
   onError: (msg: string | null) => void
 }
 
 function Step2SignInForm({
   email,
-  captchaToken,
   onBack,
   onForgot,
-  onCaptchaInvalid,
   onError,
 }: Step2CommonProps & { onForgot: () => void }) {
   const form = useForm<SignInPasswordValues>({
@@ -284,14 +260,8 @@ function Step2SignInForm({
       const result = await signInWithEmail({
         email,
         password: values.password,
-        captchaToken,
       })
       if (!result.ok) {
-        if (result.errorCode === 'captcha_failed') {
-          onError(authErrorCodeToMessage('captcha_failed'))
-          onCaptchaInvalid()
-          return
-        }
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
@@ -378,9 +348,7 @@ function Step2SignInForm({
 
 function Step2SignUpForm({
   email,
-  captchaToken,
   onBack,
-  onCaptchaInvalid,
   onEmailSent,
   onError,
 }: Step2CommonProps & { onEmailSent: (email: string) => void }) {
@@ -398,15 +366,9 @@ function Step2SignUpForm({
       const result = await signUpWithEmail({
         email,
         password: values.password,
-        captchaToken,
         emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
       })
       if (!result.ok) {
-        if (result.errorCode === 'captcha_failed') {
-          onError(authErrorCodeToMessage('captcha_failed'))
-          onCaptchaInvalid()
-          return
-        }
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
@@ -506,19 +468,15 @@ function Step2SignUpForm({
 function Step2Form({
   mode,
   email,
-  captchaToken,
   onBack,
   onForgot,
-  onCaptchaInvalid,
   onEmailSent,
   onError,
 }: {
   mode: AuthMode
   email: string
-  captchaToken: string | null
   onBack: () => void
   onForgot: () => void
-  onCaptchaInvalid: () => void
   onEmailSent: (email: string) => void
   onError: (msg: string | null) => void
 }) {
@@ -526,9 +484,7 @@ function Step2Form({
     return (
       <Step2SignUpForm
         email={email}
-        captchaToken={captchaToken}
         onBack={onBack}
-        onCaptchaInvalid={onCaptchaInvalid}
         onEmailSent={onEmailSent}
         onError={onError}
       />
@@ -537,10 +493,8 @@ function Step2Form({
   return (
     <Step2SignInForm
       email={email}
-      captchaToken={captchaToken}
       onBack={onBack}
       onForgot={onForgot}
-      onCaptchaInvalid={onCaptchaInvalid}
       onError={onError}
     />
   )
@@ -677,7 +631,6 @@ export function LoginDialog(props: LoginDialogProps) {
   const [view, setView] = useState<AuthView>(props.initialView ?? 'step1')
   const [mode, setMode] = useState<AuthMode>(props.initialMode ?? 'signin')
   const [email, setEmail] = useState('')
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -694,7 +647,6 @@ export function LoginDialog(props: LoginDialogProps) {
     setMode(m)
     setView('step1')
     setEmail('')
-    setCaptchaToken(null)
     setEmailSent(null)
     setResetSent(null)
     setAuthError(null)
@@ -761,8 +713,6 @@ export function LoginDialog(props: LoginDialogProps) {
           {view === 'step1' && !emailSent ? (
             <Step1Form
               initialEmail={email}
-              captchaToken={captchaToken}
-              onCaptchaToken={setCaptchaToken}
               onContinue={(em) => {
                 setEmail(em)
                 setView('step2')
@@ -775,13 +725,8 @@ export function LoginDialog(props: LoginDialogProps) {
             <Step2Form
               mode={mode}
               email={email}
-              captchaToken={captchaToken}
               onBack={() => setView('step1')}
               onForgot={() => setView('reset')}
-              onCaptchaInvalid={() => {
-                setCaptchaToken(null)
-                setView('step1')
-              }}
               onEmailSent={setEmailSent}
               onError={setAuthError}
             />

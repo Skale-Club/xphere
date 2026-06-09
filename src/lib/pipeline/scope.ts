@@ -1,6 +1,6 @@
 // SEED-036: builds the {{opportunity.*}} / {{contact.*}} / {{stage.*}} /
 // {{pipeline.*}} variable scope consumed by pipeline-triggered workflows.
-// Mirrors src/lib/scheduling/scope.ts (buildMeetingScope).
+// Mirrors src/lib/calendar/scope.ts (buildMeetingScope).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'

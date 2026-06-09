@@ -198,13 +198,13 @@ export function AgentsTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link href={`/agents/${agent.id}`}>
+                <Link href={`/agents/${agent.id}/settings`}>
                   <Pencil className="mr-2 h-3.5 w-3.5" />
                   Edit
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={`/agents/${agent.id}/playground`}>
+                <Link href={`/agents/${agent.id}`}>
                   <FlaskConical className="mr-2 h-3.5 w-3.5" />
                   Test
                 </Link>
@@ -295,13 +295,13 @@ export function AgentsTable({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                      <Link href={`/agents/${agent.id}`}>
+                      <Link href={`/agents/${agent.id}/settings`}>
                         <Pencil className="mr-2 h-3.5 w-3.5" />
                         Edit
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={`/agents/${agent.id}/playground`}>
+                      <Link href={`/agents/${agent.id}`}>
                         <FlaskConical className="mr-2 h-3.5 w-3.5" />
                         Test
                       </Link>

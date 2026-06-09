@@ -99,7 +99,7 @@ export async function ActivitySnapshot({ range }: Props) {
       icon: Inbox,
       label: 'Messages received',
       value: messagesReceived,
-      href: '/chat',
+      href: '/inbox',
       tone: 'info',
     },
     {
@@ -107,7 +107,7 @@ export async function ActivitySnapshot({ range }: Props) {
       icon: Send,
       label: 'Messages sent',
       value: messagesSent,
-      href: '/chat',
+      href: '/inbox',
       tone: 'default',
     },
     {

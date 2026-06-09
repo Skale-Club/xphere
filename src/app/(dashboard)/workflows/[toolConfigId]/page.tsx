@@ -61,6 +61,10 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   create_note: 'Create Note',
   send_tenant_email: 'Email: Send (Tenant)',
   send_platform_email: 'Email: Send (Platform)',
+  xkedule_get_services: 'Xkedule: Get Services',
+  xkedule_check_availability: 'Xkedule: Check Availability',
+  xkedule_create_booking: 'Xkedule: Create Booking',
+  send_zernio_dm: 'Instagram/Facebook: Send DM',
 }
 
 function buildPageUrl(

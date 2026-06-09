@@ -1,0 +1,602 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner "Top navigation" [ref=e6]:
+      - status
+      - generic [ref=e7]:
+        - button [ref=e8] [cursor=pointer]:
+          - img [ref=e11]: menu
+        - heading "Google Ads – Go to starting page" [level=1] [ref=e13]:
+          - button "Google Ads – Go to starting page" [ref=e14]:
+            - img [ref=e16] [cursor=pointer]
+      - generic [ref=e639]:
+        - generic [ref=e641]:
+          - generic [ref=e647]:
+            - img [ref=e650]: search
+            - generic [ref=e651]:
+              - generic:
+                - generic: "\"What are my top performing campaigns?\""
+              - combobox "\"What are my top performing campaigns?\"" [ref=e652]
+          - text: Search
+        - generic [ref=e653]:
+          - button "Appearance" [ref=e656] [cursor=pointer]:
+            - generic [ref=e658]:
+              - img [ref=e659]: responsive_layout
+              - text: Appearance
+          - button "Refresh" [ref=e663] [cursor=pointer]:
+            - generic [ref=e665]:
+              - img [ref=e666]: refresh
+              - text: Refresh
+          - button "Open the quick help panel" [ref=e669] [cursor=pointer]:
+            - generic [ref=e670]:
+              - text: Help
+              - generic [ref=e671]:
+                - img [ref=e672]: help_outline
+                - text: Help
+          - generic [ref=e676]:
+            - button "Notifications" [ref=e679] [cursor=pointer]:
+              - generic [ref=e681]:
+                - img [ref=e684]: notifications
+                - generic [ref=e686]: Notifications
+            - dialog "Notifications" [ref=e967]:
+              - generic [ref=e971]:
+                - generic [ref=e972]:
+                  - img "Informational notification icon" [ref=e974]: info_outline
+                  - button "Optimize campaigns with new recommendations Get started" [ref=e975] [cursor=pointer]:
+                    - text: Optimize campaigns with new recommendations
+                    - generic [ref=e976]: Get started
+                - button "Close notifications" [ref=e977] [cursor=pointer]:
+                  - img [ref=e980]: clear
+          - button "Ask Advisor" [ref=e703] [cursor=pointer]:
+            - generic [ref=e705]:
+              - img [ref=e707]: button_magic
+              - generic [ref=e708]: Ask Advisor
+              - generic [ref=e709]: Beta
+      - button "Google account" [ref=e714] [cursor=pointer]:
+        - img "Google account (skale.club@gmail.com)" [ref=e715]
+    - generic [ref=e30]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - button "Create" [ref=e36] [cursor=pointer]:
+            - img [ref=e39]
+          - generic [ref=e41]: Create
+        - menu [ref=e42]:
+          - menu [ref=e43]:
+            - menuitem "Campaigns" [ref=e46] [cursor=pointer]:
+              - generic [ref=e47]:
+                - img [ref=e49]: campaign
+                - generic [ref=e50]: Campaigns
+            - menuitem "Goals" [ref=e54] [cursor=pointer]:
+              - generic [ref=e55]:
+                - img [ref=e57]: rewarded_ads
+                - generic [ref=e58]: Goals
+            - menuitem "Tools" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]:
+                - img [ref=e64]: construction
+                - generic [ref=e65]: Tools
+            - menuitem "Billing" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]:
+                - img [ref=e71]: credit_card
+                - generic [ref=e72]: Billing
+            - menuitem "Admin" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - img [ref=e78]: settings
+                - generic [ref=e79]: Admin
+      - generic [ref=e80]:
+        - generic [ref=e83]:
+          - button "View (2 filters) All campaigns" [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]:
+              - generic [ref=e90]: View (2 filters)
+              - generic [ref=e91]:
+                - img [ref=e94]: home
+                - button "All campaigns" [ref=e95]
+            - img [ref=e97]: arrow_drop_down
+          - button "Campaigns (5) Select a campaign" [ref=e102] [cursor=pointer]:
+            - generic [ref=e103]:
+              - generic [ref=e104]: Campaigns (5)
+              - generic [ref=e105]: Select a campaign
+            - img [ref=e107]: arrow_drop_down
+        - group [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e113] [cursor=pointer]:
+              - generic: Filters
+            - generic: "Filters Applied:"
+            - grid "Filters Applied:" [ref=e114]:
+              - 'row "Campaign status: All" [ref=e116] [cursor=pointer]':
+                - 'gridcell "Campaign status: All" [ref=e117]':
+                  - 'button "Campaign status: All" [ref=e118]': "Campaign status: All"
+              - 'row "Ad group status: Enabled, Paused" [ref=e120] [cursor=pointer]':
+                - 'gridcell "Ad group status: Enabled, Paused" [ref=e121]':
+                  - 'button "Ad group status: Enabled, Paused" [ref=e122]': "Ad group status: Enabled, Paused"
+              - row [ref=e123]:
+                - gridcell [ref=e124]:
+                  - combobox "Add filter" [ref=e125]
+                  - status [ref=e126]
+            - button "Save" [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]:
+                - img [ref=e132]: save
+                - generic [ref=e133]: Save
+        - generic [ref=e136]:
+          - generic [ref=e716]:
+            - generic [ref=e717]:
+              - generic [ref=e718]:
+                - generic [ref=e934]:
+                  - link "Ads" [ref=e935] [cursor=pointer]:
+                    - /url: /aw/ads?ocid=7115556648&workspaceId=0&authuser=0&__u=9911701521&__c=1061234152
+                  - img [ref=e937]: chevron_right
+                - heading "Responsive search ad" [level=2] [ref=e938]
+              - generic [ref=e723]:
+                - generic [ref=e725] [cursor=pointer]:
+                  - generic [ref=e726]: All time
+                  - generic [ref=e728]:
+                    - button "May 9, 2025 – Jun 6, 2026 Not applicable" [ref=e730]:
+                      - generic [ref=e731]: May 9, 2025 – Jun 6, 2026
+                      - img [ref=e733]: arrow_drop_down
+                    - generic [ref=e734]:
+                      - button "Previous" [disabled]:
+                        - generic:
+                          - generic:
+                            - img: chevron_left
+                      - button "Next" [disabled]:
+                        - generic:
+                          - generic:
+                            - img: chevron_right
+                - button "Show last 30 days" [ref=e735] [cursor=pointer]:
+                  - generic [ref=e736]: Show last 30 days
+            - tablist [ref=e942]:
+              - tab "Assets" [selected] [ref=e943] [cursor=pointer]:
+                - generic [ref=e944]: Assets
+              - tab "Combinations" [ref=e946] [cursor=pointer]:
+                - generic [ref=e947]: Combinations
+          - main [ref=e952]:
+            - generic [ref=e954]:
+              - generic [ref=e983]:
+                - generic [ref=e986]:
+                  - generic [ref=e989]:
+                    - generic [ref=e990]:
+                      - img "Information" [ref=e992]: info
+                      - generic [ref=e994]: Add more headlines to increase your chances for better performance
+                    - generic [ref=e995]:
+                      - button "Previous suggestion" [ref=e996] [cursor=pointer]:
+                        - img [ref=e999]: keyboard_arrow_left
+                      - button "Next suggestion" [ref=e1001] [cursor=pointer]:
+                        - img [ref=e1004]: keyboard_arrow_right
+                  - generic [ref=e1007]:
+                    - progressbar "Ad strength overall score is Average" [ref=e1009]
+                    - generic [ref=e1016]:
+                      - generic [ref=e1017]:
+                        - generic [ref=e1018]: Ad strength
+                        - button "More information" [ref=e1019] [cursor=pointer]:
+                          - img [ref=e1021]: help_outline
+                      - generic "Ad Strength overall score is Average" [ref=e1022]: Average
+                  - generic [ref=e1024]:
+                    - note "Category score is medium for category Add more headlines" [ref=e1032]: Add more headlines
+                    - generic [ref=e1034]:
+                      - img [ref=e1041]: done
+                      - note "Category score is high for category Include popular keywords in your headlines" [ref=e1042]: Include popular keywords in your headlines
+                    - note "Category score is medium for category Make your headlines more unique" [ref=e1050]: Make your headlines more unique
+                    - generic [ref=e1052]:
+                      - img [ref=e1059]: done
+                      - note "Category score is high for category Make your descriptions more unique" [ref=e1060]: Make your descriptions more unique
+                    - note "Category score is medium for category Add more sitelinks" [ref=e1068]: Add more sitelinks
+                - generic [ref=e1069]:
+                  - generic [ref=e1070]:
+                    - img [ref=e1072]: insight_spark
+                    - button "Insights" [ref=e1073] [cursor=pointer]
+                    - generic [ref=e1074]: Beta
+                  - generic [ref=e1075]:
+                    - generic [ref=e1077]: Search term categories your ad appears for
+                    - generic [ref=e1079]: taj mahal quartzite, new kitchens, countertop installers near me,‪ + 2 more
+                  - button "Click to view more insights" [ref=e1081]:
+                    - generic [ref=e1084]: View more details
+                - generic [ref=e1086]:
+                  - img "Warning" [ref=e1088]: warning_amber
+                  - generic [ref=e1089]:
+                    - paragraph [ref=e1091]: Full asset statistics will be available from June 5, 2025 onward. Please update your date range to a date after June 5, 2025 to see these metrics.
+                    - button "Dismiss" [ref=e1093] [cursor=pointer]:
+                      - generic [ref=e1095]: Dismiss
+                - generic [ref=e1102]:
+                  - generic [ref=e1104]:
+                    - generic [ref=e1106]: "Add sitelinks to your ads:"
+                    - generic [ref=e1107]: Get more conversions at a similar or better ROI by adding at least 6 sitelinks to your campaigns. You may see increases in clicks, CTR, and cost if you add sitelinks.
+                    - button "More information" [ref=e1110] [cursor=pointer]:
+                      - img [ref=e1112]: help_outline
+                    - button "+1.5%" [ref=e1114] [cursor=pointer]
+                    - button "View" [ref=e1115] [cursor=pointer]:
+                      - generic [ref=e1116]: View
+                    - button "More options" [ref=e1119] [cursor=pointer]:
+                      - img [ref=e1122]: more_vert
+                  - generic [ref=e1126]:
+                    - generic [ref=e1127] [cursor=pointer]: keyboard_arrow_right
+                    - generic [ref=e1128]: 1 / 2
+                    - generic: keyboard_arrow_left
+                - generic [ref=e1129]:
+                  - region "Primary toolbelt for Assets" [ref=e1134]:
+                    - generic [ref=e1135]:
+                      - button "Edit assets" [ref=e1139] [cursor=pointer]:
+                        - img [ref=e1142]: mode_edit
+                      - generic [ref=e1146] [cursor=pointer]:
+                        - group [ref=e1147]:
+                          - generic [ref=e1148]:
+                            - button "Show 1 active filters" [ref=e1151]:
+                              - generic [ref=e1153]:
+                                - img [ref=e1155]: filter_alt
+                                - generic [ref=e1156]: "1"
+                            - generic: "Filters Applied:"
+                            - grid "Filters Applied:" [ref=e1158]:
+                              - 'row "Asset status: All enabled" [ref=e1160]':
+                                - 'gridcell "Asset status: All enabled" [ref=e1161]':
+                                  - 'button "Asset status: All enabled" [ref=e1162]': "Asset status: All enabled"
+                        - button "Add filter" [ref=e1164]:
+                          - generic [ref=e1165]: Add filter
+                    - generic [ref=e1167]:
+                      - button "Segment. Segmentation off" [ref=e1172] [cursor=pointer]:
+                        - generic [ref=e1173]:
+                          - img [ref=e1175]: segment
+                          - generic [ref=e1176]: Segment
+                      - button "Columns" [ref=e1182] [cursor=pointer]:
+                        - generic [ref=e1183]:
+                          - img [ref=e1185]: view_column
+                          - generic [ref=e1186]: Columns
+                      - button "Download" [ref=e1192] [cursor=pointer]:
+                        - generic [ref=e1193]:
+                          - img [ref=e1195]: file_download
+                          - generic [ref=e1196]: Download
+                      - button "Expand" [ref=e1202] [cursor=pointer]:
+                        - generic [ref=e1203]:
+                          - img [ref=e1205]: fullscreen
+                          - generic [ref=e1206]: Expand
+                  - generic [ref=e1208]:
+                    - grid "Assets" [ref=e1211]:
+                      - row "Asset status Asset Level Status Asset type Position pinning Added by Last updated Impr. Clicks Cost Conversions Conv. value" [ref=e1212]:
+                        - columnheader "Asset status" [ref=e1213] [cursor=pointer]:
+                          - img "Asset status" [ref=e1214]
+                        - columnheader "Asset" [ref=e1215]
+                        - columnheader "Level" [ref=e1216] [cursor=pointer]
+                        - columnheader "Status" [ref=e1217] [cursor=pointer]
+                        - columnheader "Asset type" [ref=e1218] [cursor=pointer]
+                        - columnheader "Position pinning" [ref=e1219] [cursor=pointer]
+                        - columnheader "Added by" [ref=e1220] [cursor=pointer]
+                        - columnheader "Last updated" [ref=e1221] [cursor=pointer]:
+                          - text: Last updated
+                          - img [ref=e1223]: help_outline
+                        - columnheader "Impr." [ref=e1224] [cursor=pointer]:
+                          - text: Impr.
+                          - img [ref=e1226]: help_outline
+                        - columnheader "Clicks" [ref=e1227] [cursor=pointer]:
+                          - text: Clicks
+                          - img [ref=e1229]: help_outline
+                        - columnheader "Cost" [ref=e1230] [cursor=pointer]:
+                          - text: Cost
+                          - img [ref=e1232]: help_outline
+                        - columnheader "Conversions" [ref=e1233] [cursor=pointer]:
+                          - text: Conversions
+                          - img [ref=e1235]: help_outline
+                        - columnheader "Conv. value" [ref=e1236] [cursor=pointer]:
+                          - text: Conv. value
+                          - img [ref=e1238]: help_outline
+                      - row "Enabled 5-Star Reviews on Google Ad Eligible Headline None Advertiser — 121 15 $171.69 0.00 0.00" [ref=e1239]:
+                        - gridcell "Enabled" [ref=e1240]:
+                          - img "Enabled" [ref=e1242]
+                        - gridcell "5-Star Reviews on Google" [ref=e1243]:
+                          - generic [ref=e1246]: 5-Star Reviews on Google
+                        - gridcell "Ad" [ref=e1247]:
+                          - generic [ref=e1248]: Ad
+                        - gridcell "Eligible" [ref=e1249]:
+                          - generic [ref=e1254]: Eligible
+                        - gridcell "Headline" [ref=e1255]:
+                          - generic [ref=e1257]: Headline
+                        - gridcell "None" [ref=e1258]:
+                          - generic [ref=e1259]: None
+                        - gridcell "Advertiser" [ref=e1260]:
+                          - generic [ref=e1262]: Advertiser
+                        - gridcell "—" [ref=e1263]:
+                          - generic [ref=e1264]: —
+                        - gridcell "121" [ref=e1265]:
+                          - generic [ref=e1267]: "121"
+                        - gridcell "15" [ref=e1268]:
+                          - generic [ref=e1270]: "15"
+                        - gridcell "$171.69" [ref=e1271]:
+                          - generic [ref=e1273]: $171.69
+                        - gridcell "0.00" [ref=e1274]:
+                          - generic [ref=e1276]: "0.00"
+                        - gridcell "0.00" [ref=e1277]:
+                          - generic [ref=e1279]: "0.00"
+                      - row "Enabled Licensed & Insured Ad Eligible Headline None Advertiser — 64 6 $84.73 0.00 0.00" [ref=e1280]:
+                        - gridcell "Enabled" [ref=e1281]:
+                          - img "Enabled" [ref=e1283]
+                        - gridcell "Licensed & Insured" [ref=e1284]:
+                          - generic [ref=e1287]: Licensed & Insured
+                        - gridcell "Ad" [ref=e1288]:
+                          - generic [ref=e1289]: Ad
+                        - gridcell "Eligible" [ref=e1290]:
+                          - generic [ref=e1295]: Eligible
+                        - gridcell "Headline" [ref=e1296]:
+                          - generic [ref=e1298]: Headline
+                        - gridcell "None" [ref=e1299]:
+                          - generic [ref=e1300]: None
+                        - gridcell "Advertiser" [ref=e1301]:
+                          - generic [ref=e1303]: Advertiser
+                        - gridcell "—" [ref=e1304]:
+                          - generic [ref=e1305]: —
+                        - gridcell "64" [ref=e1306]:
+                          - generic [ref=e1308]: "64"
+                        - gridcell "6" [ref=e1309]:
+                          - generic [ref=e1311]: "6"
+                        - gridcell "$84.73" [ref=e1312]:
+                          - generic [ref=e1314]: $84.73
+                        - gridcell "0.00" [ref=e1315]:
+                          - generic [ref=e1317]: "0.00"
+                        - gridcell "0.00" [ref=e1318]:
+                          - generic [ref=e1320]: "0.00"
+                      - row "Enabled Trusted by 200+ Homeowners Ad Eligible Headline None Advertiser — 93 7 $64.21 0.00 0.00" [ref=e1321]:
+                        - gridcell "Enabled" [ref=e1322]:
+                          - img "Enabled" [ref=e1324]
+                        - gridcell "Trusted by 200+ Homeowners" [ref=e1325]:
+                          - generic [ref=e1328]: Trusted by 200+ Homeowners
+                        - gridcell "Ad" [ref=e1329]:
+                          - generic [ref=e1330]: Ad
+                        - gridcell "Eligible" [ref=e1331]:
+                          - generic [ref=e1336]: Eligible
+                        - gridcell "Headline" [ref=e1337]:
+                          - generic [ref=e1339]: Headline
+                        - gridcell "None" [ref=e1340]:
+                          - generic [ref=e1341]: None
+                        - gridcell "Advertiser" [ref=e1342]:
+                          - generic [ref=e1344]: Advertiser
+                        - gridcell "—" [ref=e1345]:
+                          - generic [ref=e1346]: —
+                        - gridcell "93" [ref=e1347]:
+                          - generic [ref=e1349]: "93"
+                        - gridcell "7" [ref=e1350]:
+                          - generic [ref=e1352]: "7"
+                        - gridcell "$64.21" [ref=e1353]:
+                          - generic [ref=e1355]: $64.21
+                        - gridcell "0.00" [ref=e1356]:
+                          - generic [ref=e1358]: "0.00"
+                        - gridcell "0.00" [ref=e1359]:
+                          - generic [ref=e1361]: "0.00"
+                      - row "Enabled Transparent Pricing Always Ad Eligible Headline None Advertiser — 169 14 $229.02 0.00 0.00" [ref=e1362]:
+                        - gridcell "Enabled" [ref=e1363]:
+                          - img "Enabled" [ref=e1365]
+                        - gridcell "Transparent Pricing Always" [ref=e1366]:
+                          - generic [ref=e1369]: Transparent Pricing Always
+                        - gridcell "Ad" [ref=e1370]:
+                          - generic [ref=e1371]: Ad
+                        - gridcell "Eligible" [ref=e1372]:
+                          - generic [ref=e1377]: Eligible
+                        - gridcell "Headline" [ref=e1378]:
+                          - generic [ref=e1380]: Headline
+                        - gridcell "None" [ref=e1381]:
+                          - generic [ref=e1382]: None
+                        - gridcell "Advertiser" [ref=e1383]:
+                          - generic [ref=e1385]: Advertiser
+                        - gridcell "—" [ref=e1386]:
+                          - generic [ref=e1387]: —
+                        - gridcell "169" [ref=e1388]:
+                          - generic [ref=e1390]: "169"
+                        - gridcell "14" [ref=e1391]:
+                          - generic [ref=e1393]: "14"
+                        - gridcell "$229.02" [ref=e1394]:
+                          - generic [ref=e1396]: $229.02
+                        - gridcell "0.00" [ref=e1397]:
+                          - generic [ref=e1399]: "0.00"
+                        - gridcell "0.00" [ref=e1400]:
+                          - generic [ref=e1402]: "0.00"
+                      - row "Enabled 5-Star Google Reviews Ad Eligible Headline None Advertiser — 161 12 $162.09 0.00 0.00" [ref=e1403]:
+                        - gridcell "Enabled" [ref=e1404]:
+                          - img "Enabled" [ref=e1406]
+                        - gridcell "5-Star Google Reviews" [ref=e1407]:
+                          - generic [ref=e1410]: 5-Star Google Reviews
+                        - gridcell "Ad" [ref=e1411]:
+                          - generic [ref=e1412]: Ad
+                        - gridcell "Eligible" [ref=e1413]:
+                          - generic [ref=e1418]: Eligible
+                        - gridcell "Headline" [ref=e1419]:
+                          - generic [ref=e1421]: Headline
+                        - gridcell "None" [ref=e1422]:
+                          - generic [ref=e1423]: None
+                        - gridcell "Advertiser" [ref=e1424]:
+                          - generic [ref=e1426]: Advertiser
+                        - gridcell "—" [ref=e1427]:
+                          - generic [ref=e1428]: —
+                        - gridcell "161" [ref=e1429]:
+                          - generic [ref=e1431]: "161"
+                        - gridcell "12" [ref=e1432]:
+                          - generic [ref=e1434]: "12"
+                        - gridcell "$162.09" [ref=e1435]:
+                          - generic [ref=e1437]: $162.09
+                        - gridcell "0.00" [ref=e1438]:
+                          - generic [ref=e1440]: "0.00"
+                        - gridcell "0.00" [ref=e1441]:
+                          - generic [ref=e1443]: "0.00"
+                      - row "Enabled 5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused. Ad Eligible Description None Advertiser — 138 15 $225.05 0.00 0.00" [ref=e1444]:
+                        - gridcell "Enabled" [ref=e1445]:
+                          - img "Enabled" [ref=e1447]
+                        - gridcell "5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused." [ref=e1448]:
+                          - generic [ref=e1451]: 5-star rated by 200+ South Shore homeowners. Licensed, insured & detail-focused.
+                        - gridcell "Ad" [ref=e1452]:
+                          - generic [ref=e1453]: Ad
+                        - gridcell "Eligible" [ref=e1454]:
+                          - generic [ref=e1459]: Eligible
+                        - gridcell "Description" [ref=e1460]:
+                          - generic [ref=e1462]: Description
+                        - gridcell "None" [ref=e1463]:
+                          - generic [ref=e1464]: None
+                        - gridcell "Advertiser" [ref=e1465]:
+                          - generic [ref=e1467]: Advertiser
+                        - gridcell "—" [ref=e1468]:
+                          - generic [ref=e1469]: —
+                        - gridcell "138" [ref=e1470]:
+                          - generic [ref=e1472]: "138"
+                        - gridcell "15" [ref=e1473]:
+                          - generic [ref=e1475]: "15"
+                        - gridcell "$225.05" [ref=e1476]:
+                          - generic [ref=e1478]: $225.05
+                        - gridcell "0.00" [ref=e1479]:
+                          - generic [ref=e1481]: "0.00"
+                        - gridcell "0.00" [ref=e1482]:
+                          - generic [ref=e1484]: "0.00"
+                      - row "Enabled Free estimates. Transparent pricing and craftsmanship you can count on. Ad Eligible Description None Advertiser — 52 4 $40.14 0.00 0.00" [ref=e1485]:
+                        - gridcell "Enabled" [ref=e1486]:
+                          - img "Enabled" [ref=e1488]
+                        - gridcell "Free estimates. Transparent pricing and craftsmanship you can count on." [ref=e1489]:
+                          - generic [ref=e1492]: Free estimates. Transparent pricing and craftsmanship you can count on.
+                        - gridcell "Ad" [ref=e1493]:
+                          - generic [ref=e1494]: Ad
+                        - gridcell "Eligible" [ref=e1495]:
+                          - generic [ref=e1500]: Eligible
+                        - gridcell "Description" [ref=e1501]:
+                          - generic [ref=e1503]: Description
+                        - gridcell "None" [ref=e1504]:
+                          - generic [ref=e1505]: None
+                        - gridcell "Advertiser" [ref=e1506]:
+                          - generic [ref=e1508]: Advertiser
+                        - gridcell "—" [ref=e1509]:
+                          - generic [ref=e1510]: —
+                        - gridcell "52" [ref=e1511]:
+                          - generic [ref=e1513]: "52"
+                        - gridcell "4" [ref=e1514]:
+                          - generic [ref=e1516]: "4"
+                        - gridcell "$40.14" [ref=e1517]:
+                          - generic [ref=e1519]: $40.14
+                        - gridcell "0.00" [ref=e1520]:
+                          - generic [ref=e1522]: "0.00"
+                        - gridcell "0.00" [ref=e1523]:
+                          - generic [ref=e1525]: "0.00"
+                      - row "Enabled Giovanni and team are top-rated in South Shore. See why 200+ homeowners trust us. Ad Eligible Description None Advertiser — 248 18 $280.64 0.00 0.00" [ref=e1526]:
+                        - gridcell "Enabled" [ref=e1527]:
+                          - img "Enabled" [ref=e1529]
+                        - gridcell "Giovanni and team are top-rated in South Shore. See why 200+ homeowners trust us." [ref=e1530]:
+                          - generic [ref=e1533]: Giovanni and team are top-rated in South Shore. See why 200+ homeowners trust us.
+                        - gridcell "Ad" [ref=e1534]:
+                          - generic [ref=e1535]: Ad
+                        - gridcell "Eligible" [ref=e1536]:
+                          - generic [ref=e1541]: Eligible
+                        - gridcell "Description" [ref=e1542]:
+                          - generic [ref=e1544]: Description
+                        - gridcell "None" [ref=e1545]:
+                          - generic [ref=e1546]: None
+                        - gridcell "Advertiser" [ref=e1547]:
+                          - generic [ref=e1549]: Advertiser
+                        - gridcell "—" [ref=e1550]:
+                          - generic [ref=e1551]: —
+                        - gridcell "248" [ref=e1552]:
+                          - generic [ref=e1554]: "248"
+                        - gridcell "18" [ref=e1555]:
+                          - generic [ref=e1557]: "18"
+                        - gridcell "$280.64" [ref=e1558]:
+                          - generic [ref=e1560]: $280.64
+                        - gridcell "0.00" [ref=e1561]:
+                          - generic [ref=e1563]: "0.00"
+                        - gridcell "0.00" [ref=e1564]:
+                          - generic [ref=e1566]: "0.00"
+                      - row "Enabled Hundreds of happy homeowners can't be wrong. See reviews & trust us with your renovation. Ad Eligible Description None Advertiser — 237 20 $223.32 0.00 0.00" [ref=e1567]:
+                        - gridcell "Enabled" [ref=e1568]:
+                          - img "Enabled" [ref=e1570]
+                        - gridcell "Hundreds of happy homeowners can't be wrong. See reviews & trust us with your renovation." [ref=e1571]:
+                          - generic [ref=e1574]: Hundreds of happy homeowners can't be wrong. See reviews & trust us with your renovation.
+                        - gridcell "Ad" [ref=e1575]:
+                          - generic [ref=e1576]: Ad
+                        - gridcell "Eligible" [ref=e1577]:
+                          - generic [ref=e1582]: Eligible
+                        - gridcell "Description" [ref=e1583]:
+                          - generic [ref=e1585]: Description
+                        - gridcell "None" [ref=e1586]:
+                          - generic [ref=e1587]: None
+                        - gridcell "Advertiser" [ref=e1588]:
+                          - generic [ref=e1590]: Advertiser
+                        - gridcell "—" [ref=e1591]:
+                          - generic [ref=e1592]: —
+                        - gridcell "237" [ref=e1593]:
+                          - generic [ref=e1595]: "237"
+                        - gridcell "20" [ref=e1596]:
+                          - generic [ref=e1598]: "20"
+                        - gridcell "$223.32" [ref=e1599]:
+                          - generic [ref=e1601]: $223.32
+                        - gridcell "0.00" [ref=e1602]:
+                          - generic [ref=e1604]: "0.00"
+                        - gridcell "0.00" [ref=e1605]:
+                          - generic [ref=e1607]: "0.00"
+                      - 'row "Enabled {KeyWord:Kitchen Remodeling} Pros Ad Eligible Headline None Advertiser — 176 15 $222.29 0.00 0.00" [ref=e1608]':
+                        - gridcell "Enabled" [ref=e1609]:
+                          - img "Enabled" [ref=e1611]
+                        - 'gridcell "{KeyWord:Kitchen Remodeling} Pros" [ref=e1612]':
+                          - generic [ref=e1615]: "{KeyWord:Kitchen Remodeling} Pros"
+                        - gridcell "Ad" [ref=e1616]:
+                          - generic [ref=e1617]: Ad
+                        - gridcell "Eligible" [ref=e1618]:
+                          - generic [ref=e1623]: Eligible
+                        - gridcell "Headline" [ref=e1624]:
+                          - generic [ref=e1626]: Headline
+                        - gridcell "None" [ref=e1627]:
+                          - generic [ref=e1628]: None
+                        - gridcell "Advertiser" [ref=e1629]:
+                          - generic [ref=e1631]: Advertiser
+                        - gridcell "—" [ref=e1632]:
+                          - generic [ref=e1633]: —
+                        - gridcell "176" [ref=e1634]:
+                          - generic [ref=e1636]: "176"
+                        - gridcell "15" [ref=e1637]:
+                          - generic [ref=e1639]: "15"
+                        - gridcell "$222.29" [ref=e1640]:
+                          - generic [ref=e1642]: $222.29
+                        - gridcell "0.00" [ref=e1643]:
+                          - generic [ref=e1645]: "0.00"
+                        - gridcell "0.00" [ref=e1646]:
+                          - generic [ref=e1648]: "0.00"
+                    - generic [ref=e1656]:
+                      - generic [ref=e1657]:
+                        - generic [ref=e1658]: "Show rows:"
+                        - 'button "Show rows: 10 selected." [ref=e1661] [cursor=pointer]':
+                          - generic [ref=e1662]: "10"
+                          - img [ref=e1664]: arrow_drop_down
+                      - generic [ref=e1665]:
+                        - generic [ref=e1667]: 1 - 10 of 26
+                        - generic [ref=e1668]:
+                          - button "Go to the first page" [disabled] [ref=e1669]:
+                            - generic:
+                              - generic:
+                                - img: first_page
+                          - button "Go to the previous page" [disabled] [ref=e1670]:
+                            - generic:
+                              - generic:
+                                - img: chevron_left
+                          - button "Go to the next page" [ref=e1671] [cursor=pointer]:
+                            - img [ref=e1674]: chevron_right
+                          - button "Go to the last page" [ref=e1676] [cursor=pointer]:
+                            - img [ref=e1679]: last_page
+              - generic [ref=e957]:
+                - generic [ref=e958]:
+                  - link "Reporting is not real-time." [ref=e960] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_2544985&hl=en_US
+                  - text: "Time zone for all dates and times: (GMT-04:00) Eastern Time."
+                  - link "Learn more about changing your Google Ads account settings" [ref=e962] [cursor=pointer]:
+                    - /url: https://support.google.com/google-ads/?p=help_9842104&hl=en_US
+                    - text: Learn more
+                  - generic [ref=e963]: Some inventory may be provided through third party intermediaries.
+                  - generic [ref=e964]: You'll see Media Rating Council (MRC) accreditation noted in the column header's hover text for accredited metrics.
+                - generic [ref=e965]: © Google, 2026.
+  - generic:
+    - dialog:
+      - generic:
+        - generic:
+          - heading [level=1]: Turn off ad blockers
+          - paragraph: Google Ads can't work when you're using an ad blocker. To use Google Ads, please turn off any ad blockers for now.
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+  - generic:
+    - generic:
+      - generic:
+        - dialog "dialog"
+    - generic:
+      - generic:
+        - dialog "dialog"

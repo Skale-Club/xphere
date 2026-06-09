@@ -32,6 +32,9 @@ export default function DashboardError({
       message: error.message,
       stack: error.stack,
     })
+    // Dynamic import keeps this boundary truly dependency-free at parse time.
+    // If Sentry itself fails to load, the boundary still renders correctly.
+    import('@sentry/nextjs').then(({ captureException }) => captureException(error)).catch(() => {})
 
     const details = `${error.name}\n${error.message}\n${error.stack ?? ''}`.toLowerCase()
     const looksLikeStaleChunk =
@@ -103,8 +106,8 @@ export default function DashboardError({
           Try again
         </button>
         <div style={{ marginTop: 32, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <a href="/chat" style={{ color: '#818CF8', fontSize: 13 }}>
-            Chat
+          <a href="/inbox" style={{ color: '#818CF8', fontSize: 13 }}>
+            Inbox
           </a>
           <a href="/contacts" style={{ color: '#818CF8', fontSize: 13 }}>
             Contacts

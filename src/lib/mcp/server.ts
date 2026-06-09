@@ -7,6 +7,7 @@ import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { McpAuthContext } from './auth'
 import { writeMcpAuditLog } from './auth'
+import { resolveEffectiveOrg } from './membership'
 import { ALL_MCP_TOOLS } from './registry'
 import { isToolError, type McpToolDef } from './tool-types'
 
@@ -71,21 +72,49 @@ function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext)
     title: tool.annotations?.title ?? tool.title ?? tool.name,
   }
 
+  // Extend every tool's registered schema with an optional org_id parameter.
+  // The framework resolves + validates it before the tool handler runs.
+  const extendedShape = { ...shape, org_id: z.string().uuid().optional() }
+
   server.registerTool(
     tool.name,
     {
       title: tool.title ?? tool.name,
       description: tool.description,
-      inputSchema: shape,
+      inputSchema: extendedShape,
       annotations,
     },
     async (input: unknown) => {
+      // --- Per-call org resolution -------------------------------------------
+      // Extract org_id from input, then strip it so tool handlers stay unaware.
+      const rawInput = input as Record<string, unknown>
+      const requestedOrgId = rawInput.org_id as string | undefined
+      delete rawInput.org_id
+
+      const { effectiveAuth, denial } = await resolveEffectiveOrg(auth, requestedOrgId)
+
+      if (denial) {
+        void writeMcpAuditLog({
+          orgId: auth.orgId,
+          actor: auth.actor,
+          area: tool.area,
+          action: tool.name,
+          status: 'blocked',
+          notes: `org_id ${requestedOrgId} denied — user is not a member`,
+        })
+        return {
+          content: [{ type: 'text', text: JSON.stringify(denial) }],
+          isError: true,
+        }
+      }
+
+      // --- Tool execution ----------------------------------------------------
       let payload: unknown
       let status: 'success' | 'failed' = 'success'
       let auditNotes: string | undefined
 
       try {
-        const result = await tool.handler(input, { auth })
+        const result = await tool.handler(rawInput, { auth: effectiveAuth })
         if (isToolError(result)) {
           status = 'failed'
           auditNotes = result.detail ?? result.error
@@ -99,10 +128,10 @@ function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext)
         payload = { error: 'internal', detail: auditNotes }
       }
 
-      // Audit log | best-effort, never blocks the response.
+      // Audit log records the per-call resolved org (effectiveAuth.orgId).
       void writeMcpAuditLog({
-        orgId: auth.orgId,
-        actor: auth.actor,
+        orgId: effectiveAuth.orgId,
+        actor: effectiveAuth.actor,
         area: tool.area,
         action: tool.name,
         status,

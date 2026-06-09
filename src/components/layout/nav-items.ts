@@ -43,7 +43,7 @@ export type NavItem = {
  */
 export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview', permission: 'dashboard.view' },
-  { icon: MessageSquare,   label: 'Chat',         href: '/chat',         group: 'engage',   permission: 'chat.view' },
+  { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
@@ -56,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build',    permission: 'agents.view' },
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view' },
   { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view' },
-  { icon: CalendarDays,    label: 'Scheduling',   href: '/scheduling',   group: 'build',    permission: 'scheduling.view' },
+  { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view' },
 ]
 
@@ -72,4 +72,14 @@ export const NAV_GROUPS: { id: string; label: string }[] = [
 export function findNavItemForPath(pathname: string): NavItem | null {
   const first = '/' + pathname.split('/').filter(Boolean)[0]
   return NAV_ITEMS.find((n) => n.href === first) ?? null
+}
+
+/**
+ * Guaranteed-valid landing route for a path's section. Used when an org switch
+ * (or a stale/deleted resource) invalidates a deep org-scoped URL: nav hrefs and
+ * `/dashboard` always have a page, so the destination never 404s and can't loop.
+ * e.g. `/workflows/flows/{id}` → `/workflows`; non-nav routes → `/dashboard`.
+ */
+export function sectionRootForPath(pathname: string): string {
+  return findNavItemForPath(pathname)?.href ?? '/dashboard'
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { switchOrganization, createOrganization, getUserOrgs } from '@/app/(dashboard)/organizations/actions'
+import { sectionRootForPath } from '@/components/layout/nav-items'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -72,7 +73,7 @@ type CreateOrgValues = z.infer<typeof createOrgSchema>
 
 function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
+  const pathname = usePathname()
 
   const form = useForm<CreateOrgValues>({
     resolver: zodResolver(createOrgSchema),
@@ -86,10 +87,9 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         toast.error(result.error)
         return
       }
-      toast.success('Organization created.')
-      onOpenChange(false)
-      form.reset()
-      router.refresh()
+      // Creating an org switches the active org. Hard reload to the section root
+      // so the whole tab re-renders under the new org (coherent, no stale cache).
+      window.location.assign(sectionRootForPath(pathname))
     })
   }
 
@@ -136,6 +136,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
   const [orgs, setOrgs] = useState<Org[] | null>(null)
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   async function handleDropdownOpen(open: boolean) {
     setDropdownOpen(open)
@@ -158,7 +159,10 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
         toast.error(result.error)
         return
       }
-      router.refresh()
+      // Hard reload to the section root so the ENTIRE tab re-renders under the
+      // new org resolved from the DB (topbar, theme, data, RLS all coherent) —
+      // no stale Router/ISR cache, no split-brain, and no 404 on deep routes.
+      window.location.assign(sectionRootForPath(pathname))
     })
   }
 
@@ -216,14 +220,14 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => { setDropdownOpen(false); setCreateOpen(true) }}
-            className="cursor-pointer gap-2 text-text-tertiary"
+            className="cursor-pointer gap-2 text-text-secondary"
           >
             <Plus className="h-3.5 w-3.5 shrink-0" />
             Add organization
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => { setDropdownOpen(false); router.push('/organizations') }}
-            className="cursor-pointer gap-2 text-text-tertiary"
+            className="cursor-pointer gap-2 text-text-secondary"
           >
             <Settings2 className="h-3.5 w-3.5 shrink-0" />
             Manage organizations

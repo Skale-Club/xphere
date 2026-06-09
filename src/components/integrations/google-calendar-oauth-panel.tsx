@@ -81,7 +81,7 @@ export function GoogleCalendarOAuthPanel({ definition, existing }: CustomPanelPr
               </a>
             </Button>
             <Button asChild variant="ghost" className="w-full justify-between">
-              <Link href="/scheduling">
+              <Link href="/calendar">
                 Gerenciar no Agendamento
                 <ExternalLink className="ml-2 h-3.5 w-3.5" />
               </Link>

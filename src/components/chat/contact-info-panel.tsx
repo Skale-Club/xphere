@@ -74,7 +74,7 @@ import { listTags, setContactTags, type TagRow } from '@/app/(dashboard)/setting
 import { TagPicker } from '@/components/tags/tag-picker'
 import { TagBadge } from '@/components/tags/tag-badge'
 import { getStages, getDefaultPipeline } from '@/app/(dashboard)/pipeline/actions'
-import { getEventTypes } from '@/app/(dashboard)/scheduling/_actions/event-types'
+import { getEventTypes } from '@/app/(dashboard)/calendar/_actions/event-types'
 import { TaskForm } from '@/components/tasks/task-form'
 import { OpportunityDetailSheet } from '@/components/pipeline/opportunity-detail-sheet'
 import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dialog'
@@ -97,7 +97,7 @@ import { toast } from 'sonner'
 import { MergedBanner } from '@/components/contacts/merged-banner'
 import { IdentityStatusBadge } from '@/components/contacts/identity-status-badge'
 import { markContactVerified } from '@/app/(dashboard)/contacts/_actions/verify'
-import { getSurvivorDisplayName } from '@/app/(dashboard)/chat/_actions/survivor'
+import { getSurvivorDisplayName } from '@/app/(dashboard)/inbox/_actions/survivor'
 import { ContactDndSection } from '@/components/contacts/contact-dnd-section'
 
 export interface ContactInfoPanelProps {
@@ -515,9 +515,10 @@ export function ContactInfoPanel({
               avatarUrl={contact.avatar_url ?? null}
               initials={initialsFromContactName(contact, contact.email ?? contact.phone ?? '?')}
               isVerified={isVerifiedContact}
-              onAvatarChange={(url) =>
+              onAvatarChange={(url) => {
                 setContact((prev) => (prev ? { ...prev, avatar_url: url } : prev))
-              }
+                if (contact) onContactUpdated?.({ ...contact, avatar_url: url })
+              }}
             />
             {/* Phase 110 D-07a + D-01a: identity status visuals.
                 - verified (is_verified flag OR identity_status='verified')
@@ -611,7 +612,7 @@ export function ContactInfoPanel({
           </Button>
           {hasCalendars ? (
             <Button asChild size="sm" variant="secondary" className="h-14 flex-col gap-1 px-1 text-[10.5px]">
-              <Link href={`/scheduling?contactId=${contact.id}`} title="Schedule a meeting">
+              <Link href={`/calendar?contactId=${contact.id}`} title="Schedule a meeting">
                 <CalendarPlus className="h-4 w-4" />
                 Schedule
               </Link>
@@ -829,7 +830,7 @@ export function ContactInfoPanel({
             defaultOpen={contact.bookings.length > 0}
             actions={
               <Link
-                href={`/scheduling?contactId=${contact.id}`}
+                href={`/calendar?contactId=${contact.id}`}
                 className="text-[10px] text-text-tertiary hover:text-text-secondary"
               >
                 <Plus className="h-3 w-3 inline" /> New
@@ -850,7 +851,7 @@ export function ContactInfoPanel({
                   return (
                     <Link
                       key={b.id}
-                      href={`/scheduling/bookings/${b.id}`}
+                      href={`/calendar/bookings/${b.id}`}
                       className="group flex items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 hover:border-border-strong transition-colors"
                     >
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] bg-accent-muted text-accent">

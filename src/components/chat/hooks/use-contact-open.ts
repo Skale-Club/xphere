@@ -27,7 +27,7 @@ import {
   reopenContactWhatsappConversation,
   prepareContactConversationForOpen,
   type StartChannel,
-} from '@/app/(dashboard)/chat/actions'
+} from '@/app/(dashboard)/inbox/actions'
 
 interface UseContactOpenParams {
   initialContactId: string | null

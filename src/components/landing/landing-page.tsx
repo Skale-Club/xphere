@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion, type Variants } from 'framer-motion'
+import { motion, useScroll, useTransform, useMotionTemplate, type Variants } from 'framer-motion'
 import { Zap, Users, Globe, Phone, MessageSquare, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CTAButton } from '@/components/design-system/cta-button'
@@ -240,6 +240,21 @@ export function LandingPage({
     return () => window.removeEventListener('scroll', onScroll)
   }, [hasScrollImages, scrollImages, drawFrame])
 
+  // ── Scroll-linked animations ──────────────────────────────────────────────
+  const { scrollY, scrollYProgress } = useScroll()
+  // Progress bar
+  const progressScaleX = useTransform(scrollYProgress, [0, 1], [0, 1])
+  // Nav border fades in as user scrolls past the hero
+  const navBorderOpacity = useTransform(scrollY, [0, 80], [0.05, 0.14])
+  const navBorderColor = useMotionTemplate`rgba(255,255,255,${navBorderOpacity})`
+  // Glow orb drifts upward subtly on scroll
+  const orbY = useTransform(scrollY, [0, 800], [0, -80])
+  // Dashboard preview card gentle parallax float
+  const cardRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress: cardProgress } = useScroll({ target: cardRef, offset: ['start end', 'end start'] })
+  const cardParallax = useTransform(cardProgress, [0, 1], [30, -30])
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [initialMode, setInitialMode] = useState<AuthMode>('signin')
   const [initialView, setInitialView] = useState<AuthView>('step1')
@@ -267,13 +282,21 @@ export function LandingPage({
         />
       </Suspense>
 
-      {/* Glow orb */}
-      <div
+      {/* Scroll progress bar */}
+      <motion.div
         aria-hidden
-        className="pointer-events-none fixed top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full z-0"
+        className="pointer-events-none fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500/70 to-indigo-400/20 z-[60] origin-left"
+        style={{ scaleX: progressScaleX }}
+      />
+
+      {/* Glow orb — drifts upward as user scrolls */}
+      <motion.div
+        aria-hidden
         style={{
+          y: orbY,
           background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.12) 0%, transparent 70%)',
         }}
+        className="pointer-events-none fixed top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full z-0"
       />
 
       {/* Scroll-driven canvas — fades in past the hero, frames map from anchor → bottom */}
@@ -302,14 +325,17 @@ export function LandingPage({
       />
 
       <div className="relative z-10">
-        {/* Nav */}
-        <header className="flex items-center justify-between px-6 sm:px-10 h-16 border-b border-white/5 backdrop-blur-sm">
+        {/* Nav — border opacity increases as user scrolls past hero */}
+        <motion.header
+          className="flex items-center justify-between px-6 sm:px-10 h-16 border-b backdrop-blur-sm"
+          style={{ borderColor: navBorderColor }}
+        >
           <Link href="/" className="inline-flex items-center gap-2 font-semibold text-base tracking-tight text-[#FAFAFA] hover:text-white transition-colors">
             <XphereOrb size={22} />
             Xphere
           </Link>
           <CTAButton href={startHref}>Start</CTAButton>
-        </header>
+        </motion.header>
 
         {/* Hero */}
         <section className="flex flex-col items-center text-center px-6 pt-12 pb-14 sm:pt-16 sm:pb-20">
@@ -374,7 +400,8 @@ export function LandingPage({
         {/* Scroll-animation anchor — frame 0 starts here; progress 1 = page bottom */}
         {hasScrollImages && <div ref={animStartRef} aria-hidden />}
 
-        {/* Dashboard preview strip */}
+        {/* Dashboard preview strip — entrance + subtle parallax float */}
+        <motion.div ref={cardRef} style={{ y: cardParallax }}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -405,15 +432,16 @@ export function LandingPage({
             </div>
           </div>
         </motion.div>
+        </motion.div>
 
         {/* Features */}
         <section id="features" className="px-6 pb-28">
           <div className="mx-auto max-w-5xl">
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 16, filter: 'blur(8px)' }}
+              whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               viewport={{ once: true, margin: '-80px' }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="text-center mb-12"
             >
               <h2 className="text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.025em]">
@@ -428,10 +456,10 @@ export function LandingPage({
               {features.map(({ icon: Icon, title, description }, i) => (
                 <motion.div
                   key={title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
                   viewport={{ once: true, margin: '-60px' }}
-                  transition={{ duration: 0.45, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
                   className="group select-none rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-5 hover:bg-white/[0.07] hover:border-white/15 transition-all duration-200"
                 >
                   <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
@@ -461,10 +489,10 @@ export function LandingPage({
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[340px] -z-10 bg-gradient-to-t from-[#08090A]/45 via-[#08090A]/15 to-transparent"
           />
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
             viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             className="relative mx-auto max-w-2xl text-center rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A0A0B]/70 to-[#0A0A0B]/40 backdrop-blur-md p-12 shadow-2xl shadow-black/40"
           >
             <h2 className="text-[1.75rem] font-semibold tracking-[-0.025em] mb-3">

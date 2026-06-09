@@ -47,7 +47,7 @@ async function resolveLegacyToken(token: string): Promise<McpAuthContext | null>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase as any)
     .from('project_mcp_tokens')
-    .select('org_id, token_hash')
+    .select('org_id, user_id, token_hash')
     .eq('token_prefix', prefix)
     .eq('active', true)
     .maybeSingle()
@@ -61,7 +61,7 @@ async function resolveLegacyToken(token: string): Promise<McpAuthContext | null>
   return {
     kind: 'legacy_token',
     orgId: data.org_id as string,
-    userId: null,
+    userId: data.user_id as string,
     actor: `mcp:${prefix}`,
     scope: 'mcp:all',
   }

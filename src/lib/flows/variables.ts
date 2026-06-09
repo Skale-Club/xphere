@@ -2,7 +2,7 @@
 //
 // Maps a trigger's event_type to the concrete `{{namespace.field}}` tokens that
 // resolve at runtime (see run-flow-sync.ts scope building + the per-event
-// emitters in lib/contacts/events.ts, lib/scheduling/transition.ts,
+// emitters in lib/contacts/events.ts, lib/calendar/transition.ts,
 // lib/pipeline/events.ts). `trigger.fired_at` is always available.
 
 export interface VariableItem {

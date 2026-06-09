@@ -6,6 +6,7 @@ import { resolveOrgBranding } from '@/lib/branding'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
+import { RefreshButton } from '@/components/reviews/refresh-button'
 import { WidgetSettingsDialog } from '@/components/reviews/widget-settings-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -120,7 +121,7 @@ export default async function ReviewsPage() {
   }))
 
   return (
-    <PageContainer className="px-0 py-0 sm:px-0 lg:px-0">
+    <PageContainer>
       <ReviewWidgetBuilder
         baseUrl="https://xphere.app"
         widgetToken={profile.widget_token}
@@ -138,11 +139,14 @@ export default async function ReviewsPage() {
         savedSettings={(profile.widget_settings as SavedWidgetSettings | null) ?? undefined}
         onSave={saveWidgetSettings.bind(null, profile.id)}
         settingsSlot={
-          <WidgetSettingsDialog
-            currentHint={keyHint}
-            hasApiKey={hasApiKey}
-            currentPlaceId={profile.place_id !== '__pending__' ? profile.place_id : null}
-          />
+          <>
+            <RefreshButton />
+            <WidgetSettingsDialog
+              currentHint={keyHint}
+              hasApiKey={hasApiKey}
+              currentPlaceId={profile.place_id !== '__pending__' ? profile.place_id : null}
+            />
+          </>
         }
       />
     </PageContainer>

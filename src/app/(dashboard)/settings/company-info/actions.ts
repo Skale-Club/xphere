@@ -11,6 +11,8 @@ import type { WhatsAppProvider, WhatsAppProviderStatus } from '@/lib/whatsapp/ty
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
 const updateSchema = z.object({
+  // The org the form was loaded for — used to bind the write (see resolveTargetOrg).
+  orgId: z.string().uuid().optional(),
   logo_url: z
     .string()
     .trim()
@@ -36,6 +38,7 @@ const updateSchema = z.object({
 })
 
 const costCapSchema = z.object({
+  orgId: z.string().uuid().optional(),
   daily_cost_cap_usd: z
     .number({ invalid_type_error: 'Must be a number' })
     .min(0, 'Cap must be ≥ $0')
@@ -50,6 +53,28 @@ export interface ActionResult {
   error?: string
 }
 
+type AuthedClient = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Resolve the org a settings write must target, binding it to the org the form
+ * was loaded for. RLS already restricts writes to the active org, but if the
+ * active org DRIFTED between page load and save (user switched in another tab /
+ * device), a blind get_current_org_id() write would land on the NEW active org
+ * with the OLD form's values — cross-org contamination. When the caller passes
+ * the loaded `expectedOrgId` and it no longer matches, we refuse loudly instead.
+ */
+async function resolveTargetOrg(
+  supabase: AuthedClient,
+  expectedOrgId?: string | null,
+): Promise<{ ok: true; orgId: string } | { ok: false; error: string }> {
+  const { data: orgId, error } = await supabase.rpc('get_current_org_id')
+  if (error || !orgId) return { ok: false, error: 'No active organization' }
+  if (expectedOrgId && expectedOrgId !== orgId) {
+    return { ok: false, error: 'A organização ativa mudou. Recarregue a página e tente de novo.' }
+  }
+  return { ok: true, orgId: orgId as string }
+}
+
 /**
  * Update branding fields (logo_url, accent_color, brand_name) on the current
  * org. Empty strings are normalized to null. RLS enforces org membership.
@@ -61,10 +86,9 @@ export async function updateWorkspaceBranding(input: UpdateWorkspaceBrandingInpu
   }
 
   const supabase = await createClient()
-  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
-  if (orgErr || !orgId) {
-    return { ok: false, error: 'No active organization' }
-  }
+  const target = await resolveTargetOrg(supabase, parsed.data.orgId)
+  if (!target.ok) return target
+  const orgId = target.orgId
 
   const patch: Record<string, string | null> = {}
   if (parsed.data.logo_url !== undefined) {
@@ -99,20 +123,20 @@ export async function updateWorkspaceBranding(input: UpdateWorkspaceBrandingInpu
  * Update the per-org daily AI cost cap.
  * Pass null to remove the override and fall back to the platform default.
  */
-export async function updateDefaultCurrency(currency: string): Promise<ActionResult> {
+export async function updateDefaultCurrency(currency: string, orgId?: string): Promise<ActionResult> {
   const parsed = z.string().length(3).safeParse(currency.toUpperCase())
   if (!parsed.success) {
     return { ok: false, error: 'Currency must be a 3-letter ISO code' }
   }
 
   const supabase = await createClient()
-  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
-  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+  const target = await resolveTargetOrg(supabase, orgId)
+  if (!target.ok) return target
 
   const { error } = await supabase
     .from('organizations')
     .update({ default_currency: parsed.data })
-    .eq('id', orgId as string)
+    .eq('id', target.orgId)
 
   if (error) return { ok: false, error: error.message }
 
@@ -135,6 +159,7 @@ const SUPPORTED_TZS: string[] =
     : []
 
 const companyProfileSchema = z.object({
+  orgId: z.string().uuid().optional(),
   legal_name: optionalText(160),
   tax_id: optionalText(64),
   address_line1: optionalText(200),
@@ -165,8 +190,9 @@ export async function updateCompanyProfile(input: UpdateCompanyProfileInput): Pr
   }
 
   const supabase = await createClient()
-  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
-  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+  const target = await resolveTargetOrg(supabase, parsed.data.orgId)
+  if (!target.ok) return target
+  const orgId = target.orgId
 
   const blank = (v: string | null | undefined) =>
     v == null || v.trim() === '' ? null : v.trim()
@@ -200,20 +226,20 @@ export async function updateCompanyProfile(input: UpdateCompanyProfileInput): Pr
   return { ok: true }
 }
 
-export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | null }): Promise<ActionResult> {
+export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | null; orgId?: string }): Promise<ActionResult> {
   const parsed = costCapSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
   }
 
   const supabase = await createClient()
-  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
-  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+  const target = await resolveTargetOrg(supabase, parsed.data.orgId)
+  if (!target.ok) return target
 
   const { error } = await supabase
     .from('organizations')
     .update({ daily_cost_cap_usd_override: parsed.data.daily_cost_cap_usd })
-    .eq('id', orgId as string)
+    .eq('id', target.orgId)
 
   if (error) return { ok: false, error: error.message }
 
@@ -226,12 +252,14 @@ export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | n
 // ---------------------------------------------------------------------------
 
 const whatsappProviderSchema = z.object({
+  orgId: z.string().uuid().optional(),
   provider: z.enum(['evolution', 'zapi', 'wapi']),
   displayName: z.string().trim().max(64).optional().default(''),
   config: z.record(z.string(), z.string()),
 })
 
 export interface SaveWhatsAppProviderInput {
+  orgId?: string
   provider: WhatsAppProvider
   displayName?: string
   config: Record<string, string>
@@ -282,14 +310,14 @@ export async function saveWhatsAppProvider(
   }
 
   const supabase = await createClient()
-  const { data: orgId, error: orgErr } = await supabase.rpc('get_current_org_id')
-  if (orgErr || !orgId) return { ok: false, error: 'No active organization' }
+  const target = await resolveTargetOrg(supabase, parsed.data.orgId)
+  if (!target.ok) return target
 
   const configErr = validateConfigForProvider(parsed.data.provider, parsed.data.config)
   if (configErr) return { ok: false, error: configErr }
 
   const admin = createServiceRoleClient()
-  const orgIdStr = orgId as string
+  const orgIdStr = target.orgId
 
   // 1. Deactivate any current active provider for the org
   const { error: deactErr } = await admin
@@ -402,8 +430,10 @@ export async function uploadOrgLogo(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { ok: false, error: 'no_active_org' }
+  const expectedOrgId = formData.get('orgId')
+  const target = await resolveTargetOrg(supabase, typeof expectedOrgId === 'string' ? expectedOrgId : undefined)
+  if (!target.ok) return { ok: false, error: target.error }
+  const orgId = target.orgId
 
   const file = formData.get('file')
   if (!(file instanceof File)) return { ok: false, error: 'Missing file' }

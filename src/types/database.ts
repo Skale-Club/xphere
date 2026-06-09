@@ -362,6 +362,20 @@ export interface ProjectSavedViewRow {
   updated_at: string
 }
 
+// pipeline_saved_views (migration 1203) — personal filter views for Pipeline module
+export interface PipelineSavedViewRow {
+  id: string
+  org_id: string
+  pipeline_id: string | null
+  owner_id: string | null
+  name: string
+  filters: Record<string, unknown>
+  sorting: Record<string, unknown>
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface ProjectExecutionRunRow {
   id: string
   org_id: string
@@ -997,7 +1011,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule'
           name: string
           encrypted_api_key: string
           key_hint: string | null
@@ -1015,7 +1029,7 @@ export interface Database {
         Insert: {
           id?: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule'
           name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -1140,7 +1154,7 @@ export interface Database {
           organization_id: string
           integration_id: string | null
           tool_name: string
-          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
+          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'send_zernio_dm'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -1166,7 +1180,7 @@ export interface Database {
         Update: {
           integration_id?: string | null
           tool_name?: string
-          action_type?: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note'
+          action_type?: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking'
           config?: Json
           fallback_message?: string
           is_active?: boolean
@@ -1551,6 +1565,65 @@ export interface Database {
             referencedRelation: 'agents'
             referencedColumns: ['id']
           }
+        ]
+      }
+      // Q7 — Project 2: agent quality feedback signals
+      agent_feedback: {
+        Row: {
+          id: string
+          org_id: string
+          invocation_id: string | null
+          conversation_id: string | null
+          message_id: string | null
+          signal: Database['public']['Enums']['agent_feedback_signal']
+          note: string | null
+          submitted_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          invocation_id?: string | null
+          conversation_id?: string | null
+          message_id?: string | null
+          signal: Database['public']['Enums']['agent_feedback_signal']
+          note?: string | null
+          submitted_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          invocation_id?: string | null
+          conversation_id?: string | null
+          message_id?: string | null
+          signal?: Database['public']['Enums']['agent_feedback_signal']
+          note?: string | null
+          submitted_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_feedback_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_feedback_invocation_id_fkey'
+            columns: ['invocation_id']
+            isOneToOne: false
+            referencedRelation: 'agent_invocations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_feedback_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'conversations'
+            referencedColumns: ['id']
+          },
         ]
       }
       agent_invocations: {
@@ -4400,7 +4473,7 @@ export interface Database {
           }
         ]
       }
-      scheduling_profiles: {
+      calendar_profiles: {
         Row: {
           user_id: string
           org_id: string
@@ -5492,6 +5565,63 @@ export interface Database {
           updated_at?: string
         }
         Relationships: []
+      }
+      zernio_whatsapp_templates: {
+        Row: {
+          id: string
+          org_id: string
+          integration_id: string
+          zernio_account_id: string
+          name: string
+          category: string
+          language: string
+          status: string
+          components: unknown | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          integration_id: string
+          zernio_account_id: string
+          name: string
+          category: string
+          language: string
+          status?: string
+          components?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          integration_id?: string
+          zernio_account_id?: string
+          name?: string
+          category?: string
+          language?: string
+          status?: string
+          components?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'zernio_whatsapp_templates_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'zernio_whatsapp_templates_integration_id_fkey'
+            columns: ['integration_id']
+            isOneToOne: false
+            referencedRelation: 'integrations'
+            referencedColumns: ['id']
+          }
+        ]
       }
       zernio_webhook_events: {
         Row: {
@@ -6959,12 +7089,14 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
-      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio'
+      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'send_zernio_dm'
+      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule'
       // v2.0 (Phase 33) | agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus
       agent_invocation_mode: AgentInvocationMode
+      // Q7 — Project 2: quality feedback signal enum (migration 1162)
+      agent_feedback_signal: 'thumbs_up' | 'thumbs_down' | 'handoff' | 'idk'
       // v2.5 � tasks & notes enums
       task_priority: TaskPriority
       task_status: TaskStatus

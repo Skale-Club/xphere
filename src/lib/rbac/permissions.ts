@@ -136,13 +136,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
-    key: 'scheduling',
-    label: 'Scheduling',
+    key: 'calendar',
+    label: 'Calendar',
     icon: 'CalendarDays',
     permissions: [
-      { key: 'scheduling.view', label: 'View appointments & calendars' },
-      { key: 'scheduling.manage_appointments', label: 'Manage appointments' },
-      { key: 'scheduling.manage_calendars', label: 'Manage calendars' },
+      { key: 'calendar.view', label: 'View appointments & calendars' },
+      { key: 'calendar.manage_appointments', label: 'Manage appointments' },
+      { key: 'calendar.manage_calendars', label: 'Manage calendars' },
     ],
   },
   {
@@ -270,7 +270,7 @@ export const ORG_PERMISSION_KEYS: string[] = PERMISSION_GROUPS.filter(
  * Surfaces whose records carry an assignee and are therefore subject to the
  * "Restrict data visibility to only assigned data" seal.
  */
-export const SEALED_GROUPS = ['contacts', 'chat', 'pipeline', 'tasks', 'scheduling'] as const
+export const SEALED_GROUPS = ['contacts', 'chat', 'pipeline', 'tasks', 'calendar'] as const
 
 /**
  * Per the GHL note, the assigned-only seal does NOT apply to these groups for
@@ -296,7 +296,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<ConfigurableRole, string[]> = {
     'pipeline.view',
     'tasks.view',
     'tasks.manage',
-    'scheduling.view',
+    'calendar.view',
     'campaigns.view',
   ],
 }

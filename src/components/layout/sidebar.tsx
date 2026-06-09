@@ -197,7 +197,7 @@ function SidebarBody({
           return (
             <div key={g.id} className={cn('flex flex-col', gIdx > 0 && 'mt-3')}>
               {!collapsed && (
-                <div className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[#A5A6D6]">
+                <div className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[color:var(--accent-soft)]">
                   {g.label}
                 </div>
               )}
@@ -206,7 +206,7 @@ function SidebarBody({
                 const isActive =
                   pathname === item.href ||
                   (item.href !== '/' && pathname.startsWith(item.href + '/')) ||
-                  (item.href === '/chat' && pathname === '/widget') ||
+                  (item.href === '/inbox' && pathname === '/widget') ||
                   (item.href === '/calls' && (
                     pathname.startsWith('/phone') ||
                     pathname.startsWith('/voice') ||
@@ -238,12 +238,12 @@ function SidebarBody({
                       )}
                     />
                     {!collapsed && <span className="truncate">{item.label}</span>}
-                    {!collapsed && item.href === '/chat' && chatUnreadCount > 0 && (
+                    {!collapsed && item.href === '/inbox' && chatUnreadCount > 0 && (
                       <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white leading-none">
                         {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
                       </span>
                     )}
-                    {collapsed && item.href === '/chat' && chatUnreadCount > 0 && (
+                    {collapsed && item.href === '/inbox' && chatUnreadCount > 0 && (
                       <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
                     )}
                   </Link>

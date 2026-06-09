@@ -30,6 +30,8 @@ export interface CompanyProfileShape {
 }
 
 interface Props {
+  /** The org this form was loaded for — binds the save to that org (tenant safety). */
+  orgId: string
   initial: CompanyProfileShape
 }
 
@@ -59,7 +61,7 @@ const COUNTRIES: { code: string; name: string }[] = [
 
 const CONTROL_CLASS = 'border-border bg-bg-primary text-text-primary placeholder:text-text-tertiary'
 
-export function CompanyProfileForm({ initial }: Props) {
+export function CompanyProfileForm({ orgId, initial }: Props) {
   // Baseline = last-saved values. Dirty is computed against this so the page
   // save bar hides again right after a successful save (no router.refresh).
   const [baseline, setBaseline] = React.useState<CompanyProfileShape>(initial)
@@ -88,6 +90,7 @@ export function CompanyProfileForm({ initial }: Props) {
 
   async function handleSave(): Promise<boolean> {
     const res = await updateCompanyProfile({
+      orgId,
       legal_name: legalName,
       tax_id: taxId,
       address_line1: line1,
@@ -104,7 +107,7 @@ export function CompanyProfileForm({ initial }: Props) {
     }
     // Currency lives on its own action; only call when it changed.
     if (currency !== (baseline.default_currency ?? 'USD')) {
-      const cur = await updateDefaultCurrency(currency)
+      const cur = await updateDefaultCurrency(currency, orgId)
       if (!cur.ok) {
         toast.error(cur.error ?? 'Failed to save currency')
         return false

@@ -11,6 +11,8 @@ FROM node:24-alpine AS base
 # libc6-compat: glibc shim some native prebuilds (e.g. sharp) expect on musl.
 RUN apk add --no-cache libc6-compat
 ENV NEXT_TELEMETRY_DISABLED=1
+# Skip Playwright browser downloads — we use the system Chromium in the runner.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 
 # ---- Dependencies ----
@@ -51,10 +53,44 @@ FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# Website Analyzer — install system Chromium + required libs.
+# Playwright's bundled Chromium doesn't run on Alpine (musl libc). We use the
+# apk package instead; PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH points Playwright
+# (via extractor.ts) at the system binary. PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# is inherited from the base stage so npm ci never downloads it.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Standalone output does not include public/ or static/ — copy them in.
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+# playwright + playwright-core are in serverExternalPackages so they are NOT
+# traced into the standalone output. Copy them explicitly from the deps stage
+# so dynamic import('playwright') resolves at runtime.
+COPY --from=deps --chown=node:node /app/node_modules/playwright ./node_modules/playwright
+COPY --from=deps --chown=node:node /app/node_modules/playwright-core ./node_modules/playwright-core
+# cheerio and its full dependency tree (htmlparser2, domhandler, etc.)
+COPY --from=deps --chown=node:node /app/node_modules/cheerio ./node_modules/cheerio
+COPY --from=deps --chown=node:node /app/node_modules/htmlparser2 ./node_modules/htmlparser2
+COPY --from=deps --chown=node:node /app/node_modules/domhandler ./node_modules/domhandler
+COPY --from=deps --chown=node:node /app/node_modules/domutils ./node_modules/domutils
+COPY --from=deps --chown=node:node /app/node_modules/css-select ./node_modules/css-select
+COPY --from=deps --chown=node:node /app/node_modules/css-what ./node_modules/css-what
+COPY --from=deps --chown=node:node /app/node_modules/entities ./node_modules/entities
+COPY --from=deps --chown=node:node /app/node_modules/parse5 ./node_modules/parse5
+COPY --from=deps --chown=node:node /app/node_modules/boolbase ./node_modules/boolbase
+COPY --from=deps --chown=node:node /app/node_modules/nth-check ./node_modules/nth-check
+
 USER node
 EXPOSE 3000
 # Health probe — Docker (and Coolify) wait for this to pass before routing

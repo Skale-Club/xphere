@@ -1,6 +1,7 @@
 'use client'
 
 import { Component, type ReactNode } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 interface State {
   hasError: boolean
@@ -50,6 +51,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
     const tag = this.props.name ? `[dashboard:${this.props.name}]` : '[dashboard:widget]'
     // eslint-disable-next-line no-console
     console.error(tag, error, info?.componentStack ?? '')
+    Sentry.captureException(error, { contexts: { react: { componentStack: info?.componentStack } } })
   }
 
   render() {

@@ -11,6 +11,8 @@ import { SubSidebarProvider, useSubSidebar } from './sub-sidebar-context'
 interface SubSidebarLayoutProps {
   /** The nav/tree content rendered inside the sidebar panel. */
   nav: React.ReactNode
+  /** Compact action buttons rendered in the collapsed rail. */
+  collapsedActions?: React.ReactNode
   /** The main page content. */
   children: React.ReactNode
   /** localStorage key used to persist expanded/collapsed state. */
@@ -33,6 +35,7 @@ interface SubSidebarLayoutProps {
  */
 export function SubSidebarLayout({
   nav,
+  collapsedActions,
   children,
   storageKey,
   title,
@@ -46,7 +49,12 @@ export function SubSidebarLayout({
       defaultMode={defaultExpanded ? 'expanded' : 'collapsed'}
       autoCollapseBasePath={autoCollapseBasePath}
     >
-      <SubSidebarLayoutInner nav={nav} title={title} expandedWidth={expandedWidth}>
+      <SubSidebarLayoutInner
+        nav={nav}
+        collapsedActions={collapsedActions}
+        title={title}
+        expandedWidth={expandedWidth}
+      >
         {children}
       </SubSidebarLayoutInner>
     </SubSidebarProvider>
@@ -57,11 +65,13 @@ export function SubSidebarLayout({
 
 function SubSidebarLayoutInner({
   nav,
+  collapsedActions,
   title,
   expandedWidth,
   children,
 }: {
   nav: React.ReactNode
+  collapsedActions?: React.ReactNode
   title?: string
   expandedWidth: number
   children: React.ReactNode
@@ -89,7 +99,7 @@ function SubSidebarLayoutInner({
             <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">{nav}</div>
           </div>
         ) : (
-          <CollapsedRail onExpand={expand} />
+          <CollapsedRail onExpand={expand} actions={collapsedActions} />
         )}
       </aside>
 
@@ -101,7 +111,13 @@ function SubSidebarLayoutInner({
 
 // ─── Collapsed rail ───────────────────────────────────────────────────────────
 
-function CollapsedRail({ onExpand }: { onExpand: () => void }) {
+function CollapsedRail({
+  onExpand,
+  actions,
+}: {
+  onExpand: () => void
+  actions?: React.ReactNode
+}) {
   return (
     <div className="flex h-full w-10 flex-col items-center py-2">
       <Button
@@ -114,6 +130,11 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
       >
         <PanelLeftOpen className="h-4 w-4" />
       </Button>
+      {actions && (
+        <div className="mt-3 flex flex-col items-center gap-1.5 border-t border-border-subtle pt-3">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

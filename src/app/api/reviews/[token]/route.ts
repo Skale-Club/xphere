@@ -21,8 +21,20 @@ const CORS_HEADERS = {
 } as const
 
 const CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300',
+  'Cache-Control': 'no-store',
 } as const
+
+type WidgetSettingsPayload = {
+  layout: 'grid' | 'list' | 'carousel'
+  theme: 'light' | 'dark'
+  minRating: number
+  limit: number
+  showHero: boolean
+  equalHeight: boolean
+  footerCta: boolean
+  maxChars: number
+  showOwnerResponse: boolean
+}
 
 type ProfileRow = {
   id: string
@@ -33,6 +45,7 @@ type ProfileRow = {
   average_rating: number | null
   total_reviews_count: number | null
   last_scraped_at: string | null
+  widget_settings: unknown
 }
 
 type OrganizationRow = {
@@ -75,6 +88,7 @@ type WidgetPayload = {
   brand: {
     accent: string
   }
+  settings: WidgetSettingsPayload
   distribution: { rating: number; count: number }[]
   reviews: Array<{
     id: string
@@ -109,6 +123,37 @@ function resolveAccent(raw: string | null | undefined): string {
   return typeof raw === 'string' && /^#[0-9a-f]{6}$/i.test(raw) ? raw : '#6366F1'
 }
 
+function readStringSetting(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function readBooleanSetting(source: Record<string, unknown>, key: string, fallback: boolean): boolean {
+  const value = source[key]
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function normalizeWidgetSettings(raw: unknown): WidgetSettingsPayload {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {}
+  const layout = readStringSetting(source, 'layout')
+  const theme = readStringSetting(source, 'theme')
+  const limit = readStringSetting(source, 'limit')
+
+  return {
+    layout: layout === 'grid' || layout === 'list' ? layout : 'carousel',
+    theme: theme === 'dark' ? 'dark' : 'light',
+    minRating: clampInt(readStringSetting(source, 'minRating') ?? null, 1, 5, 4),
+    limit: limit === 'all' ? 500 : clampInt(limit ?? null, 1, 500, 12),
+    showHero: readBooleanSetting(source, 'showHero', true),
+    equalHeight: readBooleanSetting(source, 'equalHeight', true),
+    footerCta: readBooleanSetting(source, 'footerCta', false),
+    maxChars: clampInt(readStringSetting(source, 'maxChars') ?? null, 50, 2000, 220),
+    showOwnerResponse: readBooleanSetting(source, 'showOwnerResponse', true),
+  }
+}
+
 export async function OPTIONS(): Promise<Response> {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -123,16 +168,17 @@ export async function GET(
   }
 
   const url = new URL(request.url)
-  const minRating = clampInt(url.searchParams.get('min_rating'), 1, 5, 1)
   const sort = (url.searchParams.get('sort') ?? 'recent') as 'recent' | 'rating_high' | 'helpful'
-  const limit = clampInt(url.searchParams.get('limit'), 1, 500, 10)
+  const queryMinRating = clampInt(url.searchParams.get('min_rating'), 1, 5, 1)
+  const queryLimit = clampInt(url.searchParams.get('limit'), 1, 500, 10)
   const offset = clampInt(url.searchParams.get('offset'), 0, 1000, 0)
+  const useSavedSettings = url.searchParams.get('settings') === '1'
 
   const supabase = createServiceRoleClient()
 
   const { data: profile, error: profileErr } = await supabase
     .from('google_business_profiles')
-    .select('id, org_id, place_id, business_name, address, average_rating, total_reviews_count, last_scraped_at')
+    .select('id, org_id, place_id, business_name, address, average_rating, total_reviews_count, last_scraped_at, widget_settings')
     .eq('widget_token', token)
     .eq('is_active', true)
     .single<ProfileRow>()
@@ -140,6 +186,10 @@ export async function GET(
   if (profileErr || !profile) {
     return Response.json({ error: 'Not found' }, { status: 404, headers: CORS_HEADERS })
   }
+
+  const savedSettings = normalizeWidgetSettings(profile.widget_settings)
+  const minRating = useSavedSettings ? savedSettings.minRating : queryMinRating
+  const limit = useSavedSettings ? savedSettings.limit : queryLimit
 
   const { data: organization } = await supabase
     .from('organizations')
@@ -214,6 +264,7 @@ export async function GET(
     brand: {
       accent: resolveAccent(organization?.accent_color),
     },
+    settings: savedSettings,
     distribution: [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 })),
     reviews: ((reviews ?? []) as ReviewRow[]).map((r) => ({
       id: r.id,

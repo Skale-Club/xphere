@@ -318,6 +318,7 @@ export async function getOpportunities(
   }
   if (f.min_value !== undefined) query = query.gte('value', f.min_value)
   if (f.max_value !== undefined) query = query.lte('value', f.max_value)
+  if (f.stage_id) query = query.eq('stage_id', f.stage_id)
 
   const { data, error } = await query
   if (error || !data) return []
@@ -1024,6 +1025,127 @@ export async function exportOpportunitiesCsv(): Promise<{ error?: string; csv?: 
   }
 
   return { csv: lines.join('\n') }
+}
+
+// ─── Saved Views ──────────────────────────────────────────────────────────────
+
+export interface PipelineSavedViewRow {
+  id: string
+  org_id: string
+  pipeline_id: string | null
+  owner_id: string | null
+  name: string
+  filters: Record<string, unknown>
+  sorting: Record<string, unknown>
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function listPipelineSavedViews(
+  pipelineId: string,
+): Promise<PipelineSavedViewRow[]> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('pipeline_saved_views')
+    .select('*')
+    .eq('pipeline_id', pipelineId)
+    .order('created_at', { ascending: true })
+  if (error || !data) return []
+  return data as PipelineSavedViewRow[]
+}
+
+export async function createPipelineSavedView(
+  pipelineId: string,
+  name: string,
+  filters: Record<string, unknown>,
+  setAsDefault: boolean,
+): Promise<{ view: PipelineSavedViewRow } | { error: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  if (!name.trim()) return { error: 'View name is required.' }
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { error: 'No organization found.' }
+
+  // If this view will be the default, demote any existing default for this pipeline.
+  if (setAsDefault) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('pipeline_saved_views')
+      .update({ is_default: false })
+      .eq('pipeline_id', pipelineId)
+      .eq('is_default', true)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('pipeline_saved_views')
+    .insert({
+      org_id: orgId,
+      pipeline_id: pipelineId,
+      owner_id: user.id,
+      name: name.trim(),
+      filters,
+      sorting: {},
+      is_default: setAsDefault,
+    })
+    .select('*')
+    .single()
+  if (error || !data) return { error: (error as { message: string })?.message ?? 'Insert failed' }
+  revalidatePath('/pipeline')
+  return { view: data as PipelineSavedViewRow }
+}
+
+export async function deletePipelineSavedView(
+  id: string,
+): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from('pipeline_saved_views')
+    .delete()
+    .eq('id', id)
+  if (error) return { error: (error as { message: string }).message }
+  revalidatePath('/pipeline')
+  return {}
+}
+
+export async function setDefaultPipelineSavedView(
+  pipelineId: string,
+  id: string | null,
+): Promise<{ error?: string }> {
+  const user = await getUser()
+  if (!user) return { error: 'Not authenticated.' }
+  const supabase = await createClient()
+
+  // Clear the current default for this pipeline.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: clearError } = await (supabase as any)
+    .from('pipeline_saved_views')
+    .update({ is_default: false })
+    .eq('pipeline_id', pipelineId)
+    .eq('is_default', true)
+  if (clearError) return { error: (clearError as { message: string }).message }
+
+  // If id is non-null, promote the specified view.
+  if (id !== null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: setError } = await (supabase as any)
+      .from('pipeline_saved_views')
+      .update({ is_default: true })
+      .eq('id', id)
+      .eq('pipeline_id', pipelineId)
+    if (setError) return { error: (setError as { message: string }).message }
+  }
+
+  revalidatePath('/pipeline')
+  return {}
 }
 
 // ─── Card Layout ──────────────────────────────────────────────────────────────

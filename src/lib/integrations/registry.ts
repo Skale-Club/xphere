@@ -14,7 +14,7 @@ export type IntegrationCategory =
   | 'voice_sms'
   | 'crm'
   | 'ai'
-  | 'scheduling'
+  | 'calendar'
   | 'reviews'
 
 export type PanelType =
@@ -319,7 +319,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     name: 'Google Calendar',
     description:
       'Respeita horários ocupados ao gerar slots e cria eventos com Google Meet para bookings.',
-    category: 'scheduling',
+    category: 'calendar',
     logo: { path: 'https://www.gstatic.com/images/branding/productlogos/calendar_2026_03/v2/png/calendar_2026_03_96dp.png', letter: 'C', color: 'bg-blue-500' },
     panelType: 'custom',
     CustomPanel: GoogleCalendarOAuthPanel,
@@ -330,7 +330,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     id: 'calcom',
     name: 'Cal.com',
     description: 'Online scheduling. Sync availability and bookings.',
-    category: 'scheduling',
+    category: 'calendar',
     logo: { path: '/logos/calcom.svg', letter: 'C', color: 'bg-slate-700' },
     panelType: 'api_key',
     canActivate: true,
@@ -344,6 +344,27 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
         required: true,
         placeholder: 'cal_live_...',
         hint: 'cal.com/settings/developer/api-keys.',
+      },
+    ],
+  },
+
+  {
+    id: 'xkedule',
+    name: 'Xkedule',
+    description: 'Booking platform integration. Query availability, create bookings and sync contacts from AI agents.',
+    category: 'calendar',
+    logo: { letter: 'X', color: 'bg-blue-600' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: false,
+    fields: [
+      {
+        key: 'api_key',
+        label: 'Tenant Base URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://yourbusiness.xkedule.com',
+        hint: 'The public URL of the Xkedule tenant (no trailing slash). No API key needed — booking endpoints are public.',
       },
     ],
   },
@@ -368,7 +389,7 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
   'voice_sms',
   'crm',
   'ai',
-  'scheduling',
+  'calendar',
   'reviews',
 ]
 
@@ -378,7 +399,7 @@ export const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
   voice_sms: 'Voice & SMS',
   crm: 'CRM',
   ai: 'AI',
-  scheduling: 'Scheduling',
+  calendar: 'Calendar',
   reviews: 'Reviews',
 }
 
@@ -398,7 +419,7 @@ export function getDefinitionsByCategory(): Record<
     voice_sms: [],
     crm: [],
     ai: [],
-    scheduling: [],
+    calendar: [],
     reviews: [],
   }
   for (const def of INTEGRATION_REGISTRY) {

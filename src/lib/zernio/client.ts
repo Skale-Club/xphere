@@ -7,7 +7,7 @@ const TIMEOUT_MS = 8000
 
 export async function zernioFetch(
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown | null,
   apiKey: string,
 ): Promise<Response> {
@@ -31,7 +31,7 @@ export async function zernioFetch(
 
 export async function zernioFetchJson<T>(
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown | null,
   apiKey: string,
 ): Promise<T> {

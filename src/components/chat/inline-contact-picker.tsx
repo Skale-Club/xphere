@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import {
   linkContactToConversation,
   searchContactsForLink,
-} from '@/app/(dashboard)/chat/actions'
+} from '@/app/(dashboard)/inbox/actions'
 import { displayContactName, initialsFromContactName } from '@/lib/contacts/names'
 import { formatEmailDisplay } from '@/lib/email-addresses/format'
 

@@ -58,6 +58,117 @@ export function zernioTemplateHeaderVarCount(t: ZernioWhatsappTemplate): number 
   return countPlaceholders(zernioHeaderTextComponent(t)?.text)
 }
 
+// ── Account discovery ────────────────────────────────────────────────────────
+
+export interface ZernioAccount {
+  id: string
+  name: string
+  platform: string
+  username?: string
+}
+
+/**
+ * GET /accounts — list all accounts in the workspace, filtered to WhatsApp.
+ * Used to discover the accountId required for template operations.
+ */
+export async function listZernioWhatsAppAccounts(
+  apiKey: string,
+): Promise<ZernioAccount[]> {
+  const data = await zernioFetchJson<{
+    accounts?: Array<Record<string, unknown>>
+  }>('/accounts', 'GET', null, apiKey)
+  const all = data.accounts ?? []
+  return all
+    .filter((a) => {
+      const p = ((a.platform ?? a.type ?? '') as string).toLowerCase()
+      return p === 'whatsapp'
+    })
+    .map((a) => ({
+      id: ((a._id ?? a.id) as string | undefined) ?? '',
+      name: ((a.name ?? a.username ?? a._id ?? a.id) as string | undefined) ?? '',
+      platform: 'whatsapp',
+      username: (a.username as string | undefined) ?? undefined,
+    }))
+    .filter((a) => Boolean(a.id))
+}
+
+// ── Template creation ─────────────────────────────────────────────────────────
+
+export interface ZernioCreateTemplateInput {
+  name: string
+  category: 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
+  language: string
+  headerText?: string | null
+  bodyText: string
+  footerText?: string | null
+  buttons?: Array<{ type: 'URL' | 'QUICK_REPLY'; text: string; url?: string }>
+  libraryTemplateName?: string | null
+}
+
+/**
+ * POST /whatsapp/templates — submit a new template for Meta/WhatsApp review.
+ * Returns the template name and initial status (usually PENDING).
+ */
+export async function createZernioWhatsappTemplateApi(
+  accountId: string,
+  apiKey: string,
+  input: ZernioCreateTemplateInput,
+): Promise<{ ok: true; name: string; status: string } | { ok: false; error: string }> {
+  const components: Array<Record<string, unknown>> = []
+
+  if (input.headerText?.trim()) {
+    components.push({ type: 'HEADER', format: 'TEXT', text: input.headerText.trim() })
+  }
+
+  components.push({ type: 'BODY', text: input.bodyText })
+
+  if (input.footerText?.trim()) {
+    components.push({ type: 'FOOTER', text: input.footerText.trim() })
+  }
+
+  if (input.buttons && input.buttons.length > 0) {
+    components.push({
+      type: 'BUTTONS',
+      buttons: input.buttons.map((b) =>
+        b.type === 'URL'
+          ? { type: 'URL', text: b.text, url: b.url ?? '' }
+          : { type: 'QUICK_REPLY', text: b.text },
+      ),
+    })
+  }
+
+  const body: Record<string, unknown> = {
+    accountId,
+    name: input.name,
+    category: input.category,
+    language: input.language,
+    components,
+  }
+
+  if (input.libraryTemplateName?.trim()) {
+    body.library_template_name = input.libraryTemplateName.trim()
+  }
+
+  try {
+    const data = await zernioFetchJson<Record<string, unknown>>(
+      '/whatsapp/templates',
+      'POST',
+      body,
+      apiKey,
+    )
+    const name = (data.name ?? input.name) as string
+    const status = (data.status ?? 'PENDING') as string
+    return { ok: true, name, status }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Zernio template creation failed.',
+    }
+  }
+}
+
+// ── Template list ─────────────────────────────────────────────────────────────
+
 /** GET /whatsapp/templates?accountId=... — returns the account's templates. */
 export async function listZernioWhatsappTemplates(
   accountId: string,

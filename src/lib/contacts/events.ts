@@ -1,7 +1,7 @@
 // Contact lifecycle event emitter.
 //
 // Bridges contact mutations into the unified workflow engine, mirroring the
-// pattern in src/lib/pipeline/events.ts and src/lib/scheduling/transition.ts:
+// pattern in src/lib/pipeline/events.ts and src/lib/calendar/transition.ts:
 //   1. Look up active 'event' workflows whose trigger_config.event matches.
 //   2. Record an audit row in event_dispatches.
 //   3. Build the contact scope and dispatch each workflow via runFlowSync.

@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, CampaignContactStatus } from '@/types/database'
 import { createOutboundCall } from '@/lib/campaigns/outbound'
 import { isDemoOrg } from '@/lib/demo/config'
+import { createLogger } from '@/lib/obs/logger'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
 
@@ -32,20 +33,22 @@ export async function startCampaignBatch(
     .eq('id', campaignId)
     .single()
 
+  const log = createLogger({ campaignId })
+
   if (campaignErr || !campaign) {
-    console.error('[engine] Campaign not found:', campaignId, campaignErr?.message)
+    log.error('campaign_fetch_failed', { error: campaignErr?.message })
     return { fired: 0, errors: 0 }
   }
 
   if (campaign.status !== 'in_progress') {
-    console.log('[engine] Campaign not in_progress, skipping batch. status:', campaign.status)
+    log.info('campaign_skipped_not_in_progress', { status: campaign.status })
     return { fired: 0, errors: 0 }
   }
 
   // Demo safety invariant: the demo org never fires real outbound calls.
   // This engine runs under the service role (bypasses RLS), so guard explicitly.
   if (isDemoOrg(campaign.organization_id)) {
-    console.warn('[engine] Demo org campaign | outbound disabled:', campaignId)
+    log.warn('campaign_demo_org_outbound_blocked', {})
     return { fired: 0, errors: 0 }
   }
 
@@ -59,7 +62,7 @@ export async function startCampaignBatch(
     .limit(batchSize)
 
   if (contactsErr) {
-    console.error('[engine] Failed to fetch contacts:', contactsErr.message)
+    log.error('campaign_contacts_fetch_failed', { error: contactsErr.message })
     return { fired: 0, errors: 0 }
   }
   if (!contacts || contacts.length === 0) {
@@ -70,7 +73,7 @@ export async function startCampaignBatch(
 
   // Voice campaigns require non-null vapi_assistant_id and vapi_phone_number_id
   if (!campaign.vapi_assistant_id || !campaign.vapi_phone_number_id) {
-    console.error('[engine] Campaign missing vapi_assistant_id or vapi_phone_number_id:', campaignId)
+    log.error('campaign_missing_vapi_config', {})
     return { fired: 0, errors: 0 }
   }
 
@@ -125,7 +128,7 @@ async function fireContactCall(
     if (updateErr) throw new Error(`Contact status update failed: ${updateErr.message}`)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[engine] Call failed for contact', contact.id, ':', msg)
+    createLogger({ campaignId: campaign.id }).error('campaign_call_failed', { contactId: contact.id, error: msg })
     await supabase
       .from('campaign_contacts')
       .update({

@@ -1,3 +1,25 @@
+/**
+ * CRM Shared Templates (Project 7)
+ *
+ * Lifecycle-aware, reusable primitives for every CRM surface.
+ * Current adopters:
+ *   - /contacts         → EntityPageTemplate (scope: contact, excludes prospect)
+ *   - /companies        → CompanyTemplate (scope: account, excludes prospect)
+ *   - /companies/[id]   → EntityDetailTemplate (scope: account detail)
+ *   - /chat             → InboxTemplate
+ *
+ * How Xphere Prospects should consume this (Project 2):
+ *   - /prospects         → EntityPageTemplate scope={{ entity:'prospect', lifecycleStage:'prospect' }}
+ *   - /prospects list    → EntityListTemplate with prospect-specific columns/actions
+ *   - /prospects/[id]   → EntityDetailTemplate with 'Convert to Contact' action
+ *   - Do NOT copy Contacts/Companies pages — compose from these primitives instead.
+ *   - Do NOT duplicate the Inbox — reuse InboxTemplate and filter by lifecycle.
+ *
+ * Still gated before Project 2:
+ *   - Add lifecycle_stage column via a new migration.
+ *   - Update Contacts/Companies queries to exclude lifecycle_stage='prospect'.
+ *   - Add explicit /prospects route-level permission guards (RBAC).
+ */
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'

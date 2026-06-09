@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { Sidebar } from '@/components/layout/sidebar'
@@ -22,6 +21,7 @@ import { isDemoSession } from '@/lib/demo/guard'
 import { DemoBanner } from '@/components/demo/demo-banner'
 import { getMyPermissions, getRbacContext } from '@/lib/rbac/server'
 import { getOrgSettings } from '@/lib/org/settings'
+import { getActiveOrg } from '@/lib/org/active-org'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
@@ -30,43 +30,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await getUser()
   if (!user) redirect('/')
 
-  // Read active org from cookie | no DB call on normal navigation
-  const jar = await cookies()
-  const raw = jar.get('vo_active_org')?.value
-  let activeOrgId: string | null = null
-  let activeOrgName: string | null = null
-
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as { id: string; name: string }
-      activeOrgId = parsed.id ?? null
-      activeOrgName = parsed.name ?? null
-    } catch {
-      // malformed cookie | ignore, will fall back to DB below
-    }
-  }
-
-  // First load (no cookie): seed from DB. Any failure here is non-fatal |
-  // the user can still navigate; we just won't pre-fill the org switcher.
-  if (!activeOrgId) {
-    try {
-      const supabase = await createClient()
-      const { data: orgId } = await supabase.rpc('get_current_org_id')
-      if (orgId) {
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('id, name')
-          .eq('id', orgId as string)
-          .maybeSingle()
-        if (org) {
-          activeOrgId = org.id
-          activeOrgName = org.name
-        }
-      }
-    } catch {
-      // ignore | fall back to default-shell render
-    }
-  }
+  // Resolve the active org from the DB (get_current_org_id) — the SAME source
+  // RLS uses to scope data. We intentionally do NOT read the vo_active_org
+  // cookie for display: it can drift from the DB (switching on another device,
+  // a half-completed refresh) and produce a split-brain where the topbar/theme
+  // show one org while the data belongs to another. Single source of truth.
+  const active = await getActiveOrg()
+  const activeOrgId: string | null = active?.id ?? null
+  const activeOrgName: string | null = active?.name ?? null
 
   // getOrgBranding already swallows errors internally, but keep a belt
   // here too in case the import-time client construction fails.
