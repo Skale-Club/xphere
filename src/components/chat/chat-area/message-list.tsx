@@ -605,6 +605,12 @@ export function MessageList({
                           </div>
                         )}
                         {message.content}
+                        {/* Text-only: tick hugs the end of the last line (WhatsApp-style). */}
+                        {typeof message.metadata?.delivery_status === 'string' && attachments.length === 0 && (
+                          <span className="ml-1.5 inline-flex relative top-[3px]">
+                            <DeliveryTicks status={message.metadata.delivery_status as string} />
+                          </span>
+                        )}
                         {attachments.length > 0 && (
                           <div className="mt-1.5 space-y-1">
                             {attachments.map((att, i) => (
@@ -612,7 +618,8 @@ export function MessageList({
                             ))}
                           </div>
                         )}
-                        {typeof message.metadata?.delivery_status === 'string' && (
+                        {/* With media: tick on its own right-aligned row below. */}
+                        {typeof message.metadata?.delivery_status === 'string' && attachments.length > 0 && (
                           <div className="mt-0.5 flex justify-end">
                             <DeliveryTicks status={message.metadata.delivery_status as string} />
                           </div>
