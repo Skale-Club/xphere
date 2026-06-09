@@ -3,8 +3,15 @@
 
 export type ZernioWebhookEventName =
   | 'message.received'
+  | 'message.sent'
+  | 'message.delivered'
+  | 'message.read'
+  | 'message.failed'
   | 'comment.received'
   | 'whatsapp.template.status_changed'
+
+// Outbound delivery lifecycle, in ascending precedence. `failed` is terminal.
+export type ZernioDeliveryStatus = 'sent' | 'delivered' | 'read' | 'failed'
 
 export interface ZernioWebhookAccount {
   id: string
@@ -62,6 +69,31 @@ export interface ZernioMessageReceivedPayload {
   timestamp: string
 }
 
+// Outbound message echo. Same WebhookPayloadMessage schema as message.received,
+// but emitted when a message is sent (incl. replies sent from the WhatsApp app
+// that Zernio captures via the Cloud API). direction is always 'outgoing'.
+export interface ZernioMessageSentPayload {
+  id: string
+  event: 'message.sent'
+  message: ZernioWebhookMessage
+  conversation: ZernioWebhookConversation
+  account: ZernioWebhookAccount
+  timestamp: string
+}
+
+// Delivery lifecycle events for an outbound message (delivered/read/failed).
+// They reference the prior message.sent by its id / platformMessageId so we can
+// update the stored row's delivery_status.
+export interface ZernioMessageStatusPayload {
+  id: string
+  event: 'message.delivered' | 'message.read' | 'message.failed'
+  message: Pick<ZernioWebhookMessage, 'id' | 'platformMessageId' | 'conversationId' | 'platform'> &
+    Partial<ZernioWebhookMessage>
+  conversation?: ZernioWebhookConversation
+  account: ZernioWebhookAccount
+  timestamp: string
+}
+
 export interface ZernioWebhookComment {
   id: string
   postId: string | null
@@ -112,6 +144,8 @@ export interface ZernioTemplateStatusChangedPayload {
 
 export type ZernioWebhookPayload =
   | ZernioMessageReceivedPayload
+  | ZernioMessageSentPayload
+  | ZernioMessageStatusPayload
   | ZernioCommentReceivedPayload
   | ZernioTemplateStatusChangedPayload
   | {

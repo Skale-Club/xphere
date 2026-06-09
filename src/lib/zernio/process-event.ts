@@ -24,6 +24,9 @@ import type {
   ZernioCommentReceivedPayload,
   ZernioWebhookMessage,
   ZernioMessageReceivedPayload,
+  ZernioMessageSentPayload,
+  ZernioMessageStatusPayload,
+  ZernioDeliveryStatus,
   ZernioTemplateStatusChangedPayload,
   ZernioWebhookPayload,
 } from './types'
@@ -32,6 +35,74 @@ export type { ZernioWebhookPayload } from './types'
 
 function isMessageReceived(payload: ZernioWebhookPayload): payload is ZernioMessageReceivedPayload {
   return payload.event === 'message.received' && typeof payload.message === 'object'
+}
+
+function isMessageSent(payload: ZernioWebhookPayload): payload is ZernioMessageSentPayload {
+  return payload.event === 'message.sent' && typeof payload.message === 'object'
+}
+
+function isMessageStatusChanged(payload: ZernioWebhookPayload): payload is ZernioMessageStatusPayload {
+  return (
+    (payload.event === 'message.delivered' ||
+      payload.event === 'message.read' ||
+      payload.event === 'message.failed') &&
+    typeof payload.message === 'object'
+  )
+}
+
+// Outbound delivery lifecycle, ascending. Never let a later/out-of-order event
+// downgrade the status; `failed` is terminal and only `sent` may precede it.
+const DELIVERY_STATUS_RANK: Record<ZernioDeliveryStatus, number> = {
+  sent: 0,
+  delivered: 1,
+  read: 2,
+  failed: 3,
+}
+
+function eventToDeliveryStatus(event: string): ZernioDeliveryStatus | null {
+  if (event === 'message.delivered') return 'delivered'
+  if (event === 'message.read') return 'read'
+  if (event === 'message.failed') return 'failed'
+  return null
+}
+
+// The send-API messageId stored by the Xphere UI (route.ts) may equal either the
+// webhook msg.id or its platformMessageId, so we probe every id pairing. Used for
+// both echo dedup and delivery-status matching.
+function outgoingIdCandidates(
+  messageId: string | undefined,
+  platformMessageId: string | undefined,
+): Array<Record<string, string>> {
+  const out: Array<Record<string, string>> = []
+  if (messageId) out.push({ zernio_message_id: messageId })
+  if (platformMessageId) {
+    out.push({ zernio_platform_message_id: platformMessageId })
+    out.push({ zernio_message_id: platformMessageId })
+  }
+  return out
+}
+
+// Finds an existing outbound (role='assistant') message by any id candidate.
+// Uses one .contains() per candidate (supabase-js URL-encodes the jsonb value,
+// unlike an inline .or() filter which mis-parses ids containing dots/=, e.g.
+// WhatsApp wamids).
+async function findOutgoingMessageByIds(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  candidates: Array<Record<string, string>>,
+  scope: { conversationId?: string; orgId?: string },
+): Promise<{ id: string; metadata: Record<string, unknown> | null } | null> {
+  for (const candidate of candidates) {
+    let query = supabase
+      .from('conversation_messages')
+      .select('id, metadata')
+      .eq('role', 'assistant')
+      .contains('metadata', candidate as never)
+    if (scope.conversationId) query = query.eq('conversation_id', scope.conversationId)
+    if (scope.orgId) query = query.eq('org_id', scope.orgId)
+    const { data } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (data) return data as { id: string; metadata: Record<string, unknown> | null }
+  }
+  return null
 }
 
 function isCommentReceived(payload: ZernioWebhookPayload): payload is ZernioCommentReceivedPayload {
@@ -359,6 +430,19 @@ export async function processZernioEvent(
     return
   }
 
+  // Outbound echo — messages sent by the operator (incl. replies sent from the
+  // WhatsApp app, which Zernio captures and re-emits as message.sent).
+  if (isMessageSent(payload)) {
+    await processOutgoingMessage(payload, orgId, supabase)
+    return
+  }
+
+  // Delivery lifecycle for an outbound message: update its delivery_status.
+  if (isMessageStatusChanged(payload)) {
+    await processMessageStatusChanged(payload, orgId, supabase)
+    return
+  }
+
   if (isCommentReceived(payload)) {
     await processCommentReceived(payload, orgId, supabase)
     return
@@ -376,7 +460,7 @@ async function processMessageReceived(
 ): Promise<void> {
   const msg = payload.message
   if (msg.direction === 'outgoing') {
-    await processOutgoingMessageReceived(payload, orgId, supabase)
+    await processOutgoingMessage(payload, orgId, supabase)
     return
   }
   if (msg.direction !== 'incoming') return
@@ -520,8 +604,8 @@ async function processMessageReceived(
   })
 }
 
-async function processOutgoingMessageReceived(
-  payload: ZernioMessageReceivedPayload,
+async function processOutgoingMessage(
+  payload: ZernioMessageReceivedPayload | ZernioMessageSentPayload,
   orgId: string,
   supabase: ReturnType<typeof createServiceRoleClient>,
 ): Promise<void> {
@@ -614,14 +698,14 @@ async function processOutgoingMessageReceived(
     conversationId = (created as { id: string }).id
   }
 
-  const { data: dup } = await supabase
-    .from('conversation_messages')
-    .select('id')
-    .eq('conversation_id', conversationId)
-    .eq('role', 'assistant')
-    .contains('metadata', { zernio_message_id: zernioMessageId } as never)
-    .limit(1)
-    .maybeSingle()
+  // Dedup against a message already inserted by the Xphere send path
+  // (route.ts stamps metadata.zernio_message_id with the send-API messageId) and
+  // against a re-delivered webhook.
+  const dup = await findOutgoingMessageByIds(
+    supabase,
+    outgoingIdCandidates(zernioMessageId, zernioPlatformMessageId),
+    { conversationId: conversationId as string },
+  )
   if (dup) return
 
   const media = await buildZernioMedia({
@@ -645,6 +729,7 @@ async function processOutgoingMessageReceived(
       metadata: {
         direction: 'outgoing',
         source: 'zernio_echo',
+        delivery_status: 'sent',
         zernio_event_id: payload.id,
         zernio_message_id: zernioMessageId,
         zernio_platform_message_id: zernioPlatformMessageId,
@@ -673,6 +758,49 @@ async function processOutgoingMessageReceived(
         updated_at: new Date().toISOString(),
       } as never)
       .eq('id', conversationId)
+  }
+}
+
+// Updates the delivery_status of a previously-stored outbound message when
+// Zernio reports delivered/read/failed. Matches the row by zernio_message_id or
+// zernio_platform_message_id and never downgrades a higher status (out-of-order
+// safe). A status event may arrive before its message.sent echo — in that case
+// there is no row yet and we simply skip; the next status (or a re-delivery)
+// reconciles it.
+async function processMessageStatusChanged(
+  payload: ZernioMessageStatusPayload,
+  orgId: string,
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  const newStatus = eventToDeliveryStatus(payload.event)
+  if (!newStatus) return
+
+  const zernioMessageId = payload.message.id
+  const zernioPlatformMessageId = payload.message.platformMessageId
+  if (!zernioMessageId && !zernioPlatformMessageId) {
+    console.warn('[zernio/process] status event missing message id; skipping')
+    return
+  }
+
+  const target = await findOutgoingMessageByIds(
+    supabase,
+    outgoingIdCandidates(zernioMessageId, zernioPlatformMessageId),
+    { orgId },
+  )
+  if (!target) return // message.sent echo not yet stored; skip
+
+  const current = (target.metadata?.delivery_status as ZernioDeliveryStatus | undefined) ?? 'sent'
+  // Don't downgrade (delivered after read) and don't move off the terminal failed.
+  if (current === 'failed') return
+  if (DELIVERY_STATUS_RANK[newStatus] <= DELIVERY_STATUS_RANK[current]) return
+
+  const { error } = await supabase
+    .from('conversation_messages')
+    .update({ metadata: { ...(target.metadata ?? {}), delivery_status: newStatus } } as never)
+    .eq('id', target.id)
+
+  if (error) {
+    console.error('[zernio/process] delivery status update failed:', error.message)
   }
 }
 

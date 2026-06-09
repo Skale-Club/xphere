@@ -666,6 +666,27 @@ export function ChatLayout({
           }
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_messages',
+          filter: `conversation_id=eq.${selectedId}`,
+        },
+        (payload) => {
+          // Reflect in-place changes (e.g. delivery_status sent→delivered→read)
+          // on an already-rendered message without a refetch.
+          const updated = mapMessageRow(payload.new)
+          setMessages((prev) => {
+            const idx = prev.findIndex((m) => m.id === updated.id)
+            if (idx < 0) return prev
+            const next = [...prev]
+            next[idx] = { ...prev[idx], ...updated }
+            return next
+          })
+        },
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)

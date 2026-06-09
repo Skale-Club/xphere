@@ -18,7 +18,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Info, Loader2, Mail, RadioTower, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, CircleAlert, Info, Loader2, Mail, RadioTower, ThumbsUp, ThumbsDown } from 'lucide-react'
 
 import { ConversationMessage, MediaAttachment } from '@/types/chat'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,6 +34,22 @@ const MSG_BADGE_CHANNEL: Record<string, Channel> = {
   messenger: 'messenger', zernio_facebook: 'messenger',
   sms: 'sms', ghl_sms: 'sms',
   voice: 'voice', email: 'email', widget: 'web', web: 'web', manual: 'direct',
+}
+
+// WhatsApp-style delivery ticks for outbound messages. Driven by
+// metadata.delivery_status, set from Zernio message.sent/delivered/read/failed.
+function DeliveryTicks({ status }: { status: string }) {
+  if (status === 'failed') {
+    return <CircleAlert className="h-3 w-3 text-danger" aria-label="Falha no envio" />
+  }
+  if (status === 'read') {
+    return <CheckCheck className="h-3.5 w-3.5 text-sky-500" aria-label="Lida" />
+  }
+  if (status === 'delivered') {
+    return <CheckCheck className="h-3.5 w-3.5 text-text-tertiary" aria-label="Entregue" />
+  }
+  // 'sent' (and any unknown forward state) → single tick
+  return <Check className="h-3.5 w-3.5 text-text-tertiary" aria-label="Enviada" />
 }
 
 function toBadgeChannel(channel: string): Channel {
@@ -594,6 +610,11 @@ export function MessageList({
                             {attachments.map((att, i) => (
                               <MediaBlock key={i} attachment={att} isVisitor={false} />
                             ))}
+                          </div>
+                        )}
+                        {typeof message.metadata?.delivery_status === 'string' && (
+                          <div className="mt-0.5 flex justify-end">
+                            <DeliveryTicks status={message.metadata.delivery_status as string} />
                           </div>
                         )}
                       </div>
