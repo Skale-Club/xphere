@@ -1,6 +1,6 @@
 'use server'
 
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstile } from '@/lib/auth/verify-turnstile'
@@ -18,6 +18,31 @@ interface EmailPasswordInput {
 
 interface SignUpInput extends EmailPasswordInput {
   emailRedirectTo?: string
+}
+
+/**
+ * Mirrors the cookie written by /auth/callback/route.ts so that email-based
+ * logins have org context available on the very first dashboard render without
+ * requiring a fallback RPC call.
+ */
+async function setActiveOrgCookie(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<void> {
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('id, name')
+    .eq('id', orgId)
+    .single()
+  if (!org) return
+  const jar = await cookies()
+  jar.set('vo_active_org', JSON.stringify({ id: org.id, name: org.name }), {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: false,
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  })
 }
 
 async function getRemoteIp(): Promise<string | null> {
@@ -53,6 +78,7 @@ export async function signInWithEmail(
   }
 
   if (data.session) {
+    await setActiveOrgCookie(supabase)
     redirect('/dashboard')
   }
 
@@ -86,6 +112,7 @@ export async function signUpWithEmail(
   }
 
   if (data.session) {
+    await setActiveOrgCookie(supabase)
     redirect('/dashboard')
   }
 
