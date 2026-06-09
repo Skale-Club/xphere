@@ -88,6 +88,13 @@ export default async function RootPage({
     getLandingPublicConfig(),
     getUser(),
   ])
+
+  // Authenticated users have no reason to see the landing page.
+  // Redirect them straight to the dashboard — this also breaks the
+  // "double-login" loop where a timing edge-case sends an authenticated
+  // user back to "/" after the OAuth callback.
+  if (user) redirect('/dashboard')
+
   return (
     <>
       <script

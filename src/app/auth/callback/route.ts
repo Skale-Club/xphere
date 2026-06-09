@@ -24,12 +24,23 @@ export async function GET(request: Request) {
 
   const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
-  if (sessionError || !sessionData.user) {
-    console.error('[auth/callback:exchange-failed]', sessionError?.message)
-    return NextResponse.redirect(`${origin}/`)
+  let user = sessionData?.user ?? null
+
+  if (sessionError || !user) {
+    // The code may have already been exchanged — e.g. a duplicate request, a
+    // retry, or another entry-point consuming the same PKCE code. A code can
+    // only be exchanged once, so a second attempt errors with "code already
+    // used". If a valid session already exists, continue with it instead of
+    // bouncing the user back to "/" and forcing another login.
+    const { data: { user: existing } } = await supabase.auth.getUser()
+    if (!existing) {
+      console.error('[auth/callback:exchange-failed]', sessionError?.message)
+      return NextResponse.redirect(`${origin}/`)
+    }
+    user = existing
+    console.log('[auth/callback:reused-existing-session] user_id=', user.id)
   }
 
-  const user = sessionData.user
   console.log('[auth/callback:code-exchanged] user_id=', user.id, 'email=', user.email)
 
   const rawEmail = user.email ?? ''
