@@ -831,9 +831,13 @@ export async function getMcpToken(): Promise<McpTokenInfo | null> {
   const user = await getUser()
   if (!user) return null
   const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
   const { data } = await db(supabase)
     .from('project_mcp_tokens')
     .select('token_prefix')
+    .eq('org_id', orgId as string)
+    .eq('user_id', user.id)
     .maybeSingle()
   if (!data) return null
   const prefix = data.token_prefix as string
@@ -844,9 +848,13 @@ export async function getDecryptedMcpToken(): Promise<string | null> {
   const user = await getUser()
   if (!user) return null
   const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
   const { data } = await db(supabase)
     .from('project_mcp_tokens')
     .select('token_hash')
+    .eq('org_id', orgId as string)
+    .eq('user_id', user.id)
     .maybeSingle()
   if (!data?.token_hash) return null
   try {
@@ -870,6 +878,8 @@ export async function rotateOrCreateMcpToken(): Promise<McpTokenInfo | null> {
   const { data: existing } = await db(supabase)
     .from('project_mcp_tokens')
     .select('id')
+    .eq('org_id', orgId as string)
+    .eq('user_id', user.id)
     .maybeSingle()
 
   if (existing) {
@@ -880,7 +890,7 @@ export async function rotateOrCreateMcpToken(): Promise<McpTokenInfo | null> {
   } else {
     await db(supabase)
       .from('project_mcp_tokens')
-      .insert({ org_id: orgId, token_hash: encrypted, token_prefix: prefix, active: true })
+      .insert({ org_id: orgId, user_id: user.id, token_hash: encrypted, token_prefix: prefix, active: true })
   }
 
   return { prefix, masked: `${prefix}••••••••••••` }

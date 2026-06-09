@@ -429,7 +429,17 @@ export async function saveIntegrationCredentials(
       const webhookUrl = `https://xphere.app/api/zernio/webhook?t=${webhookToken}`
 
       const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
-      const { webhookId } = await registerZernioWebhook(webhookApiKey, webhookUrl, webhookSecret, existingWebhookId)
+      const { webhookId, missingEvents } = await registerZernioWebhook(
+        webhookApiKey,
+        webhookUrl,
+        webhookSecret,
+        existingWebhookId,
+      )
+      if (missingEvents.length > 0) {
+        console.error(
+          `[saveIntegrationCredentials] Zernio webhook ${webhookId} did not persist events: ${missingEvents.join(', ')}`,
+        )
+      }
 
       const { error } = await supabase
         .from('integrations')

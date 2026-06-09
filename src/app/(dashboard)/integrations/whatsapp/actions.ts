@@ -429,16 +429,29 @@ export async function syncZernioTemplatesAction(): Promise<
     return { ok: false, error: 'Could not decrypt Zernio API key.' }
   }
 
-  // Ensure the Zernio webhook is subscribed to whatsapp.template.status_changed.
-  // This is a silent PUT to Zernio — idempotent, safe to run on every sync.
+  // Ensure the Zernio webhook is subscribed to the full SUBSCRIBED_EVENTS set
+  // (incl. whatsapp.template.status_updated). Idempotent, safe to run on every
+  // sync. Non-fatal for the sync, but errors and event drift are logged so a
+  // silently-failing re-registration is diagnosable instead of invisible.
   try {
     const cfg = (row.config ?? {}) as Record<string, string>
     if (cfg.webhook_id && cfg.webhook_url && cfg.webhook_secret) {
       const { registerZernioWebhook } = await import('@/lib/zernio/register-webhook')
-      await registerZernioWebhook(apiKey, cfg.webhook_url, cfg.webhook_secret, cfg.webhook_id)
+      const { missingEvents } = await registerZernioWebhook(
+        apiKey,
+        cfg.webhook_url,
+        cfg.webhook_secret,
+        cfg.webhook_id,
+      )
+      if (missingEvents.length > 0) {
+        console.error(
+          `[syncZernioTemplatesAction] Zernio webhook ${cfg.webhook_id} did not persist events: ${missingEvents.join(', ')}`,
+        )
+      }
     }
-  } catch {
-    // Non-fatal — proceed with sync even if webhook update fails
+  } catch (err) {
+    // Non-fatal — proceed with sync — but make the failure visible.
+    console.error('[syncZernioTemplatesAction] Zernio webhook re-registration failed:', err)
   }
 
   // Resolve WhatsApp account(s)

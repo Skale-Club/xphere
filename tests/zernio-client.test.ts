@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { sendZernioDm } from '@/lib/zernio/send-dm'
 import { sendZernioCommentReply } from '@/lib/zernio/send-comment-reply'
-import { registerZernioWebhook } from '@/lib/zernio/register-webhook'
+import { registerZernioWebhook, SUBSCRIBED_EVENTS } from '@/lib/zernio/register-webhook'
 
 describe('Zernio REST client contracts', () => {
   beforeEach(() => {
@@ -75,48 +75,96 @@ describe('Zernio REST client contracts', () => {
     )
   })
 
-  it('creates webhooks through /webhooks/settings with a name and active flag', async () => {
+  it('creates a webhook through POST /webhooks subscribed to every SUBSCRIBED_EVENT', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: true, webhook: { _id: 'wh-1' } }), { status: 200 }),
+      new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 201 }),
     )
 
     const result = await registerZernioWebhook('ze_key', 'https://xphere.app/api/zernio/webhook?t=tok', 'secret')
 
     expect(result.webhookId).toBe('wh-1')
+    expect(result.missingEvents).toEqual([])
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://zernio.com/api/v1/webhooks/settings',
+      'https://zernio.com/api/v1/webhooks',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
           name: 'Xphere Inbox',
           url: 'https://xphere.app/api/zernio/webhook?t=tok',
           secret: 'secret',
-          events: ['message.received', 'comment.received'],
+          events: [...SUBSCRIBED_EVENTS],
           isActive: true,
         }),
       }),
     )
   })
 
-  it('updates an existing webhook when webhook_id is known', async () => {
+  it('updates an existing webhook via PATCH /webhooks/{id} with the id in the URL', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: true, webhook: { _id: 'wh-1' } }), { status: 200 }),
+      new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 200 }),
     )
 
     await registerZernioWebhook('ze_key', 'https://xphere.app/api/zernio/webhook?t=tok', 'secret', 'wh-1')
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://zernio.com/api/v1/webhooks/settings',
+      'https://zernio.com/api/v1/webhooks/wh-1',
       expect.objectContaining({
-        method: 'PUT',
-        body: expect.stringContaining('"_id":"wh-1"'),
+        method: 'PATCH',
+        body: expect.stringContaining(`"events":${JSON.stringify([...SUBSCRIBED_EVENTS])}`),
       }),
+    )
+    // id travels in the URL path, never in the body
+    const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    expect(sentBody).not.toHaveProperty('_id')
+  })
+
+  it('reports drift when Zernio does not persist every requested event', async () => {
+    // Webhook echoes back only a subset of the events we asked for.
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({ _id: 'wh-1', events: ['message.received', 'comment.received'] }),
+        { status: 200 },
+      ),
+    )
+
+    const result = await registerZernioWebhook(
+      'ze_key',
+      'https://xphere.app/api/zernio/webhook?t=tok',
+      'secret',
+      'wh-1',
+    )
+
+    expect(result.missingEvents).toContain('message.sent')
+    expect(result.missingEvents).toContain('whatsapp.template.status_updated')
+  })
+
+  it('reads the webhook back to confirm events when the write response omits them', async () => {
+    const fetchMock = vi
+      .spyOn(global, 'fetch')
+      // PATCH response has no events field...
+      .mockResolvedValueOnce(new Response(JSON.stringify({ _id: 'wh-1' }), { status: 200 }))
+      // ...so a follow-up GET /webhooks/{id} confirms the subscription.
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 200 }),
+      )
+
+    const result = await registerZernioWebhook(
+      'ze_key',
+      'https://xphere.app/api/zernio/webhook?t=tok',
+      'secret',
+      'wh-1',
+    )
+
+    expect(result.missingEvents).toEqual([])
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://zernio.com/api/v1/webhooks/wh-1',
+      expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('fails webhook registration when Zernio does not return an id', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ success: true, webhook: {} }), { status: 200 }),
+      new Response(JSON.stringify({ events: [] }), { status: 201 }),
     )
 
     await expect(

@@ -112,7 +112,11 @@ function isCommentReceived(payload: ZernioWebhookPayload): payload is ZernioComm
 function isTemplateStatusChanged(
   payload: ZernioWebhookPayload,
 ): payload is ZernioTemplateStatusChangedPayload {
-  return payload.event === 'whatsapp.template.status_changed' && typeof (payload as ZernioTemplateStatusChangedPayload).template === 'object'
+  return (
+    (payload.event === 'whatsapp.template.status_updated' ||
+      payload.event === 'whatsapp.template.status_changed') &&
+    typeof (payload as ZernioTemplateStatusChangedPayload).template === 'object'
+  )
 }
 
 function identityKey(platform: string, accountId: string, participantId: string): string {

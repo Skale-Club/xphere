@@ -8,6 +8,9 @@ export type ZernioWebhookEventName =
   | 'message.read'
   | 'message.failed'
   | 'comment.received'
+  // Zernio's OpenAPI lists `status_updated`; older payloads used `status_changed`.
+  // Accept both so we handle whatever production actually emits.
+  | 'whatsapp.template.status_updated'
   | 'whatsapp.template.status_changed'
 
 // Outbound delivery lifecycle, in ascending precedence. `failed` is terminal.
@@ -130,7 +133,7 @@ export interface ZernioCommentReceivedPayload {
 
 export interface ZernioTemplateStatusChangedPayload {
   id: string
-  event: 'whatsapp.template.status_changed'
+  event: 'whatsapp.template.status_updated' | 'whatsapp.template.status_changed'
   account: ZernioWebhookAccount
   template: {
     name: string
