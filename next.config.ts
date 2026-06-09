@@ -10,7 +10,9 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  serverExternalPackages: ['sharp'],
+  // playwright and cheerio use native modules / dynamic requires — they must
+  // NOT be bundled by webpack. sharp is excluded for the same reason.
+  serverExternalPackages: ['sharp', 'playwright', 'playwright-core', 'cheerio'],
   turbopack: {},
   async redirects() {
     return [
