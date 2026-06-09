@@ -14,17 +14,13 @@ UPDATE public.project_mcp_tokens t
 SET user_id = (
   SELECT COALESCE(
     -- Prefer: creator of the org (owner)
-    (SELECT u.id FROM auth.users u
-     JOIN public.organization_members om ON om.user_id = u.id
-     WHERE om.org_id = t.org_id
+    (SELECT om.user_id FROM public.org_members om
+     WHERE om.organization_id = t.org_id
        AND om.role = 'owner'
-       AND om.deleted_at IS NULL
      LIMIT 1),
-    -- Fallback: any active member of the org (arbitrary choice, for safety)
-    (SELECT u.id FROM auth.users u
-     JOIN public.organization_members om ON om.user_id = u.id
-     WHERE om.org_id = t.org_id
-       AND om.deleted_at IS NULL
+    -- Fallback: any active member of the org (earliest)
+    (SELECT om.user_id FROM public.org_members om
+     WHERE om.organization_id = t.org_id
      ORDER BY om.created_at ASC
      LIMIT 1)
   )
@@ -55,11 +51,10 @@ CREATE POLICY project_mcp_tokens_org_user ON public.project_mcp_tokens
     AND (
       user_id = auth.uid()
       OR EXISTS (
-        SELECT 1 FROM public.organization_members om
-        WHERE om.org_id = public.project_mcp_tokens.org_id
+        SELECT 1 FROM public.org_members om
+        WHERE om.organization_id = public.project_mcp_tokens.org_id
           AND om.user_id = auth.uid()
           AND om.role = 'owner'
-          AND om.deleted_at IS NULL
       )
     )
   );
