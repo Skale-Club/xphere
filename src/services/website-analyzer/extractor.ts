@@ -192,13 +192,19 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
   const url = normaliseUrl(rawUrl)
   const startMs = Date.now()
 
+  // In Docker (Alpine), use the system Chromium via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
+  // In local dev, leave executablePath undefined so Playwright uses its own bundled binary.
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+
   const browser = await chromium.launch({
     headless: true,
+    executablePath,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--disable-software-rasterizer',
     ],
   })
 

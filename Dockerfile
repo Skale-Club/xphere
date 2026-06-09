@@ -11,6 +11,8 @@ FROM node:24-alpine AS base
 # libc6-compat: glibc shim some native prebuilds (e.g. sharp) expect on musl.
 RUN apk add --no-cache libc6-compat
 ENV NEXT_TELEMETRY_DISABLED=1
+# Skip Playwright browser downloads — we use the system Chromium in the runner.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 
 # ---- Dependencies ----
@@ -51,6 +53,22 @@ FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+
+# Website Analyzer — install system Chromium + required libs.
+# Playwright's bundled Chromium doesn't run on Alpine (musl libc). We use the
+# apk package instead; PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH points Playwright
+# (via extractor.ts) at the system binary. PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# is inherited from the base stage so npm ci never downloads it.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Standalone output does not include public/ or static/ — copy them in.
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
