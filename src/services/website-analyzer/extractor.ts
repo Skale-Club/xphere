@@ -1,0 +1,279 @@
+// Playwright-based website extractor for the Active Prospect System.
+// Runs headless Chromium to screenshot + audit a business website.
+// NOTE: Playwright must be installed: npm install playwright
+//       And Chromium must be available: npx playwright install chromium
+//       In Docker: add --no-sandbox flag (already set below) + install deps.
+
+import { chromium } from 'playwright'
+import * as cheerio from 'cheerio'
+import type { BrandColor, RawExtraction } from './types'
+
+const DESKTOP_VIEWPORT = { width: 1280, height: 800 }
+const MOBILE_VIEWPORT  = { width: 390, height: 844 }
+const PAGE_TIMEOUT_MS  = 30_000
+const NAV_TIMEOUT_MS   = 45_000
+
+/** Normalise a URL — add https:// if scheme is missing. */
+export function normaliseUrl(input: string): string {
+  const trimmed = input.trim()
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
+/** Convert rgb(r,g,b) / rgba(r,g,b,a) to #rrggbb. Returns null on failure. */
+function rgbToHex(rgb: string): string | null {
+  const match = rgb.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/)
+  if (!match) return null
+  const [, r, g, b] = match
+  return (
+    '#' +
+    [r, g, b]
+      .map((v) => parseInt(v, 10).toString(16).padStart(2, '0'))
+      .join('')
+  )
+}
+
+/** Extract brand colors from a live page using JS evaluation. */
+async function extractColors(page: import('playwright').Page): Promise<{ colors: BrandColor[]; cssVars: Record<string, string> }> {
+  const raw = await page.evaluate(() => {
+    const cssVars: Record<string, string> = {}
+    const colorValues: Array<{ value: string; role: string }> = []
+
+    // Harvest CSS custom properties from :root
+    try {
+      for (const sheet of document.styleSheets) {
+        for (const rule of sheet.cssRules) {
+          if (rule instanceof CSSStyleRule && rule.selectorText === ':root') {
+            for (const prop of rule.style) {
+              const v = rule.style.getPropertyValue(prop).trim()
+              if (prop.startsWith('--') && v) cssVars[prop] = v
+            }
+          }
+        }
+      }
+    } catch {
+      // Cross-origin stylesheet — skip
+    }
+
+    // Sample computed colors from key structural elements
+    const samples: Array<[string, string]> = [
+      ['header, nav, .navbar, .header', 'background'],
+      ['header, nav, .navbar, .header', 'text'],
+      ['h1, h2', 'text'],
+      ['.btn, .button, [class*="btn"], [class*="cta"]', 'accent'],
+      ['body', 'background'],
+    ]
+    for (const [selector, role] of samples) {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (!el) continue
+      const cs = window.getComputedStyle(el)
+      const prop = role === 'background' ? 'backgroundColor' : 'color'
+      const val = cs[prop as keyof CSSStyleDeclaration] as string
+      if (val && val !== 'rgba(0, 0, 0, 0)' && val !== 'transparent') {
+        colorValues.push({ value: val, role })
+      }
+    }
+
+    return { cssVars, colorValues }
+  })
+
+  const seen = new Set<string>()
+  const colors: BrandColor[] = []
+
+  for (const { value, role } of raw.colorValues) {
+    const hex = rgbToHex(value)
+    if (hex && !seen.has(hex)) {
+      seen.add(hex)
+      colors.push({ hex, role: role as BrandColor['role'] })
+    }
+  }
+
+  return { colors, cssVars: raw.cssVars }
+}
+
+/** Extract logo URL from a live page. */
+async function extractLogo(page: import('playwright').Page, baseUrl: string): Promise<string | null> {
+  return page.evaluate((base) => {
+    const selectors = [
+      'img[src*="logo" i]',
+      'img[alt*="logo" i]',
+      'img[class*="logo" i]',
+      'a[href="/"] img',
+      'header img:first-of-type',
+      'nav img:first-of-type',
+      '.logo img',
+      '.brand img',
+      '.site-logo img',
+    ]
+    for (const sel of selectors) {
+      const el = document.querySelector(sel) as HTMLImageElement | null
+      if (el?.src) {
+        try {
+          return new URL(el.src, base).href
+        } catch {
+          return el.src
+        }
+      }
+    }
+    return null
+  }, baseUrl)
+}
+
+/** Parse headings, nav items and hero text with cheerio. */
+function extractContent(html: string): { headings: string[]; navItems: string[]; heroText: string[] } {
+  const $ = cheerio.load(html)
+
+  const headings: string[] = []
+  $('h1, h2, h3').each((_, el) => {
+    const text = $(el).text().trim()
+    if (text.length >= 3 && text.length <= 120) headings.push(text)
+  })
+
+  const navItems: string[] = []
+  const navSeen = new Set<string>()
+  $('nav a, header a, .navbar a, .nav a').each((_, el) => {
+    const text = $(el).text().trim()
+    if (text.length >= 2 && text.length <= 60 && !navSeen.has(text.toLowerCase())) {
+      navSeen.add(text.toLowerCase())
+      navItems.push(text)
+    }
+  })
+
+  const heroText: string[] = []
+  const heroSeen = new Set<string>()
+  $('h1, .hero p, .hero-text, .tagline, .subtitle, [class*="hero"] p, [class*="banner"] p').each((_, el) => {
+    const text = $(el).text().trim()
+    if (text.length >= 10 && text.length <= 400 && !heroSeen.has(text)) {
+      heroSeen.add(text)
+      heroText.push(text)
+    }
+  })
+
+  return {
+    headings: headings.slice(0, 10),
+    navItems: navItems.slice(0, 15),
+    heroText: heroText.slice(0, 5),
+  }
+}
+
+/** Calculate lead score: higher = site has more problems → better prospect.
+ *
+ * A business with a slow, non-responsive, logo-less, outdated site is a GREAT
+ * target for the "we built you a better version" pitch.
+ */
+export function calculateLeadScore(data: {
+  siteReachable: boolean
+  isMobileResponsive: boolean
+  hasLogo: boolean
+  hasCTA: boolean
+  hasContactInfo: boolean
+  loadMs: number
+  hasCSSVars: boolean   // modern CSS custom properties → more modern site
+  colorCount: number    // low count → possibly unstyled / very basic
+}): number {
+  if (!data.siteReachable) return 0
+
+  let score = 25 // base: they have a site
+
+  // Opportunity signals (problems = higher score)
+  if (!data.isMobileResponsive) score += 20
+  if (!data.hasLogo)            score += 10
+  if (!data.hasCTA)             score += 15
+  if (!data.hasCSSVars)         score += 10   // likely old site
+  if (data.colorCount < 2)      score += 5    // unstyled
+  if (data.loadMs > 4000)       score += 10
+  if (data.hasContactInfo)      score += 5    // they're reachable
+
+  return Math.min(score, 100)
+}
+
+/** Run full Playwright analysis on a URL. */
+export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
+  const url = normaliseUrl(rawUrl)
+  const startMs = Date.now()
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  })
+
+  try {
+    // ── Desktop pass ──────────────────────────────────────────────────────────
+    const desktopCtx = await browser.newContext({
+      viewport: DESKTOP_VIEWPORT,
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    })
+    const desktopPage = await desktopCtx.newPage()
+    desktopPage.setDefaultTimeout(PAGE_TIMEOUT_MS)
+
+    await desktopPage.goto(url, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT_MS })
+    const resolvedUrl = desktopPage.url()
+    const loadMs = Date.now() - startMs
+    const pageTitle = await desktopPage.title()
+
+    const desktopScreenshot = await desktopPage.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
+    const html = await desktopPage.content()
+
+    const { colors: brandColors, cssVars: rawCssVars } = await extractColors(desktopPage)
+    const logoUrl = await extractLogo(desktopPage, resolvedUrl)
+
+    // Detect mobile responsiveness via viewport meta tag
+    const isMobileResponsive = await desktopPage.evaluate(() => {
+      const meta = document.querySelector('meta[name="viewport"]')
+      return meta !== null && (meta.getAttribute('content') ?? '').includes('width=device-width')
+    })
+
+    // Detect CTA
+    const hasClearlyCTA = await desktopPage.evaluate(() => {
+      const ctaSels = ['[class*="cta"]', '[class*="btn"]', '.button', 'button[type="submit"]', 'a[href*="contact"]', 'a[href*="get-started"]', 'a[href*="signup"]']
+      return ctaSels.some((s) => document.querySelector(s) !== null)
+    })
+
+    // Detect contact info
+    const hasContactInfo = await desktopPage.evaluate(() => {
+      const body = document.body.innerText
+      return /(\+?[\d\s\-().]{7,}|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b)/.test(body)
+    })
+
+    await desktopCtx.close()
+
+    // ── Mobile screenshot ─────────────────────────────────────────────────────
+    const mobileCtx = await browser.newContext({
+      viewport: MOBILE_VIEWPORT,
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+    })
+    const mobilePage = await mobileCtx.newPage()
+    mobilePage.setDefaultTimeout(PAGE_TIMEOUT_MS)
+    await mobilePage.goto(url, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT_MS })
+    const mobileScreenshot = await mobilePage.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
+    await mobileCtx.close()
+
+    const { headings, navItems, heroText } = extractContent(html)
+
+    return {
+      resolvedUrl,
+      pageTitle,
+      loadMs,
+      isMobileResponsive,
+      hasClearlyCTA,
+      hasContactInfo,
+      brandColors,
+      logoUrl,
+      headings,
+      navItems,
+      heroText,
+      desktopScreenshot,
+      mobileScreenshot,
+      rawCssVars,
+    }
+  } finally {
+    await browser.close()
+  }
+}

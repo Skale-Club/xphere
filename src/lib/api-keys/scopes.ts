@@ -13,6 +13,16 @@ export const API_KEY_SCOPES = [
     label: 'Prospects — write',
     description: 'Push prospect-stage records via POST /api/v1/prospects',
   },
+  {
+    key: 'prospects:enrich',
+    label: 'Prospects — enrich',
+    description: 'Trigger website analysis for accounts via POST /api/v1/accounts/:id/analyze',
+  },
+  {
+    key: 'optout:write',
+    label: 'Opt-out — write',
+    description: 'Mark contacts/accounts as opted out via POST /api/v1/optout',
+  },
 ] as const
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]['key']

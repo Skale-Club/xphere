@@ -24,6 +24,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { hasScope } from '@/lib/api-keys/scopes'
+import { runAnalysis } from '@/services/website-analyzer'
 import type { Json } from '@/types/database'
 
 export const runtime = 'nodejs'
@@ -167,7 +168,13 @@ export async function POST(request: Request): Promise<Response> {
         p.kind === 'company'
           ? await ingestCompany(supabase, orgId, p, sourceType, runId)
           : await ingestPerson(supabase, orgId, p, sourceType, runId)
-      if (outcome) results.push(outcome)
+      if (outcome) {
+        results.push(outcome)
+        // Auto-trigger website analysis for newly created company prospects that have a domain
+        if (outcome.kind === 'company' && outcome.action === 'created' && p.domain?.trim()) {
+          triggerAnalysisForAccount(supabase, orgId, outcome.id, p.domain.trim())
+        }
+      }
     } catch (err) {
       console.error('[api/v1/prospects] ingest error:', err)
     }
@@ -211,6 +218,49 @@ export async function POST(request: Request): Promise<Response> {
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>
+
+/**
+ * Fire-and-forget: create a website_analyses row and kick off analysis for a
+ * newly-ingested company prospect. Skips if an analysis is already running.
+ */
+function triggerAnalysisForAccount(
+  supabase: ServiceClient,
+  orgId: string,
+  accountId: string,
+  domain: string,
+): void {
+  ;(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wa = (supabase as any).from('website_analyses')
+    // Avoid duplicate runs: skip if a running/pending row already exists
+    const { data: existing } = await wa
+      .select('id, status')
+      .eq('account_id', accountId)
+      .in('status', ['pending', 'running'])
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      console.log(`[orchestration] analysis already in progress for account_id=${accountId}, skipping`)
+      return
+    }
+
+    const { data: analysis, error: insertError } = await wa
+      .insert({ org_id: orgId, account_id: accountId, status: 'pending' })
+      .select('id')
+      .single()
+
+    if (insertError || !analysis) {
+      console.error('[orchestration] failed to create analysis row for account_id=' + accountId, insertError)
+      return
+    }
+
+    console.log(`[orchestration] triggered analysis for account_id=${accountId} domain=${domain}`)
+    runAnalysis({ analysisId: analysis.id, orgId, accountId, domain }).catch((err) =>
+      console.error('[orchestration] runAnalysis error for account_id=' + accountId + ':', err),
+    )
+  })().catch((err) => console.error('[orchestration] triggerAnalysisForAccount error:', err))
+}
 
 async function recordImport(
   supabase: ServiceClient,
