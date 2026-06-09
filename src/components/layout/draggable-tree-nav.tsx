@@ -111,6 +111,7 @@ export interface TreeNavChild {
   label: string
   href: string
   icon?: React.ReactNode
+  exact?: boolean // true = realça só em match exato (rotas índice cujo href é prefixo de irmãs)
 }
 
 export interface TreeNavItemIconContext {
@@ -975,7 +976,7 @@ function ItemRow<T extends TreeNavItem>({
   const childActive = children.some(
     (c) => pathname === c.href || pathname.startsWith(c.href + '/'),
   )
-  const isActive = selfActive
+  const isActive = selfActive && !childActive
 
   const [open, setOpen] = React.useState(selfActive || childActive)
   const [editing, setEditing] = React.useState(false)
@@ -1219,7 +1220,9 @@ export function TreeNavChildLinks({
       )}
     >
       {links.map((c) => {
-        const active = pathname === c.href || pathname.startsWith(c.href + '/')
+        const active = c.exact
+          ? pathname === c.href
+          : pathname === c.href || pathname.startsWith(c.href + '/')
         return (
           <Link
             key={c.href}

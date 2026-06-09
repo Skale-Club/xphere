@@ -51,7 +51,7 @@ interface AgentItem extends TreeNavItem {
  *  the reference stays stable across renders (cheap, depends only on the id). */
 function agentChildren(a: AgentItem): TreeNavChild[] {
   return [
-    { label: 'Prompt & Actions', href: `/agents/${a.id}`, icon: <MessageSquare className="h-3 w-3" /> },
+    { label: 'Prompt & Actions', href: `/agents/${a.id}`, icon: <MessageSquare className="h-3 w-3" />, exact: true },
     { label: 'Knowledge', href: `/agents/${a.id}/knowledge`, icon: <BookOpen className="h-3 w-3" /> },
     { label: 'Settings', href: `/agents/${a.id}/settings`, icon: <Settings2 className="h-3 w-3" /> },
     { label: 'Dashboard', href: `/agents/${a.id}/dashboard`, icon: <LayoutDashboard className="h-3 w-3" /> },
