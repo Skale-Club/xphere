@@ -27,6 +27,7 @@ export type ProspectRow = {
   email: string | null
   phone: string | null
   company: string | null
+  website: string | null
   source: string
   sourceType: string | null
   sourceId: string | null
@@ -198,6 +199,7 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Prosp
         email: (row.email as string | null) ?? null,
         phone: (row.phone as string | null) ?? null,
         company: account?.name ?? (row.company as string | null) ?? null,
+        website: (row.website as string | null) ?? (row.domain as string | null) ?? null,
         source: (row.source as string | null) ?? 'manual',
         sourceType: (row.source_type as string | null) ?? null,
         sourceId: (row.source_id as string | null) ?? null,
@@ -223,6 +225,7 @@ export async function getProspects(filters: ProspectFilters = {}): Promise<Prosp
       email: null,
       phone: (row.phone as string | null) ?? null,
       company: (row.domain as string | null) ?? (row.website as string | null) ?? null,
+      website: (row.domain as string | null) ?? (row.website as string | null) ?? null,
       source: (row.source as string | null) ?? 'manual',
       sourceType: (row.source_type as string | null) ?? null,
       sourceId: (row.source_id as string | null) ?? null,
@@ -833,6 +836,7 @@ export async function getProspectReplies(): Promise<ProspectListResult> {
     email: (row.email as string | null) ?? null,
     phone: (row.phone as string | null) ?? null,
     company: (row.company as string | null) ?? null,
+    website: (row.website as string | null) ?? (row.domain as string | null) ?? null,
     source: (row.source as string | null) ?? 'manual',
     sourceType: (row.source_type as string | null) ?? null,
     sourceId: (row.source_id as string | null) ?? null,
@@ -1001,6 +1005,7 @@ export async function getProspectDetail(
       kind === 'company'
         ? (row.domain as string | null) ?? (row.website as string | null) ?? null
         : (row.company as string | null) ?? null,
+    website: (row.domain as string | null) ?? (row.website as string | null) ?? null,
     source: (row.source as string | null) ?? 'manual',
     sourceType: (row.source_type as string | null) ?? null,
     sourceId: (row.source_id as string | null) ?? null,
