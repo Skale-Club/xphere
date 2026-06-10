@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Phone, Delete } from 'lucide-react'
+import { Phone, PhoneOff, Delete, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,34 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { normaliseE164 } from '@/lib/calls/zod-schemas'
 import { DestinationTimeNotice } from '@/components/calls/destination-time-notice'
+import {
+  useOutboundCallStatus,
+  type CallPhase,
+} from '@/hooks/use-outbound-call-status'
+
+function phaseDotClass(phase: CallPhase): string {
+  switch (phase) {
+    case 'connected':
+      return 'bg-emerald-400'
+    case 'initiating':
+    case 'ringing':
+      return 'bg-amber-400 animate-pulse'
+    case 'busy':
+    case 'no-answer':
+    case 'failed':
+    case 'canceled':
+      return 'bg-rose-400'
+    case 'ended':
+    default:
+      return 'bg-text-tertiary'
+  }
+}
+
+function formatElapsed(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -33,6 +61,7 @@ export interface DialerProps {
 export function Dialer({ initialNumber, onComplete }: DialerProps) {
   const [number, setNumber] = React.useState(initialNumber ?? '')
   const [calling, setCalling] = React.useState(false)
+  const call = useOutboundCallStatus()
 
   function append(digit: string) {
     setNumber((n) => {
@@ -62,22 +91,68 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
         toast.error(data.error ?? `Call failed (${res.status})`)
         return
       }
-      const data = (await res.json()) as { sid: string }
-      toast.success(`Calling ${norm} | your phone will ring shortly.`)
-      console.log('[dialer] call sid:', data.sid)
-      onComplete?.()
+      const data = (await res.json()) as { sid?: string }
+      if (data.sid) {
+        // Keep the dialog open and surface the live call lifecycle inline; the
+        // user closes it themselves once they've seen the outcome.
+        call.track(data.sid, norm)
+      } else {
+        toast.success(`Calling ${norm} | your phone will ring shortly.`)
+        onComplete?.()
+      }
     } finally {
       setCalling(false)
     }
   }
 
+  const activeCall = call.active
+  const callLive = activeCall !== null && !activeCall.isTerminal
+  const showTimer =
+    activeCall !== null &&
+    (activeCall.phase === 'connected' || (activeCall.isTerminal && call.elapsed > 0))
+
   return (
     <div className="space-y-5">
+      {/* Live call card | phone_forward/sip status from the call_logs realtime feed */}
+      {activeCall && (
+        <div className="rounded-[12px] border border-accent/30 bg-accent/[0.06] p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-text-tertiary">
+                <span className={cn('h-2 w-2 rounded-full', phaseDotClass(activeCall.phase))} />
+                {activeCall.phaseLabel}
+              </p>
+              <p className="truncate text-[13px] font-medium text-text-primary">{activeCall.label}</p>
+            </div>
+            {showTimer && (
+              <span className="shrink-0 text-[13px] font-mono text-accent">
+                {formatElapsed(call.elapsed)}
+              </span>
+            )}
+          </div>
+          {activeCall.isTerminal ? (
+            <Button variant="ghost" className="w-full" onClick={() => call.dismiss()}>
+              <X className="h-4 w-4" />
+              Fechar
+            </Button>
+          ) : (
+            <Button
+              className="w-full border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+              onClick={() => call.hangUp()}
+            >
+              <PhoneOff className="h-4 w-4" />
+              Encerrar
+            </Button>
+          )}
+        </div>
+      )}
+
       <Input
         value={number}
         onChange={(e) => setNumber(e.target.value)}
         placeholder="+14155551234"
         className="h-12 text-center text-[18px] font-medium tracking-wide"
+        disabled={callLive}
       />
 
       <DestinationTimeNotice number={number} />
@@ -88,9 +163,10 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
             key={k.digit}
             type="button"
             onClick={() => append(k.digit)}
+            disabled={callLive}
             className={cn(
               'flex aspect-square flex-col items-center justify-center rounded-[12px] border border-border bg-bg-secondary text-text-primary transition-all',
-              'hover:border-border-strong hover:bg-bg-tertiary active:scale-95',
+              'hover:border-border-strong hover:bg-bg-tertiary active:scale-95 disabled:opacity-40',
             )}
           >
             <span className="text-[20px] font-medium">{k.digit}</span>
@@ -113,7 +189,7 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
         >
           <Delete className="h-4 w-4" />
         </Button>
-        <Button onClick={placeCall} loading={calling} className="flex-1">
+        <Button onClick={placeCall} loading={calling} disabled={callLive} className="flex-1">
           <Phone className="h-4 w-4" />
           Call
         </Button>
