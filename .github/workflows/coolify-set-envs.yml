@@ -1,0 +1,74 @@
+name: Coolify — Set Runtime Env Vars
+
+# Ops utility: pushes selected runtime environment variables into the Coolify
+# Xphere application via the Coolify API, then triggers a redeploy so the new
+# values take effect. Runs only on manual dispatch.
+#
+# Why this exists: Coolify runtime env vars are NOT managed by build-deploy.yml
+# (which only passes NEXT_PUBLIC_* build args). The Active Prospect System needs
+# SKALECLUB_WEBSITES_URL + SKALECLUB_WEBSITES_API_KEY at runtime to call the
+# preview generator. This workflow keeps those in sync from GitHub Secrets
+# without exposing the Coolify token to anyone.
+
+on:
+  workflow_dispatch: {}
+
+env:
+  APP_UUID: c70jg4t9o88x985dctsl57qy
+  COOLIFY_BASE: https://coolify.skale.club
+
+jobs:
+  set-envs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push env vars to Coolify
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          WEBSITES_URL: ${{ secrets.SKALECLUB_WEBSITES_URL }}
+          WEBSITES_API_KEY: ${{ secrets.SKALECLUB_WEBSITES_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "::error::COOLIFY_TOKEN secret not set"; exit 1
+          fi
+
+          API="${COOLIFY_BASE}/api/v1/applications/${APP_UUID}/envs"
+
+          # upsert <key> <value>: PATCH (update) first; if the key doesn't
+          # exist yet, the API returns non-2xx and we POST (create) instead.
+          upsert() {
+            local key="$1" value="$2"
+            local body
+            body=$(printf '{"key":"%s","value":"%s","is_preview":false,"is_literal":true}' "$key" "$value")
+
+            echo "==> PATCH $key"
+            local code
+            code=$(curl -s -o /tmp/patch_out -w "%{http_code}" -X PATCH "$API" \
+              -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              echo "    updated ($code)"; return 0
+            fi
+
+            echo "    PATCH returned $code — trying POST (create)"
+            code=$(curl -s -o /tmp/post_out -w "%{http_code}" -X POST "$API" \
+              -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              echo "    created ($code)"; return 0
+            fi
+            echo "::error::failed to upsert $key (POST $code): $(cat /tmp/post_out)"
+            return 1
+          }
+
+          upsert SKALECLUB_WEBSITES_URL     "${WEBSITES_URL}"
+          upsert SKALECLUB_WEBSITES_API_KEY "${WEBSITES_API_KEY}"
+
+          echo "==> Triggering redeploy so new env vars take effect"
+          curl --fail-with-body -sS --retry 3 --retry-all-errors \
+            "${COOLIFY_BASE}/api/v1/deploy?uuid=${APP_UUID}" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo
+          echo "Done. Coolify will restart Xphere with the new runtime env."
