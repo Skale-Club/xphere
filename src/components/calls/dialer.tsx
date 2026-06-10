@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { normaliseE164 } from '@/lib/calls/zod-schemas'
+import { DestinationTimeNotice } from '@/components/calls/destination-time-notice'
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -78,6 +79,8 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
         placeholder="+14155551234"
         className="h-12 text-center text-[18px] font-medium tracking-wide"
       />
+
+      <DestinationTimeNotice number={number} />
 
       <div className="grid grid-cols-3 gap-2">
         {DIAL_KEYS.map((k) => (

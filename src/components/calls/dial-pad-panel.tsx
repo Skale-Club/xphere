@@ -496,21 +496,23 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
               disabled={Boolean(device.activeCall)}
             />
 
-            {/* Dial pad grid | flex-1 on mobile so it absorbs remaining space without scroll */}
-            <div className="grid grid-cols-3 grid-rows-4 gap-2 sm:gap-1.5 flex-1 sm:flex-none min-h-0">
+            {/* Dial pad grid | mobile-first: keys are square (circular) and sized by the
+                grid columns, so they never squish or overlap regardless of panel height.
+                The panel scrolls naturally if the viewport is short. */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-1.5 mx-auto w-full max-w-[300px] sm:max-w-none">
               {DIAL_KEYS.map((k) => (
                 <button
                   key={k.digit}
                   type="button"
                   onClick={() => appendDigit(k.digit)}
                   className={cn(
-                    'flex h-full w-full sm:aspect-square flex-col items-center justify-center rounded-[14px] sm:rounded-[10px] border border-border bg-bg-secondary text-text-primary transition-all',
-                    'hover:border-border-strong hover:bg-bg-tertiary active:scale-95',
+                    'flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-full sm:rounded-[10px] border border-border bg-bg-tertiary text-text-primary transition-all',
+                    'hover:border-border-strong hover:bg-bg-secondary active:scale-95 active:bg-bg-secondary',
                   )}
                 >
-                  <span className="text-[clamp(24px,7vw,34px)] sm:text-[18px] font-semibold sm:font-medium leading-none">{k.digit}</span>
+                  <span className="text-[27px] sm:text-[18px] font-semibold sm:font-medium leading-none">{k.digit}</span>
                   {k.letters && (
-                    <span className="mt-1 sm:mt-0.5 text-[11px] sm:text-[8.5px] uppercase tracking-wide text-text-tertiary">
+                    <span className="text-[9.5px] sm:text-[8.5px] font-medium uppercase leading-none tracking-[0.14em] text-text-tertiary">
                       {k.letters}
                     </span>
                   )}
