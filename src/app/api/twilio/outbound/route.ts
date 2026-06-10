@@ -110,7 +110,11 @@ export async function POST(request: Request): Promise<Response> {
       { status: 400 },
     )
   }
-  const twimlUrl = `${base}/api/twilio/voice?dialTo=${encodeURIComponent(to)}`
+  // No query string on the TwiML URL: Twilio signs the full URL and proxies can
+  // re-encode a `+` in the query, breaking signature validation (which silently
+  // drops the bridge → call connects with no audio). The voice webhook resolves
+  // the contact from the call_logs row by CallSid instead (see /api/twilio/voice).
+  const twimlUrl = `${base}/api/twilio/voice`
   const statusCallback = `${base}/api/twilio/status`
 
   try {
