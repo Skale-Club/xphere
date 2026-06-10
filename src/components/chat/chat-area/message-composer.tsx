@@ -60,6 +60,14 @@ export type ComposerChannel = {
   channel: string
   label: string
   conversationId?: string
+  /**
+   * When true, the org has this channel connected but the contact can't
+   * currently receive on it (no phone/email on file, or DND). The option is
+   * listed in the switcher but greyed out and not selectable.
+   */
+  disabled?: boolean
+  /** Short hint explaining why a disabled channel can't be used right now. */
+  disabledReason?: string
 }
 
 interface MessageComposerProps {
@@ -319,6 +327,10 @@ export function MessageComposer({
     const content = value.trim()
     if ((!content && attachments.length === 0) || isSending || disabled) return
     const activeOption = availableChannels.find((ch) => ch.channel === activeChannel)
+    if (activeOption?.disabled) {
+      setSendError(activeOption.disabledReason ?? 'This channel is not available for this contact.')
+      return
+    }
     const filesToSend = attachments
     setValue('')
     setSendError(null)
@@ -399,6 +411,7 @@ export function MessageComposer({
     !isDisabled
   const activeOption =
     availableChannels.find((ch) => ch.channel === activeChannel) ??
+    availableChannels.find((ch) => !ch.disabled) ??
     availableChannels[0] ??
     null
   const showChannelSelect = availableChannels.length > 1
@@ -440,12 +453,19 @@ export function MessageComposer({
                   <span className="whitespace-nowrap text-[11.5px] text-text-primary">{activeOption.label}</span>
                 </div>
               </SelectTrigger>
-              <SelectContent align="start" className="min-w-[150px]">
+              <SelectContent align="start" className="min-w-[180px]">
                 {availableChannels.map((ch) => (
-                  <SelectItem key={`${ch.channel}-${ch.conversationId ?? 'current'}`} value={ch.channel}>
+                  <SelectItem
+                    key={`${ch.channel}-${ch.conversationId ?? 'current'}`}
+                    value={ch.channel}
+                    disabled={ch.disabled}
+                  >
                     <span className="inline-flex items-center gap-2">
                       <ChannelBadge channel={badgeChannel(ch.channel)} showLabel={false} size="sm" />
-                      {ch.label}
+                      <span>{ch.label}</span>
+                      {ch.disabled && ch.disabledReason && (
+                        <span className="text-[10px] text-text-tertiary">· {ch.disabledReason}</span>
+                      )}
                     </span>
                   </SelectItem>
                 ))}
