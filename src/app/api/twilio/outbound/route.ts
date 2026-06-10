@@ -97,6 +97,19 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const base = publicBaseUrl(request)
+  // Twilio fetches the TwiML + status callbacks from these URLs, so they must be
+  // publicly reachable. A localhost base means we're on a dev server Twilio can't
+  // reach — fail early with an actionable message instead of the cryptic Twilio
+  // 21205 ("Url is not a valid URL").
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(base)) {
+    return Response.json(
+      {
+        error:
+          'Outbound calls need a public webhook URL — Twilio cannot reach localhost. Test on production (xphere.app) or set TWILIO_WEBHOOK_BASE_URL to a public tunnel (e.g. ngrok).',
+      },
+      { status: 400 },
+    )
+  }
   const twimlUrl = `${base}/api/twilio/voice?dialTo=${encodeURIComponent(to)}`
   const statusCallback = `${base}/api/twilio/status`
 
