@@ -1,8 +1,21 @@
 name: Build and Deploy
 
 # CI→GHCR→Coolify pipeline. Builds Docker image off-VPS (GitHub runners
-# have 16GB RAM; the 8GB CX32 OOM-thrashes on next build), pushes to GHCR,
-# then triggers Coolify to `docker pull` + run the prebuilt image.
+# have 16GB RAM; the 8GB CX32 OOM-thrashes on next build), pushes to GHCR.
+#
+# DEPLOY IS MANUAL (intentional): pushing to main builds + pushes the image to
+# GHCR but does NOT republish the live site. Coolify's Docker Compose build
+# pack has no zero-downtime/rolling update, so every auto-deploy briefly drops
+# the site ("no available server" from Traefik). To avoid surprise outages, the
+# Coolify trigger below only fires on a MANUAL run.
+#
+# To publish a new version to production, either:
+#   • GitHub → Actions → "Build and Deploy" → Run workflow (branch: main), or
+#   • Coolify UI → xphere app → Redeploy
+# Both pull ghcr.io/skale-club/xphere:latest and restart (brief downtime).
+#
+# Zero-downtime follow-up: migrate the Coolify app off the Docker Compose build
+# pack (blocked by a Coolify v4.1.2 quirk that recycles Docker Image apps).
 #
 # ── Change these two lines when copying to another repo ──────────────────────
 #   IMAGE_NAME   ghcr.io/skale-club/<app-name>
@@ -66,7 +79,12 @@ jobs:
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_SENTRY_DSN=${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
 
-      - name: Trigger Coolify deploy (pull prebuilt image)
+      # MANUAL ONLY: this step is skipped on push so auto-publishing never drops
+      # the live site. It runs only when you trigger the workflow by hand
+      # (workflow_dispatch), giving you control over WHEN the brief deploy
+      # downtime happens.
+      - name: Trigger Coolify deploy (pull prebuilt image) — manual only
+        if: github.event_name == 'workflow_dispatch'
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
@@ -81,3 +99,10 @@ jobs:
             -H "Authorization: Bearer ${COOLIFY_TOKEN}"
           echo
           echo "Deploy queued. Coolify will pull ghcr.io/…:latest and restart."
+
+      - name: Build complete (push — no auto-deploy)
+        if: github.event_name == 'push'
+        run: |
+          echo "✓ Image built and pushed to GHCR (ghcr.io/skale-club/xphere:latest)."
+          echo "Auto-deploy is OFF to avoid surprise downtime."
+          echo "To publish: re-run this workflow manually, or click Redeploy in Coolify."
