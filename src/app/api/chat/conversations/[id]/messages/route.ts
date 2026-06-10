@@ -617,6 +617,13 @@ export async function POST(
   }
   // --- End outbound channel routing ---
 
+  // WhatsApp-style delivery ticks: every reply that reaches here was accepted by
+  // its provider (or routed on a native channel), so stamp it 'sent' for a single
+  // tick immediately. Delivery/read webhooks (e.g. Zernio) later upgrade the
+  // status to 'delivered'/'read' → two ticks, reflected live via the UPDATE
+  // realtime subscription in chat-layout.
+  deliveryMetadata.delivery_status = 'sent'
+
   const finalMetadata = { ...msgMetadata, ...deliveryMetadata }
 
   // SEED-039: stamp channel on each message so multi-channel threads can be

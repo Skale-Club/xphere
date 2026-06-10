@@ -201,3 +201,30 @@ export async function createOutboundCall(
   const data = (await res.json()) as { sid: string }
   return { sid: data.sid }
 }
+
+/**
+ * Ends an in-flight call via the Twilio REST API (POST Calls/{sid} Status=completed).
+ * Used by the dialer "hang up" control for phone_forward / sip calls, where the
+ * browser is not part of the call and can't disconnect locally.
+ */
+export async function endCall(
+  creds: TwilioVoiceCredentials,
+  callSid: string,
+): Promise<void> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Calls/${encodeURIComponent(callSid)}.json`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: twilioBasicAuthHeader(creds),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ Status: 'completed' }).toString(),
+    cache: 'no-store',
+  })
+
+  // 404 = call already gone (completed/failed) — treat as success (idempotent).
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => `status ${res.status}`)
+    throw new Error(`Twilio end-call error ${res.status}: ${text}`)
+  }
+}

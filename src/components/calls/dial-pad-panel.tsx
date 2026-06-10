@@ -39,6 +39,10 @@ import {
 import { useTwilioDevice } from './twilio-device-provider'
 import { useCallRecorder } from '@/hooks/use-call-recorder'
 import { useDialPadPrefill, useDialPadToggle } from './dial-pad-context'
+import {
+  useOutboundCallStatus,
+  type CallPhase,
+} from '@/hooks/use-outbound-call-status'
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -58,6 +62,26 @@ const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
 const DESKTOP_QUERY = '(min-width: 640px)'
 const DESKTOP_PANEL_GAP = 16
 const DESKTOP_PANEL_TOP = 64
+
+// Status-dot colour by call phase: amber while reaching the contact, green when
+// connected, rose on a failed/declined outcome, neutral when cleanly ended.
+function phaseDotClass(phase: CallPhase): string {
+  switch (phase) {
+    case 'connected':
+      return 'bg-emerald-400'
+    case 'initiating':
+    case 'ringing':
+      return 'bg-amber-400 animate-pulse'
+    case 'busy':
+    case 'no-answer':
+    case 'failed':
+    case 'canceled':
+      return 'bg-rose-400'
+    case 'ended':
+    default:
+      return 'bg-text-tertiary'
+  }
+}
 
 interface DialPadPanelProps {
   initialRecordCalls: boolean
@@ -90,7 +114,11 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   } | null>(null)
 
   const device = useTwilioDevice()
-  const isOnCall = device.activeCall !== null || (calling && routingMode !== 'browser')
+  const call = useOutboundCallStatus()
+  // A REST (phone_forward / sip) call is "live" until it reaches a terminal
+  // outcome; until then the dial pad stays gated just like a browser call.
+  const restCallLive = call.active !== null && !call.active.isTerminal
+  const isOnCall = device.activeCall !== null || restCallLive || (calling && routingMode !== 'browser')
 
   const getPanelBounds = React.useCallback(() => {
     const rect = panelRef.current?.getBoundingClientRect()
@@ -305,7 +333,9 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
       return
     }
 
-    // phone_forward / sip | initiate via REST
+    // phone_forward / sip | initiate via REST. The browser isn't part of the
+    // call, so live status comes from the call_logs realtime subscription that
+    // call.track() opens against the returned CallSid.
     try {
       const body: Record<string, string> = { to: norm }
       if (fromNumber) body.from = fromNumber
@@ -314,16 +344,20 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      const data = (await res.json().catch(() => ({}))) as { sid?: string; error?: string }
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string }
         toast.error(data.error ?? `Call failed (${res.status})`)
         setCalling(false)
         return
       }
-      toast.success(`Calling ${norm} | your phone will ring shortly.`)
+      setCalling(false)
+      if (data.sid) {
+        call.track(data.sid, norm)
+      } else {
+        // No SID returned (unexpected) | fall back to the original toast.
+        toast.success(`Calling ${norm} | your phone will ring shortly.`)
+      }
       setNumber('')
-      // REST calls don't create a browser Call object | reset after a moment
-      setTimeout(() => setCalling(false), 4_000)
     } catch {
       toast.error('Network error | could not place call.')
       setCalling(false)
@@ -340,6 +374,19 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
 
   const trimmedSearch = search.trim()
   const showResults = trimmedSearch.length >= 3
+
+  // Unified active-call card | browser-mode calls read live state from the Twilio
+  // Voice SDK (device.activeCall); phone_forward / sip calls read it from the
+  // call_logs realtime subscription (call.active). Only one is ever set at a time.
+  const browserActive = device.activeCall !== null
+  const showCallCard = browserActive || call.active !== null
+  const cardPhase: CallPhase = browserActive ? 'connected' : (call.active?.phase ?? 'initiating')
+  const cardLabel = browserActive ? (number || 'Chamada ativa') : (call.active?.label ?? '')
+  const cardPhaseLabel = browserActive ? 'Conectado' : (call.active?.phaseLabel ?? '')
+  const cardElapsed = browserActive ? elapsed : call.elapsed
+  const cardTerminal = !browserActive && (call.active?.isTerminal ?? false)
+  // Show the timer once connected (browser) or while/after a REST call has a duration.
+  const showTimer = browserActive || cardPhase === 'connected' || (cardTerminal && cardElapsed > 0)
 
   return (
     <>
@@ -449,40 +496,63 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
               )}
             </div>
 
-            {/* Active call view (browser mode) */}
-            {device.activeCall && (
+            {/* Active call card | browser (Voice SDK) + phone_forward/sip (realtime) */}
+            {showCallCard && (
               <div className="rounded-[12px] border border-accent/30 bg-accent/[0.06] p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wider text-text-tertiary">Connected</p>
-                    <p className="text-[13px] font-medium text-text-primary">{number || 'Active call'}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-text-tertiary">
+                      <span className={cn('h-2 w-2 rounded-full', phaseDotClass(cardPhase))} />
+                      {cardPhaseLabel}
+                    </p>
+                    <p className="truncate text-[13px] font-medium text-text-primary">{cardLabel}</p>
                   </div>
-                  <span className="text-[13px] font-mono text-accent">{formatElapsed(elapsed)}</span>
+                  {showTimer && (
+                    <span className="shrink-0 text-[13px] font-mono text-accent">
+                      {formatElapsed(cardElapsed)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleMute}
-                    className={cn(
-                      'flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border py-2 text-[12px] font-medium transition-colors',
-                      muted
-                        ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
-                        : 'border-border bg-bg-secondary text-text-secondary hover:text-text-primary',
-                    )}
-                    aria-label={muted ? 'Unmute' : 'Mute'}
-                  >
-                    {muted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                    {muted ? 'Unmute' : 'Mute'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleHangUp}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-rose-500/30 bg-rose-500/10 py-2 text-[12px] font-medium text-rose-400 transition-colors hover:bg-rose-500/20"
-                    aria-label="Hang up"
-                  >
-                    <PhoneOff className="h-3.5 w-3.5" />
-                    Hang up
-                  </button>
+                  {/* Mute only exists for browser-mode calls | phone_forward audio
+                      lives on the operator's physical phone and can't be muted here. */}
+                  {browserActive && (
+                    <button
+                      type="button"
+                      onClick={handleMute}
+                      className={cn(
+                        'flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border py-2 text-[12px] font-medium transition-colors',
+                        muted
+                          ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                          : 'border-border bg-bg-secondary text-text-secondary hover:text-text-primary',
+                      )}
+                      aria-label={muted ? 'Reativar som' : 'Mudo'}
+                    >
+                      {muted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      {muted ? 'Reativar' : 'Mudo'}
+                    </button>
+                  )}
+                  {cardTerminal ? (
+                    <button
+                      type="button"
+                      onClick={() => call.dismiss()}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-border bg-bg-secondary py-2 text-[12px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+                      aria-label="Fechar"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Fechar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={browserActive ? handleHangUp : () => call.hangUp()}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-rose-500/30 bg-rose-500/10 py-2 text-[12px] font-medium text-rose-400 transition-colors hover:bg-rose-500/20"
+                      aria-label="Encerrar"
+                    >
+                      <PhoneOff className="h-3.5 w-3.5" />
+                      Encerrar
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -493,24 +563,26 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
               onChange={(e) => setNumber(e.target.value)}
               placeholder="+14155551234"
               className="h-16 sm:h-11 text-center text-[28px] sm:text-[17px] font-semibold sm:font-medium tracking-wide"
-              disabled={Boolean(device.activeCall)}
+              disabled={browserActive || restCallLive}
             />
 
-            {/* Dial pad grid | flex-1 on mobile so it absorbs remaining space without scroll */}
-            <div className="grid grid-cols-3 grid-rows-4 gap-2 sm:gap-1.5 flex-1 sm:flex-none min-h-0">
+            {/* Dial pad grid | mobile-first: keys are square (circular) and sized by the
+                grid columns, so they never squish or overlap regardless of panel height.
+                The panel scrolls naturally if the viewport is short. */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-1.5 mx-auto w-full max-w-[300px] sm:max-w-none">
               {DIAL_KEYS.map((k) => (
                 <button
                   key={k.digit}
                   type="button"
                   onClick={() => appendDigit(k.digit)}
                   className={cn(
-                    'flex h-full w-full sm:aspect-square flex-col items-center justify-center rounded-[14px] sm:rounded-[10px] border border-border bg-bg-secondary text-text-primary transition-all',
-                    'hover:border-border-strong hover:bg-bg-tertiary active:scale-95',
+                    'flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-full sm:rounded-[10px] border border-border bg-bg-tertiary text-text-primary transition-all',
+                    'hover:border-border-strong hover:bg-bg-secondary active:scale-95 active:bg-bg-secondary',
                   )}
                 >
-                  <span className="text-[clamp(24px,7vw,34px)] sm:text-[18px] font-semibold sm:font-medium leading-none">{k.digit}</span>
+                  <span className="text-[27px] sm:text-[18px] font-semibold sm:font-medium leading-none">{k.digit}</span>
                   {k.letters && (
-                    <span className="mt-1 sm:mt-0.5 text-[11px] sm:text-[8.5px] uppercase tracking-wide text-text-tertiary">
+                    <span className="text-[9.5px] sm:text-[8.5px] font-medium uppercase leading-none tracking-[0.14em] text-text-tertiary">
                       {k.letters}
                     </span>
                   )}
@@ -542,8 +614,8 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
 
           {/* Pinned footer | stays visible so the Call button never scrolls out of view */}
           <div className="shrink-0 border-t border-border px-6 sm:px-4 py-4 sm:py-3 flex flex-col gap-4 sm:gap-3">
-            {/* Action row: backspace + call */}
-            {!device.activeCall && (
+            {/* Action row: backspace + call | hidden while a call is live */}
+            {!browserActive && !restCallLive && (
               <div className="flex items-center gap-2 sm:gap-2">
                 <button
                   type="button"
