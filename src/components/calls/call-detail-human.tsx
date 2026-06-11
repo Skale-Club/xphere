@@ -26,7 +26,7 @@ export async function CallDetailHuman({ call }: Props) {
       <div className="lg:col-span-2 space-y-6">
         {call.recording_url ? (
           <CallWaveformPlayer
-            url={call.recording_url}
+            url={`/api/calls/${call.id}/recording`}
             duration={call.recording_duration ?? call.duration_seconds ?? 0}
           />
         ) : (

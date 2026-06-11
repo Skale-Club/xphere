@@ -3,6 +3,12 @@
 // Receives lifecycle events for an in-flight or completed call:
 //   CallSid, CallStatus, CallDuration, From, To, Timestamp, AnsweredBy
 //
+// Also handles the <Dial action=…> callback for outbound phone_forward bridges,
+// which posts the *contact-leg* outcome (DialCallStatus / DialCallDuration) under
+// the operator-leg CallSid. That outcome is authoritative for what the caller
+// actually experienced (busy / no-answer / completed), so it takes precedence
+// over the operator-leg CallStatus.
+//
 // On `completed`/`no-answer`/`busy`/`failed`/`canceled`:
 //   * updates call_logs status + duration_seconds + ended_at
 //   * best-effort contact linkage by phone
@@ -24,8 +30,16 @@ export async function POST(request: Request): Promise<Response> {
     const params = new URLSearchParams(rawBody)
 
     const callSid = params.get('CallSid') ?? ''
-    const callStatus = params.get('CallStatus') ?? ''
-    const durationStr = params.get('CallDuration') ?? params.get('Duration') ?? ''
+    // <Dial action> callback carries the contact-leg outcome under the operator
+    // CallSid. When present it is authoritative for the call result the caller
+    // actually got (busy / no-answer / completed), so prefer it over CallStatus.
+    const dialCallStatus = params.get('DialCallStatus') ?? ''
+    const effectiveStatus = dialCallStatus || (params.get('CallStatus') ?? '')
+    const durationStr =
+      params.get('DialCallDuration') ??
+      params.get('CallDuration') ??
+      params.get('Duration') ??
+      ''
     const duration = parseInt(durationStr, 10)
     const from = params.get('From') ?? ''
     const to = params.get('To') ?? ''
@@ -37,7 +51,7 @@ export async function POST(request: Request): Promise<Response> {
     const supabase = createServiceRoleClient()
     const { data: callLog } = await supabase
       .from('call_logs')
-      .select('id, org_id, contact_id, direction, from_number, to_number')
+      .select('id, org_id, contact_id, direction, from_number, to_number, status')
       .eq('call_sid', callSid)
       .limit(1)
       .maybeSingle()
@@ -60,8 +74,22 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    const isTerminal = TERMINAL_STATUSES.has(callStatus)
-    const update: Record<string, unknown> = { status: callStatus || null }
+    const isTerminal = TERMINAL_STATUSES.has(effectiveStatus)
+    const update: Record<string, unknown> = {}
+
+    // Anti-downgrade guard: once a specific terminal outcome is recorded for the
+    // contact (busy / no-answer / failed / canceled), don't let a later
+    // operator-leg `completed` event overwrite it. The Dial-action callback
+    // (DialCallStatus) is always allowed to set the authoritative outcome.
+    const current = callLog.status ?? ''
+    const currentIsSpecificTerminal =
+      TERMINAL_STATUSES.has(current) && current !== 'completed'
+    const downgrading =
+      !dialCallStatus && currentIsSpecificTerminal && effectiveStatus === 'completed'
+
+    if (effectiveStatus && !downgrading) {
+      update.status = effectiveStatus
+    }
     if (isTerminal) {
       update.ended_at = new Date().toISOString()
       if (Number.isFinite(duration) && duration > 0) update.duration_seconds = duration
@@ -85,7 +113,9 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    await supabase.from('call_logs').update(update).eq('id', callLog.id)
+    if (Object.keys(update).length > 0) {
+      await supabase.from('call_logs').update(update).eq('id', callLog.id)
+    }
 
     // Empty TwiML | Twilio doesn't expect any verbs on status callbacks.
     return new Response('<Response/>', { status: 200, headers: { 'Content-Type': 'text/xml' } })

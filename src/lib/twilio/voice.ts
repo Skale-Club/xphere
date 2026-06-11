@@ -167,20 +167,28 @@ export async function createOutboundCall(
   const from = params.from ?? creds.fromNumber
   if (!from) throw new Error('createOutboundCall: missing From number')
 
-  const body: Record<string, string> = {
+  const form = new URLSearchParams({
     To: params.to,
     From: from,
     Url: params.twimlUrl,
     Method: 'POST',
-  }
+  })
   if (params.statusCallback) {
-    body.StatusCallback = params.statusCallback
-    body.StatusCallbackMethod = 'POST'
-    body.StatusCallbackEvent = 'initiated ringing answered completed'
+    form.set('StatusCallback', params.statusCallback)
+    form.set('StatusCallbackMethod', 'POST')
+    // The REST Calls API requires each progress event as its OWN repeated
+    // `StatusCallbackEvent` param. A single space-joined value
+    // ("initiated ringing answered completed") is rejected as one invalid event
+    // (Twilio error 21626), which silently drops the intermediate ringing/
+    // answered callbacks the live-status UI depends on — only `completed` fires.
+    // (TwiML <Dial statusCallbackEvent> accepts a space list; the REST API does not.)
+    for (const event of ['initiated', 'ringing', 'answered', 'completed']) {
+      form.append('StatusCallbackEvent', event)
+    }
   }
   if (params.record) {
-    body.Record = 'true'
-    body.RecordingChannels = 'dual'
+    form.set('Record', 'true')
+    form.set('RecordingChannels', 'dual')
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Calls.json`
@@ -190,7 +198,7 @@ export async function createOutboundCall(
       Authorization: twilioBasicAuthHeader(creds),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams(body).toString(),
+    body: form.toString(),
     cache: 'no-store',
   })
 
@@ -200,4 +208,31 @@ export async function createOutboundCall(
   }
   const data = (await res.json()) as { sid: string }
   return { sid: data.sid }
+}
+
+/**
+ * Ends an in-flight call via the Twilio REST API (POST Calls/{sid} Status=completed).
+ * Used by the dialer "hang up" control for phone_forward / sip calls, where the
+ * browser is not part of the call and can't disconnect locally.
+ */
+export async function endCall(
+  creds: TwilioVoiceCredentials,
+  callSid: string,
+): Promise<void> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Calls/${encodeURIComponent(callSid)}.json`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: twilioBasicAuthHeader(creds),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ Status: 'completed' }).toString(),
+    cache: 'no-store',
+  })
+
+  // 404 = call already gone (completed/failed) — treat as success (idempotent).
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => `status ${res.status}`)
+    throw new Error(`Twilio end-call error ${res.status}: ${text}`)
+  }
 }

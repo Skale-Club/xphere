@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Building2, Plus, Search, UserRound } from 'lucide-react'
+import { Building2, ExternalLink, Plus, Search, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -48,6 +48,21 @@ import type {
 } from '@/types/database'
 import { cn } from '@/lib/utils'
 
+/** Prefix a bare domain with https:// so it forms a valid external href. */
+function toHref(website: string): string {
+  const trimmed = website.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+/** Strip scheme and trailing slash for a compact display label. */
+function cleanDomain(website: string): string {
+  return website
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .replace(/\/$/, '')
+}
+
 interface ProspectsTableProps {
   rows: ProspectRow[]
   total: number
@@ -66,6 +81,30 @@ const ENGAGEMENT_OPTIONS: CrmEngagementStatus[] = [
 const INTENT_OPTIONS: CrmIntentLevel[] = ['none', 'low', 'medium', 'high']
 const QUALIFICATION_OPTIONS: CrmQualificationStatus[] = ['unqualified', 'needs_review', 'qualified']
 const ALL = '__all__'
+
+function scoreStyle(score: number | null | undefined): React.CSSProperties {
+  const s = score ?? 0
+  // 0–33 cold (blue), 34–66 neutral (amber), 67–100 hot (red)
+  if (s <= 33) {
+    const intensity = s / 33
+    return {
+      backgroundColor: `rgba(59,130,246,${0.12 + intensity * 0.12})`,
+      color: `rgb(${Math.round(96 + intensity * 30)},${Math.round(165 - intensity * 30)},250)`,
+    }
+  }
+  if (s <= 66) {
+    const intensity = (s - 34) / 32
+    return {
+      backgroundColor: `rgba(245,158,11,${0.12 + intensity * 0.08})`,
+      color: `rgb(251,${Math.round(191 - intensity * 20)},36)`,
+    }
+  }
+  const intensity = (s - 67) / 33
+  return {
+    backgroundColor: `rgba(239,68,68,${0.13 + intensity * 0.12})`,
+    color: `rgb(${Math.round(248 + intensity * 5)},${Math.round(113 - intensity * 40)},${Math.round(113 - intensity * 60)})`,
+  }
+}
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
@@ -340,24 +379,51 @@ export function ProspectsTable({
                     className="h-3.5 w-3.5 accent-[var(--accent)]"
                     aria-label={`Select ${row.name ?? 'prospect'}`}
                   />
-                  <button type="button" onClick={() => setDetail(row)} className="flex min-w-0 items-center gap-2.5 text-left">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent-muted text-accent">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setDetail(row)}
+                      aria-label={`Open ${row.name ?? 'prospect'}`}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-accent-muted text-accent"
+                    >
                       {row.kind === 'company' ? <Building2 className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
-                    </span>
+                    </button>
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium text-text-primary">
+                      <button
+                        type="button"
+                        onClick={() => setDetail(row)}
+                        className="block max-w-full truncate text-left text-[13px] font-medium text-text-primary hover:text-accent"
+                      >
                         {row.name || <span className="italic text-text-tertiary">Unnamed prospect</span>}
-                      </div>
-                      <div className="truncate text-[11.5px] text-text-tertiary">
-                        {row.company || row.email || row.phone || (row.kind === 'company' ? 'Company' : 'Person')}
-                      </div>
+                      </button>
+                      {row.website ? (
+                        <a
+                          href={toHref(row.website)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Open ${cleanDomain(row.website)} in a new tab`}
+                          className="flex max-w-full items-center gap-1 text-[11.5px] text-text-tertiary hover:text-accent hover:underline"
+                        >
+                          <span className="truncate">{cleanDomain(row.website)}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+                        </a>
+                      ) : (
+                        <div className="truncate text-[11.5px] text-text-tertiary">
+                          {row.company || row.email || row.phone || (row.kind === 'company' ? 'Company' : 'Person')}
+                        </div>
+                      )}
                     </div>
-                  </button>
+                  </div>
                   <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
                     {row.sourceType || row.source}
                   </div>
-                  <div className="hidden text-right text-[12.5px] font-medium tabular-nums text-text-secondary sm:block">
-                    {row.score}
+                  <div className="hidden text-right sm:block">
+                    <span
+                      className="inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold tabular-nums"
+                      style={scoreStyle(row.score)}
+                    >
+                      {row.score}
+                    </span>
                   </div>
                   <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
                     {statusLabel(row.engagementStatus)}

@@ -80,27 +80,56 @@ export async function POST(request: Request): Promise<Response> {
     let orgId: string | null = null
     let phoneNumberId: string | null = null
     let authToken = ''
+    // Contact to bridge to on a server-initiated phone_forward/sip call. Resolved
+    // from the call_logs row by CallSid (NOT from the TwiML URL query string —
+    // see below), so it doubles as the "is this a server bridge?" signal.
+    let serverBridgeContact: string | null = null
 
     if (isOutbound) {
-      // The `Caller` for SDK-initiated calls comes through as the verified Twilio
-      // identity. Strip the `client:` prefix to recover the identity used at token
-      // generation time, then look up the call_settings row for that identity to
-      // resolve the org.
       const caller = params.get('Caller') ?? ''
-      const identity = caller.startsWith('client:') ? caller.slice('client:'.length) : caller
-      const supabase = createServiceRoleClient()
-      const { data: settings } = identity
-        ? await supabase
-            .from('call_settings')
-            .select('org_id')
-            .eq('twilio_client_identity', identity)
-            .limit(1)
-            .maybeSingle()
-        : { data: null }
-      if (settings) orgId = settings.org_id
-      if (orgId) {
-        const creds = await resolveTwilioCredentialsForOrg(orgId)
-        authToken = creds?.authToken ?? ''
+      if (caller.startsWith('client:')) {
+        // Browser Voice SDK call. The `Caller` comes through as the verified
+        // Twilio client identity. Strip the `client:` prefix to recover the
+        // identity used at token generation time, then look up the call_settings
+        // row for that identity to resolve the org.
+        const identity = caller.slice('client:'.length)
+        const supabase = createServiceRoleClient()
+        const { data: settings } = identity
+          ? await supabase
+              .from('call_settings')
+              .select('org_id')
+              .eq('twilio_client_identity', identity)
+              .limit(1)
+              .maybeSingle()
+          : { data: null }
+        if (settings) orgId = settings.org_id
+        if (orgId) {
+          const creds = await resolveTwilioCredentialsForOrg(orgId)
+          authToken = creds?.authToken ?? ''
+        }
+      } else {
+        // Server-initiated phone_forward / sip bridge (from /api/twilio/outbound).
+        // We deliberately DON'T pass the contact in the TwiML URL query string:
+        // Twilio signs the full request URL, and proxies (Coolify) can re-encode
+        // the `+` in `?dialTo=%2B...`, breaking signature validation and silently
+        // dropping the bridge (call connects with no audio). Instead we look up
+        // the call_logs row we inserted when placing the call, keyed by this
+        // operator-leg CallSid — giving a clean, reliably-signable URL.
+        const supabase = createServiceRoleClient()
+        const { data: row } = callSid
+          ? await supabase
+              .from('call_logs')
+              .select('org_id, to_number, phone_number_id')
+              .eq('call_sid', callSid)
+              .maybeSingle()
+          : { data: null }
+        if (row) {
+          orgId = row.org_id
+          phoneNumberId = row.phone_number_id ?? null
+          serverBridgeContact = row.to_number
+          const creds = await resolveTwilioCredentialsForOrg(orgId)
+          authToken = creds?.authToken ?? ''
+        }
       }
     } else {
       const resolved = await resolveTwilioOrgByToNumber(to)
@@ -126,31 +155,38 @@ export async function POST(request: Request): Promise<Response> {
       return new Response('Forbidden', { status: 403 })
     }
 
-    // ── Outbound SDK bridge ─────────────────────────────────────────────────
+    // ── Outbound bridge ─────────────────────────────────────────────────────
     if (isOutbound) {
-      // Browser dialed → bridge to the real PSTN number stored in `To`.
+      // Server-initiated phone_forward bridge resolves the contact from the
+      // call_logs row (serverBridgeContact, set above). Browser SDK calls have
+      // no such row and bridge to the PSTN number stored in `To`.
+      const isServerBridge = serverBridgeContact !== null
+      const bridgeTarget = serverBridgeContact ?? to
+
       const routing = await resolveRoutingForOrg(orgId)
       const recordCalls = routing?.recordCalls ?? true
-      const callerId = routing
-        ? // Use the configured org Twilio number as the caller ID
-          (await resolveTwilioCredentialsForOrg(orgId))?.fromNumber
-        : undefined
+      // For server bridges keep the org number the operator dialed from (`From`)
+      // as caller ID; browser SDK calls fall back to the org's default number.
+      const callerId =
+        (isServerBridge ? params.get('From') : null) ??
+        (await resolveTwilioCredentialsForOrg(orgId))?.fromNumber ??
+        undefined
 
       after(async () => {
         await logIncomingCall({
           orgId: orgId!,
           callSid,
           direction: 'outbound',
-          routingMode: routing?.routingMode ?? null,
+          routingMode: isServerBridge ? 'phone_forward' : (routing?.routingMode ?? null),
           from: callerId ?? from,
-          to,
+          to: bridgeTarget,
           status: 'ringing',
           phoneNumberId,
         })
       })
 
       return twimlResponse(
-        twimlOutboundDial(to, { baseUrl, recordCalls, callerId }),
+        twimlOutboundDial(bridgeTarget, { baseUrl, recordCalls, callerId }),
       )
     }
 

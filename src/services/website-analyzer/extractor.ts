@@ -190,6 +190,17 @@ export function calculateLeadScore(data: {
   return Math.min(score, 100)
 }
 
+/** Navigate resiliently. `networkidle` hangs on sites with persistent trackers,
+ *  chat widgets, or analytics polling — which is most small-business sites — and
+ *  causes spurious 45s timeouts. Instead: load the DOM (reliable), then make a
+ *  best-effort, capped wait for the network to settle so dynamic content renders
+ *  before the screenshot. Never throws on the settle/paint waits. */
+async function resilientGoto(page: import('playwright').Page, url: string): Promise<void> {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS })
+  await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {})
+  await page.waitForTimeout(1_500) // let above-the-fold imagery paint
+}
+
 /** Run full Playwright analysis on a URL. */
 export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
   const url = normaliseUrl(rawUrl)
@@ -226,7 +237,7 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
     const desktopPage = await desktopCtx.newPage()
     desktopPage.setDefaultTimeout(PAGE_TIMEOUT_MS)
 
-    await desktopPage.goto(url, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT_MS })
+    await resilientGoto(desktopPage, url)
     const resolvedUrl = desktopPage.url()
     const loadMs = Date.now() - startMs
     const pageTitle = await desktopPage.title()
@@ -265,7 +276,7 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
     })
     const mobilePage = await mobileCtx.newPage()
     mobilePage.setDefaultTimeout(PAGE_TIMEOUT_MS)
-    await mobilePage.goto(url, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT_MS })
+    await resilientGoto(mobilePage, url)
     const mobileScreenshot = await mobilePage.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
     await mobileCtx.close()
 

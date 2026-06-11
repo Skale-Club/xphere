@@ -32,7 +32,7 @@ function recordingAttrs(record: boolean, baseUrl: string): string {
 }
 
 function dialAttrs(record: boolean, baseUrl: string, callerId?: string): string {
-  const parts: string[] = [`timeout="20"`]
+  const parts: string[] = [`timeout="30"`]
   if (callerId) parts.push(`callerId="${xmlEscape(callerId)}"`)
   parts.push(`action="${xmlEscape(`${baseUrl.replace(/\/$/, '')}${CALL_STATUS_PATH}`)}"`)
   parts.push(recordingAttrs(record, baseUrl).trim())

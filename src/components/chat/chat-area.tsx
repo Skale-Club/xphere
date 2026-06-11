@@ -322,9 +322,26 @@ export function ChatArea({
     resolveContactStartChannels(contactId)
       .then((res) => {
         if (cancelled || !('options' in res)) return
-        const opts = res.options
-          .filter((o) => o.available)
-          .map((o) => ({ channel: o.channel, label: channelLabel(o.channel), conversationId }))
+        // Surface every channel the org has CONNECTED — not just the ones the
+        // contact can receive on right now. Channels the contact can't reach
+        // (no phone/email on file, or DND) are listed but disabled with a hint,
+        // so the operator always sees the full set of connected channels and
+        // understands why one isn't usable yet.
+        const opts: ComposerChannel[] = res.options
+          .filter((o) => o.connected)
+          .map((o) => ({
+            channel: o.channel,
+            label: channelLabel(o.channel),
+            conversationId,
+            disabled: !o.available,
+            disabledReason: !o.reachable
+              ? o.channel === 'email'
+                ? 'No email on file'
+                : 'No phone on file'
+              : o.blockedByDnd
+                ? 'DND active'
+                : undefined,
+          }))
         setStartChannels(opts)
       })
       .catch(() => {
@@ -342,12 +359,17 @@ export function ChatArea({
   const composerChannelOptions = useMemo(() => {
     if (!conversation) return []
     const byChannel = new Map<string, ComposerChannel>()
-    const add = (channel: string, label = channelLabel(channel), conversationId?: string) => {
+    const add = (
+      channel: string,
+      label = channelLabel(channel),
+      conversationId?: string,
+      extra?: { disabled?: boolean; disabledReason?: string },
+    ) => {
       if (channel === 'zernio') return
       // 'manual' is a fallback placeholder, not a real deliverable channel —
       // never show it as a selectable option in the composer.
       if (channel === 'manual') return
-      if (!byChannel.has(channel)) byChannel.set(channel, { channel, label, conversationId })
+      if (!byChannel.has(channel)) byChannel.set(channel, { channel, label, conversationId, ...extra })
     }
 
     add(conversation.channel, channelLabel(conversation.channel), conversation.id)
@@ -364,11 +386,16 @@ export function ChatArea({
       return channel
     }
     const presentCoarse = new Set(Array.from(byChannel.keys()).map(coarse))
-    // Native reachable+connected channels target the current thread.
+    // Native channels the org has connected target the current thread. These
+    // may be disabled (contact not reachable / DND) — passed through so the
+    // switcher can list them greyed out with a hint.
     for (const ch of startChannels) {
       if (presentCoarse.has(coarse(ch.channel))) continue
       presentCoarse.add(coarse(ch.channel))
-      add(ch.channel, ch.label, ch.conversationId)
+      add(ch.channel, ch.label, ch.conversationId, {
+        disabled: ch.disabled,
+        disabledReason: ch.disabledReason,
+      })
     }
 
     return Array.from(byChannel.values())
@@ -423,7 +450,7 @@ export function ChatArea({
     ? 'all channels'
     : contactDnd.channels.map((c) => DND_CHANNEL_LABELS[c] ?? c).join(', ')
   const hasDeliverableChannel = composerChannelOptions.some((ch) =>
-    DELIVERABLE_CHANNELS.has(ch.channel),
+    !ch.disabled && DELIVERABLE_CHANNELS.has(ch.channel),
   )
   const noAvailableOutboundChannel =
     contactChannelsLoaded && !hasDeliverableChannel

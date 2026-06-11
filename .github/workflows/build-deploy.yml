@@ -2,7 +2,17 @@ name: Build and Deploy
 
 # CI→GHCR→Coolify pipeline. Builds Docker image off-VPS (GitHub runners
 # have 16GB RAM; the 8GB CX32 OOM-thrashes on next build), pushes to GHCR,
-# then triggers Coolify to `docker pull` + run the prebuilt image.
+# then triggers Coolify to pull + roll out the prebuilt image.
+#
+# ZERO-DOWNTIME: the Coolify app is a "Docker Image" resource (rolling update),
+# so a deploy starts the new container, waits for /api/health to pass, then
+# swaps traffic and removes the old one — no outage. (The old Docker Compose
+# build pack had no rolling update and dropped the site on every deploy; the
+# app was migrated to Docker Image on 2026-06-10.)
+#
+# Healthcheck note: the Coolify health check MUST target 127.0.0.1 (not
+# `localhost`, which resolves to IPv6 ::1 — the Next.js server only binds IPv4,
+# so localhost gave "connection refused" and failed every rollout).
 #
 # ── Change these two lines when copying to another repo ──────────────────────
 #   IMAGE_NAME   ghcr.io/skale-club/<app-name>
@@ -27,7 +37,7 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/skale-club/xphere
-  APP_UUID: c70jg4t9o88x985dctsl57qy
+  APP_UUID: fwjo7xriuqibl01v96vah7fz
   COOLIFY_BASE: https://coolify.skale.club
 
 jobs:
@@ -66,7 +76,10 @@ jobs:
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_SENTRY_DSN=${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
 
-      - name: Trigger Coolify deploy (pull prebuilt image)
+      # Auto-deploy on every push — safe now that the app is a Docker Image
+      # resource with rolling update (zero-downtime). Coolify pulls :latest,
+      # starts the new container, waits for /api/health, then swaps traffic.
+      - name: Trigger Coolify deploy (rolling, zero-downtime)
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
@@ -75,9 +88,9 @@ jobs:
             echo "Image is built and pushed to GHCR. Set COOLIFY_TOKEN secret to auto-deploy."
             exit 0
           fi
-          echo "Triggering Coolify pull for app ${APP_UUID}…"
+          echo "Triggering Coolify rolling deploy for app ${APP_UUID}…"
           curl --fail-with-body -sS --retry 3 --retry-all-errors \
             "${COOLIFY_BASE}/api/v1/deploy?uuid=${APP_UUID}" \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}"
           echo
-          echo "Deploy queued. Coolify will pull ghcr.io/…:latest and restart."
+          echo "Deploy queued. Coolify pulls ghcr.io/…:latest and rolls out (no downtime)."

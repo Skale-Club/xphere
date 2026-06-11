@@ -33,23 +33,28 @@ async function uploadScreenshot(
   return urlData?.publicUrl ?? null
 }
 
-/** Fire-and-forget: call skaleclub-websites to generate a preview for the
- *  prospect account. Updates preview_url / preview_token on the analysis row
- *  if the call succeeds. */
-async function queuePreviewGeneration(opts: {
-  supabase: ReturnType<typeof createServiceRoleClient>
+/** Generate a preview site for a prospect by calling skaleclub-websites, and
+ *  persist preview_url / preview_token on the analysis row.
+ *
+ *  IMPORTANT: this is NOT called automatically during analysis. Auto-creating a
+ *  tenant for every analyzed site floods websites.skale.club with unmanageable
+ *  draft tenants for prospects that may never reply. A preview/tenant is created
+ *  ONLY on demand — when an operator decides a prospect is worth it (e.g. the
+ *  client signalled interest). Invoked from the manual `generateProspectPreview`
+ *  server action behind the "Gerar preview" button on the prospect card. */
+export async function generatePreviewForAnalysis(opts: {
   analysisId: string
   accountId: string
   orgId: string
   domain: string
-  result: AnalysisResult
+  result: Pick<AnalysisResult, 'brandColors' | 'logoUrl' | 'services' | 'painPoints'>
   accountName?: string | null
-}): Promise<void> {
-  const { supabase, analysisId, accountId, orgId, domain, result, accountName } = opts
+}): Promise<{ ok: true; previewUrl: string | null; previewToken: string | null } | { ok: false; error: string }> {
+  const { analysisId, accountId, orgId, domain, result, accountName } = opts
+  const supabase = createServiceRoleClient()
 
   if (!SKALECLUB_WEBSITES_API_KEY) {
-    console.warn('[orchestration] SKALECLUB_WEBSITES_API_KEY not set — skipping preview generation')
-    return
+    return { ok: false, error: 'SKALECLUB_WEBSITES_API_KEY not configured' }
   }
 
   const body = {
@@ -64,21 +69,23 @@ async function queuePreviewGeneration(opts: {
     org_id:        orgId,
   }
 
-  const response = await fetch(`${SKALECLUB_WEBSITES_URL}/api/v1/previews/create-from-prospect`, {
-    method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      Authorization:   `Bearer ${SKALECLUB_WEBSITES_API_KEY}`,
-    },
-    body: JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${SKALECLUB_WEBSITES_URL}/api/v1/previews/create-from-prospect`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${SKALECLUB_WEBSITES_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'preview request failed' }
+  }
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    console.error(
-      `[orchestration] preview API returned ${response.status} for account=${accountId}: ${text.slice(0, 200)}`,
-    )
-    return
+    return { ok: false, error: `preview API ${response.status}: ${text.slice(0, 150)}` }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,7 +105,8 @@ async function queuePreviewGeneration(opts: {
       .eq('id', analysisId)
   }
 
-  console.log(`[orchestration] preview queued for account_id=${accountId}`)
+  console.log(`[orchestration] preview generated (manual) for account_id=${accountId}`)
+  return { ok: true, previewUrl, previewToken }
 }
 
 /** Run the full analysis pipeline for one account. Meant to be called
@@ -199,7 +207,7 @@ export async function runAnalysis(opts: {
       .eq('id', analysisId)
 
     // ── 7. Update the account record ─────────────────────────────────────────
-    const { data: accountRow } = await supabase
+    await supabase
       .from('accounts')
       .update({
         score:                leadScore,
@@ -207,12 +215,11 @@ export async function runAnalysis(opts: {
         updated_at:           new Date().toISOString(),
       })
       .eq('id', accountId)
-      .select('name')
-      .single()
 
-    // ── 8. Add engagement event ──────────────────────────────────────────────
-    // 'website_analyzed' is added to ProspectEventType in migration 1204.
-    // Cast until types are regenerated after migration runs.
+    // ── 8. Add engagement event (analysis summary lives on the prospect card) ──
+    // The structured analysis is read from website_analyses by the prospect
+    // detail view; this event just marks the activity on the timeline. Payload
+    // carries a compact summary so the timeline entry is informative on its own.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from('prospect_engagement_events').insert({
       org_id:          orgId,
@@ -220,23 +227,25 @@ export async function runAnalysis(opts: {
       entity_id:       accountId,
       event_type:      'website_analyzed',
       source_platform: 'website_analyzer',
-      payload:         { analysis_id: analysisId, lead_score: leadScore } as Json,
+      payload:         {
+        analysis_id:         analysisId,
+        lead_score:          leadScore,
+        problems:            painPoints.length,
+        mobile_responsive:   extraction.isMobileResponsive,
+        has_logo:            extraction.logoUrl !== null,
+        has_cta:             extraction.hasClearlyCTA,
+        load_ms:             extraction.loadMs,
+      } as Json,
     })
 
     console.log(`[website-analyzer] ✓ account=${accountId} score=${leadScore} url=${result.url}`)
 
-    // ── 9. Queue preview generation (fire-and-forget, only for worthy leads) ──
-    if (leadScore >= 40) {
-      queuePreviewGeneration({
-        supabase,
-        analysisId,
-        accountId,
-        orgId,
-        domain,
-        result,
-        accountName: accountRow?.name ?? null,
-      }).catch((err) => console.error(`[orchestration] preview queue error for account=${accountId}:`, err))
-    }
+    // ── 9. NO automatic preview/tenant creation ──────────────────────────────
+    // The analysis (screenshots, score, pain points) is now the deliverable and
+    // lives on the prospect card in Xphere. A preview site in websites.skale.club
+    // is created ONLY on demand via the "Gerar preview" button (manual), so we
+    // don't flood the tenant list with sites for prospects that never reply.
+    // See generatePreviewForAnalysis() + the generateProspectPreview action.
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[website-analyzer] ✗ account=${accountId}:`, message)
