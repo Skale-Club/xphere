@@ -8,6 +8,7 @@ import { parseCsv } from '@/lib/contacts/csv'
 import { normaliseEmail, normalisePhone } from '@/lib/contacts/zod-schemas'
 import { isXmailConfigured, xmailBulkImportLeads, type XmailLead } from '@/lib/xmail/client'
 import { isXpotConfigured, xpotSendLeads, type XpotLead } from '@/lib/xpot/client'
+import { generatePreviewForAnalysis } from '@/services/website-analyzer'
 import type {
   CrmEngagementStatus,
   CrmIntentLevel,
@@ -928,12 +929,30 @@ export type ProspectEvent = {
 export type ProspectNote = { id: string; content: string; createdAt: string }
 export type ProspectTask = { id: string; title: string; status: string; dueDate: string | null }
 
+export type WebsiteAnalysis = {
+  id: string
+  status: string
+  leadScore: number | null
+  url: string | null
+  brandColors: { hex: string; role: string }[]
+  logoUrl: string | null
+  services: string[]
+  painPoints: string[]
+  screenshotDesktopUrl: string | null
+  screenshotMobileUrl: string | null
+  previewUrl: string | null
+  rawEvidence: Record<string, unknown>
+  analyzedAt: string | null
+  errorMessage: string | null
+}
+
 export type ProspectDetail = ProspectRow & {
   sourcePayload: Json
   events: ProspectEvent[]
   notes: ProspectNote[]
   tasks: ProspectTask[]
   conversationCount: number
+  websiteAnalysis: WebsiteAnalysis | null
 }
 
 export async function getProspectDetail(
@@ -965,7 +984,7 @@ export async function getProspectDetail(
   if (!base.data) return { ok: false, error: 'Prospect not found.' }
   const row = base.data as Record<string, unknown>
 
-  const [eventsResult, notesResult, tasksResult, convResult] = await Promise.all([
+  const [eventsResult, notesResult, tasksResult, convResult, analysisResult] = await Promise.all([
     supabase
       .from('prospect_engagement_events')
       .select('id, event_type, channel, source_platform, occurred_at, payload')
@@ -990,6 +1009,17 @@ export async function getProspectDetail(
     kind === 'person'
       ? supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('contact_id', id)
       : Promise.resolve({ count: 0 }),
+    // Website analysis only applies to company prospects.
+    kind === 'company'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (supabase as any)
+          .from('website_analyses')
+          .select('id, status, lead_score, url, brand_colors, logo_url, services, pain_points, screenshot_desktop_url, screenshot_mobile_url, preview_url, raw_evidence, analyzed_at, error_message, created_at')
+          .eq('account_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const detail: ProspectDetail = {
@@ -1040,9 +1070,85 @@ export async function getProspectDetail(
       dueDate: (t.due_date as string | null) ?? null,
     })),
     conversationCount: (convResult as { count: number | null }).count ?? 0,
+    websiteAnalysis: (() => {
+      const a = (analysisResult as { data: Record<string, unknown> | null }).data
+      if (!a) return null
+      return {
+        id: a.id as string,
+        status: a.status as string,
+        leadScore: (a.lead_score as number | null) ?? null,
+        url: (a.url as string | null) ?? null,
+        brandColors: (a.brand_colors as { hex: string; role: string }[] | null) ?? [],
+        logoUrl: (a.logo_url as string | null) ?? null,
+        services: (a.services as string[] | null) ?? [],
+        painPoints: (a.pain_points as string[] | null) ?? [],
+        screenshotDesktopUrl: (a.screenshot_desktop_url as string | null) ?? null,
+        screenshotMobileUrl: (a.screenshot_mobile_url as string | null) ?? null,
+        previewUrl: (a.preview_url as string | null) ?? null,
+        rawEvidence: (a.raw_evidence as Record<string, unknown> | null) ?? {},
+        analyzedAt: (a.analyzed_at as string | null) ?? null,
+        errorMessage: (a.error_message as string | null) ?? null,
+      }
+    })(),
   }
 
   return { ok: true, detail }
+}
+
+/**
+ * Manually generate a preview site for a company prospect (the "Gerar preview"
+ * button). Unlike the old auto-flow, a tenant in websites.skale.club is created
+ * ONLY here — on demand, when the operator decides the prospect is worth it
+ * (e.g. the client signalled interest). Requires a completed analysis to source
+ * brand colors / logo / services / pain points.
+ */
+export async function generateProspectPreview(
+  accountId: string,
+): Promise<{ ok: true; previewUrl: string | null } | { ok: false; error: string; forbidden?: boolean }> {
+  const guard = await requireProspectsAdmin()
+  if (!guard.ok) return guard
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'No active workspace found.' }
+
+  const { data: account } = await supabase
+    .from('accounts')
+    .select('id, name, domain, website')
+    .eq('id', accountId)
+    .eq('lifecycle_stage', 'prospect')
+    .maybeSingle()
+  if (!account) return { ok: false, error: 'Prospect not found.' }
+  const domain = (account.domain as string | null) ?? (account.website as string | null)
+  if (!domain) return { ok: false, error: 'This prospect has no domain to base a preview on.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: a } = await (supabase as any)
+    .from('website_analyses')
+    .select('id, brand_colors, logo_url, services, pain_points')
+    .eq('account_id', accountId)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!a) return { ok: false, error: 'Run a website analysis first — the preview is built from it.' }
+
+  const res = await generatePreviewForAnalysis({
+    analysisId: a.id as string,
+    accountId,
+    orgId: orgId as string,
+    domain,
+    result: {
+      brandColors: (a.brand_colors as { hex: string; role: 'background' | 'text' | 'accent' | 'unknown' }[] | null) ?? [],
+      logoUrl: (a.logo_url as string | null) ?? null,
+      services: (a.services as string[] | null) ?? [],
+      painPoints: (a.pain_points as string[] | null) ?? [],
+    },
+    accountName: (account.name as string | null) ?? null,
+  })
+  if (!res.ok) return { ok: false, error: res.error }
+  revalidatePath('/prospects')
+  return { ok: true, previewUrl: res.previewUrl }
 }
 
 export async function addProspectNote(

@@ -5,11 +5,15 @@ import {
   Activity,
   Building2,
   CheckCircle2,
+  ExternalLink,
+  Gauge,
+  Globe,
   ListTodo,
   Loader2,
   MessageSquare,
   Sparkles,
   StickyNote,
+  TriangleAlert,
   UserRound,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,11 +23,13 @@ import {
   addProspectTask,
   applyQualification,
   convertProspectToContact,
+  generateProspectPreview,
   getProspectDetail,
   suggestQualification,
   type ProspectDetail,
   type ProspectRow,
   type QualificationSuggestion,
+  type WebsiteAnalysis,
 } from '@/app/(dashboard)/prospects/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -215,6 +221,19 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
               </dl>
             </Section>
 
+            {/* Website analysis (company prospects) */}
+            {detail.websiteAnalysis && (
+              <WebsiteAnalysisSection
+                analysis={detail.websiteAnalysis}
+                accountId={detail.id}
+                onChanged={async () => {
+                  if (!prospect) return
+                  const refreshed = await getProspectDetail(prospect.kind, prospect.id)
+                  if (refreshed.ok) setDetail(refreshed.detail)
+                }}
+              />
+            )}
+
             {/* Convert action */}
             <div className="rounded-[10px] border border-border-subtle bg-bg-tertiary/30 p-3">
               <p className="mb-2 text-[12px] text-text-tertiary">
@@ -349,6 +368,176 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-[12.5px] text-text-tertiary">{children}</p>
+}
+
+function scoreColor(score: number): string {
+  if (score >= 60) return 'var(--accent)'
+  if (score >= 40) return '#d97706' // amber
+  if (score >= 20) return '#6b7280' // gray
+  return '#16a34a' // green = site already good = weak opportunity
+}
+
+function WebsiteAnalysisSection({
+  analysis,
+  accountId,
+  onChanged,
+}: {
+  analysis: WebsiteAnalysis
+  accountId: string
+  onChanged: () => Promise<void>
+}) {
+  const [busy, setBusy] = React.useState(false)
+
+  if (analysis.status === 'failed') {
+    return (
+      <Section icon={Globe} title="Análise do site">
+        <p className="text-[12.5px] text-text-tertiary">
+          Análise falhou{analysis.errorMessage ? `: ${analysis.errorMessage.split('\n')[0]}` : '.'}
+        </p>
+      </Section>
+    )
+  }
+  if (analysis.status !== 'completed') {
+    return (
+      <Section icon={Globe} title="Análise do site">
+        <p className="flex items-center gap-1.5 text-[12.5px] text-text-tertiary">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o site…
+        </p>
+      </Section>
+    )
+  }
+
+  const ev = (analysis.rawEvidence ?? {}) as {
+    isMobileResponsive?: boolean
+    hasCTA?: boolean
+    hasContactInfo?: boolean
+    loadMs?: number
+  }
+
+  // Site problems = selling points for "we already built you a better version".
+  const problems: string[] = []
+  if (ev.isMobileResponsive === false) problems.push('Não é responsivo no celular')
+  if (analysis.logoUrl === null) problems.push('Sem logo identificável')
+  if (ev.hasCTA === false) problems.push('Sem botão de ação claro (CTA)')
+  if (typeof ev.loadMs === 'number' && ev.loadMs > 4000) problems.push(`Carrega devagar (${(ev.loadMs / 1000).toFixed(1)}s)`)
+  if (ev.hasContactInfo === false) problems.push('Contato difícil de encontrar')
+
+  const score = analysis.leadScore ?? 0
+  const verdict =
+    score >= 60 ? 'Forte oportunidade' : score >= 40 ? 'Boa oportunidade' : score >= 20 ? 'Oportunidade fraca' : 'Site já está bom'
+
+  async function handlePreview() {
+    setBusy(true)
+    const res = await generateProspectPreview(accountId)
+    setBusy(false)
+    if (!res.ok) {
+      toast.error(res.error)
+      return
+    }
+    toast.success('Preview gerado em websites.skale.club')
+    await onChanged()
+  }
+
+  return (
+    <Section icon={Globe} title="Análise do site">
+      <div className="space-y-3">
+        {/* Score + verdict */}
+        <div className="flex items-center gap-2 text-[12.5px]">
+          <span
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold tabular-nums text-white"
+            style={{ backgroundColor: scoreColor(score) }}
+          >
+            <Gauge className="h-3 w-3" /> {score}
+          </span>
+          <span className="text-text-primary">{verdict}</span>
+          {analysis.url && (
+            <a
+              href={analysis.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto inline-flex items-center gap-1 text-text-tertiary hover:text-accent hover:underline"
+            >
+              ver site <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+
+        {/* Screenshots */}
+        {(analysis.screenshotDesktopUrl || analysis.screenshotMobileUrl) && (
+          <div className="flex gap-2">
+            {analysis.screenshotDesktopUrl && (
+              <a href={analysis.screenshotDesktopUrl} target="_blank" rel="noopener noreferrer" className="block flex-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={analysis.screenshotDesktopUrl}
+                  alt="Desktop"
+                  className="h-24 w-full rounded-[6px] border border-border-subtle object-cover object-top"
+                />
+                <span className="mt-1 block text-center text-[10.5px] text-text-tertiary">Desktop</span>
+              </a>
+            )}
+            {analysis.screenshotMobileUrl && (
+              <a href={analysis.screenshotMobileUrl} target="_blank" rel="noopener noreferrer" className="block w-[72px] shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={analysis.screenshotMobileUrl}
+                  alt="Mobile"
+                  className="h-24 w-full rounded-[6px] border border-border-subtle object-cover object-top"
+                />
+                <span className="mt-1 block text-center text-[10.5px] text-text-tertiary">Mobile</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Problems = selling points */}
+        {problems.length > 0 && (
+          <div className="rounded-[8px] border border-border-subtle bg-bg-tertiary/30 p-2.5">
+            <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+              <TriangleAlert className="h-3.5 w-3.5" /> Problemas (argumentos de venda)
+            </span>
+            <ul className="space-y-0.5">
+              {problems.map((p) => (
+                <li key={p} className="flex items-start gap-1.5 text-[12.5px] text-text-primary">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Detected services */}
+        {analysis.services.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {analysis.services.slice(0, 8).map((s) => (
+              <Badge key={s} variant="outline" className="text-[11px]">{s}</Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Manual preview generation */}
+        {analysis.previewUrl ? (
+          <a
+            href={analysis.previewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-[8px] border border-accent/40 bg-accent-muted/30 px-3 py-2 text-[12.5px] font-medium text-accent hover:bg-accent-muted/50"
+          >
+            <Globe className="h-4 w-4" /> Ver preview gerado <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        ) : (
+          <Button onClick={handlePreview} disabled={busy} variant="secondary" className="w-full">
+            <Globe className="h-4 w-4" />
+            {busy ? 'Gerando preview…' : 'Gerar preview do site melhorado'}
+          </Button>
+        )}
+        <p className="text-[11px] text-text-tertiary">
+          O preview só é criado quando você clica — não cadastramos o cliente automaticamente.
+        </p>
+      </div>
+    </Section>
+  )
 }
 
 function AddInline({
