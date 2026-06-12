@@ -108,7 +108,13 @@ export function SubSidebarProvider({
     })
   }, [persist])
 
-  const onNavigate = React.useCallback(() => {}, [])
+  // On mobile the expanded panel overlays the content, so collapsing it after a
+  // nav click reveals the page the user just opened. On md+ it's in-flow and
+  // stays put. Matches the `md` breakpoint used by the layout (768px).
+  const onNavigate = React.useCallback(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(max-width: 767px)').matches) collapse()
+  }, [collapse])
 
   return (
     <SubSidebarContext.Provider

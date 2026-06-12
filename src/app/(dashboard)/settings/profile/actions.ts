@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { getActiveOrg } from '@/lib/org/active-org'
+import { insertNotification } from '@/lib/notifications/insert'
 
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long').optional(),
@@ -45,6 +47,28 @@ export async function updateProfile(input: z.infer<typeof profileSchema>): Promi
   const { error } = await supabase.auth.updateUser({ data: metadata })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
+/**
+ * Fires a test push to the current user's own devices only. Reuses the real
+ * `incoming_call` path so it exercises the exact ring behavior (vibration +
+ * Answer/Decline action buttons via the "incoming-" tag prefix). Scoped to the
+ * caller's user id — never fans out to other org members.
+ */
+export async function sendTestPush(): Promise<ActionResult> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+
+  const org = await getActiveOrg()
+  if (!org) return { ok: false, error: 'No active organization' }
+
+  await insertNotification(
+    org.id,
+    'incoming_call',
+    { caller_name: 'Chamada de teste', call_id: `test-${Date.now()}` },
+    [user.id],
+  )
   return { ok: true }
 }
 

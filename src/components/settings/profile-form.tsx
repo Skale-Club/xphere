@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Bell, BellOff, Check, Loader2, Upload, Trash2 } from 'lucide-react'
+import { Bell, BellOff, Check, Loader2, Upload, Trash2, Send } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
-import { updatePassword, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
+import { sendTestPush, updatePassword, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 interface Props {
@@ -289,6 +289,7 @@ export function ProfileForm({ initial }: Props) {
 function PushNotificationsCard() {
   const { supported, permission, subscribed, loading, subscribe, unsubscribe } =
     usePushNotifications()
+  const [sendingTest, setSendingTest] = React.useState(false)
 
   async function handleToggle() {
     if (subscribed) {
@@ -303,6 +304,20 @@ function PushNotificationsCard() {
       } else {
         toast.error('Could not enable notifications')
       }
+    }
+  }
+
+  async function handleTest() {
+    setSendingTest(true)
+    try {
+      const res = await sendTestPush()
+      if (res.ok) {
+        toast.success('Test notification sent to all your devices')
+      } else {
+        toast.error(res.error ?? 'Could not send test notification')
+      }
+    } finally {
+      setSendingTest(false)
     }
   }
 
@@ -337,16 +352,34 @@ function PushNotificationsCard() {
                 {subscribed ? 'Enabled on this device' : 'Disabled'}
               </span>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant={subscribed ? 'outline' : 'default'}
-              disabled={loading}
-              onClick={handleToggle}
-            >
-              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {subscribed ? 'Turn off' : 'Turn on'}
-            </Button>
+            <div className="flex items-center gap-2">
+              {subscribed && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={sendingTest}
+                  onClick={handleTest}
+                >
+                  {sendingTest ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  Send test
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant={subscribed ? 'outline' : 'default'}
+                disabled={loading}
+                onClick={handleToggle}
+              >
+                {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {subscribed ? 'Turn off' : 'Turn on'}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

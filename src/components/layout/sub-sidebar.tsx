@@ -76,20 +76,37 @@ function SubSidebarLayoutInner({
   expandedWidth: number
   children: React.ReactNode
 }) {
-  const { mode, hydrated, expand } = useSubSidebar()
+  const { mode, hydrated, expand, collapse } = useSubSidebar()
   const isExpanded = mode === 'expanded'
 
   return (
     <div className="relative flex h-full overflow-hidden">
+      {/* Backdrop scrim: only on mobile while the panel is expanded. On small
+          screens the expanded panel overlays the content (see `aside` below)
+          instead of squeezing it, so we dim + cover the content and let a tap
+          collapse the panel. Hidden from md up where the panel is in-flow. */}
+      {isExpanded && (
+        <button
+          type="button"
+          aria-label="Collapse sidebar"
+          onClick={collapse}
+          className="absolute inset-0 z-20 bg-black/40 md:hidden"
+        />
+      )}
+
       {/* Sidebar: full panel when expanded, slim rail when collapsed. The width
           transition is only enabled after hydration so it doesn't animate the
-          initial state on page load. */}
+          initial state on page load. On mobile the expanded panel is absolutely
+          positioned so it floats over the content; from md up it returns to the
+          normal flow and pushes the content. */}
       <aside
         className={cn(
-          'relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-secondary/50',
+          'z-30 flex shrink-0 flex-col overflow-hidden border-r border-border-subtle md:relative md:z-20',
           hydrated &&
             'transition-[width] duration-[250ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]',
-          !isExpanded && 'w-10',
+          !isExpanded && 'relative w-10 bg-bg-secondary/50',
+          // Expanded: solid bg + overlay on mobile, translucent + in-flow on md+.
+          isExpanded && 'absolute inset-y-0 left-0 bg-bg-secondary md:bg-bg-secondary/50',
         )}
         style={isExpanded ? { width: expandedWidth } : undefined}
       >
