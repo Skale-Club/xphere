@@ -324,10 +324,24 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
     setCalling(true)
 
     if (routingMode === 'browser') {
+      // Surface why the device can't dial instead of a generic failure. The
+      // Voice SDK device only dials once it's 'ready'; before that the token
+      // request may have failed (Twilio not connected, missing API Key / TwiML
+      // App SID, browser calling not configured) and device.error holds the
+      // real reason from /api/twilio/token.
+      if (device.state !== 'ready' && device.state !== 'on-call') {
+        setCalling(false)
+        if (device.state === 'registering') {
+          toast.error('Browser phone is still connecting | try again in a moment.')
+        } else {
+          toast.error(device.error ?? 'Browser calling is not ready | check your call settings.')
+        }
+        return
+      }
       const call = await device.placeCall(norm)
       if (!call) {
         setCalling(false)
-        toast.error('Browser call failed | check your settings.')
+        toast.error(device.error ?? 'Browser call failed | check your settings.')
       }
       // state tracks via device.activeCall
       return
