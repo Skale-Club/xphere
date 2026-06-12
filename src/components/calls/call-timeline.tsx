@@ -104,7 +104,7 @@ function CallRow({ row }: { row: CallLogWithContact }) {
   return (
     <Link
       href={`/voice/${row.id}`}
-      className="group flex items-center gap-3 rounded-[12px] border border-border bg-bg-secondary px-3.5 py-3 transition-colors hover:border-border-strong hover:bg-bg-tertiary/40"
+      className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] border border-border bg-bg-secondary px-3.5 py-3 transition-colors hover:border-border-strong hover:bg-bg-tertiary/40"
     >
       <Avatar className="h-9 w-9">
         <AvatarFallback className="bg-bg-tertiary text-[12px] font-medium text-text-secondary">
@@ -112,7 +112,7 @@ function CallRow({ row }: { row: CallLogWithContact }) {
         </AvatarFallback>
       </Avatar>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-40">
         <div className="flex items-center gap-2">
           <span className="truncate text-[13.5px] font-medium text-text-primary">
             {displayName}
@@ -141,7 +141,7 @@ function CallRow({ row }: { row: CallLogWithContact }) {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5 ml-auto">
         {row.recording_url && (
           <span className="inline-flex items-center gap-1 rounded-full bg-accent-muted/30 px-2 py-0.5 text-[10.5px] font-medium text-accent">
             <Mic className="h-3 w-3" />
