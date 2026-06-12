@@ -84,7 +84,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .eq('is_active', true)
         .eq('capability_voice', true),
     ])
-    browserVoiceEnabled = settings?.routing_mode === 'browser' && Boolean(settings.twilio_client_identity)
+    // Mount the Voice SDK Device for users who are EITHER on legacy
+    // routing_mode='browser' OR a browser/pwa target in the org's active routing
+    // chain — both need a live Device to receive the <Client> leg. A client
+    // identity is required to mint the token, so gate on it either way.
+    let isChainVoiceTarget = false
+    if (activeOrgId) {
+      const { data: chain } = await supabase
+        .from('call_routing_chains')
+        .select('is_active, stages')
+        .eq('org_id', activeOrgId)
+        .maybeSingle()
+      if (chain?.is_active && Array.isArray(chain.stages)) {
+        isChainVoiceTarget = chain.stages.some(
+          (s) =>
+            !!s &&
+            Array.isArray(s.targets) &&
+            s.targets.some(
+              (t) => (t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id,
+            ),
+        )
+      }
+    }
+    browserVoiceEnabled =
+      Boolean(settings?.twilio_client_identity) &&
+      (settings?.routing_mode === 'browser' || isChainVoiceTarget)
     hasPhoneNumber = (numberCount ?? 0) > 0
   } catch {
     browserVoiceEnabled = false

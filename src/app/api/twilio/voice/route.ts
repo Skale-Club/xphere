@@ -24,6 +24,12 @@ import {
   buildSipUri,
 } from '@/lib/calls/resolve-routing'
 import {
+  getRoutingChainForOrg,
+  getRecordCallsForOrg,
+  renderChainStage,
+  fireIncomingCallPush,
+} from '@/lib/calls/routing-chain'
+import {
   twimlForwardToPhone,
   twimlForwardToSip,
   twimlForwardToClient,
@@ -191,6 +197,48 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // ── Inbound call routing ────────────────────────────────────────────────
+    // Routing chain (simultaneous-ring + ordered fallback) takes precedence over
+    // the legacy single-mode resolver whenever the org has an active chain. The
+    // first stage rings here; unanswered stages advance via /voice/continue.
+    const chainStages = await getRoutingChainForOrg(orgId)
+    if (chainStages) {
+      const ctx = {
+        baseUrl,
+        recordCalls: await getRecordCallsForOrg(orgId),
+        callerId: from,
+      }
+      const rendered = await renderChainStage({
+        orgId,
+        stages: chainStages,
+        startIndex: 0,
+        ctx,
+      })
+
+      after(async () => {
+        await logIncomingCall({
+          orgId: orgId!,
+          callSid,
+          direction: 'inbound',
+          routingMode: null,
+          from,
+          to,
+          status: 'ringing',
+          phoneNumberId,
+        })
+        if (rendered && rendered.pwaUserIds.length > 0) {
+          await fireIncomingCallPush(orgId!, rendered.pwaUserIds, {
+            caller_number: from,
+            call_id: callSid,
+          })
+        }
+      })
+
+      if (rendered) return twimlResponse(rendered.twiml)
+      return twimlResponse(
+        twimlReject('No agent is currently available. Please leave a message after the tone.'),
+      )
+    }
+
     const routing = await resolveRoutingForPhoneNumber(orgId, phoneNumberId)
     if (!routing) {
       console.warn('[twilio/voice] No routing configured for org/number:', orgId, phoneNumberId)

@@ -14,6 +14,7 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  PhoneForwarded,
   Plug,
   Plug2,
   Settings2,
@@ -56,6 +57,7 @@ const SECTIONS: NavSection[] = [
     heading: 'Communications',
     items: [
       { href: '/settings/phone-numbers', label: 'Phone Numbers', icon: Phone },
+      { href: '/settings/calls', label: 'Call Routing', icon: PhoneForwarded },
       { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
       { href: '/settings/widget', label: 'Chat Widget', icon: MessageSquare },
     ],

@@ -3,7 +3,14 @@ import { Serwist, CacheFirst, NetworkOnly, ExpirationPlugin } from 'serwist'
 declare const self: EventTarget & {
   __SW_MANIFEST: (string | { url: string; revision: string | null })[]
   registration: {
-    showNotification: (title: string, options?: NotificationOptions & { renotify?: boolean }) => Promise<void>
+    showNotification: (
+      title: string,
+      options?: NotificationOptions & {
+        renotify?: boolean
+        vibrate?: number[]
+        actions?: { action: string; title: string }[]
+      },
+    ) => Promise<void>
   }
   clients: {
     matchAll: (options?: { type?: string; includeUncontrolled?: boolean }) => Promise<{ url: string; focus: () => Promise<unknown> }[]>
@@ -70,6 +77,7 @@ interface SWNotification {
 }
 interface NotificationEvent extends Event {
   notification: SWNotification
+  action?: string
   waitUntil: (promise: Promise<unknown>) => void
 }
 
@@ -115,18 +123,34 @@ const serwist = new Serwist({
 
 serwist.addEventListeners()
 
-// SEED-024: Web Push event handlers
+// SEED-024: Web Push event handlers.
+// Incoming-call pushes (tag prefixed "incoming-") render as a persistent ringing
+// notification — it stays on screen (requireInteraction), buzzes, and offers
+// Answer/Decline — so a backgrounded PWA "rings" alongside the parallel PSTN leg.
 self.addEventListener('push', (event: Event) => {
   const pushEvent = event as PushEvent
   const data = pushEvent.data?.json?.() ?? {}
+  const tag = data.tag
+  const isIncomingCall = typeof tag === 'string' && tag.startsWith('incoming-')
+
   pushEvent.waitUntil(
     self.registration.showNotification(data.title ?? 'New message', {
       body: data.body ?? '',
       icon: '/api/pwa/icons/192',
       badge: '/api/pwa/icons/72',
       data: { url: data.url ?? '/inbox' },
-      tag: data.tag,
+      tag,
       renotify: true,
+      ...(isIncomingCall
+        ? {
+            requireInteraction: true,
+            vibrate: [400, 200, 400, 200, 400],
+            actions: [
+              { action: 'answer', title: 'Atender' },
+              { action: 'decline', title: 'Recusar' },
+            ],
+          }
+        : {}),
     }),
   )
 })
@@ -134,6 +158,11 @@ self.addEventListener('push', (event: Event) => {
 self.addEventListener('notificationclick', (event: Event) => {
   const notifEvent = event as NotificationEvent
   notifEvent.notification.close()
+
+  // "Decline" just dismisses the ring — the parallel PSTN/forward leg and the
+  // dial timeout still govern the real call outcome.
+  if (notifEvent.action === 'decline') return
+
   const url: string = notifEvent.notification.data?.url ?? '/inbox'
   notifEvent.waitUntil(
     self.clients

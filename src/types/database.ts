@@ -414,6 +414,23 @@ export type ContactImportDedupStrategy =
 export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
 
+// v2.x | call routing chains (simultaneous-ring + ordered fallback)
+export type CallRoutingTargetType = 'browser' | 'pwa' | 'cell' | 'sip' | 'forward'
+
+export interface CallRoutingTarget {
+  type: CallRoutingTargetType
+  /** Resolves a Voice SDK client identity / SIP username for browser|pwa|sip. */
+  user_id?: string
+  /** Explicit E.164 number for cell|forward. */
+  number?: string
+}
+
+export interface CallRoutingStage {
+  enabled: boolean
+  timeout_seconds: number
+  targets: CallRoutingTarget[]
+}
+
 // v2.1 - sales pipeline (SEED-008)
 export type OpportunityStatus = 'open' | 'won' | 'lost'
 export type OpportunityActivityType =
@@ -3454,6 +3471,38 @@ export interface Database {
             foreignKeyName: 'call_settings_org_id_fkey'
             columns: ['org_id']
             isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      call_routing_chains: {
+        Row: {
+          id: string
+          org_id: string
+          is_active: boolean
+          stages: CallRoutingStage[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          is_active?: boolean
+          stages?: CallRoutingStage[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          is_active?: boolean
+          stages?: CallRoutingStage[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'call_routing_chains_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: true
             referencedRelation: 'organizations'
             referencedColumns: ['id']
           }

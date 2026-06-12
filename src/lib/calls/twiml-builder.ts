@@ -97,6 +97,40 @@ export function twimlForwardToClient(
 }
 
 /**
+ * Multi-target stage dial (routing chains). Rings every noun in parallel inside
+ * a single <Dial> (first to answer wins, the rest stop). On no-answer the
+ * `action` callback (POST) hits the chain-continue endpoint which advances to
+ * the next stage. `timeoutSeconds` controls how long the stage rings (~5 rings).
+ */
+export function twimlDialStage(
+  nouns: { clients: string[]; numbers: string[]; sips: string[] },
+  ctx: TwimlContext,
+  opts: { timeoutSeconds: number; actionUrl: string },
+): string {
+  const inner: string[] = []
+  for (const c of nouns.clients) inner.push(`    <Client>${xmlEscape(c)}</Client>`)
+  for (const n of nouns.numbers) inner.push(`    <Number>${xmlEscape(n)}</Number>`)
+  for (const s of nouns.sips) inner.push(`    <Sip>${xmlEscape(s)}</Sip>`)
+
+  const timeout = Math.max(5, Math.min(120, Math.floor(opts.timeoutSeconds || 30)))
+  const parts: string[] = [`timeout="${timeout}"`]
+  if (ctx.callerId) parts.push(`callerId="${xmlEscape(ctx.callerId)}"`)
+  parts.push(`action="${xmlEscape(opts.actionUrl)}"`)
+  parts.push(`method="POST"`)
+  const rec = recordingAttrs(ctx.recordCalls, ctx.baseUrl).trim()
+  if (rec) parts.push(rec)
+
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<Response>`,
+    `  <Dial ${parts.filter(Boolean).join(' ')}>`,
+    ...inner,
+    `  </Dial>`,
+    `</Response>`,
+  ].join('\n')
+}
+
+/**
  * Empty acknowledgement TwiML | used when we can't find a routing target and
  * want to drop the call gracefully without 4xx-ing Twilio (which would trigger
  * retries).
