@@ -75,7 +75,14 @@ function buildSupabaseMock(opts: {
   callSettings: (MockRouting & { user_id?: string }) | null
   sipDomain?: string | null
 }) {
-  const callLogInsert = vi.fn().mockResolvedValue({ data: null, error: null })
+  // Supports both a bare insert and the `.insert(...).select('id').single()`
+  // chain that logIncomingCall uses on first insert.
+  const callLogInsert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({ data: { id: 'log-1' }, error: null }),
+    }),
+    then: (resolve: (v: { data: null; error: null }) => unknown) => resolve({ data: null, error: null }),
+  })
 
   const fromMock = vi.fn((table: string) => {
     if (table === 'integrations') {
@@ -95,6 +102,27 @@ function buildSupabaseMock(opts: {
         }),
       }
     }
+    if (table === 'twilio_phone_numbers') {
+      // Inbound org resolution (resolveTwilioOrgByToNumber) + default-number
+      // lookup (resolveTwilioCredentialsForOrg) both read this table. Return a
+      // row tied to the mocked integration's org so inbound calls resolve.
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: opts.integration
+            ? {
+                id: 'phone-1',
+                organization_id: opts.integration.organization_id,
+                e164: '+19990000000',
+                is_active: true,
+              }
+            : null,
+          error: null,
+        }),
+      }
+    }
     if (table === 'call_settings') {
       return {
         select: vi.fn().mockReturnThis(),
@@ -104,6 +132,7 @@ function buildSupabaseMock(opts: {
         maybeSingle: vi.fn().mockResolvedValue({
           data: opts.callSettings
             ? {
+                org_id: opts.integration?.organization_id ?? 'org-1',
                 user_id: opts.callSettings.user_id ?? 'user-1',
                 routing_mode: opts.callSettings.routing_mode,
                 phone_forward: opts.callSettings.phone_forward ?? null,
@@ -221,6 +250,35 @@ describe('POST /api/twilio/voice', () => {
     expect(res.status).toBe(200)
     const xml = await res.text()
     expect(xml).toContain('<Hangup/>')
+  })
+
+  it('VOICE-07: browser SDK outbound (Direction=inbound, Caller=client:) bridges to the dialed number', async () => {
+    // Twilio delivers Voice-SDK-originated calls to the TwiML App with
+    // Direction=inbound and Caller=client:<identity>. The org must resolve via
+    // the client identity (call_settings), NOT by looking up the dialed contact
+    // number in twilio_phone_numbers — otherwise every contact call is rejected
+    // with "not connected to a Xphere workspace".
+    buildSupabaseMock({
+      integration: { organization_id: 'org-1' },
+      callSettings: { routing_mode: 'browser', twilio_client_identity: 'user-abcd1234' },
+    })
+
+    const params = {
+      From: 'client:user-abcd1234',
+      Caller: 'client:user-abcd1234',
+      To: '+15088018190',
+      Direction: 'inbound',
+      CallSid: 'CA-7',
+    }
+    const sig = sign(TEST_URL, params, TEST_AUTH_TOKEN)
+    const { POST } = await import('@/app/api/twilio/voice/route')
+    const res = await POST(makePost(params, sig))
+    expect(res.status).toBe(200)
+    const xml = await res.text()
+    // Bridges out to the dialed PSTN number — NOT a rejection.
+    expect(xml).toContain('+15088018190')
+    expect(xml).not.toContain('not connected to a Xphere workspace')
+    await flushAfterCallbacks()
   })
 
   it('VOICE-06: no Twilio integration for `To` → graceful hangup', async () => {

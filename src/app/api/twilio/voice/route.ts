@@ -64,12 +64,22 @@ export async function POST(request: Request): Promise<Response> {
 
     const from = params.get('From') ?? ''
     const to = params.get('To') ?? ''
+    const caller = params.get('Caller') ?? ''
     const callSid = params.get('CallSid') ?? ''
     const direction = (params.get('Direction') ?? 'inbound').toLowerCase()
-    // For SDK-initiated outbound calls, Twilio puts the target number in `To`
-    // and `Direction` is `outbound-api` / `outbound-dial`. Treat anything that
-    // contains "outbound" as an outbound bridge.
-    const isOutbound = direction.includes('outbound')
+    // Detecting an outbound bridge:
+    //   * Server REST-initiated calls (/api/twilio/outbound) arrive with
+    //     `Direction=outbound-api` / `outbound-dial`.
+    //   * Browser Voice SDK calls (device.connect) arrive at the TwiML App with
+    //     `Direction=inbound` — the client dials "into" Twilio — so Direction
+    //     alone misses them. The reliable signal is a `client:` Caller/From,
+    //     which only a client-originated call carries.
+    // Without the `client:` check, an SDK call falls through to the inbound
+    // branch and tries to resolve the org by the *dialed contact number* (To),
+    // which isn't in twilio_phone_numbers → "not connected to a Xphere workspace".
+    const isClientOriginated =
+      caller.startsWith('client:') || from.startsWith('client:')
+    const isOutbound = direction.includes('outbound') || isClientOriginated
 
     if (!to) {
       console.warn('[twilio/voice] Missing To | rejecting')
@@ -92,13 +102,13 @@ export async function POST(request: Request): Promise<Response> {
     let serverBridgeContact: string | null = null
 
     if (isOutbound) {
-      const caller = params.get('Caller') ?? ''
-      if (caller.startsWith('client:')) {
-        // Browser Voice SDK call. The `Caller` comes through as the verified
-        // Twilio client identity. Strip the `client:` prefix to recover the
+      if (caller.startsWith('client:') || from.startsWith('client:')) {
+        // Browser Voice SDK call. The client identity arrives as the `Caller`
+        // (and `From`) prefixed with `client:`. Strip the prefix to recover the
         // identity used at token generation time, then look up the call_settings
         // row for that identity to resolve the org.
-        const identity = caller.slice('client:'.length)
+        const clientField = caller.startsWith('client:') ? caller : from
+        const identity = clientField.slice('client:'.length)
         const supabase = createServiceRoleClient()
         const { data: settings } = identity
           ? await supabase
