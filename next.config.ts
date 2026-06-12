@@ -35,7 +35,10 @@ const nextConfig: NextConfig = {
     const cspDirectives = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co`,
+      // Twilio Voice SDK browser calling opens a signaling WebSocket to
+      // chunderw-*.twilio.com and posts insights to eventgw.twilio.com. (WebRTC
+      // media itself is exempt from connect-src.) Required once CSP enforces.
+      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline'",
