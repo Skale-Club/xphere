@@ -1,0 +1,63 @@
+name: Coolify — Enable Zero-Downtime Health Check
+
+# Ops utility: enables the Coolify application-level health check so deploys are
+# zero-downtime. Without it Coolify stops the old container before the new one
+# is proven healthy, leaving Traefik with "no available server" mid-deploy.
+# With a health check, Coolify waits for the new container to pass /api/health
+# before switching traffic and removing the old one.
+#
+# Runs only on manual dispatch. Prints the current config first, then patches.
+
+on:
+  workflow_dispatch: {}
+
+env:
+  APP_UUID: c70jg4t9o88x985dctsl57qy
+  COOLIFY_BASE: https://coolify.skale.club
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable health check on the Xphere app
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COOLIFY_TOKEN}" ]; then echo "::error::COOLIFY_TOKEN not set"; exit 1; fi
+          API="${COOLIFY_BASE}/api/v1/applications/${APP_UUID}"
+
+          echo "==> BEFORE: current health-check config"
+          curl -s -H "Authorization: Bearer ${COOLIFY_TOKEN}" "$API" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps({k:v for k,v in d.items() if 'health' in k or k in ('ports_exposes','name','fqdn')}, indent=2))" \
+            || echo "(could not parse current config)"
+
+          echo "==> PATCH: enabling health check on /api/health :3000"
+          BODY='{
+            "health_check_enabled": true,
+            "health_check_path": "/api/health",
+            "health_check_port": "3000",
+            "health_check_host": "localhost",
+            "health_check_method": "GET",
+            "health_check_return_code": 200,
+            "health_check_scheme": "http",
+            "health_check_interval": 10,
+            "health_check_timeout": 5,
+            "health_check_retries": 3,
+            "health_check_start_period": 30
+          }'
+          code=$(curl -s -o /tmp/patch_out -w "%{http_code}" -X PATCH "$API" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+          echo "PATCH status: $code"
+          cat /tmp/patch_out; echo
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::PATCH failed ($code)"; exit 1
+          fi
+
+          echo "==> AFTER: health-check config"
+          curl -s -H "Authorization: Bearer ${COOLIFY_TOKEN}" "$API" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps({k:v for k,v in d.items() if 'health' in k}, indent=2))" \
+            || true
+          echo "Done. Next deploy will wait for /api/health before switching traffic."

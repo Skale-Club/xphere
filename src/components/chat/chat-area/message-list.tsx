@@ -71,16 +71,15 @@ function startOfDayMs(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 }
 
-/** "Hoje" / "Ontem" / "1 de junho" (+ ano se for outro ano). */
 function formatDayLabel(iso: string): string {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return ''
   const today = startOfDayMs(new Date())
   const that = startOfDayMs(d)
   const dayMs = 86_400_000
-  if (that === today) return 'Hoje'
-  if (that === today - dayMs) return 'Ontem'
-  return d.toLocaleDateString('pt-BR', {
+  if (that === today) return 'Today'
+  if (that === today - dayMs) return 'Yesterday'
+  return d.toLocaleDateString('en-US', {
     day: 'numeric',
     month: 'long',
     ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}),
@@ -291,8 +290,11 @@ export function MessageList({
   // After the initial fetch completes (isLoading false → messages rendered),
   // re-apply scroll-to-bottom via RAF so images that loaded after the
   // synchronous useLayoutEffect also get accounted for.
+  // NOTE: intentionally omits messages.length — this must only fire on the
+  // initial load transition, not when older messages are prepended via "load more"
+  // (the useLayoutEffect below handles scroll-restoration for that case).
   useEffect(() => {
-    if (isLoading || messages.length === 0) return
+    if (isLoading) return
     let second: number | null = null
     const id = requestAnimationFrame(() => {
       scrollToBottom('instant')
@@ -302,7 +304,8 @@ export function MessageList({
       cancelAnimationFrame(id)
       if (second !== null) cancelAnimationFrame(second)
     }
-  }, [isLoading, messages.length, scrollToBottom])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, scrollToBottom])
 
   useEffect(() => {
     return () => stopInitialBottomStick()
@@ -466,7 +469,7 @@ export function MessageList({
                   }}
                   className="text-[12px] text-text-secondary hover:text-text-primary transition-colors underline-offset-2 hover:underline"
                 >
-                  Carregar mensagens anteriores
+                  Load previous messages
                 </button>
               )}
             </div>
