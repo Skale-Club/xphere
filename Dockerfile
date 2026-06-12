@@ -46,6 +46,11 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# next build's TypeScript type-check phase exceeds Node's default ~2GB heap and
+# OOMs (exit 134). Raise the limit for the build only (the runner stage is a
+# separate FROM and doesn't inherit this). GitHub runners have 16GB; 6GB verified
+# to clear the type-check peak (4GB untested, 2GB OOMs).
+ENV NODE_OPTIONS=--max-old-space-size=6144
 RUN npm run build
 
 # ---- Runner ----
