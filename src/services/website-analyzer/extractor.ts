@@ -194,17 +194,24 @@ export function calculateLeadScore(data: {
  *  chat widgets, or analytics polling — which is most small-business sites — and
  *  causes spurious 45s timeouts. Instead: load the DOM (reliable), then make a
  *  best-effort, capped wait for the network to settle so dynamic content renders
- *  before the screenshot. Never throws on the settle/paint waits. */
-async function resilientGoto(page: import('playwright').Page, url: string): Promise<void> {
+ *  before the screenshot. Never throws on the settle/paint waits.
+ *
+ *  Returns the REAL page load time (navigation start → DOMContentLoaded). The
+ *  caller must use this, NOT wall-clock around resilientGoto — that would also
+ *  count the browser launch and the artificial settle/paint waits, inflating
+ *  loadMs to 10–16s and making every site look "slow". */
+async function resilientGoto(page: import('playwright').Page, url: string): Promise<number> {
+  const navStart = Date.now()
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS })
+  const loadMs = Date.now() - navStart
   await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {})
-  await page.waitForTimeout(1_500) // let above-the-fold imagery paint
+  await page.waitForTimeout(1_500) // let above-the-fold imagery paint (not counted in loadMs)
+  return loadMs
 }
 
 /** Run full Playwright analysis on a URL. */
 export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
   const url = normaliseUrl(rawUrl)
-  const startMs = Date.now()
 
   // Dynamic import — loaded here (not at module top-level) so that GET
   // requests to /analyze can succeed even if playwright is unavailable.
@@ -237,9 +244,8 @@ export async function analyzeWebsite(rawUrl: string): Promise<RawExtraction> {
     const desktopPage = await desktopCtx.newPage()
     desktopPage.setDefaultTimeout(PAGE_TIMEOUT_MS)
 
-    await resilientGoto(desktopPage, url)
+    const loadMs = await resilientGoto(desktopPage, url)
     const resolvedUrl = desktopPage.url()
-    const loadMs = Date.now() - startMs
     const pageTitle = await desktopPage.title()
 
     const desktopScreenshot = await desktopPage.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
