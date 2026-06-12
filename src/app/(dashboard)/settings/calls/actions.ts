@@ -22,7 +22,7 @@ const E164_REGEX = /^\+[1-9]\d{6,14}$/
 
 const TargetSchema = z
   .object({
-    type: z.enum(['browser', 'pwa', 'cell', 'sip', 'forward']),
+    type: z.enum(['browser', 'pwa', 'cell', 'sip', 'forward', 'team']),
     user_id: z.string().uuid().optional(),
     number: z.string().regex(E164_REGEX, 'Número precisa estar em E.164 (ex: +5511999999999).').optional(),
   })
@@ -131,13 +131,22 @@ export async function saveRoutingChain(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'Nenhuma organização ativa.' }
 
-  // Auto-provision Voice SDK identities for browser/pwa targets so the Device
-  // can receive their leg.
+  // Auto-provision Voice SDK identities so each target's Device can receive its
+  // leg. For a `team` target that means every org member (so "ring all users"
+  // actually rings everyone); otherwise just the named browser/pwa users.
   const voiceUserIds = chain.stages.flatMap((s) =>
     s.targets
       .filter((t) => (t.type === 'browser' || t.type === 'pwa') && t.user_id)
       .map((t) => t.user_id as string),
   )
+  const hasTeamTarget = chain.stages.some((s) => s.targets.some((t) => t.type === 'team'))
+  if (hasTeamTarget) {
+    const { data: members } = await supabase
+      .from('org_members')
+      .select('user_id')
+      .eq('organization_id', orgId as string)
+    voiceUserIds.push(...(members ?? []).map((m) => m.user_id))
+  }
   await ensureClientIdentities(orgId as string, voiceUserIds)
 
   const { error } = await supabase

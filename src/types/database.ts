@@ -415,7 +415,9 @@ export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
 
 // v2.x | call routing chains (simultaneous-ring + ordered fallback)
-export type CallRoutingTargetType = 'browser' | 'pwa' | 'cell' | 'sip' | 'forward'
+// 'team' rings every org member's softphone/PWA at once (whoever is available
+// answers); it needs neither user_id nor number.
+export type CallRoutingTargetType = 'browser' | 'pwa' | 'cell' | 'sip' | 'forward' | 'team'
 
 export interface CallRoutingTarget {
   type: CallRoutingTargetType

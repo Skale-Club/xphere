@@ -143,10 +143,38 @@ export async function resolveStageNouns(
     }
   }
 
+  // Team ring: every org member with a Voice SDK identity rings at once and
+  // also gets a PWA wake-push. Whoever is available answers first.
+  if (stage.targets.some((t) => t.type === 'team')) {
+    const { data: team } = await supabase
+      .from('call_settings')
+      .select('user_id, twilio_client_identity')
+      .eq('org_id', orgId)
+      .not('twilio_client_identity', 'is', null)
+    for (const r of team ?? []) {
+      if (r.twilio_client_identity) {
+        clients.push(r.twilio_client_identity)
+        pwaUserIds.push(r.user_id)
+      }
+    }
+  }
+
+  const numbersOut = [...new Set(numbers)]
+  const sipsOut = [...new Set(sips)]
+  // A single Twilio <Dial> accepts at most 10 nouns. Keep PSTN/SIP legs (which
+  // can't be re-rung any other way) and cap the client fan-out to fit.
+  const maxClients = Math.max(0, 10 - numbersOut.length - sipsOut.length)
+  const clientsAll = [...new Set(clients)]
+  if (clientsAll.length > maxClients) {
+    console.warn(
+      `[routing-chain] stage resolves ${clientsAll.length} clients; Twilio <Dial> caps at 10 nouns — ringing first ${maxClients}.`,
+    )
+  }
+
   return {
-    clients: [...new Set(clients)],
-    numbers: [...new Set(numbers)],
-    sips: [...new Set(sips)],
+    clients: clientsAll.slice(0, maxClients),
+    numbers: numbersOut,
+    sips: sipsOut,
     pwaUserIds: [...new Set(pwaUserIds)],
   }
 }

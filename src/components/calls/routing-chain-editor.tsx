@@ -13,6 +13,7 @@ import {
   Smartphone,
   PhoneForwarded,
   Server,
+  Users,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -46,8 +47,13 @@ interface Props {
 
 const TARGET_META: Record<
   CallRoutingTargetType,
-  { label: string; needs: 'user' | 'number'; icon: React.ComponentType<{ className?: string }> }
+  {
+    label: string
+    needs: 'user' | 'number' | 'none'
+    icon: React.ComponentType<{ className?: string }>
+  }
 > = {
+  team: { label: 'Todos os usuários', needs: 'none', icon: Users },
   browser: { label: 'Navegador (softphone)', needs: 'user', icon: Globe },
   pwa: { label: 'App no celular (PWA)', needs: 'user', icon: Smartphone },
   cell: { label: 'Celular (número)', needs: 'number', icon: PhoneCall },
@@ -55,7 +61,7 @@ const TARGET_META: Record<
   forward: { label: 'Encaminhar (número)', needs: 'number', icon: PhoneForwarded },
 }
 
-const TARGET_ORDER: CallRoutingTargetType[] = ['browser', 'pwa', 'cell', 'sip', 'forward']
+const TARGET_ORDER: CallRoutingTargetType[] = ['team', 'browser', 'pwa', 'cell', 'sip', 'forward']
 
 function newTarget(): CallRoutingTarget {
   return { type: 'browser' }
@@ -247,13 +253,17 @@ export function RoutingChainEditor({ initial, members }: Props) {
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : (
+                    ) : meta.needs === 'number' ? (
                       <Input
                         value={target.number ?? ''}
                         onChange={(e) => updateTarget(si, ti, { number: e.target.value })}
                         placeholder="+5511999999999"
                         className="flex-1"
                       />
+                    ) : (
+                      <span className="flex-1 px-2 text-[12px] text-text-tertiary">
+                        Toca o softphone/PWA de todos os usuários da empresa ao mesmo tempo.
+                      </span>
                     )}
 
                     <Button

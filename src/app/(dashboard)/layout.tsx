@@ -101,7 +101,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             !!s &&
             Array.isArray(s.targets) &&
             s.targets.some(
-              (t) => (t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id,
+              (t) =>
+                t.type === 'team' ||
+                ((t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id),
             ),
         )
       }
