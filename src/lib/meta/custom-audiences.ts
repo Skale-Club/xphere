@@ -36,8 +36,11 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 function normalizePhone(phone: string): string {
-  // Strip everything except digits and leading +
-  return phone.replace(/[^\d+]/g, '')
+  // Meta hashes phone numbers as digits only — country code + number, with no
+  // '+', spaces, or punctuation (e.g. "+1 (555) 123-4567" → "15551234567").
+  // Keeping the leading '+' yields a hash that never matches Meta's records,
+  // so strip every non-digit. Callers should pass phone_e164 for a country code.
+  return phone.replace(/\D/g, '')
 }
 
 async function graphPost<T>(
