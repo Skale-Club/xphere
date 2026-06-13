@@ -3,6 +3,9 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { runCopilotTurn, type MessagePart } from '@/lib/copilot/run-turn'
 import { rateLimit } from '@/lib/rate-limit'
+import { isBillingEnforced } from '@/lib/billing/config'
+import { getEntitlements } from '@/lib/billing/entitlements'
+import { ensureCopilotProvisioned, hasCopilotCredits } from '@/lib/billing/credits'
 
 // S11 from the Security Review: AI endpoints must be rate-limited to prevent
 // cost-DoS by a compromised or misbehaving client. Copilot is interactive but
@@ -45,6 +48,18 @@ export async function sendCopilotMessage(
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  // Copilot credit gate (only when billing enforcement is enabled). Provision the
+  // current period's allowance lazily, then refuse a new turn when the wallet is
+  // empty. The completed turn's cost is still debited afterwards regardless.
+  if (isBillingEnforced()) {
+    const ent = await getEntitlements()
+    const periodEnd = ent.status === 'trialing' ? ent.trialEndsAt : null
+    await ensureCopilotProvisioned(orgId as string, ent.copilotIncludedUsd, periodEnd)
+    if (!(await hasCopilotCredits(orgId as string))) {
+      return { ok: false, error: 'insufficient_credits' }
+    }
+  }
 
   // Verify the conversation belongs to the active org (RLS enforces, but a
   // null check gives a cleaner error than a permission failure mid-turn).

@@ -13,6 +13,7 @@ import { AdminSaveBar } from '@/components/admin/admin-save-bar'
 import { updateOrgSettings } from '@/app/(admin)/admin/_actions/get-org-detail'
 import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import type { OrgDetail } from '@/app/(admin)/admin/_actions/get-org-detail'
+import { OrgBillingCard } from '@/components/admin/org-billing-card'
 
 const FEATURE_FLAGS = [
   {
@@ -143,6 +144,8 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
         </div>
 
         <div className="lg:col-span-1 space-y-4">
+          <OrgBillingCard orgId={org.id} billing={org.billing} />
+
           <Card>
             <CardHeader className="pb-3 pt-4 px-4">
               <p className="text-sm font-semibold text-text-primary">Feature Flags</p>

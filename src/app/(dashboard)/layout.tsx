@@ -25,6 +25,11 @@ import { getActiveOrg } from '@/lib/org/active-org'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
+import { isBillingEnforced } from '@/lib/billing/config'
+import { getEntitlements } from '@/lib/billing/entitlements'
+import { shouldBlockForBilling } from '@/lib/billing/guards'
+import { PLAN_CATALOG } from '@/lib/billing/catalog'
+import { BillingPaywall } from '@/components/billing/billing-paywall'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -58,6 +63,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const rbacContext = await getRbacContext()
   const isOrgAdmin = rbacContext.role === 'owner' || rbacContext.role === 'admin'
   const isDemo = await isDemoSession()
+
+  // Billing enforcement (flag-gated; a no-op until BILLING_ENFORCEMENT_ENABLED).
+  // When on, resolve the org's entitlements to (a) gate nav by plan feature and
+  // (b) paywall the whole app once the trial/plan lapses. Platform admins bypass.
+  const entitlements = isBillingEnforced() ? await getEntitlements() : null
+  const entitledFeatures = entitlements ? [...entitlements.features] : null
+  const billingBlocked = entitlements
+    ? shouldBlockForBilling(entitlements.status, isPlatformAdmin)
+    : false
+  const paywallPlans = billingBlocked
+    ? Object.values(PLAN_CATALOG)
+        .filter((p) => p.purchasable)
+        .map((p) => ({ key: p.key, name: p.name, features: [...p.features] }))
+    : []
 
   // RBAC: which nav items this user may see. null = unrestricted (Owner /
   // platform / unconfigured org). Fail open on error — RLS still guards data.
@@ -186,6 +205,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   isOrgAdmin={isOrgAdmin}
                   isDemo={isDemo}
                   navPermissions={navPermissions}
+                  entitledFeatures={entitledFeatures}
                 />
                 <div className="flex min-w-0 flex-1 h-dvh overflow-hidden">
                   <main className="flex flex-1 min-h-0 flex-col overflow-auto">
@@ -199,7 +219,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
                       hasPhoneNumber={hasPhoneNumber}
                     />
                     <div className="flex-1 min-h-0">
-                      <PageTransition>{children}</PageTransition>
+                      <PageTransition>
+                        {billingBlocked ? (
+                          <BillingPaywall
+                            plans={paywallPlans}
+                            trialEnded={entitlements?.status === 'expired'}
+                            isAdmin={isOrgAdmin}
+                          />
+                        ) : (
+                          children
+                        )}
+                      </PageTransition>
                     </div>
                   </main>
                   {copilotEnabled && <CopilotPanel hasProvider={hasCopilotProvider} />}

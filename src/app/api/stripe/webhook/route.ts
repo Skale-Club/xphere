@@ -15,6 +15,9 @@ export const runtime = 'nodejs'
 import type Stripe from 'stripe'
 import { getStripe } from '@/lib/billing/stripe'
 import { syncSubscription } from '@/lib/billing/sync'
+import { resolveOrgIdByCustomer } from '@/lib/billing/customers'
+import { grantCopilot, resetCopilotForPeriod } from '@/lib/billing/credits'
+import { CREDIT_TOPUP_PACKAGES, planByPriceId } from '@/lib/billing/catalog'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 // Only these events change internal state. Everything else is ignored safely.
@@ -96,7 +99,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
-      // Only subscription checkouts carry a subscription to sync.
+      // Subscription checkout → sync the resulting subscription.
       if (session.mode === 'subscription' && session.subscription) {
         const subId =
           typeof session.subscription === 'string'
@@ -104,6 +107,22 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
             : session.subscription.id
         const subscription = await stripe.subscriptions.retrieve(subId)
         await syncSubscription(subscription)
+      } else if (session.mode === 'payment' && session.metadata?.kind === 'copilot_topup') {
+        // One-time Copilot credit top-up → credit the wallet. Idempotent via the
+        // billing_events guard above (this event is processed at most once).
+        const orgId = session.metadata.org_id
+        const pkg = session.metadata.package
+          ? CREDIT_TOPUP_PACKAGES[session.metadata.package]
+          : null
+        if (orgId && pkg) {
+          const ref =
+            typeof session.payment_intent === 'string' ? session.payment_intent : session.id
+          await grantCopilot(orgId, pkg.creditsUsd, 'topup', ref, `Top-up: ${pkg.name}`)
+        } else {
+          console.warn(
+            `[stripe/webhook] copilot_topup missing org/package metadata (session ${session.id})`,
+          )
+        }
       }
       break
     }
@@ -126,6 +145,11 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       if (subId) {
         const subscription = await stripe.subscriptions.retrieve(subId)
         await syncSubscription(subscription)
+        // On a successful payment, refresh the Copilot monthly allowance for the
+        // new period (top-ups are preserved). Skip on payment_failed.
+        if (event.type === 'invoice.paid') {
+          await refreshCopilotAllowance(subscription)
+        }
       }
       break
     }
@@ -146,4 +170,28 @@ function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   if (legacy) return typeof legacy === 'string' ? legacy : legacy.id
 
   return null
+}
+
+/**
+ * Refresh an org's Copilot monthly allowance at the start of a new billing period.
+ * Resolves the org from the subscription's customer (falling back to metadata) and
+ * the plan from the subscription's price; SETS the included bucket to the plan's
+ * allowance (top-ups are preserved). No-op if the org or plan can't be resolved.
+ */
+async function refreshCopilotAllowance(subscription: Stripe.Subscription): Promise<void> {
+  const customerId =
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
+  let orgId = await resolveOrgIdByCustomer(customerId)
+  if (!orgId && subscription.metadata?.org_id) orgId = subscription.metadata.org_id
+  if (!orgId) return
+
+  const item = subscription.items.data[0]
+  const plan = planByPriceId(item?.price.id ?? null)
+  if (!plan) return
+
+  const periodEnd =
+    typeof item?.current_period_end === 'number'
+      ? new Date(item.current_period_end * 1000).toISOString()
+      : null
+  await resetCopilotForPeriod(orgId, plan.copilotIncludedUsd, periodEnd)
 }

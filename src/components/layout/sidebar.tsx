@@ -62,6 +62,11 @@ interface SidebarProps {
    * platform admin, or an org with no RBAC config yet) → all items shown.
    */
   navPermissions?: string[] | null
+  /**
+   * Billing features the org's plan unlocks. `null`/undefined = unrestricted
+   * (enforcement off, or no org) → items aren't hidden by plan.
+   */
+  entitledFeatures?: string[] | null
 }
 
 /**
@@ -89,6 +94,7 @@ interface SidebarBodyProps {
   isOrgAdmin?: boolean
   isDemo?: boolean
   navPermissions?: string[] | null
+  entitledFeatures?: string[] | null
   pathname: string
   onSignOut: () => void
 }
@@ -108,6 +114,7 @@ function SidebarBody({
   isOrgAdmin,
   isDemo,
   navPermissions,
+  entitledFeatures,
   pathname,
   onSignOut,
 }: SidebarBodyProps) {
@@ -191,7 +198,10 @@ function SidebarBody({
               (!n.orgAdminOnly || isPlatformAdmin || isOrgAdmin) &&
               // navPermissions == null → unrestricted; otherwise the user must
               // hold the item's permission key (items without a key stay visible).
-              (navPermissions == null || !n.permission || navPermissions.includes(n.permission)),
+              (navPermissions == null || !n.permission || navPermissions.includes(n.permission)) &&
+              // entitledFeatures == null → unrestricted (enforcement off); otherwise
+              // the plan must include the item's feature (items without one stay visible).
+              (entitledFeatures == null || !n.feature || entitledFeatures.includes(n.feature)),
           )
           if (items.length === 0) return null
           return (
@@ -317,7 +327,7 @@ function SidebarBody({
   )
 }
 
-export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isOrgAdmin, isDemo, navPermissions }: SidebarProps) {
+export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isOrgAdmin, isDemo, navPermissions, entitledFeatures }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebarState()
@@ -380,6 +390,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
     isOrgAdmin,
     isDemo,
     navPermissions,
+    entitledFeatures,
     pathname,
     onSignOut: handleSignOut,
   }
