@@ -25,6 +25,7 @@ interface Props {
 
 export function PlatformEmailForm({ initial }: Props) {
   const [apiKey, setApiKey] = useState('')
+  const [editingKey, setEditingKey] = useState(!initial?.key_hint)
   const [fromName, setFromName] = useState(initial?.default_from_name ?? '')
   const [fromEmail, setFromEmail] = useState(initial?.default_from_email ?? '')
   const [replyTo, setReplyTo] = useState(initial?.default_reply_to ?? '')
@@ -49,6 +50,7 @@ export function PlatformEmailForm({ initial }: Props) {
       } else {
         toast.success('Platform email settings saved')
         setApiKey('')
+        setEditingKey(false)
       }
     })
   }
@@ -108,18 +110,48 @@ export function PlatformEmailForm({ initial }: Props) {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="platform-resend-api-key">API Key</Label>
-            <Input
-              id="platform-resend-api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={initial?.key_hint ? `Current: ${initial.key_hint}` : 're_…'}
-              autoComplete="off"
-            />
-            {initial?.key_hint && (
-              <p className="text-xs text-muted-foreground">
-                Leave blank to keep the existing key ({initial.key_hint}).
-              </p>
+            {!editingKey && initial?.key_hint ? (
+              <div className="flex gap-2">
+                <Input
+                  id="platform-resend-api-key"
+                  type="text"
+                  value={initial.key_hint}
+                  readOnly
+                  className="font-mono text-sm bg-muted/40 text-muted-foreground cursor-default select-none"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => { setEditingKey(true); setApiKey('') }}
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  id="platform-resend-api-key"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="re_…"
+                  autoComplete="off"
+                  className="font-mono text-sm"
+                />
+                {initial?.key_hint && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-muted-foreground"
+                    onClick={() => { setEditingKey(false); setApiKey('') }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
