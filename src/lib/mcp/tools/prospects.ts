@@ -1,15 +1,25 @@
 // MCP tools for the prospecting "back of funnel": list/score-filter prospects and
-// send them a marketing email on command (e.g. "email everyone I scraped above 50
-// points"). The user's command IS the approval — but `prospects_send_email` is
-// gated by an explicit `confirmed: true`, so the agent must preview with
-// `prospects_list` and get the human's go-ahead before anything is sent.
+// enrol them into an Xmail outreach campaign on command (e.g. "email everyone I
+// scraped above 50 points"). The user's command IS the approval — but
+// `prospects_enroll_in_campaign` is gated by `confirmed:true`, so the agent must
+// preview with `prospects_list` and get the human's go-ahead before enrolling.
 //
-// Compliance is delegated to sendTenantEmail({ kind: 'marketing' }): it honours the
-// org suppression list and appends the CAN-SPAM footer + one-click List-Unsubscribe.
+// Sending is owned by XMAIL's outreach engine (verified domains, sequences,
+// sending limits, open/click/reply tracking). Xphere only orchestrates: push the
+// prospects in as leads and enrol them in a pre-built campaign, then activate it.
+// Engagement flows back to Xphere via the /api/integrations/xmail/events webhook.
 
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { sendTenantEmail } from '@/lib/email/resend'
+import {
+  isXmailConfigured,
+  xmailBulkImportLeads,
+  xmailListCampaigns,
+  xmailListEmailAccounts,
+  xmailAddLeadsToCampaign,
+  xmailActivateCampaign,
+  type XmailLead,
+} from '@/lib/xmail/client'
 import type { McpToolDef } from '../tool-types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,14 +27,8 @@ function db(): any {
   return createServiceRoleClient()
 }
 
-// Batch sizing keeps us inside the serverless wall-clock budget and under Resend's
-// default rate limit (~10 req/s): up to BATCH sends in parallel, then a short pause.
-const SEND_BATCH = 10
-const SEND_DELAY_MS = 1_100
 const DEFAULT_MAX = 100
 const HARD_MAX = 300
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 const filterShape = {
   score_min: z.number().int().min(0).max(100).optional().describe('Only prospects with score >= this (lead score: higher = more site problems = hotter lead).'),
@@ -32,7 +36,7 @@ const filterShape = {
   source_type: z.string().max(60).optional().describe("Filter by ingestion source, e.g. 'xcraper' for Google-Maps scrapes."),
   kind: z.enum(['person', 'company', 'all']).optional().describe("'company' (scraped businesses), 'person', or 'all'. Default 'all'."),
   qualification: z.enum(['unqualified', 'needs_review', 'qualified']).optional(),
-  engagement: z.string().max(40).optional().describe("e.g. 'not_contacted' to skip anyone already emailed."),
+  engagement: z.string().max(40).optional().describe("e.g. 'not_contacted' to skip anyone already enrolled/contacted."),
 }
 
 type Filters = {
@@ -60,11 +64,26 @@ function composeName(r: { first_name?: string | null; last_name?: string | null;
   return composed || r.name?.trim() || null
 }
 
+function splitName(name: string | null): { firstName: string | null; lastName: string | null } {
+  if (!name) return { firstName: null, lastName: null }
+  const parts = name.trim().split(/\s+/)
+  return { firstName: parts[0] ?? null, lastName: parts.slice(1).join(' ') || null }
+}
+
 /** Companies have no email column; the scraped email (enriched runs only) lives in custom_fields.email. */
 function emailFromCustomFields(cf: unknown): string | null {
   if (!cf || typeof cf !== 'object') return null
   const e = (cf as Record<string, unknown>).email
   return typeof e === 'string' && e.includes('@') ? e.trim() : null
+}
+
+function toXmailLead(p: ResolvedProspect): XmailLead {
+  const customFields = { xphere_id: p.id, xphere_kind: p.kind, score: p.score, source_type: p.source_type }
+  if (p.kind === 'company') {
+    return { email: p.email as string, companyName: p.name ?? undefined, website: p.website ?? undefined, customFields }
+  }
+  const { firstName, lastName } = splitName(p.name)
+  return { email: p.email as string, firstName: firstName ?? undefined, lastName: lastName ?? undefined, website: p.website ?? undefined, customFields }
 }
 
 async function resolveProspects(
@@ -139,15 +158,29 @@ async function resolveProspects(
   return out
 }
 
-/** Is the org's outbound email (Resend) integration connected? */
-async function emailSenderReady(orgId: string): Promise<boolean> {
-  const { data } = await db()
-    .from('tenant_email_integrations')
-    .select('status')
-    .eq('org_id', orgId)
-    .eq('status', 'connected')
-    .maybeSingle()
-  return Boolean(data)
+/** Mark enrolled prospects as contacted + log a timeline event (bulk). */
+async function markEnrolled(orgId: string, recipients: ResolvedProspect[], campaignId: string): Promise<void> {
+  const nowIso = new Date().toISOString()
+  const contactIds = recipients.filter((p) => p.kind === 'person').map((p) => p.id)
+  const accountIds = recipients.filter((p) => p.kind === 'company').map((p) => p.id)
+  if (contactIds.length) {
+    await db().from('contacts').update({ engagement_status: 'contacted', last_contacted_at: nowIso, updated_at: nowIso }).in('id', contactIds)
+  }
+  if (accountIds.length) {
+    await db().from('accounts').update({ engagement_status: 'contacted', last_contacted_at: nowIso, updated_at: nowIso }).in('id', accountIds)
+  }
+  await db()
+    .from('prospect_engagement_events')
+    .insert(
+      recipients.map((p) => ({
+        org_id: orgId,
+        entity_type: p.kind === 'person' ? 'contact' : 'account',
+        entity_id: p.id,
+        event_type: 'contacted',
+        source_platform: 'xmail',
+        payload: { xmail_campaign: campaignId, action: 'enrolled' },
+      })),
+    )
 }
 
 export const prospectsTools: McpToolDef[] = [
@@ -155,7 +188,7 @@ export const prospectsTools: McpToolDef[] = [
     name: 'prospects_list',
     title: 'List / preview prospects',
     description:
-      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before sending — it reports how many match and how many have a usable email. Always run this first and show the human the count before calling prospects_send_email.",
+      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before enrolling — it reports how many match and how many have a usable email. Always run this first and show the human the count before calling prospects_enroll_in_campaign.",
     area: 'general_xphere',
     inputSchema: z
       .object({
@@ -176,7 +209,7 @@ export const prospectsTools: McpToolDef[] = [
         with_email: withEmail.length,
         emailable_note:
           withEmail.length === 0 && all.length > 0
-            ? 'None of these have an email — they were scraped "standard" (no email extraction). Re-scrape with scrapeType "enriched" to get emails before emailing.'
+            ? 'None of these have an email — they were scraped "standard" (no email extraction). Re-scrape with scrapeType "enriched" to get emails before outreach.'
             : undefined,
         prospects: pool.slice(offset, offset + limit),
         limit,
@@ -185,106 +218,99 @@ export const prospectsTools: McpToolDef[] = [
     },
   },
   {
-    name: 'prospects_send_email',
-    title: 'Send a marketing email to matching prospects',
+    name: 'xmail_outreach_status',
+    title: 'List Xmail campaigns + sending inboxes',
     description:
-      "Send a one-off marketing email to every prospect matching the filters that has an email. SAFETY: this only sends when confirmed:true — first call prospects_list, tell the human how many will be emailed and show the subject/body, and only set confirmed:true after they approve. Suppression list + CAN-SPAM footer + unsubscribe are applied automatically. Body is HTML. Caps at " + HARD_MAX + ' recipients per call.',
+      'List the Xmail outreach campaigns (id, name, status) and verified sending inboxes (email accounts) available to enrol prospects into. Use this to pick a campaign_id (and optionally an email_account_id) before calling prospects_enroll_in_campaign. If it returns no campaigns or no inboxes, the human still has to set those up in Xmail.',
+    area: 'general_xphere',
+    inputSchema: z.object({}).strict(),
+    handler: async () => {
+      if (!isXmailConfigured()) {
+        return { error: 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID not set).' }
+      }
+      const [camps, accts] = await Promise.all([xmailListCampaigns(), xmailListEmailAccounts()])
+      return {
+        campaigns: camps.ok ? camps.campaigns : [],
+        campaigns_error: camps.ok ? undefined : camps.error,
+        email_accounts: accts.ok ? accts.accounts : [],
+        email_accounts_error: accts.ok ? undefined : accts.error,
+        note:
+          (camps.ok && camps.campaigns.length === 0 ? 'No campaigns yet — create one in Xmail (with a sequence). ' : '') +
+          (accts.ok && accts.accounts.length === 0 ? 'No sending inbox yet — add a verified email account in Xmail.' : '') || undefined,
+      }
+    },
+  },
+  {
+    name: 'prospects_enroll_in_campaign',
+    title: 'Enrol matching prospects into an Xmail campaign',
+    description:
+      "Enrol every prospect matching the filters (that has an email) into an existing Xmail outreach campaign, and activate it so Xmail starts sending. SAFETY: only runs when confirmed:true — first call prospects_list to preview the count and xmail_outreach_status to pick the campaign, tell the human, and only set confirmed:true after they approve. Xmail handles the actual sending, sequences, suppression and tracking. Caps at " + HARD_MAX + ' prospects per call.',
     area: 'general_xphere',
     annotations: { destructiveHint: true, idempotentHint: false },
     inputSchema: z
       .object({
         ...filterShape,
-        subject: z.string().min(1).max(200),
-        body_html: z.string().min(1).max(50_000).describe('Email body as HTML. A compliance footer + unsubscribe link are appended automatically.'),
-        max: z.number().int().positive().max(HARD_MAX).optional().describe(`Hard cap on recipients (default ${DEFAULT_MAX}).`),
-        confirmed: z.boolean().optional().describe('Must be true to actually send. Leave false/absent for a dry run.'),
+        campaign_id: z.string().uuid().describe('The Xmail campaign id to enrol into (from xmail_outreach_status).'),
+        email_account_id: z.string().uuid().optional().describe('Sending inbox id. If omitted, the first available inbox is used.'),
+        max: z.number().int().positive().max(HARD_MAX).optional().describe(`Hard cap on prospects (default ${DEFAULT_MAX}).`),
+        confirmed: z.boolean().optional().describe('Must be true to actually enrol + activate. Leave false/absent for a dry run.'),
       })
       .strict(),
     handler: async (input, { auth }) => {
-      const { subject, body_html, max, confirmed, ...filters } = input
+      const { campaign_id, email_account_id, max, confirmed, ...filters } = input
 
-      // Dry-run guard — never sends unless explicitly confirmed by the human.
       if (!confirmed) {
         const preview = await resolveProspects(auth.orgId, filters, { requireEmail: true })
         return {
           dry_run: true,
-          would_email: Math.min(preview.length, max ?? DEFAULT_MAX),
+          would_enroll: Math.min(preview.length, max ?? DEFAULT_MAX),
           matched_with_email: preview.length,
           message:
-            'Nothing was sent (confirmed was not true). Show the human these numbers and the subject/body, then call again with confirmed:true to send.',
+            'Nothing was enrolled (confirmed was not true). Show the human the count and which campaign, then call again with confirmed:true.',
           sample: preview.slice(0, 5).map((p) => ({ name: p.name, email: p.email, score: p.score })),
         }
       }
 
-      if (!(await emailSenderReady(auth.orgId))) {
-        return {
-          error:
-            'Outbound email is not connected for this workspace. Connect a Resend key in Xphere → Settings → Email, then retry.',
-        }
+      if (!isXmailConfigured()) {
+        return { error: 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID not set).' }
       }
 
       const cap = Math.min(max ?? DEFAULT_MAX, HARD_MAX)
       const allWithEmail = await resolveProspects(auth.orgId, filters, { requireEmail: true })
       const recipients = allWithEmail.slice(0, cap)
-
       if (recipients.length === 0) {
-        return { sent: 0, skipped: 0, failed: 0, matched: 0, message: 'No matching prospects have an email to send to.' }
+        return { enrolled: 0, message: 'No matching prospects have an email to enrol.' }
       }
 
-      let sent = 0
-      let skipped = 0
-      let failed = 0
-      const errors: Array<{ email: string; error: string }> = []
-      const nowIso = new Date().toISOString()
-
-      for (let i = 0; i < recipients.length; i += SEND_BATCH) {
-        const batch = recipients.slice(i, i + SEND_BATCH)
-        await Promise.all(
-          batch.map(async (p) => {
-            const email = p.email as string
-            const res = await sendTenantEmail(auth.orgId, email, subject, body_html, undefined, { kind: 'marketing' })
-            if (res.skipped) {
-              skipped += 1
-              return
-            }
-            if (res.error) {
-              failed += 1
-              if (errors.length < 5) errors.push({ email, error: res.error })
-              return
-            }
-            sent += 1
-            // Record engagement on the source row + the prospect timeline.
-            const table = p.kind === 'person' ? 'contacts' : 'accounts'
-            await db()
-              .from(table)
-              .update({ engagement_status: 'contacted', last_contacted_at: nowIso, updated_at: nowIso })
-              .eq('id', p.id)
-            await db()
-              .from('prospect_engagement_events')
-              .insert({
-                org_id: auth.orgId,
-                entity_type: p.kind === 'person' ? 'contact' : 'account',
-                entity_id: p.id,
-                event_type: 'sent',
-                source_platform: 'email',
-                payload: { subject, message_id: res.id ?? null },
-              })
-          }),
-        )
-        if (i + SEND_BATCH < recipients.length) await sleep(SEND_DELAY_MS)
+      // Resolve a sending inbox if none was provided (Xmail requires one to activate).
+      let inboxId = email_account_id
+      if (!inboxId) {
+        const accts = await xmailListEmailAccounts()
+        if (accts.ok && accts.accounts.length > 0) inboxId = accts.accounts[0].id
       }
+
+      const imp = await xmailBulkImportLeads(recipients.map(toXmailLead))
+      if (!imp.ok) return { error: `Xmail lead import failed: ${imp.error}` }
+
+      const add = await xmailAddLeadsToCampaign(campaign_id, imp.leadIds, inboxId)
+      if (!add.ok) return { error: `Enrolment failed: ${add.error}`, imported: imp.imported }
+
+      const act = await xmailActivateCampaign(campaign_id)
+      if (act.ok) await markEnrolled(auth.orgId, recipients, campaign_id)
 
       return {
         matched: recipients.length,
-        sent,
-        skipped,
-        failed,
+        imported: imp.imported,
+        enrolled: add.added,
+        campaign_activated: act.ok,
+        activation_note: act.ok
+          ? undefined
+          : `Leads enrolled, but the campaign could not be activated: ${act.error}. Fix it in Xmail (needs a sequence + a sending inbox per lead), then activate.`,
         capped:
           allWithEmail.length > cap
             ? { total_matched: allWithEmail.length, cap, remaining: allWithEmail.length - cap }
             : undefined,
-        errors: errors.length ? errors : undefined,
-        message: `Sent ${sent} email(s)${skipped ? `, skipped ${skipped} (unsubscribed)` : ''}${failed ? `, ${failed} failed` : ''}.`,
+        message: `Enrolled ${add.added} prospect(s) into the campaign${act.ok ? ' and activated it — Xmail will start sending.' : ' (activation pending — see activation_note).'}`,
       }
     },
   },
