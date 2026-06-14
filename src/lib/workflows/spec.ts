@@ -305,6 +305,54 @@ export interface NodeSpec {
 }
 
 export const NODES: NodeSpec[] = [
+  // ─── Action | booking (Xkedule)
+  {
+    type: 'xkedule_get_services',
+    kind: 'action',
+    description: "List the Xkedule tenant's bookable services with starting prices and staff.",
+    integration_required: ['xkedule'],
+    params_schema: { type: 'object', properties: {} },
+    examples: [{}],
+  },
+  {
+    type: 'xkedule_check_availability',
+    kind: 'action',
+    description: 'Check open time slots in Xkedule for a date and service(s). Duration is derived from the services.',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'YYYY-MM-DD' },
+        serviceIds: { type: 'string', description: 'Comma-separated service ids (or a single id)' },
+        staffId: { type: 'number', description: 'Optional staff member id' },
+      },
+      required: ['date', 'serviceIds'],
+    },
+    examples: [{ date: '2026-06-20', serviceIds: '5' }],
+  },
+  {
+    type: 'xkedule_create_booking',
+    kind: 'action',
+    description: 'Create a booking in Xkedule. Xkedule computes duration, end time and price and re-validates the slot (409 if taken).',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        serviceIds: { type: 'string', description: 'Comma-separated service ids (or a single id)' },
+        bookingDate: { type: 'string', description: 'YYYY-MM-DD' },
+        startTime: { type: 'string', description: 'HH:MM' },
+        staffMemberId: { type: 'number', description: 'Optional staff member id' },
+        customerName: { type: 'string' },
+        customerPhone: { type: 'string' },
+        customerEmail: { type: 'string' },
+        customerAddress: { type: 'string' },
+      },
+      required: ['serviceIds', 'bookingDate', 'startTime', 'customerName', 'customerPhone'],
+    },
+    examples: [
+      { serviceIds: '5', bookingDate: '2026-06-20', startTime: '14:00', customerName: 'Maria', customerPhone: '+551199999999' },
+    ],
+  },
   // ─── Action | messaging
   {
     type: 'send_sms',

@@ -1,33 +1,43 @@
 // src/lib/xkedule/actions/get-services.ts
+// GET /api/v1/catalog — list bookable services (with a normalized starting
+// price) and the tenant's staff, formatted for an AI agent.
 import { xkeduleFetchJson, type XkeduleCredentials } from '../client'
 
-interface XkeduleService {
+interface CatalogService {
   id: number
   name: string
   description?: string | null
-  basePrice?: string | number | null
+  durationMinutes?: number
   pricingType?: string
-  [key: string]: unknown
+  priceFrom?: number | null
+}
+
+interface CatalogResponse {
+  services: CatalogService[]
+  staff: { id: number; name: string }[]
 }
 
 export async function getXkeduleServices(
-  params: Record<string, unknown>,
-  credentials: XkeduleCredentials
+  _params: Record<string, unknown>,
+  credentials: XkeduleCredentials,
 ): Promise<string> {
-  const services = await xkeduleFetchJson<XkeduleService[]>(
-    '/api/services',
-    'GET',
-    null,
-    credentials
-  )
+  const data = await xkeduleFetchJson<CatalogResponse>('/api/v1/catalog', 'GET', null, credentials)
 
-  if (!services || services.length === 0) {
+  if (!data.services || data.services.length === 0) {
     return 'No services available.'
   }
 
-  const summary = services
-    .map(s => `ID: ${s.id} | ${s.name}${s.basePrice ? ` | From $${s.basePrice}` : ''}`)
+  const summary = data.services
+    .map((s) => {
+      const price = s.priceFrom != null ? ` | From $${s.priceFrom}` : ''
+      const dur = s.durationMinutes ? ` | ${s.durationMinutes}min` : ''
+      return `ID: ${s.id} | ${s.name}${price}${dur}`
+    })
     .join('\n')
 
-  return `Available services:\n${summary}`
+  const staff = data.staff?.length
+    ? `\nStaff: ${data.staff.map((m) => `${m.name} (ID ${m.id})`).join(', ')}`
+    : ''
+
+  return `Available services:\n${summary}${staff}`
 }

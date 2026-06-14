@@ -4198,6 +4198,9 @@ export interface Database {
           location_data: Json
           meeting_url: string | null
           meeting_phone: string | null
+          external_source: string | null
+          external_id: string | null
+          external_updated_at: string | null
         }
         Insert: {
           id?: string
@@ -4219,6 +4222,9 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          external_source?: string | null
+          external_id?: string | null
+          external_updated_at?: string | null
         }
         Update: {
           booker_name?: string
@@ -4235,6 +4241,9 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          external_source?: string | null
+          external_id?: string | null
+          external_updated_at?: string | null
         }
         Relationships: [
           {

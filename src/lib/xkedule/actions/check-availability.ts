@@ -1,48 +1,59 @@
 // src/lib/xkedule/actions/check-availability.ts
+// GET /api/v1/availability — open slots for a date. Duration is derived by
+// Xkedule from the serviceIds, so the AI only needs date + service(s).
 import { xkeduleFetchJson, type XkeduleCredentials } from '../client'
 
 interface AvailabilityParams {
-  date?: string         // YYYY-MM-DD
+  date?: string
   serviceId?: number | string
+  serviceIds?: Array<number | string> | string
+  staffId?: number | string
   staffMemberId?: number | string
 }
 
-interface TimeSlot {
-  time: string
-  available: boolean
-  [key: string]: unknown
+interface SlotsResponse {
+  slots: { time: string; available: boolean }[]
 }
 
 export async function checkXkeduleAvailability(
   params: Record<string, unknown>,
-  credentials: XkeduleCredentials
+  credentials: XkeduleCredentials,
 ): Promise<string> {
-  const { date, serviceId, staffMemberId } = params as AvailabilityParams
-
+  const p = params as AvailabilityParams
+  const date = p.date
   if (!date) {
     return 'Please provide a date (YYYY-MM-DD) to check availability.'
   }
 
-  const body: Record<string, unknown> = { date }
-  if (serviceId) body.serviceId = Number(serviceId)
-  if (staffMemberId) body.staffMemberId = Number(staffMemberId)
+  // Accept serviceId or serviceIds (the AI may pass either form).
+  const ids = p.serviceIds
+    ? Array.isArray(p.serviceIds)
+      ? p.serviceIds
+      : String(p.serviceIds).split(',')
+    : p.serviceId != null
+      ? [p.serviceId]
+      : []
+  if (ids.length === 0) {
+    return 'Please provide a serviceId to check availability.'
+  }
 
-  const slots = await xkeduleFetchJson<TimeSlot[]>(
-    '/api/availability',
-    'POST',
-    body,
-    credentials
+  const staffId = p.staffId ?? p.staffMemberId
+  const query = new URLSearchParams({
+    date,
+    serviceIds: ids.map((x) => Number(x)).filter(Boolean).join(','),
+  })
+  if (staffId) query.set('staffId', String(Number(staffId)))
+
+  const data = await xkeduleFetchJson<SlotsResponse>(
+    `/api/v1/availability?${query.toString()}`,
+    'GET',
+    null,
+    credentials,
   )
 
-  if (!slots || slots.length === 0) {
-    return `No available slots on ${date}.`
-  }
-
-  const available = slots.filter(s => s.available)
+  const available = (data.slots ?? []).filter((s) => s.available)
   if (available.length === 0) {
-    return `No available time slots on ${date}. All slots are booked.`
+    return `No available time slots on ${date}.`
   }
-
-  const times = available.map(s => s.time).join(', ')
-  return `Available slots on ${date}: ${times}`
+  return `Available slots on ${date}: ${available.map((s) => s.time).join(', ')}`
 }
