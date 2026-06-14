@@ -132,7 +132,7 @@ export async function inviteMember(formData: FormData) {
       <p style="font-size:15px;color:#374151;margin-bottom:24px;">
         ${escapeHtml(inviterName)} has invited you to join <strong>${escapeHtml(orgName)}</strong> on Xphere as <strong>${roleLabel}</strong>.
       </p>
-      <a href="${APP_ORIGIN}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
+      <a href="${APP_ORIGIN}/api/accept-invite" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
         Accept Invitation
       </a>
       <p style="font-size:13px;color:#6b7280;margin-top:32px;">
@@ -192,7 +192,7 @@ export async function resendInvite(inviteId: string) {
       <p style="font-size:15px;color:#374151;margin-bottom:24px;">
         You have a pending invitation to join <strong>${escapeHtml(orgName)}</strong> on Xphere as <strong>${roleLabel}</strong>.
       </p>
-      <a href="${APP_ORIGIN}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
+      <a href="${APP_ORIGIN}/api/accept-invite" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
         Accept Invitation
       </a>
       <p style="font-size:13px;color:#6b7280;margin-top:32px;">
