@@ -1,16 +1,15 @@
 // src/lib/xkedule/client.ts
 // HTTP client for the Xkedule /api/v1 integration surface.
-// Tenant is resolved by host (tenantBaseUrl); the X-Xkedule-Key header
-// authenticates the Xphere platform (shared secret, F1 pilot).
+// Per-org credentials (Settings → Integrations → Xkedule): tenantBaseUrl
+// resolves the tenant by host; apiKey is the connection token sent as
+// X-Xkedule-Key and validated against the tenant's stored value. No env vars.
 
 export const DEFAULT_TIMEOUT_MS = 5000
 
 export interface XkeduleCredentials {
   tenantBaseUrl: string
+  apiKey: string
 }
-
-// Shared secret — must equal XPHERE_INTEGRATION_SECRET on the Xkedule side.
-const INTEGRATION_KEY = process.env.XKEDULE_INTEGRATION_SECRET ?? ''
 
 async function xkeduleFetch(
   path: string,
@@ -23,7 +22,7 @@ async function xkeduleFetch(
     method,
     headers: {
       'Content-Type': 'application/json',
-      'X-Xkedule-Key': INTEGRATION_KEY,
+      'X-Xkedule-Key': credentials.apiKey,
     },
     body: body !== null ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),

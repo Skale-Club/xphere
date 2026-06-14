@@ -359,12 +359,20 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     testable: false,
     fields: [
       {
-        key: 'api_key',
+        key: 'location_id',
         label: 'Tenant Base URL',
         type: 'url',
         required: true,
         placeholder: 'https://yourbusiness.xkedule.com',
-        hint: 'The public URL of the Xkedule tenant (no trailing slash). No API key needed — booking endpoints are public.',
+        hint: 'The public URL of the Xkedule tenant (no trailing slash).',
+      },
+      {
+        key: 'api_key',
+        label: 'Connection Token',
+        type: 'password',
+        required: true,
+        placeholder: 'xph_...',
+        hint: 'A Xphere API key (Settings → API Keys). Paste the SAME token into the Xkedule admin (Integrations → Xphere). It authenticates both directions of this org’s connection — no env vars.',
       },
     ],
   },
