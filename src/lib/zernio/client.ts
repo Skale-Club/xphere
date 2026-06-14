@@ -2,7 +2,7 @@
 // Zernio REST API wrapper — mirrors src/lib/manychat/client.ts.
 // All outbound calls (send DM, register webhook) go through zernioFetch.
 
-const ZERNIO_BASE_URL = 'https://zernio.com/api'
+const ZERNIO_BASE_URL = 'https://zernio.com/api/v1'
 const TIMEOUT_MS = 8000
 
 export async function zernioFetch(
