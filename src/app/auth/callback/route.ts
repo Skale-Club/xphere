@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRequestOrigin } from '@/lib/site-url'
+import { acceptPendingInvite } from '@/lib/invites/accept'
 
 export const runtime = 'nodejs'
 
@@ -68,6 +69,7 @@ export async function GET(request: Request) {
   }
 
   let resolvedOrgId: string | null = existingMembership?.organization_id ?? null
+  let resolvedOrgName: string | null = null
 
   if (resolvedOrgId) {
     console.log('[auth/callback:existing-member-found] org_id=', resolvedOrgId)
@@ -87,22 +89,19 @@ export async function GET(request: Request) {
   }
 
   // 2) Invite path: only run if the user has no existing membership.
+  //    Consumed via the service role — a member-less user is blocked by RLS
+  //    from reading the invite or inserting its own membership (see
+  //    src/lib/invites/accept.ts for the full rationale).
   if (!resolvedOrgId) {
     console.log('[auth/callback:invite-lookup] email=', normalizedEmail)
-    const { data: invite, error: inviteError } = await supabase
-      .from('org_invites')
-      .select('id, org_id, role, accepted_at')
-      .eq('email', normalizedEmail)
-      .is('accepted_at', null)
-      .limit(1)
-      .maybeSingle()
+    const result = await acceptPendingInvite(user.id, normalizedEmail)
 
-    if (inviteError) {
-      console.error('[auth/callback:invite-lookup-failed]', inviteError.message)
+    if (result.status === 'error') {
+      console.error('[auth/callback:invite-accept-failed]', result.message)
       return NextResponse.redirect(`${origin}/`)
     }
 
-    if (!invite) {
+    if (result.status === 'no-invite') {
       console.warn('[auth/callback:no-invite] email=', normalizedEmail)
       // No existing membership AND no pending invite | block access.
       // The auth.users row was created by Supabase OAuth (unavoidable) but
@@ -110,40 +109,23 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/`)
     }
 
-    console.log('[auth/callback:invite-found] invite_id=', invite.id, 'org_id=', invite.org_id)
-
-    // Accept the invite: create org_members row
-    const { error: memberError } = await supabase
-      .from('org_members')
-      .upsert(
-        {
-          user_id: user.id,
-          organization_id: invite.org_id,
-          role: invite.role,
-        },
-        { onConflict: 'user_id,organization_id', ignoreDuplicates: true },
-      )
-
-    if (memberError) {
-      console.error('[auth/callback:member-upsert-failed]', memberError.message)
-      return NextResponse.redirect(`${origin}/`)
-    }
-
-    // Mark invite as accepted
-    await supabase
-      .from('org_invites')
-      .update({ accepted_at: new Date().toISOString() })
-      .eq('id', invite.id)
-
-    resolvedOrgId = invite.org_id
+    console.log('[auth/callback:invite-accepted] org_id=', result.orgId)
+    resolvedOrgId = result.orgId
+    resolvedOrgName = result.orgName
   }
 
-  // Fetch org name for the cookie
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('id, name')
-    .eq('id', resolvedOrgId)
-    .single()
+  // Fetch org name for the cookie (already known when the invite path ran).
+  let org: { id: string; name: string } | null = resolvedOrgName
+    ? { id: resolvedOrgId, name: resolvedOrgName }
+    : null
+  if (!org) {
+    const { data } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('id', resolvedOrgId)
+      .single()
+    org = data
+  }
 
   // Build redirect response and set active org cookie
   const redirectUrl = next.startsWith('/') ? `${origin}${next}` : origin
