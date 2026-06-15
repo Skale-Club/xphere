@@ -24,26 +24,26 @@ const TargetSchema = z
   .object({
     type: z.enum(['browser', 'pwa', 'cell', 'sip', 'forward', 'team']),
     user_id: z.string().uuid().optional(),
-    number: z.string().regex(E164_REGEX, 'Número precisa estar em E.164 (ex: +5511999999999).').optional(),
+    number: z.string().regex(E164_REGEX, 'Number must be in E.164 format, e.g. +14155551234.').optional(),
   })
   .superRefine((t, ctx) => {
     if ((t.type === 'browser' || t.type === 'pwa' || t.type === 'sip') && !t.user_id) {
-      ctx.addIssue({ code: 'custom', message: 'Selecione o usuário deste destino.', path: ['user_id'] })
+      ctx.addIssue({ code: 'custom', message: 'Select the user for this destination.', path: ['user_id'] })
     }
     if ((t.type === 'cell' || t.type === 'forward') && !t.number) {
-      ctx.addIssue({ code: 'custom', message: 'Informe o número de destino.', path: ['number'] })
+      ctx.addIssue({ code: 'custom', message: 'Enter the destination number.', path: ['number'] })
     }
   })
 
 const StageSchema = z.object({
   enabled: z.boolean(),
   timeout_seconds: z.number().int().min(5).max(120),
-  targets: z.array(TargetSchema).min(1, 'Cada estágio precisa de ao menos um destino.'),
+  targets: z.array(TargetSchema).min(1, 'Each stage needs at least one destination.'),
 })
 
 const ChainSchema = z.object({
   is_active: z.boolean(),
-  stages: z.array(StageSchema).max(10, 'Máximo de 10 estágios.'),
+  stages: z.array(StageSchema).max(10, 'Maximum of 10 stages.'),
 })
 
 export type RoutingChainInput = z.input<typeof ChainSchema>
@@ -119,17 +119,17 @@ export async function saveRoutingChain(
   input: RoutingChainInput,
 ): Promise<{ error?: string }> {
   const user = await getUser()
-  if (!user) return { error: 'Não autenticado.' }
+  if (!user) return { error: 'Not authenticated.' }
 
   const parsed = ChainSchema.safeParse(input)
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? 'Configuração inválida.' }
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid routing configuration.' }
   }
   const chain = parsed.data
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { error: 'Nenhuma organização ativa.' }
+  if (!orgId) return { error: 'No active organization.' }
 
   // Auto-provision Voice SDK identities so each target's Device can receive its
   // leg. For a `team` target that means every org member (so "ring all users"
@@ -163,6 +163,7 @@ export async function saveRoutingChain(
 
   if (error) return { error: error.message }
 
+  revalidatePath('/calls/routing')
   revalidatePath('/settings/calls')
   return {}
 }

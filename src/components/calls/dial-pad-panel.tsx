@@ -451,8 +451,8 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   const browserActive = device.activeCall !== null
   const showCallCard = browserActive || call.active !== null
   const cardPhase: CallPhase = browserActive ? 'connected' : (call.active?.phase ?? 'initiating')
-  const cardLabel = browserActive ? (number || 'Chamada ativa') : (call.active?.label ?? '')
-  const cardPhaseLabel = browserActive ? 'Conectado' : (call.active?.phaseLabel ?? '')
+  const cardLabel = browserActive ? (number || 'Active call') : (call.active?.label ?? '')
+  const cardPhaseLabel = browserActive ? 'Connected' : (call.active?.phaseLabel ?? '')
   const cardElapsed = browserActive ? elapsed : call.elapsed
   const cardTerminal = !browserActive && (call.active?.isTerminal ?? false)
   // Show the timer once connected (browser) or while/after a REST call has a duration.
@@ -628,10 +628,10 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                           ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
                           : 'border-border bg-bg-secondary text-text-secondary hover:text-text-primary',
                       )}
-                      aria-label={muted ? 'Reativar som' : 'Mudo'}
+                      aria-label={muted ? 'Unmute' : 'Mute'}
                     >
                       {muted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                      {muted ? 'Reativar' : 'Mudo'}
+                      {muted ? 'Unmute' : 'Mute'}
                     </button>
                   )}
                   {cardTerminal ? (
@@ -639,20 +639,20 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                       type="button"
                       onClick={() => call.dismiss()}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-border bg-bg-secondary py-2 text-[12px] font-medium text-text-secondary transition-colors hover:text-text-primary"
-                      aria-label="Fechar"
+                      aria-label="Close"
                     >
                       <X className="h-3.5 w-3.5" />
-                      Fechar
+                      Close
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={browserActive ? handleHangUp : () => call.hangUp()}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-rose-500/30 bg-rose-500/10 py-2 text-[12px] font-medium text-rose-400 transition-colors hover:bg-rose-500/20"
-                      aria-label="Encerrar"
+                      aria-label="End call"
                     >
                       <PhoneOff className="h-3.5 w-3.5" />
-                      Encerrar
+                      End
                     </button>
                   )}
                 </div>

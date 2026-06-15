@@ -42,21 +42,21 @@ const DTMF_KEYS: Array<{ digit: string; letters?: string }> = [
 function phaseLabel(phase: CallPhase): string {
   switch (phase) {
     case 'initiating':
-      return 'Iniciando…'
+      return 'Starting...'
     case 'ringing':
-      return 'Chamando…'
+      return 'Ringing...'
     case 'connected':
-      return 'Conectado'
+      return 'Connected'
     case 'ended':
-      return 'Encerrada'
+      return 'Ended'
     case 'busy':
-      return 'Ocupado'
+      return 'Busy'
     case 'no-answer':
-      return 'Não atendeu'
+      return 'No answer'
     case 'failed':
-      return 'Falhou'
+      return 'Failed'
     case 'canceled':
-      return 'Cancelada'
+      return 'Canceled'
   }
 }
 
@@ -106,7 +106,7 @@ export interface MobileActiveCallScreenProps {
   showTimer: boolean
   /** Whether the call is terminal (ended/busy/no-answer/failed/canceled). */
   isTerminal: boolean
-  /** Whether this is a browser (WebRTC) call — enables mute control. */
+  /** Whether this is a browser (WebRTC) call. Enables mute control. */
   browserActive: boolean
   muted: boolean
   speakerOn: boolean
@@ -301,7 +301,7 @@ export function MobileActiveCallScreen({
           icon={muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
         />
 
-        {/* Hold – not implemented, always disabled */}
+        {/* Hold is not implemented, always disabled. */}
         <CallControl
           label="Hold"
           disabled
@@ -356,7 +356,7 @@ export function MobileActiveCallScreen({
           {/* DTMF input display */}
           <div className="flex items-center justify-center gap-3 px-8 py-4">
             <span className="text-[28px] font-medium tracking-widest text-white min-h-[40px]">
-              {dtmfInput || <span className="text-white/20">─</span>}
+              {dtmfInput || <span className="text-white/20">-</span>}
             </span>
             {dtmfInput && (
               <button
@@ -370,7 +370,7 @@ export function MobileActiveCallScreen({
             )}
           </div>
 
-          {/* 3×4 grid */}
+          {/* 3x4 grid */}
           <div className="grid grid-cols-3 gap-3 mx-auto w-full max-w-[300px] px-6 flex-1 content-center">
             {DTMF_KEYS.map((k) => (
               <button

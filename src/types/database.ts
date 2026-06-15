@@ -1002,6 +1002,7 @@ export interface Database {
           invited_at: string
           accepted_at: string | null
           expires_at: string | null
+          token: string
         }
         Insert: {
           id?: string
@@ -1013,6 +1014,7 @@ export interface Database {
           invited_at?: string
           accepted_at?: string | null
           expires_at?: string | null
+          token: string
         }
         Update: {
           id?: string
@@ -1024,6 +1026,7 @@ export interface Database {
           invited_at?: string
           accepted_at?: string | null
           expires_at?: string | null
+          token?: string
         }
         Relationships: [
           {

@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 
+import { InviteResultToast } from '@/components/invites/invite-result-toast'
 import { Sidebar } from '@/components/layout/sidebar'
 import { SidebarStateProvider } from '@/components/layout/sidebar-context'
 import { TopBar } from '@/components/layout/top-bar'
@@ -236,6 +238,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 </div>
               </div>
               <OnboardingTour />
+              <Suspense fallback={null}>
+                <InviteResultToast />
+              </Suspense>
               <DialPadPanelServer />
               {copilotEnabled && <CopilotShell />}
               <PwaInstallDialog />

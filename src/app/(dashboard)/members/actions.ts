@@ -4,6 +4,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { sendPlatformEmail } from '@/lib/email/resend'
+import { generateInviteToken } from '@/lib/invites/accept'
 
 const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://xphere.app'
 
@@ -101,6 +102,7 @@ export async function inviteMember(formData: FormData) {
   if (!parsed.success) return { error: 'Invalid email or role' }
 
   const normalizedEmail = parsed.data.email.toLowerCase().trim()
+  const token = generateInviteToken()
 
   const supabase = await createClient()
   const { error: dbError } = await supabase.from('org_invites').insert({
@@ -108,6 +110,7 @@ export async function inviteMember(formData: FormData) {
     email: normalizedEmail,
     role: parsed.data.role,
     invited_by: user.id,
+    token,
   })
 
   if (dbError) {
@@ -132,7 +135,7 @@ export async function inviteMember(formData: FormData) {
       <p style="font-size:15px;color:#374151;margin-bottom:24px;">
         ${escapeHtml(inviterName)} has invited you to join <strong>${escapeHtml(orgName)}</strong> on Xphere as <strong>${roleLabel}</strong>.
       </p>
-      <a href="${APP_ORIGIN}/api/accept-invite" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
+      <a href="${APP_ORIGIN}/api/accept-invite?token=${token}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
         Accept Invitation
       </a>
       <p style="font-size:13px;color:#6b7280;margin-top:32px;">
@@ -169,7 +172,7 @@ export async function resendInvite(inviteId: string) {
   const supabase = await createClient()
   const { data: invite, error: dbError } = await supabase
     .from('org_invites')
-    .select('id, email, role')
+    .select('id, email, role, token')
     .eq('id', inviteId)
     .eq('org_id', orgId)
     .is('accepted_at', null)
@@ -192,7 +195,7 @@ export async function resendInvite(inviteId: string) {
       <p style="font-size:15px;color:#374151;margin-bottom:24px;">
         You have a pending invitation to join <strong>${escapeHtml(orgName)}</strong> on Xphere as <strong>${roleLabel}</strong>.
       </p>
-      <a href="${APP_ORIGIN}/api/accept-invite" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
+      <a href="${APP_ORIGIN}/api/accept-invite?token=${invite.token}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">
         Accept Invitation
       </a>
       <p style="font-size:13px;color:#6b7280;margin-top:32px;">

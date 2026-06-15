@@ -54,21 +54,21 @@ export function GoogleContactsOAuthPanel({ definition, existing }: CustomPanelPr
       <div className="flex-1 overflow-y-auto space-y-4 py-2 text-[13px] text-text-secondary">
         <p>
           {existing
-            ? 'Gerencie escopos, reconecte ou revogue esta conexão na página dedicada.'
-            : 'Clique em Conectar para autorizar via OAuth. Você será redirecionado para o Google e voltará automaticamente.'}
+            ? 'Manage scopes, reconnect, or revoke this connection on the dedicated page.'
+            : 'Click Connect to authorize via OAuth. You will be redirected to Google and returned automatically.'}
         </p>
 
         {existing ? (
           <Button asChild className="w-full justify-between">
             <Link href="/integrations/google-contacts">
-              Abrir configurações
+              Open settings
               <ExternalLink className="ml-2 h-3.5 w-3.5" />
             </Link>
           </Button>
         ) : (
           <form action={connectGoogleContacts}>
             <Button type="submit" className="w-full justify-between">
-              Conectar
+              Connect
               <ArrowRight className="ml-2 h-3.5 w-3.5" />
             </Button>
           </form>
@@ -79,9 +79,9 @@ export function GoogleContactsOAuthPanel({ definition, existing }: CustomPanelPr
         <div className="border-t border-border-subtle pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-text-primary">Ativo</p>
+              <p className="text-[13px] font-medium text-text-primary">Active</p>
               <p className="text-[11px] text-text-tertiary">
-                {isActive ? 'Em uso por workflows e agentes.' : 'Conectado mas desativado.'}
+                {isActive ? 'Used by workflows and agents.' : 'Connected but disabled.'}
               </p>
             </div>
             <div className="flex items-center gap-2">

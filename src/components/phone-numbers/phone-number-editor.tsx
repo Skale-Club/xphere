@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Settings > Phone Numbers > [id] editor (phone-numbers project Phase 5).
+ * Calls > Phone Numbers > [id] editor (phone-numbers project Phase 5).
  *
  * The single full-edit surface for a number: identity (inbox_label,
  * business_purpose), capabilities (voice/sms/mms) + default routing mode,
@@ -164,7 +164,7 @@ export function PhoneNumberEditor({ number, members, onClose }: Props) {
         router.refresh()
         onClose()
       } else {
-        router.push('/settings/phone-numbers')
+        router.push('/calls/phone-numbers')
       }
     } finally {
       setActionLoading(null)

@@ -8,7 +8,7 @@
  *   - config (JSONB):                twiml_app_sid, sip_domain
  *
  * Phone numbers themselves live in `twilio_phone_numbers` and are managed via
- * `numbers-actions.ts` / Settings > Phone Numbers.
+ * `numbers-actions.ts` / Calls > Phone Numbers.
  *
  * The encryption format is the standard AES-256-GCM from `@/lib/crypto`.
  * NEVER return decrypted credentials from the server actions in this file |
@@ -255,6 +255,7 @@ export async function saveTwilioIntegration(
 
   revalidatePath('/integrations')
   revalidatePath('/integrations/twilio')
+  revalidatePath('/calls/phone-numbers')
   revalidatePath('/settings/phone-numbers')
   return {}
 }
@@ -306,6 +307,7 @@ export async function clearTwilioFields(
   if (error) return { error: error.message }
 
   revalidatePath('/integrations/twilio')
+  revalidatePath('/calls/phone-numbers')
   revalidatePath('/settings/phone-numbers')
   return {}
 }
@@ -381,7 +383,7 @@ export async function testSendSms(
   if (!fromNumber) {
     return {
       success: false,
-      error: 'No phone number configured. Add one in Settings > Phone Numbers.',
+      error: 'No phone number configured. Add one in Calls > Phone Numbers.',
     }
   }
 

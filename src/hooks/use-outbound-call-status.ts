@@ -4,17 +4,17 @@
  * useOutboundCallStatus | live status for server-initiated (phone_forward / sip)
  * outbound calls.
  *
- * These calls are placed via /api/twilio/outbound — Twilio rings the operator's
+ * These calls are placed via /api/twilio/outbound. Twilio rings the operator's
  * physical phone and bridges to the contact, so the browser is NOT part of the
  * call and has no Twilio Voice SDK `Call` object to read. The only source of
  * truth is the call_logs row, updated by the /api/twilio/status webhook. We
  * subscribe to it via Supabase Realtime (postgres_changes), the same mechanism
  * the chat inbox uses, and surface a UI-friendly lifecycle:
  *
- *   Iniciando… → Tocando… → Conectado → Encerrada / Ocupado / Não atendeu / …
+ *   Starting... -> Ringing... -> Connected -> Ended / Busy / No answer / ...
  *
  * The hook is self-contained (no provider) so it works regardless of routing
- * mode. Browser-mode calls don't use this — they read device.activeCall directly.
+ * mode. Browser-mode calls use device.activeCall directly.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -65,14 +65,14 @@ function toPhase(raw: string | null | undefined): CallPhase {
 }
 
 const PHASE_LABELS: Record<CallPhase, string> = {
-  initiating: 'Iniciando…',
-  ringing: 'Tocando…',
-  connected: 'Conectado',
-  ended: 'Encerrada',
-  busy: 'Ocupado',
-  'no-answer': 'Não atendeu',
-  failed: 'Falhou',
-  canceled: 'Cancelada',
+  initiating: 'Starting...',
+  ringing: 'Ringing...',
+  connected: 'Connected',
+  ended: 'Ended',
+  busy: 'Busy',
+  'no-answer': 'No answer',
+  failed: 'Failed',
+  canceled: 'Canceled',
 }
 
 export interface ActiveOutboundCall {
@@ -80,7 +80,7 @@ export interface ActiveOutboundCall {
   /** Display number / contact name for the call header. */
   label: string
   phase: CallPhase
-  /** Human-readable phase label (PT). */
+  /** Human-readable phase label. */
   phaseLabel: string
   isTerminal: boolean
   /** Final duration from the webhook, once known. */

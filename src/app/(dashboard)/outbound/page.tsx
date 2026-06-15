@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function OutboundPage() {
-  redirect('/calls/campaigns')
+  redirect('/campaigns?channel=calls')
 }

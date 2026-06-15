@@ -75,9 +75,12 @@ describe('Zernio REST client contracts', () => {
     )
   })
 
-  it('creates a webhook through POST /webhooks subscribed to every SUBSCRIBED_EVENT', async () => {
+  it('creates a webhook through POST /webhooks/settings subscribed to every SUBSCRIBED_EVENT', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 201 }),
+      new Response(
+        JSON.stringify({ webhook: { _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] } }),
+        { status: 201 },
+      ),
     )
 
     const result = await registerZernioWebhook('ze_key', 'https://xphere.app/api/zernio/webhook?t=tok', 'secret')
@@ -85,7 +88,7 @@ describe('Zernio REST client contracts', () => {
     expect(result.webhookId).toBe('wh-1')
     expect(result.missingEvents).toEqual([])
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://zernio.com/api/v1/webhooks',
+      'https://zernio.com/api/v1/webhooks/settings',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -99,21 +102,24 @@ describe('Zernio REST client contracts', () => {
     )
   })
 
-  it('updates an existing webhook via PATCH /webhooks/{id} with the id in the URL', async () => {
+  it('updates existing settings via PUT /webhooks/settings (singleton, no id in URL)', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 200 }),
+      new Response(
+        JSON.stringify({ webhook: { _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] } }),
+        { status: 200 },
+      ),
     )
 
     await registerZernioWebhook('ze_key', 'https://xphere.app/api/zernio/webhook?t=tok', 'secret', 'wh-1')
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://zernio.com/api/v1/webhooks/wh-1',
+      'https://zernio.com/api/v1/webhooks/settings',
       expect.objectContaining({
-        method: 'PATCH',
+        method: 'PUT',
         body: expect.stringContaining(`"events":${JSON.stringify([...SUBSCRIBED_EVENTS])}`),
       }),
     )
-    // id travels in the URL path, never in the body
+    // id travels in the body envelope from Zernio, never in our request URL
     const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     expect(sentBody).not.toHaveProperty('_id')
   })
@@ -122,7 +128,7 @@ describe('Zernio REST client contracts', () => {
     // Webhook echoes back only a subset of the events we asked for.
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(
-        JSON.stringify({ _id: 'wh-1', events: ['message.received', 'comment.received'] }),
+        JSON.stringify({ webhook: { _id: 'wh-1', events: ['message.received', 'comment.received'] } }),
         { status: 200 },
       ),
     )
@@ -138,14 +144,17 @@ describe('Zernio REST client contracts', () => {
     expect(result.missingEvents).toContain('whatsapp.template.status_updated')
   })
 
-  it('reads the webhook back to confirm events when the write response omits them', async () => {
+  it('reads settings back to confirm events when the write response omits them', async () => {
     const fetchMock = vi
       .spyOn(global, 'fetch')
-      // PATCH response has no events field...
-      .mockResolvedValueOnce(new Response(JSON.stringify({ _id: 'wh-1' }), { status: 200 }))
-      // ...so a follow-up GET /webhooks/{id} confirms the subscription.
+      // PUT response has no events field...
+      .mockResolvedValueOnce(new Response(JSON.stringify({ webhook: { _id: 'wh-1' } }), { status: 200 }))
+      // ...so a follow-up GET /webhooks/settings confirms the subscription.
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] }), { status: 200 }),
+        new Response(
+          JSON.stringify({ webhook: { _id: 'wh-1', events: [...SUBSCRIBED_EVENTS] } }),
+          { status: 200 },
+        ),
       )
 
     const result = await registerZernioWebhook(
@@ -157,14 +166,14 @@ describe('Zernio REST client contracts', () => {
 
     expect(result.missingEvents).toEqual([])
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://zernio.com/api/v1/webhooks/wh-1',
+      'https://zernio.com/api/v1/webhooks/settings',
       expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('fails webhook registration when Zernio does not return an id', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ events: [] }), { status: 201 }),
+      new Response(JSON.stringify({ webhook: { events: [] } }), { status: 201 }),
     )
 
     await expect(

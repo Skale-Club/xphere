@@ -7,7 +7,7 @@ export default async function PhoneRedirect({
 }) {
   const params = await searchParams
   const tab = params.tab as string | undefined
-  if (tab === 'campaigns') redirect('/calls/campaigns')
+  if (tab === 'campaigns') redirect('/campaigns?channel=calls')
   if (tab === 'assistants') redirect('/calls/assistants')
   redirect('/calls')
 }

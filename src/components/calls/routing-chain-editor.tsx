@@ -53,12 +53,12 @@ const TARGET_META: Record<
     icon: React.ComponentType<{ className?: string }>
   }
 > = {
-  team: { label: 'Todos os usuários', needs: 'none', icon: Users },
-  browser: { label: 'Navegador (softphone)', needs: 'user', icon: Globe },
-  pwa: { label: 'App no celular (PWA)', needs: 'user', icon: Smartphone },
-  cell: { label: 'Celular (número)', needs: 'number', icon: PhoneCall },
+  team: { label: 'All users', needs: 'none', icon: Users },
+  browser: { label: 'Browser softphone', needs: 'user', icon: Globe },
+  pwa: { label: 'Mobile app (PWA)', needs: 'user', icon: Smartphone },
+  cell: { label: 'Cell phone number', needs: 'number', icon: PhoneCall },
   sip: { label: 'SIP', needs: 'user', icon: Server },
-  forward: { label: 'Encaminhar (número)', needs: 'number', icon: PhoneForwarded },
+  forward: { label: 'Forward to number', needs: 'number', icon: PhoneForwarded },
 }
 
 const TARGET_ORDER: CallRoutingTargetType[] = ['team', 'browser', 'pwa', 'cell', 'sip', 'forward']
@@ -117,7 +117,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
     try {
       const res = await saveRoutingChain({ is_active: isActive, stages })
       if (res.error) toast.error(res.error)
-      else toast.success('Roteamento de chamadas salvo')
+      else toast.success('Call routing saved')
     } finally {
       setSaving(false)
     }
@@ -128,22 +128,22 @@ export function RoutingChainEditor({ initial, members }: Props) {
       {/* Header + kill switch */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-text-primary">Roteamento de chamadas</h1>
+          <h1 className="text-lg font-semibold text-text-primary">Call routing</h1>
           <p className="mt-1 text-[13px] text-text-secondary">
-            Defina a ordem de prioridade para chamadas recebidas. Cada estágio toca todos os
-            destinos ao mesmo tempo — quem atender primeiro recebe a ligação. Se ninguém atender
-            dentro do tempo, passa para o próximo estágio.
+            Set the priority order for inbound calls. Each stage rings every destination at
+            the same time. Whoever answers first gets the call; if nobody answers within
+            the timeout, the call moves to the next stage.
           </p>
         </div>
         <label className="flex shrink-0 items-center gap-2 pt-1">
           <Switch checked={isActive} onCheckedChange={setIsActive} />
-          <span className="text-[13px] text-text-secondary">{isActive ? 'Ativo' : 'Desligado'}</span>
+          <span className="text-[13px] text-text-secondary">{isActive ? 'Active' : 'Off'}</span>
         </label>
       </div>
 
       {!isActive && (
         <div className="rounded-[10px] border border-border-subtle bg-bg-secondary px-4 py-3 text-[13px] text-text-tertiary">
-          Roteamento desligado — chamadas recebidas usam a configuração padrão de cada número.
+          Routing is off. Inbound calls use each phone number&apos;s default behavior.
         </div>
       )}
 
@@ -159,14 +159,14 @@ export function RoutingChainEditor({ initial, members }: Props) {
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15 text-[12px] font-semibold text-accent">
                   {si + 1}
                 </span>
-                <span className="text-[13px] font-medium text-text-primary">Estágio {si + 1}</span>
+                <span className="text-[13px] font-medium text-text-primary">Stage {si + 1}</span>
                 <label className="ml-2 flex items-center gap-1.5">
                   <Switch
                     checked={stage.enabled}
                     onCheckedChange={(v) => updateStage(si, { enabled: v })}
                   />
                   <span className="text-[11.5px] text-text-tertiary">
-                    {stage.enabled ? 'habilitado' : 'pausado'}
+                    {stage.enabled ? 'enabled' : 'paused'}
                   </span>
                 </label>
               </div>
@@ -177,7 +177,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                   className="h-7 w-7"
                   disabled={si === 0}
                   onClick={() => moveStage(si, -1)}
-                  aria-label="Subir"
+                  aria-label="Move stage up"
                 >
                   <ChevronUp className="h-4 w-4" />
                 </Button>
@@ -187,7 +187,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                   className="h-7 w-7"
                   disabled={si === stages.length - 1}
                   onClick={() => moveStage(si, 1)}
-                  aria-label="Descer"
+                  aria-label="Move stage down"
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -196,7 +196,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                   size="icon"
                   className="h-7 w-7 text-destructive"
                   onClick={() => removeStage(si)}
-                  aria-label="Remover estágio"
+                  aria-label="Remove stage"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -243,7 +243,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                         onValueChange={(v) => updateTarget(si, ti, { user_id: v })}
                       >
                         <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione o usuário" />
+                          <SelectValue placeholder="Select a user" />
                         </SelectTrigger>
                         <SelectContent>
                           {members.map((m) => (
@@ -262,7 +262,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                       />
                     ) : (
                       <span className="flex-1 px-2 text-[12px] text-text-tertiary">
-                        Toca o softphone/PWA de todos os usuários da empresa ao mesmo tempo.
+                        Rings every team member with a browser/PWA phone at the same time.
                       </span>
                     )}
 
@@ -272,7 +272,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                       className="h-8 w-8 shrink-0 text-text-tertiary"
                       disabled={stage.targets.length === 1}
                       onClick={() => removeTarget(si, ti)}
-                      aria-label="Remover destino"
+                      aria-label="Remove destination"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -287,13 +287,13 @@ export function RoutingChainEditor({ initial, members }: Props) {
                 onClick={() => addTarget(si)}
               >
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                Adicionar destino
+                Add destination
               </Button>
             </div>
 
             {/* Timeout */}
             <div className="flex items-center gap-3 border-t border-border-subtle pt-3">
-              <Label className="text-[12px] text-text-secondary">Toca por</Label>
+              <Label className="text-[12px] text-text-secondary">Ring for</Label>
               <Input
                 type="number"
                 min={5}
@@ -305,8 +305,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
                 className="h-8 w-20"
               />
               <span className="text-[12px] text-text-tertiary">
-                segundos (≈ {Math.max(1, Math.round(stage.timeout_seconds / 5))} toques) antes de
-                passar adiante
+                seconds before moving to the next stage
               </span>
             </div>
           </div>
@@ -315,14 +314,14 @@ export function RoutingChainEditor({ initial, members }: Props) {
 
       <Button variant="outline" onClick={() => setStages((p) => [...p, newStage()])}>
         <Plus className="mr-1.5 h-4 w-4" />
-        Adicionar estágio
+        Add stage
       </Button>
 
       {/* Save */}
       <div className="flex justify-end border-t border-border-subtle pt-4">
         <Button onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-          Salvar roteamento
+          Save routing
         </Button>
       </div>
     </div>

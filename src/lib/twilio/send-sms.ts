@@ -89,7 +89,7 @@ export async function resolveTwilioCredentials(
 
   if (!fromNumber) {
     throw new Error(
-      'No default Twilio phone number configured. Add one in Settings > Phone Numbers.',
+      'No default Twilio phone number configured. Add one in Calls > Phone Numbers.',
     )
   }
 
