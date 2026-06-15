@@ -67,17 +67,28 @@ export async function POST(request: Request): Promise<Response> {
       { auth: { persistSession: false } }
     )
 
-    // Resolve org via assistant mapping
+    // Resolve org: per-number assignment first, then global assistant_mappings fallback
     let organizationId: string | null = null
     if (call?.assistantId) {
-      const { data: mapping } = await supabase
-        .from('assistant_mappings')
+      const { data: phoneRow } = await supabase
+        .from('twilio_phone_numbers')
         .select('organization_id')
         .eq('vapi_assistant_id', call.assistantId)
         .eq('is_active', true)
         .limit(1)
-        .single()
-      organizationId = mapping?.organization_id ?? null
+        .maybeSingle()
+      organizationId = phoneRow?.organization_id ?? null
+
+      if (!organizationId) {
+        const { data: mapping } = await supabase
+          .from('assistant_mappings')
+          .select('organization_id')
+          .eq('vapi_assistant_id', call.assistantId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle()
+        organizationId = mapping?.organization_id ?? null
+      }
     }
 
     if (!organizationId) {

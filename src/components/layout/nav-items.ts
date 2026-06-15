@@ -16,6 +16,7 @@ import {
   BarChart3,
   MonitorPlay,
 } from 'lucide-react'
+import type { Feature } from '@/lib/billing/catalog'
 
 export type NavItem = {
   icon: React.ComponentType<{ className?: string }>
@@ -32,6 +33,12 @@ export type NavItem = {
    * org). Omit for always-visible utility surfaces.
    */
   permission?: string
+  /**
+   * Billing feature gating this item. When set AND billing enforcement is on, the
+   * item is hidden unless the org's effective plan includes the feature. Omit for
+   * items available on every plan (Dashboard, Traffic).
+   */
+  feature?: Feature
 }
 
 /**
@@ -43,21 +50,21 @@ export type NavItem = {
  */
 export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard',    href: '/dashboard',    group: 'overview', permission: 'dashboard.view' },
-  { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view' },
-  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view' },
-  { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view' },
+  { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view',       feature: 'chat' },
+  { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view',      feature: 'calls' },
+  { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view',  feature: 'campaigns' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
-  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true, permission: 'ads.view' },
-  { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view' },
-  { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view' },
-  { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true },
-  { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales',    permission: 'pipeline.view' },
-  { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales',    permission: 'tasks.view' },
-  { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build',    permission: 'agents.view' },
-  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view' },
-  { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view' },
-  { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view' },
-  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view' },
+  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true, permission: 'ads.view', feature: 'ads' },
+  { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view',   feature: 'crm' },
+  { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view',  feature: 'crm' },
+  { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true,            feature: 'prospects' },
+  { icon: TrendingUp,      label: 'Pipeline',     href: '/pipeline',     group: 'sales',    permission: 'pipeline.view',   feature: 'crm' },
+  { icon: CheckSquare,     label: 'Tasks',        href: '/tasks',        group: 'sales',    permission: 'tasks.view',      feature: 'crm' },
+  { icon: Bot,             label: 'Agents',       href: '/agents',       group: 'build',    permission: 'agents.view',     feature: 'agents' },
+  { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view',  feature: 'workflows' },
+  { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view',   feature: 'projects' },
+  { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view',   feature: 'calendar' },
+  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view',    feature: 'reviews' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [

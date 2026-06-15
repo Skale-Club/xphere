@@ -10,6 +10,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_org: 'No active organization found.',
   no_ad_accounts: 'No ad accounts found. Make sure your Facebook account has access to an ad account.',
   oauth_exchange: 'Failed to connect to Meta. Please try again.',
+  meta_not_configured: 'Meta is not configured on the server. Set META_APP_ID and META_APP_SECRET in the deployment environment, then redeploy.',
 }
 
 export function MetaAdsConnect() {

@@ -206,13 +206,13 @@ export function TemplateEditor({ template: initial }: TemplateEditorProps) {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">Seções <span className="text-muted-foreground">({sections.length})</span></h2>
           <Button size="sm" variant="outline" onClick={addSection} disabled={isPending} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Adicionar seção
+            <Plus className="h-3.5 w-3.5" /> Add section
           </Button>
         </div>
 
         {sections.length === 0 && (
           <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-            Nenhuma seção ainda. Clique em "Adicionar seção" para começar.
+            No sections yet. Click "Add section" to get started.
           </div>
         )}
 

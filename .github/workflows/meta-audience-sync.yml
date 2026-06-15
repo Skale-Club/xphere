@@ -1,0 +1,73 @@
+name: Meta Custom Audience Sync
+
+# Hourly per-org Meta Custom Audience sync (Project 5 — Meta Custom Audience Sync).
+# Runs scripts/meta-audience-sync.ts against every org with sync_enabled=true.
+# Fails closed: if META_SYSTEM_USER_TOKEN is not configured, the job no-ops
+# (green) instead of erroring every hour. Configure these repo secrets to enable:
+#   SUPABASE_SERVICE_ROLE_KEY, META_SYSTEM_USER_TOKEN
+# and repo variable NEXT_PUBLIC_SUPABASE_URL.
+#
+# NOTE: run this OR a Hetzner crontab — not both, or audiences sync twice.
+
+on:
+  workflow_dispatch:
+    inputs:
+      org_id:
+        description: 'Sync a single org (optional)'
+        required: false
+      dry_run:
+        description: 'Dry run — compute batches but do not write to Meta'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '15 * * * *' # hourly at :15
+
+concurrency:
+  group: meta-audience-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync audiences
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Check configuration
+        id: cfg
+        env:
+          TOKEN: ${{ secrets.META_SYSTEM_USER_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "META_SYSTEM_USER_TOKEN not set — skipping sync (no-op)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.cfg.outputs.configured == 'true'
+        run: npm ci
+
+      - name: Run meta-audience-sync
+        if: steps.cfg.outputs.configured == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          META_SYSTEM_USER_TOKEN: ${{ secrets.META_SYSTEM_USER_TOKEN }}
+          ORG_ID: ${{ inputs.org_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ -n "$ORG_ID" ]; then ARGS="$ARGS --org $ORG_ID"; fi
+          if [ "$DRY_RUN" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          npx tsx scripts/meta-audience-sync.ts $ARGS

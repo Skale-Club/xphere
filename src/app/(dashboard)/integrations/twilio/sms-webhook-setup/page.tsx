@@ -39,7 +39,7 @@ const SETUP_STEPS = [
 ]
 
 const CHECKS = [
-  'The Twilio phone number is active in Xphere under Settings > Phone numbers.',
+  'The Twilio phone number is active in Xphere under Calls > Phone Numbers.',
   'The number has SMS capability enabled in Xphere.',
   'The Twilio Account SID and Auth Token are saved in the Twilio integration.',
   'The remote Twilio SMS webhook is not pointing to an old CRM, Chatwoot, Studio Flow, or another callback URL.',
@@ -196,7 +196,7 @@ export default async function TwilioSmsWebhookSetupPage() {
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link href="/settings/phone-numbers">Open phone numbers</Link>
+              <Link href="/calls/phone-numbers">Open phone numbers</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/integrations/twilio">Open Twilio settings</Link>

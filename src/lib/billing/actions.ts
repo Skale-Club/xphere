@@ -6,6 +6,7 @@
 // here from trusted server state.
 import { getStripe } from './stripe'
 import { resolvePriceId } from './plans'
+import { topupPriceId } from './catalog'
 import { getOrCreateStripeCustomer } from './customers'
 import { getBillingContext, getBaseUrl } from './context'
 
@@ -77,5 +78,47 @@ export async function createPortalSession(): Promise<ActionResult<{ url: string 
   } catch (err) {
     console.error('[billing] createPortalSession failed:', err)
     return { ok: false, error: 'Could not open the billing portal. Please try again.' }
+  }
+}
+
+/**
+ * Create a one-time Stripe Checkout session (payment mode) to buy a Copilot credit
+ * top-up package. Credits are granted by the webhook on `checkout.session.completed`
+ * — never from the success redirect. The package key is opaque; the server maps it
+ * to a price and the credited amount.
+ */
+export async function createCreditTopUpSession(
+  packageKey: string,
+): Promise<ActionResult<{ url: string }>> {
+  const ctx = await getBillingContext()
+  if (!ctx) return { ok: false, error: 'Not authenticated.' }
+  if (!ctx.isAdmin) return { ok: false, error: 'Only org admins can manage billing.' }
+
+  const priceId = topupPriceId(packageKey)
+  if (!priceId) return { ok: false, error: 'Unknown or unconfigured credit package.' }
+
+  try {
+    const stripe = getStripe()
+    const customerId = await getOrCreateStripeCustomer(ctx.orgId)
+    const baseUrl = await getBaseUrl()
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${baseUrl}/settings/billing?topup=success`,
+      cancel_url: `${baseUrl}/settings/billing?topup=cancel`,
+      // The webhook reads these to credit the right org with the right amount.
+      metadata: { org_id: ctx.orgId, kind: 'copilot_topup', package: packageKey },
+      payment_intent_data: {
+        metadata: { org_id: ctx.orgId, kind: 'copilot_topup', package: packageKey },
+      },
+    })
+
+    if (!session.url) return { ok: false, error: 'Stripe did not return a checkout URL.' }
+    return { ok: true, data: { url: session.url } }
+  } catch (err) {
+    console.error('[billing] createCreditTopUpSession failed:', err)
+    return { ok: false, error: 'Could not start checkout. Please try again.' }
   }
 }

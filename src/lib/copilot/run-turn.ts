@@ -12,6 +12,8 @@ import { getActiveTools } from './tools'
 import { dispatchCopilotTool } from './dispatch'
 import { buildSystemPrompt } from './system-prompt'
 import type { ToolContext } from './tools/types'
+import { isBillingEnforced } from '@/lib/billing/config'
+import { debitCopilot } from '@/lib/billing/credits'
 
 const MAX_TURNS = 12
 
@@ -132,6 +134,12 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
         ended_at: new Date().toISOString(),
       })
       .eq('id', runId)
+
+    // Bill the Copilot credit wallet for the cost just incurred (enforcement only).
+    // Fails open (see debitCopilot) — credit accounting never blocks the response.
+    if (isBillingEnforced()) {
+      await debitCopilot(input.orgId, costUsd, runId)
+    }
 
     return {
       runId,

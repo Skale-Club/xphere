@@ -62,13 +62,13 @@ export function GoogleCalendarOAuthPanel({ definition, existing }: CustomPanelPr
       <div className="flex-1 overflow-y-auto space-y-4 py-2 text-[13px] text-text-secondary">
         <p>
           {existing
-            ? 'Horários ocupados são respeitados ao gerar slots, e bookings criam eventos com link do Google Meet.'
-            : 'Clique em Conectar para autorizar via OAuth. Você será redirecionado para o Google e voltará automaticamente.'}
+            ? 'Busy times are respected when generating slots, and bookings create events with a Google Meet link.'
+            : 'Click Connect to authorize via OAuth. You will be redirected to Google and returned automatically.'}
         </p>
 
         {existing && googleEmail && (
           <p className="text-[12px] text-text-tertiary">
-            Conta: <span className="font-medium text-text-secondary">{googleEmail}</span>
+            Account: <span className="font-medium text-text-secondary">{googleEmail}</span>
           </p>
         )}
 
@@ -76,13 +76,13 @@ export function GoogleCalendarOAuthPanel({ definition, existing }: CustomPanelPr
           <div className="space-y-2">
             <Button asChild variant="outline" className="w-full justify-between">
               <a href={CONNECT_HREF}>
-                Reconectar
+                Reconnect
                 <RefreshCw className="ml-2 h-3.5 w-3.5" />
               </a>
             </Button>
             <Button asChild variant="ghost" className="w-full justify-between">
               <Link href="/calendar">
-                Gerenciar no Agendamento
+                Manage in Calendar
                 <ExternalLink className="ml-2 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -90,7 +90,7 @@ export function GoogleCalendarOAuthPanel({ definition, existing }: CustomPanelPr
         ) : (
           <Button asChild className="w-full justify-between">
             <a href={CONNECT_HREF}>
-              Conectar
+              Connect
               <ArrowRight className="ml-2 h-3.5 w-3.5" />
             </a>
           </Button>
@@ -101,9 +101,9 @@ export function GoogleCalendarOAuthPanel({ definition, existing }: CustomPanelPr
         <div className="border-t border-border-subtle pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-text-primary">Ativo</p>
+              <p className="text-[13px] font-medium text-text-primary">Active</p>
               <p className="text-[11px] text-text-tertiary">
-                {isActive ? 'Em uso por agendamentos e workflows.' : 'Conectado mas desativado.'}
+                {isActive ? 'Used by scheduling and workflows.' : 'Connected but disabled.'}
               </p>
             </div>
             <div className="flex items-center gap-2">

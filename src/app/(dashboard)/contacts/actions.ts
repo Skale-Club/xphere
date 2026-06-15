@@ -19,6 +19,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritable } from '@/lib/demo/guard'
 import { requirePermission } from '@/lib/rbac/server'
+import { requireWithinLimit } from '@/lib/billing/guards'
+import { isBillingEnforced } from '@/lib/billing/config'
 import type { Database, ContactSource, ChannelProvider } from '@/types/database'
 import type { Channel } from '@/components/design-system/channel-badge'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
@@ -626,6 +628,18 @@ export async function createContact(
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { error: 'No organization found.' }
+
+  // Plan limit: refuse to create beyond the plan's contact cap. No-op unless
+  // billing enforcement is on; the count is RLS-scoped to the active org. Applied
+  // to manual creation here; inbound webhook/import paths intentionally don't
+  // hard-block (they must not drop messages) — see plan Phase 3 notes.
+  if (isBillingEnforced()) {
+    const { count } = await supabase
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+    const lim = await requireWithinLimit('contacts', count ?? 0)
+    if (!lim.ok) return { error: lim.error }
+  }
 
   // Validate and persist custom fields (CF-07, Phase 71)
   const cfPayloadCreate = parsed.data.custom_fields ?? {}

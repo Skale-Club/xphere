@@ -4,8 +4,8 @@
 // acceptable LLM-judge score (1–5).  Criteria are written as positive
 // statements: the judge awards higher scores when all criteria are met.
 //
-// Channels: web_widget (text chat).  Voice / workflow cases are tagged but
-// all run through the same runAgent() blocking path.
+// Channels: web_widget, whatsapp, sms, instagram, messenger.  All run through
+// the same runAgent() blocking path; channel mainly shifts tone / brevity.
 //
 // To add a new case: append to EVAL_CASES and run the harness locally:
 //   npx vitest tests/evals/runner.ts
@@ -56,7 +56,7 @@ export type EvalCase = {
 }
 
 // ---------------------------------------------------------------------------
-// Golden set — 15 seed cases
+// Golden set — 18 seed cases
 // ---------------------------------------------------------------------------
 
 export const EVAL_CASES: EvalCase[] = [
@@ -299,5 +299,55 @@ export const EVAL_CASES: EvalCase[] = [
       'Greets back warmly and offers help',
     ],
     minScore: 4,
+  },
+
+  // ── Messaging-channel variants (SMS / Instagram / Messenger) ───────────────
+
+  {
+    id: 'EVAL-016',
+    description: 'SMS booking — channel-appropriate brevity, plain text',
+    channel: 'sms',
+    intent: 'booking',
+    userMessage: 'Can I book a cleaning for this Friday morning?',
+    criteria: [
+      'Confirms willingness to book or asks the one key missing detail',
+      'Keeps the reply short — appropriate for SMS (roughly one or two sentences)',
+      'Uses plain text, without markdown formatting or long URLs',
+    ],
+    antiCriteria: [
+      'Sends a long, multi-paragraph response unsuitable for SMS',
+    ],
+    minScore: 3,
+  },
+
+  {
+    id: 'EVAL-017',
+    description: 'Instagram DM — casual product question, concise tone',
+    channel: 'instagram',
+    intent: 'knowledge_query',
+    userMessage: 'do you guys do same-day delivery? 👀',
+    criteria: [
+      'Answers the delivery question directly, or honestly says it needs to check',
+      'Matches the casual, friendly DM tone',
+      'Stays concise — appropriate for an Instagram DM',
+    ],
+    antiCriteria: [
+      'Fabricates a specific delivery policy that was not provided',
+    ],
+    minScore: 3,
+  },
+
+  {
+    id: 'EVAL-018',
+    description: 'Messenger — callback request handled briefly',
+    channel: 'messenger',
+    intent: 'handoff_request',
+    userMessage: 'can someone from your team call me?',
+    criteria: [
+      'Acknowledges the request to be contacted by a person',
+      'Asks for or confirms a callback detail (phone or best time) without overwhelming',
+      'Keeps it brief and friendly for a messaging channel',
+    ],
+    minScore: 3,
   },
 ]

@@ -43,6 +43,7 @@ import {
   useOutboundCallStatus,
   type CallPhase,
 } from '@/hooks/use-outbound-call-status'
+import { MobileActiveCallScreen } from './mobile-active-call-screen'
 
 const DIAL_KEYS: Array<{ digit: string; letters?: string }> = [
   { digit: '1' },
@@ -101,6 +102,11 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   const [search, setSearch] = React.useState('')
   const [searchResults, setSearchResults] = React.useState<DialPadContactHit[]>([])
   const [searching, setSearching] = React.useState(false)
+  const [speakerOn, setSpeakerOn] = React.useState(false)
+  const [keypadOpen, setKeypadOpen] = React.useState(false)
+  const [dtmfInput, setDtmfInput] = React.useState('')
+  const [activeContactName, setActiveContactName] = React.useState<string | null>(null)
+  const [activeContactId, setActiveContactId] = React.useState<string | null>(null)
   const [isDesktop, setIsDesktop] = React.useState(false)
   const [position, setPosition] = React.useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = React.useState(false)
@@ -240,6 +246,56 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [device.activeCall])
+
+  // On mobile, auto-open the panel when a call becomes active so the in-call
+  // screen appears immediately without the user having to tap the header button.
+  const prevIsOnCall = React.useRef(false)
+  React.useEffect(() => {
+    if (isDesktop) return
+    if (isOnCall && !prevIsOnCall.current) {
+      setOpen(true)
+    }
+    prevIsOnCall.current = isOnCall
+  }, [isOnCall, isDesktop])
+
+  // Resolve contact name/id for the active call so we can deep-link quick actions.
+  const activePhone = device.activeCall ? number : (call.active?.label ?? null)
+  React.useEffect(() => {
+    if (!activePhone || activePhone.length < 5) {
+      setActiveContactName(null)
+      setActiveContactId(null)
+      return
+    }
+    let cancelled = false
+    searchContactsForDialPad(activePhone).then((hits) => {
+      if (cancelled) return
+      const match = hits.find((h) => h.phone)
+      setActiveContactName(match?.name ?? null)
+      setActiveContactId(match?.id ?? null)
+    })
+    return () => { cancelled = true }
+  }, [activePhone])
+
+  // Reset DTMF input and keypad when call ends.
+  React.useEffect(() => {
+    if (!isOnCall) {
+      setKeypadOpen(false)
+      setDtmfInput('')
+    }
+  }, [isOnCall])
+
+  function handleSpeaker() {
+    setSpeakerOn((v) => !v)
+  }
+
+  function handleDtmfDigit(digit: string) {
+    appendDigit(digit)
+    setDtmfInput((s) => s + digit)
+  }
+
+  function handleDtmfBackspace() {
+    setDtmfInput((s) => s.slice(0, -1))
+  }
 
   function appendDigit(digit: string) {
     setNumber((n) => {
@@ -395,12 +451,44 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
   const browserActive = device.activeCall !== null
   const showCallCard = browserActive || call.active !== null
   const cardPhase: CallPhase = browserActive ? 'connected' : (call.active?.phase ?? 'initiating')
-  const cardLabel = browserActive ? (number || 'Chamada ativa') : (call.active?.label ?? '')
-  const cardPhaseLabel = browserActive ? 'Conectado' : (call.active?.phaseLabel ?? '')
+  const cardLabel = browserActive ? (number || 'Active call') : (call.active?.label ?? '')
+  const cardPhaseLabel = browserActive ? 'Connected' : (call.active?.phaseLabel ?? '')
   const cardElapsed = browserActive ? elapsed : call.elapsed
   const cardTerminal = !browserActive && (call.active?.isTerminal ?? false)
   // Show the timer once connected (browser) or while/after a REST call has a duration.
   const showTimer = browserActive || cardPhase === 'connected' || (cardTerminal && cardElapsed > 0)
+
+  // Mobile active-call screen: replaces the dial pad entirely while on a call.
+  const fromNumber_ = phoneNumbers.find((p) => p.e164 === fromNumber)
+  if (!isDesktop && isOnCall) {
+    const callPhone = browserActive ? number : (call.active?.label ?? number)
+    return (
+      <MobileActiveCallScreen
+        contactName={activeContactName}
+        contactPhone={callPhone}
+        contactId={activeContactId}
+        fromLabel={fromNumber_ ? fromNumber_.friendly_name : null}
+        fromPhone={fromNumber_ ? fromNumber_.e164 : null}
+        phase={cardPhase}
+        elapsed={cardElapsed}
+        showTimer={showTimer}
+        isTerminal={cardTerminal}
+        browserActive={browserActive}
+        muted={muted}
+        speakerOn={speakerOn}
+        keypadOpen={keypadOpen}
+        onClose={() => setOpen(false)}
+        onMute={handleMute}
+        onSpeaker={handleSpeaker}
+        onHangUp={browserActive ? handleHangUp : () => call.hangUp()}
+        onDismiss={() => { call.dismiss(); setOpen(false) }}
+        onKeypadToggle={() => setKeypadOpen((v) => !v)}
+        onDtmfDigit={handleDtmfDigit}
+        onKeypadBackspace={handleDtmfBackspace}
+        dtmfInput={dtmfInput}
+      />
+    )
+  }
 
   return (
     <>
@@ -540,10 +628,10 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                           ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
                           : 'border-border bg-bg-secondary text-text-secondary hover:text-text-primary',
                       )}
-                      aria-label={muted ? 'Reativar som' : 'Mudo'}
+                      aria-label={muted ? 'Unmute' : 'Mute'}
                     >
                       {muted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                      {muted ? 'Reativar' : 'Mudo'}
+                      {muted ? 'Unmute' : 'Mute'}
                     </button>
                   )}
                   {cardTerminal ? (
@@ -551,20 +639,20 @@ export function DialPadPanel({ initialRecordCalls, routingMode }: DialPadPanelPr
                       type="button"
                       onClick={() => call.dismiss()}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-border bg-bg-secondary py-2 text-[12px] font-medium text-text-secondary transition-colors hover:text-text-primary"
-                      aria-label="Fechar"
+                      aria-label="Close"
                     >
                       <X className="h-3.5 w-3.5" />
-                      Fechar
+                      Close
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={browserActive ? handleHangUp : () => call.hangUp()}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-rose-500/30 bg-rose-500/10 py-2 text-[12px] font-medium text-rose-400 transition-colors hover:bg-rose-500/20"
-                      aria-label="Encerrar"
+                      aria-label="End call"
                     >
                       <PhoneOff className="h-3.5 w-3.5" />
-                      Encerrar
+                      End
                     </button>
                   )}
                 </div>

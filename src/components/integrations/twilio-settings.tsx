@@ -13,7 +13,7 @@
  * new value into an empty input to rotate; leaving it blank keeps the previous
  * value.
  *
- * Phone numbers are NOT managed here | they live at /settings/phone-numbers.
+ * Phone numbers are NOT managed here | they live at /calls/phone-numbers.
  * view.numbers is still consumed to derive the SMS/Voice readiness pills.
  */
 
@@ -92,7 +92,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
       setApiKeySecret('')
       // Optimistically update boolean flags so the status pills flip without a reload.
       // smsConfigured / voiceConfigured also need at least one capable active number;
-      // numbers are managed at /settings/phone-numbers, so we keep the
+      // numbers are managed at /calls/phone-numbers, so we keep the
       // prev.numbers slice intact for the readiness pills.
       setView((prev) => {
         const hasAccountSid = prev.hasAccountSid || accountSid.trim().length > 0
@@ -184,9 +184,9 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
         <TestSmsRow defaultTo={getDefaultE164(view) ?? ''} disabled={!view.smsConfigured} />
       </SectionCard>
 
-      {/* ── Phone numbers live in Settings now ──────────────────────────── */}
+      {/* ── Phone numbers live in Calls now ─────────────────────────────── */}
       <Link
-        href="/settings/phone-numbers"
+        href="/calls/phone-numbers"
         className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-bg-secondary px-5 py-4 transition-colors hover:border-border-strong"
       >
         <div className="flex items-center gap-3">
@@ -197,7 +197,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
             <div className="text-[14px] font-medium text-text-primary">Phone numbers</div>
             <p className="mt-0.5 text-[12.5px] text-text-secondary">
               {view.numbers.filter((n) => n.is_active).length} active.
-              Add, configure capabilities/routing, and remove numbers in Settings.
+              Add, configure capabilities/routing, and remove numbers in Calls.
             </p>
           </div>
         </div>
@@ -259,7 +259,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
       <SectionCard
         icon={Globe}
         title="SIP / Zoiper domain"
-        description="Required only when team members use the SIP routing mode with a softphone like Zoiper. The SIP credentials themselves are auto-generated per user in Settings → Calls."
+        description="Required only when team members use the SIP routing mode with a softphone like Zoiper. The SIP credentials themselves are auto-generated per user in Calls → My Phone."
         statusReady={view.sipConfigured}
         readyLabel="SIP ready"
         emptyLabel="SIP not configured"

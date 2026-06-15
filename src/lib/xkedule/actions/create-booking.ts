@@ -1,4 +1,6 @@
 // src/lib/xkedule/actions/create-booking.ts
+// POST /api/v1/bookings — create a booking from the minimum the AI gathers.
+// Xkedule computes duration/endTime/price and re-validates the slot (409).
 import { xkeduleFetchJson, type XkeduleCredentials } from '../client'
 
 interface CreateBookingParams {
@@ -6,11 +8,12 @@ interface CreateBookingParams {
   customerEmail?: string
   customerPhone?: string
   customerAddress?: string
-  bookingDate?: string       // YYYY-MM-DD
-  startTime?: string         // HH:MM
+  bookingDate?: string
+  startTime?: string
   serviceId?: number | string
+  serviceIds?: Array<number | string> | string
   staffMemberId?: number | string
-  paymentMethod?: string
+  staffId?: number | string
   [key: string]: unknown
 }
 
@@ -19,48 +22,59 @@ interface BookingResponse {
   status: string
   bookingDate?: string
   startTime?: string
-  [key: string]: unknown
+  endTime?: string
+  totalPrice?: string
+  idempotent?: boolean
 }
 
 export async function createXkeduleBooking(
   params: Record<string, unknown>,
-  credentials: XkeduleCredentials
+  credentials: XkeduleCredentials,
 ): Promise<string> {
-  const {
-    customerName,
-    customerEmail,
-    customerPhone,
-    customerAddress,
-    bookingDate,
-    startTime,
-    serviceId,
-    staffMemberId,
-    paymentMethod = 'site',
-  } = params as CreateBookingParams
+  const p = params as CreateBookingParams
 
-  if (!customerName || !customerPhone || !customerAddress || !bookingDate || !startTime || !serviceId) {
-    return 'Missing required booking fields: customerName, customerPhone, customerAddress, bookingDate, startTime, serviceId.'
+  const ids = p.serviceIds
+    ? Array.isArray(p.serviceIds)
+      ? p.serviceIds
+      : String(p.serviceIds).split(',')
+    : p.serviceId != null
+      ? [p.serviceId]
+      : []
+
+  if (!p.customerName || !p.customerPhone || !p.bookingDate || !p.startTime || ids.length === 0) {
+    return 'Missing required booking fields: customerName, customerPhone, bookingDate, startTime, serviceId(s).'
   }
 
+  const staff = p.staffMemberId ?? p.staffId
   const body: Record<string, unknown> = {
-    customerName,
-    customerPhone,
-    customerAddress,
-    bookingDate,
-    startTime,
-    paymentMethod,
-    items: [{ serviceId: Number(serviceId), quantity: 1 }],
+    serviceIds: ids.map((x) => Number(x)).filter(Boolean),
+    bookingDate: p.bookingDate,
+    startTime: p.startTime,
+    customer: {
+      name: p.customerName,
+      phone: p.customerPhone,
+      ...(p.customerEmail ? { email: p.customerEmail } : {}),
+      ...(p.customerAddress ? { address: p.customerAddress } : {}),
+    },
   }
+  if (staff != null) body.staffMemberId = Number(staff)
 
-  if (customerEmail) body.customerEmail = customerEmail
-  if (staffMemberId) body.staffMemberId = Number(staffMemberId)
-
-  const booking = await xkeduleFetchJson<BookingResponse>(
-    '/api/bookings',
-    'POST',
-    body,
-    credentials
-  )
-
-  return `Booking confirmed. ID: ${booking.id} | Date: ${booking.bookingDate ?? bookingDate} at ${booking.startTime ?? startTime} | Status: ${booking.status}`
+  try {
+    const booking = await xkeduleFetchJson<BookingResponse>(
+      '/api/v1/bookings',
+      'POST',
+      body,
+      credentials,
+    )
+    const end = booking.endTime ? `-${booking.endTime}` : ''
+    const total = booking.totalPrice ? ` | Total: $${booking.totalPrice}` : ''
+    return `Booking confirmed. ID: ${booking.id} | ${booking.bookingDate ?? p.bookingDate} at ${booking.startTime ?? p.startTime}${end} | Status: ${booking.status}${total}`
+  } catch (err) {
+    // /api/v1/bookings returns 409 slot_taken when the slot was filled meanwhile.
+    const msg = (err as Error).message
+    if (msg.includes('409') || msg.includes('slot_taken')) {
+      return 'That time slot was just taken. Please offer the customer another time.'
+    }
+    throw err
+  }
 }

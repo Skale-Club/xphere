@@ -3,11 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 async function getCurrentOrgId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: member } = await supabase
-    .from('org_members')
-    .select('organization_id')
-    .single()
-  return member?.organization_id
+  const { data } = await supabase.rpc('get_current_org_id')
+  return data as string | null
 }
 
 function normalizeAssistantName(name?: string) {

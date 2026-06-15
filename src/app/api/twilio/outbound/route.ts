@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
 
   // Resolve the org "from" number + its forward target. The dialer rings this
   // forward number (the operator) first, then bridges to the contact. The
-  // forward target is configured per-number in Settings → Phone Numbers.
+  // forward target is configured per-number in Calls → Phone Numbers.
   let fromNumber = creds.fromNumber
   let forwardTarget: string | null = null
   if (fromOverride) {
@@ -90,7 +90,7 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       {
         error:
-          'No forwarding number set for this line. In Settings → Phone Numbers, set its routing to "Forward to number" and enter the phone that should ring.',
+          'No forwarding number set for this line. In Calls → Phone Numbers, set its routing to "Forward to number" and enter the phone that should ring.',
       },
       { status: 400 },
     )

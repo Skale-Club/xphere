@@ -124,6 +124,8 @@ function nullableString(value: string | undefined | null): string | null {
 function revalidateAll() {
   revalidatePath('/integrations')
   revalidatePath('/integrations/twilio')
+  revalidatePath('/calls/phone-numbers')
+  revalidatePath('/calls/settings')
   revalidatePath('/settings/phone-numbers')
 }
 

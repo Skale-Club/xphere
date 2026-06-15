@@ -19,7 +19,7 @@ import {
 
 /**
  * Full per-number editor in a dialog — replaces navigating to the
- * /settings/phone-numbers/[id] detail page. Org members (for the owner select)
+ * /calls/phone-numbers/[id] detail page. Org members (for the owner select)
  * are fetched lazily the first time the dialog opens.
  */
 export function EditPhoneNumberDialog({

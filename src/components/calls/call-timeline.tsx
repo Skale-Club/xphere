@@ -193,7 +193,7 @@ function EmptyTimeline() {
       <div>
         <h3 className="text-[14px] font-medium text-text-primary">No calls yet</h3>
         <p className="mt-1 max-w-sm text-[12.5px] text-text-secondary">
-          Connect a Twilio number and pick a routing mode in <span className="text-text-primary">Settings → Calls</span>
+          Connect a Twilio number and pick a routing mode in <span className="text-text-primary">Calls → My Phone</span>
           {' '}to start receiving calls here.
         </p>
       </div>

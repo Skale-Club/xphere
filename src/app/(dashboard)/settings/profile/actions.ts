@@ -66,7 +66,7 @@ export async function sendTestPush(): Promise<ActionResult> {
   await insertNotification(
     org.id,
     'incoming_call',
-    { caller_name: 'Chamada de teste', call_id: `test-${Date.now()}` },
+    { caller_name: 'Test call', call_id: `test-${Date.now()}` },
     [user.id],
   )
   return { ok: true }

@@ -367,7 +367,7 @@ function EmptyTimeline() {
         </p>
       </div>
       <Button asChild variant="outline" size="sm">
-        <Link href="/settings/phone-numbers">Manage numbers</Link>
+        <Link href="/calls/phone-numbers">Manage numbers</Link>
       </Button>
     </div>
   );

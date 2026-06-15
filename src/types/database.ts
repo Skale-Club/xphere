@@ -520,6 +520,8 @@ export interface Database {
           address_country: string | null
           timezone: string
           settings: Json
+          trial_ends_at: string | null
+          plan_override: string | null
           created_at: string
           updated_at: string
         }
@@ -552,6 +554,8 @@ export interface Database {
           address_country?: string | null
           timezone?: string
           settings?: Json
+          trial_ends_at?: string | null
+          plan_override?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -584,6 +588,8 @@ export interface Database {
           address_country?: string | null
           timezone?: string
           settings?: Json
+          trial_ends_at?: string | null
+          plan_override?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -609,6 +615,69 @@ export interface Database {
           email?: string
           contact_id?: string | null
           source?: string
+        }
+        Relationships: []
+      }
+      copilot_credit_balances: {
+        Row: {
+          org_id: string
+          included_balance_usd: number
+          topup_balance_usd: number
+          included_allowance_usd: number
+          period_end: string | null
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          included_balance_usd?: number
+          topup_balance_usd?: number
+          included_allowance_usd?: number
+          period_end?: string | null
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          included_balance_usd?: number
+          topup_balance_usd?: number
+          included_allowance_usd?: number
+          period_end?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      copilot_credit_ledger: {
+        Row: {
+          id: string
+          org_id: string
+          kind: string
+          amount_usd: number
+          balance_after: number
+          copilot_run_id: string | null
+          stripe_ref: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          kind: string
+          amount_usd: number
+          balance_after: number
+          copilot_run_id?: string | null
+          stripe_ref?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          kind?: string
+          amount_usd?: number
+          balance_after?: number
+          copilot_run_id?: string | null
+          stripe_ref?: string | null
+          note?: string | null
+          created_at?: string
         }
         Relationships: []
       }
@@ -933,6 +1002,7 @@ export interface Database {
           invited_at: string
           accepted_at: string | null
           expires_at: string | null
+          token: string
         }
         Insert: {
           id?: string
@@ -944,6 +1014,7 @@ export interface Database {
           invited_at?: string
           accepted_at?: string | null
           expires_at?: string | null
+          token: string
         }
         Update: {
           id?: string
@@ -955,6 +1026,7 @@ export interface Database {
           invited_at?: string
           accepted_at?: string | null
           expires_at?: string | null
+          token?: string
         }
         Relationships: [
           {
@@ -4129,6 +4201,9 @@ export interface Database {
           location_data: Json
           meeting_url: string | null
           meeting_phone: string | null
+          external_source: string | null
+          external_id: string | null
+          external_updated_at: string | null
         }
         Insert: {
           id?: string
@@ -4150,6 +4225,9 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          external_source?: string | null
+          external_id?: string | null
+          external_updated_at?: string | null
         }
         Update: {
           booker_name?: string
@@ -4166,6 +4244,9 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          external_source?: string | null
+          external_id?: string | null
+          external_updated_at?: string | null
         }
         Relationships: [
           {
@@ -7030,6 +7111,24 @@ export interface Database {
     }
     Views: Record<string, never>
     Functions: {
+      debit_copilot_credits: {
+        Args: { p_org_id: string; p_amount_usd: number; p_run_id?: string | null }
+        Returns: Json
+      }
+      credit_copilot_credits: {
+        Args: {
+          p_org_id: string
+          p_amount_usd: number
+          p_kind: string
+          p_ref?: string | null
+          p_note?: string | null
+        }
+        Returns: number
+      }
+      reset_copilot_credits: {
+        Args: { p_org_id: string; p_included_usd: number; p_period_end?: string | null }
+        Returns: number
+      }
       get_ads_attribution: {
         Args: { p_from: string; p_platform?: string; p_to: string }
         Returns: {

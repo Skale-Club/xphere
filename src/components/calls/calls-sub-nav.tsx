@@ -3,7 +3,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bot, PhoneCall, type LucideIcon } from 'lucide-react'
+import {
+  Bot,
+  Megaphone,
+  Phone,
+  PhoneCall,
+  Route,
+  Settings2,
+  Smartphone,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
 import { cn } from '@/lib/utils'
@@ -12,6 +21,7 @@ interface NavItem {
   href: string
   label: string
   icon: LucideIcon
+  exact?: boolean
   isActive: (pathname: string) => boolean
 }
 
@@ -20,7 +30,14 @@ interface NavSection {
   items: NavItem[]
 }
 
-const SUBROUTES = ['/calls/campaigns', '/calls/assistants'] as const
+const SUBROUTES = [
+  '/calls/assistants',
+  '/calls/campaigns',
+  '/calls/my-phone',
+  '/calls/phone-numbers',
+  '/calls/routing',
+  '/calls/settings',
+] as const
 
 function isTimelineActive(pathname: string): boolean {
   if (pathname === '/calls') return true
@@ -33,12 +50,53 @@ const SECTIONS: NavSection[] = [
     heading: 'Voice',
     items: [
       { href: '/calls', label: 'Timeline', icon: PhoneCall, isActive: isTimelineActive },
+    ],
+  },
+  {
+    heading: 'Configuration',
+    items: [
+      {
+        href: '/calls/phone-numbers',
+        label: 'Phone Numbers',
+        icon: Phone,
+        isActive: (pathname) =>
+          pathname === '/calls/phone-numbers' || pathname.startsWith('/calls/phone-numbers/'),
+      },
+      {
+        href: '/calls/routing',
+        label: 'Call Routing',
+        icon: Route,
+        isActive: (pathname) => pathname === '/calls/routing',
+      },
+      {
+        href: '/calls/my-phone',
+        label: 'My Phone',
+        icon: Smartphone,
+        isActive: (pathname) => pathname === '/calls/my-phone',
+      },
       {
         href: '/calls/assistants',
-        label: 'Vapi Assistants',
+        label: 'Assistants',
         icon: Bot,
         isActive: (pathname) =>
           pathname === '/calls/assistants' || pathname.startsWith('/calls/assistants/'),
+      },
+      {
+        href: '/calls/settings',
+        label: 'Setup',
+        icon: Settings2,
+        isActive: (pathname) => pathname === '/calls/settings',
+      },
+    ],
+  },
+  {
+    heading: 'Outbound',
+    items: [
+      {
+        href: '/campaigns?channel=calls',
+        label: 'Voice Campaigns',
+        icon: Megaphone,
+        isActive: () => false,
       },
     ],
   },

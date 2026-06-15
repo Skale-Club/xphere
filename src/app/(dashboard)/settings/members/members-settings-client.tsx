@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   UserPlus, Trash2, Loader2, ChevronLeft, ChevronRight, User, Plus, Pencil,
-  Settings2,
+  Settings2, Send,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
@@ -35,7 +35,7 @@ import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { MemberProfile } from '@/app/(dashboard)/members/actions'
 import type { OrgRolesConfig, ConfigurableRole } from '@/lib/rbac/permissions'
 import {
-  inviteMember, revokeInvite, removeMember, updateMemberRole,
+  inviteMember, revokeInvite, removeMember, updateMemberRole, resendInvite,
 } from '@/app/(dashboard)/members/actions'
 import { saveBuiltinRoleConfig, deleteCustomRole, type CustomRole } from './actions'
 import { CustomRoleDialog } from './custom-role-dialog'
@@ -251,6 +251,14 @@ export function MembersSettingsClient({
       if (result.error) { toast.error(result.error); return }
       toast.success(`Invite for ${email} revoked`)
       router.refresh()
+    })
+  }
+
+  function handleResend(inviteId: string, email: string) {
+    startTransition(async () => {
+      const result = await resendInvite(inviteId)
+      if (result.error) { toast.error(result.error); return }
+      toast.success(`Invite resent to ${email}`)
     })
   }
 
@@ -493,7 +501,7 @@ export function MembersSettingsClient({
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Invited</TableHead>
-                <TableHead className="w-14" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -507,10 +515,26 @@ export function MembersSettingsClient({
                     {new Date(invite.invited_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon"
-                      onClick={() => handleRevoke(invite.id, invite.email)} disabled={isPending}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleResend(invite.id, invite.email)}
+                        disabled={isPending}
+                        title="Resend invite email"
+                      >
+                        <Send className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRevoke(invite.id, invite.email)}
+                        disabled={isPending}
+                        title="Revoke invite"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

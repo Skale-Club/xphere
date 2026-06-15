@@ -55,7 +55,7 @@ function RevealKey({ value }: { value: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-[13px]">
-        <span className="flex-1 truncate text-text-primary">
+        <span className="min-w-0 flex-1 truncate text-text-primary">
           {visible ? value : '•'.repeat(Math.min(value.length, 48))}
         </span>
         <button

@@ -162,7 +162,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
           Bot Connection
         </h2>
         <p className="mt-1 text-[12.5px] text-text-secondary">
-          Crie um bot no{' '}
+          Create a bot in{' '}
           <a
             href="https://t.me/BotFather"
             target="_blank"
@@ -171,22 +171,22 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
           >
             @BotFather
           </a>{' '}
-          do Telegram e cole o token aqui. Validamos com <code>/getMe</code> e
-          configuramos o webhook automaticamente.
+          and paste the token here. We validate it with <code>/getMe</code> and
+          configure the webhook automatically.
         </p>
 
         {isConnected ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-success/30 bg-success/5 px-4 py-3">
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-text-primary">
-                Conectado{bot.botUsername ? ` | @${bot.botUsername}` : ''}
+                Connected{bot.botUsername ? ` | @${bot.botUsername}` : ''}
               </div>
               {bot.botName ? (
                 <div className="text-[12px] text-text-secondary">{bot.botName}</div>
               ) : null}
               {bot.lastError ? (
                 <div className="mt-1 text-[12px] text-warning">
-                  Aviso: {bot.lastError}
+                  Warning: {bot.lastError}
                 </div>
               ) : null}
             </div>
@@ -196,21 +196,21 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
                   {pendingDisconnect ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   ) : null}
-                  Desconectar
+                  Disconnect
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Desconectar bot do Telegram?</AlertDialogTitle>
+                  <AlertDialogTitle>Disconnect Telegram bot?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Vamos remover o webhook e marcar o bot como inativo. As
-                    notificações via Telegram pararão imediatamente.
+                    We will remove the webhook and mark the bot as inactive. Telegram
+                    notifications will stop immediately.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDisconnect}>
-                    Desconectar
+                    Disconnect
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -235,7 +235,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
               disabled={pendingConnect || token.trim().length === 0}
             >
               {pendingConnect ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-              Conectar bot
+              Connect bot
             </Button>
           </div>
         )}
@@ -244,10 +244,10 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
       {/* Notifications card ----------------------------------------------- */}
       <section className="rounded-[12px] border border-border bg-bg-secondary p-5">
         <h2 className="text-[14px] font-semibold tracking-tight text-text-primary">
-          Notificações
+          Notifications
         </h2>
         <p className="mt-1 text-[12.5px] text-text-secondary">
-          Chats que recebem mensagens dos workflows com o node{' '}
+          Chats that receive messages from workflows through the{' '}
           <code>send_telegram_notification</code>.
         </p>
 
@@ -255,7 +255,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
           <div className="space-y-2">
             {chatIds.length === 0 ? (
               <p className="text-[12.5px] text-text-tertiary">
-                Nenhum chat configurado.
+                No chats configured.
               </p>
             ) : (
               chatIds.map((id) => (
@@ -290,7 +290,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
               disabled={!isConnected || newChatId.trim().length === 0}
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
-              Adicionar
+              Add
             </Button>
           </div>
 
@@ -300,21 +300,20 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
             size="sm"
           >
             {pendingChats ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-            Salvar chats
+            Save chats
           </Button>
 
           <div className="rounded-[8px] border border-dashed border-border-subtle bg-bg-tertiary/40 px-3 py-2.5 text-[12px] text-text-secondary">
-            <div className="font-medium text-text-primary">Como obter o Chat ID</div>
+            <div className="font-medium text-text-primary">How to get the Chat ID</div>
             <ol className="mt-1 list-decimal space-y-0.5 pl-4">
               <li>
-                Adicione{' '}
-                {bot?.botUsername ? `@${bot.botUsername}` : 'o seu bot'} ao
-                grupo/canal desejado.
+                Add {bot?.botUsername ? `@${bot.botUsername}` : 'your bot'} to the
+                desired group or channel.
               </li>
               <li>
-                Envie <code>/start</code> no grupo.
+                Send <code>/start</code> in the group.
               </li>
-              <li>O bot responde com o Chat ID | copie e cole aqui.</li>
+              <li>The bot replies with the Chat ID. Copy it and paste it here.</li>
             </ol>
           </div>
         </div>
@@ -325,12 +324,11 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[14px] font-semibold tracking-tight text-text-primary">
-              Bot de Automação (DMs)
+              Automation Bot (DMs)
             </h2>
             <p className="mt-1 max-w-prose text-[12.5px] text-text-secondary">
-              Quando ativado, um agente responde automaticamente às mensagens
-              privadas recebidas no bot. Mensagens em grupos/canais não acionam
-              o agente.
+              When enabled, an agent automatically replies to private messages received
+              by the bot. Messages in groups and channels do not trigger the agent.
             </p>
           </div>
           <Switch
@@ -342,19 +340,19 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
         </div>
 
         <div className="mt-4 space-y-1.5">
-          <Label htmlFor="telegram-agent">Agente</Label>
+          <Label htmlFor="telegram-agent">Agent</Label>
           <Select
             value={bot?.agentId ?? ''}
             onValueChange={handleAgentChange}
             disabled={!isConnected || agents.length === 0 || pendingAutomation}
           >
             <SelectTrigger id="telegram-agent">
-              <SelectValue placeholder="Selecionar agente" />
+              <SelectValue placeholder="Select agent" />
             </SelectTrigger>
             <SelectContent>
               {agents.length === 0 ? (
                 <SelectItem value="__none" disabled>
-                  Nenhum agente disponível
+                  No agents available
                 </SelectItem>
               ) : (
                 agents.map((a) => (
@@ -375,7 +373,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
             Webhook URL
           </h2>
           <p className="mt-1 text-[12.5px] text-text-secondary">
-            Configurado automaticamente no Telegram quando você conecta o bot.
+            Configured automatically in Telegram when you connect the bot.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Input readOnly value={bot.webhookUrl} className="font-mono text-[12px]" />
@@ -385,7 +383,7 @@ export function TelegramSettings({ initialBot, agents }: TelegramSettingsProps) 
           </div>
           {!bot.webhookSet ? (
             <p className="mt-2 text-[12px] text-warning">
-              Webhook ainda não confirmado pelo Telegram. Tente reconectar o bot.
+              Webhook not confirmed by Telegram yet. Try reconnecting the bot.
             </p>
           ) : null}
         </section>

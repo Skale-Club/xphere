@@ -7,8 +7,11 @@ import { toast } from 'sonner'
 import {
   BookOpen,
   CheckCircle2,
+  Monitor,
   MoreHorizontal,
+  Network,
   Phone,
+  PhoneForwarded,
   Plus,
   RefreshCw,
   Settings2,
@@ -56,6 +59,30 @@ const CAP_PILLS: Array<{ key: keyof TwilioPhoneNumberRow; label: string }> = [
   { key: 'capability_sms',   label: 'SMS' },
   { key: 'capability_mms',   label: 'MMS' },
 ]
+
+const ROUTING_META: Record<string, { icon: React.ElementType; label: string }> = {
+  forward: { icon: PhoneForwarded, label: 'Forward to' },
+  browser: { icon: Monitor,        label: 'Browser'    },
+  sip:     { icon: Network,        label: 'SIP'        },
+}
+
+function RoutingChip({ row }: { row: TwilioPhoneNumberRow }) {
+  const mode = row.default_routing_mode
+  if (!mode) return null
+  const meta = ROUTING_META[mode]
+  if (!meta) return null
+  const Icon = meta.icon
+  const suffix =
+    mode === 'forward' && row.forward_to_number
+      ? ` ${formatE164(row.forward_to_number)}`
+      : ''
+  return (
+    <span className="inline-flex items-center gap-1 text-[11.5px] text-text-tertiary">
+      <Icon className="h-3 w-3 shrink-0" />
+      {meta.label}{suffix}
+    </span>
+  )
+}
 
 export function PhoneNumbersList({ initial, twilioConnected }: Props) {
   const router = useRouter()
@@ -197,6 +224,13 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
                       ) : null,
                     )}
                   </div>
+
+                  {row.default_routing_mode && (
+                    <>
+                      <span className="text-text-tertiary/40">·</span>
+                      <RoutingChip row={row} />
+                    </>
+                  )}
 
                   {row.business_purpose && (
                     <>

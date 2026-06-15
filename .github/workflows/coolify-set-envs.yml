@@ -14,7 +14,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  APP_UUID: c70jg4t9o88x985dctsl57qy
+  APP_UUID: fwjo7xriuqibl01v96vah7fz
   COOLIFY_BASE: https://coolify.skale.club
 
 jobs:

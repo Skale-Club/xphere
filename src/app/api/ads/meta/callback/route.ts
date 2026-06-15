@@ -101,7 +101,9 @@ export async function GET(request: NextRequest): Promise<Response> {
     if (error) throw new Error(error.message)
 
     return redirect(request, '/ads?connected=true')
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[ads/meta/callback:oauth-exchange-failed]', err instanceof Error ? err.message : err)
     return redirect(request, '/ads?error=oauth_exchange')
   }
 }

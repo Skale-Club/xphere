@@ -147,8 +147,10 @@ When you need to author a workflow (manually, via Copilot, or from a Claude Code
 
 - Self-hosted **Coolify** (Hetzner box, shared Docker host) builds and runs the
   Next.js app from the `Dockerfile` (standalone output). Production: `xphere.app`.
-  Coolify app uuid `c70jg4t9o88x985dctsl57qy` (project `skale-apps`/`production`),
-  GitHub App source, branch `main`.
+  Coolify app `xphere-zdt`, uuid `fwjo7xriuqibl01v96vah7fz` (zero-downtime
+  Docker Image app; serves `xphere.app`, `www.xphere.app`, `xphere-stage.skale.club`),
+  GitHub App source, branch `main`. (Superseded the old app
+  `c70jg4t9o88x985dctsl57qy` during the 2026-06-10 migration.)
 - **Auto-deploy:** every push to `main` triggers `.github/workflows/deploy.yml`,
   which pings the Coolify deploy API (`/api/v1/deploy?uuid=…`); Coolify then
   pulls the commit and rebuilds/runs. Coolify still does the actual build/run —

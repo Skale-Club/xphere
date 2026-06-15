@@ -4,7 +4,7 @@
 // the workflow runtime to inject the variables | they're plain JS helpers
 // callable from anywhere (executors, server actions, ad-hoc).
 //
-// Telegram HTML supports: <b>, <i>, <u>, <s>, <code>, <pre>, <a href="…">.
+// Telegram HTML supports: <b>, <i>, <u>, <s>, <code>, <pre>, and links.
 // We always escape user-supplied strings to avoid breaking the parse_mode.
 // SEED-034.
 
@@ -26,7 +26,7 @@ function formatDate(iso: string | null | undefined): string {
   try {
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return '-'
-    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+    return d.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
   } catch {
     return '-'
   }
@@ -38,12 +38,12 @@ function relativeTime(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '-'
   const diffMs = Date.now() - d.getTime()
   const minutes = Math.round(diffMs / 60000)
-  if (minutes < 1) return 'agora há pouco'
-  if (minutes < 60) return `há ${minutes} min`
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `há ${hours} h`
+  if (hours < 24) return `${hours} h ago`
   const days = Math.round(hours / 24)
-  return `há ${days} d`
+  return `${days} d ago`
 }
 
 export interface NewLeadContact {
@@ -79,41 +79,41 @@ export interface MissedCall {
 export const TELEGRAM_TEMPLATES = {
   new_lead: (contact: NewLeadContact): string =>
     [
-      `🆕 <b>Novo Lead</b>`,
-      `👤 ${safe(contact.name, 'Sem nome')}`,
-      `📱 ${safe(contact.phone)}`,
-      `📧 ${safe(contact.email)}`,
+      `<b>New Lead</b>`,
+      `Name: ${safe(contact.name, 'No name')}`,
+      `Phone: ${safe(contact.phone)}`,
+      `Email: ${safe(contact.email)}`,
     ].join('\n'),
 
   pending_task: (task: PendingTask): string =>
     [
-      `⏰ <b>Task Pendente</b>`,
-      `📋 ${safe(task.title)}`,
-      `👤 ${safe(task.assigned_to_name, 'Sem responsável')}`,
-      `📅 Vence: ${escapeHtml(formatDate(task.due_at))}`,
+      `<b>Pending Task</b>`,
+      `Task: ${safe(task.title)}`,
+      `Owner: ${safe(task.assigned_to_name, 'Unassigned')}`,
+      `Due: ${escapeHtml(formatDate(task.due_at))}`,
     ].join('\n'),
 
   workflow_failed: (wf: WorkflowRun): string =>
     [
-      `❌ <b>Workflow Falhou</b>`,
-      `⚡ ${safe(wf.workflow_name)}`,
-      `🔴 Erro: ${safe(wf.error_detail, 'Erro desconhecido')}`,
+      `<b>Workflow Failed</b>`,
+      `Workflow: ${safe(wf.workflow_name)}`,
+      `Error: ${safe(wf.error_detail, 'Unknown error')}`,
     ].join('\n'),
 
   new_conversation: (conv: NewConversation): string => {
     const preview = (conv.last_message ?? '').slice(0, 120)
     return [
-      `💬 <b>Nova Conversa</b>`,
-      `👤 ${safe(conv.visitor_name ?? conv.visitor_phone)}`,
-      `📲 ${escapeHtml(conv.channel.toUpperCase())}`,
-      `💬 ${safe(preview)}`,
+      `<b>New Conversation</b>`,
+      `Contact: ${safe(conv.visitor_name ?? conv.visitor_phone)}`,
+      `Channel: ${escapeHtml(conv.channel.toUpperCase())}`,
+      `Message: ${safe(preview)}`,
     ].join('\n')
   },
 
   missed_call: (call: MissedCall): string =>
     [
-      `📞 <b>Ligação Perdida</b>`,
-      `👤 ${safe(call.caller_name ?? call.customer_number)}`,
-      `🕐 ${escapeHtml(relativeTime(call.created_at))}`,
+      `<b>Missed Call</b>`,
+      `Caller: ${safe(call.caller_name ?? call.customer_number)}`,
+      `When: ${escapeHtml(relativeTime(call.created_at))}`,
     ].join('\n'),
 }

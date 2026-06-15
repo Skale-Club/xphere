@@ -102,7 +102,7 @@ export default function EmailSectionsPage() {
 
       {sections.length === 0 && (
         <div className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-          Nenhuma seção global ainda.
+          No global sections yet.
         </div>
       )}
 

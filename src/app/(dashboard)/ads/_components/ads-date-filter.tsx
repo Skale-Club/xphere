@@ -12,17 +12,9 @@ import {
   MORE_PRESETS,
   filterLabel as getFilterLabel,
 } from './ads-date-filter.utils'
+import { adsViewStorageKey, type AdsPlatformPanelProps } from './platform-panel-contract'
 
-interface AdsDateFilterProps {
-  /** Platform key used for localStorage save-view persistence. */
-  platform: string
-  value: DateFilter
-  onChange: (filter: DateFilter) => void
-}
-
-const STORAGE_KEY = (platform: string) => `xphere:ads_view_${platform}`
-
-export function AdsDateFilter({ platform, value, onChange }: AdsDateFilterProps) {
+export function AdsDateFilter({ platform, value, onChange }: AdsPlatformPanelProps) {
   const [open, setOpen] = useState(false)
   const [customSince, setCustomSince] = useState('')
   const [customUntil, setCustomUntil] = useState('')
@@ -31,7 +23,7 @@ export function AdsDateFilter({ platform, value, onChange }: AdsDateFilterProps)
   // Restore saved view on mount
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY(platform))
+      const raw = localStorage.getItem(adsViewStorageKey(platform))
       if (raw) onChange(JSON.parse(raw) as DateFilter)
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,7 +45,7 @@ export function AdsDateFilter({ platform, value, onChange }: AdsDateFilterProps)
 
   function saveView() {
     try {
-      localStorage.setItem(STORAGE_KEY(platform), JSON.stringify(value))
+      localStorage.setItem(adsViewStorageKey(platform), JSON.stringify(value))
       setViewSaved(true)
       setTimeout(() => setViewSaved(false), 2000)
     } catch { /* ignore */ }

@@ -133,7 +133,7 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
           {activeCall.isTerminal ? (
             <Button variant="ghost" className="w-full" onClick={() => call.dismiss()}>
               <X className="h-4 w-4" />
-              Fechar
+              Close
             </Button>
           ) : (
             <Button
@@ -141,7 +141,7 @@ export function Dialer({ initialNumber, onComplete }: DialerProps) {
               onClick={() => call.hangUp()}
             >
               <PhoneOff className="h-4 w-4" />
-              Encerrar
+              End
             </Button>
           )}
         </div>
