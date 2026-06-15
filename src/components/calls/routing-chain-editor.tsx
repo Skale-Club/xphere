@@ -124,7 +124,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 py-2">
+    <div className="w-full space-y-6 py-2">
       {/* Header + kill switch */}
       <div className="flex items-start justify-between gap-4">
         <div>
