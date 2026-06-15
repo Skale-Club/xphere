@@ -21,7 +21,19 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const state = randomBytes(16).toString('hex')
-  const authUrl = buildMetaAdsAuthUrl(state)
+
+  // buildMetaAdsAuthUrl throws when META_APP_ID / META_APP_SECRET are not set
+  // (e.g. env vars not carried over to a new deploy). Without this guard the
+  // route 500s before redirecting to Facebook, which reads as "connect just
+  // stops working" with no clue why. Surface a readable error on /ads instead.
+  let authUrl: string
+  try {
+    authUrl = buildMetaAdsAuthUrl(state)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[ads/meta/connect:not-configured]', err instanceof Error ? err.message : err)
+    return NextResponse.redirect(new URL('/ads?error=meta_not_configured', origin))
+  }
 
   // Set the CSRF state cookie ON the redirect response. Cookies mutated via the
   // next/headers `cookies()` store are NOT attached to a manually constructed

@@ -70,7 +70,7 @@ export function OnboardingTour() {
   const [rect, setRect] = React.useState<DOMRect | null>(null)
 
   React.useEffect(() => {
-    if (pathname !== '/') return
+    if (pathname !== '/dashboard') return
     if (readCookie(COOKIE) === '1') return
     const id = window.setTimeout(() => setActive(true), 600)
     return () => window.clearTimeout(id)
