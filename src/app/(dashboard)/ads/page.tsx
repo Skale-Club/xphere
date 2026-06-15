@@ -13,7 +13,7 @@ export default async function AdsPage() {
   // All connected accounts (active = shown, available = connected-but-hidden).
   const { data: rows } = await supabase
     .from('ads_connections')
-    .select('id, ad_account_id, ad_account_name, status, created_at')
+    .select('id, ad_account_id, ad_account_name, status, ad_objective, created_at')
     .eq('platform', 'meta')
     .order('created_at', { ascending: true })
 
@@ -36,7 +36,11 @@ export default async function AdsPage() {
       <MetaAdsOverview
         adAccountId={primaryAccount.ad_account_id}
         adAccountName={primaryAccount.ad_account_name ?? primaryAccount.ad_account_id}
-        connections={connections.map((c) => ({ id: c.ad_account_id, name: c.ad_account_name ?? c.ad_account_id }))}
+        connections={connections.map((c) => ({
+          id: c.ad_account_id,
+          name: c.ad_account_name ?? c.ad_account_id,
+          objective: (c.ad_objective ?? 'leads') as 'leads' | 'sales',
+        }))}
       />
     </div>
   )

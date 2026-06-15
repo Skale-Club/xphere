@@ -109,11 +109,13 @@ export function MetaKpiCards({
   currency,
   loading,
   filterLabel,
+  adObjective,
 }: {
   insights: InsightsLike
   currency: string
   loading: boolean
   filterLabel: string
+  adObjective: 'leads' | 'sales'
 }) {
   if (loading) {
     return (
@@ -131,42 +133,82 @@ export function MetaKpiCards({
     )
   }
 
-  const leadsRaw = parseFloat(insights.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
   const spendRaw = parseFloat(insights.spend ?? '0')
   const clicksRaw = parseFloat(insights.clicks ?? '0')
   const impressionsRaw = parseFloat(insights.impressions ?? '0')
-
-  const cpl = leadsRaw > 0 ? spendRaw / leadsRaw : null
-  const leadRate = clicksRaw > 0 ? (leadsRaw / clicksRaw) * 100 : null
   const ctr = insights.ctr ? parseFloat(insights.ctr) : null
   const cpm = insights.cpm ? parseFloat(insights.cpm) : null
   const cpc = insights.cpc ? parseFloat(insights.cpc) : null
 
+  // Lead-gen metrics
+  const leadsRaw = parseFloat(insights.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+  const cpl = leadsRaw > 0 ? spendRaw / leadsRaw : null
+  const leadRate = clicksRaw > 0 ? (leadsRaw / clicksRaw) * 100 : null
+
+  // Sales metrics
+  const purchasesRaw = parseFloat(
+    insights.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value ?? '0',
+  )
+  const addToCartRaw = parseFloat(
+    insights.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_add_to_cart')?.value ?? '0',
+  )
+  const cpp = purchasesRaw > 0 ? spendRaw / purchasesRaw : null
+
+  const isSales = adObjective === 'sales'
+
   return (
     <div className="space-y-3">
-      {/* Row 1 — lead-gen KPIs */}
+      {/* Row 1 — primary KPIs (objective-dependent) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard
-          label="Cost per Lead"
-          value={cpl != null ? fmt(cpl, currency) : '—'}
-          icon={Target}
-          tone="highlight"
-          sub={cpl != null ? filterLabel : 'No leads tracked'}
-        />
-        <KpiCard
-          label="Leads"
-          value={leadsRaw > 0 ? fmt(leadsRaw) : '—'}
-          icon={TrendingUp}
-          tone="highlight"
-          sub="Lead form fills"
-        />
-        <KpiCard
-          label="Lead Rate"
-          value={leadRate != null ? `${leadRate.toFixed(2)}%` : '—'}
-          icon={Percent}
-          tone="highlight"
-          sub="Leads / Clicks"
-        />
+        {isSales ? (
+          <>
+            <KpiCard
+              label="Purchases"
+              value={purchasesRaw > 0 ? fmt(purchasesRaw) : '—'}
+              icon={TrendingUp}
+              tone="highlight"
+              sub={filterLabel}
+            />
+            <KpiCard
+              label="Cost per Purchase"
+              value={cpp != null ? fmt(cpp, currency) : '—'}
+              icon={Target}
+              tone="highlight"
+              sub={cpp != null ? filterLabel : 'No purchases tracked'}
+            />
+            <KpiCard
+              label="Add to Cart"
+              value={addToCartRaw > 0 ? fmt(addToCartRaw) : '—'}
+              icon={Percent}
+              tone="highlight"
+              sub="Cart additions"
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              label="Cost per Lead"
+              value={cpl != null ? fmt(cpl, currency) : '—'}
+              icon={Target}
+              tone="highlight"
+              sub={cpl != null ? filterLabel : 'No leads tracked'}
+            />
+            <KpiCard
+              label="Leads"
+              value={leadsRaw > 0 ? fmt(leadsRaw) : '—'}
+              icon={TrendingUp}
+              tone="highlight"
+              sub="Lead form fills"
+            />
+            <KpiCard
+              label="Lead Rate"
+              value={leadRate != null ? `${leadRate.toFixed(2)}%` : '—'}
+              icon={Percent}
+              tone="highlight"
+              sub="Leads / Clicks"
+            />
+          </>
+        )}
         <KpiCard
           label="Spend"
           value={`${currency} ${fmt(spendRaw, currency)}`}
@@ -175,7 +217,7 @@ export function MetaKpiCards({
         />
       </div>
 
-      {/* Row 2 — secondary metrics */}
+      {/* Row 2 — secondary metrics (always the same) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SecondaryCard
           label="CPM"

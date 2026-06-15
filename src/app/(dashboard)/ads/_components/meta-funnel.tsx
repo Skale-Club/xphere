@@ -69,22 +69,30 @@ export function MetaFunnel({
   impressions,
   clicks,
   leads,
+  addToCart,
+  checkouts,
+  purchases,
   contacts,
   opportunities,
   revenue,
   currency,
   loading,
+  adObjective,
 }: {
   impressions: number
   clicks: number
   leads: number
+  addToCart: number
+  checkouts: number
+  purchases: number
   contacts: number
   opportunities: number
   revenue: number
   currency: string
   loading: boolean
+  adObjective: 'leads' | 'sales'
 }) {
-  const steps: FunnelStep[] = [
+  const leadsSteps: FunnelStep[] = [
     {
       label: 'Impressions',
       value: impressions,
@@ -129,6 +137,54 @@ export function MetaFunnel({
     },
   ]
 
+  const salesSteps: FunnelStep[] = [
+    {
+      label: 'Impressions',
+      value: impressions,
+      convLabel: '',
+      convRate: '100%',
+      color: 'bg-blue-500/40',
+    },
+    {
+      label: 'Clicks',
+      value: clicks,
+      convLabel: 'CTR',
+      convRate: pct(clicks, impressions),
+      color: 'bg-blue-400/50',
+    },
+    {
+      label: 'Add to Cart',
+      value: addToCart,
+      convLabel: 'ATC Rate',
+      convRate: pct(addToCart, clicks),
+      color: 'bg-accent/60',
+    },
+    {
+      label: 'Checkout',
+      value: checkouts,
+      convLabel: 'Checkout Rate',
+      convRate: pct(checkouts, addToCart),
+      color: 'bg-accent/70',
+    },
+    {
+      label: 'Purchases',
+      value: purchases,
+      convLabel: 'Purchase Rate',
+      convRate: pct(purchases, checkouts),
+      color: 'bg-green-500/60',
+    },
+    {
+      label: 'Revenue',
+      value: revenue,
+      convLabel: '',
+      convRate: revenue > 0 ? fmtCurrency(revenue, currency) : '—',
+      color: 'bg-green-500/80',
+    },
+  ]
+
+  const steps = adObjective === 'sales' ? salesSteps : leadsSteps
+  const funnelSubtitle = adObjective === 'sales' ? 'Impressions → Revenue' : 'Impressions → Revenue'
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 space-y-3">
@@ -148,7 +204,7 @@ export function MetaFunnel({
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4">
       <p className="text-[12px] font-semibold text-text-primary mb-1">Conversion Funnel</p>
-      <p className="text-[11px] text-text-tertiary mb-3">Impressions → Revenue</p>
+      <p className="text-[11px] text-text-tertiary mb-3">{funnelSubtitle}</p>
       <div className="divide-y divide-border-subtle/50">
         {steps.map((step, i) => (
           <FunnelRow key={step.label} step={step} topValue={impressions} isFirst={i === 0} />

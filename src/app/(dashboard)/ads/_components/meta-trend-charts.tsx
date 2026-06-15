@@ -19,6 +19,8 @@ export type DailyTrendRow = {
   spend: number
   leads: number
   cpl: number | null
+  purchases: number
+  cpp: number | null
 }
 
 function fmtCurrency(n: number, currency: string): string {
@@ -30,18 +32,22 @@ function fmtCurrencyShort(n: number, currency: string): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
 }
 
-function SpendLeadsChart({
+function SpendConversionChart({
   data,
   currency,
   gradientId,
+  conversionKey,
+  conversionLabel,
 }: {
   data: DailyTrendRow[]
   currency: string
   gradientId: string
+  conversionKey: 'leads' | 'purchases'
+  conversionLabel: string
 }) {
   return (
     <div>
-      <p className="text-[12px] font-semibold text-text-primary mb-1">Spend vs Leads</p>
+      <p className="text-[12px] font-semibold text-text-primary mb-1">Spend vs {conversionLabel}</p>
       <p className="text-[11px] text-text-tertiary mb-3">Daily trend</p>
       <div className="h-[220px] w-full min-w-0">
         <ResponsiveContainer width="100%" height={220} minWidth={0}>
@@ -90,7 +96,7 @@ function SpendLeadsChart({
               formatter={(value, name) => {
                 const v = typeof value === 'number' ? value : Number(value)
                 if (name === 'spend') return [fmtCurrency(v, currency), 'Spend']
-                if (name === 'leads') return [v, 'Leads']
+                if (name === conversionKey) return [v, conversionLabel]
                 return [v, name as string]
               }}
             />
@@ -106,7 +112,7 @@ function SpendLeadsChart({
             <Line
               yAxisId="right"
               type="monotone"
-              dataKey="leads"
+              dataKey={conversionKey}
               stroke="#16A34A"
               strokeWidth={2}
               dot={false}
@@ -122,32 +128,38 @@ function SpendLeadsChart({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-2 w-2 rounded-full bg-green-500" />
-          <span className="text-[11px] text-text-tertiary">Leads</span>
+          <span className="text-[11px] text-text-tertiary">{conversionLabel}</span>
         </div>
       </div>
     </div>
   )
 }
 
-function CplTrendChart({
+function CostPerConversionChart({
   data,
   currency,
   gradientId,
+  costKey,
+  label,
+  emptyMessage,
 }: {
   data: DailyTrendRow[]
   currency: string
   gradientId: string
+  costKey: 'cpl' | 'cpp'
+  label: string
+  emptyMessage: string
 }) {
-  const cplData = data.filter((d) => d.cpl !== null)
-  const avgCpl =
-    cplData.length > 0
-      ? cplData.reduce((sum, d) => sum + (d.cpl ?? 0), 0) / cplData.length
+  const filtered = data.filter((d) => d[costKey] !== null)
+  const avg =
+    filtered.length > 0
+      ? filtered.reduce((sum, d) => sum + (d[costKey] ?? 0), 0) / filtered.length
       : null
 
-  if (cplData.length === 0) {
+  if (filtered.length === 0) {
     return (
       <div className="rounded-lg border border-border-subtle bg-bg-secondary/50 px-4 py-6 text-center">
-        <p className="text-[12px] text-text-tertiary">No CPL data for this period — leads required.</p>
+        <p className="text-[12px] text-text-tertiary">{emptyMessage}</p>
       </div>
     )
   }
@@ -155,17 +167,17 @@ function CplTrendChart({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[12px] font-semibold text-text-primary">CPL Trend</p>
-        {avgCpl != null && (
+        <p className="text-[12px] font-semibold text-text-primary">{label} Trend</p>
+        {avg != null && (
           <span className="text-[11px] text-text-tertiary">
-            Avg: {fmtCurrency(avgCpl, currency)}
+            Avg: {fmtCurrency(avg, currency)}
           </span>
         )}
       </div>
-      <p className="text-[11px] text-text-tertiary mb-3">Cost per lead by day</p>
+      <p className="text-[11px] text-text-tertiary mb-3">{label} by day</p>
       <div className="h-[160px] w-full min-w-0">
         <ResponsiveContainer width="100%" height={160} minWidth={0}>
-          <AreaChart data={cplData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={filtered} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#D97706" stopOpacity={0.25} />
@@ -186,9 +198,9 @@ function CplTrendChart({
               width={52}
               tickFormatter={(v: number) => fmtCurrencyShort(v, currency)}
             />
-            {avgCpl != null && (
+            {avg != null && (
               <ReferenceLine
-                y={avgCpl}
+                y={avg}
                 stroke="#D97706"
                 strokeDasharray="4 4"
                 strokeOpacity={0.5}
@@ -205,11 +217,11 @@ function CplTrendChart({
                 boxShadow: 'var(--shadow-md)',
               }}
               labelStyle={{ color: 'var(--text-tertiary)', fontSize: 11 }}
-              formatter={(value) => [fmtCurrency(typeof value === 'number' ? value : Number(value), currency), 'CPL']}
+              formatter={(value) => [fmtCurrency(typeof value === 'number' ? value : Number(value), currency), label]}
             />
             <Area
               type="monotone"
-              dataKey="cpl"
+              dataKey={costKey}
               stroke="#D97706"
               strokeWidth={2}
               fill={`url(#${gradientId})`}
@@ -226,13 +238,15 @@ export function MetaTrendCharts({
   data,
   currency,
   loading,
+  adObjective,
 }: {
   data: DailyTrendRow[]
   currency: string
   loading: boolean
+  adObjective: 'leads' | 'sales'
 }) {
   const spendGradId = useId()
-  const cplGradId = useId()
+  const costGradId = useId()
 
   if (loading) {
     return (
@@ -254,11 +268,30 @@ export function MetaTrendCharts({
     )
   }
 
+  const isSales = adObjective === 'sales'
+
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary p-4 md:col-span-2 space-y-6">
-      <SpendLeadsChart data={data} currency={currency} gradientId={spendGradId} />
+      <SpendConversionChart
+        data={data}
+        currency={currency}
+        gradientId={spendGradId}
+        conversionKey={isSales ? 'purchases' : 'leads'}
+        conversionLabel={isSales ? 'Purchases' : 'Leads'}
+      />
       <div className="border-t border-border-subtle" />
-      <CplTrendChart data={data} currency={currency} gradientId={cplGradId} />
+      <CostPerConversionChart
+        data={data}
+        currency={currency}
+        gradientId={costGradId}
+        costKey={isSales ? 'cpp' : 'cpl'}
+        label={isSales ? 'Cost per Purchase' : 'CPL'}
+        emptyMessage={
+          isSales
+            ? 'No purchase data for this period.'
+            : 'No CPL data for this period — leads required.'
+        }
+      />
     </div>
   )
 }

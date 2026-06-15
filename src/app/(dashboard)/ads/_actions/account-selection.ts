@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 
+export type AdObjective = 'leads' | 'sales'
+
 export type ManagedAdAccount = {
   ad_account_id: string
   ad_account_name: string | null
@@ -60,4 +62,20 @@ export async function setActiveAdAccounts(
   revalidatePath('/ads/google')
 
   return {}
+}
+
+/** Set the campaign objective for a specific ad account connection (scoped by RLS). */
+export async function setAdAccountObjective(
+  adAccountId: string,
+  platform: Platform,
+  objective: AdObjective,
+): Promise<void> {
+  const supabase = await createClient()
+  await supabase
+    .from('ads_connections')
+    .update({ ad_objective: objective })
+    .eq('platform', platform)
+    .eq('ad_account_id', adAccountId)
+  revalidatePath('/ads')
+  revalidatePath('/ads/google')
 }

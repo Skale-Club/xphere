@@ -6814,6 +6814,7 @@ export interface Database {
         Row: {
           ad_account_id: string
           ad_account_name: string | null
+          ad_objective: string
           connection_error: string | null
           created_at: string
           encrypted_access_token: string
@@ -6828,6 +6829,7 @@ export interface Database {
         Insert: {
           ad_account_id: string
           ad_account_name?: string | null
+          ad_objective?: string
           connection_error?: string | null
           created_at?: string
           encrypted_access_token: string
@@ -6842,6 +6844,7 @@ export interface Database {
         Update: {
           ad_account_id?: string
           ad_account_name?: string | null
+          ad_objective?: string
           connection_error?: string | null
           created_at?: string
           encrypted_access_token?: string

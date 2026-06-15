@@ -8,11 +8,13 @@ import {
   LayoutGrid,
   Unlink,
 } from 'lucide-react'
+import { useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AdsAttribution } from './ads-attribution'
 import { AccountSelector } from './account-selector'
+import { setAdAccountObjective, type AdObjective } from '../_actions/account-selection'
 
 import { MetaKpiCards } from './meta-kpi-cards'
 import { MetaFunnel } from './meta-funnel'
@@ -29,7 +31,7 @@ import { useCampaignsPanel } from './ads-campaigns-context'
 
 const ACCOUNT_STORAGE_KEY = 'xphere:meta_ads_account'
 
-type AdAccountOption = { id: string; name: string }
+type AdAccountOption = { id: string; name: string; objective: AdObjective }
 
 type OverviewData = {
   account: { id: string; name: string; currency: string; account_status: number }
@@ -68,6 +70,17 @@ export function MetaAdsOverview({
   const [filter, setFilter] = useState<DateFilter>({ type: 'preset', value: 'last_30d' })
   const [activeAccountId, setActiveAccountId] = useState(adAccountId)
   const { openPanel: openCampaigns } = useCampaignsPanel()
+  const [, startTransition] = useTransition()
+
+  const activeConnection = connections.find((c) => c.id === activeAccountId) ?? connections[0]
+  const [adObjective, setAdObjective] = useState<AdObjective>(activeConnection?.objective ?? 'leads')
+
+  const handleObjectiveChange = (newObjective: AdObjective) => {
+    setAdObjective(newObjective)
+    startTransition(() => {
+      void setAdAccountObjective(activeAccountId, 'meta', newObjective)
+    })
+  }
 
   // Overview data
   const [data, setData] = useState<OverviewData | null>(null)
@@ -92,6 +105,8 @@ export function MetaAdsOverview({
 
   const selectAccount = (id: string) => {
     setActiveAccountId(id)
+    const conn = connections.find((c) => c.id === id)
+    if (conn) setAdObjective(conn.objective)
     try {
       localStorage.setItem(ACCOUNT_STORAGE_KEY, id)
     } catch {
@@ -185,9 +200,17 @@ export function MetaAdsOverview({
       const rows: DailyTrendRow[] = (json.rows ?? []).map((r) => {
         const spend = parseFloat(r.spend ?? '0')
         const leads = parseFloat(r.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+        const purchases = parseFloat(r.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value ?? '0')
         const d = new Date(r.date_start)
         const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        return { date, spend, leads, cpl: leads > 0 ? spend / leads : null }
+        return {
+          date,
+          spend,
+          leads,
+          cpl: leads > 0 ? spend / leads : null,
+          purchases,
+          cpp: purchases > 0 ? spend / purchases : null,
+        }
       })
       setTrendData(rows)
     } catch {
@@ -233,6 +256,9 @@ export function MetaAdsOverview({
   const leadsVal = parseFloat(insights?.actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
   const spendVal = parseFloat(insights?.spend ?? '0')
   const clicksVal = parseFloat(insights?.clicks ?? '0')
+  const addToCartVal = parseFloat(insights?.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_add_to_cart')?.value ?? '0')
+  const checkoutsVal = parseFloat(insights?.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_initiate_checkout')?.value ?? '0')
+  const purchasesVal = parseFloat(insights?.actions?.find((a) => a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value ?? '0')
 
   // AdsAttribution supports custom ranges via since/until props (added in this PR).
   const attributionPreset = filter.type === 'preset' ? filter.value : 'last_30d'
@@ -261,6 +287,25 @@ export function MetaAdsOverview({
               {data.account.account_status === 1 ? 'Active' : 'Review'}
             </span>
           )}
+
+          {/* Objective toggle */}
+          <div className="flex items-center rounded-md border border-border-subtle bg-bg-tertiary p-0.5 text-[11px] font-medium">
+            {(['leads', 'sales'] as const).map((obj) => (
+              <button
+                key={obj}
+                onClick={() => handleObjectiveChange(obj)}
+                className={cn(
+                  'rounded px-2.5 py-1 capitalize transition-colors',
+                  adObjective === obj
+                    ? 'bg-bg-primary text-text-primary shadow-sm'
+                    : 'text-text-tertiary hover:text-text-secondary',
+                )}
+              >
+                {obj}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={handleDisconnect}
             disabled={disconnecting}
@@ -296,12 +341,13 @@ export function MetaAdsOverview({
         </div>
       )}
 
-      {/* ── Section 1: Lead-Gen KPI Cards ──────────────────────────── */}
+      {/* ── Section 1: KPI Cards (objective-aware) ─────────────────── */}
       <MetaKpiCards
         insights={insights ?? null}
         currency={currency}
         loading={loading}
         filterLabel={filterLabel}
+        adObjective={adObjective}
       />
 
       {/* ── Section 2: Conversion Funnel + Trend Charts ─────────────── */}
@@ -311,16 +357,21 @@ export function MetaAdsOverview({
             impressions={parseFloat(insights?.impressions ?? '0')}
             clicks={parseFloat(insights?.clicks ?? '0')}
             leads={leadsVal}
+            addToCart={addToCartVal}
+            checkouts={checkoutsVal}
+            purchases={purchasesVal}
             contacts={attrTotals?.identified_contacts ?? 0}
             opportunities={attrTotals?.opportunities ?? 0}
             revenue={attrTotals?.revenue ?? 0}
             currency={currency}
             loading={attrLoading}
+            adObjective={adObjective}
           />
           <MetaTrendCharts
             data={trendData}
             currency={currency}
             loading={trendLoading}
+            adObjective={adObjective}
           />
         </div>
       )}
@@ -335,42 +386,76 @@ export function MetaAdsOverview({
               <p className="text-[11px] text-text-tertiary mt-0.5">{filterLabel}</p>
             </div>
             <div className="space-y-3 divide-y divide-border-subtle/50">
-              {[
-                {
-                  label: 'Total Spend',
-                  value: spendVal > 0
-                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal)
-                    : '—',
-                },
-                {
-                  label: 'Total Leads',
-                  value: leadsVal > 0 ? leadsVal.toLocaleString() : '—',
-                },
-                {
-                  label: 'Cost per Lead',
-                  value: leadsVal > 0
-                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal / leadsVal)
-                    : '—',
-                },
-                {
-                  label: 'Lead Rate',
-                  value: clicksVal > 0
-                    ? `${((leadsVal / clicksVal) * 100).toFixed(2)}%`
-                    : '—',
-                },
-                {
-                  label: 'Opportunities',
-                  value: attrTotals?.opportunities != null && attrTotals.opportunities > 0
-                    ? attrTotals.opportunities.toLocaleString()
-                    : '—',
-                },
-                {
-                  label: 'Revenue',
-                  value: attrTotals?.revenue != null && attrTotals.revenue > 0
-                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(attrTotals.revenue)
-                    : '—',
-                },
-              ].map((item) => (
+              {(adObjective === 'sales'
+                ? [
+                    {
+                      label: 'Total Spend',
+                      value: spendVal > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal)
+                        : '—',
+                    },
+                    {
+                      label: 'Add to Cart',
+                      value: addToCartVal > 0 ? addToCartVal.toLocaleString() : '—',
+                    },
+                    {
+                      label: 'Checkouts',
+                      value: checkoutsVal > 0 ? checkoutsVal.toLocaleString() : '—',
+                    },
+                    {
+                      label: 'Purchases',
+                      value: purchasesVal > 0 ? purchasesVal.toLocaleString() : '—',
+                    },
+                    {
+                      label: 'Cost per Purchase',
+                      value: purchasesVal > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal / purchasesVal)
+                        : '—',
+                    },
+                    {
+                      label: 'Revenue',
+                      value: attrTotals?.revenue != null && attrTotals.revenue > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(attrTotals.revenue)
+                        : '—',
+                    },
+                  ]
+                : [
+                    {
+                      label: 'Total Spend',
+                      value: spendVal > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal)
+                        : '—',
+                    },
+                    {
+                      label: 'Total Leads',
+                      value: leadsVal > 0 ? leadsVal.toLocaleString() : '—',
+                    },
+                    {
+                      label: 'Cost per Lead',
+                      value: leadsVal > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(spendVal / leadsVal)
+                        : '—',
+                    },
+                    {
+                      label: 'Lead Rate',
+                      value: clicksVal > 0
+                        ? `${((leadsVal / clicksVal) * 100).toFixed(2)}%`
+                        : '—',
+                    },
+                    {
+                      label: 'Opportunities',
+                      value: attrTotals?.opportunities != null && attrTotals.opportunities > 0
+                        ? attrTotals.opportunities.toLocaleString()
+                        : '—',
+                    },
+                    {
+                      label: 'Revenue',
+                      value: attrTotals?.revenue != null && attrTotals.revenue > 0
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(attrTotals.revenue)
+                        : '—',
+                    },
+                  ]
+              ).map((item) => (
                 <div key={item.label} className="flex items-center justify-between pt-3 first:pt-0">
                   <span className="text-[12px] text-text-secondary">{item.label}</span>
                   <span className="text-[12.5px] font-semibold text-text-primary">{item.value}</span>
@@ -390,7 +475,9 @@ export function MetaAdsOverview({
       {/* ── Section 4: Lead & Revenue Attribution ──────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-[13px] font-semibold text-text-primary">Lead & Revenue Attribution</h2>
+          <h2 className="text-[13px] font-semibold text-text-primary">
+          {adObjective === 'sales' ? 'Sales & Revenue Attribution' : 'Lead & Revenue Attribution'}
+        </h2>
           <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">via UTM</span>
         </div>
         <AdsAttribution
