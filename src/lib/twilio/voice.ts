@@ -101,13 +101,24 @@ export async function resolveTwilioCredentialsForOrg(
 
 /**
  * Look up the active Twilio integration matching the destination phone number.
- * Used by the inbound voice webhook to resolve which org owns the called number.
+ * Used by the inbound voice/SMS webhooks to resolve which org owns the called
+ * number.
  *
  * Resolution is exclusively via `twilio_phone_numbers` — the org's source of
  * truth for every active Twilio phone resource.
+ *
+ * Multi-tenancy: the same e164 string can be registered by more than one org
+ * (the table only enforces UNIQUE(organization_id, e164)), so a lookup by e164
+ * alone is ambiguous and would route to whichever row the DB returns first.
+ * A Twilio number physically belongs to exactly ONE Twilio account, and the
+ * inbound webhook always carries that account's `AccountSid`, so we use it to
+ * pick the org that actually owns the number. When several orgs claim the same
+ * e164 and no AccountSid match is found we refuse to guess (return null) rather
+ * than misroute the call/SMS to the wrong tenant.
  */
 export async function resolveTwilioOrgByToNumber(
   toNumber: string,
+  accountSid?: string | null,
 ): Promise<
   | {
       orgId: string
@@ -118,24 +129,53 @@ export async function resolveTwilioOrgByToNumber(
 > {
   const supabase = createServiceRoleClient()
 
-  const { data: numberRow } = await supabase
+  const { data: candidates } = await supabase
     .from('twilio_phone_numbers')
     .select('id, organization_id, e164')
     .eq('e164', toNumber)
     .eq('is_active', true)
-    .limit(1)
-    .maybeSingle()
 
-  if (!numberRow) return null
+  if (!candidates || candidates.length === 0) return null
 
-  const creds = await resolveTwilioCredentialsForOrg(numberRow.organization_id)
-  if (!creds || !creds.accountSid || !creds.authToken) return null
-
-  return {
-    orgId: numberRow.organization_id,
-    phoneNumberId: numberRow.id,
-    creds: { ...creds, fromNumber: numberRow.e164 },
+  // Single owner → unambiguous. Route to it directly (the AccountSid may differ
+  // when the number lives in a Twilio subaccount, so we don't reject here).
+  if (candidates.length === 1) {
+    const only = candidates[0]
+    const creds = await resolveTwilioCredentialsForOrg(only.organization_id)
+    if (!creds || !creds.accountSid || !creds.authToken) return null
+    return {
+      orgId: only.organization_id,
+      phoneNumberId: only.id,
+      creds: { ...creds, fromNumber: only.e164 },
+    }
   }
+
+  // Multiple orgs registered the same e164 — disambiguate by AccountSid. Without
+  // one we cannot tell tenants apart, so refuse rather than misroute.
+  if (!accountSid) {
+    console.warn(
+      '[twilio] Ambiguous number across tenants and no AccountSid to disambiguate:',
+      toNumber,
+    )
+    return null
+  }
+
+  for (const candidate of candidates) {
+    const creds = await resolveTwilioCredentialsForOrg(candidate.organization_id)
+    if (!creds || !creds.accountSid || !creds.authToken) continue
+    if (creds.accountSid !== accountSid) continue
+    return {
+      orgId: candidate.organization_id,
+      phoneNumberId: candidate.id,
+      creds: { ...creds, fromNumber: candidate.e164 },
+    }
+  }
+
+  console.warn(
+    '[twilio] No tenant matched AccountSid for ambiguous number:',
+    toNumber,
+  )
+  return null
 }
 
 export function twilioBasicAuthHeader(creds: TwilioVoiceCredentials): string {

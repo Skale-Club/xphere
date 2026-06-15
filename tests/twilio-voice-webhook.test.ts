@@ -103,24 +103,27 @@ function buildSupabaseMock(opts: {
       }
     }
     if (table === 'twilio_phone_numbers') {
-      // Inbound org resolution (resolveTwilioOrgByToNumber) + default-number
-      // lookup (resolveTwilioCredentialsForOrg) both read this table. Return a
-      // row tied to the mocked integration's org so inbound calls resolve.
+      // Two readers hit this table:
+      //   * resolveTwilioOrgByToNumber — selects ALL active rows for an e164 and
+      //     awaits the builder directly (array result, no .maybeSingle()).
+      //   * resolveTwilioCredentialsForOrg — default-number lookup via
+      //     .maybeSingle() (single row).
+      // The builder is therefore both chainable AND thenable.
+      const row = opts.integration
+        ? {
+            id: 'phone-1',
+            organization_id: opts.integration.organization_id,
+            e164: '+19990000000',
+            is_active: true,
+          }
+        : null
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: opts.integration
-            ? {
-                id: 'phone-1',
-                organization_id: opts.integration.organization_id,
-                e164: '+19990000000',
-                is_active: true,
-              }
-            : null,
-          error: null,
-        }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
+        then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
+          resolve({ data: row ? [row] : [], error: null }),
       }
     }
     if (table === 'call_settings') {

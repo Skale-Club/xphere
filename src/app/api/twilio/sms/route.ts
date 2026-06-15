@@ -151,7 +151,7 @@ export async function POST(request: Request): Promise<Response> {
 
     // 2. Resolve the org by destination number via twilio_phone_numbers.
     //    Returns phone_number_id used downstream by process-sms.
-    const resolved = await resolveTwilioOrgByToNumber(to)
+    const resolved = await resolveTwilioOrgByToNumber(to, params.get('AccountSid'))
     if (!resolved) {
       console.warn('[twilio/sms] No active Twilio integration found for To:', to)
       return ackTwiml()

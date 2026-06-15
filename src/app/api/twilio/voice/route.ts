@@ -148,7 +148,7 @@ export async function POST(request: Request): Promise<Response> {
         }
       }
     } else {
-      const resolved = await resolveTwilioOrgByToNumber(to)
+      const resolved = await resolveTwilioOrgByToNumber(to, params.get('AccountSid'))
       if (resolved) {
         orgId = resolved.orgId
         phoneNumberId = resolved.phoneNumberId

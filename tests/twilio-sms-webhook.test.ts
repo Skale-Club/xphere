@@ -143,22 +143,25 @@ function buildMockSupabase(opts: MockOptions = {}) {
     }
 
     if (table === 'twilio_phone_numbers') {
+      // resolveTwilioOrgByToNumber selects ALL active rows for an e164 and awaits
+      // the builder directly (array); resolveTwilioCredentialsForOrg's
+      // default-number lookup uses .maybeSingle(). Support both.
+      const row = integration
+        ? {
+            id: 'phone-number-1',
+            organization_id: integration.organization_id,
+            e164: '+15553334444',
+            is_active: true,
+            capability_sms: true,
+          }
+        : null
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: integration
-            ? {
-                id: 'phone-number-1',
-                organization_id: integration.organization_id,
-                e164: '+15553334444',
-                is_active: true,
-                capability_sms: true,
-              }
-            : null,
-          error: null,
-        }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
+        then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
+          resolve({ data: row ? [row] : [], error: null }),
       }
     }
 
