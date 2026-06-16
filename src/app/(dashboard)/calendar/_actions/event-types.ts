@@ -53,10 +53,13 @@ export async function getEventTypes(): Promise<ActionResult<EventTypeRow[]>> {
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
+  // Return the current user's event types PLUS any org-level synthetic types
+  // (e.g. slug='xkedule') so calendar views can colour/label mirrored bookings
+  // regardless of which org member created the synthetic type.
   const { data, error } = await supabase
     .from('event_types')
     .select('*')
-    .eq('user_id', user.id)
+    .or(`user_id.eq.${user.id},slug.eq.xkedule`)
     .order('created_at', { ascending: true })
 
   if (error) return { ok: false, error: error.message }
