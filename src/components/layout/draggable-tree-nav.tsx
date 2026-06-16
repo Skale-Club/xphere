@@ -27,6 +27,50 @@ import {
   Trash2,
   Upload,
   X,
+  // Named glyphs: a folder may store a lucide icon name (e.g. "user-plus") as
+  // its `icon`; these back the NAMED_GLYPHS lookup below.
+  Calendar,
+  CalendarDays,
+  UserPlus,
+  User,
+  Users,
+  GitBranch,
+  Star,
+  Settings,
+  Bell,
+  Inbox,
+  Mail,
+  MessageSquare,
+  Phone,
+  Zap,
+  Tag,
+  Flag,
+  Rocket,
+  Target,
+  Briefcase,
+  Puzzle,
+  Bot,
+  Megaphone,
+  CheckCircle2,
+  Heart,
+  Bookmark,
+  Lightbulb,
+  Clock,
+  Flame,
+  Workflow,
+  Sparkles,
+  TrendingUp,
+  BarChart3,
+  Database,
+  Globe,
+  Link as LinkIcon,
+  Send,
+  Repeat,
+  Filter,
+  ShieldCheck,
+  Wrench,
+  Layers,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   DndContext,
@@ -90,13 +134,73 @@ const FOLDER_EMOJIS = [
   '📨', '🗂️', '🏷️', '🟢', '🔵', '🟣',
 ]
 
-/** A folder `icon` value is either an emoji (rendered as text) or an image URL
- *  (rendered in a rounded mask). */
+/** A folder `icon` value is one of three forms:
+ *   - an image URL  → rendered in a rounded mask (see `isImageIcon`)
+ *   - a lucide icon name, e.g. "user-plus" → rendered as that icon (see
+ *     `NAMED_GLYPHS` / `lucideGlyph`); set out-of-band (seeds, Copilot), since
+ *     the in-app picker only writes emojis
+ *   - an emoji → rendered as text
+ */
 function isImageIcon(icon: string | null | undefined): icon is string {
   return (
     !!icon &&
     (icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('data:'))
   )
+}
+
+/** Lucide icons addressable by their kebab-case name when stored as a folder
+ *  `icon`. Curated (not the full ~6k set) to keep this client bundle lean —
+ *  extend as new names are used. */
+const NAMED_GLYPHS: Record<string, LucideIcon> = {
+  calendar: Calendar,
+  'calendar-days': CalendarDays,
+  'user-plus': UserPlus,
+  user: User,
+  users: Users,
+  'git-branch': GitBranch,
+  star: Star,
+  settings: Settings,
+  bell: Bell,
+  inbox: Inbox,
+  mail: Mail,
+  'message-square': MessageSquare,
+  phone: Phone,
+  zap: Zap,
+  tag: Tag,
+  flag: Flag,
+  rocket: Rocket,
+  target: Target,
+  briefcase: Briefcase,
+  puzzle: Puzzle,
+  bot: Bot,
+  megaphone: Megaphone,
+  'check-circle': CheckCircle2,
+  'check-circle-2': CheckCircle2,
+  heart: Heart,
+  bookmark: Bookmark,
+  lightbulb: Lightbulb,
+  clock: Clock,
+  flame: Flame,
+  workflow: Workflow,
+  sparkles: Sparkles,
+  'trending-up': TrendingUp,
+  'bar-chart-3': BarChart3,
+  database: Database,
+  globe: Globe,
+  link: LinkIcon,
+  send: Send,
+  repeat: Repeat,
+  filter: Filter,
+  'shield-check': ShieldCheck,
+  wrench: Wrench,
+  layers: Layers,
+}
+
+/** Resolve a stored `icon` to a lucide component when it names one. Emojis are
+ *  non-ASCII and image URLs are caught earlier, so neither collides with a key. */
+function lucideGlyph(icon: string | null | undefined): LucideIcon | null {
+  if (!icon) return null
+  return NAMED_GLYPHS[icon.toLowerCase()] ?? null
 }
 
 export interface TreeNavItem {
@@ -606,8 +710,9 @@ function FolderSection<T extends TreeNavItem>({
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition }
 
   const colorStyle = folderColor ? { color: folderColor } : { color: '#f59e0b' }
-  // The folder glyph: an uploaded image (rounded mask) or a chosen emoji when
-  // set, otherwise the colored open/closed folder icon.
+  // The folder glyph: an uploaded image (rounded mask), a named lucide icon, or
+  // a chosen emoji when set, otherwise the colored open/closed folder icon.
+  const NamedGlyph = lucideGlyph(folder.icon)
   const glyph = isImageIcon(folder.icon) ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -615,6 +720,8 @@ function FolderSection<T extends TreeNavItem>({
       alt=""
       className="h-3.5 w-3.5 shrink-0 rounded-[4px] object-cover"
     />
+  ) : NamedGlyph ? (
+    <NamedGlyph className="h-3.5 w-3.5 shrink-0" style={colorStyle} />
   ) : folder.icon ? (
     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
       {folder.icon}
@@ -1269,6 +1376,8 @@ function FolderDragGhost({
   folder: TreeNavFolder
   folderColor: string | null
 }) {
+  const NamedGlyph = lucideGlyph(folder.icon)
+  const colorStyle = folderColor ? { color: folderColor } : { color: '#f59e0b' }
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-primary px-3 py-1.5 shadow-lg">
       {isImageIcon(folder.icon) ? (
@@ -1278,15 +1387,14 @@ function FolderDragGhost({
           alt=""
           className="h-3.5 w-3.5 shrink-0 rounded-[4px] object-cover"
         />
+      ) : NamedGlyph ? (
+        <NamedGlyph className="h-3.5 w-3.5 shrink-0" style={colorStyle} />
       ) : folder.icon ? (
         <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[12px] leading-none">
           {folder.icon}
         </span>
       ) : (
-        <FolderIcon
-          className="h-3.5 w-3.5 shrink-0"
-          style={folderColor ? { color: folderColor } : { color: '#f59e0b' }}
-        />
+        <FolderIcon className="h-3.5 w-3.5 shrink-0" style={colorStyle} />
       )}
       <span className="max-w-[180px] truncate text-[12px] font-medium text-text-secondary">
         {folder.name}
