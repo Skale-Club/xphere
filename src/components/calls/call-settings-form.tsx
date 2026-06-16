@@ -24,7 +24,7 @@ import {
   saveCallSettings,
   rotateSipPassword,
   type CurrentCallSettings,
-} from '@/app/(dashboard)/voice/actions'
+} from '@/app/(dashboard)/calls/settings-actions'
 import { normaliseE164 } from '@/lib/calls/zod-schemas'
 import type { CallRoutingMode } from '@/types/database'
 import { ZoiperSetupGuide } from './zoiper-setup-guide'
@@ -132,7 +132,7 @@ export function CallSettingsForm({ initial, sipDomain }: CallSettingsFormProps) 
       {/* Mode selector | 3 BIG cards */}
       <section className="space-y-3">
         <h2 className="text-[13px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
-          Routing mode
+          Answer mode
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {MODES.map((m) => {

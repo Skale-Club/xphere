@@ -31,7 +31,7 @@ import {
   getOrgPhoneNumbers,
   toggleRecordCalls,
   type OrgPhoneNumber,
-} from '@/app/(dashboard)/voice/actions'
+} from '@/app/(dashboard)/calls/settings-actions'
 import {
   searchContactsForDialPad,
   type DialPadContactHit,

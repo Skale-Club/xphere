@@ -1,16 +1,17 @@
 'use server'
 
 /**
- * Server actions for the SEED-007 Call System.
+ * Per-user call settings + dial-pad helpers for the unified Calls surface.
  *
- * Distinct from /calls (Vapi AI calls). The new manual call history lives in
- * `call_logs` and the per-user routing config lives in `call_settings`.
+ * Backs /calls/my-phone (browser / SIP / forward receive mode), the floating
+ * dial pad, and inline call-note editing. The org-level routing chain lives in
+ * ./routing-actions; call rows are read via ./actions.
  */
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { encrypt, decrypt } from '@/lib/crypto'
-import type { Database, CallRoutingMode } from '@/types/database'
+import { encrypt } from '@/lib/crypto'
+import type { CallRoutingMode } from '@/types/database'
 import {
   callSettingsFormSchema,
   normaliseE164,
@@ -19,8 +20,6 @@ import {
   generateClientIdentity,
   type CallSettingsFormInput,
 } from '@/lib/calls/zod-schemas'
-
-type CallLogRow = Database['public']['Tables']['call_logs']['Row']
 
 export interface CurrentCallSettings {
   id: string | null
@@ -138,7 +137,6 @@ export async function saveCallSettings(
 
   revalidatePath('/calls/phone-numbers')
   revalidatePath('/calls/my-phone')
-  revalidatePath('/voice')
 
   return {
     settings: {
@@ -219,70 +217,6 @@ export async function getSipDomain(): Promise<string | null> {
   return config?.sip_domain ?? null
 }
 
-// ─── Call history ────────────────────────────────────────────────────────────
-
-export interface CallLogWithContact extends CallLogRow {
-  contact_name: string | null
-}
-
-export interface CallListResult {
-  rows: CallLogWithContact[]
-  total: number
-}
-
-export async function listCallLogs(filters?: {
-  direction?: 'inbound' | 'outbound' | 'missed' | 'all'
-  contactId?: string
-  limit?: number
-}): Promise<CallListResult> {
-  const user = await getUser()
-  if (!user) return { rows: [], total: 0 }
-  const supabase = await createClient()
-
-  const limit = Math.min(filters?.limit ?? 100, 200)
-  let query = supabase
-    .from('call_logs')
-    .select('*, contacts!call_logs_contact_id_fkey(name)', { count: 'exact' })
-    .order('started_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  if (filters?.contactId) query = query.eq('contact_id', filters.contactId)
-  if (filters?.direction === 'inbound') query = query.eq('direction', 'inbound')
-  if (filters?.direction === 'outbound') query = query.eq('direction', 'outbound')
-  if (filters?.direction === 'missed') {
-    query = query.eq('direction', 'inbound').in('status', ['no-answer', 'busy', 'failed', 'canceled'])
-  }
-
-  const { data, count } = await query
-  if (!data) return { rows: [], total: 0 }
-
-  const rows: CallLogWithContact[] = data.map((row) => {
-    const r = row as CallLogRow & { contacts: { name: string | null } | null }
-    return { ...(row as CallLogRow), contact_name: r.contacts?.name ?? null }
-  })
-
-  return { rows, total: count ?? 0 }
-}
-
-export async function getCallLog(id: string): Promise<(CallLogWithContact & { contact_phone: string | null }) | null> {
-  const user = await getUser()
-  if (!user) return null
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('call_logs')
-    .select('*, contacts!call_logs_contact_id_fkey(name, phone)')
-    .eq('id', id)
-    .maybeSingle()
-  if (!data) return null
-  const row = data as CallLogRow & { contacts: { name: string | null; phone: string | null } | null }
-  return {
-    ...(data as CallLogRow),
-    contact_name: row.contacts?.name ?? null,
-    contact_phone: row.contacts?.phone ?? null,
-  }
-}
-
 export async function updateCallNotes(
   id: string,
   notes: string,
@@ -292,28 +226,9 @@ export async function updateCallNotes(
   const supabase = await createClient()
   const { error } = await supabase.from('call_logs').update({ notes }).eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath(`/voice/${id}`)
+  revalidatePath('/calls')
   return {}
 }
-
-export async function getCallLogsForContact(
-  contactId: string,
-  limit = 20,
-): Promise<CallLogRow[]> {
-  const user = await getUser()
-  if (!user) return []
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('call_logs')
-    .select('*')
-    .eq('contact_id', contactId)
-    .order('started_at', { ascending: false, nullsFirst: false })
-    .limit(limit)
-  return data ?? []
-}
-
-// Exported for tests
-export { decrypt }
 
 // ─── Dial-pad panel helpers ──────────────────────────────────────────────────
 

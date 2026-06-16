@@ -216,13 +216,7 @@ function SidebarBody({
                 const isActive =
                   pathname === item.href ||
                   (item.href !== '/' && pathname.startsWith(item.href + '/')) ||
-                  (item.href === '/inbox' && pathname === '/widget') ||
-                  (item.href === '/calls' && (
-                    pathname.startsWith('/phone') ||
-                    pathname.startsWith('/voice') ||
-                    pathname.startsWith('/outbound') ||
-                    pathname.startsWith('/assistants')
-                  ))
+                  (item.href === '/inbox' && pathname === '/widget')
 
                 const link = (
                   <Link

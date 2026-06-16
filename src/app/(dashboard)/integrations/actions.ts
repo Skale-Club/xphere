@@ -407,6 +407,19 @@ export async function saveIntegrationCredentials(
     revalidatePath('/settings/email')
   }
 
+  if (provider === 'vapi') {
+    // Mirror the account's assistants into the registry so the user doesn't
+    // register each one by hand. Best-effort: a sync failure must not fail the
+    // credential save — the manual "Sync from Vapi" button can retry.
+    try {
+      const { syncVapiAssistants } = await import('@/lib/vapi/sync-assistants')
+      await syncVapiAssistants(supabase, orgId)
+    } catch {
+      // ignored — credentials are saved; user can retry the sync manually
+    }
+    revalidatePath('/calls')
+  }
+
   if (provider === 'zernio') {
     let webhookApiKey = apiKey
     if (!webhookApiKey && existing?.encrypted_api_key) {

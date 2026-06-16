@@ -43,8 +43,8 @@ export default function CallsSettingsPage() {
         <SetupLink
           href="/calls/assistants"
           icon={Bot}
-          title="Assistants"
-          description="Map org-level Vapi assistants used by voice workflows."
+          title="Connected Assistants"
+          description="Vapi assistants synced from your account, used to route inbound voice."
         />
         <SetupLink
           href="/campaigns?channel=calls"

@@ -32,7 +32,7 @@ import type {
   CallRoutingTarget,
   CallRoutingTargetType,
 } from '@/types/database'
-import { saveRoutingChain, type RoutingChainState } from '@/app/(dashboard)/settings/calls/actions'
+import { saveRoutingChain, type RoutingChainState } from '@/app/(dashboard)/calls/routing-actions'
 
 interface MemberOption {
   user_id: string

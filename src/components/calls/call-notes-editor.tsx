@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Check, Loader2 } from 'lucide-react'
 
 import { Textarea } from '@/components/ui/textarea'
-import { updateCallNotes } from '@/app/(dashboard)/voice/actions'
+import { updateCallNotes } from '@/app/(dashboard)/calls/settings-actions'
 
 interface CallNotesEditorProps {
   callId: string

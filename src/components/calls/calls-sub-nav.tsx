@@ -5,11 +5,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Bot,
-  Megaphone,
   Phone,
   PhoneCall,
   Route,
-  Settings2,
   Smartphone,
   type LucideIcon,
 } from 'lucide-react'
@@ -69,34 +67,22 @@ const SECTIONS: NavSection[] = [
         isActive: (pathname) => pathname === '/calls/routing',
       },
       {
-        href: '/calls/my-phone',
-        label: 'My Phone',
-        icon: Smartphone,
-        isActive: (pathname) => pathname === '/calls/my-phone',
-      },
-      {
         href: '/calls/assistants',
-        label: 'Assistants',
+        label: 'Connected Assistants',
         icon: Bot,
         isActive: (pathname) =>
           pathname === '/calls/assistants' || pathname.startsWith('/calls/assistants/'),
       },
-      {
-        href: '/calls/settings',
-        label: 'Setup',
-        icon: Settings2,
-        isActive: (pathname) => pathname === '/calls/settings',
-      },
     ],
   },
   {
-    heading: 'Outbound',
+    heading: 'Personal',
     items: [
       {
-        href: '/campaigns?channel=calls',
-        label: 'Voice Campaigns',
-        icon: Megaphone,
-        isActive: () => false,
+        href: '/calls/my-phone',
+        label: 'My Phone',
+        icon: Smartphone,
+        isActive: (pathname) => pathname === '/calls/my-phone',
       },
     ],
   },

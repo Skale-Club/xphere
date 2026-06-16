@@ -2,7 +2,7 @@ import { PhoneCall } from 'lucide-react'
 
 import { PageHeader } from '@/components/layout/page-header'
 import { CallSettingsForm } from '@/components/calls/call-settings-form'
-import { getCurrentCallSettings, getSipDomain } from '@/app/(dashboard)/voice/actions'
+import { getCurrentCallSettings, getSipDomain } from '@/app/(dashboard)/calls/settings-actions'
 
 export const metadata = { title: 'My Phone' }
 

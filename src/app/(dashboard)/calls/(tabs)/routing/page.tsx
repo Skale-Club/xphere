@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react'
 
-import { getRoutingChain } from '@/app/(dashboard)/settings/calls/actions'
+import { getRoutingChain } from '@/app/(dashboard)/calls/routing-actions'
 import { listOrgMembersForSelect } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
 import { RoutingChainEditor } from '@/components/calls/routing-chain-editor'
 

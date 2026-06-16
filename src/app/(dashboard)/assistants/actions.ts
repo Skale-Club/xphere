@@ -66,3 +66,18 @@ export async function deleteAssistantMapping(id: string) {
   if (error) return { error: error.message }
   revalidatePath('/calls')
 }
+
+export async function syncVapiAssistantsAction(): Promise<{
+  ok: boolean
+  imported?: number
+  error?: string
+}> {
+  const supabase = await createClient()
+  const organization_id = await getCurrentOrgId(supabase)
+  if (!organization_id) return { ok: false, error: 'No organization found for current user.' }
+
+  const { syncVapiAssistants } = await import('@/lib/vapi/sync-assistants')
+  const result = await syncVapiAssistants(supabase, organization_id)
+  if (result.ok) revalidatePath('/calls')
+  return result
+}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bot, ExternalLink, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { Bot, ExternalLink, MoreHorizontal, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { AssistantMappingForm } from "./assistant-mapping-form";
 import {
   toggleAssistantMappingStatus,
   deleteAssistantMapping,
+  syncVapiAssistantsAction,
 } from "@/app/(dashboard)/assistants/actions";
 import type { Database } from "@/types/database";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,7 @@ export function AssistantMappingsTable({
 }: AssistantMappingsTableProps) {
   const router = useRouter();
   const [optimisticMappings, setOptimisticMappings] = useState(initialMappings);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [editMapping, setEditMapping] = useState<AssistantMapping | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AssistantMapping | null>(
     null,
@@ -102,17 +103,35 @@ export function AssistantMappingsTable({
     setIsLoading(false);
   }
 
+  async function handleSync() {
+    setSyncing(true);
+    const result = await syncVapiAssistantsAction();
+    setSyncing(false);
+    if (!result.ok) {
+      toast.error(result.error ?? "Sync failed. Try again.");
+      return;
+    }
+    toast.success(
+      result.imported
+        ? `Synced ${result.imported} assistant${result.imported === 1 ? "" : "s"} from Vapi.`
+        : "No assistants found on your Vapi account.",
+    );
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col">
       {/* Toolbar */}
       <div className="-mt-6 flex items-center gap-2 pb-4">
         <Button
           size="sm"
+          variant="outline"
           className="h-8"
-          onClick={() => setAddDialogOpen(true)}
+          onClick={handleSync}
+          disabled={syncing}
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Link Vapi Assistant
+          <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", syncing && "animate-spin")} />
+          {syncing ? "Syncing…" : "Sync from Vapi"}
         </Button>
       </div>
 
@@ -121,15 +140,15 @@ export function AssistantMappingsTable({
           <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[8px] border border-dashed border-border bg-bg-secondary/30 px-4 py-16 text-center">
             <Bot className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="text-base font-semibold mb-1">
-              No Vapi assistants linked
+              No assistants synced yet
             </h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-              Link a Vapi assistant with a friendly name so call routing stays
-              clear.
+              Connecting your Vapi key imports assistants automatically. Use Sync
+              to pull the latest from your Vapi account.
             </p>
-            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Link Vapi Assistant
+            <Button size="sm" onClick={handleSync} disabled={syncing}>
+              <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", syncing && "animate-spin")} />
+              {syncing ? "Syncing…" : "Sync from Vapi"}
             </Button>
           </div>
         ) : (
@@ -344,13 +363,6 @@ export function AssistantMappingsTable({
         )}
       </div>
 
-      <AssistantMappingForm
-        mode="create"
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onSuccess={() => router.refresh()}
-      />
-
       {editMapping && (
         <AssistantMappingForm
           mode="edit"
@@ -377,7 +389,7 @@ export function AssistantMappingsTable({
             <AlertDialogTitle>Remove Assistant Mapping</AlertDialogTitle>
             <AlertDialogDescription>
               This assistant ID will no longer route webhooks to this
-              organization. You can re-add it at any time.
+              organization. A future sync from Vapi will re-import it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

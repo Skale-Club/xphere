@@ -130,17 +130,10 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
               {navItems.map((item) => {
                 const Icon = item.icon
                 const isChatItem = item.href === '/inbox'
-                const isCallsItem = item.href === '/calls'
                 const isCurrentPage =
                   pathname === item.href ||
                   pathname.startsWith(item.href + '/') ||
-                  (isChatItem && pathname === '/widget') ||
-                  (isCallsItem && (
-                    pathname.startsWith('/phone') ||
-                    pathname.startsWith('/voice') ||
-                    pathname.startsWith('/outbound') ||
-                    pathname.startsWith('/assistants')
-                  ))
+                  (isChatItem && pathname === '/widget')
 
                 if (!item.active) {
                   return (

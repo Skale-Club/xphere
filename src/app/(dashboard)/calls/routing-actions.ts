@@ -8,6 +8,8 @@
  * the active org). Auto-provisions a Twilio client identity for any user added
  * as a browser/pwa target so their Voice SDK Device can actually receive the
  * <Client> leg — done via the service-role client after confirming membership.
+ *
+ * Backs /calls/routing.
  */
 
 import { revalidatePath } from 'next/cache'
@@ -164,6 +166,5 @@ export async function saveRoutingChain(
   if (error) return { error: error.message }
 
   revalidatePath('/calls/routing')
-  revalidatePath('/settings/calls')
   return {}
 }
