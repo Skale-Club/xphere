@@ -2,9 +2,8 @@
 // Graph API v20.0, schema: EMAIL_SHA256 + PHONE_SHA256
 // https://developers.facebook.com/docs/marketing-api/audiences/guides/custom-audiences
 
-import { META_ADS_GRAPH_VERSION } from '@/lib/ads/meta-oauth'
+import { sha256Hex, normalizePhone, graphPost, graphGet, graphDelete } from '@/lib/meta/graph'
 
-const GRAPH_BASE = `https://graph.facebook.com/${META_ADS_GRAPH_VERSION}`
 const BATCH_SIZE = 10_000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,63 +23,6 @@ export interface AudienceStatus {
   approximate_count_upper_bound: number
   operation_status: { code: number; description: string }
   data_source: { type: string }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function sha256Hex(value: string): Promise<string> {
-  const encoded = new TextEncoder().encode(value.toLowerCase().trim())
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function normalizePhone(phone: string): string {
-  // Meta hashes phone numbers as digits only — country code + number, with no
-  // '+', spaces, or punctuation (e.g. "+1 (555) 123-4567" → "15551234567").
-  // Keeping the leading '+' yields a hash that never matches Meta's records,
-  // so strip every non-digit. Callers should pass phone_e164 for a country code.
-  return phone.replace(/\D/g, '')
-}
-
-async function graphPost<T>(
-  path: string,
-  token: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  const res = await fetch(`${GRAPH_BASE}/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ ...body, access_token: token }),
-    cache: 'no-store',
-  })
-  if (!res.ok) {
-    let msg = `Meta API ${res.status}`
-    try {
-      const err = (await res.json()) as { error?: { message?: string; code?: number } }
-      msg = err.error?.message ?? msg
-    } catch { /* ignore */ }
-    throw new Error(msg)
-  }
-  return res.json() as Promise<T>
-}
-
-async function graphGet<T>(path: string, token: string, params?: Record<string, string>): Promise<T> {
-  const url = new URL(`${GRAPH_BASE}/${path}`)
-  url.searchParams.set('access_token', token)
-  if (params) {
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  }
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' })
-  if (!res.ok) {
-    let msg = `Meta API ${res.status}`
-    try {
-      const err = (await res.json()) as { error?: { message?: string } }
-      msg = err.error?.message ?? msg
-    } catch { /* ignore */ }
-    throw new Error(msg)
-  }
-  return res.json() as Promise<T>
 }
 
 // ─── Audience management ──────────────────────────────────────────────────────
@@ -150,9 +92,14 @@ export async function syncUsersToAudience(
   let totalSent = 0
   let totalInvalid = 0
 
+  // ADD → HTTP POST, REMOVE → HTTP DELETE (same hashed payload body). Using POST
+  // for REMOVE would silently re-ADD the users (e.g. re-adding opted-out / DND
+  // contacts) — a privacy/compliance bug.
+  const send = operation === 'REMOVE' ? graphDelete : graphPost
+
   for (let offset = 0; offset < data.length; offset += BATCH_SIZE) {
     const chunk = data.slice(offset, offset + BATCH_SIZE)
-    const result = await graphPost<AudienceBatchResult>(
+    const result = await send<AudienceBatchResult>(
       `${audienceId}/users`,
       token,
       { payload: { schema, data: chunk } },
