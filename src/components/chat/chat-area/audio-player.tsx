@@ -108,7 +108,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
   const progress = displayDuration > 0 ? currentTime / displayDuration : 0
 
   return (
-    <div className="flex w-full min-w-[15rem] items-center gap-2.5 py-0.5">
+    <div className="flex w-60 max-w-full items-center gap-2.5 py-0.5">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} src={src} preload="metadata" />
 
@@ -135,7 +135,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
           aria-valuemax={displayDuration || 1}
           aria-valuenow={currentTime}
           tabIndex={0}
-          className="flex h-8 w-full cursor-pointer items-end gap-px select-none"
+          className="flex h-8 w-full cursor-pointer items-end gap-px select-none overflow-hidden"
           onClick={handleWaveformClick}
           onKeyDown={(e) => {
             const audio = audioRef.current
@@ -152,7 +152,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
               <div
                 key={i}
                 className={cn(
-                  'min-w-[2px] flex-1 rounded-full transition-colors duration-75',
+                  'flex-1 rounded-full transition-colors duration-75',
                   active
                     ? 'bg-accent'
                     : isCurrent
