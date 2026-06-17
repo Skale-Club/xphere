@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { buildOpportunityScope } from '@/lib/pipeline/scope'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { enqueueQualified, enqueuePurchase } from '@/lib/meta/capi-enqueue'
 
 export type OpportunityEventType =
   | 'opportunity.created'
@@ -190,6 +191,19 @@ export async function emitOpportunityEvent(
     depth,
     options.parentDispatchId ?? null,
   )
+
+  // Meta CAPI side-effects (fire-and-forget; no-op unless the org has CAPI
+  // enabled). Run regardless of whether any workflow matched.
+  if (eventType === 'opportunity.won') {
+    void enqueuePurchase(orgId, payload.opportunity_id, { supabase }).catch((err) => {
+      console.error('[pipeline/events] enqueuePurchase error:', err)
+    })
+  } else if (eventType === 'opportunity.stage_changed') {
+    const stageName = scope.stage.to?.name ?? scope.stage.name ?? null
+    void enqueueQualified(orgId, payload.opportunity_id, stageName, { supabase }).catch((err) => {
+      console.error('[pipeline/events] enqueueQualified error:', err)
+    })
+  }
 
   if (matched.length === 0) {
     return { dispatched: 0, dispatch_id: dispatchId }

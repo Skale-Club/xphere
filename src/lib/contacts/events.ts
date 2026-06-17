@@ -14,6 +14,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { enqueueLead } from '@/lib/meta/capi-enqueue'
 
 export type ContactEventType = 'contact.created'
 
@@ -100,6 +101,15 @@ export async function emitContactEvent(
       .select('id')
       .maybeSingle()
     const dispatchId = (dispatchRow as { id: string } | null)?.id ?? null
+
+    // Meta CAPI: enqueue a Lead conversion (no-op unless the org has CAPI
+    // enabled). Fire-and-forget — must never block contact creation, and runs
+    // regardless of whether any workflow matched.
+    if (eventType === 'contact.created') {
+      void enqueueLead(orgId, contactId, { supabase }).catch((err) => {
+        console.error('[contacts/events] enqueueLead error:', err)
+      })
+    }
 
     if (matched.length === 0) return { dispatched: 0, dispatch_id: dispatchId }
 

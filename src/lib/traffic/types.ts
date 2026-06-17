@@ -12,6 +12,10 @@ export interface IngestPayload {
   utm_campaign?: string
   utm_term?: string
   utm_content?: string
+  // Meta click signals (captured by the browser script; used by the CAPI sender)
+  fbclid?: string
+  fbc?: string
+  fbp?: string
   event_type?: string
   event_name?: string
   metadata?: Record<string, unknown>

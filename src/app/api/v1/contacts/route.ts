@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { linkVisitorToContact } from '@/lib/traffic/identify'
 
 export const runtime = 'nodejs'
 
@@ -33,6 +34,10 @@ const bodySchema = z.object({
   tags: z.array(z.string()).optional(),
   source_label: z.string().max(100).optional().nullable(),
   custom_fields: z.record(z.string(), z.unknown()).optional(),
+  // Optional Meta attribution: when the lead came through a page running the
+  // Xphere traffic script, pass the _xvid cookie so the contact is linked to
+  // its tracked visitor (carrying fbc/fbp/ip/ua for CAPI matching).
+  visitor_id: z.string().max(100).optional().nullable(),
 })
 
 function hashToken(token: string): string {
@@ -82,7 +87,7 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const { name, email, phone, company, tags, source_label, custom_fields } = body
+  const { name, email, phone, company, tags, source_label, custom_fields, visitor_id } = body
   const phoneNorm = normalisePhone(phone)
   const emailNorm = normaliseEmail(email)
 
@@ -184,7 +189,16 @@ export async function POST(request: Request): Promise<Response> {
     action = 'created'
   }
 
-  // ── 5. Touch last_used_at (fire-and-forget) ────────────────────────────────
+  // ── 5. Link the tracked visitor to this contact (Meta attribution) ──────────
+  if (visitor_id) {
+    try {
+      await linkVisitorToContact(orgId, visitor_id, contactId, { supabase })
+    } catch (err) {
+      console.error('[api/v1/contacts] visitor link error:', err)
+    }
+  }
+
+  // ── 6. Touch last_used_at (fire-and-forget) ────────────────────────────────
   supabase
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })

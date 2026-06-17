@@ -6605,6 +6605,11 @@ export interface Database {
           browser: string | null
           os: string | null
           is_converted: boolean
+          fbc: string | null
+          fbp: string | null
+          fbclid: string | null
+          client_ip_address: string | null
+          client_user_agent: string | null
           created_at: string
           updated_at: string
         }
@@ -6632,6 +6637,11 @@ export interface Database {
           browser?: string | null
           os?: string | null
           is_converted?: boolean
+          fbc?: string | null
+          fbp?: string | null
+          fbclid?: string | null
+          client_ip_address?: string | null
+          client_user_agent?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -7106,6 +7116,123 @@ export interface Database {
             foreignKeyName: 'meta_audience_config_org_id_fkey'
             columns: ['org_id']
             isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      meta_capi_config: {
+        Row: {
+          id: string
+          org_id: string
+          meta_ad_account_id: string | null
+          dataset_id: string | null
+          pixel_id: string | null
+          encrypted_capi_token: string | null
+          test_event_code: string | null
+          enabled: boolean
+          browser_pixel_enabled: boolean
+          default_currency: string
+          event_map: Record<string, { enabled?: boolean; stage_name?: string; value_source?: string }>
+          last_status: Record<string, unknown> | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          meta_ad_account_id?: string | null
+          dataset_id?: string | null
+          pixel_id?: string | null
+          encrypted_capi_token?: string | null
+          test_event_code?: string | null
+          enabled?: boolean
+          browser_pixel_enabled?: boolean
+          default_currency?: string
+          event_map?: Record<string, { enabled?: boolean; stage_name?: string; value_source?: string }>
+          last_status?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          meta_ad_account_id?: string | null
+          dataset_id?: string | null
+          pixel_id?: string | null
+          encrypted_capi_token?: string | null
+          test_event_code?: string | null
+          enabled?: boolean
+          browser_pixel_enabled?: boolean
+          default_currency?: string
+          event_map?: Record<string, { enabled?: boolean; stage_name?: string; value_source?: string }>
+          last_status?: Record<string, unknown> | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meta_capi_config_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      meta_capi_events: {
+        Row: {
+          id: string
+          org_id: string
+          event_name: string
+          event_id: string
+          event_time: string
+          action_source: string
+          source_table: string | null
+          source_id: string | null
+          payload: Record<string, unknown>
+          status: 'pending' | 'sent' | 'failed' | 'dead'
+          attempts: number
+          next_attempt_at: string
+          last_error: string | null
+          fb_trace_id: string | null
+          sent_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          event_name: string
+          event_id: string
+          event_time?: string
+          action_source?: string
+          source_table?: string | null
+          source_id?: string | null
+          payload: Record<string, unknown>
+          status?: 'pending' | 'sent' | 'failed' | 'dead'
+          attempts?: number
+          next_attempt_at?: string
+          last_error?: string | null
+          fb_trace_id?: string | null
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          event_time?: string
+          action_source?: string
+          payload?: Record<string, unknown>
+          status?: 'pending' | 'sent' | 'failed' | 'dead'
+          attempts?: number
+          next_attempt_at?: string
+          last_error?: string | null
+          fb_trace_id?: string | null
+          sent_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'meta_capi_events_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
             referencedRelation: 'organizations'
             referencedColumns: ['id']
           },

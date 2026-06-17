@@ -6,10 +6,11 @@ function db() { return createServiceRoleClient() as any }
 
 export async function processIngest(
   payload: IngestPayload,
-  _ip: string | null,
+  ip: string | null,
   geoCountryCode: string | null,
   geoCountryName: string | null,
   geoCity: string | null,
+  userAgent: string | null = null,
 ): Promise<void> {
   const supabase = db()
 
@@ -59,6 +60,12 @@ export async function processIngest(
           device_type: payload.device_type ?? 'unknown',
           browser: payload.browser ?? null,
           os: payload.os ?? null,
+          // Meta click signals + client identifiers for CAPI user_data matching
+          fbc: payload.fbc ?? null,
+          fbp: payload.fbp ?? null,
+          fbclid: payload.fbclid ?? null,
+          client_ip_address: ip,
+          client_user_agent: userAgent,
         },
         { onConflict: 'organization_id,session_key', ignoreDuplicates: true }
       )

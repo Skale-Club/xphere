@@ -11,6 +11,7 @@ const PLATFORM_TABS = [
 ]
 
 const JOURNEY_TAB = { label: 'Journey', href: '/ads/journey', value: 'journey' }
+const CAPI_TAB = { label: 'CAPI', href: '/ads/capi', value: 'capi' }
 
 export function AdsPlatformSwitcher() {
   const pathname = usePathname()
@@ -19,6 +20,8 @@ export function AdsPlatformSwitcher() {
     ? 'google'
     : pathname.startsWith('/ads/journey')
     ? 'journey'
+    : pathname.startsWith('/ads/capi')
+    ? 'capi'
     : 'meta'
 
   function tabClass(isActive: boolean) {
@@ -49,6 +52,12 @@ export function AdsPlatformSwitcher() {
             className={tabClass(JOURNEY_TAB.value === activeValue)}
           >
             {JOURNEY_TAB.label}
+          </Link>
+          <Link
+            href={CAPI_TAB.href}
+            className={tabClass(CAPI_TAB.value === activeValue)}
+          >
+            {CAPI_TAB.label}
           </Link>
         </div>
 

@@ -38,8 +38,9 @@ export async function POST(request: Request) {
     const city = cityEncoded ? decodeURIComponent(cityEncoded) : null
 
     const countryName = countryCode ? countryCodeToName(countryCode) : null
+    const userAgent = request.headers.get('user-agent') ?? null
 
-    await processIngest(body, ip, countryCode, countryName, city)
+    await processIngest(body, ip, countryCode, countryName, city, userAgent)
   } catch {
     // Ingest must never return an error to the client
   }
