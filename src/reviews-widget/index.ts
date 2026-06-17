@@ -163,7 +163,11 @@ const CSS = `
 .orw-carousel-wrap { position: relative; }
 .orw-carousel-viewport {
   overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
-  -webkit-overflow-scrolling: touch; cursor: grab; padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch; cursor: grab;
+  /* 16px gutter only on the leading edge so the first/snapped card never
+     touches the left; the right keeps the natural peek of the next card */
+  padding: 0 0 4px 16px;
+  scroll-padding-left: 16px;
   user-select: none; -webkit-user-select: none;
 }
 .orw-carousel-viewport::-webkit-scrollbar { display: none; }
