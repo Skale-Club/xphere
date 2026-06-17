@@ -16,10 +16,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return NextResponse.redirect(new URL('/', origin))
 
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
-    return NextResponse.redirect(new URL('/dashboard', origin))
-  }
-
   const state = randomBytes(16).toString('hex')
 
   // buildMetaAdsAuthUrl throws when META_APP_ID / META_APP_SECRET are not set

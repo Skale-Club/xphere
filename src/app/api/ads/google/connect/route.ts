@@ -15,9 +15,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const origin = resolveRequestOrigin(request)
   const user = await getUser()
   if (!user) return NextResponse.redirect(new URL('/', origin))
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
-    return NextResponse.redirect(new URL('/dashboard', origin))
-  }
 
   const state = randomBytes(16).toString('hex')
   const authUrl = buildGoogleAdsAuthUrl(state)

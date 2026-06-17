@@ -34,7 +34,6 @@ function redirect(request: NextRequest, path: string) {
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return redirect(request, '/')
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return redirect(request, '/dashboard')
 
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

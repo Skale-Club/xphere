@@ -35,11 +35,6 @@ export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return redirect(request, '/')
 
-  // Admin gate — only PLATFORM_ADMIN can connect ad accounts
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
-    return redirect(request, '/dashboard')
-  }
-
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')

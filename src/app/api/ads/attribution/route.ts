@@ -57,7 +57,6 @@ function resolveDateRange(preset: string): { from: string; to: string } {
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return err('Unauthorized', 401)
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   const url = new URL(request.url)
   const platform = url.searchParams.get('platform') as 'meta' | 'google' | null

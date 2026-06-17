@@ -15,7 +15,7 @@ type Platform = 'meta' | 'google'
 
 async function adminClient() {
   const user = await getUser()
-  if (!user || user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
+  if (!user) {
     throw new Error('Forbidden')
   }
   return createClient()

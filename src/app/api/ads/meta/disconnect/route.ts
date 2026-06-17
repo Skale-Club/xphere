@@ -7,9 +7,6 @@ export const runtime = 'nodejs'
 export async function POST(): Promise<Response> {
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
 
   const supabase = await createClient()
 

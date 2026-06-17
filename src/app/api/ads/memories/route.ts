@@ -15,7 +15,6 @@ function err(msg: string, status = 400) {
 export async function GET(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return err('Unauthorized', 401)
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   const url = new URL(request.url)
   const status = url.searchParams.get('status') ?? 'active'
@@ -58,7 +57,6 @@ const CreateMemorySchema = z.object({
 export async function POST(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return err('Unauthorized', 401)
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   let body: unknown
   try { body = await request.json() } catch { return err('Invalid JSON') }
@@ -97,7 +95,6 @@ const PatchSchema = z.object({
 export async function PATCH(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return err('Unauthorized', 401)
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   let body: unknown
   try { body = await request.json() } catch { return err('Invalid JSON') }

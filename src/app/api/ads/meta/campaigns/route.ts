@@ -29,7 +29,6 @@ function err(msg: string, status = 400) {
 export async function POST(request: NextRequest): Promise<Response> {
   const user = await getUser()
   if (!user) return err('Unauthorized', 401)
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return err('Forbidden', 403)
 
   let body: unknown
   try {

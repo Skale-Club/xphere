@@ -54,7 +54,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view',      feature: 'calls' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view',  feature: 'campaigns' },
   { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
-  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', adminOnly: true, permission: 'ads.view', feature: 'ads' },
+  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', permission: 'ads.view', feature: 'ads' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view',   feature: 'crm' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view',  feature: 'crm' },
   { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true,            feature: 'prospects' },
