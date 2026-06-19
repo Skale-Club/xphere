@@ -385,21 +385,25 @@ export function CalendarView({
       ) : (
         /* ── Day / Week time grid ───────────────────────────────── */
         <>
-          {/* Day headers */}
-          <div className="grid border-b border-border" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
-            <div className="border-r border-border" />
-            {days.map((day) => (
-              <div key={day.toISOString()} className={cn('py-2 text-center border-r border-border last:border-r-0', isToday(day) && 'bg-indigo-500/5')}>
-                <div className="text-[11px] font-medium uppercase text-muted-foreground">{format(day, 'EEE')}</div>
-                <div className={cn('mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold', isToday(day) && 'bg-indigo-600 text-white')}>
-                  {format(day, 'd')}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Scrollable time grid */}
+          {/* Scrollable time grid (header is sticky inside so columns always align) */}
           <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '620px' }}>
+            {/* Sticky day headers */}
+            <div className="sticky top-0 z-30 bg-card grid border-b border-border" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+              <div className="border-r border-border" />
+              {days.map((day, i) => (
+                <div
+                  key={day.toISOString()}
+                  className={cn('py-2 text-center border-r border-border last:border-r-0 animate-in fade-in slide-in-from-top-2 duration-300 fill-mode-both', isToday(day) && 'bg-indigo-500/5')}
+                  style={{ animationDelay: `${i * 35}ms` }}
+                >
+                  <div className="text-[11px] font-medium uppercase text-muted-foreground">{format(day, 'EEE')}</div>
+                  <div className={cn('mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold', isToday(day) && 'bg-indigo-600 text-white')}>
+                    {format(day, 'd')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="grid pt-2" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
               {/* Hour labels — absolutely positioned on each line (no clipping) */}
               <div className="relative" style={{ height: GRID_HEIGHT }}>
@@ -415,7 +419,7 @@ export function CalendarView({
               </div>
 
               {/* Day columns */}
-              {days.map((day) => {
+              {days.map((day, i) => {
                 const positioned = layoutDay(bookingsForDay(day), eventTypeColors, timezone)
                 const dow = day.getDay()
                 const intervals = workingIntervals(availability, dow)
@@ -451,8 +455,8 @@ export function CalendarView({
                       const hour = hourFromClientY(col, e.clientY)
                       setDrag({ day, anchorHour: hour, currentHour: hour })
                     }}
-                    className={cn('relative border-r border-border last:border-r-0 select-none', isToday(day) && 'bg-indigo-500/5')}
-                    style={{ height: GRID_HEIGHT }}
+                    className={cn('relative border-r border-border last:border-r-0 select-none animate-in fade-in slide-in-from-bottom-3 duration-300 fill-mode-both', isToday(day) && 'bg-indigo-500/5')}
+                    style={{ height: GRID_HEIGHT, animationDelay: `${i * 35}ms` }}
                   >
                     {/* Working-hours shading (non-working dimmed) */}
                     {shaded.map((s, i) => (
@@ -492,14 +496,14 @@ export function CalendarView({
                     )}
 
                     {/* Bookings */}
-                    {positioned.map(({ booking, topPx, heightPx, color, leftPct, widthPct }) => (
+                    {positioned.map(({ booking, topPx, heightPx, color, leftPct, widthPct }, bi) => (
                       <button
                         key={booking.id}
                         type="button"
                         data-booking
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => { e.stopPropagation(); setSelected(booking) }}
-                        className="absolute z-10 rounded-md overflow-hidden px-1.5 py-0.5 text-left text-white transition-opacity hover:opacity-100"
+                        className="absolute z-10 rounded-md overflow-hidden px-1.5 py-0.5 text-left text-white transition-opacity hover:opacity-100 animate-in fade-in zoom-in-95 duration-200 fill-mode-both"
                         style={{
                           top: Math.max(topPx, 0),
                           height: heightPx,
@@ -507,6 +511,7 @@ export function CalendarView({
                           width: `calc(${widthPct}% - 4px)`,
                           backgroundColor: color,
                           opacity: 0.92,
+                          animationDelay: `${i * 35 + bi * 40 + 80}ms`,
                         }}
                         title={`${booking.booker_name} · ${format(toZonedTime(parseISO(booking.start_at), timezone), 'HH:mm')}–${format(toZonedTime(parseISO(booking.end_at), timezone), 'HH:mm')}`}
                       >
