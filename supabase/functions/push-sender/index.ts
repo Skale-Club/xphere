@@ -6,17 +6,25 @@
 import webpush from 'npm:web-push@^3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@^2'
 
-const VAPID_CONTACT = Deno.env.get('VAPID_CONTACT') ?? 'mailto:skale.club@gmail.com'
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? 'BMEcSTxVVttfJ9u9yWgHDgO_BQOTKoh4tvGIM8QlzrhjDSThw3xAitj6l6SySKlEPdiag7BCORb_VZ_Hi6BwNY0'
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? 'bqyv2IH1lX274mjKIDsgC-xBlSHIwtbZ_nc510Jce68'
-
-webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
-
+// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are auto-injected into edge
+// functions by the platform — not secrets we manage.
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   { auth: { persistSession: false } },
 )
+
+// VAPID keys live encrypted in Supabase Vault — never in code or env. Read them
+// at cold start via a SECURITY DEFINER RPC that only the service role may call.
+const { data: vapidRows, error: vapidErr } = await supabase.rpc('get_push_vapid_config')
+const vapid = Array.isArray(vapidRows) ? vapidRows[0] : vapidRows
+if (vapidErr || !vapid?.public_key || !vapid?.private_key || !vapid?.contact) {
+  throw new Error(
+    `[push-sender] Could not load VAPID config from Vault: ${vapidErr?.message ?? 'missing values'}`,
+  )
+}
+
+webpush.setVapidDetails(vapid.contact, vapid.public_key, vapid.private_key)
 
 interface PushPayload {
   user_id: string
