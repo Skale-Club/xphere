@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react'
 
 import { getImport, getImportErrors } from '@/app/(dashboard)/contacts/import-history-actions'
 import { ImportDetailClient } from './import-detail-client'
-import { StatusPill } from '../page'
+import { StatusPill } from '../status-pill'
 
 interface ImportDetailPageProps {
   params: Promise<{ id: string }>

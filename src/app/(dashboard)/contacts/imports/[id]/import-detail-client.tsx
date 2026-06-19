@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 
 import { createClient } from '@/lib/supabase/client'
 import { cancelImport, retryImport, exportImportErrors } from '@/app/(dashboard)/contacts/import-history-actions'
-import { StatusPill } from '../page'
+import { StatusPill } from '../status-pill'
 import { Button } from '@/components/ui/button'
 import type { Database, ContactImportStatus } from '@/types/database'
 
