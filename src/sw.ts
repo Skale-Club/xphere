@@ -146,8 +146,8 @@ self.addEventListener('push', (event: Event) => {
             requireInteraction: true,
             vibrate: [400, 200, 400, 200, 400],
             actions: [
-              { action: 'answer', title: 'Atender' },
-              { action: 'decline', title: 'Recusar' },
+              { action: 'answer', title: 'Answer' },
+              { action: 'decline', title: 'Decline' },
             ],
           }
         : {}),
