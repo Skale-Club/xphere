@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
-import { exchangeCodeForTokens, fetchGoogleUserEmail } from '@/lib/google-contacts/oauth'
+import { fetchGoogleUserEmail } from '@/lib/google-contacts/oauth'
 import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
@@ -11,9 +11,10 @@ const STATE_COOKIE = 'google_cal_oauth_state'
 const RETURN_COOKIE = 'google_cal_oauth_return'
 
 export async function GET(request: NextRequest): Promise<Response> {
-  const CALLBACK_URI = `${resolveRequestOrigin(request)}/api/google/calendar-callback`
+  const origin = resolveRequestOrigin(request)
+  const CALLBACK_URI = `${origin}/api/google/calendar-callback`
   const user = await getUser()
-  if (!user) return NextResponse.redirect(new URL('/', request.url))
+  if (!user) return NextResponse.redirect(`${origin}/`)
 
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -31,13 +32,13 @@ export async function GET(request: NextRequest): Promise<Response> {
       ? storedReturn
       : '/calendar'
 
-  if (!code) return NextResponse.redirect(new URL(`${base}?error=missing_code`, request.url))
+  if (!code) return NextResponse.redirect(`${origin}${base}?error=missing_code`)
   if (!state || !storedState || state !== storedState)
-    return NextResponse.redirect(new URL(`${base}?error=csrf`, request.url))
+    return NextResponse.redirect(`${origin}${base}?error=csrf`)
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return NextResponse.redirect(new URL(`${base}?error=no_org`, request.url))
+  if (!orgId) return NextResponse.redirect(`${origin}${base}?error=no_org`)
 
   try {
     // Reuse the exchange function but with our callback URI
@@ -84,8 +85,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     const successQuery = base.startsWith('/integrations')
       ? 'open=google_calendar'
       : 'calendar_connected=true'
-    return NextResponse.redirect(new URL(`${base}?${successQuery}`, request.url))
+    return NextResponse.redirect(`${origin}${base}?${successQuery}`)
   } catch {
-    return NextResponse.redirect(new URL(`${base}?error=oauth_exchange`, request.url))
+    return NextResponse.redirect(`${origin}${base}?error=oauth_exchange`)
   }
 }
