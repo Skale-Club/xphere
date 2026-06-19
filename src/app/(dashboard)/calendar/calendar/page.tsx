@@ -1,21 +1,29 @@
 import { redirect } from 'next/navigation'
+import { startOfWeek, endOfWeek } from 'date-fns'
 import { getUser } from '@/lib/supabase/server'
 import { getBookings } from '../_actions/bookings'
 import { getEventTypes } from '../_actions/event-types'
 import { getSchedulingProfile } from '../_actions/calendar-profile'
 import { getUserAvailability } from '../_actions/availability'
+import { getGoogleCalendarEvents } from '../_actions/google-events'
 import { CalendarView } from '@/components/calendar/calendar-view'
 
 export default async function SchedulingCalendarPage() {
   const user = await getUser()
   if (!user) redirect('/')
 
-  const [bookingsResult, eventTypesResult, profileResult, availabilityResult] = await Promise.all([
-    getBookings(),
-    getEventTypes(),
-    getSchedulingProfile(),
-    getUserAvailability(),
-  ])
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+
+  const [bookingsResult, eventTypesResult, profileResult, availabilityResult, externalEvents] =
+    await Promise.all([
+      getBookings(),
+      getEventTypes(),
+      getSchedulingProfile(),
+      getUserAvailability(),
+      getGoogleCalendarEvents(weekStart.toISOString(), weekEnd.toISOString()),
+    ])
 
   const bookings = bookingsResult.ok ? bookingsResult.data : []
   const eventTypes = eventTypesResult.ok ? eventTypesResult.data : []
@@ -36,6 +44,7 @@ export default async function SchedulingCalendarPage() {
         eventTypes={eventTypes}
         availability={availability}
         timezone={timezone}
+        initialExternalEvents={externalEvents}
       />
     </div>
   )

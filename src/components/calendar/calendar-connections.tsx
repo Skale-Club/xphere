@@ -123,6 +123,16 @@ export function CalendarConnections({ integration, syncMode: initialSyncMode, co
                 <p className="text-[12px] text-text-tertiary">{email}</p>
               )}
             </div>
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                integration.is_active
+                  ? 'bg-emerald-500/12 text-emerald-500'
+                  : 'bg-bg-tertiary text-text-tertiary',
+              )}
+            >
+              {integration.is_active ? 'Active' : 'Inactive'}
+            </span>
             <button
               type="button"
               onClick={handleDisconnect}

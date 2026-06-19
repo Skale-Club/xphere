@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   format,
@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import { NewBookingDialog } from './new-booking-dialog'
 import { NewEventTypeDialog } from './new-event-type-dialog'
 import { cancelBooking } from '@/app/(dashboard)/calendar/_actions/bookings'
+import { getGoogleCalendarEvents, type ExternalCalendarEvent } from '@/app/(dashboard)/calendar/_actions/google-events'
 import type { BookingRow } from '@/app/(dashboard)/calendar/_actions/bookings'
 import type { EventTypeRow } from '@/app/(dashboard)/calendar/_actions/event-types'
 import type { AvailabilityRow } from '@/app/(dashboard)/calendar/_actions/availability'
@@ -53,6 +54,7 @@ interface CalendarViewProps {
   eventTypes?: EventTypeRow[]
   availability?: AvailabilityRow[]
   timezone?: string
+  initialExternalEvents?: ExternalCalendarEvent[]
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -76,6 +78,12 @@ interface Positioned {
   color: string
   leftPct: number
   widthPct: number
+}
+
+interface PositionedExternal {
+  event: ExternalCalendarEvent
+  topPx: number
+  heightPx: number
 }
 
 // Lay out a single day's bookings, splitting overlaps into side-by-side columns.
@@ -147,12 +155,53 @@ function layoutDay(
   return out
 }
 
+// Position external (Google Calendar) events for a given day.
+function layoutExternalDay(
+  dayEvents: ExternalCalendarEvent[],
+  timezone: string,
+): PositionedExternal[] {
+  return dayEvents
+    .filter((e) => !e.allDay)
+    .map((e) => {
+      const start = toZonedTime(parseISO(e.start), timezone)
+      const startHour = start.getHours() + start.getMinutes() / 60
+      const duration = differenceInMinutes(parseISO(e.end), parseISO(e.start))
+      return {
+        event: e,
+        topPx: Math.max((startHour - START_HOUR) * HOUR_HEIGHT, 0),
+        heightPx: Math.max((duration / 60) * HOUR_HEIGHT, 18),
+      }
+    })
+    .filter((e) => e.topPx < GRID_HEIGHT)
+}
+
 // Working intervals (in decimal hours) for a given weekday (0=Sun..6=Sat).
 function workingIntervals(availability: AvailabilityRow[], dow: number): Array<{ s: number; e: number }> {
   return availability
     .filter((a) => a.day_of_week === dow)
     .map((a) => ({ s: parseHHMM(a.start_time), e: parseHHMM(a.end_time) }))
     .sort((a, b) => a.s - b.s)
+}
+
+// Derive the date range (ISO strings) for a given view + cursor.
+function rangeFor(view: View, cursor: Date): { timeMin: string; timeMax: string } {
+  if (view === 'day') {
+    const start = new Date(cursor)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(cursor)
+    end.setHours(23, 59, 59, 999)
+    return { timeMin: start.toISOString(), timeMax: end.toISOString() }
+  }
+  if (view === 'week') {
+    return {
+      timeMin: startOfWeek(cursor, { weekStartsOn: 1 }).toISOString(),
+      timeMax: endOfWeek(cursor, { weekStartsOn: 1 }).toISOString(),
+    }
+  }
+  return {
+    timeMin: startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 }).toISOString(),
+    timeMax: endOfWeek(endOfMonth(cursor), { weekStartsOn: 1 }).toISOString(),
+  }
 }
 
 // ── component ────────────────────────────────────────────────────────────────
@@ -163,11 +212,14 @@ export function CalendarView({
   eventTypes = [],
   availability = [],
   timezone = 'UTC',
+  initialExternalEvents = [],
 }: CalendarViewProps) {
   const router = useRouter()
   const [view, setView] = useState<View>('week')
   const [cursor, setCursor] = useState<Date>(() => new Date())
   const [now, setNow] = useState<Date>(() => new Date())
+  const [externalEvents, setExternalEvents] = useState<ExternalCalendarEvent[]>(initialExternalEvents)
+  const [, startFetchTransition] = useTransition()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createStart, setCreateStart] = useState<Date | null>(null)
@@ -195,6 +247,15 @@ export function CalendarView({
     if (scrollRef.current) scrollRef.current.scrollTop = (8 - START_HOUR) * HOUR_HEIGHT - 8
   }, [view])
 
+  // Fetch Google Calendar events whenever cursor or view changes.
+  useEffect(() => {
+    const { timeMin, timeMax } = rangeFor(view, cursor)
+    startFetchTransition(async () => {
+      const events = await getGoogleCalendarEvents(timeMin, timeMax)
+      setExternalEvents(events)
+    })
+  }, [view, cursor])
+
   const days = useMemo(() => {
     if (view === 'day') return [cursor]
     if (view === 'week') {
@@ -211,6 +272,10 @@ export function CalendarView({
 
   function bookingsForDay(day: Date): BookingRow[] {
     return confirmed.filter((b) => isSameDay(toZonedTime(parseISO(b.start_at), timezone), day))
+  }
+
+  function externalForDay(day: Date): ExternalCalendarEvent[] {
+    return externalEvents.filter((e) => isSameDay(toZonedTime(parseISO(e.start), timezone), day))
   }
 
   function dateAtHour(day: Date, hour: number): Date {
@@ -336,6 +401,7 @@ export function CalendarView({
           <div className="grid grid-cols-7">
             {days.map((day) => {
               const dayB = bookingsForDay(day)
+              const dayExt = externalForDay(day).filter((e) => !e.allDay)
               const inMonth = isSameMonth(day, cursor)
               return (
                 <div
@@ -359,7 +425,21 @@ export function CalendarView({
                     </button>
                   </div>
                   <div className="mt-1 space-y-0.5">
-                    {dayB.slice(0, 3).map((b) => (
+                    {/* External events (Google Calendar) */}
+                    {dayExt.slice(0, 2).map((e) => (
+                      <div
+                        key={e.id}
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="flex w-full items-center gap-1 rounded px-1 py-0.5 bg-sky-500/10"
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                        <span className="truncate text-[10.5px] text-sky-600 dark:text-sky-400">
+                          {format(toZonedTime(parseISO(e.start), timezone), 'HH:mm')} {e.title}
+                        </span>
+                      </div>
+                    ))}
+                    {/* Internal bookings */}
+                    {dayB.slice(0, Math.max(0, 3 - Math.min(dayExt.length, 2))).map((b) => (
                       <button
                         key={b.id}
                         type="button"
@@ -373,8 +453,8 @@ export function CalendarView({
                         </span>
                       </button>
                     ))}
-                    {dayB.length > 3 && (
-                      <div className="px-1 text-[10px] text-text-tertiary">+{dayB.length - 3} more</div>
+                    {(dayB.length + dayExt.length) > 3 && (
+                      <div className="px-1 text-[10px] text-text-tertiary">+{dayB.length + dayExt.length - 3} more</div>
                     )}
                   </div>
                 </div>
@@ -421,6 +501,7 @@ export function CalendarView({
               {/* Day columns */}
               {days.map((day, i) => {
                 const positioned = layoutDay(bookingsForDay(day), eventTypeColors, timezone)
+                const positionedExt = layoutExternalDay(externalForDay(day), timezone)
                 const dow = day.getDay()
                 const intervals = workingIntervals(availability, dow)
                 // Non-working shaded blocks within visible range
@@ -450,6 +531,7 @@ export function CalendarView({
                       // Only left-click on empty grid starts a drag (bookings stop it).
                       if (e.button !== 0) return
                       if ((e.target as HTMLElement).closest('[data-booking]')) return
+                      if ((e.target as HTMLElement).closest('[data-ext-event]')) return
                       const col = e.currentTarget as HTMLElement
                       dragColRef.current = col
                       const hour = hourFromClientY(col, e.clientY)
@@ -470,6 +552,23 @@ export function CalendarView({
                         className="absolute inset-x-0 border-t border-border/40 pointer-events-none"
                         style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                       />
+                    ))}
+
+                    {/* Google Calendar external events (background layer) */}
+                    {positionedExt.map(({ event, topPx, heightPx }) => (
+                      <div
+                        key={event.id}
+                        data-ext-event
+                        title={event.title}
+                        className="absolute z-[5] inset-x-0.5 rounded-[4px] border border-sky-400/40 bg-sky-400/10 px-1.5 py-0.5 pointer-events-none overflow-hidden"
+                        style={{ top: topPx, height: heightPx }}
+                      >
+                        {heightPx >= 18 && (
+                          <span className="block truncate text-[10px] font-medium text-sky-600 dark:text-sky-300 leading-tight">
+                            {event.title}
+                          </span>
+                        )}
+                      </div>
                     ))}
 
                     {/* Drag-to-create selection preview */}

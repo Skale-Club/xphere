@@ -288,6 +288,50 @@ export interface GoogleCalendarEntry {
   accessRole: string
 }
 
+export interface GoogleCalendarEvent {
+  id: string
+  summary?: string
+  status: string
+  start: { dateTime?: string; date?: string }
+  end: { dateTime?: string; date?: string }
+}
+
+// List events from a Google Calendar for a given time range.
+export async function fetchCalendarEvents(
+  userId: string,
+  orgId: string,
+  timeMin: string,
+  timeMax: string,
+  calendarId = 'primary',
+): Promise<GoogleCalendarEvent[]> {
+  const tokens = await getCalendarTokens(userId, orgId)
+  if (!tokens) return []
+
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '500',
+  })
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
+    {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+      cache: 'no-store',
+    },
+  )
+
+  if (!res.ok) {
+    console.error('[google-calendar] events list error:', res.status)
+    return []
+  }
+
+  const data = (await res.json()) as { items?: GoogleCalendarEvent[] }
+  return (data.items ?? []).filter((e) => e.status !== 'cancelled')
+}
+
 // List all calendars in the user's Google Calendar account.
 // Used to populate the conflict-calendars picker.
 export async function listGoogleCalendars(
