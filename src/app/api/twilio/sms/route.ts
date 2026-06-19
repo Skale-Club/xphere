@@ -65,7 +65,7 @@ function buildSignatureBase(url: string, params: URLSearchParams): string {
  *
  * Twilio sends the signature as a base64 string | NOT prefixed with "sha1=".
  */
-export function verifyTwilioSignature(
+function verifyTwilioSignature(
   authToken: string,
   url: string,
   params: URLSearchParams,
