@@ -133,6 +133,22 @@ export function ChannelOverridesEditor({
                   placeholder="Default"
                 />
               </div>
+              <div>
+                <Label>Thinking budget (tokens)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="256"
+                  {...register(
+                    `channel_overrides.${ch}.thinking_budget_tokens` as const,
+                    {
+                      setValueAs: (v) =>
+                        v === '' || v == null ? undefined : Number(v),
+                    }
+                  )}
+                  placeholder="0 = off"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

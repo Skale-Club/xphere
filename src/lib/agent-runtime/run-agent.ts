@@ -33,6 +33,7 @@ import {
   buildWorkflowTools,
   buildWorkflowSystemPromptSuffix,
 } from './build-workflow-tools'
+import { buildBuiltinTools, BUILTIN_TOOLS_SYSTEM_SUFFIX } from './builtin-tools'
 import { insertInvocationStart, updateInvocationEnd } from './invocations'
 import {
   deriveIdempotencyKey,
@@ -56,6 +57,53 @@ const MAX_LLM_CALLS_PER_TURN = parseInt(
   process.env.AGENT_MAX_LLM_CALLS_PER_TURN ?? '6',
   10
 )
+
+// Anthropic extended thinking. OFF by default. Configurable per agent/channel
+// via channel_overrides.thinking_budget_tokens, or globally via the
+// AGENT_THINKING_BUDGET_TOKENS env default. When >0, the turn timeout widens
+// (thinking adds latency) and temperature is dropped (the API requires
+// temperature=1 with extended thinking).
+const THINKING_BUDGET_TOKENS_ENV = Math.max(
+  0,
+  parseInt(process.env.AGENT_THINKING_BUDGET_TOKENS ?? '0', 10) || 0
+)
+const AGENT_TURN_TIMEOUT_MS_THINKING = parseInt(
+  process.env.AGENT_TURN_TIMEOUT_MS_THINKING ?? '30000',
+  10
+)
+
+/** Per-agent budget wins over the global env default; 0 disables thinking. */
+function resolveThinkingBudget(agentBudget?: number): number {
+  if (typeof agentBudget === 'number' && agentBudget > 0) return agentBudget
+  return THINKING_BUDGET_TOKENS_ENV
+}
+
+/** Turn timeout widens automatically when thinking is on. */
+function turnTimeoutFor(budget: number): number {
+  return budget > 0 ? AGENT_TURN_TIMEOUT_MS_THINKING : AGENT_TURN_TIMEOUT_MS
+}
+
+/**
+ * Per-call LLM extras for extended thinking. When enabled the caller must omit
+ * a custom temperature (API forces 1) and ensure maxOutputTokens exceeds the
+ * thinking budget.
+ */
+function thinkingLlmExtras(maxTokens: number, budget: number): {
+  providerOptions?: { anthropic: { thinking: { type: 'enabled'; budgetTokens: number } } }
+  maxOutputTokens: number
+  includeTemperature: boolean
+} {
+  if (!(budget > 0)) {
+    return { maxOutputTokens: maxTokens, includeTemperature: true }
+  }
+  return {
+    providerOptions: {
+      anthropic: { thinking: { type: 'enabled', budgetTokens: budget } },
+    },
+    maxOutputTokens: Math.max(maxTokens, budget + 2048),
+    includeTemperature: false,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tool description lookup (action_type → default description)
@@ -454,9 +502,11 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     }
   }
 
-  // Step 10: Create AbortController with 8s budget (RUNTIME-08)
+  // Step 10: Create AbortController with the turn budget (RUNTIME-08).
+  // Budget widens automatically when extended thinking is enabled.
+  const thinkingBudget = resolveThinkingBudget(resolvedAgent.thinkingBudgetTokens)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), AGENT_TURN_TIMEOUT_MS)
+  const timeoutId = setTimeout(() => controller.abort(), turnTimeoutFor(thinkingBudget))
 
   // Accumulated state across the LLM call
   const toolCallsLog: Json[] = []
@@ -717,6 +767,20 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       })
       Object.assign(toolSet, partnerTools)
 
+      // Built-in primitive tools (calculator, think, datetime, handoff) |
+      // always available, no per-agent config.
+      Object.assign(
+        toolSet,
+        buildBuiltinTools({
+          toolCallsLog,
+          getNextToolCallIndex: () => toolCallIndex++,
+          serviceClient,
+          orgId,
+          conversationId,
+        }),
+      )
+      systemPrompt = `${systemPrompt}${BUILTIN_TOOLS_SYSTEM_SUFFIX}`
+
       // Build message array for the LLM
       const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
         ...historyWindow.slice(-resolvedAgent.maxHistory),
@@ -730,6 +794,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       const effectiveMaxSteps = opts.maxSteps
         ? Math.min(50, Math.max(1, opts.maxSteps))
         : (resolvedAgent.maxSteps ?? MAX_LLM_CALLS_PER_TURN)
+      const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget)
       const llmResult = await generateText({
         model: anthropic(resolvedAgent.model),
         system: systemPrompt,
@@ -737,10 +802,13 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
         tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
         stopWhen: stepCountIs(effectiveMaxSteps),
         abortSignal: controller.signal,
-        ...(resolvedAgent.temperature !== undefined
+        ...(thinkingExtras.includeTemperature && resolvedAgent.temperature !== undefined
           ? { temperature: resolvedAgent.temperature }
           : {}),
-        maxOutputTokens: resolvedAgent.maxTokens,
+        maxOutputTokens: thinkingExtras.maxOutputTokens,
+        ...(thinkingExtras.providerOptions
+          ? { providerOptions: thinkingExtras.providerOptions }
+          : {}),
       })
 
       finalText = llmResult.text
@@ -975,9 +1043,10 @@ function runAgentStreaming(
           parentInvocationId,
         })
 
-        // AbortController (RUNTIME-08)
+        // AbortController (RUNTIME-08) | budget widens when thinking is enabled
+        const thinkingBudget = resolveThinkingBudget(resolvedAgent.thinkingBudgetTokens)
         const abortController = new AbortController()
-        const timeoutId = setTimeout(() => abortController.abort(), AGENT_TURN_TIMEOUT_MS)
+        const timeoutId = setTimeout(() => abortController.abort(), turnTimeoutFor(thinkingBudget))
 
         try {
           // Build Anthropic API key | org first, platform fallback
@@ -1123,6 +1192,20 @@ function runAgentStreaming(
           })
           Object.assign(toolSet, partnerToolsStream)
 
+          // Built-in primitive tools (calculator, think, datetime, handoff) |
+          // always available, no per-agent config.
+          Object.assign(
+            toolSet,
+            buildBuiltinTools({
+              toolCallsLog,
+              getNextToolCallIndex: () => toolCallIndex++,
+              serviceClient,
+              orgId,
+              conversationId,
+            }),
+          )
+          systemPrompt = `${systemPrompt}${BUILTIN_TOOLS_SYSTEM_SUFFIX}`
+
           // Build messages
           const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
             ...historyWindow.slice(-resolvedAgent.maxHistory),
@@ -1130,6 +1213,7 @@ function runAgentStreaming(
           ]
 
           // Call LLM via streamText (D-35-09 | DO NOT await streamText)
+          const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget)
           const result = streamText({
             model: anthropic(resolvedAgent.model),
             system: systemPrompt,
@@ -1137,8 +1221,13 @@ function runAgentStreaming(
             tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
             stopWhen: stepCountIs(MAX_LLM_CALLS_PER_TURN),
             abortSignal: abortController.signal,
-            ...(resolvedAgent.temperature !== undefined ? { temperature: resolvedAgent.temperature } : {}),
-            maxOutputTokens: resolvedAgent.maxTokens,
+            ...(thinkingExtras.includeTemperature && resolvedAgent.temperature !== undefined
+              ? { temperature: resolvedAgent.temperature }
+              : {}),
+            maxOutputTokens: thinkingExtras.maxOutputTokens,
+            ...(thinkingExtras.providerOptions
+              ? { providerOptions: thinkingExtras.providerOptions }
+              : {}),
             onFinish: (event) => {
               tokensIn = event.totalUsage?.inputTokens ?? 0
               tokensOut = event.totalUsage?.outputTokens ?? 0

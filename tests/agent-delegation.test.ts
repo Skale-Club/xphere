@@ -153,7 +153,7 @@ describe('Visited-set loop detection — production implementation (DELEG-06)', 
 
   it('returns cycle denial string when agentId in visited set', () => {
     const result = checkVisitedSet(new Set(['agent-a']), 'agent-a', 'org-1')
-    expect(result).toBe('Cycle detected — answer from current agent')
+    expect(result).toBe('Cycle detected | answer from current agent')
   })
 
   it('allows A→B→C chain without cycle', () => {
@@ -162,7 +162,7 @@ describe('Visited-set loop detection — production implementation (DELEG-06)', 
 
   it('detects A→B→A cycle', () => {
     const result = checkVisitedSet(new Set(['agent-a', 'agent-b']), 'agent-a', 'org-1')
-    expect(result).toBe('Cycle detected — answer from current agent')
+    expect(result).toBe('Cycle detected | answer from current agent')
   })
 })
 

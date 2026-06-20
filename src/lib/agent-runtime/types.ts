@@ -88,6 +88,12 @@ export type ResolvedAgent = {
    * opts.maxSteps (e.g. from workflow node) takes precedence over this.
    */
   maxSteps?: number
+  /**
+   * Anthropic extended-thinking budget in tokens, from
+   * channel_overrides.thinking_budget_tokens. 0/undefined → use the
+   * AGENT_THINKING_BUDGET_TOKENS env default (off unless set).
+   */
+  thinkingBudgetTokens?: number
   fallbackMessage: string
   allowedChannels: AgentChannel[]
   isActive: boolean

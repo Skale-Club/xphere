@@ -13,6 +13,9 @@ export const channelOverrideSchema = z
     temperature: z.number().min(0).max(2).optional(),
     max_tokens: z.number().int().min(1).max(200000).optional(),
     max_history: z.number().int().min(1).max(100).optional(),
+    // Extended-thinking budget in tokens (0 = off). Widens the turn timeout
+    // and forces temperature=1 at runtime when > 0.
+    thinking_budget_tokens: z.number().int().min(0).max(32000).optional(),
   })
   .transform((v) => {
     const out: Record<string, unknown> = {}
@@ -23,6 +26,9 @@ export const channelOverrideSchema = z
     if (v.temperature !== undefined) out.temperature = v.temperature
     if (v.max_tokens !== undefined) out.max_tokens = v.max_tokens
     if (v.max_history !== undefined) out.max_history = v.max_history
+    if (v.thinking_budget_tokens !== undefined) {
+      out.thinking_budget_tokens = v.thinking_budget_tokens
+    }
     return out
   })
 

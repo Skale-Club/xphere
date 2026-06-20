@@ -145,13 +145,13 @@ describe('checkDelegationDepth (RUNTIME-04)', () => {
   it('returns denial string when depth=2 equals cap=2', () => {
     process.env.AGENT_MAX_DELEGATION_DEPTH = '2'
     const result = checkDelegationDepth(2, ORG_ID, AGENT_ID)
-    expect(result).toBe('Delegation depth exceeded — answer from current agent')
+    expect(result).toBe('Delegation depth exceeded | answer from current agent')
   })
 
   it('returns denial string when depth=3 exceeds cap=2 (D-34-10 stub test)', () => {
     process.env.AGENT_MAX_DELEGATION_DEPTH = '2'
     const result = checkDelegationDepth(3, ORG_ID, AGENT_ID)
-    expect(result).toBe('Delegation depth exceeded — answer from current agent')
+    expect(result).toBe('Delegation depth exceeded | answer from current agent')
   })
 })
 

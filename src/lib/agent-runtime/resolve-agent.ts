@@ -88,6 +88,12 @@ export async function resolveAgent(
     ? Math.max(1, Math.min(50, channelOverride.max_steps))
     : undefined
 
+  // thinking_budget_tokens: per-channel extended-thinking budget (override-only).
+  // 0/absent → runtime falls back to the AGENT_THINKING_BUDGET_TOKENS env default.
+  const thinkingBudgetTokens = typeof channelOverride.thinking_budget_tokens === 'number'
+    ? Math.max(0, Math.min(32000, channelOverride.thinking_budget_tokens))
+    : undefined
+
   return {
     agentId: agent.id,
     orgId,
@@ -98,6 +104,7 @@ export async function resolveAgent(
     maxTokens,
     maxHistory,
     maxSteps,
+    thinkingBudgetTokens,
     fallbackMessage: agent.fallback_message ?? "I can't help with that right now | let me transfer you to a human.",
     allowedChannels: (agent.allowed_channels ?? []) as AgentChannel[],
     isActive: agent.is_active ?? false,
