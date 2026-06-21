@@ -1,16 +1,16 @@
 # Operator
 
-## Current Milestone: v3.0 Workflow Runtime Hardening
+## Current Milestone: v3.1 Websites Lead Ingestion
 
-**Goal:** Make the workflow runtime actually work — events trigger execution, actions actually run beyond stubs, seeds are loaded at deploy, and the engine is testable.
+**Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
 
 **Target features:**
-- Wire event dispatch to execution (calendar + pipeline events trigger `runFlow`)
-- Unify flow engine + Action Engine into one canonical execution path
-- Convert YAML seeds (10 platform-default workflows) and load at deploy
-- Clean up duplicate server actions and dead code
-- Add test coverage for engine, executors, schema, validators
-- Register any missing executor types (`send_email`, `knowledge_base`, etc.)
+- Add least-privilege `leads:write` API keys and consistent scope enforcement
+- Add a versioned lead-ingestion API with organization identity derived from the bearer key
+- Persist every unique lead submission independently from CRM contact deduplication
+- Create or update the correct CRM contact without overwriting richer tenant-managed data
+- Emit `lead.captured` for every accepted submission and `contact.created` only for new contacts
+- Publish integration validation and public API documentation for the sibling Websites product
 
 ## What This Is
 
