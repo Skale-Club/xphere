@@ -46,6 +46,9 @@ export const mirrorPayloadSchema = z.object({
       stage: z.string().min(1),
       status: z.enum(['open', 'won', 'lost']).optional(),
       value: z.number().nonnegative().optional(),
+      // ISO 4217 currency for the deal value. Defaults to USD when omitted
+      // (Xtimator); XmartMenu sends e.g. 'BRL'.
+      currency: z.string().min(1).max(8).optional(),
       title: z.string().optional(),
       // Target pipeline name in the caller's org. When omitted, the route falls
       // back to a per-source convention ("<Source> Lifecycle").
@@ -56,6 +59,11 @@ export const mirrorPayloadSchema = z.object({
     .object({
       title: z.string().optional(),
       content: z.string().min(1),
+      // Optional idempotency hint from the source (e.g. a Stripe event id).
+      // ACCEPTED but not yet enforced — notes have no dedup column, so a
+      // redelivered event can still append a duplicate note. TODO: add a
+      // notes.dedup_id column + unique index to make notes idempotent.
+      dedup_id: z.string().optional(),
     })
     .optional(),
 })
@@ -290,6 +298,7 @@ async function upsertOpportunity(
       external_updated_at: occurredAt,
     }
     if (opp.value != null) patch.value = opp.value
+    if (opp.currency) patch.currency = opp.currency
     await supabase.from('opportunities').update(patch).eq('id', existing.id)
     return { id: existing.id }
   }
@@ -304,7 +313,7 @@ async function upsertOpportunity(
       contact_id: contactId,
       account_id: accountId,
       value: opp.value ?? 0,
-      currency: 'USD',
+      currency: opp.currency ?? 'USD',
       status,
       external_source: source,
       external_id: companyId,
