@@ -34,6 +34,19 @@ const CONTACT_GROUP: VariableGroup = {
   ],
 }
 
+const LEAD_GROUP: VariableGroup = {
+  label: 'Lead',
+  items: [
+    v('lead.receipt_id', 'Receipt ID'),
+    v('lead.occurred_at', 'Captured at'),
+    v('lead.classification', 'Classification'),
+    v('lead.score', 'Score'),
+    v('lead.page_url', 'Source page'),
+    v('lead.source.tenant_ref', 'Website tenant'),
+    v('lead.source.site_domain', 'Website domain'),
+  ],
+}
+
 const MEETING_GROUP: VariableGroup = {
   label: 'Meeting',
   items: [
@@ -80,6 +93,7 @@ const TRIGGER_GROUP: VariableGroup = {
 export function variablesForTrigger(eventType: string | undefined): VariableGroup[] {
   const e = eventType ?? 'manual'
 
+  if (e === 'lead.captured') return [LEAD_GROUP, CONTACT_GROUP, TRIGGER_GROUP]
   if (e === 'contact.created') return [CONTACT_GROUP, TRIGGER_GROUP]
 
   if (e === 'booking.created' || e.startsWith('meeting.')) {

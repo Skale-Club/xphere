@@ -20,6 +20,7 @@ Tokens are generated in **Settings → API Keys** inside the Xphere dashboard. E
 
 | Scope | Grants |
 |-------|--------|
+| `leads:write` | `POST /api/v1/leads` |
 | `contacts:write` | `POST /api/v1/contacts` |
 | `prospects:write` | `POST /api/v1/prospects` |
 
@@ -285,7 +286,52 @@ print(res.json())  # {'id': '...', 'action': 'created'}
 
 ---
 
-## Skaleclub Integration (reference implementation)
+## Skale Club Websites Integration
+
+Websites and Xphere are independently billed sibling products. Each Websites tenant
+connects its own Xphere organization with a dedicated `leads:write` API key. Never use a
+global environment key shared by tenants.
+
+Validate a connection with `GET /api/v1/integration-info`. The response identifies the
+organization bound to the key and reports whether `lead_ingestion` is available.
+
+Send completed forms to `POST /api/v1/leads` with an `Idempotency-Key` header equal to the
+payload's `event_id`. Xphere stores every unique submission as a lead receipt, independently
+deduplicates the CRM contact by normalized phone then email, and emits `lead.captured` once.
+
+```json
+{
+  "schema_version": "1.0",
+  "event_id": "websites:mvp:4bf74e9f-0bc1-4e74-93d1-a99712dc2211",
+  "occurred_at": "2026-06-20T15:04:05.000Z",
+  "source": {
+    "product": "skaleclub_websites",
+    "tenant_ref": "mvp",
+    "site_domain": "mvpbuildergroup.com",
+    "form": "primary_lead_form"
+  },
+  "contact": {
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "phone": "+13055550199"
+  },
+  "lead": {
+    "status": "new",
+    "score": 18,
+    "classification": "HOT",
+    "page_url": "https://mvpbuildergroup.com/contact",
+    "answers": { "project": "Kitchen Remodel" }
+  }
+}
+```
+
+Accepted events return `201`; identical replays return `200` with
+`event_action: "duplicate"`; reusing an event ID with a different payload returns `409`.
+
+### Legacy Global-Key Example (Do Not Use)
+
+The following historical example is retained only to explain the superseded integration.
+It is not tenant-safe and must not be deployed.
 
 After a form is submitted in Skaleclub, call this endpoint in `runLeadPostProcessing()`:
 

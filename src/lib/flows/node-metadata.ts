@@ -126,6 +126,14 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     group: 'General',
   },
   {
+    key: 'lead.captured',
+    label: 'Lead captured',
+    description: 'A unique inbound lead submission was accepted',
+    icon: UserPlus,
+    iconClass: 'bg-amber-500/15 text-amber-300',
+    group: 'General',
+  },
+  {
     key: 'vapi.call.ended',
     label: 'Call ended',
     description: 'After a Vapi AI call ends',

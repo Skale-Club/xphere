@@ -489,6 +489,55 @@ export interface Database {
         }
         Relationships: []
       }
+      lead_ingestions: {
+        Row: {
+          id: string
+          org_id: string
+          source_product: string
+          source_tenant_ref: string
+          external_event_id: string
+          schema_version: string
+          contact_id: string
+          occurred_at: string
+          received_at: string
+          payload: Json
+          payload_hash: string
+          workflow_dispatch_id: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          source_product: string
+          source_tenant_ref: string
+          external_event_id: string
+          schema_version: string
+          contact_id: string
+          occurred_at: string
+          received_at?: string
+          payload: Json
+          payload_hash: string
+          workflow_dispatch_id?: string | null
+        }
+        Update: {
+          workflow_dispatch_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'lead_ingestions_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'lead_ingestions_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'contacts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       organizations: {
         Row: {
           id: string

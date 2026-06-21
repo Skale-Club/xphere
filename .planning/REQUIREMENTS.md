@@ -30,6 +30,20 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| XLI-01..05 | Phase 111 | Pending |
-| XLI-06..12 | Phase 112 | Pending |
-| XLI-13..17 | Phase 113 | Pending |
+| XLI-01 | Phase 111 | Complete |
+| XLI-02 | Phase 111 | Complete |
+| XLI-03 | Phase 111 | Complete |
+| XLI-04 | Phase 111 | Complete |
+| XLI-05 | Phase 111 | Complete |
+| XLI-06 | Phase 112 | Complete |
+| XLI-07 | Phase 112 | Complete |
+| XLI-08 | Phase 112 | Complete |
+| XLI-09 | Phase 112 | Complete |
+| XLI-10 | Phase 112 | Complete |
+| XLI-11 | Phase 112 | Complete |
+| XLI-12 | Phase 112 | Complete |
+| XLI-13 | Phase 113 | Complete |
+| XLI-14 | Phase 113 | Complete |
+| XLI-15 | Phase 113 | Complete |
+| XLI-16 | Phase 113 | Complete |
+| XLI-17 | Phase 113 | Complete |
