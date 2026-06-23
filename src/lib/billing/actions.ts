@@ -4,6 +4,10 @@
 // and Customer Portal sessions — everything is server-side. The client passes an
 // opaque plan key at most; price, customer, mode, URLs, and metadata are all set
 // here from trusted server state.
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+
+import { createClient } from '@/lib/supabase/server'
 import { getStripe } from './stripe'
 import { resolvePriceId } from './plans'
 import { topupPriceId } from './catalog'
@@ -121,4 +125,49 @@ export async function createCreditTopUpSession(
     console.error('[billing] createCreditTopUpSession failed:', err)
     return { ok: false, error: 'Could not start checkout. Please try again.' }
   }
+}
+
+const costCapSchema = z.object({
+  // enabled=false → cap disabled (unlimited). enabled=true → enforce amountUsd
+  // (null amount = platform default from AGENT_DAILY_COST_CAP_USD).
+  enabled: z.boolean(),
+  amountUsd: z
+    .number({ invalid_type_error: 'Must be a number' })
+    .min(0, 'Cap must be ≥ $0')
+    .max(10000, 'Cap must be ≤ $10,000')
+    .nullable(),
+})
+
+export type UpdateDailyCostCapInput = z.infer<typeof costCapSchema>
+
+/**
+ * Update the org's daily AI cost cap: the on/off switch (daily_cost_cap_enabled)
+ * and the custom amount override (daily_cost_cap_usd_override). Admin-only.
+ * Enforced at runtime by guardrails.ts checkDailyCostCap().
+ */
+export async function updateDailyCostCap(
+  input: UpdateDailyCostCapInput,
+): Promise<ActionResult> {
+  const ctx = await getBillingContext()
+  if (!ctx) return { ok: false, error: 'Not authenticated.' }
+  if (!ctx.isAdmin) return { ok: false, error: 'Only org admins can manage billing.' }
+
+  const parsed = costCapSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('organizations')
+    .update({
+      daily_cost_cap_enabled: parsed.data.enabled,
+      daily_cost_cap_usd_override: parsed.data.amountUsd,
+    })
+    .eq('id', ctx.orgId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/settings/billing')
+  return { ok: true, data: undefined }
 }

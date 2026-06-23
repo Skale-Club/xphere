@@ -12,7 +12,7 @@ import { ColorPicker } from '@/components/ui/color-picker'
 import { cn } from '@/lib/utils'
 import { DEFAULT_ACCENT } from '@/lib/branding'
 import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
-import { updateWorkspaceBranding, updateDailyCostCap, uploadOrgLogo } from '@/app/(dashboard)/settings/company-info/actions'
+import { updateWorkspaceBranding, uploadOrgLogo } from '@/app/(dashboard)/settings/company-info/actions'
 
 interface OrgBrandingShape {
   id: string
@@ -20,7 +20,6 @@ interface OrgBrandingShape {
   logo_url: string | null
   accent_color: string | null
   brand_name: string | null
-  daily_cost_cap_usd: number | null
 }
 
 interface Props {
@@ -59,11 +58,9 @@ export function WorkspaceBrandingForm({ org }: Props) {
   const [baseline, setBaseline] = React.useState({
     logo: org.logo_url ?? '',
     accent: org.accent_color ?? DEFAULT_ACCENT,
-    cap: org.daily_cost_cap_usd != null ? String(org.daily_cost_cap_usd) : '',
   })
   const [logoUrl, setLogoUrl] = React.useState(baseline.logo)
   const [accentInput, setAccentInput] = React.useState(baseline.accent)
-  const [capInput, setCapInput] = React.useState(baseline.cap)
   const [saving, setSaving] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -92,16 +89,14 @@ export function WorkspaceBrandingForm({ org }: Props) {
     return () => window.clearInterval(id)
   }, [savedAt])
 
-  // Dirty detection across all three controls on this card group.
+  // Dirty detection across the controls on this card group.
   const dirty =
     logoUrl !== baseline.logo ||
-    accentInput !== baseline.accent ||
-    capInput.trim() !== baseline.cap
+    accentInput !== baseline.accent
 
   async function handleSave(): Promise<boolean> {
     const brandingDirty =
       logoUrl !== baseline.logo || accentInput !== baseline.accent
-    const capDirty = capInput.trim() !== baseline.cap
 
     if (brandingDirty && !HEX_RE.test(accentInput)) {
       toast.error('Accent color must be a 6-digit hex like #6366F1')
@@ -121,19 +116,11 @@ export function WorkspaceBrandingForm({ org }: Props) {
           return false
         }
       }
-      if (capDirty) {
-        const val = capInput.trim() === '' ? null : parseFloat(capInput)
-        const result = await updateDailyCostCap({ orgId: org.id, daily_cost_cap_usd: val })
-        if (!result.ok) {
-          toast.error(result.error ?? 'Failed to save cost cap')
-          return false
-        }
-      }
     } finally {
       setSaving(false)
     }
 
-    setBaseline({ logo: logoUrl, accent: accentInput, cap: capInput.trim() })
+    setBaseline({ logo: logoUrl, accent: accentInput })
     setSavedAt(Date.now())
     toast.success('Workspace settings saved', {
       description: 'Your workspace looks fresh.',
@@ -146,7 +133,6 @@ export function WorkspaceBrandingForm({ org }: Props) {
   function handleReset() {
     setLogoUrl(baseline.logo)
     setAccentInput(baseline.accent)
-    setCapInput(baseline.cap)
   }
 
   useWorkspaceSaveSection({
@@ -161,6 +147,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Logo */}
       <Card>
         <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -188,43 +175,45 @@ export function WorkspaceBrandingForm({ org }: Props) {
             className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleLogoFile(f) }}
           />
-          <div className="flex items-center gap-4">
-            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-border bg-bg-tertiary overflow-hidden">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              disabled={uploading}
+              className="group relative flex h-16 w-16 shrink-0 items-center justify-center rounded-[12px] border border-border bg-bg-tertiary overflow-hidden cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title={logoUrl ? 'Replace logo' : 'Upload logo'}
+            >
               {uploading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
               ) : logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-[12px] bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    <ImageUp className="h-5 w-5 text-white" />
+                  </span>
+                </>
               ) : (
-                <Upload className="h-5 w-5 text-text-tertiary" />
+                <>
+                  <Upload className="h-5 w-5 text-text-tertiary transition-opacity group-hover:opacity-0" />
+                  <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                    <ImageUp className="h-5 w-5 text-text-secondary" />
+                  </span>
+                </>
               )}
-            </div>
-            <div className="flex items-center gap-2">
+            </button>
+            {logoUrl && !uploading && (
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="gap-1.5"
+                onClick={() => setLogoUrl('')}
+                className="gap-1.5 text-text-tertiary hover:text-destructive"
               >
-                <ImageUp className="h-3.5 w-3.5" />
-                {logoUrl ? 'Replace logo' : 'Upload logo'}
+                <X className="h-3.5 w-3.5" />
+                Remove
               </Button>
-              {logoUrl && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLogoUrl('')}
-                  disabled={uploading}
-                  className="gap-1.5 text-text-tertiary hover:text-destructive"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Remove
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -272,31 +261,7 @@ export function WorkspaceBrandingForm({ org }: Props) {
           </div>
         </CardContent>
       </Card>
-
-      {/* Daily AI cost cap */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily AI cost cap</CardTitle>
-          <CardDescription>
-            Maximum USD your agents can spend per day. Requests are blocked once the limit is reached. Leave blank to use the platform default.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 max-w-xs">
-            <span className="text-text-tertiary text-sm">$</span>
-            <Input
-              type="number"
-              min={0}
-              max={10000}
-              step={1}
-              value={capInput}
-              onChange={(e) => setCapInput(e.target.value)}
-              placeholder="Platform default"
-              className="max-w-[160px]"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }

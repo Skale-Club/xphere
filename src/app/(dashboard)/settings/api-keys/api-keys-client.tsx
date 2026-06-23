@@ -54,7 +54,7 @@ function RevealKey({ value }: { value: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-[13px]">
+      <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border bg-bg-secondary px-3 py-2 font-mono text-[13px]">
         <span className="min-w-0 flex-1 truncate text-text-primary">
           {visible ? value : '•'.repeat(Math.min(value.length, 48))}
         </span>
@@ -136,14 +136,14 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
         </DialogHeader>
 
         {generatedKey ? (
-          <div className="space-y-4 py-2">
+          <div className="min-w-0 space-y-4 py-2">
             <p className="text-[13px] text-text-secondary">
               Your new API key has been created:
             </p>
             <RevealKey value={generatedKey} />
           </div>
         ) : (
-          <div className="space-y-4 py-2">
+          <div className="min-w-0 space-y-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="key-name">Name</Label>
               <Input
@@ -273,16 +273,18 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
   return (
     <div className="space-y-6">
       {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-[13px] text-text-secondary">
             Use Bearer tokens to push contacts and prospects from external sources directly into your CRM.
           </p>
-          <p className="mt-1 font-mono text-[12px] text-text-tertiary">
+          <p className="mt-1 break-all font-mono text-[12px] text-text-tertiary sm:break-normal">
             POST https://xphere.app/api/v1/contacts · /api/v1/prospects
           </p>
         </div>
-        <GenerateDialog onCreated={handleCreated} />
+        <div className="shrink-0">
+          <GenerateDialog onCreated={handleCreated} />
+        </div>
       </div>
 
       {/* Keys table */}
@@ -295,8 +297,8 @@ export function ApiKeysClient({ initial }: { initial: ApiKeyRow[] }) {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[640px] text-[13px]">
             <thead>
               <tr className="border-b border-border bg-bg-secondary">
                 <th className="px-4 py-2.5 text-left font-medium text-text-tertiary">Name</th>

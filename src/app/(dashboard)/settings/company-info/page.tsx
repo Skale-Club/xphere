@@ -18,7 +18,7 @@ export default async function WorkspaceSettingsPage() {
   const { data: org } = await supabase
     .from('organizations')
     .select(
-      'id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country, timezone',
+      'id, name, logo_url, accent_color, brand_name, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country, timezone',
     )
     .eq('id', orgId as string)
     .single()
@@ -31,36 +31,34 @@ export default async function WorkspaceSettingsPage() {
         eyebrow="Workspace"
         eyebrowIcon={Palette}
         title="Workspace"
-        description="Your company identity, branding and usage controls. The company details below also feed billing and email compliance."
+        description="Your company identity and branding. The company details below also feed billing and email compliance."
       />
 
       <WorkspaceSaveProvider>
-        <CompanyProfileForm
-          orgId={org.id}
-          initial={{
-            legal_name: org.legal_name,
-            tax_id: org.tax_id,
-            address_line1: org.address_line1,
-            address_line2: org.address_line2,
-            address_city: org.address_city,
-            address_state: org.address_state,
-            address_postal_code: org.address_postal_code,
-            address_country: org.address_country,
-            timezone: org.timezone ?? 'UTC',
-            default_currency: org.default_currency ?? 'USD',
+        <WorkspaceBrandingForm
+          org={{
+            id: org.id,
+            name: org.name,
+            logo_url: org.logo_url,
+            accent_color: org.accent_color,
+            brand_name: org.brand_name,
           }}
         />
 
         <div className="mt-8">
-          <WorkspaceBrandingForm
-            org={{
-              id: org.id,
-              name: org.name,
-              logo_url: org.logo_url,
-              accent_color: org.accent_color,
-              brand_name: org.brand_name,
-              daily_cost_cap_usd:
-                org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
+          <CompanyProfileForm
+            orgId={org.id}
+            initial={{
+              legal_name: org.legal_name,
+              tax_id: org.tax_id,
+              address_line1: org.address_line1,
+              address_line2: org.address_line2,
+              address_city: org.address_city,
+              address_state: org.address_state,
+              address_postal_code: org.address_postal_code,
+              address_country: org.address_country,
+              timezone: org.timezone ?? 'UTC',
+              default_currency: org.default_currency ?? 'USD',
             }}
           />
         </div>

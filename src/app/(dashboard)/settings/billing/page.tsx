@@ -10,6 +10,7 @@ import { availableTopupPackages } from '@/lib/billing/catalog'
 import { BillingClient } from './billing-client'
 import { PlanUsageCard } from '@/components/billing/plan-usage-card'
 import { CreditsCard } from '@/components/billing/credits-card'
+import { CostCapCard } from '@/components/billing/cost-cap-card'
 
 // Subscription/credit state is read from the DB per-request and the catalog from
 // runtime env, so this page must never be statically cached.
@@ -55,6 +56,7 @@ export default async function BillingSettingsPage({
     { count: membersCount },
     { count: agentsCount },
     { count: workflowsCount },
+    { data: orgCap },
   ] = await Promise.all([
     supabase
       .from('billing_subscriptions')
@@ -67,7 +69,16 @@ export default async function BillingSettingsPage({
     supabase.from('org_members').select('id', { count: 'exact', head: true }),
     supabase.from('agents').select('id', { count: 'exact', head: true }),
     supabase.from('workflows').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('organizations')
+      .select('daily_cost_cap_enabled, daily_cost_cap_usd_override')
+      .eq('id', ctx.orgId)
+      .single(),
   ])
+
+  // Platform default for the cap, surfaced as the input placeholder. Mirrors the
+  // runtime fallback in guardrails.ts (AGENT_DAILY_COST_CAP_USD, default $50).
+  const platformDefaultUsd = parseFloat(process.env.AGENT_DAILY_COST_CAP_USD ?? '50.00')
 
   const subscription = subs?.find((s) => ACTIVE_STATUSES.has(s.status)) ?? subs?.[0] ?? null
 
@@ -115,6 +126,17 @@ export default async function BillingSettingsPage({
         subscription={subscription}
         plans={configuredPlanKeys()}
         checkoutResult={checkoutResult}
+      />
+
+      <CostCapCard
+        isAdmin={ctx.isAdmin}
+        enabled={orgCap?.daily_cost_cap_enabled ?? true}
+        amountUsd={
+          orgCap?.daily_cost_cap_usd_override != null
+            ? Number(orgCap.daily_cost_cap_usd_override)
+            : null
+        }
+        platformDefaultUsd={platformDefaultUsd}
       />
     </PageContainer>
   )

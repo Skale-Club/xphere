@@ -34,6 +34,7 @@ const AGENT_ID = 'agent-test-guardrails'
 function buildDailyCostMock(opts: {
   dailyCostCapOverride: number | null
   invocationCostRows: Array<{ cost_usd: number }>
+  dailyCostCapEnabled?: boolean
 }) {
   const mockSupabase = {
     from: vi.fn((table: string) => {
@@ -42,7 +43,10 @@ function buildDailyCostMock(opts: {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
-                data: { daily_cost_cap_usd_override: opts.dailyCostCapOverride },
+                data: {
+                  daily_cost_cap_enabled: opts.dailyCostCapEnabled ?? true,
+                  daily_cost_cap_usd_override: opts.dailyCostCapOverride,
+                },
                 error: null,
               }),
             }),
@@ -301,6 +305,17 @@ describe('checkDailyCostCap (RUNTIME-07)', () => {
     const result = await checkDailyCostCap(ORG_ID, AGENT_ID)
     expect(typeof result).toBe('string')
     expect(result).toContain('Daily cost limit')
+  })
+
+  it('returns null (no cap) when the cap switch is disabled, even when way over', async () => {
+    buildDailyCostMock({
+      dailyCostCapEnabled: false,   // switch off → unlimited spend
+      dailyCostCapOverride: 20,     // ignored when disabled
+      invocationCostRows: [{ cost_usd: 9999 }],
+    })
+
+    const result = await checkDailyCostCap(ORG_ID, AGENT_ID)
+    expect(result).toBeNull()
   })
 
   it('returns null when there are zero cost rows (no spend today)', async () => {

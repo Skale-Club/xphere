@@ -37,15 +37,6 @@ const updateSchema = z.object({
     .or(z.literal('')),
 })
 
-const costCapSchema = z.object({
-  orgId: z.string().uuid().optional(),
-  daily_cost_cap_usd: z
-    .number({ invalid_type_error: 'Must be a number' })
-    .min(0, 'Cap must be ≥ $0')
-    .max(10000, 'Cap must be ≤ $10,000')
-    .nullable(),
-})
-
 export type UpdateWorkspaceBrandingInput = z.infer<typeof updateSchema>
 
 export interface ActionResult {
@@ -223,27 +214,6 @@ export async function updateCompanyProfile(input: UpdateCompanyProfileInput): Pr
   // Timezone/currency feed dashboard + email; revalidate the whole layout so
   // server-rendered dates pick up the new org timezone.
   revalidatePath('/', 'layout')
-  return { ok: true }
-}
-
-export async function updateDailyCostCap(input: { daily_cost_cap_usd: number | null; orgId?: string }): Promise<ActionResult> {
-  const parsed = costCapSchema.safeParse(input)
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
-  }
-
-  const supabase = await createClient()
-  const target = await resolveTargetOrg(supabase, parsed.data.orgId)
-  if (!target.ok) return target
-
-  const { error } = await supabase
-    .from('organizations')
-    .update({ daily_cost_cap_usd_override: parsed.data.daily_cost_cap_usd })
-    .eq('id', target.orgId)
-
-  if (error) return { ok: false, error: error.message }
-
-  revalidatePath('/settings/company-info')
   return { ok: true }
 }
 

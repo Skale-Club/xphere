@@ -145,12 +145,15 @@ export async function checkDailyCostCap(
 ): Promise<string | null> {
   const supabase = createServiceRoleClient()
 
-  // Fetch per-org override (may be null → use env default)
+  // Fetch the on/off switch + per-org override (override may be null → use env default)
   const { data: org } = await supabase
     .from('organizations')
-    .select('daily_cost_cap_usd_override')
+    .select('daily_cost_cap_enabled, daily_cost_cap_usd_override')
     .eq('id', orgId)
     .single()
+
+  // Switch off → no cap, unlimited spend. Default (column missing/null) is enforced.
+  if (org?.daily_cost_cap_enabled === false) return null
 
   const capUsd =
     (org?.daily_cost_cap_usd_override !== null && org?.daily_cost_cap_usd_override !== undefined)

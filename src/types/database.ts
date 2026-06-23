@@ -504,6 +504,7 @@ export interface Database {
           widget_greeting_message: string | null
           widget_greeting_delay_seconds: number
           daily_cost_cap_usd_override: number | null
+          daily_cost_cap_enabled: boolean
           delegation_visibility: string
           logo_url: string | null
           accent_color: string | null
@@ -539,6 +540,7 @@ export interface Database {
           widget_greeting_message?: string | null
           widget_greeting_delay_seconds?: number
           daily_cost_cap_usd_override?: number | null
+          daily_cost_cap_enabled?: boolean
           delegation_visibility?: string
           logo_url?: string | null
           accent_color?: string | null
@@ -573,6 +575,7 @@ export interface Database {
           widget_greeting_message?: string | null
           widget_greeting_delay_seconds?: number
           daily_cost_cap_usd_override?: number | null
+          daily_cost_cap_enabled?: boolean
           delegation_visibility?: string
           logo_url?: string | null
           accent_color?: string | null

@@ -18,7 +18,7 @@ export default async function WorkspaceSettingsPage() {
   const { data: org } = await supabase
     .from('organizations')
     .select(
-      'id, name, logo_url, accent_color, brand_name, daily_cost_cap_usd_override, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country, timezone',
+      'id, name, logo_url, accent_color, brand_name, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country, timezone',
     )
     .eq('id', orgId as string)
     .single()
@@ -31,7 +31,7 @@ export default async function WorkspaceSettingsPage() {
         eyebrow="Workspace"
         eyebrowIcon={Palette}
         title="Workspace"
-        description="Your company identity, branding and usage controls. The company details below also feed billing and email compliance."
+        description="Your company identity and branding. The company details below also feed billing and email compliance."
       />
 
       <WorkspaceSaveProvider>
@@ -59,8 +59,6 @@ export default async function WorkspaceSettingsPage() {
               logo_url: org.logo_url,
               accent_color: org.accent_color,
               brand_name: org.brand_name,
-              daily_cost_cap_usd:
-                org.daily_cost_cap_usd_override != null ? Number(org.daily_cost_cap_usd_override) : null,
             }}
           />
         </div>
