@@ -8,9 +8,9 @@
 // Dedup: phone (E.164) → email (normalized) → create new
 // Always returns: { id, action: 'created' | 'updated' }
 
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { verifyApiKey } from '@/lib/api-keys/verify'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { linkVisitorToContact } from '@/lib/traffic/identify'
 
@@ -40,39 +40,14 @@ const bodySchema = z.object({
   visitor_id: z.string().max(100).optional().nullable(),
 })
 
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex')
-}
-
 export async function POST(request: Request): Promise<Response> {
   // ── 1. Auth ────────────────────────────────────────────────────────────────
-  const auth = request.headers.get('authorization') ?? ''
-  if (!auth.startsWith('Bearer ')) {
-    return Response.json(
-      { error: 'Missing Bearer token' },
-      { status: 401, headers: CORS_HEADERS },
-    )
-  }
-  const token = auth.slice(7).trim()
-  if (!token) {
-    return Response.json(
-      { error: 'Missing Bearer token' },
-      { status: 401, headers: CORS_HEADERS },
-    )
-  }
-
   const supabase = createServiceRoleClient()
-  const { data: apiKey } = await supabase
-    .from('api_keys')
-    .select('id, org_id')
-    .eq('key_hash', hashToken(token))
-    .is('revoked_at', null)
-    .maybeSingle()
-
-  if (!apiKey) {
+  const auth = await verifyApiKey(request, supabase, 'contacts:write')
+  if (!auth.ok) {
     return Response.json(
-      { error: 'Invalid or revoked API key' },
-      { status: 401, headers: CORS_HEADERS },
+      { error: auth.error, code: auth.code },
+      { status: auth.status, headers: CORS_HEADERS },
     )
   }
 
@@ -99,7 +74,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── 3. Dedup ───────────────────────────────────────────────────────────────
-  const orgId = apiKey.org_id
+  const orgId = auth.key.orgId
   let existingId: string | null = null
 
   if (phoneNorm) {
@@ -202,7 +177,7 @@ export async function POST(request: Request): Promise<Response> {
   supabase
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
-    .eq('id', apiKey.id)
+    .eq('id', auth.key.keyId)
     .then(() => {})
 
   return Response.json(

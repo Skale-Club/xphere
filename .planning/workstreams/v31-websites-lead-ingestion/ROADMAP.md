@@ -6,9 +6,9 @@ This milestone establishes Xphere as the secure receiving side of the optional s
 
 ## Phases
 
-- [ ] **Phase 111: API Security and Contract** - Add scopes, shared API-key verification, integration validation, and the versioned lead envelope.
-- [ ] **Phase 112: Idempotent Lead Ingestion** - Add receipt persistence, contact upsert, idempotency, and organization isolation.
-- [ ] **Phase 113: Workflow Event and Documentation** - Emit workflow events, expose variables, add audit coverage, and publish the final API contract.
+- [x] **Phase 111: API Security and Contract** - Add scopes, shared API-key verification, integration validation, and the versioned lead envelope. (completed 2026-06-21)
+- [x] **Phase 112: Idempotent Lead Ingestion** - Add receipt persistence, contact upsert, idempotency, and organization isolation. (completed 2026-06-21)
+- [x] **Phase 113: Workflow Event and Documentation** - Emit workflow events, expose variables, add audit coverage, and publish the final API contract. (completed 2026-06-21)
 
 ## Phase Details
 

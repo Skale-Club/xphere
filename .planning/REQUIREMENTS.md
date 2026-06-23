@@ -1,74 +1,49 @@
-# v3.0 Workflow Runtime Hardening — Requirements
+# v3.1 Websites Lead Ingestion - Requirements
 
-## Event Dispatch
+## API Security
 
-- [ ] **EVNT-01**: Calendar events in `emitCalendarEvent()` call `runFlow()` for each matched workflow instead of only recording a dispatch row
-- [ ] **EVNT-02**: Pipeline events in `emitOpportunityEvent()` call `runFlow()` for each matched workflow
-- [ ] **EVNT-03**: Event-triggered workflows use service-role client, fire-and-forget, with cascade depth protection (existing MAX_CASCADE_DEPTH=3)
-- [ ] **EVNT-04**: Failed workflow run does not roll back the originating booking/opportunity transition
+- [ ] **XLI-01**: API keys support a least-privilege `leads:write` scope.
+- [ ] **XLI-02**: The existing contacts endpoint enforces its declared `contacts:write` scope.
+- [ ] **XLI-03**: Lead ingestion resolves `org_id` exclusively from the verified bearer key.
+- [ ] **XLI-04**: A validation endpoint returns only organization identity, granted scopes, and supported capabilities.
+- [ ] **XLI-05**: Invalid, revoked, or under-scoped keys return stable 401/403 responses without leaking organization data.
 
-## Engine Unification
+## Lead Ingestion
 
-- [ ] **ENG-01**: `lib/flows/engine.ts` delegates action execution to `executeAction()` from the Action Engine instead of maintaining `executors.ts`
-- [ ] **ENG-02**: All 20+ action types (`send_sms`, `create_contact`, `pipeline_*`, etc.) work from the flow engine via delegation
-- [ ] **ENG-03**: `executors.ts` is deleted once all action types are covered (flow-specific executors like `booking_*` move inline or stay in engine.ts)
+- [ ] **XLI-06**: `POST /api/v1/leads` accepts the versioned Websites lead envelope and rejects invalid or oversized payloads.
+- [ ] **XLI-07**: Every accepted submission creates one organization-scoped `lead_ingestions` receipt protected by RLS.
+- [ ] **XLI-08**: Replaying the same event and payload returns the existing receipt without creating another event.
+- [ ] **XLI-09**: Reusing an event ID with a different payload returns a 409 conflict.
+- [ ] **XLI-10**: Contact matching uses normalized phone, then normalized email, inside the authenticated organization.
+- [ ] **XLI-11**: A new contact enters lifecycle stage `lead`; an existing contact keeps its lifecycle stage and richer fields.
+- [ ] **XLI-12**: Multiple unique submissions by one person produce one contact and multiple receipts.
 
-## Seed Loading
+## Workflow and Operations
 
-- [ ] **SEED-01**: Seed loader script reads YAML files from `supabase/seeds/workflows/`
-- [ ] **SEED-02**: Seed loader converts from YAML spec format to `FlowDefinition` format with auto-layout positions
-- [ ] **SEED-03**: Seed loader upserts into `workflows` + `workflow_versions` for every org
-- [ ] **SEED-04**: Seed loading runs as part of deploy (`npm run seed` or next start hook)
-
-## Cleanup
-
-- [ ] **CLN-01**: Delete `automations/flows/_actions/` and update all component imports to point to `workflows/flows/_actions/`
-- [ ] **CLN-02**: Delete `feature-flag.ts` and all callers
-- [ ] **CLN-03**: Delete `derive-action-type.ts` if unused
-- [ ] **CLN-04**: Remove `tool_configs` fallback code from `toggleWorkflowActive()` and similar server actions
-- [ ] **CLN-05**: Drop or archive `workflow_triggers` table (stop writing to it)
-
-## Testing
-
-- [ ] **TEST-01**: `lib/flows/engine.ts` — unit test with mocked Supabase: linear execution, condition branching, wait recording, end-node termination, error propagation
-- [ ] **TEST-02**: `lib/flows/executors.ts` — test `http_request` executor, `booking_*` executors (before deletion)
-- [ ] **TEST-03**: `lib/flows/schema.ts` — test `validateFlow()`: missing trigger, disconnected nodes, orphan edges
-- [ ] **TEST-04**: `lib/workflows/validate.ts` — test validation rules: unknown trigger, missing input_schema, cycle detection, unreachable nodes, variable scoping
-- [ ] **TEST-05**: `lib/workflows/run-flow-sync.ts` — test graph normalization (both shapes), interpolation, scope promotion
-- [ ] **TEST-06**: `lib/scheduling/transition.ts` — test that `emitCalendarEvent` actually calls `runFlow` after wiring
-
-## Executor Completeness
-
-- [ ] **EXEC-01**: `send_email` executor implemented and registered in `execute-action.ts`
-- [ ] **EXEC-02**: `knowledge_base` action type implemented and registered
-- [ ] **EXEC-03**: `custom_webhook` runtime parity verified against spec
+- [ ] **XLI-13**: Every unique receipt emits one `lead.captured` workflow event with lead, contact, source, answers, and attribution variables.
+- [ ] **XLI-14**: A newly created contact also emits the existing `contact.created` event; an existing contact does not.
+- [ ] **XLI-15**: Workflow dispatch failure does not fail or roll back an accepted lead receipt.
+- [ ] **XLI-16**: API key `last_used_at`, receipt metadata, and event dispatch audit are recorded without plaintext keys or lead PII in logs.
+- [ ] **XLI-17**: Public API documentation replaces the obsolete global-key/fire-and-forget Skaleclub example.
 
 ## Traceability
 
 | Requirement | Phase | Status |
-|-------------|-------|--------|
-| EVNT-01 | Phase 107 (Event Dispatch) | Pending |
-| EVNT-02 | Phase 107 (Event Dispatch) | Pending |
-| EVNT-03 | Phase 107 (Event Dispatch) | Pending |
-| EVNT-04 | Phase 107 (Event Dispatch) | Pending |
-| ENG-01 | Phase 105 (Engine Unification) | Pending |
-| ENG-02 | Phase 105 (Engine Unification) | Pending |
-| ENG-03 | Phase 105 (Engine Unification) | Pending |
-| SEED-01 | Phase 108 (Seed Loading) | Pending |
-| SEED-02 | Phase 108 (Seed Loading) | Pending |
-| SEED-03 | Phase 108 (Seed Loading) | Pending |
-| SEED-04 | Phase 108 (Seed Loading) | Pending |
-| CLN-01 | Phase 110 (Cleanup) | Pending |
-| CLN-02 | Phase 110 (Cleanup) | Pending |
-| CLN-03 | Phase 110 (Cleanup) | Pending |
-| CLN-04 | Phase 110 (Cleanup) | Pending |
-| CLN-05 | Phase 110 (Cleanup) | Pending |
-| TEST-01 | Phase 109 (Testing) | Pending |
-| TEST-02 | Phase 109 (Testing) | Pending |
-| TEST-03 | Phase 109 (Testing) | Pending |
-| TEST-04 | Phase 109 (Testing) | Pending |
-| TEST-05 | Phase 109 (Testing) | Pending |
-| TEST-06 | Phase 109 (Testing) | Pending |
-| EXEC-01 | Phase 106 (Executor Completeness) | Pending |
-| EXEC-02 | Phase 106 (Executor Completeness) | Pending |
-| EXEC-03 | Phase 106 (Executor Completeness) | Pending |
+|---|---|---|
+| XLI-01 | Phase 111 | Complete |
+| XLI-02 | Phase 111 | Complete |
+| XLI-03 | Phase 111 | Complete |
+| XLI-04 | Phase 111 | Complete |
+| XLI-05 | Phase 111 | Complete |
+| XLI-06 | Phase 112 | Complete |
+| XLI-07 | Phase 112 | Complete |
+| XLI-08 | Phase 112 | Complete |
+| XLI-09 | Phase 112 | Complete |
+| XLI-10 | Phase 112 | Complete |
+| XLI-11 | Phase 112 | Complete |
+| XLI-12 | Phase 112 | Complete |
+| XLI-13 | Phase 113 | Complete |
+| XLI-14 | Phase 113 | Complete |
+| XLI-15 | Phase 113 | Complete |
+| XLI-16 | Phase 113 | Complete |
+| XLI-17 | Phase 113 | Complete |

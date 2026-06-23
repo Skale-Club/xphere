@@ -4,6 +4,11 @@
 
 export const API_KEY_SCOPES = [
   {
+    key: 'leads:write',
+    label: 'Leads - write',
+    description: 'Ingest completed lead submissions via POST /api/v1/leads',
+  },
+  {
     key: 'contacts:write',
     label: 'Contacts — write',
     description: 'Create and update contacts via POST /api/v1/contacts',

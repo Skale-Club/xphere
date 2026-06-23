@@ -72,6 +72,10 @@ function buildInitialScope(triggerType: string): Set<string> {
   if (triggerType.startsWith('event:contact.')) {
     scope.add('contact')
   }
+  if (triggerType.startsWith('event:lead.')) {
+    scope.add('lead')
+    scope.add('contact')
+  }
   if (triggerType.startsWith('event:workflow.')) {
     scope.add('workflow')
   }

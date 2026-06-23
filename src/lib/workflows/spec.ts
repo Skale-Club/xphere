@@ -68,6 +68,11 @@ export const TRIGGERS: TriggerSpec[] = [
   // ─── Calendar events (SEED-027 | only available once that seed ships;
   // declared here so the spec is the unified registry).
   {
+    type: 'event:lead.captured',
+    description: 'A unique inbound lead submission was accepted from an external capture source.',
+    variables: ['lead.*', 'contact.*', 'trigger.fired_at'],
+  },
+  {
     type: 'event:contact.created',
     description: 'A new contact row was inserted.',
     variables: ['contact.*', 'trigger.fired_at'],
