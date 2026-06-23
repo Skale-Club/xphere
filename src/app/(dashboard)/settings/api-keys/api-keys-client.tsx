@@ -131,7 +131,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
         <DialogHeader>
           <DialogTitle>Create API Key</DialogTitle>
           <DialogDescription>
-            Name this key by its source — e.g. &ldquo;Skaleclub Forms&rdquo; or &ldquo;Typeform&rdquo;.
+            Name this key by its source — e.g. &ldquo;Website Forms&rdquo; or &ldquo;Typeform&rdquo;.
           </DialogDescription>
         </DialogHeader>
 
@@ -148,7 +148,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
               <Label htmlFor="key-name">Name</Label>
               <Input
                 id="key-name"
-                placeholder="e.g. Skaleclub Forms"
+                placeholder="e.g. Website Forms"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
@@ -357,7 +357,7 @@ curl -X POST https://xphere.app/api/v1/contacts \\
     "name": "João Silva",
     "phone": "+5511987654321",
     "email": "joao@empresa.com",
-    "source_label": "skaleclub",
+    "source_label": "website_forms",
     "tags": ["lead-quente"]
   }'
 
