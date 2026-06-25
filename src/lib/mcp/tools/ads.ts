@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
 import type { AdsMemoryType, AdsMemorySource } from '@/lib/ads/journey-db'
+import { searchPlaybook } from '@/lib/ads/playbook'
 import { decrypt } from '@/lib/crypto'
 import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
 import type { DatePreset } from '@/lib/ads/meta-api'
@@ -335,6 +336,30 @@ export const adsTools: McpToolDef[] = [
       )
 
       return { rows, totals, period_days: days, platform: platform ?? 'all' }
+    },
+  },
+
+  // ─── Global playbook (curated fundamentals) ─────────────────────────────────────
+
+  {
+    name: 'ads_search_playbook',
+    title: 'Search the global ads playbook',
+    description:
+      'Semantic search over the platform-wide, expert-curated ads knowledge base (transcribed courses, market best-practices) segmented by media. Use this to GROUND diagnostics, proposals, and plans in proven fundamentals before suggesting changes. A requested platform also returns platform-agnostic "global" fundamentals. Cite what you use.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      query: z.string().min(1),
+      platform: PlatformSchema,
+      top_k: z.number().int().positive().max(20).optional(),
+    }).strict(),
+    handler: async ({ query, platform, top_k }, { auth }) => {
+      const result = await searchPlaybook({
+        orgId: auth.orgId,
+        query,
+        platform,
+        topK: top_k,
+      })
+      return result
     },
   },
 
