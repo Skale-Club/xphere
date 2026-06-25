@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
 import type { AdsMemoryType, AdsMemorySource } from '@/lib/ads/journey-db'
-import { searchPlaybook } from '@/lib/ads/playbook'
+import { searchPlaybook, ingestPlaybookText, isPlatformAdminUser } from '@/lib/ads/playbook'
 import { decrypt } from '@/lib/crypto'
 import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
 import type { DatePreset } from '@/lib/ads/meta-api'
@@ -360,6 +360,73 @@ export const adsTools: McpToolDef[] = [
         topK: top_k,
       })
       return result
+    },
+  },
+
+  // ─── Global playbook management (SUPER ADMIN ONLY) ───────────────────────────────
+  // These feed/curate the global corpus. Gated to the platform super admin (the
+  // calling MCP user must be a platform admin), regardless of which org the token
+  // belongs to. Ingestion is billed to the platform OpenRouter key.
+
+  {
+    name: 'ads_playbook_add_text',
+    title: 'Add text to the global ads playbook (super admin)',
+    description:
+      'SUPER ADMIN ONLY. Ingest curated fundamentals (e.g. a transcribed course) into the GLOBAL ads playbook for a media (meta/google) or "global" (all media). Chunks + embeds synchronously; billed to the platform OpenRouter key. Returns source_id + chunk_count.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      name: z.string().min(1).max(200),
+      content: z.string().min(1).max(500_000),
+      platform: z.enum(['meta', 'google', 'global']).default('global'),
+    }).strict(),
+    handler: async ({ name, content, platform }, { auth }) => {
+      if (!(await isPlatformAdminUser(auth.userId))) {
+        return { error: 'forbidden', detail: 'Only the platform super admin can feed the global playbook.', status: 403 }
+      }
+      const result = await ingestPlaybookText({ name, content, platform, createdBy: auth.userId })
+      return result
+    },
+  },
+
+  {
+    name: 'ads_playbook_list',
+    title: 'List global ads playbook sources (super admin)',
+    description: 'SUPER ADMIN ONLY. List the curated sources in the global ads playbook, optionally filtered by media.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      platform: z.enum(['meta', 'google', 'global']).optional(),
+    }).strict(),
+    handler: async ({ platform }, { auth }) => {
+      if (!(await isPlatformAdminUser(auth.userId))) {
+        return { error: 'forbidden', detail: 'Only the platform super admin can manage the global playbook.', status: 403 }
+      }
+      let q = db()
+        .from('ads_playbook_sources')
+        .select('id, platform, name, source_type, status, error_detail, chunk_count, created_at')
+        .order('created_at', { ascending: false })
+      if (platform) q = q.eq('platform', platform)
+      const { data, error } = await q
+      if (error) return { error: 'query_failed', detail: error.message }
+      return { sources: data ?? [], count: (data ?? []).length }
+    },
+  },
+
+  {
+    name: 'ads_playbook_delete',
+    title: 'Delete a global ads playbook source (super admin)',
+    description: 'SUPER ADMIN ONLY. Remove a curated source from the global ads playbook, including its vector chunks.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      source_id: z.string().uuid(),
+    }).strict(),
+    handler: async ({ source_id }, { auth }) => {
+      if (!(await isPlatformAdminUser(auth.userId))) {
+        return { error: 'forbidden', detail: 'Only the platform super admin can manage the global playbook.', status: 403 }
+      }
+      await db().from('documents').delete().contains('metadata', { playbook_source_id: source_id })
+      const { error } = await db().from('ads_playbook_sources').delete().eq('id', source_id)
+      if (error) return { error: 'delete_failed', detail: error.message }
+      return { ok: true }
     },
   },
 

@@ -16,6 +16,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { getPlatformSetting } from '@/lib/platform-settings'
 import { embed } from '@/lib/knowledge/embed'
+import { chunkText } from '@/lib/knowledge/chunk-text'
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const PLAYBOOK_EMBED_MODEL = 'text-embedding-3-small'
@@ -51,6 +52,106 @@ export async function resolveOrgEmbedCreds(orgId: string): Promise<EmbedCreds | 
   if (platformOpenRouter) return { apiKey: platformOpenRouter, baseURL: OPENROUTER_BASE_URL }
 
   return null
+}
+
+/**
+ * Is this user the platform super admin? True if they're in platform_admins OR
+ * their auth email matches PLATFORM_ADMIN_EMAIL. Used to gate global-playbook
+ * writes coming through the (org-scoped) MCP endpoint.
+ */
+export async function isPlatformAdminUser(userId: string | null): Promise<boolean> {
+  if (!userId) return false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
+
+  const { data: adminRow } = await supabase
+    .from('platform_admins')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (adminRow) return true
+
+  const adminEmail = process.env.PLATFORM_ADMIN_EMAIL
+  if (!adminEmail) return false
+  try {
+    const { data } = await supabase.auth.admin.getUserById(userId)
+    return data?.user?.email?.toLowerCase() === adminEmail.toLowerCase()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Ingest text into the GLOBAL playbook synchronously: create a source row, chunk,
+ * embed with the platform OpenRouter key (platform-billed), and insert the
+ * vector chunks tagged for global retrieval. For programmatic feeding (MCP).
+ */
+export async function ingestPlaybookText(params: {
+  name: string
+  content: string
+  platform: PlaybookPlatform
+  createdBy?: string | null
+}): Promise<{ source_id: string; chunk_count: number } | { error: string; detail?: string }> {
+  const apiKey = await getPlatformOpenRouterKey()
+  if (!apiKey) {
+    return { error: 'no_platform_key', detail: 'Set the global OpenRouter key at /admin/settings/ai first.' }
+  }
+  if (!params.content.trim()) return { error: 'empty_content' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
+
+  const { data: source, error: insertErr } = await supabase
+    .from('ads_playbook_sources')
+    .insert({
+      platform: params.platform,
+      name: params.name.trim() || 'Pasted text',
+      source_type: 'text',
+      source_url: null,
+      status: 'processing',
+      chunk_count: 0,
+      created_by: params.createdBy ?? null,
+    })
+    .select('id')
+    .single()
+  if (insertErr || !source) return { error: 'insert_failed', detail: insertErr?.message }
+
+  const chunks = chunkText(params.content, 500, 50)
+  if (chunks.length === 0) {
+    await supabase.from('ads_playbook_sources')
+      .update({ status: 'error', error_detail: 'no chunks produced' }).eq('id', source.id)
+    return { error: 'empty_content', detail: 'input produced zero chunks' }
+  }
+
+  try {
+    const docRows: Array<{ content: string; embedding: number[]; metadata: Record<string, unknown> }> = []
+    for (const chunk of chunks) {
+      const vector = await embed(chunk, apiKey, { baseURL: OPENROUTER_BASE_URL, model: PLAYBOOK_EMBED_MODEL })
+      docRows.push({
+        content: chunk,
+        embedding: vector,
+        metadata: {
+          scope: 'ads_playbook',
+          platform: params.platform,
+          playbook_source_id: source.id,
+          source_name: params.name.trim(),
+        },
+      })
+    }
+    const { error: docErr } = await supabase.from('documents').insert(docRows)
+    if (docErr) throw new Error(docErr.message)
+
+    await supabase.from('ads_playbook_sources')
+      .update({ status: 'ready', chunk_count: chunks.length, updated_at: new Date().toISOString() })
+      .eq('id', source.id)
+
+    return { source_id: source.id, chunk_count: chunks.length }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await supabase.from('ads_playbook_sources')
+      .update({ status: 'error', error_detail: msg }).eq('id', source.id)
+    return { error: 'embedding_failed', detail: msg }
+  }
 }
 
 export type PlaybookMatch = {
