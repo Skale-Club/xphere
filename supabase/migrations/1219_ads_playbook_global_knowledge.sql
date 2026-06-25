@@ -83,6 +83,12 @@ BEGIN
 END;
 $$;
 
+-- Lock the SECURITY DEFINER RPC down to server-side (service role) callers only.
+-- The playbook is queried exclusively through our backend (Copilot/MCP) which
+-- uses the service role; no client (anon/authenticated) should hit it directly.
+REVOKE EXECUTE ON FUNCTION public.match_ads_playbook(extensions.vector, TEXT, INT) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.match_ads_playbook(extensions.vector, TEXT, INT) TO service_role;
+
 -- ---------------------------------------------------------------------------
 -- Step 3: private storage bucket for uploaded playbook files
 -- ---------------------------------------------------------------------------
