@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  AlignLeft, BookOpen, ChevronDown, Database, FileText, Loader2, RefreshCw, Trash2,
-  Unplug, Upload,
+  AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database, FileText,
+  Loader2, RefreshCw, Trash2, Unplug, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,10 @@ import {
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   addGlobalKnowledgeText,
   addNotionKnowledgeRoot,
@@ -107,6 +111,7 @@ export function GlobalKnowledgeManager({
   const [textBody, setTextBody] = useState('')
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [selectedNotionPage, setSelectedNotionPage] = useState('')
+  const [notionPickerOpen, setNotionPickerOpen] = useState(false)
   const [loadingPages, setLoadingPages] = useState(false)
   const [isPending, startTransition] = useTransition()
   const notionSourcesByRoot = useMemo(() => {
@@ -125,6 +130,9 @@ export function GlobalKnowledgeManager({
   )
   const showStandaloneSources =
     notionState.sourceMode !== 'notion' || manualSources.length > 0 || notionState.roots.length === 0
+  const selectedNotionPageTitle = notionPages.find(
+    (page) => page.id === selectedNotionPage,
+  )?.title
 
   useEffect(() => {
     const hasActiveSync =
@@ -134,6 +142,32 @@ export function GlobalKnowledgeManager({
     const timer = window.setInterval(() => router.refresh(), 5_000)
     return () => window.clearInterval(timer)
   }, [notionState.jobs, notionState.roots, router])
+
+  useEffect(() => {
+    if (!notionState.connection?.id) {
+      setNotionPages([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingPages(true)
+    getAccessibleNotionPages()
+      .then((pages) => {
+        if (!cancelled) setNotionPages(pages)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load Notion pages')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPages(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [notionState.connection?.id])
 
   async function handleFile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -434,24 +468,68 @@ export function GlobalKnowledgeManager({
                       <div className="flex flex-wrap items-end gap-3">
                         <div className="min-w-64 flex-1 space-y-1.5">
                           <Label className="text-xs">Notion root page</Label>
-                          <Select value={selectedNotionPage} onValueChange={setSelectedNotionPage}>
-                            <SelectTrigger>
-                              <SelectValue placeholder={
-                                notionPages.length ? 'Choose a page' : 'Load accessible pages first'
-                              } />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {notionPages.map((page) => (
-                                <SelectItem key={page.id} value={page.id}>{page.title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Popover open={notionPickerOpen} onOpenChange={setNotionPickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={notionPickerOpen}
+                                className="h-10 w-full justify-between px-3 font-normal"
+                                disabled={loadingPages || isPending}
+                              >
+                                <span className="truncate">
+                                  {loadingPages
+                                    ? 'Loading pages…'
+                                    : selectedNotionPageTitle ?? 'Choose a page'}
+                                </span>
+                                {loadingPages
+                                  ? <Loader2 className="h-4 w-4 shrink-0 animate-spin opacity-60" />
+                                  : <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              className="w-[var(--radix-popover-trigger-width)] p-0"
+                            >
+                              <Command>
+                                <CommandInput
+                                  placeholder="Search Notion pages…"
+                                  className="h-9 text-xs"
+                                />
+                                <CommandList className="max-h-52">
+                                  <CommandEmpty className="py-4 text-center text-xs text-text-tertiary">
+                                    No page found.
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    {notionPages.map((page) => (
+                                      <CommandItem
+                                        key={page.id}
+                                        value={page.title}
+                                        onSelect={() => {
+                                          setSelectedNotionPage(page.id)
+                                          setNotionPickerOpen(false)
+                                        }}
+                                        className="text-xs"
+                                      >
+                                        <span className="min-w-0 flex-1 truncate">{page.title}</span>
+                                        {selectedNotionPage === page.id && (
+                                          <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                        )}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={loadNotionPages}
+                          className="h-10"
                           disabled={loadingPages || isPending}
                         >
                           {loadingPages
@@ -463,6 +541,7 @@ export function GlobalKnowledgeManager({
                           type="button"
                           size="sm"
                           onClick={handleAddNotionRoot}
+                          className="h-10"
                           disabled={!selectedNotionPage || isPending || disabled}
                         >
                           Add root and sync
