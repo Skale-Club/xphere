@@ -353,7 +353,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     name: 'Xkedule',
     description: 'Booking platform integration. Query availability, create bookings and sync contacts from AI agents.',
     category: 'calendar',
-    logo: { letter: 'X', color: 'bg-blue-600' },
+    logo: { path: '/logos/xkedule.svg', letter: 'X', color: 'bg-blue-600' },
     panelType: 'api_key',
     canActivate: true,
     testable: false,
