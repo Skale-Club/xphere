@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  AlignLeft, BookOpen, Database, FileText, Loader2, RefreshCw, Trash2,
+  AlignLeft, BookOpen, ChevronDown, Database, FileText, Loader2, RefreshCw, Trash2,
   Unplug, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   addGlobalKnowledgeText,
   addNotionKnowledgeRoot,
@@ -475,8 +478,10 @@ export function GlobalKnowledgeManager({
                         {notionState.roots.map((root) => {
                           const rootSources = notionSourcesByRoot.get(root.id) ?? []
                           return (
+                          <Collapsible key={root.id} asChild>
                           <li key={root.id} className="overflow-hidden rounded-lg border border-border-subtle">
                             <div className="flex items-center gap-3 px-4 py-3">
+                              <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-3 text-left">
                               <Database className="h-4 w-4 shrink-0 text-text-tertiary" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm text-text-primary">{root.title}</p>
@@ -490,6 +495,8 @@ export function GlobalKnowledgeManager({
                                 <p className="mt-1 truncate text-xs text-destructive">{root.error_detail}</p>
                               )}
                             </div>
+                              <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary transition-transform group-data-[state=open]:rotate-180" />
+                              </CollapsibleTrigger>
                               <Badge variant="outline">{rootSources.length}</Badge>
                               <Button
                               variant="ghost"
@@ -511,6 +518,7 @@ export function GlobalKnowledgeManager({
                               </Button>
                             </div>
 
+                            <CollapsibleContent>
                             <div className="border-t border-border-subtle bg-bg-secondary/30">
                               <div className="px-4 py-2.5">
                                 <p className="text-xs font-medium text-text-secondary">Synced pages</p>
@@ -545,7 +553,9 @@ export function GlobalKnowledgeManager({
                                 </ul>
                               )}
                             </div>
+                            </CollapsibleContent>
                           </li>
+                          </Collapsible>
                           )
                         })}
                       </ul>
