@@ -62,8 +62,17 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // One-time subscription verification is completed in the Notion developer
-  // portal. Never log or persist the plaintext token from this public request.
+  // portal. Broadcast it to an operator's ephemeral Postgres LISTEN session;
+  // never log or persist the plaintext token.
   if (typeof payload.verification_token === 'string') {
+    const supabase = createServiceRoleClient()
+    const { error } = await supabase.rpc(
+      'broadcast_global_knowledge_webhook_verification',
+      { p_verification_token: payload.verification_token },
+    )
+    if (error) {
+      console.error('[notion/webhook] failed to broadcast verification token')
+    }
     return Response.json({ ok: true, verification_received: true })
   }
 

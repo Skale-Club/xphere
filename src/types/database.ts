@@ -7599,6 +7599,12 @@ export interface Database {
         }
         Returns: undefined
       }
+      broadcast_global_knowledge_webhook_verification: {
+        Args: {
+          p_verification_token: string
+        }
+        Returns: undefined
+      }
       claim_global_knowledge_sync_job: {
         Args: Record<string, never>
         Returns: Array<Database['public']['Tables']['global_knowledge_sync_jobs']['Row']>
