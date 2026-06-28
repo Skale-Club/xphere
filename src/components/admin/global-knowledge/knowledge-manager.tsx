@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlignLeft, BookOpen, Database, FileText, Loader2, RefreshCw, Trash2,
@@ -36,6 +36,7 @@ type Source = {
   error_detail: string | null
   chunk_count: number
   created_at: string
+  notion_root_id: string | null
 }
 
 const PLATFORM_LABEL: Record<GlobalKnowledgePlatform, string> = {
@@ -105,6 +106,22 @@ export function GlobalKnowledgeManager({
   const [selectedNotionPage, setSelectedNotionPage] = useState('')
   const [loadingPages, setLoadingPages] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const notionSourcesByRoot = useMemo(() => {
+    const grouped = new Map<string, Source[]>()
+    for (const source of sources) {
+      if (source.source_type !== 'notion_page' || !source.notion_root_id) continue
+      const rootSources = grouped.get(source.notion_root_id)
+      if (rootSources) rootSources.push(source)
+      else grouped.set(source.notion_root_id, [source])
+    }
+    return grouped
+  }, [sources])
+  const manualSources = useMemo(
+    () => sources.filter((source) => source.source_type !== 'notion_page'),
+    [sources],
+  )
+  const showStandaloneSources =
+    notionState.sourceMode !== 'notion' || manualSources.length > 0 || notionState.roots.length === 0
 
   useEffect(() => {
     const hasActiveSync =
@@ -454,10 +471,13 @@ export function GlobalKnowledgeManager({
                     </div>
 
                     {notionState.roots.length > 0 && (
-                      <ul className="divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle">
-                        {notionState.roots.map((root) => (
-                          <li key={root.id} className="flex items-center gap-3 px-4 py-3">
-                            <Database className="h-4 w-4 shrink-0 text-text-tertiary" />
+                      <ul className="space-y-3">
+                        {notionState.roots.map((root) => {
+                          const rootSources = notionSourcesByRoot.get(root.id) ?? []
+                          return (
+                          <li key={root.id} className="overflow-hidden rounded-lg border border-border-subtle">
+                            <div className="flex items-center gap-3 px-4 py-3">
+                              <Database className="h-4 w-4 shrink-0 text-text-tertiary" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm text-text-primary">{root.title}</p>
                               <p className="text-xs text-text-tertiary">
@@ -470,7 +490,8 @@ export function GlobalKnowledgeManager({
                                 <p className="mt-1 truncate text-xs text-destructive">{root.error_detail}</p>
                               )}
                             </div>
-                            <Button
+                              <Badge variant="outline">{rootSources.length}</Badge>
+                              <Button
                               variant="ghost"
                               size="icon-sm"
                               onClick={() => handleSyncRoot(root.id)}
@@ -479,7 +500,7 @@ export function GlobalKnowledgeManager({
                             >
                               <RefreshCw className="h-4 w-4" />
                             </Button>
-                            <Button
+                              <Button
                               variant="ghost"
                               size="icon-sm"
                               onClick={() => handleRemoveRoot(root.id)}
@@ -487,9 +508,46 @@ export function GlobalKnowledgeManager({
                               aria-label={`Remove ${root.title}`}
                             >
                               <Trash2 className="h-4 w-4" />
-                            </Button>
+                              </Button>
+                            </div>
+
+                            <div className="border-t border-border-subtle bg-bg-secondary/30">
+                              <div className="px-4 py-2.5">
+                                <p className="text-xs font-medium text-text-secondary">Synced pages</p>
+                                <p className="text-xs text-text-tertiary">
+                                  Content inherited from this Notion root.
+                                </p>
+                              </div>
+                              {rootSources.length === 0 ? (
+                                <p className="border-t border-border-subtle px-4 py-4 text-xs text-text-tertiary">
+                                  Pages will appear here as the sync progresses.
+                                </p>
+                              ) : (
+                                <ul className="divide-y divide-border-subtle border-t border-border-subtle">
+                                  {rootSources.map((source) => (
+                                    <li
+                                      key={source.id}
+                                      className="flex items-center gap-3 px-4 py-3 [contain-intrinsic-size:44px] [content-visibility:auto]"
+                                    >
+                                      <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm text-text-primary">{source.name}</p>
+                                        <p className="text-xs text-text-tertiary">
+                                          {source.chunk_count} chunks
+                                          {source.status === 'error' && source.error_detail
+                                            ? ` · ${source.error_detail}`
+                                            : ''}
+                                        </p>
+                                      </div>
+                                      <StatusBadge status={source.status} />
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           </li>
-                        ))}
+                          )
+                        })}
                       </ul>
                     )}
                   </div>
@@ -506,15 +564,18 @@ export function GlobalKnowledgeManager({
         </div>
       </div>
 
+      {showStandaloneSources && (
       <div className="overflow-hidden rounded-lg border border-border-subtle">
         <div className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">Knowledge sources</h2>
+            <h2 className="text-sm font-semibold text-text-primary">
+              {notionState.sourceMode === 'notion' ? 'Manual sources' : 'Knowledge sources'}
+            </h2>
             <p className="mt-1 text-xs text-text-tertiary">Processed sources available to Copilot and MCP.</p>
           </div>
-          <Badge variant="outline">{sources.length}</Badge>
+          <Badge variant="outline">{manualSources.length}</Badge>
         </div>
-        {sources.length === 0 ? (
+        {manualSources.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-bg-secondary">
               <BookOpen className="h-4 w-4 text-text-tertiary" />
@@ -526,7 +587,7 @@ export function GlobalKnowledgeManager({
           </div>
         ) : (
           <ul className="divide-y divide-border-subtle">
-            {sources.map((s) => (
+            {manualSources.map((s) => (
               <li key={s.id} className="flex items-center gap-3 px-4 py-3">
                 <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
                 <div className="min-w-0 flex-1">
@@ -555,6 +616,7 @@ export function GlobalKnowledgeManager({
           </ul>
         )}
       </div>
+      )}
     </div>
   )
 }
