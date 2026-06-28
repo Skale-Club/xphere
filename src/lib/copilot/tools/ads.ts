@@ -1,7 +1,7 @@
 // Copilot tools for the Ads Journey.
 //
 // These make the Copilot a first-class operator of the ads journey: it can read
-// the journey state, GROUND its thinking in the global playbook (curated
+// the journey state, GROUND its thinking in Global Knowledge (curated
 // fundamentals), inspect live Meta metrics + CRM attribution, and record what it
 // learns as memories/plans for the operator to approve. The system prompt
 // instructs the Copilot to ACTIVATE the journey for any ads request.
@@ -10,7 +10,7 @@ import type { CopilotToolRegistry, ToolContext, ToolResult } from './types'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
 import type { AdsMemoryType } from '@/lib/ads/journey-db'
-import { searchPlaybook } from '@/lib/ads/playbook'
+import { searchGlobalKnowledge } from '@/lib/knowledge/global-knowledge'
 import { decrypt } from '@/lib/crypto'
 import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
 import type { DatePreset } from '@/lib/ads/meta-api'
@@ -74,11 +74,11 @@ async function queryAdsJourney(input: Record<string, unknown>, ctx: ToolContext)
   return { success: true, data: { memories: memories ?? [], executions: executions ?? [], plans: plans ?? [], platform: platform ?? 'all' } }
 }
 
-// ─── Read: global playbook (fundamentals) ─────────────────────────────────────
-async function searchAdsPlaybook(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+// ─── Read: Global Knowledge (fundamentals) ─────────────────────────────────
+async function searchGlobalKnowledgeTool(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
   const query = String(input.query ?? '').trim()
   if (!query) return { success: false, error: 'query is required' }
-  const result = await searchPlaybook({
+  const result = await searchGlobalKnowledge({
     orgId: ctx.orgId,
     query,
     platform: input.platform as Platform | undefined,
@@ -207,14 +207,14 @@ export const adsTools: CopilotToolRegistry = {
     },
     handler: queryAdsJourney,
   },
-  search_ads_playbook: {
+  search_global_knowledge: {
     mode: 'read',
     definition: {
-      name: 'search_ads_playbook',
-      description: 'Semantic search over the GLOBAL, expert-curated ads knowledge base (transcribed courses, market best-practices) by media. Use this to ground every diagnosis/recommendation in proven fundamentals BEFORE proposing changes. Cite what you used.',
+      name: 'search_global_knowledge',
+      description: 'Semantic search over Global Knowledge by media. Use this to ground every diagnosis and recommendation in curated fundamentals before proposing changes.',
       input_schema: { type: 'object', properties: { query: { type: 'string', description: 'What you need fundamentals about (e.g. "scaling a winning ABO campaign on Meta")' }, platform: PLATFORM_PROP, top_k: { type: 'number', description: 'Max passages (default 6, max 20)' } }, required: ['query'] },
     },
-    handler: searchAdsPlaybook,
+    handler: searchGlobalKnowledgeTool,
   },
   get_ads_overview: {
     mode: 'read',
@@ -256,7 +256,7 @@ export const adsTools: CopilotToolRegistry = {
     mode: 'write',
     definition: {
       name: 'create_ads_plan',
-      description: 'Create a strategy/hypothesis/target/experiment in the journey Planning tab — an action plan the operator executes manually. Ground it in the playbook.',
+      description: 'Create a strategy, hypothesis, target, or experiment in the journey Planning tab. Ground it in Global Knowledge.',
       input_schema: { type: 'object', properties: { type: { type: 'string', enum: ['strategy', 'hypothesis', 'target', 'experiment'] }, title: { type: 'string' }, description: { type: 'string' }, platform: PLATFORM_PROP, metric: { type: 'string' }, target_value: { type: 'number' }, deadline: { type: 'string', description: 'ISO date' } }, required: ['type', 'title'] },
     },
     handler: createAdsPlan,

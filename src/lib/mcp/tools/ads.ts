@@ -2,7 +2,11 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
 import type { AdsMemoryType, AdsMemorySource } from '@/lib/ads/journey-db'
-import { searchPlaybook, ingestPlaybookText, isPlatformAdminUser } from '@/lib/ads/playbook'
+import {
+  searchGlobalKnowledge,
+  ingestGlobalKnowledgeText,
+  isPlatformAdminUser,
+} from '@/lib/knowledge/global-knowledge'
 import { decrypt } from '@/lib/crypto'
 import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
 import type { DatePreset } from '@/lib/ads/meta-api'
@@ -339,11 +343,11 @@ export const adsTools: McpToolDef[] = [
     },
   },
 
-  // ─── Global playbook (curated fundamentals) ─────────────────────────────────────
+  // ─── Global Knowledge (curated fundamentals) ─────────────────────────────────
 
   {
-    name: 'ads_search_playbook',
-    title: 'Search the global ads playbook',
+    name: 'global_knowledge_search',
+    title: 'Search Global Knowledge',
     description:
       'Semantic search over the platform-wide, expert-curated ads knowledge base (transcribed courses, market best-practices) segmented by media. Use this to GROUND diagnostics, proposals, and plans in proven fundamentals before suggesting changes. A requested platform also returns platform-agnostic "global" fundamentals. Cite what you use.',
     area: 'general_xphere',
@@ -353,7 +357,7 @@ export const adsTools: McpToolDef[] = [
       top_k: z.number().int().positive().max(20).optional(),
     }).strict(),
     handler: async ({ query, platform, top_k }, { auth }) => {
-      const result = await searchPlaybook({
+      const result = await searchGlobalKnowledge({
         orgId: auth.orgId,
         query,
         platform,
@@ -363,16 +367,16 @@ export const adsTools: McpToolDef[] = [
     },
   },
 
-  // ─── Global playbook management (SUPER ADMIN ONLY) ───────────────────────────────
+  // ─── Global Knowledge management (SUPER ADMIN ONLY) ──────────────────────────
   // These feed/curate the global corpus. Gated to the platform super admin (the
   // calling MCP user must be a platform admin), regardless of which org the token
   // belongs to. Ingestion is billed to the platform OpenRouter key.
 
   {
-    name: 'ads_playbook_add_text',
-    title: 'Add text to the global ads playbook (super admin)',
+    name: 'global_knowledge_add_text',
+    title: 'Add text to Global Knowledge (super admin)',
     description:
-      'SUPER ADMIN ONLY. Ingest curated fundamentals (e.g. a transcribed course) into the GLOBAL ads playbook for a media (meta/google) or "global" (all media). Chunks + embeds synchronously; billed to the platform OpenRouter key. Returns source_id + chunk_count.',
+      'SUPER ADMIN ONLY. Ingest curated material into Global Knowledge for a media scope (meta/google) or "global". Chunks and embeds synchronously using the platform OpenRouter key.',
     area: 'general_xphere',
     inputSchema: z.object({
       name: z.string().min(1).max(200),
@@ -381,27 +385,27 @@ export const adsTools: McpToolDef[] = [
     }).strict(),
     handler: async ({ name, content, platform }, { auth }) => {
       if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can feed the global playbook.', status: 403 }
+        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
       }
-      const result = await ingestPlaybookText({ name, content, platform, createdBy: auth.userId })
+      const result = await ingestGlobalKnowledgeText({ name, content, platform, createdBy: auth.userId })
       return result
     },
   },
 
   {
-    name: 'ads_playbook_list',
-    title: 'List global ads playbook sources (super admin)',
-    description: 'SUPER ADMIN ONLY. List the curated sources in the global ads playbook, optionally filtered by media.',
+    name: 'global_knowledge_list',
+    title: 'List Global Knowledge sources (super admin)',
+    description: 'SUPER ADMIN ONLY. List Global Knowledge sources, optionally filtered by media.',
     area: 'general_xphere',
     inputSchema: z.object({
       platform: z.enum(['meta', 'google', 'global']).optional(),
     }).strict(),
     handler: async ({ platform }, { auth }) => {
       if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can manage the global playbook.', status: 403 }
+        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
       }
       let q = db()
-        .from('ads_playbook_sources')
+        .from('global_knowledge_sources')
         .select('id, platform, name, source_type, status, error_detail, chunk_count, created_at')
         .order('created_at', { ascending: false })
       if (platform) q = q.eq('platform', platform)
@@ -412,19 +416,19 @@ export const adsTools: McpToolDef[] = [
   },
 
   {
-    name: 'ads_playbook_delete',
-    title: 'Delete a global ads playbook source (super admin)',
-    description: 'SUPER ADMIN ONLY. Remove a curated source from the global ads playbook, including its vector chunks.',
+    name: 'global_knowledge_delete',
+    title: 'Delete a Global Knowledge source (super admin)',
+    description: 'SUPER ADMIN ONLY. Remove a Global Knowledge source and its vector chunks.',
     area: 'general_xphere',
     inputSchema: z.object({
       source_id: z.string().uuid(),
     }).strict(),
     handler: async ({ source_id }, { auth }) => {
       if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can manage the global playbook.', status: 403 }
+        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
       }
-      await db().from('documents').delete().contains('metadata', { playbook_source_id: source_id })
-      const { error } = await db().from('ads_playbook_sources').delete().eq('id', source_id)
+      await db().from('documents').delete().contains('metadata', { global_knowledge_source_id: source_id })
+      const { error } = await db().from('global_knowledge_sources').delete().eq('id', source_id)
       if (error) return { error: 'delete_failed', detail: error.message }
       return { ok: true }
     },

@@ -2,7 +2,7 @@
 // Deno Edge Function: process knowledge source, embed via LangChain, store in pgvector
 // Triggered via HTTP POST from knowledge.ts triggerEmbeddingJob()
 // v1.1: LangChain SupabaseVectorStore + RecursiveCharacterTextSplitter
-// v1.2: adds an 'ads_playbook' scope — the global, super-admin-curated ads
+// v1.2: adds a Global Knowledge scope — the global, super-admin-curated
 //       fundamentals corpus. It is platform-level (no org_id) and embedded with
 //       the PLATFORM OpenRouter key, so ingestion is billed to the platform.
 
@@ -19,9 +19,10 @@ interface JobPayload {
   // Default (per-org knowledge_sources) job:
   documentId?: string   // knowledge_sources.id
   organizationId?: string
-  // Global ads-playbook job:
-  scope?: 'ads_playbook'
-  playbookSourceId?: string   // ads_playbook_sources.id
+  // Global Knowledge job:
+  scope?: 'global_knowledge' | 'ads_playbook'
+  globalKnowledgeSourceId?: string
+  playbookSourceId?: string // rolling-deploy compatibility
   platform?: 'meta' | 'google' | 'global'
 }
 
@@ -77,11 +78,11 @@ async function extractText(
   throw new Error('No source URL available')
 }
 
-// ─── Global ads-playbook job ──────────────────────────────────────────────────
-async function processPlaybookJob(
+// ─── Global Knowledge job ───────────────────────────────────────────────────
+async function processGlobalKnowledgeJob(
   supabase: ReturnType<typeof createClient>,
   encryptionSecret: string,
-  playbookSourceId: string,
+  globalKnowledgeSourceId: string,
 ): Promise<Response> {
   // 1) Platform OpenRouter key (billed to the platform owner)
   const { data: settingRow, error: settingErr } = await supabase
@@ -91,9 +92,9 @@ async function processPlaybookJob(
     .maybeSingle()
 
   if (settingErr || !settingRow) {
-    await supabase.from('ads_playbook_sources')
+    await supabase.from('global_knowledge_sources')
       .update({ status: 'error', error_detail: 'Platform OPENROUTER_API_KEY not configured (set it at /admin/settings/ai)', updated_at: new Date().toISOString() })
-      .eq('id', playbookSourceId)
+      .eq('id', globalKnowledgeSourceId)
     return new Response(JSON.stringify({ error: 'No platform OpenRouter key' }), { status: 400 })
   }
 
@@ -107,35 +108,58 @@ async function processPlaybookJob(
 
   // 2) Source row
   const { data: source, error: sourceError } = await supabase
-    .from('ads_playbook_sources')
-    .select('id, platform, name, source_type, source_url, status')
-    .eq('id', playbookSourceId)
+    .from('global_knowledge_sources')
+    .select('id, platform, name, source_type, source_url, storage_bucket, status')
+    .eq('id', globalKnowledgeSourceId)
     .single()
 
   if (sourceError || !source) {
-    return new Response(JSON.stringify({ error: 'Playbook source not found' }), { status: 404 })
+    return new Response(JSON.stringify({ error: 'Global Knowledge source not found' }), { status: 404 })
   }
 
-  const src = source as { id: string; platform: string; name: string; source_type: string; source_url: string | null; status: string }
+  const src = source as {
+    id: string
+    platform: string
+    name: string
+    source_type: string
+    source_url: string | null
+    storage_bucket: string | null
+    status: string
+  }
   if (src.status !== 'processing') {
     return new Response(JSON.stringify({ skipped: true }), { status: 200 })
   }
 
   try {
-    const rawText = await extractText(supabase, src.source_type, src.source_url, 'ads-playbook')
+    const rawText = await extractText(
+      supabase,
+      src.source_type,
+      src.source_url,
+      src.storage_bucket ?? 'global-knowledge',
+    )
     if (!rawText.trim()) throw new Error('No text content extracted')
 
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 100 })
     const langchainDocs = await splitter.createDocuments(
       [rawText],
-      [{ scope: 'ads_playbook', platform: src.platform, playbook_source_id: src.id, source_name: src.name }],
+      [{
+        scope: 'global_knowledge',
+        platform: src.platform,
+        global_knowledge_source_id: src.id,
+        source_name: src.name,
+      }],
     )
     if (langchainDocs.length === 0) throw new Error('Text splitting produced no chunks')
 
     const docs = langchainDocs.map((doc) => new Document({
       pageContent: doc.pageContent,
-      // No org_id: these chunks are global and queried via match_ads_playbook.
-      metadata: { scope: 'ads_playbook', platform: src.platform, playbook_source_id: src.id, source_name: src.name },
+      // No org_id: these chunks are global and queried via match_global_knowledge.
+      metadata: {
+        scope: 'global_knowledge',
+        platform: src.platform,
+        global_knowledge_source_id: src.id,
+        source_name: src.name,
+      },
     }))
 
     const embeddings = new OpenAIEmbeddings({
@@ -151,7 +175,7 @@ async function processPlaybookJob(
     })
 
     const { error: updateError } = await supabase
-      .from('ads_playbook_sources')
+      .from('global_knowledge_sources')
       .update({ status: 'ready', chunk_count: docs.length, updated_at: new Date().toISOString() })
       .eq('id', src.id)
     if (updateError) throw new Error(`Status update failed: ${updateError.message}`)
@@ -160,10 +184,10 @@ async function processPlaybookJob(
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err)
     await supabase
-      .from('ads_playbook_sources')
+      .from('global_knowledge_sources')
       .update({ status: 'error', error_detail: errorMessage, updated_at: new Date().toISOString() })
-      .eq('id', playbookSourceId)
-    console.error(`[process-embeddings] Playbook job failed for ${playbookSourceId}:`, errorMessage)
+      .eq('id', globalKnowledgeSourceId)
+    console.error(`[process-embeddings] Global Knowledge job failed for ${globalKnowledgeSourceId}:`, errorMessage)
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500 })
   }
 }
@@ -190,12 +214,17 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
 
-  // ── Branch: global ads-playbook ingestion ──────────────────────────────────
-  if (payload.scope === 'ads_playbook') {
-    if (!payload.playbookSourceId) {
-      return new Response(JSON.stringify({ error: 'Missing playbookSourceId' }), { status: 400 })
+  // ── Branch: Global Knowledge ingestion ────────────────────────────────────
+  if (payload.scope === 'global_knowledge' || payload.scope === 'ads_playbook') {
+    const sourceId = payload.globalKnowledgeSourceId ?? payload.playbookSourceId
+    if (!sourceId) {
+      return new Response(JSON.stringify({ error: 'Missing globalKnowledgeSourceId' }), { status: 400 })
     }
-    return await processPlaybookJob(supabase, encryptionSecret, payload.playbookSourceId)
+    return await processGlobalKnowledgeJob(
+      supabase,
+      encryptionSecret,
+      sourceId,
+    )
   }
 
   // ── Default: per-org knowledge_sources ingestion ───────────────────────────

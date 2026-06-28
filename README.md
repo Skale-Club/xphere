@@ -95,7 +95,7 @@ When configuring Vapi server URLs, external callbacks, or customer-specific inte
 - `Scheduling`: Calendly-style booking pages with Google Calendar sync
 - `Agents`: multi-agent platform with per-agent tools, delegation, and channel routing
 - `Workflows`: unified per-org action and flow system — the LLM-callable tool catalog and DAG runtime used by agents, events, schedules, and manual runs
-- `Knowledge`: document upload, chunking, embeddings, tenant-scoped semantic retrieval
+- `Knowledge`: tenant-scoped document RAG plus a super-admin Global Knowledge corpus that can use Notion as an authoritative, automatically synchronized source
 - `Integrations`: encrypted credentials and provider configuration (GHL, Twilio, Meta, Google, Evolution Go, etc.)
 - `Reviews`: Google Reviews via SerpAPI with embeddable widgets
 - `Admin`: super-admin panel (platform owner only) — org overview, platform stats, feature flags, SEO config

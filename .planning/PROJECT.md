@@ -351,6 +351,7 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 | Per-org API keys in DB instead of env vars | Enables tenant-specific integrations | ✓ Good |
 | LangChain as vector abstraction (v1.1) | Community-maintained, clean API for chunk/embed/search | ✓ Good |
 | `metadata.org_id` for vector isolation (v1.1) | Follows LangChain SupabaseVectorStore conventions | ✓ Good |
+| Global Knowledge is the platform-level corpus; Notion may be its authoritative source | Keeps shared curated knowledge separate from tenant RAG while allowing edits, additions, moves, and deletions to converge through revisioned sync | Implemented 2026-06-28 |
 | Widget embed as script tag (v1.2) | Works in any site without framework dependency; GTM compatible | ✓ Validated Phase 4 |
 | Redis for chat session memory (v1.2) | Fast in-session context without hitting Supabase on every message | ✓ Validated Phase 2 |
 | Public org token for widget auth (v1.2) | Visitors don't need accounts; org isolation maintained server-side | ✓ Validated Phase 2 |

@@ -29,3 +29,21 @@ export async function embed(
   })
   return response.data[0].embedding
 }
+
+export async function embedBatch(
+  texts: string[],
+  apiKey: string,
+  opts: EmbedOptions = {},
+): Promise<number[][]> {
+  if (texts.length === 0) return []
+  const client = new OpenAI({ apiKey, ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) })
+  const response = await client.embeddings.create({
+    model: opts.model ?? 'text-embedding-3-small',
+    input: texts,
+    encoding_format: 'float',
+  })
+  return response.data
+    .slice()
+    .sort((left, right) => left.index - right.index)
+    .map((item) => item.embedding)
+}

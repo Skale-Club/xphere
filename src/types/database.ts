@@ -2180,16 +2180,109 @@ export interface Database {
           }
         ]
       }
-      ads_playbook_sources: {
+      global_knowledge_config: {
+        Row: {
+          id: 'primary'
+          source_mode: 'manual' | 'notion'
+          updated_at: string
+        }
+        Insert: {
+          id?: 'primary'
+          source_mode?: 'manual' | 'notion'
+          updated_at?: string
+        }
+        Update: {
+          source_mode?: 'manual' | 'notion'
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      global_knowledge_notion_connections: {
+        Row: {
+          id: string
+          workspace_id: string
+          workspace_name: string | null
+          workspace_icon: string | null
+          bot_id: string
+          owner_user_id: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token: string | null
+          token_expires_at: string | null
+          status: 'connected' | 'syncing' | 'error' | 'revoked' | 'disconnected'
+          error_detail: string | null
+          last_synced_at: string | null
+          last_reconciled_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          workspace_name?: string | null
+          workspace_icon?: string | null
+          bot_id: string
+          owner_user_id?: string | null
+          encrypted_access_token: string
+          encrypted_refresh_token?: string | null
+          token_expires_at?: string | null
+          status?: 'connected' | 'syncing' | 'error' | 'revoked' | 'disconnected'
+          error_detail?: string | null
+          last_synced_at?: string | null
+          last_reconciled_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['global_knowledge_notion_connections']['Insert']>
+        Relationships: []
+      }
+      global_knowledge_notion_roots: {
+        Row: {
+          id: string
+          connection_id: string
+          notion_page_id: string
+          title: string
+          platform: 'meta' | 'google' | 'global'
+          status: 'pending' | 'syncing' | 'active' | 'error' | 'disconnected'
+          error_detail: string | null
+          last_full_sync_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          connection_id: string
+          notion_page_id: string
+          title: string
+          platform: 'meta' | 'google' | 'global'
+          status?: 'pending' | 'syncing' | 'active' | 'error' | 'disconnected'
+          error_detail?: string | null
+          last_full_sync_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['global_knowledge_notion_roots']['Insert']>
+        Relationships: []
+      }
+      global_knowledge_sources: {
         Row: {
           id: string
           platform: 'meta' | 'google' | 'global'
           name: string
-          source_type: 'pdf' | 'text' | 'csv'
+          source_type: 'pdf' | 'text' | 'csv' | 'notion_page'
           source_url: string | null
+          storage_bucket: string | null
           status: 'processing' | 'ready' | 'error'
           error_detail: string | null
           chunk_count: number
+          external_id: string | null
+          content_hash: string | null
+          external_last_edited_at: string | null
+          active_revision_id: string | null
+          last_synced_at: string | null
+          is_active: boolean
+          notion_root_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -2198,11 +2291,19 @@ export interface Database {
           id?: string
           platform: 'meta' | 'google' | 'global'
           name: string
-          source_type: 'pdf' | 'text' | 'csv'
+          source_type: 'pdf' | 'text' | 'csv' | 'notion_page'
           source_url?: string | null
+          storage_bucket?: string | null
           status?: 'processing' | 'ready' | 'error'
           error_detail?: string | null
           chunk_count?: number
+          external_id?: string | null
+          content_hash?: string | null
+          external_last_edited_at?: string | null
+          active_revision_id?: string | null
+          last_synced_at?: string | null
+          is_active?: boolean
+          notion_root_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -2213,8 +2314,53 @@ export interface Database {
           status?: 'processing' | 'ready' | 'error'
           error_detail?: string | null
           chunk_count?: number
+          source_url?: string | null
+          storage_bucket?: string | null
+          external_id?: string | null
+          content_hash?: string | null
+          external_last_edited_at?: string | null
+          active_revision_id?: string | null
+          last_synced_at?: string | null
+          is_active?: boolean
+          notion_root_id?: string | null
           updated_at?: string
         }
+        Relationships: []
+      }
+      global_knowledge_sync_jobs: {
+        Row: {
+          id: string
+          event_id: string | null
+          connection_id: string
+          root_id: string | null
+          notion_page_id: string | null
+          job_type: 'initial' | 'page_upsert' | 'page_delete' | 'reconcile'
+          status: 'queued' | 'processing' | 'succeeded' | 'failed'
+          attempts: number
+          next_attempt_at: string
+          error_detail: string | null
+          payload: Json
+          created_at: string
+          started_at: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          event_id?: string | null
+          connection_id: string
+          root_id?: string | null
+          notion_page_id?: string | null
+          job_type: 'initial' | 'page_upsert' | 'page_delete' | 'reconcile'
+          status?: 'queued' | 'processing' | 'succeeded' | 'failed'
+          attempts?: number
+          next_attempt_at?: string
+          error_detail?: string | null
+          payload?: Json
+          created_at?: string
+          started_at?: string | null
+          completed_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['global_knowledge_sync_jobs']['Insert']>
         Relationships: []
       }
       documents: {
@@ -7441,6 +7587,40 @@ export interface Database {
           phone: string | null
           full_name: string | null
           total_count: number
+        }>
+      }
+      activate_global_knowledge_revision: {
+        Args: {
+          p_source_id: string
+          p_revision_id: string
+          p_content_hash: string
+          p_chunk_count: number
+          p_external_last_edited_at?: string | null
+        }
+        Returns: undefined
+      }
+      claim_global_knowledge_sync_job: {
+        Args: Record<string, never>
+        Returns: Array<Database['public']['Tables']['global_knowledge_sync_jobs']['Row']>
+      }
+      complete_global_knowledge_root_sync: {
+        Args: {
+          p_root_id: string
+          p_seen_external_ids: string[]
+        }
+        Returns: undefined
+      }
+      match_global_knowledge: {
+        Args: {
+          query_embedding: number[]
+          platform_filter?: string | null
+          match_count?: number
+        }
+        Returns: Array<{
+          id: number
+          content: string
+          metadata: Json
+          similarity: number
         }>
       }
       match_documents: {

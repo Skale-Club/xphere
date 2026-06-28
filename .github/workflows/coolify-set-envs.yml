@@ -26,6 +26,10 @@ jobs:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           WEBSITES_URL: ${{ secrets.SKALECLUB_WEBSITES_URL }}
           WEBSITES_API_KEY: ${{ secrets.SKALECLUB_WEBSITES_API_KEY }}
+          NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}
+          NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET }}
+          NOTION_WEBHOOK_VERIFICATION_TOKEN: ${{ secrets.NOTION_WEBHOOK_VERIFICATION_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${COOLIFY_TOKEN}" ]; then
@@ -65,6 +69,10 @@ jobs:
 
           upsert SKALECLUB_WEBSITES_URL     "${WEBSITES_URL}"
           upsert SKALECLUB_WEBSITES_API_KEY "${WEBSITES_API_KEY}"
+          upsert NOTION_CLIENT_ID                    "${NOTION_CLIENT_ID}"
+          upsert NOTION_CLIENT_SECRET                "${NOTION_CLIENT_SECRET}"
+          upsert NOTION_WEBHOOK_VERIFICATION_TOKEN  "${NOTION_WEBHOOK_VERIFICATION_TOKEN}"
+          upsert CRON_SECRET                         "${CRON_SECRET}"
 
           echo "==> Triggering redeploy so new env vars take effect"
           curl --fail-with-body -sS --retry 3 --retry-all-errors \
