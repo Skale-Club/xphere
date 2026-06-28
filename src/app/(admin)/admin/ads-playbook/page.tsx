@@ -10,13 +10,11 @@ export default async function AdminAdsPlaybookPage() {
   ])
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="w-full p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-text-primary">Ads Playbook (Base Global)</h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Conhecimento curado de fundamentos de mídia (cursos, boas práticas de mercado), por plataforma.
-          A jornada de ads de qualquer organização consulta esta base — via Copilot e via MCP — para fundamentar
-          diagnósticos e planos. A ingestão é cobrada na chave OpenRouter global da plataforma.
+        <h1 className="text-xl font-semibold text-text-primary">Knowledge Base</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Manage the trusted sources Copilot and MCP use for campaign diagnostics and media plans.
         </p>
       </div>
       <PlaybookManager

@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2, FileText, Loader2 } from 'lucide-react'
+import { AlignLeft, BookOpen, FileText, Loader2, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -30,7 +31,7 @@ type Source = {
 const PLATFORM_LABEL: Record<PlaybookPlatform, string> = {
   meta: 'Meta Ads',
   google: 'Google Ads',
-  global: 'Geral (todas as mídias)',
+  global: 'All platforms',
 }
 
 function getSourceType(mime: string, name: string): 'pdf' | 'text' | 'csv' {
@@ -40,9 +41,9 @@ function getSourceType(mime: string, name: string): 'pdf' | 'text' | 'csv' {
 }
 
 function StatusBadge({ status }: { status: Source['status'] }) {
-  if (status === 'ready') return <Badge className="bg-green-500/15 text-green-600 dark:text-green-400">pronto</Badge>
-  if (status === 'error') return <Badge variant="destructive">erro</Badge>
-  return <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400">processando</Badge>
+  if (status === 'ready') return <Badge className="bg-green-500/15 text-green-600 dark:text-green-400">Ready</Badge>
+  if (status === 'error') return <Badge variant="destructive">Error</Badge>
+  return <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400">Processing</Badge>
 }
 
 export function PlaybookManager({ sources, disabled }: { sources: Source[]; disabled: boolean }) {
@@ -112,63 +113,144 @@ export function PlaybookManager({ sources, disabled }: { sources: Source[]; disa
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border-subtle p-5 space-y-5">
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium">Mídia / Plataforma</Label>
-          <Select value={platform} onValueChange={(v) => setPlatform(v as PlaybookPlatform)} disabled={disabled}>
-            <SelectTrigger className="w-full sm:w-72"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="meta">Meta Ads</SelectItem>
-              <SelectItem value="google">Google Ads</SelectItem>
-              <SelectItem value="global">Geral (todas as mídias)</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-text-tertiary">
-            &ldquo;Geral&rdquo; é consultado junto com qualquer mídia. Meta/Google só aparecem na sua respectiva mídia.
+      {disabled && (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          Add the platform OpenRouter key in <strong>Settings → AI Provider</strong> before adding knowledge sources.
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-lg border border-border-subtle">
+        <div className="border-b border-border-subtle px-5 py-4">
+          <h2 className="text-sm font-semibold text-text-primary">Add knowledge source</h2>
+          <p className="mt-1 text-xs text-text-tertiary">
+            Choose where the guidance applies, then upload a file or paste the source material.
           </p>
         </div>
 
-        {/* File upload */}
-        <form onSubmit={handleFile} className="space-y-2">
-          <Label htmlFor="file" className="text-xs font-medium">Enviar arquivo (PDF, TXT, CSV — máx 10MB)</Label>
-          <div className="flex gap-2">
-            <Input id="file" name="file" type="file" accept=".pdf,.txt,.csv,text/plain,text/csv,application/pdf"
-              className="text-xs" required disabled={disabled || busy} />
-            <Button type="submit" size="sm" disabled={disabled || busy || isPending}>
-              {busy ? 'Enviando…' : 'Enviar'}
-            </Button>
+        <div className="space-y-6 p-5">
+          <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">1. Choose scope</p>
+              <p className="mt-1 text-xs text-text-tertiary">Controls which campaign analyses can use this source.</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Ad platform</Label>
+              <Select value={platform} onValueChange={(v) => setPlatform(v as PlaybookPlatform)} disabled={disabled}>
+                <SelectTrigger className="w-full md:max-w-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meta">Meta Ads</SelectItem>
+                  <SelectItem value="google">Google Ads</SelectItem>
+                  <SelectItem value="global">All platforms</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-text-tertiary">
+                Choose “All platforms” for principles that apply to every advertising channel.
+              </p>
+            </div>
           </div>
-        </form>
 
-        <div className="border-t border-border-subtle" />
+          <div className="border-t border-border-subtle" />
 
-        {/* Paste text (course transcript) */}
-        <form onSubmit={handleText} className="space-y-2">
-          <Label htmlFor="textName" className="text-xs font-medium">Ou colar texto (ex.: transcrição de curso)</Label>
-          <Input id="textName" value={textName} onChange={(e) => setTextName(e.target.value)}
-            placeholder="Nome (ex.: Curso Meta Ads — Módulo 1)" className="text-xs" disabled={disabled} />
-          <Textarea value={textBody} onChange={(e) => setTextBody(e.target.value)} rows={6}
-            placeholder="Cole aqui o conteúdo completo…" className="text-xs" disabled={disabled} />
-          <Button type="submit" size="sm" disabled={disabled || isPending || !textBody.trim()}>
-            {isPending ? 'Salvando…' : 'Adicionar texto'}
-          </Button>
-        </form>
+          <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">2. Add content</p>
+              <p className="mt-1 text-xs text-text-tertiary">Use original, trusted material with a clear source name.</p>
+            </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
-        {disabled && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            Defina a chave OpenRouter global em <strong>Settings → AI Provider</strong> antes de enviar conteúdo.
-          </p>
-        )}
+            <Tabs defaultValue="file" className="min-w-0">
+              <TabsList className="grid w-full grid-cols-2 sm:w-80">
+                <TabsTrigger value="file" className="gap-2">
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload file
+                </TabsTrigger>
+                <TabsTrigger value="text" className="gap-2">
+                  <AlignLeft className="h-3.5 w-3.5" />
+                  Paste text
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="file" className="mt-4">
+                <form onSubmit={handleFile} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="file" className="text-xs font-medium">Source file</Label>
+                    <Input
+                      id="file"
+                      name="file"
+                      type="file"
+                      accept=".pdf,.txt,.csv,text/plain,text/csv,application/pdf"
+                      className="text-xs"
+                      required
+                      disabled={disabled || busy}
+                    />
+                    <p className="text-xs text-text-tertiary">PDF, TXT or CSV · maximum 10 MB</p>
+                  </div>
+                  <Button type="submit" size="sm" disabled={disabled || busy || isPending}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {busy ? 'Uploading…' : 'Upload and process'}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="text" className="mt-4">
+                <form onSubmit={handleText} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="textName" className="text-xs font-medium">Source name</Label>
+                    <Input
+                      id="textName"
+                      value={textName}
+                      onChange={(e) => setTextName(e.target.value)}
+                      placeholder="e.g. Meta Ads Course — Module 1"
+                      className="text-xs"
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="textBody" className="text-xs font-medium">Source content</Label>
+                    <Textarea
+                      id="textBody"
+                      value={textBody}
+                      onChange={(e) => setTextBody(e.target.value)}
+                      rows={8}
+                      placeholder="Paste the complete course transcript, guide, or reference material…"
+                      className="text-xs"
+                      disabled={disabled}
+                    />
+                  </div>
+                  <Button type="submit" size="sm" disabled={disabled || isPending || !textBody.trim()}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlignLeft className="h-4 w-4" />}
+                    {isPending ? 'Adding…' : 'Add and process'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {error && (
+            <p role="alert" className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {error}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Sources list */}
-      <div className="rounded-lg border border-border-subtle">
-        <div className="px-4 py-3 border-b border-border-subtle text-sm font-semibold text-text-primary">
-          Fundamentos cadastrados ({sources.length})
+      <div className="overflow-hidden rounded-lg border border-border-subtle">
+        <div className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">Knowledge sources</h2>
+            <p className="mt-1 text-xs text-text-tertiary">Processed sources available to Copilot and MCP.</p>
+          </div>
+          <Badge variant="outline">{sources.length}</Badge>
         </div>
         {sources.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-text-tertiary">Nenhum conteúdo ainda.</p>
+          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-bg-secondary">
+              <BookOpen className="h-4 w-4 text-text-tertiary" />
+            </div>
+            <p className="text-sm font-medium text-text-secondary">No knowledge sources yet</p>
+            <p className="mt-1 max-w-sm text-xs text-text-tertiary">
+              Add a trusted file or paste source material above to make it available for campaign analysis.
+            </p>
+          </div>
         ) : (
           <ul className="divide-y divide-border-subtle">
             {sources.map((s) => (
@@ -177,13 +259,13 @@ export function PlaybookManager({ sources, disabled }: { sources: Source[]; disa
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-text-primary">{s.name}</p>
                   <p className="text-xs text-text-tertiary">
-                    {PLATFORM_LABEL[s.platform]} · {s.source_type.toUpperCase()} · {s.chunk_count} trechos
+                    {PLATFORM_LABEL[s.platform]} · {s.source_type.toUpperCase()} · {s.chunk_count} chunks
                     {s.status === 'error' && s.error_detail ? ` · ${s.error_detail}` : ''}
                   </p>
                 </div>
                 <StatusBadge status={s.status} />
                 <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(s.id)} disabled={isPending}
-                  aria-label="Excluir">
+                  aria-label={`Delete ${s.name}`}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 </Button>
               </li>
