@@ -15,6 +15,7 @@ import {
   GitMerge,
   ScrollText,
   KeyRound,
+  BookOpen,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ const navItems = [
   { href: '/admin',          label: 'Overview',       icon: LayoutDashboard, exact: true },
   { href: '/admin/orgs',     label: 'Organizations',  icon: Building2 },
   { href: '/admin/roles',    label: 'Roles & Permissions', icon: KeyRound },
+  { href: '/admin/ads-playbook', label: 'Ads Playbook',   icon: BookOpen },
   { href: '/admin/contacts/conflicts', label: 'Conflicts', icon: GitMerge },
   { href: '/admin/activity', label: 'Activity',       icon: Activity },
   { href: '/admin/logs',     label: 'Logs',           icon: ScrollText },

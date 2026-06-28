@@ -2,6 +2,9 @@
 // Deno Edge Function: process knowledge source, embed via LangChain, store in pgvector
 // Triggered via HTTP POST from knowledge.ts triggerEmbeddingJob()
 // v1.1: LangChain SupabaseVectorStore + RecursiveCharacterTextSplitter
+// v1.2: adds an 'ads_playbook' scope — the global, super-admin-curated ads
+//       fundamentals corpus. It is platform-level (no org_id) and embedded with
+//       the PLATFORM OpenRouter key, so ingestion is billed to the platform.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SupabaseVectorStore } from 'https://esm.sh/@langchain/community@0.3.0/vectorstores/supabase'
@@ -10,9 +13,16 @@ import { RecursiveCharacterTextSplitter } from 'https://esm.sh/langchain@0.3.0/t
 import { Document } from 'https://esm.sh/@langchain/core@0.3.0/documents'
 import { extractText as extractPdfText } from 'https://esm.sh/unpdf@1'
 
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+
 interface JobPayload {
-  documentId: string   // knowledge_sources.id
-  organizationId: string
+  // Default (per-org knowledge_sources) job:
+  documentId?: string   // knowledge_sources.id
+  organizationId?: string
+  // Global ads-playbook job:
+  scope?: 'ads_playbook'
+  playbookSourceId?: string   // ads_playbook_sources.id
+  platform?: 'meta' | 'google' | 'global'
 }
 
 // Decrypts a key encrypted by src/lib/crypto.ts (AES-256-GCM, format: ivBase64:ciphertextBase64)
@@ -36,7 +46,8 @@ async function decryptKey(encrypted: string, secret: string): Promise<string> {
 async function extractText(
   supabase: ReturnType<typeof createClient>,
   sourceType: string,
-  sourceUrl: string | null
+  sourceUrl: string | null,
+  bucket: string,
 ): Promise<string> {
   if (sourceType === 'url' && sourceUrl) {
     const response = await fetch(sourceUrl)
@@ -51,7 +62,7 @@ async function extractText(
   }
 
   if (sourceUrl) {
-    const { data, error } = await supabase.storage.from('knowledge-docs').download(sourceUrl)
+    const { data, error } = await supabase.storage.from(bucket).download(sourceUrl)
     if (error) throw new Error(`Storage download failed: ${error.message}`)
 
     if (sourceType === 'pdf') {
@@ -66,6 +77,97 @@ async function extractText(
   throw new Error('No source URL available')
 }
 
+// ─── Global ads-playbook job ──────────────────────────────────────────────────
+async function processPlaybookJob(
+  supabase: ReturnType<typeof createClient>,
+  encryptionSecret: string,
+  playbookSourceId: string,
+): Promise<Response> {
+  // 1) Platform OpenRouter key (billed to the platform owner)
+  const { data: settingRow, error: settingErr } = await supabase
+    .from('platform_settings')
+    .select('encrypted_value')
+    .eq('key', 'OPENROUTER_API_KEY')
+    .maybeSingle()
+
+  if (settingErr || !settingRow) {
+    await supabase.from('ads_playbook_sources')
+      .update({ status: 'error', error_detail: 'Platform OPENROUTER_API_KEY not configured (set it at /admin/settings/ai)', updated_at: new Date().toISOString() })
+      .eq('id', playbookSourceId)
+    return new Response(JSON.stringify({ error: 'No platform OpenRouter key' }), { status: 400 })
+  }
+
+  let openRouterKey: string
+  try {
+    openRouterKey = await decryptKey((settingRow as { encrypted_value: string }).encrypted_value, encryptionSecret)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return new Response(JSON.stringify({ error: `Failed to decrypt platform key: ${msg}` }), { status: 500 })
+  }
+
+  // 2) Source row
+  const { data: source, error: sourceError } = await supabase
+    .from('ads_playbook_sources')
+    .select('id, platform, name, source_type, source_url, status')
+    .eq('id', playbookSourceId)
+    .single()
+
+  if (sourceError || !source) {
+    return new Response(JSON.stringify({ error: 'Playbook source not found' }), { status: 404 })
+  }
+
+  const src = source as { id: string; platform: string; name: string; source_type: string; source_url: string | null; status: string }
+  if (src.status !== 'processing') {
+    return new Response(JSON.stringify({ skipped: true }), { status: 200 })
+  }
+
+  try {
+    const rawText = await extractText(supabase, src.source_type, src.source_url, 'ads-playbook')
+    if (!rawText.trim()) throw new Error('No text content extracted')
+
+    const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 100 })
+    const langchainDocs = await splitter.createDocuments(
+      [rawText],
+      [{ scope: 'ads_playbook', platform: src.platform, playbook_source_id: src.id, source_name: src.name }],
+    )
+    if (langchainDocs.length === 0) throw new Error('Text splitting produced no chunks')
+
+    const docs = langchainDocs.map((doc) => new Document({
+      pageContent: doc.pageContent,
+      // No org_id: these chunks are global and queried via match_ads_playbook.
+      metadata: { scope: 'ads_playbook', platform: src.platform, playbook_source_id: src.id, source_name: src.name },
+    }))
+
+    const embeddings = new OpenAIEmbeddings({
+      apiKey: openRouterKey,
+      model: 'text-embedding-3-small',
+      configuration: { baseURL: OPENROUTER_BASE_URL },
+    })
+
+    await SupabaseVectorStore.fromDocuments(docs, embeddings, {
+      client: supabase,
+      tableName: 'documents',
+      queryName: 'match_documents',
+    })
+
+    const { error: updateError } = await supabase
+      .from('ads_playbook_sources')
+      .update({ status: 'ready', chunk_count: docs.length, updated_at: new Date().toISOString() })
+      .eq('id', src.id)
+    if (updateError) throw new Error(`Status update failed: ${updateError.message}`)
+
+    return new Response(JSON.stringify({ success: true, chunkCount: docs.length }), { status: 200 })
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    await supabase
+      .from('ads_playbook_sources')
+      .update({ status: 'error', error_detail: errorMessage, updated_at: new Date().toISOString() })
+      .eq('id', playbookSourceId)
+    console.error(`[process-embeddings] Playbook job failed for ${playbookSourceId}:`, errorMessage)
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500 })
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
@@ -78,11 +180,6 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 })
   }
 
-  const { documentId, organizationId } = payload
-  if (!documentId || !organizationId) {
-    return new Response(JSON.stringify({ error: 'Missing documentId or organizationId' }), { status: 400 })
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   const encryptionSecret = Deno.env.get('ENCRYPTION_SECRET') ?? ''
@@ -92,6 +189,20 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+
+  // ── Branch: global ads-playbook ingestion ──────────────────────────────────
+  if (payload.scope === 'ads_playbook') {
+    if (!payload.playbookSourceId) {
+      return new Response(JSON.stringify({ error: 'Missing playbookSourceId' }), { status: 400 })
+    }
+    return await processPlaybookJob(supabase, encryptionSecret, payload.playbookSourceId)
+  }
+
+  // ── Default: per-org knowledge_sources ingestion ───────────────────────────
+  const { documentId, organizationId } = payload
+  if (!documentId || !organizationId) {
+    return new Response(JSON.stringify({ error: 'Missing documentId or organizationId' }), { status: 400 })
+  }
 
   // Fetch OpenAI API key from org integrations
   const { data: integrationRow, error: integrationError } = await supabase
@@ -133,7 +244,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Step 1: Extract raw text
-    const rawText = await extractText(supabase, source.source_type, source.source_url)
+    const rawText = await extractText(supabase, source.source_type, source.source_url, 'knowledge-docs')
     if (!rawText.trim()) throw new Error('No text content extracted')
 
     // Step 2: Split into chunks using LangChain RecursiveCharacterTextSplitter

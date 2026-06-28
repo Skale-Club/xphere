@@ -2180,6 +2180,43 @@ export interface Database {
           }
         ]
       }
+      ads_playbook_sources: {
+        Row: {
+          id: string
+          platform: 'meta' | 'google' | 'global'
+          name: string
+          source_type: 'pdf' | 'text' | 'csv'
+          source_url: string | null
+          status: 'processing' | 'ready' | 'error'
+          error_detail: string | null
+          chunk_count: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          platform: 'meta' | 'google' | 'global'
+          name: string
+          source_type: 'pdf' | 'text' | 'csv'
+          source_url?: string | null
+          status?: 'processing' | 'ready' | 'error'
+          error_detail?: string | null
+          chunk_count?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          platform?: 'meta' | 'google' | 'global'
+          name?: string
+          status?: 'processing' | 'ready' | 'error'
+          error_detail?: string | null
+          chunk_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           id: number

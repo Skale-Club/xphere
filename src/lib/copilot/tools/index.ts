@@ -8,6 +8,7 @@ import { taskTools } from './tasks'
 import { noteTools } from './notes'
 import { workflowTools } from './workflows'
 import { trafficTools } from './traffic'
+import { adsTools } from './ads'
 
 export const ALL_TOOLS: CopilotToolRegistry = {
   ...contactTools,
@@ -17,6 +18,7 @@ export const ALL_TOOLS: CopilotToolRegistry = {
   ...noteTools,
   ...workflowTools,
   ...trafficTools,
+  ...adsTools,
 }
 
 export function getActiveTools(writeMode: boolean): CopilotToolRegistry {
