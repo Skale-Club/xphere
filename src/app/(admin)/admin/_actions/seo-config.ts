@@ -40,6 +40,17 @@ export async function updateFaviconUrl(id: string, favicon_url: string | null): 
   revalidatePath('/', 'layout')
 }
 
+export async function updateOgImageUrl(id: string, og_image_url: string | null): Promise<void> {
+  const admin = createServiceRoleClient()
+  const { error } = await admin
+    .from('seo_config')
+    .update({ og_image_url, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(`Failed to update OG image: ${error.message}`)
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin/seo')
+}
+
 export async function updateSeoConfig(
   id: string,
   values: {
