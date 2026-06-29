@@ -162,9 +162,9 @@ const CSS = `
 .orw-carousel-viewport {
   overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
   -webkit-overflow-scrolling: touch; cursor: grab;
-  /* 16px gutter only on the leading edge so the first/snapped card never
-     touches the left; the right keeps the natural peek of the next card */
-  padding: 0 0 4px 16px;
+  /* 16px gutter on left so the first card never touches the edge;
+     36px bottom gives box-shadows room to render before overflow-y clips */
+  padding: 0 0 36px 16px;
   scroll-padding-left: 16px;
   user-select: none; -webkit-user-select: none;
 }
