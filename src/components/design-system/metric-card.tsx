@@ -19,7 +19,7 @@ import {
   Plug2,
   type LucideIcon,
 } from 'lucide-react'
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from '@/components/design-system/animated-number'
@@ -211,7 +211,8 @@ export function MetricCard({
       {data && data.length > 0 && (
         <div className="relative z-0 flex-1 min-h-[48px]">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+            <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 10, left: 4 }}>
+              <YAxis hide domain={['auto', 'auto']} padding={{ bottom: 2 }} />
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.22} />

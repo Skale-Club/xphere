@@ -7,6 +7,7 @@ export const runtime = 'nodejs'
 
 import crypto from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { captureApiError } from '@/lib/api-error'
 
 function validateSignature(rawBody: string, headers: Headers): boolean {
   const secret = process.env.RESEND_WEBHOOK_SECRET
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[resend/events] Error processing event:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

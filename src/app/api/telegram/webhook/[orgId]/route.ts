@@ -11,6 +11,7 @@ import {
   type TelegramBotContext,
 } from '@/lib/telegram/process-update'
 import type { TelegramUpdate } from '@/lib/telegram/types'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -57,12 +58,14 @@ export async function POST(
     after(() =>
       processTelegramUpdate(update as TelegramUpdate, botContext).catch((err) => {
         console.error('[telegram/webhook] processUpdate error:', err)
+        captureApiError(err)
       }),
     )
 
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[telegram/webhook] outer error:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

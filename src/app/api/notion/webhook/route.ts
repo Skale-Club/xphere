@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 
 import { processNextGlobalKnowledgeSyncJob } from '@/lib/knowledge/notion-sync'
+import { captureApiError } from '@/lib/api-error'
 import { verifyNotionWebhookSignature } from '@/lib/notion/webhook'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
@@ -131,6 +132,7 @@ export async function POST(request: Request): Promise<Response> {
       await processNextGlobalKnowledgeSyncJob()
     } catch (error) {
       console.error('[notion/webhook] immediate worker failed:', error)
+      captureApiError(error)
     }
   })
   return Response.json({ ok: true })

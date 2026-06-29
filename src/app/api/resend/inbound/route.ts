@@ -8,6 +8,7 @@ export const runtime = 'nodejs'
 import crypto from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { captureApiError } from '@/lib/api-error'
 
 // Resend uses Svix for webhook delivery. We validate via the shared secret approach
 // using RESEND_WEBHOOK_SECRET (set in environment for inbound routes).
@@ -193,6 +194,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[resend/inbound] Error processing webhook:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
 import { runAnalysis } from '@/services/website-analyzer'
+import { captureApiError } from '@/lib/api-error'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -107,14 +108,16 @@ export async function GET(request: Request): Promise<Response> {
         orgId: account.org_id,
         accountId: account.id,
         domain: account.domain,
-      }).catch((err) =>
-        console.error(`[cron/website-analyzer] runAnalysis error for account=${account.id}:`, err),
-      )
+      }).catch((err) => {
+        console.error(`[cron/website-analyzer] runAnalysis error for account=${account.id}:`, err)
+        captureApiError(err)
+      })
 
       processed.push({ id: account.id, domain: account.domain })
       console.log(`[cron/website-analyzer] triggered analysis for account_id=${account.id} domain=${account.domain}`)
     } catch (err) {
       console.error(`[cron/website-analyzer] unexpected error for account=${account.id}:`, err)
+      captureApiError(err)
     }
   }
 

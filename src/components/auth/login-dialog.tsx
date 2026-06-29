@@ -49,19 +49,14 @@ const passwordSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
-const signUpPasswordSchema = z
-  .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  })
+const signUpSchema = z.object({
+  email: z.string().email('Enter a valid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
 
 type EmailValues = z.infer<typeof emailSchema>
 type SignInPasswordValues = z.infer<typeof passwordSchema>
-type SignUpPasswordValues = z.infer<typeof signUpPasswordSchema>
+type SignUpValues = z.infer<typeof signUpSchema>
 
 const inputClass =
   'h-10 text-base md:text-sm bg-white/4 border-white/10 text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500/50'
@@ -156,7 +151,7 @@ function AuthError({ message }: { message: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Step 1 — Email + Google                                                   */
+/*  Sign-in — Step 1: Email + Google                                          */
 /* -------------------------------------------------------------------------- */
 
 function Step1Form({
@@ -232,21 +227,20 @@ function Step1Form({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Step 2 — Password (+ confirm for signup)                                  */
+/*  Sign-in — Step 2: Password                                                */
 /* -------------------------------------------------------------------------- */
-
-interface Step2CommonProps {
-  email: string
-  onBack: () => void
-  onError: (msg: string | null) => void
-}
 
 function Step2SignInForm({
   email,
   onBack,
   onForgot,
   onError,
-}: Step2CommonProps & { onForgot: () => void }) {
+}: {
+  email: string
+  onBack: () => void
+  onForgot: () => void
+  onError: (msg: string | null) => void
+}) {
   const form = useForm<SignInPasswordValues>({
     resolver: zodResolver(passwordSchema),
     mode: 'onSubmit',
@@ -257,13 +251,9 @@ function Step2SignInForm({
   async function handleSubmit(values: SignInPasswordValues) {
     onError(null)
     try {
-      const result = await signInWithEmail({
-        email,
-        password: values.password,
-      })
+      const result = await signInWithEmail({ email, password: values.password })
       if (!result.ok) {
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
-        return
       }
     } catch (err) {
       unstable_rethrow(err)
@@ -273,11 +263,7 @@ function Step2SignInForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(handleSubmit)}
-        noValidate
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="space-y-4">
         <div className="space-y-1">
           <p className="text-[0.8125rem] text-[#A1A1AA]">Signed in as</p>
           <p className="text-[0.875rem] text-[#FAFAFA] truncate">{email}</p>
@@ -346,25 +332,30 @@ function Step2SignInForm({
   )
 }
 
-function Step2SignUpForm({
-  email,
-  onBack,
+/* -------------------------------------------------------------------------- */
+/*  Sign-up — single screen: email + password                                 */
+/* -------------------------------------------------------------------------- */
+
+function SignUpForm({
   onEmailSent,
   onError,
-}: Step2CommonProps & { onEmailSent: (email: string) => void }) {
-  const form = useForm<SignUpPasswordValues>({
-    resolver: zodResolver(signUpPasswordSchema),
+}: {
+  onEmailSent: (email: string) => void
+  onError: (msg: string | null) => void
+}) {
+  const form = useForm<SignUpValues>({
+    resolver: zodResolver(signUpSchema),
     mode: 'onSubmit',
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: { email: '', password: '' },
   })
   const isSubmitting = form.formState.isSubmitting
 
-  async function handleSubmit(values: SignUpPasswordValues) {
+  async function handleSubmit(values: SignUpValues) {
     onError(null)
     try {
       const origin = getSiteOrigin()
       const result = await signUpWithEmail({
-        email,
+        email: values.email,
         password: values.password,
         emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
       })
@@ -373,7 +364,7 @@ function Step2SignUpForm({
         return
       }
       if (!result.hasSession) {
-        onEmailSent(email)
+        onEmailSent(values.email)
       }
     } catch (err) {
       unstable_rethrow(err)
@@ -382,69 +373,53 @@ function Step2SignUpForm({
   }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(handleSubmit)}
-        noValidate
-        className="space-y-4"
-      >
-        <div className="space-y-1">
-          <p className="text-[0.8125rem] text-[#A1A1AA]">Signed up as</p>
-          <p className="text-[0.875rem] text-[#FAFAFA] truncate">{email}</p>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Password</FormLabel>
-              <FormControl>
-                <PasswordInput
-                  disabled={isSubmitting}
-                  autoComplete="new-password"
-                  placeholder="Create a password"
-                  field={field}
-                />
-              </FormControl>
-              <FormMessage className="text-red-400 text-xs" />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="confirmPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Confirm password</FormLabel>
-              <FormControl>
-                <PasswordInput
-                  disabled={isSubmitting}
-                  autoComplete="new-password"
-                  placeholder="Confirm your password"
-                  field={field}
-                />
-              </FormControl>
-              <FormMessage className="text-red-400 text-xs" />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+    <>
+      <GoogleButton onError={(m) => onError(m)} />
+      <Divider />
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="space-y-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Email</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    autoFocus
+                    autoComplete="email"
+                    placeholder="Enter your email address"
+                    disabled={isSubmitting}
+                    className={inputClass}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage className="text-red-400 text-xs" />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Password</FormLabel>
+                <FormControl>
+                  <PasswordInput
+                    disabled={isSubmitting}
+                    autoComplete="new-password"
+                    placeholder="Create a password"
+                    field={field}
+                  />
+                </FormControl>
+                <FormMessage className="text-red-400 text-xs" />
+              </FormItem>
+            )}
+          />
           <Button
             type="submit"
-            className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+            className="w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -459,44 +434,9 @@ function Step2SignUpForm({
               </>
             )}
           </Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-function Step2Form({
-  mode,
-  email,
-  onBack,
-  onForgot,
-  onEmailSent,
-  onError,
-}: {
-  mode: AuthMode
-  email: string
-  onBack: () => void
-  onForgot: () => void
-  onEmailSent: (email: string) => void
-  onError: (msg: string | null) => void
-}) {
-  if (mode === 'signup') {
-    return (
-      <Step2SignUpForm
-        email={email}
-        onBack={onBack}
-        onEmailSent={onEmailSent}
-        onError={onError}
-      />
-    )
-  }
-  return (
-    <Step2SignInForm
-      email={email}
-      onBack={onBack}
-      onForgot={onForgot}
-      onError={onError}
-    />
+        </form>
+      </Form>
+    </>
   )
 }
 
@@ -635,7 +575,6 @@ export function LoginDialog(props: LoginDialogProps) {
   const [resetSent, setResetSent] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
 
-  // Sync internal state when controlled dialog opens with a requested initial view/mode.
   useEffect(() => {
     if (open) {
       if (props.initialView) setView(props.initialView)
@@ -659,7 +598,6 @@ export function LoginDialog(props: LoginDialogProps) {
     setAuthError(null)
   }
 
-  // Header copy logic
   let title: string
   let subtitle: string
   if (view === 'reset') {
@@ -677,8 +615,8 @@ export function LoginDialog(props: LoginDialogProps) {
     title = mode === 'signin' ? 'Welcome back' : 'Create your account'
     subtitle = mode === 'signin' ? 'Sign in to your workspace' : 'Get started with Xphere'
   } else {
-    // step2
-    title = mode === 'signin' ? 'Welcome back' : 'Create your account'
+    // step2 — sign in only
+    title = 'Welcome back'
     subtitle = `Continue as ${email}`
   }
 
@@ -710,7 +648,8 @@ export function LoginDialog(props: LoginDialogProps) {
             </div>
           ) : null}
 
-          {view === 'step1' && !emailSent ? (
+          {/* Sign in — step 1: email */}
+          {view === 'step1' && mode === 'signin' ? (
             <Step1Form
               initialEmail={email}
               onContinue={(em) => {
@@ -721,15 +660,19 @@ export function LoginDialog(props: LoginDialogProps) {
             />
           ) : null}
 
-          {view === 'step2' && !emailSent ? (
-            <Step2Form
-              mode={mode}
+          {/* Sign in — step 2: password */}
+          {view === 'step2' && mode === 'signin' ? (
+            <Step2SignInForm
               email={email}
               onBack={() => setView('step1')}
               onForgot={() => setView('reset')}
-              onEmailSent={setEmailSent}
               onError={setAuthError}
             />
+          ) : null}
+
+          {/* Sign up — single screen */}
+          {view === 'step1' && mode === 'signup' && !emailSent ? (
+            <SignUpForm onEmailSent={setEmailSent} onError={setAuthError} />
           ) : null}
 
           {view === 'reset' ? (

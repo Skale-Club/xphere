@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { WorkspaceSaveProvider } from '@/components/settings/workspace-save-bar'
 import { CapiConfigForm } from './_components/capi-config-form'
 import { CapiEventsTable } from './_components/capi-events-table'
 
@@ -49,23 +50,25 @@ export default async function CapiPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-6">
+    <div className="space-y-8 p-6">
       <div>
         <h1 className="text-lg font-semibold text-text-primary">Conversions API (CAPI)</h1>
         <p className="mt-1 text-[13px] text-text-secondary">
-          Envia conversões do CRM (Lead, Lead Qualificado, Compra) direto para o dataset do
-          Meta — com dados hasheados + fbc/fbp — para otimizar as campanhas por resultado real.
+          Send CRM conversions (Lead, Qualified Lead, Purchase) directly to your Meta dataset
+          — with hashed data + fbc/fbp — to optimize campaigns based on real results.
         </p>
       </div>
 
-      <CapiConfigForm
-        initial={initial}
-        connections={(connections ?? []).map((c) => ({
-          id: c.ad_account_id,
-          name: c.ad_account_name ?? c.ad_account_id,
-          status: c.status,
-        }))}
-      />
+      <WorkspaceSaveProvider>
+        <CapiConfigForm
+          initial={initial}
+          connections={(connections ?? []).map((c) => ({
+            id: c.ad_account_id,
+            name: c.ad_account_name ?? c.ad_account_id,
+            status: c.status,
+          }))}
+        />
+      </WorkspaceSaveProvider>
 
       <CapiEventsTable events={events ?? []} />
     </div>

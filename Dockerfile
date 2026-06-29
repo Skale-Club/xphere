@@ -32,6 +32,7 @@ ARG NEXT_PUBLIC_SITE_URL
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_RELEASE
 # NEXT_PUBLIC_APP_URL is intentionally NOT declared: Coolify doesn't set it, so
 # `ENV X=$X` would bake an empty string into the image. `??`-based fallbacks
 # (e.g. `process.env.NEXT_PUBLIC_APP_URL ?? '…'`) only trigger on undefined, so
@@ -43,7 +44,8 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY \
     NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
-    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+    NEXT_PUBLIC_SENTRY_RELEASE=$NEXT_PUBLIC_SENTRY_RELEASE
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # next build's TypeScript type-check phase exceeds Node's default ~2GB heap and
@@ -51,13 +53,22 @@ COPY . .
 # separate FROM and doesn't inherit this). GitHub runners have 16GB; 6GB verified
 # to clear the type-check peak (4GB untested, 2GB OOMs).
 ENV NODE_OPTIONS=--max-old-space-size=6144
-RUN npm run build
+# SENTRY_AUTH_TOKEN is passed as a Docker build secret (never baked into the
+# image layer). When present, withSentryConfig uploads source maps and creates
+# the release automatically during next build. When absent, source maps and
+# release creation are silently skipped.
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build
 
 # ---- Runner ----
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# Bake the release identifier into the runner so sentry.server.config.ts can
+# tag server-side events with the correct release. Matches the client-side
+# NEXT_PUBLIC_SENTRY_RELEASE set in the builder stage.
+ARG SENTRY_RELEASE
+ENV SENTRY_RELEASE=$SENTRY_RELEASE
 
 # Website Analyzer — install system Chromium + required libs.
 # Playwright's bundled Chromium doesn't run on Alpine (musl libc). We use the

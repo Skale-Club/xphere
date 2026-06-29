@@ -23,6 +23,7 @@ import {
   ingestTwilioSms,
   type TwilioSmsPayload,
 } from '@/lib/twilio/process-sms'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -211,12 +212,14 @@ export async function POST(request: Request): Promise<Response> {
     if (ingested) {
       void continueTwilioSmsAutomation(ingested).catch((err) => {
         console.error('[twilio/sms] continueTwilioSmsAutomation error:', err)
+        captureApiError(err)
       })
     }
 
     return ackTwiml()
   } catch (err) {
     console.error('[twilio/sms] Outer handler error:', err)
+    captureApiError(err)
     return ackTwiml()
   }
 }

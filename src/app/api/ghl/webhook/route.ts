@@ -15,6 +15,7 @@ import { after } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { processGhlEvent, type GhlWebhookPayload } from '@/lib/ghl/process-event'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -72,12 +73,14 @@ export async function POST(request: Request): Promise<Response> {
         await processGhlEvent(payload, orgId)
       } catch (err) {
         console.error('[ghl/webhook] processGhlEvent error:', err)
+        captureApiError(err)
       }
     })
 
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[ghl/webhook] Outer handler error:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

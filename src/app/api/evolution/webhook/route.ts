@@ -14,6 +14,7 @@ import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { processEvolutionEvent, type EvolutionWebhookPayload } from '@/lib/evolution/process-event'
 import { resolveEvolutionInstanceByName } from '@/lib/evolution/credentials'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -70,12 +71,14 @@ export async function POST(request: Request): Promise<Response> {
         await processEvolutionEvent(payload)
       } catch (err) {
         console.error('[evolution/webhook] processEvolutionEvent error:', err)
+        captureApiError(err)
       }
     })
 
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[evolution/webhook] outer handler error:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

@@ -10,6 +10,7 @@ import { after } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { processZernioEvent, type ZernioWebhookPayload } from '@/lib/zernio/process-event'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -82,12 +83,14 @@ export async function POST(request: Request): Promise<Response> {
         await processZernioEvent(payload, orgId)
       } catch (err) {
         console.error('[zernio/webhook] processZernioEvent error:', err)
+        captureApiError(err)
       }
     })
 
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[zernio/webhook] Outer handler error:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

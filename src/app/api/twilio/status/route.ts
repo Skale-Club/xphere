@@ -19,6 +19,7 @@ import {
   resolveWebhookUrl,
 } from '@/lib/twilio/webhook-signature'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -121,6 +122,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('<Response/>', { status: 200, headers: { 'Content-Type': 'text/xml' } })
   } catch (err) {
     console.error('[twilio/status] handler error:', err)
+    captureApiError(err)
     return new Response('<Response/>', { status: 200, headers: { 'Content-Type': 'text/xml' } })
   }
 }

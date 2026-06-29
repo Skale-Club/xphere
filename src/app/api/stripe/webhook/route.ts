@@ -19,6 +19,7 @@ import { resolveOrgIdByCustomer } from '@/lib/billing/customers'
 import { grantCopilot, resetCopilotForPeriod } from '@/lib/billing/credits'
 import { CREDIT_TOPUP_PACKAGES, planByPriceId } from '@/lib/billing/catalog'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { captureApiError } from '@/lib/api-error'
 
 // Only these events change internal state. Everything else is ignored safely.
 const SUPPORTED_EVENTS = new Set<string>([
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
   } catch (err) {
     // Leave processed_at null so Stripe's retry re-runs the (idempotent) handler.
     console.error(`[stripe/webhook] Failed handling ${event.type} (${event.id}):`, err)
+    captureApiError(err)
     return new Response('Processing error', { status: 500 })
   }
 }

@@ -7,6 +7,7 @@ import { PeriodSelector } from '@/components/dashboard/period-selector'
 import { NewContactDialog } from '@/components/contacts/new-contact-dialog'
 import { NewOpportunityDialog } from '@/components/pipeline/new-opportunity-dialog'
 import { getDefaultPipeline } from '@/app/(dashboard)/pipeline/actions'
+import { InstallAppCard } from '@/components/dashboard/widgets/install-app-card'
 
 // Shared chip styling | reused by the link chip and the dialog-trigger chips.
 const CHIP_CLASS =
@@ -91,34 +92,35 @@ export async function HeroSection() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <QuickChip href="/inbox" icon={MessageSquarePlus} label="New conversation" />
+        <div className="flex flex-col items-start gap-2 md:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <QuickChip href="/inbox" icon={MessageSquarePlus} label="New conversation" />
 
-          <NewContactDialog
-            trigger={
-              <button type="button" className={CHIP_CLASS}>
-                <UserPlus className={CHIP_ICON_CLASS} />
-                <span>New contact</span>
-              </button>
-            }
-          />
+            <NewContactDialog
+              trigger={
+                <button type="button" className={CHIP_CLASS}>
+                  <UserPlus className={CHIP_ICON_CLASS} />
+                  <span>New contact</span>
+                </button>
+              }
+            />
 
-          {defaultPipelineId ? (
-            <NewOpportunityDialog pipelineId={defaultPipelineId}>
-              <button type="button" className={CHIP_CLASS}>
-                <TrendingUp className={CHIP_ICON_CLASS} />
-                <span>New deal</span>
-              </button>
-            </NewOpportunityDialog>
-          ) : (
-            <QuickChip href="/pipeline" icon={TrendingUp} label="New deal" />
-          )}
+            {defaultPipelineId ? (
+              <NewOpportunityDialog pipelineId={defaultPipelineId}>
+                <button type="button" className={CHIP_CLASS}>
+                  <TrendingUp className={CHIP_ICON_CLASS} />
+                  <span>New deal</span>
+                </button>
+              </NewOpportunityDialog>
+            ) : (
+              <QuickChip href="/pipeline" icon={TrendingUp} label="New deal" />
+            )}
+          </div>
+
+          <InstallAppCard />
         </div>
       </div>
 
-      {/* Bottom-right period selector — drives every period-aware widget on
-          the dashboard via the ?range= URL param. Lives here so the chosen
-          window is right next to the greeting/status block it scopes. */}
       <div className="mt-5 flex justify-end">
         <PeriodSelector />
       </div>

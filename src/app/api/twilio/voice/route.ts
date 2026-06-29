@@ -43,6 +43,7 @@ import {
 } from '@/lib/twilio/webhook-signature'
 import { emitInboundPhoneEvent } from '@/lib/twilio/events'
 import { resolveLiveContactId } from '@/lib/contacts/server'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -308,6 +309,7 @@ export async function POST(request: Request): Promise<Response> {
     return twimlResponse(twimlReject())
   } catch (err) {
     console.error('[twilio/voice] handler error:', err)
+    captureApiError(err)
     return twimlResponse(twimlReject())
   }
 }

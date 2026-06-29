@@ -16,6 +16,7 @@ import {
 } from '@/lib/twilio/webhook-signature'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
 import { uploadRecordingToHetzner } from '@/lib/calls/upload-recording'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -96,12 +97,14 @@ export async function POST(request: Request): Promise<Response> {
           .eq('id', callLog.id)
       } catch (err) {
         console.error('[twilio/recording] upload error:', err)
+        captureApiError(err)
       }
     })
 
     return new Response('', { status: 200 })
   } catch (err) {
     console.error('[twilio/recording] handler error:', err)
+    captureApiError(err)
     return new Response('', { status: 200 })
   }
 }

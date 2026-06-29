@@ -108,8 +108,11 @@ export default withSentryConfig(withSerwist(nextConfig), {
   // Sentry org + project for source-map upload (set via env in Coolify)
   org: process.env.SENTRY_ORG ?? 'skale-club',
   project: process.env.SENTRY_PROJECT ?? 'xphere',
-  // Source-map upload only when auth token is present (optional, never required for runtime)
+  // Source-map upload and release creation only when auth token is present.
+  // Set SENTRY_AUTH_TOKEN as a GitHub secret to enable; omit to skip silently.
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
-  // Don't auto-create releases; we control that separately
-  release: { create: false, finalize: false },
+  release: {
+    create: Boolean(process.env.SENTRY_AUTH_TOKEN),
+    finalize: Boolean(process.env.SENTRY_AUTH_TOKEN),
+  },
 })

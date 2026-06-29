@@ -26,6 +26,7 @@ import {
   fireIncomingCallPush,
 } from '@/lib/calls/routing-chain'
 import { twimlReject } from '@/lib/calls/twiml-builder'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -126,6 +127,7 @@ export async function POST(request: Request): Promise<Response> {
     )
   } catch (err) {
     console.error('[twilio/voice/continue] handler error:', err)
+    captureApiError(err)
     return twimlResponse(twimlReject())
   }
 }

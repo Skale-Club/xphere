@@ -24,19 +24,19 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
 export function CapiEventsTable({ events }: { events: EventRow[] }) {
   return (
     <Card className="p-5">
-      <h2 className="text-[13px] font-medium text-text-primary">Eventos recentes</h2>
+      <h2 className="text-[13px] font-medium text-text-primary">Recent events</h2>
       {events.length === 0 ? (
-        <p className="mt-2 text-[12px] text-text-secondary">Nenhum evento na fila ainda.</p>
+        <p className="mt-2 text-[12px] text-text-secondary">No events in the queue yet.</p>
       ) : (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead className="text-text-secondary">
               <tr className="border-b border-border-subtle text-left">
-                <th className="py-1.5 pr-3 font-medium">Evento</th>
+                <th className="py-1.5 pr-3 font-medium">Event</th>
                 <th className="py-1.5 pr-3 font-medium">Status</th>
-                <th className="py-1.5 pr-3 font-medium">Tent.</th>
-                <th className="py-1.5 pr-3 font-medium">Criado</th>
-                <th className="py-1.5 pr-3 font-medium">Detalhe</th>
+                <th className="py-1.5 pr-3 font-medium">Att.</th>
+                <th className="py-1.5 pr-3 font-medium">Created</th>
+                <th className="py-1.5 pr-3 font-medium">Detail</th>
               </tr>
             </thead>
             <tbody>

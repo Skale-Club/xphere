@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card } from '@/components/ui/card'
+import { useWorkspaceSaveSection } from '@/components/settings/workspace-save-bar'
 import { saveCapiConfig, sendTestEvent, type CapiConfigInput } from '../actions'
 
 interface Connection {
@@ -38,16 +39,19 @@ export function CapiConfigForm({
   initial: InitialConfig
   connections: Connection[]
 }) {
+  const [baseline, setBaseline] = useState(initial)
   const [form, setForm] = useState(initial)
   const [token, setToken] = useState('')
   const [pending, startTransition] = useTransition()
   const [testing, setTesting] = useState(false)
 
+  const dirty = JSON.stringify(form) !== JSON.stringify(baseline) || token !== ''
+
   function set<K extends keyof InitialConfig>(key: K, value: InitialConfig[K]) {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  function save() {
+  async function handleSave(): Promise<boolean> {
     const input: CapiConfigInput = {
       meta_ad_account_id: form.meta_ad_account_id || null,
       dataset_id: form.dataset_id || null,
@@ -59,24 +63,41 @@ export function CapiConfigForm({
       default_currency: form.default_currency || 'USD',
       event_map: form.event_map,
     }
-    startTransition(async () => {
-      const res = await saveCapiConfig(input)
-      if (res.ok) {
-        toast.success('Configuração salva')
-        setToken('')
-        set('has_token', form.has_token || Boolean(token))
-      } else {
-        toast.error(res.error ?? 'Falha ao salvar')
-      }
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const res = await saveCapiConfig(input)
+        if (res.ok) {
+          toast.success('Configuration saved')
+          setToken('')
+          setBaseline({ ...form, has_token: form.has_token || Boolean(token) })
+          setForm((f) => ({ ...f, has_token: f.has_token || Boolean(token) }))
+          resolve(true)
+        } else {
+          toast.error(res.error ?? 'Failed to save')
+          resolve(false)
+        }
+      })
     })
   }
+
+  function handleReset() {
+    setForm(baseline)
+    setToken('')
+  }
+
+  useWorkspaceSaveSection({
+    id: 'capi-config',
+    dirty,
+    save: handleSave,
+    reset: handleReset,
+  })
 
   async function test() {
     setTesting(true)
     const res = await sendTestEvent()
     setTesting(false)
-    if (res.ok) toast.success(`Evento de teste enviado${res.fbtrace_id ? ` (trace ${res.fbtrace_id})` : ''}`)
-    else toast.error(res.error ?? 'Falha no envio')
+    if (res.ok) toast.success(`Test event sent${res.fbtrace_id ? ` (trace ${res.fbtrace_id})` : ''}`)
+    else toast.error(res.error ?? 'Failed to send')
   }
 
   return (
@@ -84,20 +105,20 @@ export function CapiConfigForm({
       <Card className="space-y-4 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-[13px] font-medium">Ativar CAPI</Label>
-            <p className="text-[12px] text-text-secondary">Enviar conversões deste tenant para o Meta.</p>
+            <Label className="text-[13px] font-medium">Enable CAPI</Label>
+            <p className="text-[12px] text-text-secondary">Send conversions from this tenant to Meta.</p>
           </div>
           <Switch checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Conta de anúncio (Meta)">
+          <Field label="Ad Account (Meta)">
             <select
               className="h-9 w-full rounded-md border border-border-subtle bg-bg-primary px-2 text-[13px]"
               value={form.meta_ad_account_id}
               onChange={(e) => set('meta_ad_account_id', e.target.value)}
             >
-              <option value="">— selecionar —</option>
+              <option value="">— select —</option>
               {connections.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.status === 'active' ? '' : `(${c.status})`}
@@ -105,25 +126,25 @@ export function CapiConfigForm({
               ))}
             </select>
           </Field>
-          <Field label="Moeda padrão">
+          <Field label="Default Currency">
             <Input
               value={form.default_currency}
               maxLength={3}
               onChange={(e) => set('default_currency', e.target.value.toUpperCase())}
             />
           </Field>
-          <Field label="Dataset / Pixel ID (destino dos eventos)">
+          <Field label="Dataset / Pixel ID (event destination)">
             <Input value={form.dataset_id} onChange={(e) => set('dataset_id', e.target.value)} placeholder="123456789012345" />
           </Field>
-          <Field label="Pixel ID (navegador, p/ dedup)">
-            <Input value={form.pixel_id} onChange={(e) => set('pixel_id', e.target.value)} placeholder="geralmente = dataset id" />
+          <Field label="Pixel ID (browser, for dedup)">
+            <Input value={form.pixel_id} onChange={(e) => set('pixel_id', e.target.value)} placeholder="usually = dataset id" />
           </Field>
-          <Field label={`Token CAPI dedicado ${form.has_token ? '(salvo)' : '(opcional)'}`}>
+          <Field label={`Dedicated CAPI Token ${form.has_token ? '(saved)' : '(optional)'}`}>
             <Input
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder={form.has_token ? '•••••• (deixe vazio p/ manter)' : 'usa o token da conexão Meta se vazio'}
+              placeholder={form.has_token ? '•••••• (leave blank to keep)' : 'uses Meta connection token if blank'}
             />
           </Field>
           <Field label="Test Event Code (Events Manager)">
@@ -133,29 +154,29 @@ export function CapiConfigForm({
 
         <div className="flex items-center justify-between border-t border-border-subtle pt-3">
           <div>
-            <Label className="text-[13px] font-medium">Pixel no navegador</Label>
-            <p className="text-[12px] text-text-secondary">Injetar o Pixel via script de tráfego (dedup por event_id).</p>
+            <Label className="text-[13px] font-medium">Browser Pixel</Label>
+            <p className="text-[12px] text-text-secondary">Inject the Pixel via tracking script (dedup by event_id).</p>
           </div>
           <Switch checked={form.browser_pixel_enabled} onCheckedChange={(v) => set('browser_pixel_enabled', v)} />
         </div>
       </Card>
 
       <Card className="space-y-3 p-5">
-        <Label className="text-[13px] font-medium">Eventos enviados</Label>
+        <Label className="text-[13px] font-medium">Events sent</Label>
         <EventToggle
-          label="Lead — contato criado"
+          label="Lead — contact created"
           checked={form.event_map.lead.enabled}
           onChange={(v) => set('event_map', { ...form.event_map, lead: { enabled: v } })}
         />
         <div className="space-y-2">
           <EventToggle
-            label="Lead Qualificado — oportunidade muda de estágio"
+            label="Qualified Lead — opportunity changes stage"
             checked={form.event_map.qualified.enabled}
             onChange={(v) => set('event_map', { ...form.event_map, qualified: { ...form.event_map.qualified, enabled: v } })}
           />
           {form.event_map.qualified.enabled && (
             <div className="pl-2">
-              <Field label="Nome do estágio que dispara">
+              <Field label="Stage name that triggers">
                 <Input
                   className="max-w-xs"
                   value={form.event_map.qualified.stage_name}
@@ -166,15 +187,16 @@ export function CapiConfigForm({
           )}
         </div>
         <EventToggle
-          label="Purchase — oportunidade ganha (com valor)"
+          label="Purchase — opportunity won (with value)"
           checked={form.event_map.purchase.enabled}
           onChange={(v) => set('event_map', { ...form.event_map, purchase: { ...form.event_map.purchase, enabled: v } })}
         />
       </Card>
 
-      <div className="flex items-center gap-3">
-        <Button onClick={save} disabled={pending}>{pending ? 'Salvando…' : 'Salvar configuração'}</Button>
-        <Button variant="outline" onClick={test} disabled={testing}>{testing ? 'Enviando…' : 'Enviar evento de teste'}</Button>
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={test} disabled={testing || pending}>
+          {testing ? 'Sending…' : 'Send test event'}
+        </Button>
       </div>
     </div>
   )

@@ -1,5 +1,4 @@
-import { ArrowRight, Star } from 'lucide-react'
-import Link from 'next/link'
+import { Star } from 'lucide-react'
 import { redirect } from 'next/navigation'
 
 import { resolveOrgBranding } from '@/lib/branding'
@@ -8,7 +7,7 @@ import { decrypt, maskApiKey } from '@/lib/crypto'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
 import { RefreshButton } from '@/components/reviews/refresh-button'
 import { WidgetSettingsDialog } from '@/components/reviews/widget-settings-dialog'
-import { Button } from '@/components/ui/button'
+import { ReviewsSetupWizard } from '@/components/reviews/reviews-setup-wizard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout/page-header'
 import { saveWidgetSettings, type SavedWidgetSettings } from './actions'
@@ -53,12 +52,7 @@ export default async function ReviewsPage() {
             <p className="max-w-md text-sm text-muted-foreground">
               Connect your Google Business via SerpAPI to start capturing reviews automatically.
             </p>
-            <Button asChild>
-              <Link href="/integrations/google-reviews">
-                Configure integration
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            <ReviewsSetupWizard triggerLabel="Configure integration" />
           </CardContent>
         </Card>
       </PageContainer>

@@ -10,6 +10,7 @@ import {
 import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
 import { resolveProviderByWApiKey } from '@/lib/whatsapp/resolve-provider'
 import { verifySharedSecret } from '@/lib/webhooks/verify-shared-secret'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 
@@ -69,12 +70,14 @@ export async function POST(request: Request): Promise<Response> {
         }
       } catch (err) {
         console.error('[wapi/webhook] processing error:', err)
+        captureApiError(err)
       }
     })
 
     return Response.json({ ok: true })
   } catch (err) {
     console.error('[wapi/webhook] outer handler error:', err)
+    captureApiError(err)
     return Response.json({ ok: true })
   }
 }

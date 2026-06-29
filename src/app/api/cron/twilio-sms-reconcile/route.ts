@@ -1,4 +1,5 @@
 import { reconcileTwilioInboundSms } from '@/lib/twilio/reconcile-sms'
+import { captureApiError } from '@/lib/api-error'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[twilio-sms-reconcile] failed:', err)
+    captureApiError(err)
     return Response.json({ ok: false, error: message }, { status: 500 })
   }
 }

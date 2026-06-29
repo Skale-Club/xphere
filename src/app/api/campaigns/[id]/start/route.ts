@@ -11,6 +11,7 @@ import { startCampaignBatch } from '@/lib/campaigns/engine'
 import { startWhatsAppCampaign } from '@/lib/campaigns/whatsapp-dispatcher'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import type { Database } from '@/types/database'
+import { captureApiError } from '@/lib/api-error'
 
 // Extend Vercel function timeout so the WhatsApp dispatcher has room to
 // process larger campaign batches inside `after()`. Pro: max 300s.
@@ -70,6 +71,7 @@ export async function POST(
         await startWhatsAppCampaign(campaignId)
       } catch (err) {
         console.error('[campaigns/start] whatsapp dispatcher error:', err)
+        captureApiError(err)
       }
     })
     return Response.json({ success: true, channel: 'whatsapp' })
