@@ -40,7 +40,7 @@ export async function GET(
   <title>Reviews</title>
   <style>
     html, body { margin: 0; padding: 0; }
-    html, body { background: transparent; }
+    html, body { background: ${theme === 'dark' ? '#111111' : '#ffffff'}; }
   </style>
 </head>
 <body>

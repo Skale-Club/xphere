@@ -99,10 +99,8 @@ const DEFAULTS: Omit<WidgetConfig, 'token'> = {
 }
 
 const CSS = `
-:root, .orw-root {
-  color-scheme: light dark;
-}
 .orw-root {
+  color-scheme: light dark;
   --orw-bg: transparent;
   --orw-card: #ffffff;
   --orw-text: #18181b;
