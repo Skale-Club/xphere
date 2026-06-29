@@ -32,6 +32,7 @@ import {
   executePipelineCreateOpportunity,
 } from '@/lib/action-engine/executors/pipeline-actions'
 import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
+import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
 import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
@@ -145,6 +146,14 @@ async function _executeActionInner(
   credentials: GhlCredentials,
   ctx?: ActionContext
 ): Promise<string> {
+  // update_contact is not yet in the action_type DB enum — handled before the switch
+  if ((actionType as string) === 'update_contact') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('update_contact requires ctx.organizationId and ctx.supabase')
+    }
+    return executeUpdateContact(params, ctx)
+  }
+
   switch (actionType) {
     case 'create_contact':
       return createContact(params, credentials)

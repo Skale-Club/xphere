@@ -241,11 +241,11 @@ export async function POST(request: Request): Promise<Response> {
       bookingId = inserted.id
     }
 
-    // 8. Emit the calendar event → drives meeting.* workflows
-    await emitCalendarEvent(
+    // 8. Emit the calendar event → drives meeting.* workflows (fire-and-forget so we return 200 fast)
+    void emitCalendarEvent(
       { supabase },
       { event: calendarEventFor(payload.event, status), booking_id: bookingId, org_id: orgId },
-    )
+    ).catch((err) => console.error('[xkedule/webhook] emitCalendarEvent error:', err))
 
     return ok()
   } catch (err) {

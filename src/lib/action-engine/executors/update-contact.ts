@@ -39,7 +39,7 @@ export async function executeUpdateContact(
   const patch: Record<string, unknown> = {}
 
   if (params.lifecycle_stage) {
-    patch.lifecycle_stage = params.lifecycle_stage as LifecycleStage
+    patch.lifecycle_stage = params.lifecycle_stage as CrmLifecycleStage
   }
   if (params.name !== undefined) patch.name = params.name
   if (params.email !== undefined) patch.email = params.email
