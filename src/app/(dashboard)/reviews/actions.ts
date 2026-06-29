@@ -8,6 +8,7 @@ export type SavedWidgetSettings = {
   theme?: string
   minRating?: string
   limit?: string
+  sort?: string
   showHero?: boolean
   equalHeight?: boolean
   footerCta?: boolean

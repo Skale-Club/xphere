@@ -8,6 +8,7 @@ import {
   Copy,
   Grid3x3,
   List,
+  Loader2,
   MonitorSmartphone,
   Save,
   Share2,
@@ -28,6 +29,7 @@ import { StarRating } from './star-rating'
 type Layout = 'grid' | 'list' | 'carousel'
 type Theme = 'light' | 'dark'
 type EmbedMode = 'iframe' | 'script'
+type SortOrder = 'quality' | 'recent'
 
 export type ReviewWidgetPreviewReview = {
   id: string
@@ -74,6 +76,14 @@ const LAYOUTS: Array<{
   { id: 'grid', label: 'Grid', icon: Grid3x3 },
   { id: 'list', label: 'List', icon: List },
 ]
+
+function qualityScore(r: ReviewWidgetPreviewReview): number {
+  let s = 0
+  if (r.photos.length > 0) s += 10
+  if (r.ownerResponse) s += 5
+  s += Math.min((r.text?.length ?? 0) / 100, 5)
+  return s
+}
 
 function initials(name: string | null): string {
   if (!name) return 'R'
@@ -402,16 +412,43 @@ export function ReviewWidgetBuilder({
   const [theme, setTheme] = useState<Theme>((savedSettings?.theme as Theme) ?? 'light')
   const [minRating, setMinRating] = useState(savedSettings?.minRating ?? '4')
   const [limit, setLimit] = useState(savedSettings?.limit ?? '12')
+  const [sort, setSort] = useState<SortOrder>((savedSettings?.sort as SortOrder) ?? 'quality')
   const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
   const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
   const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
   const [maxChars, setMaxChars] = useState(savedSettings?.maxChars ?? '220')
   const [showOwnerResponse, setShowOwnerResponse] = useState(savedSettings?.showOwnerResponse ?? true)
-  const [embedMode, setEmbedMode] = useState<EmbedMode>((savedSettings?.embedMode as EmbedMode) ?? 'iframe')
+  const [embedMode, setEmbedMode] = useState<EmbedMode>((savedSettings?.embedMode as EmbedMode) ?? 'script')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [lastSaved, setLastSaved] = useState({
+    layout: (savedSettings?.layout as Layout) ?? 'carousel',
+    theme: (savedSettings?.theme as Theme) ?? 'light',
+    minRating: savedSettings?.minRating ?? '4',
+    limit: savedSettings?.limit ?? '12',
+    sort: (savedSettings?.sort as SortOrder) ?? 'quality',
+    showHero: savedSettings?.showHero ?? true,
+    equalHeight: savedSettings?.equalHeight ?? true,
+    footerCta: savedSettings?.footerCta ?? false,
+    maxChars: savedSettings?.maxChars ?? '220',
+    showOwnerResponse: savedSettings?.showOwnerResponse ?? true,
+    embedMode: (savedSettings?.embedMode as EmbedMode) ?? 'script',
+  })
+  const isDirty = onSave != null && (
+    layout !== lastSaved.layout ||
+    theme !== lastSaved.theme ||
+    minRating !== lastSaved.minRating ||
+    limit !== lastSaved.limit ||
+    sort !== lastSaved.sort ||
+    showHero !== lastSaved.showHero ||
+    equalHeight !== lastSaved.equalHeight ||
+    footerCta !== lastSaved.footerCta ||
+    maxChars !== lastSaved.maxChars ||
+    showOwnerResponse !== lastSaved.showOwnerResponse ||
+    embedMode !== lastSaved.embedMode
+  )
   const accent = isHexColor(brandAccent) ? brandAccent : '#6366F1'
   const heroSolidStart = theme === 'dark'
     ? hexBlendSolid(accent, 0.22, 24, 24, 27)
@@ -421,8 +458,11 @@ export function ReviewWidgetBuilder({
   const visibleReviews = useMemo(() => {
     const min = Number.parseInt(minRating, 10)
     const filtered = reviews.filter((review) => review.rating >= min)
-    return limit === 'all' ? filtered : filtered.slice(0, Number.parseInt(limit, 10))
-  }, [limit, minRating, reviews])
+    const sorted = sort === 'quality'
+      ? [...filtered].sort((a, b) => qualityScore(b) - qualityScore(a))
+      : filtered
+    return limit === 'all' ? sorted : sorted.slice(0, Number.parseInt(limit, 10))
+  }, [limit, minRating, reviews, sort])
 
   const widgetUrl = buildWidgetUrl({
     baseUrl,
@@ -494,7 +534,8 @@ export function ReviewWidgetBuilder({
     if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
-      await onSave({ layout, theme, minRating, limit, showHero, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
+      await onSave({ layout, theme, minRating, limit, sort, showHero, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
+      setLastSaved({ layout, theme, minRating, limit, sort, showHero, equalHeight, footerCta, maxChars, showOwnerResponse, embedMode })
       setSaveState('saved')
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
@@ -504,6 +545,7 @@ export function ReviewWidgetBuilder({
   }
 
   return (
+    <>
     <section
       className={cn(
         'overflow-hidden',
@@ -609,6 +651,21 @@ export function ReviewWidgetBuilder({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                Sort reviews
+              </Label>
+              <Select value={sort} onValueChange={(v) => setSort(v as SortOrder)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quality">Most relevant (photo · response · length)</SelectItem>
+                  <SelectItem value="recent">Most recent</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
@@ -880,5 +937,39 @@ export function ReviewWidgetBuilder({
         </div>
       </div>
     </section>
+
+    {onSave ? (
+      <div
+        className={cn(
+          'fixed bottom-[92px] right-5 z-40 transition-all duration-200 ease-out',
+          isDirty
+            ? 'translate-y-0 opacity-100 pointer-events-auto'
+            : 'pointer-events-none translate-y-2 opacity-0',
+        )}
+        role="region"
+        aria-label="Unsaved changes"
+      >
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-secondary/95 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur">
+          <span className="mr-1 text-[12.5px] font-medium text-text-secondary">
+            Unsaved changes
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+            className="gap-1.5"
+          >
+            {saveState === 'saving' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {saveState === 'saving' ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </div>
+    ) : null}
+  </>
   )
 }
