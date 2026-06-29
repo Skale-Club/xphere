@@ -1,6 +1,6 @@
 // MCP tools for workflows.
 // Workflows can be listed, inspected and manually triggered. Manual trigger
-// inserts a row in `workflow_runs` with status='pending' | the runtime worker
+// inserts a row in `workflow_runs` with status='queued' | the runtime worker
 // picks it up (same pattern used by the Copilot run_workflow tool).
 
 import { z } from 'zod'
@@ -89,7 +89,7 @@ export const workflowsTools: McpToolDef[] = [
           workflow_id,
           trigger_type: 'manual',
           trigger_payload: payload ?? {},
-          status: 'pending',
+          status: 'queued',
           created_by: auth.userId ?? null,
         })
         .select('id, status, created_at')

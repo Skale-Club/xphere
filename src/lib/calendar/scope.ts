@@ -15,6 +15,14 @@ export interface MeetingScope {
   title: string
   starts_at: string
   ends_at: string
+  /** Date-only in the booking timezone, e.g. "July 1, 2026" */
+  starts_date: string
+  /** Time-only in the booking timezone, e.g. "9:00 AM" */
+  starts_time: string
+  /** IANA timezone name from the booking, e.g. "America/New_York" */
+  timezone: string
+  /** Google Calendar "Add to Calendar" URL pre-filled with booking details */
+  google_calendar_url: string
   duration_minutes: number
   status: string
   notes: string | null
@@ -26,6 +34,8 @@ export interface MeetingScope {
   attendee_contact: {
     id: string | null
     name: string
+    /** First word of the contact name */
+    first_name: string
     email: string
     phone: string | null
   }
@@ -55,8 +65,8 @@ export async function buildMeetingScope(
     .from('bookings')
     .select(
       `
-      id, org_id, booker_name, booker_email, booker_phone, start_at, end_at,
-      status, notes, linked_contact_id,
+      id, org_id, booker_name, booker_email, booker_phone, booker_timezone,
+      start_at, end_at, status, notes, linked_contact_id,
       location_kind, location_data, meeting_url, meeting_phone, event_type_id
       `,
     )
@@ -96,9 +106,19 @@ export async function buildMeetingScope(
     }
   }
 
-  const startMs = new Date(booking.start_at as string).getTime()
-  const endMs = new Date(booking.end_at as string).getTime()
+  const tz = (booking.booker_timezone as string | null) ?? 'America/New_York'
+  const startDate = new Date(booking.start_at as string)
+  const endDate = new Date(booking.end_at as string)
+  const startMs = startDate.getTime()
+  const endMs = endDate.getTime()
   const durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000))
+
+  const startsDate = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, month: 'long', day: 'numeric', year: 'numeric',
+  }).format(startDate)
+  const startsTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(startDate)
 
   const resolved = resolveMeetingLocation({
     kind: (booking.location_kind ?? eventType?.location_type ?? null) as LocationKind | null,
@@ -113,12 +133,26 @@ export async function buildMeetingScope(
     legacy_location_value: eventType?.location_value ?? null,
   })
 
+  const fullName = contact?.name ?? (booking.booker_name as string) ?? ''
+  const firstName = fullName.split(' ')[0] ?? fullName
+
+  const gcalTitle = encodeURIComponent(eventType?.name ?? 'Appointment')
+  const gcalStart = startDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const gcalEnd = endDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const gcalLoc = encodeURIComponent(resolved.address ?? '')
+  const googleCalendarUrl =
+    `https://www.google.com/calendar/render?action=TEMPLATE&text=${gcalTitle}&dates=${gcalStart}/${gcalEnd}&location=${gcalLoc}`
+
   return {
     id: booking.id as string,
     org_id: booking.org_id as string,
     title: eventType?.name ?? 'Meeting',
     starts_at: booking.start_at as string,
     ends_at: booking.end_at as string,
+    starts_date: startsDate,
+    starts_time: startsTime,
+    timezone: tz,
+    google_calendar_url: googleCalendarUrl,
     duration_minutes: durationMinutes,
     status: booking.status as string,
     notes: (booking.notes as string | null) ?? null,
@@ -131,12 +165,14 @@ export async function buildMeetingScope(
       ? {
           id: contact.id ?? null,
           name: contact.name ?? booking.booker_name as string,
+          first_name: firstName,
           email: contact.email ?? (booking.booker_email as string),
           phone: contact.phone ?? (booking.booker_phone as string | null),
         }
       : {
           id: null,
           name: booking.booker_name as string,
+          first_name: firstName,
           email: booking.booker_email as string,
           phone: booking.booker_phone as string | null,
         },

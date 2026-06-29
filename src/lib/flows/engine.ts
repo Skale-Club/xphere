@@ -10,6 +10,7 @@ import { insertNotification } from '@/lib/notifications/insert'
 import { createWait, durationToMs, resolveRunContactId } from './wait'
 import { executeAgentNode } from './execute-agent-node'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 
 const MAX_STEPS = 100
 
@@ -748,6 +749,11 @@ async function executeFlowNode(
         return executeBookingCreate(resolvedConfig, ctx)
       case 'booking_get':
         return executeBookingGet(resolvedConfig, ctx)
+      case 'update_contact':
+        return { result: await executeUpdateContact(resolvedConfig, {
+          organizationId: ctx.orgId,
+          supabase: ctx.supabase,
+        }) }
       default: {
         // Most actions resolve their own provider credential via ctx (org-scoped).
         // The legacy ones that consume the `credentials` arg need the RIGHT provider:

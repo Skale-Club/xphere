@@ -61,6 +61,7 @@ function calendarEventFor(event: string, status: 'confirmed' | 'cancelled' | 'no
   if (event === 'booking.cancelled' || status === 'cancelled') return 'meeting.cancelled'
   if (status === 'no_show') return 'meeting.no_show'
   if (event === 'booking.created') return 'meeting.scheduled'
+  if (event === 'booking.confirmed') return 'meeting.confirmed'
   return 'meeting.rescheduled'
 }
 

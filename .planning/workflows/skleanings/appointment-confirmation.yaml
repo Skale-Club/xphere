@@ -1,0 +1,59 @@
+# SKleanings — per-tenant workflow (submit via POST /api/workflows, not a seed).
+#
+# Replicates the GHL "Appointment Confirmation" flow:
+#   Trigger (agendamento confirmado)
+#     → Criar/vincular oportunidade no pipeline
+#     → SMS de confirmação ao cliente
+#
+# "Update | Customer" (step 2 do GHL): em Xphere o contato é vinculado
+#   automaticamente ao agendamento — não precisa de nó separado.
+#
+# "Email Appointment Confirmation": send_email ainda não está no spec.
+#   Adicione o nó aqui quando disponível, entre criar_oportunidade e sms_confirmacao.
+
+name: "SKleanings — Confirmação de Agendamento"
+description: |
+  Quando um agendamento é confirmado: cria uma oportunidade no pipeline
+  na etapa "Lead" e envia SMS de confirmação personalizado ao cliente.
+
+trigger:
+  type: event
+  event: meeting.confirmed
+
+nodes:
+  - id: update_customer
+    kind: update_contact
+    contact_phone: "{{meeting.attendee_contact.phone}}"
+    lifecycle_stage: customer
+
+  - id: criar_oportunidade
+    kind: pipeline_create_opportunity
+    title: "{{meeting.attendee_contact.first_name}} | {{meeting.event_type.name}}"
+    contact_phone: "{{meeting.attendee_contact.phone}}"
+    stage_name: "Job Confirmed"
+
+  - id: sms_confirmacao
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: |
+      Hey {{meeting.attendee_contact.first_name}}!
+
+      Your cleaning is confirmed
+
+      📅 Date: {{meeting.starts_date}}
+      ⏰ Time: {{meeting.starts_time}} {{meeting.timezone}}
+      🏠 Location: {{meeting.location.address}}
+
+      Add to Google Calendar
+      {{meeting.google_calendar_url}}
+
+      Skleanings
+
+edges:
+  - from: trigger
+    to: update_customer
+  - from: update_customer
+    to: criar_oportunidade
+  - from: criar_oportunidade
+    to: sms_confirmacao

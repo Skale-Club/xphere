@@ -152,7 +152,12 @@ async function loadForOrg(
       kind: seed.kind,
       tool_name: seed.toolName,
       trigger_type: seed.triggerType as 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url',
-      trigger_config: (seed.definition.trigger?.config ?? {}) as Record<string, unknown>,
+      trigger_config: {
+        ...(seed.definition.trigger?.type === 'event' && seed.definition.trigger?.event
+          ? { event: seed.definition.trigger.event }
+          : {}),
+        ...(seed.definition.trigger?.config ?? {}),
+      } as Record<string, unknown>,
     })
     .select('id')
     .single()

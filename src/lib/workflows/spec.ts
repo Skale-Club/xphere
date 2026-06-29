@@ -738,6 +738,33 @@ export const NODES: NodeSpec[] = [
     },
   },
 
+  // ─── Action | contact
+  {
+    type: 'update_contact',
+    kind: 'action',
+    description: 'Update fields on an existing contact. Resolves contact by contact_id or contact_phone.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        contact_id: { type: 'string', description: 'Contact UUID. Either this or contact_phone is required.' },
+        contact_phone: { type: 'string', description: 'E.164 phone to look up the contact.' },
+        lifecycle_stage: {
+          type: 'string',
+          enum: ['prospect', 'lead', 'opportunity', 'customer', 'lost', 'archived'],
+          description: 'CRM lifecycle stage.',
+        },
+        name: { type: 'string' },
+        email: { type: 'string' },
+        company: { type: 'string' },
+        notes: { type: 'string' },
+        assigned_to: { type: 'string', description: 'User UUID to assign this contact to.' },
+      },
+    },
+    examples: [
+      { contact_phone: '{{meeting.attendee_contact.phone}}', lifecycle_stage: 'customer' },
+    ],
+  },
+
   // ─── Control flow
   {
     type: 'condition',
