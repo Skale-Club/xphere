@@ -15,10 +15,10 @@ export default async function AdminGlobalKnowledgePage() {
   ])
 
   return (
-    <div className="w-full p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-text-primary">Knowledge Base</h1>
-        <p className="mt-1 text-sm text-text-secondary">
+        <h1 className="text-balance text-xl font-semibold text-text-primary">Knowledge Base</h1>
+        <p className="mt-1 max-w-3xl text-pretty text-sm text-text-secondary">
           Manage the trusted sources Copilot and MCP use for campaign diagnostics and media plans.
         </p>
       </div>

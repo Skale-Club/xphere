@@ -303,11 +303,13 @@ export function GlobalKnowledgeManager({
           </p>
         </div>
 
-        <div className="space-y-6 p-5">
-          <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+        <div className="space-y-6 p-4 sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-start xl:grid-cols-[220px_minmax(0,1fr)]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">1. Choose scope</p>
-              <p className="mt-1 text-xs text-text-tertiary">Controls which campaign analyses can use this source.</p>
+              <p className="mt-1 max-w-md text-pretty text-xs text-text-tertiary">
+                Controls which campaign analyses can use this source.
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium">Ad platform</Label>
@@ -316,7 +318,7 @@ export function GlobalKnowledgeManager({
                 onValueChange={(value) => setPlatform(value as GlobalKnowledgePlatform)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full md:max-w-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:max-w-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="meta">Meta Ads</SelectItem>
                   <SelectItem value="google">Google Ads</SelectItem>
@@ -331,25 +333,30 @@ export function GlobalKnowledgeManager({
 
           <div className="border-t border-border-subtle" />
 
-          <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+          <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)] lg:items-start xl:grid-cols-[220px_minmax(0,1fr)]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">2. Add content</p>
-              <p className="mt-1 text-xs text-text-tertiary">Use original, trusted material with a clear source name.</p>
+              <p className="mt-1 max-w-md text-pretty text-xs text-text-tertiary">
+                Use original, trusted material with a clear source name.
+              </p>
             </div>
 
-            <Tabs defaultValue={notionState.connection ? 'notion' : 'file'} className="min-w-0">
-              <TabsList className="grid w-full grid-cols-3 sm:w-[480px]">
-                <TabsTrigger value="file" className="gap-2">
+            <Tabs
+              defaultValue={notionState.connection ? 'notion' : 'file'}
+              className="min-w-0 w-full"
+            >
+              <TabsList className="grid h-10 w-full max-w-xl grid-cols-3">
+                <TabsTrigger value="file" className="min-w-0 gap-1.5 px-2 sm:gap-2 sm:px-3">
                   <Upload className="h-3.5 w-3.5" />
-                  Upload file
+                  <span className="truncate">Upload file</span>
                 </TabsTrigger>
-                <TabsTrigger value="text" className="gap-2">
+                <TabsTrigger value="text" className="min-w-0 gap-1.5 px-2 sm:gap-2 sm:px-3">
                   <AlignLeft className="h-3.5 w-3.5" />
-                  Paste text
+                  <span className="truncate">Paste text</span>
                 </TabsTrigger>
-                <TabsTrigger value="notion" className="gap-2">
+                <TabsTrigger value="notion" className="min-w-0 gap-1.5 px-2 sm:gap-2 sm:px-3">
                   <Database className="h-3.5 w-3.5" />
-                  Sync from Notion
+                  <span className="truncate">Sync from Notion</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -424,9 +431,9 @@ export function GlobalKnowledgeManager({
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border-subtle bg-bg-secondary p-4">
-                      <div>
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-bg-secondary p-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium text-text-primary">
                             {notionState.connection.workspace_name ?? 'Notion workspace'}
                           </p>
@@ -448,8 +455,8 @@ export function GlobalKnowledgeManager({
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button asChild variant="outline" size="sm">
+                      <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:items-center">
+                        <Button asChild variant="outline" size="sm" className="min-w-0">
                           <a href="/api/admin/global-knowledge/notion/connect">Manage access</a>
                         </Button>
                         <Button
@@ -465,8 +472,8 @@ export function GlobalKnowledgeManager({
                     </div>
 
                     <div className="rounded-lg border border-border-subtle p-4">
-                      <div className="flex flex-wrap items-end gap-3">
-                        <div className="min-w-64 flex-1 space-y-1.5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="min-w-0 flex-1 space-y-1.5">
                           <Label className="text-xs">Notion root page</Label>
                           <Popover open={notionPickerOpen} onOpenChange={setNotionPickerOpen}>
                             <PopoverTrigger asChild>
@@ -524,28 +531,30 @@ export function GlobalKnowledgeManager({
                             </PopoverContent>
                           </Popover>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={loadNotionPages}
-                          className="h-10"
-                          disabled={loadingPages || isPending}
-                        >
-                          {loadingPages
-                            ? <Loader2 className="h-4 w-4 animate-spin" />
-                            : <RefreshCw className="h-4 w-4" />}
-                          Load pages
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleAddNotionRoot}
-                          className="h-10"
-                          disabled={!selectedNotionPage || isPending || disabled}
-                        >
-                          Add root and sync
-                        </Button>
+                        <div className="grid gap-2 sm:flex sm:shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={loadNotionPages}
+                            className="h-10 w-full whitespace-nowrap sm:w-auto"
+                            disabled={loadingPages || isPending}
+                          >
+                            {loadingPages
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <RefreshCw className="h-4 w-4" />}
+                            Load pages
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddNotionRoot}
+                            className="h-10 w-full whitespace-nowrap sm:w-auto"
+                            disabled={!selectedNotionPage || isPending || disabled}
+                          >
+                            Add root and sync
+                          </Button>
+                        </div>
                       </div>
                       <p className="mt-2 text-xs text-text-tertiary">
                         The selected media scope applies to the root and all descendant pages.
