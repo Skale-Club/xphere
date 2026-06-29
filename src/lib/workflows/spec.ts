@@ -255,13 +255,13 @@ export const TRIGGERS: TriggerSpec[] = [
     ],
   },
 
-  // ─── Traffic events (Traffic module). Tenant-scoped only — emitted by the
+  // ─── Analytics events (Analytics module). Tenant-scoped only — emitted by the
   // ingest pipeline when a visitor or session event matches a conversion or
-  // behavioral condition. NOT available in Superadmin Traffic scope.
+  // behavioral condition. NOT available in Superadmin Analytics scope.
   {
-    type: 'event:traffic.pageview',
+    type: 'event:analytics.pageview',
     description: 'A visitor viewed a page on the tenant website. Includes URL, path, session, and UTM data.',
-    variables: ['traffic.session.*', 'traffic.visitor.*', 'traffic.pageview.*', 'trigger.fired_at'],
+    variables: ['analytics.session.*', 'analytics.visitor.*', 'analytics.pageview.*', 'trigger.fired_at'],
     config_schema: {
       type: 'object',
       properties: {
@@ -270,9 +270,9 @@ export const TRIGGERS: TriggerSpec[] = [
     },
   },
   {
-    type: 'event:traffic.conversion',
+    type: 'event:analytics.conversion',
     description: 'A visitor triggered a conversion event (form_submit, call_started, booking_completed, etc.).',
-    variables: ['traffic.session.*', 'traffic.visitor.*', 'traffic.event.*', 'trigger.fired_at'],
+    variables: ['analytics.session.*', 'analytics.visitor.*', 'analytics.event.*', 'trigger.fired_at'],
     config_schema: {
       type: 'object',
       properties: {
@@ -285,9 +285,9 @@ export const TRIGGERS: TriggerSpec[] = [
     },
   },
   {
-    type: 'event:traffic.session_started',
+    type: 'event:analytics.session_started',
     description: 'A new website session started. Includes UTM attribution and device info.',
-    variables: ['traffic.session.*', 'traffic.visitor.*', 'trigger.fired_at'],
+    variables: ['analytics.session.*', 'analytics.visitor.*', 'trigger.fired_at'],
     config_schema: {
       type: 'object',
       properties: {

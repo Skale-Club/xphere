@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { verifyApiKey } from '@/lib/api-keys/verify'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
-import { linkVisitorToContact } from '@/lib/traffic/identify'
+import { linkVisitorToContact } from '@/lib/analytics/identify'
 
 export const runtime = 'nodejs'
 
@@ -35,7 +35,7 @@ const bodySchema = z.object({
   source_label: z.string().max(100).optional().nullable(),
   custom_fields: z.record(z.string(), z.unknown()).optional(),
   // Optional Meta attribution: when the lead came through a page running the
-  // Xphere traffic script, pass the _xvid cookie so the contact is linked to
+  // Xphere analytics script, pass the _xvid cookie so the contact is linked to
   // its tracked visitor (carrying fbc/fbp/ip/ua for CAPI matching).
   visitor_id: z.string().max(100).optional().nullable(),
 })

@@ -12,7 +12,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildUserData } from '@/lib/meta/capi'
-import { resolveClickSignals, resolveBrowserEventId } from '@/lib/traffic/identify'
+import { resolveClickSignals, resolveBrowserEventId } from '@/lib/analytics/identify'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
@@ -59,7 +59,7 @@ async function fetchContact(supabase: Db, contactId: string) {
 
 async function eventSourceUrl(supabase: Db, orgId: string): Promise<string | undefined> {
   const { data } = await supabase
-    .from('traffic_setups')
+    .from('analytics_setups')
     .select('primary_website_url')
     .eq('organization_id', orgId)
     .maybeSingle()

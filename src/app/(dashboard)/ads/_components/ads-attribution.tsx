@@ -115,7 +115,7 @@ export function AdsAttribution({
         <p className="text-[13px] text-text-secondary">No attributed traffic found for this period.</p>
         <p className="text-[12px] text-text-tertiary">
           Attribution requires UTM-tagged campaigns and identified visitors (visitors linked to contacts).
-          {' '}<Link href="/traffic" className="text-accent hover:underline">Check your traffic dashboard →</Link>
+          {' '}<Link href="/analytics" className="text-accent hover:underline">Check your analytics dashboard →</Link>
         </p>
       </div>
     )
@@ -231,8 +231,8 @@ export function AdsAttribution({
         <TrendingUp className="h-3 w-3" />
         Attribution via UTM → visitor identification → CRM contact → pipeline opportunities.
         {' '}
-        <Link href="/traffic" className="text-accent hover:underline inline-flex items-center gap-0.5">
-          Traffic dashboard <ExternalLink className="h-2.5 w-2.5" />
+        <Link href="/analytics" className="text-accent hover:underline inline-flex items-center gap-0.5">
+          Analytics dashboard <ExternalLink className="h-2.5 w-2.5" />
         </Link>
       </p>
     </div>

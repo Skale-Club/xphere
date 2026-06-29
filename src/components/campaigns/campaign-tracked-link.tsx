@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Copy, Check, ExternalLink, Link2 } from 'lucide-react'
-import { buildUTMLink, campaignToUTMParams } from '@/lib/traffic/utm'
+import { buildUTMLink, campaignToUTMParams } from '@/lib/analytics/utm'
 
 interface Props {
   campaign: {
@@ -37,7 +37,7 @@ export function CampaignTrackedLink({ campaign }: Props) {
         <h2 className="text-[15px] font-semibold tracking-tight text-text-primary">Tracked Follow-up Link</h2>
       </div>
       <p className="text-[12.5px] text-text-secondary mb-4">
-        Use this link in SMS or email follow-ups. Traffic attribution will be captured automatically.
+        Use this link in SMS or email follow-ups. Analytics attribution will be captured automatically.
       </p>
 
       <div className="flex items-start gap-2 rounded-md border border-border bg-bg-primary p-3">

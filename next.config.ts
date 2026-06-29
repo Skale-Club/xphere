@@ -21,6 +21,21 @@ const nextConfig: NextConfig = {
       { source: '/accounts/:path*', destination: '/companies/:path*', permanent: true },
       // /settings/workspace renamed to /settings/company-info
       { source: '/settings/workspace', destination: '/settings/company-info', permanent: true },
+      // Traffic feature renamed to Analytics (UI + slug); API routes stay /api/traffic/*.
+      { source: '/traffic', destination: '/analytics', permanent: true },
+      { source: '/admin/traffic', destination: '/admin/analytics', permanent: true },
+      // Traffic settings page became a modal inside /analytics.
+      { source: '/settings/traffic', destination: '/analytics?settings=1', permanent: true },
+    ]
+  },
+  async rewrites() {
+    return [
+      // Compat shim: the analytics tracking script renamed its API from
+      // /api/traffic/* to /api/analytics/*. Tracking snippets already deployed
+      // on customer sites still POST to the old path — rewrite (not redirect, to
+      // preserve the POST body cross-origin) so live data keeps flowing until
+      // those sites reinstall the new snippet.
+      { source: '/api/traffic/:path*', destination: '/api/analytics/:path*' },
     ]
   },
   async headers() {

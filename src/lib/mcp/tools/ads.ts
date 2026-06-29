@@ -208,7 +208,7 @@ export const adsTools: McpToolDef[] = [
       const to = new Date().toISOString()
 
       let sessionQ = db()
-        .from('traffic_sessions')
+        .from('analytics_sessions')
         .select('id, utm_source, utm_medium, utm_campaign, visitor_id')
         .eq('organization_id', auth.orgId)
         .not('utm_campaign', 'is', null)
@@ -235,7 +235,7 @@ export const adsTools: McpToolDef[] = [
 
       const visitorIds = [...new Set((sessions as { visitor_id: string }[]).map((s) => s.visitor_id))]
       const { data: visitors } = await db()
-        .from('traffic_visitors')
+        .from('analytics_visitors')
         .select('id, contact_id')
         .in('id', visitorIds)
         .not('contact_id', 'is', null)
@@ -247,7 +247,7 @@ export const adsTools: McpToolDef[] = [
 
       const sessionIds = (sessions as { id: string }[]).map((s) => s.id)
       const { data: events } = await db()
-        .from('traffic_events')
+        .from('analytics_events')
         .select('session_id, contact_id')
         .in('session_id', sessionIds)
         .not('contact_id', 'is', null)

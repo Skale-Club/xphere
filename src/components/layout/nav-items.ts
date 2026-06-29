@@ -36,7 +36,7 @@ export type NavItem = {
   /**
    * Billing feature gating this item. When set AND billing enforcement is on, the
    * item is hidden unless the org's effective plan includes the feature. Omit for
-   * items available on every plan (Dashboard, Traffic).
+   * items available on every plan (Dashboard, Analytics).
    */
   feature?: Feature
 }
@@ -53,7 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view',       feature: 'chat' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view',      feature: 'calls' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view',  feature: 'campaigns' },
-  { icon: BarChart3,       label: 'Traffic',      href: '/traffic',      group: 'manage',   permission: 'traffic.view' },
+  { icon: BarChart3,       label: 'Analytics',    href: '/analytics',    group: 'manage',   permission: 'analytics.view' },
   { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', permission: 'ads.view', feature: 'ads' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view',   feature: 'crm' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view',  feature: 'crm' },

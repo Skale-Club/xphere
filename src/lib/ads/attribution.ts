@@ -21,10 +21,10 @@ export type AttributionSummary = {
 }
 
 /**
- * Returns UTM-level attribution data joining traffic_sessions → traffic_visitors →
+ * Returns UTM-level attribution data joining analytics_sessions → analytics_visitors →
  * contacts → opportunities. Uses TWO signals:
- *   1. traffic_visitors.contact_id (visitor identified at any point in the session)
- *   2. traffic_events.contact_id (contact_created / opportunity_created events)
+ *   1. analytics_visitors.contact_id (visitor identified at any point in the session)
+ *   2. analytics_events.contact_id (contact_created / opportunity_created events)
  * Both paths are UNION-ed so we get maximum coverage.
  *
  * platformFilter: 'meta' | 'google' | null (null = all sources)
@@ -81,13 +81,13 @@ async function getAdsAttributionFallback(opts: {
   const { from, to, platformFilter } = opts
 
   let query = supabase
-    .from('traffic_sessions')
+    .from('analytics_sessions')
     .select(`
       id,
       utm_source,
       utm_medium,
       utm_campaign,
-      traffic_visitors!inner (
+      analytics_visitors!inner (
         contact_id,
         contacts:contact_id (
           id,
@@ -131,7 +131,7 @@ async function getAdsAttributionFallback(opts: {
     const row = map.get(key)!
     row.sessions++
 
-    const visitor = (session as unknown as { traffic_visitors?: { contact_id?: string; contacts?: { id: string; opportunities?: Array<{ id: string; value?: number; status?: string }> } | null } }).traffic_visitors
+    const visitor = (session as unknown as { analytics_visitors?: { contact_id?: string; contacts?: { id: string; opportunities?: Array<{ id: string; value?: number; status?: string }> } | null } }).analytics_visitors
     if (visitor?.contact_id) {
       row.identified_contacts++
       const opps = visitor.contacts?.opportunities ?? []

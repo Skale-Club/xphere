@@ -3,7 +3,7 @@
 
 import type { McpToolDef } from './tool-types'
 import { projectsTools } from './tools/projects'
-import { trafficTools } from './tools/traffic'
+import { analyticsTools } from './tools/analytics'
 import { contactsTools } from './tools/contacts'
 import { opportunitiesTools } from './tools/opportunities'
 import { conversationsTools } from './tools/conversations'
@@ -29,7 +29,7 @@ import { prospectsTools } from './tools/prospects'
 
 export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...projectsTools,
-  ...trafficTools,
+  ...analyticsTools,
   ...contactsTools,
   ...opportunitiesTools,
   ...conversationsTools,

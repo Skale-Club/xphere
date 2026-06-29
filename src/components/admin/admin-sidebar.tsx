@@ -34,7 +34,7 @@ const navItems = [
   { href: '/admin/settings', label: 'Settings',       icon: Settings },
   { href: '/admin/seo',      label: 'SEO & Branding', icon: Search },
   { href: '/admin/landing',  label: 'Landing Page',   icon: ImageIcon },
-  { href: '/admin/traffic',  label: 'Traffic',        icon: BarChart3 },
+  { href: '/admin/analytics', label: 'Analytics',     icon: BarChart3 },
 ]
 
 const STORAGE_KEY = 'admin:sidebar:collapsed'

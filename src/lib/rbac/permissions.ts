@@ -173,10 +173,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
-    key: 'traffic',
-    label: 'Traffic',
+    key: 'analytics',
+    label: 'Analytics',
     icon: 'BarChart3',
-    permissions: [{ key: 'traffic.view', label: 'View traffic & analytics' }],
+    permissions: [{ key: 'analytics.view', label: 'View analytics' }],
   },
   {
     key: 'knowledge',

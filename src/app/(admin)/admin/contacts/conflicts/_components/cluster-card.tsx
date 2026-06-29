@@ -165,7 +165,7 @@ export function ClusterCard({ cluster }: { cluster: ClusterRow }) {
                   You&apos;re about to merge {confirmMerge.others.length} contact
                   {confirmMerge.others.length === 1 ? '' : 's'} into{' '}
                   <strong>{displayName(confirmMerge.survivor)}</strong>. All conversations,
-                  messages, calls, opportunities, tags, bookings and traffic events will be
+                  messages, calls, opportunities, tags, bookings and analytics events will be
                   reattributed to the survivor. This action is recorded in the audit log.
                 </>
               )}

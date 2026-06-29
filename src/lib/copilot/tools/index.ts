@@ -7,7 +7,7 @@ import { pipelineTools } from './pipeline'
 import { taskTools } from './tasks'
 import { noteTools } from './notes'
 import { workflowTools } from './workflows'
-import { trafficTools } from './traffic'
+import { analyticsTools } from './analytics'
 import { adsTools } from './ads'
 
 export const ALL_TOOLS: CopilotToolRegistry = {
@@ -17,7 +17,7 @@ export const ALL_TOOLS: CopilotToolRegistry = {
   ...taskTools,
   ...noteTools,
   ...workflowTools,
-  ...trafficTools,
+  ...analyticsTools,
   ...adsTools,
 }
 

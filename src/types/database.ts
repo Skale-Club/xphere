@@ -6745,8 +6745,8 @@ export interface Database {
           }
         ]
       }
-      // ─── Traffic Module (migration 1046) ──────────────────────────────────
-      traffic_setups: {
+      // ─── Analytics Module (migration 1046) ──────────────────────────────────
+      analytics_setups: {
         Row: {
           id: string
           organization_id: string
@@ -6778,7 +6778,7 @@ export interface Database {
         }
         Relationships: []
       }
-      traffic_visitors: {
+      analytics_visitors: {
         Row: {
           id: string
           organization_id: string
@@ -6815,7 +6815,7 @@ export interface Database {
         }
         Relationships: []
       }
-      traffic_sessions: {
+      analytics_sessions: {
         Row: {
           id: string
           organization_id: string
@@ -6890,7 +6890,7 @@ export interface Database {
         }
         Relationships: []
       }
-      traffic_pageviews: {
+      analytics_pageviews: {
         Row: {
           id: string
           organization_id: string
@@ -6922,7 +6922,7 @@ export interface Database {
         }
         Relationships: []
       }
-      traffic_events: {
+      analytics_events: {
         Row: {
           id: string
           organization_id: string
@@ -6954,7 +6954,7 @@ export interface Database {
         Update: Record<string, never>
         Relationships: []
       }
-      traffic_attributions: {
+      analytics_attributions: {
         Row: {
           id: string
           organization_id: string

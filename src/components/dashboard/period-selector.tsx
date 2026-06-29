@@ -10,7 +10,7 @@
  * searchParam, and each Server Component widget reads the same value via
  * its props (no client-side state, no refetch hooks).
  *
- * The Select primitive matches the style used by the existing traffic
+ * The Select primitive matches the style used by the existing analytics
  * dashboard selector so the two don't look like they came from different
  * apps.
  */

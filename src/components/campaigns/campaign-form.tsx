@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createCampaign } from '@/app/(dashboard)/outbound/actions'
 import { getAssistantOptions } from '@/app/(dashboard)/calls/actions'
-import { buildUTMLink } from '@/lib/traffic/utm'
+import { buildUTMLink } from '@/lib/analytics/utm'
 
 interface VapiPhoneNumber {
   id: string

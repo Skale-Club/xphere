@@ -182,7 +182,7 @@ export default async function OAuthAuthorizePage({
           <ul className="space-y-1.5 text-text-secondary">
             <li>· Read contacts, opportunities, conversations and tasks</li>
             <li>· Read and update projects, tasks and execution runs</li>
-            <li>· Read traffic analytics</li>
+            <li>· Read analytics</li>
             <li>· Create comments, tasks and messages on your behalf</li>
           </ul>
         </div>
