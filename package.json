@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval": "vitest run tests/evals/runner.ts --reporter=verbose",
+    "eval": "cross-env RUN_AGENT_EVALS=true vitest run tests/evals/runner.test.ts --reporter=verbose",
     "seed": "tsx scripts/load-workflow-seeds.ts",
     "seed:demo": "tsx scripts/seed-demo-org.ts",
     "seed:demo:dry": "tsx scripts/seed-demo-org.ts --dry-run",

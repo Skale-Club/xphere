@@ -8,7 +8,7 @@
 // the same runAgent() blocking path; channel mainly shifts tone / brevity.
 //
 // To add a new case: append to EVAL_CASES and run the harness locally:
-//   npx vitest tests/evals/runner.ts
+//   npm run eval
 
 import type { AgentChannel } from '@/lib/agent-runtime/types'
 

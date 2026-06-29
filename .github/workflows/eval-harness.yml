@@ -2,9 +2,10 @@ name: Agent Eval Harness
 
 # Q3 (Project 2) — runs the LLM-judge eval suite against a real agent.
 # Triggered manually or on schedule so it doesn't block every PR.
-# Uses EVAL_ORG_ID + EVAL_AGENT_ID secrets to target the evaluation agent.
+# Scheduled runs skip cleanly until all required repository configuration is
+# present. Manual runs fail fast with an actionable configuration error.
 #
-# Gate thresholds (defined in tests/evals/runner.ts):
+# Gate thresholds (defined in tests/evals/runner.test.ts):
 #   Average score  >= 3.5 / 5
 #   No case        <  2.0 / 5
 
@@ -35,32 +36,72 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      - name: Check eval configuration
+        id: config
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ORG_ID: ${{ inputs.eval_org_id || secrets.EVAL_ORG_ID }}
+          EVAL_AGENT_ID: ${{ inputs.eval_agent_id || secrets.EVAL_AGENT_ID }}
+        run: |
+          missing=()
+          for name in \
+            NEXT_PUBLIC_SUPABASE_URL \
+            SUPABASE_SERVICE_ROLE_KEY \
+            ENCRYPTION_SECRET \
+            ANTHROPIC_API_KEY \
+            EVAL_ORG_ID \
+            EVAL_AGENT_ID
+          do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            message="Agent eval harness is not configured. Missing: ${missing[*]}"
+            if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+              echo "::warning::$message. Scheduled evaluation skipped."
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "::error::$message"
+            exit 1
+          fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/checkout@v7
 
       - name: Set up Node.js
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
         run: npm ci
 
       - name: Run eval harness
+        if: steps.config.outputs.enabled == 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           EVAL_ORG_ID: ${{ inputs.eval_org_id || secrets.EVAL_ORG_ID }}
           EVAL_AGENT_ID: ${{ inputs.eval_agent_id || secrets.EVAL_AGENT_ID }}
-          # Resolve provider keys used inside runAgent()
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          npx vitest run tests/evals/runner.ts --reporter=verbose
+        run: npm run eval
 
       - name: Upload eval report
-        if: always()
+        if: always() && steps.config.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: eval-report-${{ github.run_id }}

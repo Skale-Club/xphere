@@ -1,4 +1,4 @@
-// tests/evals/runner.ts
+// tests/evals/runner.test.ts
 // Eval harness runner (Project 2, Q2).
 // Runs each golden-set case through runAgent(), judges the response, and
 // reports per-case and aggregate results.
@@ -6,12 +6,13 @@
 // Required env vars (from .env.local or CI secrets):
 //   NEXT_PUBLIC_SUPABASE_URL       — Supabase project URL
 //   SUPABASE_SERVICE_ROLE_KEY      — service-role key (bypasses RLS)
-//   ANTHROPIC_API_KEY              — key for both agent + judge LLM calls
+//   ENCRYPTION_SECRET              — decrypts tenant/platform provider keys
+//   ANTHROPIC_API_KEY              — key for judge LLM calls
 //   EVAL_ORG_ID                    — org under which the eval agent lives
 //   EVAL_AGENT_ID                  — agent ID to evaluate (must be is_active=true)
 //
 // Run locally:
-//   npx vitest run tests/evals/runner.ts --reporter=verbose
+//   npm run eval
 //
 // CI gate:
 //   Average score must be >= AVG_SCORE_GATE
@@ -53,29 +54,20 @@ function summariseResult(c: EvalCase, r: JudgeResult): string {
 // Suite
 // ---------------------------------------------------------------------------
 
-describe('Agent eval harness', () => {
-  const orgId = process.env.EVAL_ORG_ID
-  const agentId = process.env.EVAL_AGENT_ID
+const orgId = process.env.EVAL_ORG_ID ?? ''
+const agentId = process.env.EVAL_AGENT_ID ?? ''
+const hasEvalTarget = process.env.RUN_AGENT_EVALS === 'true' && Boolean(orgId && agentId)
 
+describe.runIf(hasEvalTarget)('Agent eval harness', () => {
   beforeAll(() => {
     if (!orgId || !agentId) {
-      console.warn(
-        '[eval-harness] EVAL_ORG_ID or EVAL_AGENT_ID not set — skipping eval suite.\n' +
-        'Set both env vars to run quality evals against a real agent.',
-      )
+      throw new Error('EVAL_ORG_ID and EVAL_AGENT_ID are required to run the eval suite')
     }
   })
 
   // Individual case tests
   for (const c of EVAL_CASES) {
     it(`[${c.id}] ${c.description}`, async () => {
-      if (!orgId || !agentId) {
-        // Skip gracefully without failing CI when env vars are absent.
-        // Use console to communicate; Vitest treats skips as neutral.
-        console.log(`[eval-harness] Skipping ${c.id} — EVAL_ORG_ID/EVAL_AGENT_ID not set`)
-        return
-      }
-
       // Run agent
       const result = await runAgent({
         orgId,
@@ -114,11 +106,6 @@ describe('Agent eval harness', () => {
 
   // Aggregate gate
   it('aggregate average score meets gate', async () => {
-    if (!orgId || !agentId) {
-      console.log('[eval-harness] Skipping aggregate gate — EVAL_ORG_ID/EVAL_AGENT_ID not set')
-      return
-    }
-
     const results: Array<{ id: string; score: number }> = []
 
     for (const c of EVAL_CASES) {
