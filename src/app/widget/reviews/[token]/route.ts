@@ -39,8 +39,7 @@ export async function GET(
   <meta name="robots" content="noindex, nofollow">
   <title>Reviews</title>
   <style>
-    html, body { margin: 0; padding: 0; }
-    html, body { background: ${theme === 'dark' ? '#111111' : '#ffffff'}; }
+    html, body { margin: 0; padding: 0; background: transparent; }
   </style>
 </head>
 <body>
