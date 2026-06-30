@@ -46,15 +46,18 @@ function collectYamlFiles(): string[] {
     join(REPO_ROOT, 'supabase', 'seeds', 'workflows'),
   ]
   const out: string[] = []
-  for (const dir of dirs) {
-    if (!existsSync(dir)) continue
+  function walk(dir: string) {
+    if (!existsSync(dir)) return
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry)
-      if (statSync(full).isFile() && (entry.endsWith('.yaml') || entry.endsWith('.yml'))) {
+      if (statSync(full).isDirectory()) {
+        walk(full)
+      } else if (entry.endsWith('.yaml') || entry.endsWith('.yml')) {
         out.push(full)
       }
     }
   }
+  for (const dir of dirs) walk(dir)
   return out
 }
 

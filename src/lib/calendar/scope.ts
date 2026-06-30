@@ -15,6 +15,12 @@ export interface MeetingScope {
   title: string
   starts_at: string
   ends_at: string
+  /** ISO timestamp 24 hours before starts_at — useful as a wait `until` target. */
+  starts_at_minus_24h: string
+  /** ISO timestamp 1 hour before starts_at — useful as a wait `until` target. */
+  starts_at_minus_1h: string
+  /** ISO timestamp 2 hours after ends_at — useful as a wait `until` target. */
+  ends_at_plus_2h: string
   /** Date-only in the booking timezone, e.g. "July 1, 2026" */
   starts_date: string
   /** Time-only in the booking timezone, e.g. "9:00 AM" */
@@ -149,6 +155,9 @@ export async function buildMeetingScope(
     title: eventType?.name ?? 'Meeting',
     starts_at: booking.start_at as string,
     ends_at: booking.end_at as string,
+    starts_at_minus_24h: new Date(startMs - 24 * 60 * 60 * 1000).toISOString(),
+    starts_at_minus_1h: new Date(startMs - 60 * 60 * 1000).toISOString(),
+    ends_at_plus_2h: new Date(endMs + 2 * 60 * 60 * 1000).toISOString(),
     starts_date: startsDate,
     starts_time: startsTime,
     timezone: tz,

@@ -56,12 +56,18 @@ interface ParsedSeed {
   toolName: string | null
 }
 
-function listSeedFiles(): string[] {
-  if (!existsSync(SEEDS_DIR)) return []
-  return readdirSync(SEEDS_DIR)
-    .filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
-    .map((f) => join(SEEDS_DIR, f))
-    .filter((p) => statSync(p).isFile())
+function listSeedFiles(dir = SEEDS_DIR): string[] {
+  if (!existsSync(dir)) return []
+  const results: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) {
+      results.push(...listSeedFiles(full))
+    } else if (entry.endsWith('.yaml') || entry.endsWith('.yml')) {
+      results.push(full)
+    }
+  }
+  return results
 }
 
 function parseSeed(path: string): ParsedSeed {

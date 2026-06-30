@@ -1,0 +1,58 @@
+# Platform-default workflow — ships to every org.
+# On booking confirmed, runs the full cleaning service communication sequence:
+#   1. SMS confirmation 24h before the service
+#   2. SMS "on our way" 1h before the service
+#   3. Marks the booking as showed 2h after the service ends
+
+name: Reminder
+description: |
+  Platform-default. On booking confirmed: waits until 24h before the service
+  and sends a confirmation SMS, waits until 1h before and sends an on-the-way
+  SMS, then marks the booking as showed 2 hours after the service ends.
+trigger:
+  type: event
+  event: meeting.confirmed
+
+nodes:
+  - id: wait_24h
+    kind: wait
+    until: "{{meeting.starts_at_minus_24h}}"
+
+  - id: sms_24h
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, just passing by to confirm our cleaning tomorrow at {{meeting.starts_time}}, thanks"
+
+  - id: wait_1h
+    kind: wait
+    until: "{{meeting.starts_at_minus_1h}}"
+
+  - id: sms_1h
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hey {{meeting.attendee_contact.first_name}}, we're on our way and will be there in about an hour. Thanks!"
+
+  - id: wait_end
+    kind: wait
+    until: "{{meeting.ends_at_plus_2h}}"
+
+  - id: mark_showed
+    kind: update_booking_status
+    booking_id: "{{meeting.id}}"
+    status: showed
+
+edges:
+  - from: trigger
+    to: wait_24h
+  - from: wait_24h
+    to: sms_24h
+  - from: sms_24h
+    to: wait_1h
+  - from: wait_1h
+    to: sms_1h
+  - from: sms_1h
+    to: wait_end
+  - from: wait_end
+    to: mark_showed
