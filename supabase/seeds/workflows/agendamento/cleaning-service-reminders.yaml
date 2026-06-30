@@ -1,12 +1,11 @@
-# Platform-default workflow — ships to every org.
-# On booking confirmed, runs the full cleaning service communication sequence:
+# Skleanings — booking confirmed sequence:
 #   1. SMS confirmation 24h before the service
 #   2. SMS "on our way" 1h before the service
 #   3. Marks the booking as showed 2h after the service ends
 
 name: Reminder
 description: |
-  Platform-default. On booking confirmed: waits until 24h before the service
+  Skleanings. On booking confirmed: waits until 24h before the service
   and sends a confirmation SMS, waits until 1h before and sends an on-the-way
   SMS, then marks the booking as showed 2 hours after the service ends.
 trigger:
