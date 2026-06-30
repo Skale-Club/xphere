@@ -1,0 +1,47 @@
+# Remarketing workflow for clients lost in the Skleanings pipeline.
+# On opportunity.lost, filters to the Skleanings pipeline, waits 5 months,
+# creates a call-back task linked to the contact, and sends an SMS alert
+# to the team number to re-engage.
+#
+# NOTE: adjust the pipeline name in the condition node if needed.
+
+name: Skleanings — Remarketing de clientes perdidos
+description: |
+  Quando uma oportunidade é marcada como perdida no pipeline Skleanings,
+  aguarda 5 meses, cria uma tarefa de follow-up ligada ao contato e envia
+  um SMS ao número da equipe para ligar novamente.
+trigger:
+  type: event
+  event: opportunity.lost
+
+nodes:
+  - id: check_pipeline
+    kind: condition
+    expression: "{{pipeline.name}} == 'Skleanings'"
+
+  - id: wait_5_months
+    kind: wait
+    duration: "150d"
+
+  - id: create_followup_task
+    kind: create_task
+    title: "Remarketing — ligar para {{contact.name}}"
+    description: "Cliente perdido há 5 meses. Ligar para reengajar. Tel: {{contact.phone}}. Oportunidade: {{opportunity.title}}"
+    priority: medium
+    entity_type: contact
+    entity_id: "{{contact.id}}"
+
+  - id: alert_sms
+    kind: send_sms
+    integration: twilio
+    to: "+18572280830"
+    body: "Remarketing: {{contact.name}} ({{contact.phone}}) perdido há 5 meses no Skleanings. Hora de ligar!"
+
+edges:
+  - from: trigger
+    to: check_pipeline
+  - { from: check_pipeline, to: wait_5_months, when: "true" }
+  - from: wait_5_months
+    to: create_followup_task
+  - from: create_followup_task
+    to: alert_sms
