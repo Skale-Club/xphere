@@ -1,0 +1,29 @@
+# Skleanings — Pedido de avaliação pós-serviço.
+# 3 hours after a cleaning appointment is completed, sends an SMS
+# requesting a Google review while the experience is still fresh.
+
+name: Skleanings — Pedido de avaliação pós-serviço
+description: |
+  3 horas após a conclusão de um agendamento Skleanings, envia um SMS
+  ao cliente pedindo uma avaliação no Google e abrindo a porta para
+  um próximo agendamento.
+trigger:
+  type: event
+  event: meeting.completed
+
+nodes:
+  - id: wait_3h
+    kind: wait
+    duration: "3h"
+
+  - id: review_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, the Skleanings team here! We hope you're loving those fresh clean carpets ✨ Would you mind leaving us a quick Google review? It takes just 30 seconds and means the world to us: https://g.page/skleanings/review — Thank you so much!"
+
+edges:
+  - from: trigger
+    to: wait_3h
+  - from: wait_3h
+    to: review_sms

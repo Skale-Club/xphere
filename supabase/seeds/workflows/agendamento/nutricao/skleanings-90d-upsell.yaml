@@ -1,0 +1,29 @@
+# Skleanings — Nutrição 90 dias — reengajamento + upsell upholstery.
+# 90 days after a cleaning appointment, re-engages the customer and
+# highlights upholstery cleaning as a natural complement to carpet cleaning.
+
+name: Skleanings — Nutrição 90 dias — reengajamento + upsell
+description: |
+  90 dias após a conclusão de um serviço Skleanings, envia um SMS de
+  reengajamento destacando o serviço de upholstery cleaning como complemento
+  natural ao carpet cleaning, incentivando o cliente a agendar novamente.
+trigger:
+  type: event
+  event: meeting.completed
+
+nodes:
+  - id: wait_90d
+    kind: wait
+    duration: "90d"
+
+  - id: upsell_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, it's been about 3 months since your last Skleanings clean! 😊 Time to freshen things up? Beyond carpets, we also do professional upholstery cleaning — sofas, chairs, and rugs. Your whole home, spotless. Call or text us at (508) 500-6625 to book!"
+
+edges:
+  - from: trigger
+    to: wait_90d
+  - from: wait_90d
+    to: upsell_sms

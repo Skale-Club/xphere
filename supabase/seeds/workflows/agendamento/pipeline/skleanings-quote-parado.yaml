@@ -1,0 +1,66 @@
+# Skleanings — Orçamento parado: 2ª e 3ª tentativas.
+# Picks up AFTER the 48h follow-up (skleanings-quote-followup) for leads
+# still silent on "Quote Sent". Sends two more targeted messages:
+# day 5 (value reassurance) and day 10 (final close + urgent task).
+
+name: Skleanings — Orçamento parado (dia 5 e dia 10)
+description: |
+  Quando uma oportunidade Skleanings avança para 'Quote Sent' e o cliente
+  continua sem responder após o follow-up de 48h, envia mensagens adicionais
+  no dia 5 (reforço de valor) e dia 10 (encerramento + tarefa urgente).
+trigger:
+  type: event
+  event: opportunity.stage_changed
+
+nodes:
+  - id: check_pipeline
+    kind: condition
+    expression: "{{pipeline.name}} == 'Skleanings'"
+
+  - id: check_stage
+    kind: condition
+    expression: "{{stage.to.name}} == 'Quote Sent'"
+
+  # --- Day 5: value reassurance ---
+  - id: wait_day5
+    kind: wait
+    duration: "5d"
+
+  - id: sms_day5
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, Skleanings here! Just wanted to share — our process removes up to 98% of dirt, allergens and bacteria from carpets and upholstery. Totally safe for kids and pets 🐾 Still interested in a quote? Reply anytime or call (508) 500-6625!"
+
+  # --- Day 10: final close + urgent task ---
+  - id: wait_day10
+    kind: wait
+    duration: "5d"
+
+  - id: sms_day10
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hey {{contact.first_name}}, this is our last follow-up on your Skleanings quote. No pressure at all — whenever you're ready, we're here! Call or text: (508) 500-6625. We'd love to earn your business 😊"
+
+  - id: urgent_task
+    kind: create_task
+    title: "URGENTE — fechar ou arquivar: {{contact.name}}"
+    description: "Orçamento enviado há 10+ dias. Cliente silencioso após 3 tentativas (48h, dia 5 e dia 10). Ligar uma última vez para entender a objeção ou mover para perdido. Tel: {{contact.phone}}. Oportunidade: {{opportunity.title}}"
+    priority: high
+    entity_type: contact
+    entity_id: "{{contact.id}}"
+
+edges:
+  - from: trigger
+    to: check_pipeline
+  - { from: check_pipeline, to: check_stage, when: "true" }
+  - { from: check_stage, to: wait_day5, when: "true" }
+  - from: wait_day5
+    to: sms_day5
+  - from: sms_day5
+    to: wait_day10
+  - from: wait_day10
+    to: sms_day10
+  - from: sms_day10
+    to: urgent_task

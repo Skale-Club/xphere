@@ -1,0 +1,49 @@
+# Skleanings — Follow-up de orçamento enviado.
+# When an opportunity moves to "Quote Sent" in the Skleanings pipeline,
+# waits 48 hours, sends a follow-up SMS, and creates a high-priority call task.
+
+name: Skleanings — Follow-up orçamento enviado
+description: |
+  Quando uma oportunidade do pipeline Skleanings avança para o stage
+  'Quote Sent', aguarda 48 horas, envia um SMS de acompanhamento ao contato
+  e cria uma tarefa de alta prioridade para ligar e fechar o serviço.
+trigger:
+  type: event
+  event: opportunity.stage_changed
+
+nodes:
+  - id: check_pipeline
+    kind: condition
+    expression: "{{pipeline.name}} == 'Skleanings'"
+
+  - id: check_stage
+    kind: condition
+    expression: "{{stage.to.name}} == 'Quote Sent'"
+
+  - id: wait_48h
+    kind: wait
+    duration: "48h"
+
+  - id: followup_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{contact.phone}}"
+    body: "Hi {{contact.first_name}}, this is Skleanings following up on your quote! Any questions or adjustments needed? We're happy to go over everything with you. Reply here or give us a call at (508) 500-6625 — we'd love to get your home looking spotless!"
+
+  - id: create_call_task
+    kind: create_task
+    title: "Ligar para {{contact.name}} — fechar orçamento Skleanings"
+    description: "Lead ainda no stage 'Quote Sent' após 48h. Ligar para tirar dúvidas, ajustar o orçamento se necessário e fechar o serviço. Tel: {{contact.phone}}. Oportunidade: {{opportunity.title}}"
+    priority: high
+    entity_type: contact
+    entity_id: "{{contact.id}}"
+
+edges:
+  - from: trigger
+    to: check_pipeline
+  - { from: check_pipeline, to: check_stage, when: "true" }
+  - { from: check_stage, to: wait_48h, when: "true" }
+  - from: wait_48h
+    to: followup_sms
+  - from: followup_sms
+    to: create_call_task

@@ -2,12 +2,14 @@
 #   1. SMS confirmation 24h before the service
 #   2. SMS "on our way" 1h before the service
 #   3. Marks the booking as showed 2h after the service ends
+#   4. Waits 30min, then sends a review request SMS
 
 name: Reminder
 description: |
   Skleanings. On booking confirmed: waits until 24h before the service
   and sends a confirmation SMS, waits until 1h before and sends an on-the-way
-  SMS, then marks the booking as showed 2 hours after the service ends.
+  SMS, marks the booking as showed 2 hours after the service ends, then waits
+  30 minutes and sends a review request SMS.
 trigger:
   type: event
   event: meeting.confirmed
@@ -42,6 +44,16 @@ nodes:
     booking_id: "{{meeting.id}}"
     status: showed
 
+  - id: wait_review
+    kind: wait
+    duration: "30m"
+
+  - id: review_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, hope you're enjoying your clean home! Could you leave us a quick review? It means a lot to the team 🙏"
+
 edges:
   - from: trigger
     to: wait_24h
@@ -55,3 +67,7 @@ edges:
     to: wait_end
   - from: wait_end
     to: mark_showed
+  - from: mark_showed
+    to: wait_review
+  - from: wait_review
+    to: review_sms

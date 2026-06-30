@@ -1,0 +1,29 @@
+# Skleanings — Nutrição 30 dias pós-serviço.
+# 30 days after a cleaning appointment is completed, checks in with the customer
+# and invites them to schedule their next appointment.
+
+name: Skleanings — Nutrição 30 dias pós-serviço
+description: |
+  30 dias após a conclusão de um serviço Skleanings, envia um SMS de
+  acompanhamento perguntando como estão os carpetes e convidando o cliente
+  a agendar o próximo serviço.
+trigger:
+  type: event
+  event: meeting.completed
+
+nodes:
+  - id: wait_30d
+    kind: wait
+    duration: "30d"
+
+  - id: checkin_sms
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hey {{meeting.attendee_contact.first_name}}! It's been about a month since your Skleanings service 🏠 How are your carpets holding up? When you're ready for the next refresh, we're just a message or call away: (508) 500-6625. Hope to see you soon!"
+
+edges:
+  - from: trigger
+    to: wait_30d
+  - from: wait_30d
+    to: checkin_sms

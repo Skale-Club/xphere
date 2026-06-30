@@ -1,0 +1,56 @@
+# Skleanings — Reengajamento de no-show silencioso.
+# The platform-default no-show-recovery sends 1 SMS at 1h with a reschedule link.
+# This workflow runs in parallel and handles clients who STILL don't respond:
+# day 2 (empathetic second attempt) and day 7 (last chance + task).
+
+name: Skleanings — No-show reengajamento (dia 2 e dia 7)
+description: |
+  Quando um cliente não comparece ao serviço Skleanings e não responde ao
+  SMS de recuperação inicial (1h), envia um segundo contato no dia 2
+  (empático, sem pressão) e uma última tentativa no dia 7 com tarefa manual.
+trigger:
+  type: event
+  event: meeting.no_show
+
+nodes:
+  # --- Day 2: empathetic, no pressure ---
+  - id: wait_day2
+    kind: wait
+    duration: "2d"
+
+  - id: sms_day2
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hey {{meeting.attendee_contact.first_name}}, we know life gets busy sometimes! We totally understand you couldn't make it. We'd still love to help get your carpets looking great — ready to reschedule? Just reply here or pick a new time: {{meeting.event_type.booking_url}} 🙂"
+
+  # --- Day 7: last chance + manual task ---
+  - id: wait_day7
+    kind: wait
+    duration: "5d"
+
+  - id: sms_day7
+    kind: send_sms
+    integration: twilio
+    to: "{{meeting.attendee_contact.phone}}"
+    body: "Hi {{meeting.attendee_contact.first_name}}, Skleanings here one last time! We're still holding a spot for you whenever you're ready 🏠 Give us a call or text at (508) 500-6625 and we'll get you scheduled right away. Hope to hear from you soon!"
+
+  - id: noshow_task
+    kind: create_task
+    title: "No-show silencioso — ligar para {{meeting.attendee_contact.name}}"
+    description: "Cliente não apareceu e não respondeu a 3 tentativas de contato (1h, dia 2 e dia 7). Ligar diretamente para entender o motivo e tentar reagendar. Tel: {{meeting.attendee_contact.phone}}"
+    priority: medium
+    entity_type: contact
+    entity_id: "{{meeting.attendee_contact.id}}"
+
+edges:
+  - from: trigger
+    to: wait_day2
+  - from: wait_day2
+    to: sms_day2
+  - from: sms_day2
+    to: wait_day7
+  - from: wait_day7
+    to: sms_day7
+  - from: sms_day7
+    to: noshow_task
