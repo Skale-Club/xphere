@@ -1,21 +1,136 @@
 # Platform-default workflow — ships to every org.
-# Acknowledges a new booking confirmation via SMS with all relevant info.
+# On booking confirmed:
+#   1. Tags the contact as "customer"
+#   2. Creates an opportunity in the "Job Confirmed" stage
+#   3. Sends a branded confirmation email (only if the contact has an email)
 
-name: Booking confirmation SMS
+name: Booking confirmation
 description: |
-  Platform-default. Sends a confirmation SMS the moment a booking
-  transitions to 'confirmed'.
+  Platform-default. When a booking is confirmed:
+  tags the contact as "customer", creates a Job Confirmed opportunity,
+  and sends a detailed confirmation email if the contact has an email address.
 trigger:
   type: event
   event: meeting.confirmed
 
 nodes:
-  - id: confirm_sms
-    kind: send_sms
-    integration: twilio
-    to: "{{meeting.attendee_contact.phone}}"
-    body: "Hi {{meeting.attendee_contact.name}}, your {{meeting.event_type.name}} is confirmed for {{meeting.starts_at}}. Details: {{meeting.link}}"
+  - id: tag_customer
+    kind: contact_add_tag
+    contact_id: "{{meeting.attendee_contact.id}}"
+    tag_name: customer
+
+  - id: create_opportunity
+    kind: pipeline_create_opportunity
+    title: "Cleaning — {{meeting.attendee_contact.name}}"
+    contact_id: "{{meeting.attendee_contact.id}}"
+    stage_name: Job Confirmed
+
+  - id: check_email
+    kind: condition
+    expression: "meeting.attendee_contact.email != ''"
+
+  - id: send_confirmation_email
+    kind: send_tenant_email
+    to: "{{meeting.attendee_contact.email}}"
+    subject: "Your Skleanings appointment is confirmed!"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Appointment Confirmed</title></head>
+      <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px 0;">
+          <tr><td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+
+              <!-- Header -->
+              <tr>
+                <td style="background:#1a3f9f;padding:24px;text-align:center;">
+                  <span style="color:#ffffff;font-size:28px;font-weight:900;letter-spacing:1px;">skl<span style="text-decoration:underline;text-decoration-color:#f5c800;">eanings</span></span>
+                </td>
+              </tr>
+
+              <!-- Sub-header -->
+              <tr>
+                <td style="background:#0d2a6e;padding:10px;text-align:center;">
+                  <span style="color:#f5c800;font-size:14px;font-weight:700;">Call Us Now (508) 500-6625</span>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td style="padding:32px 40px;">
+
+                  <p style="margin:0 0 8px;font-size:16px;color:#333333;">Hello {{meeting.attendee_contact.first_name}},</p>
+
+                  <h1 style="margin:0 0 8px;font-size:22px;color:#1a3f9f;">Thank you for choosing Skleanings!</h1>
+                  <p style="margin:0 0 24px;font-size:15px;color:#555555;">We're excited to make your home sparkle.</p>
+
+                  <!-- Appointment details -->
+                  <p style="margin:0 0 8px;font-size:15px;color:#333333;font-weight:600;">Your Appointment Details:</p>
+                  <p style="margin:4px 0;font-size:15px;color:#333333;">&#128197; Date: {{meeting.starts_date}}</p>
+                  <p style="margin:4px 0;font-size:15px;color:#333333;">&#128336; Time: {{meeting.starts_time}}</p>
+                  <p style="margin:4px 0 24px;font-size:15px;color:#333333;">&#127968; Location: {{meeting.location.address}}</p>
+
+                  <!-- How to Prepare -->
+                  <p style="margin:0 0 6px;font-size:15px;color:#333333;font-weight:700;">How to Prepare:</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- Clear access to cleaning areas</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- Remove small items from surfaces</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- Secure pets in a separate room</p>
+                  <p style="margin:2px 0 20px;font-size:14px;color:#555555;">- Provide access to hot water source</p>
+
+                  <!-- What to Expect -->
+                  <p style="margin:0 0 6px;font-size:15px;color:#333333;font-weight:700;">What to Expect:</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- Our team will arrive within a 15-minute window</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- Service typically takes 2-3 hours</p>
+                  <p style="margin:2px 0 20px;font-size:14px;color:#555555;">- Carpets/upholstery dry within 12-24 hours</p>
+
+                  <!-- Important Information -->
+                  <p style="margin:0 0 6px;font-size:15px;color:#333333;font-weight:700;">Important Information:</p>
+                  <p style="margin:2px 0;font-size:14px;color:#c0392b;">- $120 minimum charge per visit</p>
+                  <p style="margin:2px 0;font-size:14px;color:#555555;">- We accept all major payment methods</p>
+                  <p style="margin:2px 0 24px;font-size:14px;color:#555555;">- 24-hour cancellation policy applies</p>
+
+                  <!-- Change appointment -->
+                  <p style="margin:0 0 6px;font-size:14px;color:#333333;">Need to change your appointment?</p>
+                  <p style="margin:0 0 20px;font-size:14px;">
+                    <a href="https://xphere.app/booking/cancel/{{meeting.id}}" style="color:#1a3f9f;">Cancel</a>
+                    &nbsp;|&nbsp;
+                    <a href="https://xphere.app/booking/reschedule/{{meeting.id}}" style="color:#1a3f9f;">Reschedule</a>
+                  </p>
+
+                  <!-- Add to calendar -->
+                  <p style="margin:0 0 20px;font-size:14px;">
+                    <a href="{{meeting.google_calendar_url}}" style="color:#1a3f9f;">Add to Google Calendar</a>
+                  </p>
+
+                  <p style="margin:0;font-size:14px;color:#555555;">Questions? Reply to this email or call us at <a href="tel:+15085006625" style="color:#1a3f9f;">(508) 500-6625</a></p>
+                  <p style="margin:4px 0 0;font-size:14px;color:#555555;">We look forward to serving you!</p>
+
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background:#1a3f9f;padding:24px;text-align:center;">
+                  <p style="margin:0 0 8px;color:#ffffff;font-size:13px;">Copyright &copy; 2025 | Skleanings. All rights reserved.</p>
+                  <p style="margin:0;color:#cccccc;font-size:12px;">Our e-mail address is: <a href="mailto:hello@skleanings.com" style="color:#f5c800;">hello@skleanings.com</a></p>
+                  <p style="margin:8px 0 0;font-size:12px;"><a href="https://xphere.app/unsubscribe?email={{meeting.attendee_contact.email}}" style="color:#cccccc;text-decoration:underline;">Unsubscribe from this list</a></p>
+                </td>
+              </tr>
+
+            </table>
+          </td></tr>
+        </table>
+      </body>
+      </html>
 
 edges:
   - from: trigger
-    to: confirm_sms
+    to: tag_customer
+  - from: tag_customer
+    to: create_opportunity
+  - from: create_opportunity
+    to: check_email
+  - from: check_email
+    to: send_confirmation_email
+    when: "true"

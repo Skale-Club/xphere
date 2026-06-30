@@ -20,7 +20,7 @@ export async function executeSendTenantEmail(
   // anyone who opted out of marketing.
   const kind: EmailKind = params.kind === 'marketing' ? 'marketing' : 'transactional'
 
-  if (!to) throw new Error('send_tenant_email requires "to"')
+  if (!to) return 'send_tenant_email skipped: no recipient email address'
   if (!subject) throw new Error('send_tenant_email requires "subject"')
   if (!html) throw new Error('send_tenant_email requires "html" or "body"')
 

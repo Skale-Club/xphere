@@ -765,6 +765,59 @@ export const NODES: NodeSpec[] = [
     ],
   },
 
+  {
+    type: 'contact_add_tag',
+    kind: 'action',
+    description: 'Add a tag to a contact by name. Creates the tag if it does not exist (idempotent).',
+    params_schema: {
+      type: 'object',
+      properties: {
+        contact_id: { type: 'string', description: 'Contact UUID. Either this or contact_phone is required.' },
+        contact_phone: { type: 'string', description: 'E.164 phone to look up the contact.' },
+        tag_name: { type: 'string', description: 'Tag name to add (e.g. "customer").' },
+      },
+      required: ['tag_name'],
+    },
+    examples: [
+      { contact_id: '{{meeting.attendee_contact.id}}', tag_name: 'customer' },
+    ],
+  },
+
+  // ─── Action | email
+  {
+    type: 'send_email',
+    kind: 'action',
+    description: 'Send a transactional email using the platform Resend settings.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', description: 'Recipient email address.' },
+        subject: { type: 'string' },
+        body: { type: 'string', description: 'HTML email body.' },
+      },
+      required: ['to', 'subject', 'body'],
+    },
+  },
+  {
+    type: 'send_tenant_email',
+    kind: 'action',
+    description: "Send a transactional email using the org's own Resend integration (from the org's configured sender address).",
+    params_schema: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', description: 'Recipient email address. Skipped silently if empty.' },
+        subject: { type: 'string' },
+        body: { type: 'string', description: 'HTML email body. Also accepted as "html".' },
+        reply_to: { type: 'string', description: 'Reply-to address.' },
+        kind: { type: 'string', enum: ['transactional', 'marketing'], description: 'Default: transactional.' },
+      },
+      required: ['to', 'subject', 'body'],
+    },
+    examples: [
+      { to: '{{meeting.attendee_contact.email}}', subject: 'Your appointment is confirmed', body: '<p>Hi {{meeting.attendee_contact.first_name}}, ...</p>' },
+    ],
+  },
+
   // ─── Control flow
   {
     type: 'condition',

@@ -21,6 +21,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { executeAction, type ActionContext } from '@/lib/action-engine/execute-action'
 import { executeAgentNode } from '@/lib/flows/execute-agent-node'
+import { evaluateCondition } from '@/lib/flows/interpolate'
 import type { Database } from '@/types/database'
 
 type ActionType = Database['public']['Enums']['action_type']
@@ -355,17 +356,11 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
     }
 
     if (node.kind === 'condition') {
-      // Trivial evaluation: take the first outgoing edge. Logged so the
-      // operator can see this happened.
-      console.warn(
-        JSON.stringify({
-          event: 'run_flow_sync_condition_default_branch',
-          workflowId: params.workflowId,
-          nodeId: node.id,
-        }),
-      )
+      const cfg = node.config as Record<string, unknown>
+      const expr = String(cfg.expression ?? '')
+      const branch = evaluateCondition(expr, scope as Record<string, unknown>) ? 'true' : 'false'
       const nextEdge =
-        graph.edges.find((e) => e.from === node.id && e.when === 'true') ??
+        graph.edges.find((e) => e.from === node.id && e.when === branch) ??
         graph.edges.find((e) => e.from === node.id)
       cursorId = nextEdge?.to
       continue
