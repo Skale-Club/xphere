@@ -41,7 +41,7 @@ async function resumeMatchingWaits(
   }
 }
 
-type BookingStatus = 'confirmed' | 'cancelled' | 'no_show'
+type BookingStatus = 'confirmed' | 'cancelled' | 'no_show' | 'showed'
 
 interface TransitionContext {
   supabase: SupabaseClient<Database>

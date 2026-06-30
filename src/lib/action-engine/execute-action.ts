@@ -34,6 +34,7 @@ import {
 import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/executors/create-task'
 import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 import { executeContactAddTag } from '@/lib/action-engine/executors/contact-tag-actions'
+import { executeUpdateBookingStatus } from '@/lib/action-engine/executors/update-booking-status'
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
 import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
@@ -160,6 +161,13 @@ async function _executeActionInner(
       throw new Error('contact_add_tag requires ctx.organizationId and ctx.supabase')
     }
     return executeContactAddTag(params, ctx)
+  }
+
+  if ((actionType as string) === 'update_booking_status') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('update_booking_status requires ctx.organizationId and ctx.supabase')
+    }
+    return executeUpdateBookingStatus(params, ctx.organizationId, ctx.supabase)
   }
 
   switch (actionType) {

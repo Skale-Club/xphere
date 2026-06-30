@@ -1,0 +1,27 @@
+# Platform-default workflow — ships to every org.
+# 2 hours after a confirmed appointment ends, automatically marks the booking
+# as 'showed', indicating the client was present for the service.
+
+name: Mark booking as showed
+description: |
+  Platform-default. 2 hours after the appointment end time, marks the booking
+  status as 'showed' — confirming the client was present for the service.
+trigger:
+  type: event
+  event: meeting.ended
+
+nodes:
+  - id: wait
+    kind: wait
+    duration: "2h"
+
+  - id: mark_showed
+    kind: update_booking_status
+    booking_id: "{{meeting.id}}"
+    status: showed
+
+edges:
+  - from: trigger
+    to: wait
+  - from: wait
+    to: mark_showed

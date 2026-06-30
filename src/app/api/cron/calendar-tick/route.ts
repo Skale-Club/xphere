@@ -158,7 +158,7 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id, org_id')
       .eq('org_id', wf.org_id)
-      .in('status', ['confirmed', 'completed'] as never)
+      .in('status', ['confirmed', 'completed', 'showed'] as never)
       .gte('end_at', windowStart)
       .lt('end_at', windowEnd)
 

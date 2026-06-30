@@ -738,6 +738,28 @@ export const NODES: NodeSpec[] = [
     },
   },
 
+  // ─── Action | booking status
+  {
+    type: 'update_booking_status',
+    kind: 'action',
+    description: 'Update the status of a booking. Use after service completion to mark a booking as showed.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        booking_id: { type: 'string', description: 'Booking UUID (use {{meeting.id}}).' },
+        status: {
+          type: 'string',
+          enum: ['confirmed', 'cancelled', 'no_show', 'showed'],
+          description: 'New booking status.',
+        },
+      },
+      required: ['booking_id', 'status'],
+    },
+    examples: [
+      { booking_id: '{{meeting.id}}', status: 'showed' },
+    ],
+  },
+
   // ─── Action | contact
   {
     type: 'update_contact',

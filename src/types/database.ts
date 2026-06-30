@@ -4427,7 +4427,7 @@ export interface Database {
           start_at: string
           end_at: string
           notes: string | null
-          status: 'confirmed' | 'cancelled' | 'no_show'
+          status: 'confirmed' | 'cancelled' | 'no_show' | 'showed'
           linked_contact_id: string | null
           cancel_token: string
           created_at: string
@@ -4451,7 +4451,7 @@ export interface Database {
           start_at: string
           end_at: string
           notes?: string | null
-          status?: 'confirmed' | 'cancelled' | 'no_show'
+          status?: 'confirmed' | 'cancelled' | 'no_show' | 'showed'
           linked_contact_id?: string | null
           cancel_token?: string
           created_at?: string
@@ -4472,7 +4472,7 @@ export interface Database {
           start_at?: string
           end_at?: string
           notes?: string | null
-          status?: 'confirmed' | 'cancelled' | 'no_show'
+          status?: 'confirmed' | 'cancelled' | 'no_show' | 'showed'
           linked_contact_id?: string | null
           updated_at?: string
           location_kind?: string | null
