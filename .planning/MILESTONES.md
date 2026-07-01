@@ -1,5 +1,23 @@
 # Milestones
 
+## v3.2 Credits Visibility & Metering Architecture (Shipped: 2026-07-01)
+
+**Stats:** 4 phases, 7 plans, 51 commits, 58 files, +7,712 / −62 lines — single-session (workstream `billing-robustness`, parallel to v3.1)
+
+**Key accomplishments:**
+
+1. **Generic metering interface** — `meterDebit(orgId, reason, costUsd, refId)` replaces the Copilot-specific `debitCopilot`; migration 1225 adds a `reason` tag column on `copilot_credit_ledger` and extends `debit_copilot_credits` to 4 args; Copilot's own debit call site refactored with zero behavior change, verified via a live rolled-back SQL transaction (MET-01..04)
+2. **Credit balance visibility** — `CreditsIndicator` component (Popover + Realtime, cloned from `NotificationBell`'s pattern) in the global `TopBar` and mobile `MobileMenu`; migration 1226 enables Realtime publication on `copilot_credit_balances`; gated by plan (not the enforcement flag) so it's visible today; 3-state visual badge (healthy/low/zero) links to `/settings/billing` (CRB-01..04)
+3. **Billing test coverage** — 48 new/audited tests across `tests/billing-webhook.test.ts` (real HMAC-signed Stripe webhook, all 6 event types, idempotency), `tests/billing-credit-rpcs.test.ts`, `tests/billing-checkout-sessions.test.ts`, and an audit confirming `tests/billing-entitlements-unit.test.ts` already covered precedence (BTC-01..04)
+4. **Billing observability** — Stripe webhook and `meterDebit` failure paths now write to the existing `event_logs` table (sources `stripe-webhook`/`billing-credits`); surfaced via the pre-existing, unmodified `/admin/logs` page — zero new UI needed (BOB-01..03)
+5. **Architecture-first scope** — deliberately did not wire workflows/campaigns/calls to actually debit credits yet; the reusable interface is built and documented so that decision can be made later (deferred as v2 requirements MET-05..08)
+
+**Known gaps:** 5 Phase 115 UI behaviors approved on code/build/test evidence rather than a live browser click-through (cross-machine browser networking limitation, tracked in archived `115-HUMAN-UAT.md`); Supabase CLI auth/migration-history desync needs a separate `supabase login` + `supabase migration repair` pass (migrations 1224-1226 were applied via the Supabase Management API directly and are live/correct, but not reflected in the CLI's local bookkeeping).
+
+**Archives:** [v3.2-ROADMAP.md](milestones/v3.2-ROADMAP.md) | [v3.2-REQUIREMENTS.md](milestones/v3.2-REQUIREMENTS.md) | [v3.2-MILESTONE-AUDIT.md](milestones/v3.2-MILESTONE-AUDIT.md)
+
+---
+
 ## v2.8 Scheduling Hardening (Shipped: 2026-05-19)
 
 **Stats:** 4 phases, 7 plans, 12 commits — closes audit gaps from v2.7 scheduling review
