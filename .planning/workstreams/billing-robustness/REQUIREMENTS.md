@@ -9,7 +9,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Credit Balance Visibility (CRB)
 
-- [ ] **CRB-01**: User sees a persistent credit balance indicator (included + topup) in the global sidebar/header on every dashboard page, when the org's plan includes credits
+- [x] **CRB-01**: User sees a persistent credit balance indicator (included + topup) in the global sidebar/header on every dashboard page, when the org's plan includes credits
 - [x] **CRB-02**: Indicator updates without a full page reload after a debit or top-up (e.g. after a Copilot turn or a top-up purchase)
 - [x] **CRB-03**: Indicator is hidden or shows an appropriate empty state for orgs without a credit-bearing plan
 - [x] **CRB-04**: Indicator shows a distinct visual state (color/badge) when balance is low or zero, and is clickable through to the billing settings page
@@ -62,7 +62,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRB-01 | Phase 115 | Pending |
+| CRB-01 | Phase 115 | Complete |
 | CRB-02 | Phase 115 | Complete |
 | CRB-03 | Phase 115 | Complete |
 | CRB-04 | Phase 115 | Complete |
