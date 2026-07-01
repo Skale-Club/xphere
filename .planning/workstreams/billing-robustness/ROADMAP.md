@@ -9,7 +9,7 @@ Stripe billing, subscriptions, entitlements, and the Copilot credit wallet (incl
 **Phase Numbering:**
 Continues from the prior milestone (v3.1 Websites Lead Ingestion ended at phase 113). This milestone starts at 114.
 
-- [x] **Phase 114: Metering Architecture** - Generic, reason-tagged credit-debit interface; Copilot refactored onto it with no behavior change (completed 2026-07-01)
+- [x] **Phase 114: Metering Architecture** - Generic, reason-tagged credit-debit interface; Copilot refactored onto it with no behavior change (completed 2026-07-01)
 - [ ] **Phase 115: Credit Balance Visibility** - Persistent, live-updating credit balance indicator in the global sidebar/header
 - [ ] **Phase 116: Billing Test Coverage** - Automated tests for Stripe webhooks, entitlements resolution, credit RPCs, and checkout/top-up session creation
 - [ ] **Phase 117: Billing Observability** - Queryable, admin-visible record of webhook and credit-debit failures instead of silent swallowing
@@ -39,8 +39,13 @@ Plans:
   2. After a Copilot turn debits credits, or after a top-up purchase completes, the indicator reflects the new balance without the user reloading the page
   3. An org without a credit-bearing plan sees the indicator hidden, or an appropriate empty state, instead of a broken/zero display
   4. When balance is low or zero, the indicator switches to a distinct visual state (color/badge) and is clickable through to the billing settings page
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 115-01-PLAN.md — Wave 0 tests + pure logic (hasCreditsPlan, getCreditsVisualState, resolveCreditsVisibility) + export toCredits
+- [ ] 115-02-PLAN.md — Migration enabling Realtime publication on copilot_credit_balances
+- [ ] 115-03-PLAN.md — CreditsIndicator component + TopBar/MobileMenu wiring + dashboard layout data resolution (manual checkpoint)
 
 ### Phase 116: Billing Test Coverage
 **Goal**: The billing surface (checkout, webhooks, entitlements, credit RPCs) has an automated regression safety net so future changes — including this milestone's own metering refactor — can be verified without manual Stripe testing.
@@ -71,6 +76,6 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
-| 115. Credit Balance Visibility | 0/TBD | Not started | - |
+| 115. Credit Balance Visibility | 0/3 | Not started | - |
 | 116. Billing Test Coverage | 0/TBD | Not started | - |
 | 117. Billing Observability | 0/TBD | Not started | - |
