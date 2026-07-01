@@ -18,6 +18,8 @@
 
 **Progress:** Phase 116 (Billing Test Coverage) complete 2026-07-01 — 48 new/audited tests across `tests/billing-webhook.test.ts`, `tests/billing-credit-rpcs.test.ts`, `tests/billing-checkout-sessions.test.ts`, `tests/billing-entitlements-unit.test.ts` (BTC-01..04). Real HMAC-signed Stripe webhook testing, RPC wrapper contract coverage.
 
+**Progress:** Phase 117 (Billing Observability) complete 2026-07-01 — Stripe webhook and `meterDebit` failure paths now write to the existing `event_logs` table (source `stripe-webhook`/`billing-credits`); surfaced via the existing `/admin/logs` page with zero new UI (BOB-01..03). All 15/15 v3.2 requirements complete — milestone target phases (114-117) done.
+
 ## Previous: v3.1 Websites Lead Ingestion ✅ Phases complete 2026-06-21 (pending formal close-out)
 
 **Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
