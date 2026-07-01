@@ -62,27 +62,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRB-01 | TBD | Pending |
-| CRB-02 | TBD | Pending |
-| CRB-03 | TBD | Pending |
-| CRB-04 | TBD | Pending |
-| MET-01 | TBD | Pending |
-| MET-02 | TBD | Pending |
-| MET-03 | TBD | Pending |
-| MET-04 | TBD | Pending |
-| BTC-01 | TBD | Pending |
-| BTC-02 | TBD | Pending |
-| BTC-03 | TBD | Pending |
-| BTC-04 | TBD | Pending |
-| BOB-01 | TBD | Pending |
-| BOB-02 | TBD | Pending |
-| BOB-03 | TBD | Pending |
+| CRB-01 | Phase 115 | Pending |
+| CRB-02 | Phase 115 | Pending |
+| CRB-03 | Phase 115 | Pending |
+| CRB-04 | Phase 115 | Pending |
+| MET-01 | Phase 114 | Pending |
+| MET-02 | Phase 114 | Pending |
+| MET-03 | Phase 114 | Pending |
+| MET-04 | Phase 114 | Pending |
+| BTC-01 | Phase 116 | Pending |
+| BTC-02 | Phase 116 | Pending |
+| BTC-03 | Phase 116 | Pending |
+| BTC-04 | Phase 116 | Pending |
+| BOB-01 | Phase 117 | Pending |
+| BOB-02 | Phase 117 | Pending |
+| BOB-03 | Phase 117 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15/15 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-01*
-*Last updated: 2026-07-01 after initial definition*
+*Last updated: 2026-07-01 after roadmap creation (phases 114-117)*
