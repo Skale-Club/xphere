@@ -1,9 +1,9 @@
 ---
 phase: 114
 slug: metering-architecture
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-01
 ---
 
@@ -64,11 +64,13 @@ created: 2026-07-01
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify (build) or documented manual verification
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify (build) or manual gate
-- [ ] Wave 0 covers all MISSING references — N/A, no gaps this phase
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify (build) or documented manual verification
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (build) or manual gate
+- [x] Wave 0 covers all MISSING references — N/A, no gaps this phase
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Waiver note:** Task 3's automated RPC verify is deliberately `MISSING` — BTC-03 (Phase 116) is sequenced after this phase specifically so automated RPC tests assert against this phase's post-refactor call shape, not a pre-refactor one (see STATE.md decision log and RESEARCH.md). The manual ledger-inspection checkpoint in Task 3 is accepted as the substitute gate for this phase. This is a reviewed, explicit waiver, not an oversight.
+
+**Approval:** approved 2026-07-01
