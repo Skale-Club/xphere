@@ -11,7 +11,7 @@ Continues from the prior milestone (v3.1 Websites Lead Ingestion ended at phase 
 
 - [x] **Phase 114: Metering Architecture** - Generic, reason-tagged credit-debit interface; Copilot refactored onto it with no behavior change (completed 2026-07-01)
 - [x] **Phase 115: Credit Balance Visibility** - Persistent, live-updating credit balance indicator in the global sidebar/header (completed 2026-07-01)
-- [x] **Phase 116: Billing Test Coverage** - Automated tests for Stripe webhooks, entitlements resolution, credit RPCs, and checkout/top-up session creation (completed 2026-07-01)
+- [x] **Phase 116: Billing Test Coverage** - Automated tests for Stripe webhooks, entitlements resolution, credit RPCs, and checkout/top-up session creation (completed 2026-07-01)
 - [ ] **Phase 117: Billing Observability** - Queryable, admin-visible record of webhook and credit-debit failures instead of silent swallowing
 
 ## Phase Details
@@ -70,7 +70,10 @@ Plans:
   1. A Stripe webhook event that errors during processing is recorded somewhere queryable/alertable instead of disappearing after a caught exception
   2. A credit-debit RPC call that fails is recorded distinctly from the platform's existing fail-open behavior — the failure is visible even though the user-facing action still succeeded
   3. Platform admin can open an admin-panel view and see recent billing failures (both webhook and debit) without running a manual database query
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 117-01-PLAN.md — Wire Stripe webhook + meterDebit failure paths to event_logs via existing log() helper, extend both Phase 116 test files, document BOB-03 manual check against existing /admin/logs
 
 ## Progress
 
@@ -82,4 +85,4 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
 | 115. Credit Balance Visibility | 3/3 | Complete   | 2026-07-01 |
 | 116. Billing Test Coverage | 2/2 | Complete   | 2026-07-01 |
-| 117. Billing Observability | 0/TBD | Not started | - |
+| 117. Billing Observability | 0/1 | Not started | - |
