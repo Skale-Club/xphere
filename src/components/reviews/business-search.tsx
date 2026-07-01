@@ -73,7 +73,7 @@ export function BusinessSearch({ hasApiKey, currentPlaceId, onSelected }: Busine
   return (
     <div className="space-y-4">
       <form onSubmit={handleSearch} className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
+        <div className="grid gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="biz-query" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Business name
@@ -109,7 +109,7 @@ export function BusinessSearch({ hasApiKey, currentPlaceId, onSelected }: Busine
       </form>
 
       {results.length > 0 ? (
-        <ul className="divide-y rounded-lg border bg-card">
+        <ul className="max-h-64 divide-y overflow-y-auto rounded-lg border bg-card">
           {results.map((place) => {
             const isCurrent = place.place_id === currentPlaceId
             const isSelected = place.place_id === selectedId
