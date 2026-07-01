@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { getCreditsVisualState } from '@/lib/billing/credits'
+import { getCreditsVisualState } from '@/lib/billing/credits-visibility'
 import { toCredits } from '@/components/billing/credits-card'
 
 interface CreditsIndicatorProps {

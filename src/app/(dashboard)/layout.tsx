@@ -29,6 +29,7 @@ import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
 import { isBillingEnforced } from '@/lib/billing/config'
 import { getEntitlements } from '@/lib/billing/entitlements'
+import { resolveCreditsVisibility } from '@/lib/billing/credits'
 import { shouldBlockForBilling } from '@/lib/billing/guards'
 import { PLAN_CATALOG } from '@/lib/billing/catalog'
 import { BillingPaywall } from '@/components/billing/billing-paywall'
@@ -79,6 +80,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .filter((p) => p.purchasable)
         .map((p) => ({ key: p.key, name: p.name, features: [...p.features] }))
     : []
+
+  // Credit balance visibility (CRB-01..04): resolved independently of
+  // isBillingEnforced() so the indicator is visible today even with
+  // enforcement off — see CONTEXT.md Visibility Gating decision.
+  let copilotBalance: { includedUsd: number; topupUsd: number; totalUsd: number; includedAllowanceUsd: number } | null = null
+  let hasCreditsPlan = false
+  if (activeOrgId) {
+    try {
+      const visibility = await resolveCreditsVisibility(activeOrgId)
+      copilotBalance = {
+        includedUsd: visibility.balance.includedUsd,
+        topupUsd: visibility.balance.topupUsd,
+        totalUsd: visibility.balance.totalUsd,
+        includedAllowanceUsd: visibility.balance.includedAllowanceUsd,
+      }
+      hasCreditsPlan = visibility.hasCreditsPlan
+    } catch (err) {
+      console.error('[billing] resolveCreditsVisibility failed in dashboard layout:', err)
+      copilotBalance = null
+      hasCreditsPlan = false
+    }
+  }
 
   // RBAC: which nav items this user may see. null = unrestricted (Owner /
   // platform / unconfigured org). Fail open on error — RLS still guards data.
@@ -219,6 +242,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
                       isPlatformAdmin={isPlatformAdmin}
                       userId={user.id}
                       hasPhoneNumber={hasPhoneNumber}
+                      hasCreditsPlan={hasCreditsPlan}
+                      copilotBalance={copilotBalance}
                     />
                     <div className="flex-1 min-h-0">
                       <PageTransition>

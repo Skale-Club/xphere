@@ -7,6 +7,13 @@
 // (get_current_org_id), never a client-supplied value.
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { hasCreditsPlan, getCreditsVisualState } from '@/lib/billing/credits-visibility'
+
+// Re-exported for existing callers/tests importing from this module's path —
+// the actual implementations live in credits-visibility.ts (no 'server-only'
+// import) so the client-side CreditsIndicator component can import them
+// directly without pulling this server-only wallet facade into its bundle.
+export { hasCreditsPlan, getCreditsVisualState }
 
 /**
  * Feature/reason tag for a metered credit debit. Every debit through
@@ -77,48 +84,6 @@ export async function getCopilotBalance(orgId: string): Promise<CopilotBalance> 
 export async function hasCopilotCredits(orgId: string): Promise<boolean> {
   const { totalUsd } = await getCopilotBalance(orgId)
   return totalUsd > 0
-}
-
-/**
- * Pure decision: does this org have "a credits plan" for CRB-03 visibility
- * purposes? True if EITHER the org's resolved plan grants a nonzero monthly
- * Copilot allowance, OR the org's wallet has already been provisioned with a
- * nonzero allowance, OR the org has any spendable balance at all (e.g.
- * topup-only credits with no plan allowance). False only when none of these
- * hold — i.e. no billing relationship of any kind.
- *
- * Deliberately does NOT depend on isBillingEnforced() — see RESEARCH.md
- * Pitfall 1 and CONTEXT.md's Visibility Gating decision. Exported standalone
- * (not just inlined in resolveCreditsVisibility) so it is unit-testable
- * without mocking any IO.
- */
-export function hasCreditsPlan(input: {
-  planCopilotIncludedUsd: number
-  balanceIncludedAllowanceUsd: number
-  balanceTotalUsd: number
-}): boolean {
-  return (
-    input.planCopilotIncludedUsd > 0 ||
-    input.balanceIncludedAllowanceUsd > 0 ||
-    input.balanceTotalUsd > 0
-  )
-}
-
-/**
- * 3-state visual threshold for the CRB-04 credit balance indicator, per
- * UI-SPEC.md's Color section: healthy / low / zero, driven by totalUsd
- * relative to includedAllowanceUsd at a 20% threshold. When
- * includedAllowanceUsd is 0 ("no allowance concept applies" — e.g.
- * topup-only orgs), any positive balance is healthy; only a
- * zero-or-negative balance is the zero state.
- */
-export function getCreditsVisualState(
-  totalUsd: number,
-  includedAllowanceUsd: number,
-): 'healthy' | 'low' | 'zero' {
-  if (totalUsd <= 0) return 'zero'
-  if (includedAllowanceUsd > 0 && totalUsd <= 0.2 * includedAllowanceUsd) return 'low'
-  return 'healthy'
 }
 
 /**
