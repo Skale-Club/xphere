@@ -1,6 +1,18 @@
 # Operator
 
-## Current Milestone: v3.1 Websites Lead Ingestion
+## Current Milestone: v3.2 Credits Visibility & Metering Architecture
+
+**Goal:** Make credit balance visible across the platform and establish a reusable credit-metering architecture that other features can plug into later, backed by test coverage and failure observability.
+
+**Target features:**
+- Persistent credit balance indicator in the global sidebar/header (visible whenever the org's plan includes credits)
+- Generic, reason/feature-tagged credit-debit architecture that workflows/campaigns/calls can plug into later without redesign — no live debit wired for those features yet, Copilot remains the only debiting feature
+- Automated test coverage for billing: checkout, Stripe webhook handling, entitlements resolution, credit debit/credit RPCs
+- Observability/alerting for billing failures: Stripe webhook failures and silent credit-debit failures
+
+**Workstream:** `billing-robustness` (parallel to `v31-websites-lead-ingestion`, which has completed all 3 phases as of 2026-06-21 but is still pending formal `/gsd:complete-milestone` close-out)
+
+## Previous: v3.1 Websites Lead Ingestion ✅ Phases complete 2026-06-21 (pending formal close-out)
 
 **Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
 
@@ -11,6 +23,8 @@
 - Create or update the correct CRM contact without overwriting richer tenant-managed data
 - Emit `lead.captured` for every accepted submission and `contact.created` only for new contacts
 - Publish integration validation and public API documentation for the sibling Websites product
+
+**Note:** All 3 phases (111-113) completed per `workstreams/v31-websites-lead-ingestion/STATE.md`; run `/gsd:complete-milestone --ws v31-websites-lead-ingestion` to archive formally when convenient.
 
 ## What This Is
 
@@ -287,6 +301,7 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Unified Calls Hub: `unified_calls` VIEW, `/calls` timeline with AI+Human filter, tabs sub-routes, detail variants — v2.7 (CALL-01..10)
 - Pipeline UX: OpportunityDetailSheet with edit mode, DnD click/drag fix, same-column kanban reorder — v2.7 (PIPE-01..08)
 - Scheduling Hardening: partial unique index, rate limiter, Resend booker emails, custom fields integration, 14 tests — v2.8 (SCHED-01..12)
+- Stripe billing foundation (customers/subscriptions/webhook idempotency), trial + manual plan override, Copilot credit wallet (included + topup buckets, ledger, atomic RPCs), checkout + top-up sessions, entitlements resolution, settings/billing UI — shipped out-of-band across v2.8-v3.0 without dedicated REQ-IDs; hardened starting v3.2
 
 ### Backlog (next milestone candidates)
 
@@ -303,7 +318,6 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Voice processing (STT/TTS) — handled by Vapi
 - Assistant configuration — handled in Vapi
 - LLM conversation logic for Vapi flows — handled by Vapi
-- Payment and billing — outside current scope
 - Mobile app
 - OAuth/social login
 - White-label branding
@@ -376,4 +390,4 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-*Last updated: 2026-05-21 — v3.0 Workflow Runtime Hardening started.*
+*Last updated: 2026-07-01 — v3.2 Credits Visibility & Metering Architecture started (workstream `billing-robustness`).*
