@@ -79,6 +79,109 @@ export async function hasCopilotCredits(orgId: string): Promise<boolean> {
   return totalUsd > 0
 }
 
+/**
+ * Pure decision: does this org have "a credits plan" for CRB-03 visibility
+ * purposes? True if EITHER the org's resolved plan grants a nonzero monthly
+ * Copilot allowance, OR the org's wallet has already been provisioned with a
+ * nonzero allowance, OR the org has any spendable balance at all (e.g.
+ * topup-only credits with no plan allowance). False only when none of these
+ * hold — i.e. no billing relationship of any kind.
+ *
+ * Deliberately does NOT depend on isBillingEnforced() — see RESEARCH.md
+ * Pitfall 1 and CONTEXT.md's Visibility Gating decision. Exported standalone
+ * (not just inlined in resolveCreditsVisibility) so it is unit-testable
+ * without mocking any IO.
+ */
+export function hasCreditsPlan(input: {
+  planCopilotIncludedUsd: number
+  balanceIncludedAllowanceUsd: number
+  balanceTotalUsd: number
+}): boolean {
+  return (
+    input.planCopilotIncludedUsd > 0 ||
+    input.balanceIncludedAllowanceUsd > 0 ||
+    input.balanceTotalUsd > 0
+  )
+}
+
+/**
+ * 3-state visual threshold for the CRB-04 credit balance indicator, per
+ * UI-SPEC.md's Color section: healthy / low / zero, driven by totalUsd
+ * relative to includedAllowanceUsd at a 20% threshold. When
+ * includedAllowanceUsd is 0 ("no allowance concept applies" — e.g.
+ * topup-only orgs), any positive balance is healthy; only a
+ * zero-or-negative balance is the zero state.
+ */
+export function getCreditsVisualState(
+  totalUsd: number,
+  includedAllowanceUsd: number,
+): 'healthy' | 'low' | 'zero' {
+  if (totalUsd <= 0) return 'zero'
+  if (includedAllowanceUsd > 0 && totalUsd <= 0.2 * includedAllowanceUsd) return 'low'
+  return 'healthy'
+}
+
+/**
+ * Server-side resolution combining the org's effective plan (via the same
+ * pure resolveEffectivePlan() precedence entitlements.ts uses) with its
+ * current wallet balance, to answer CRB-03's visibility gate WITHOUT
+ * depending on isBillingEnforced(). Intended call site: (dashboard)/layout.tsx,
+ * alongside (not replacing) the existing entitlements resolution.
+ */
+export async function resolveCreditsVisibility(
+  orgId: string,
+): Promise<{ balance: CopilotBalance; hasCreditsPlan: boolean }> {
+  const { resolveEffectivePlan } = await import('./entitlements')
+  const { getPlan } = await import('./catalog')
+  const { createClient } = await import('@/lib/supabase/server')
+
+  const balance = await getCopilotBalance(orgId)
+
+  try {
+    const supabase = await createClient()
+    const [{ data: org }, { data: subs }] = await Promise.all([
+      supabase
+        .from('organizations')
+        .select('trial_ends_at, plan_override')
+        .eq('id', orgId)
+        .maybeSingle(),
+      supabase
+        .from('billing_subscriptions')
+        .select('status, stripe_price_id, created_at')
+        .order('created_at', { ascending: false }),
+    ])
+    const liveSub =
+      subs?.find((s) => ['active', 'trialing', 'past_due'].includes(s.status)) ?? null
+    const eff = resolveEffectivePlan({
+      planOverride: org?.plan_override ?? null,
+      subscription: liveSub
+        ? { status: liveSub.status, stripePriceId: liveSub.stripe_price_id }
+        : null,
+      trialEndsAt: org?.trial_ends_at ?? null,
+      now: new Date(),
+    })
+    const plan = getPlan(eff.planKey)
+    return {
+      balance,
+      hasCreditsPlan: hasCreditsPlan({
+        planCopilotIncludedUsd: plan?.copilotIncludedUsd ?? 0,
+        balanceIncludedAllowanceUsd: balance.includedAllowanceUsd,
+        balanceTotalUsd: balance.totalUsd,
+      }),
+    }
+  } catch (err) {
+    console.error('[billing] resolveCreditsVisibility failed; falling back to balance-only check:', err)
+    return {
+      balance,
+      hasCreditsPlan: hasCreditsPlan({
+        planCopilotIncludedUsd: 0,
+        balanceIncludedAllowanceUsd: balance.includedAllowanceUsd,
+        balanceTotalUsd: balance.totalUsd,
+      }),
+    }
+  }
+}
+
 export interface CreditLedgerEntry {
   id: string
   kind: string
