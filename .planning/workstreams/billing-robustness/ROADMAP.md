@@ -25,7 +25,10 @@ Continues from the prior milestone (v3.1 Websites Lead Ingestion ended at phase 
   2. Every credit ledger entry written through this interface records which feature/reason triggered it, visible when inspecting the ledger table
   3. The existing Copilot debit call site is refactored to call through this interface, and Copilot's debiting behavior (draw-down order, insufficient-balance handling, ledger writes) is unchanged from before the refactor
   4. A code comment or short doc alongside the interface explains what a new feature must do to hook into metering (what tag to use, what the interface returns/throws)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 114-01-PLAN.md — Add reason column + generic meterDebit() interface, refactor Copilot call site, manual verification
 
 ### Phase 115: Credit Balance Visibility
 **Goal**: Users can see their org's credit balance at a glance from anywhere in the dashboard, with it staying current and guiding them toward billing when it matters.
@@ -67,7 +70,7 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 114. Metering Architecture | 0/TBD | Not started | - |
+| 114. Metering Architecture | 0/1 | Not started | - |
 | 115. Credit Balance Visibility | 0/TBD | Not started | - |
 | 116. Billing Test Coverage | 0/TBD | Not started | - |
 | 117. Billing Observability | 0/TBD | Not started | - |
