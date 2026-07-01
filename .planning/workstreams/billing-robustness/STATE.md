@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 116-01-PLAN.md (Stripe webhook handler test coverage, BTC-01)
-last_updated: "2026-07-01T16:01:49.552Z"
+stopped_at: Completed 117-01-PLAN.md (Billing observability wiring, BOB-01/02/03)
+last_updated: "2026-07-01T16:43:28.051Z"
 last_activity: 2026-07-01
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-01)
 
 **Core value:** The Action Engine must work — when an AI assistant triggers a tool during a live interaction, the platform must identify the tenant, execute the business logic, and return a result fast enough for production flows.
-**Current focus:** Phase 116 — Billing Test Coverage
+**Current focus:** Phase 117 — Billing Observability
 
 ## Current Position
 
-Phase: 116 (Billing Test Coverage) — EXECUTING
-Plan: 2 of 2
+Phase: 117 (Billing Observability) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-07-01
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 | Phase 115-credit-balance-visibility P03 | 27min | 4 tasks | 5 files |
 | Phase 116 P02 | 13min | 3 tasks | 3 files |
 | Phase 116 P01 | 25min | 2 tasks | 1 files |
+| Phase 117 P01 | 25min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - [Phase 116]: [Phase 116 P02]: Task 1 test file scopes explicitly to RPC-wrapper call-contract testing (not Postgres function execution) per the Open Question 1 honesty pattern from RESEARCH.md
 - [Phase 116]: [Phase 116 P02]: Audited tests/billing-entitlements-unit.test.ts for BTC-02 and confirmed all four precedence levels already covered -- added only a traceability comment, zero test logic changes
 - [Phase 116]: [Phase 116 P01]: getStripe() mock must expose a real, delegated webhooks.constructEvent (not just subscriptions.retrieve) since the route calls getStripe().webhooks.constructEvent() directly for signature verification -- introduced buildFakeStripe(retrieve) helper to keep real HMAC signing intact while mocking subscriptions.retrieve per test
+- [Phase 117]: [Phase 117]: Fixed (Rule 1) error-message extraction in meterDebit() to also read .message from Supabase RPC error objects, not just native Error instances -- otherwise error_message logged as [object Object]
 
 ### Pending Todos
 
@@ -85,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-01T16:01:49.545Z
-Stopped at: Completed 116-01-PLAN.md (Stripe webhook handler test coverage, BTC-01)
+Last session: 2026-07-01T16:43:28.039Z
+Stopped at: Completed 117-01-PLAN.md (Billing observability wiring, BOB-01/02/03)
 Resume file: None

@@ -30,9 +30,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Billing Observability (BOB)
 
-- [ ] **BOB-01**: A failed/errored Stripe webhook event is recorded in a queryable/alertable way instead of being silently swallowed
-- [ ] **BOB-02**: A failed credit-debit RPC call is recorded distinctly from the existing fail-open behavior instead of disappearing silently
-- [ ] **BOB-03**: Platform admin can see recent billing failures (webhook + debit) without querying the database directly
+- [x] **BOB-01**: A failed/errored Stripe webhook event is recorded in a queryable/alertable way instead of being silently swallowed
+- [x] **BOB-02**: A failed credit-debit RPC call is recorded distinctly from the existing fail-open behavior instead of disappearing silently
+- [x] **BOB-03**: Platform admin can see recent billing failures (webhook + debit) without querying the database directly
 
 ## v2 Requirements
 
@@ -74,9 +74,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BTC-02 | Phase 116 | Complete |
 | BTC-03 | Phase 116 | Complete |
 | BTC-04 | Phase 116 | Complete |
-| BOB-01 | Phase 117 | Pending |
-| BOB-02 | Phase 117 | Pending |
-| BOB-03 | Phase 117 | Pending |
+| BOB-01 | Phase 117 | Complete |
+| BOB-02 | Phase 117 | Complete |
+| BOB-03 | Phase 117 | Complete |
 
 **Coverage:**
 - v1 requirements: 15 total
