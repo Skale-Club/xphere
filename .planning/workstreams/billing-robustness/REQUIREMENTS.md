@@ -16,10 +16,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Metering Architecture (MET)
 
-- [ ] **MET-01**: Platform has a single reusable credit-debit interface accepting a feature/reason tag (e.g. `copilot_turn`, future `workflow_run`)
-- [ ] **MET-02**: Credit ledger entries record which feature/reason triggered each debit, for auditability across future feature types
-- [ ] **MET-03**: Existing Copilot debit path is refactored to call through the new generic interface with no behavior change
-- [ ] **MET-04**: Documentation/code comment describes how a new feature should hook into the metering interface
+- [x] **MET-01**: Platform has a single reusable credit-debit interface accepting a feature/reason tag (e.g. `copilot_turn`, future `workflow_run`)
+- [x] **MET-02**: Credit ledger entries record which feature/reason triggered each debit, for auditability across future feature types
+- [x] **MET-03**: Existing Copilot debit path is refactored to call through the new generic interface with no behavior change
+- [x] **MET-04**: Documentation/code comment describes how a new feature should hook into the metering interface
 
 ### Billing Test Coverage (BTC)
 
@@ -66,10 +66,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CRB-02 | Phase 115 | Pending |
 | CRB-03 | Phase 115 | Pending |
 | CRB-04 | Phase 115 | Pending |
-| MET-01 | Phase 114 | Pending |
-| MET-02 | Phase 114 | Pending |
-| MET-03 | Phase 114 | Pending |
-| MET-04 | Phase 114 | Pending |
+| MET-01 | Phase 114 | Complete |
+| MET-02 | Phase 114 | Complete |
+| MET-03 | Phase 114 | Complete |
+| MET-04 | Phase 114 | Complete |
 | BTC-01 | Phase 116 | Pending |
 | BTC-02 | Phase 116 | Pending |
 | BTC-03 | Phase 116 | Pending |
