@@ -12,9 +12,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/supabase/admin', () => ({ createServiceRoleClient: vi.fn() }))
+vi.mock('@/lib/logger', () => ({ log: vi.fn() }))
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { meterDebit, grantCopilot, resetCopilotForPeriod } from '@/lib/billing/credits'
+import { log } from '@/lib/logger'
 
 let rpcSpy: ReturnType<typeof vi.fn>
 
@@ -65,6 +67,17 @@ describe('meterDebit — dual-bucket draw-down (via debit_copilot_credits RPC)',
     const result = await meterDebit('org-1', 'copilot_turn', 5, 'run-123')
 
     expect(result).toEqual({ allowed: true, balanceAfter: 0 })
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'credit_debit.failed',
+        source: 'billing-credits',
+        severity: 'error',
+        status: 'failed',
+        org_id: 'org-1',
+        actor_type: 'system',
+        error_message: 'db exploded',
+      }),
+    )
   })
 
   it('fails OPEN when the RPC call itself rejects (throws)', async () => {
@@ -75,6 +88,17 @@ describe('meterDebit — dual-bucket draw-down (via debit_copilot_credits RPC)',
     const result = await meterDebit('org-1', 'copilot_turn', 5, 'run-123')
 
     expect(result).toEqual({ allowed: true, balanceAfter: 0 })
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'credit_debit.failed',
+        source: 'billing-credits',
+        severity: 'error',
+        status: 'failed',
+        org_id: 'org-1',
+        actor_type: 'system',
+        error_message: 'network exploded',
+      }),
+    )
   })
 })
 

@@ -8,6 +8,7 @@
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { hasCreditsPlan, getCreditsVisualState } from '@/lib/billing/credits-visibility'
+import { log } from '@/lib/logger'
 
 // Re-exported for existing callers/tests importing from this module's path —
 // the actual implementations live in credits-visibility.ts (no 'server-only'
@@ -207,7 +208,23 @@ export async function meterDebit(
     const res = (data ?? {}) as { allowed?: boolean; balance_after?: number }
     return { allowed: res.allowed ?? true, balanceAfter: Number(res.balance_after ?? 0) }
   } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : String(err)
     console.error('[billing] meterDebit failed (failing open):', err)
+    void log({
+      event_type: 'credit_debit.failed',
+      source: 'billing-credits',
+      severity: 'error',
+      status: 'failed',
+      org_id: orgId,
+      actor_type: 'system',
+      error_message: message,
+      payload: { reason, cost_usd: costUsd, ref_id: refId ?? null },
+    })
     return { allowed: true, balanceAfter: 0 }
   }
 }
