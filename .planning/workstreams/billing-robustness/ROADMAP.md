@@ -60,7 +60,7 @@ Plans:
 
 Plans:
 - [ ] 116-01-PLAN.md — Stripe webhook handler coverage (signature verification, all 6 event types, idempotency)
-- [ ] 116-02-PLAN.md — Credit RPC wrapper tests, checkout/topup session tests, entitlements precedence audit
+- [x] 116-02-PLAN.md — Credit RPC wrapper tests, checkout/topup session tests, entitlements precedence audit
 
 ### Phase 117: Billing Observability
 **Goal**: When billing fails — a Stripe webhook errors, or a credit debit silently fails open — the platform admin can see it happened without querying the database directly.
@@ -81,5 +81,5 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 |-------|----------------|--------|-----------|
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
 | 115. Credit Balance Visibility | 3/3 | Complete   | 2026-07-01 |
-| 116. Billing Test Coverage | 0/2 | Not started | - |
+| 116. Billing Test Coverage | 1/2 | In Progress|  |
 | 117. Billing Observability | 0/TBD | Not started | - |

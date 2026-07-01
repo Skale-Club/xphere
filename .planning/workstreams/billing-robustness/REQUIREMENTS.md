@@ -24,9 +24,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Billing Test Coverage (BTC)
 
 - [ ] **BTC-01**: Automated tests cover the Stripe webhook handler (checkout.session.completed, subscription created/updated/deleted, invoice events) including idempotency
-- [ ] **BTC-02**: Automated tests cover entitlements resolution precedence (plan_override > subscription > trial > none)
-- [ ] **BTC-03**: Automated tests cover the credit debit/credit RPCs (dual-bucket draw-down order, ledger entry creation, insufficient-balance behavior)
-- [ ] **BTC-04**: Automated tests cover checkout session and top-up session creation (correct metadata, correct price IDs)
+- [x] **BTC-02**: Automated tests cover entitlements resolution precedence (plan_override > subscription > trial > none)
+- [x] **BTC-03**: Automated tests cover the credit debit/credit RPCs (dual-bucket draw-down order, ledger entry creation, insufficient-balance behavior)
+- [x] **BTC-04**: Automated tests cover checkout session and top-up session creation (correct metadata, correct price IDs)
 
 ### Billing Observability (BOB)
 
@@ -71,9 +71,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MET-03 | Phase 114 | Complete |
 | MET-04 | Phase 114 | Complete |
 | BTC-01 | Phase 116 | Pending |
-| BTC-02 | Phase 116 | Pending |
-| BTC-03 | Phase 116 | Pending |
-| BTC-04 | Phase 116 | Pending |
+| BTC-02 | Phase 116 | Complete |
+| BTC-03 | Phase 116 | Complete |
+| BTC-04 | Phase 116 | Complete |
 | BOB-01 | Phase 117 | Pending |
 | BOB-02 | Phase 117 | Pending |
 | BOB-03 | Phase 117 | Pending |

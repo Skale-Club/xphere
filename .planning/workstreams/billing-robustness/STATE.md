@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 115-03-PLAN.md (CreditsIndicator + TopBar/MobileMenu wiring + layout resolution)
-last_updated: "2026-07-01T15:17:53.578Z"
+status: executing
+stopped_at: Completed 116-02-PLAN.md (credit RPC wrapper + checkout session tests + BTC-02 audit)
+last_updated: "2026-07-01T16:00:34.148Z"
 last_activity: 2026-07-01
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 0
+  total_plans: 6
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-01)
 
 **Core value:** The Action Engine must work — when an AI assistant triggers a tool during a live interaction, the platform must identify the tenant, execute the business logic, and return a result fast enough for production flows.
-**Current focus:** Phase 115 — Credit Balance Visibility
+**Current focus:** Phase 116 — Billing Test Coverage
 
 ## Current Position
 
-Phase: 115 (Credit Balance Visibility) — COMPLETE
-Plan: 3 of 3 (all plans complete)
-Status: Phase complete — ready for verification
+Phase: 116 (Billing Test Coverage) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-07-01
 
 Progress: [██████████] 100%
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 115 P02 | 15 | 1 tasks | 1 files |
 | Phase 115 P01 | 25 | 2 tasks | 4 files |
 | Phase 115-credit-balance-visibility P03 | 27min | 4 tasks | 5 files |
+| Phase 116 P02 | 13min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 115]: resolveCreditsVisibility uses dynamic import() for entitlements/catalog/supabase-server to keep pure exports (hasCreditsPlan, getCreditsVisualState) safely testable in Vitest node environment without pulling in server-only transitive deps
 - [Phase 115-credit-balance-visibility]: [Phase 115]: Extracted hasCreditsPlan/getCreditsVisualState out of credits.ts (which has a top-level import 'server-only') into a new client-safe module, src/lib/billing/credits-visibility.ts, after the production build failed with a server-only bundling error the moment the client CreditsIndicator component imported from credits.ts. credits.ts now re-exports both names for backward compatibility with existing tests and (dashboard)/layout.tsx.
 - [Phase 115-credit-balance-visibility]: [Phase 115]: Task 4's manual checkpoint was approved by the user based on code/build/test review rather than a live clicked-through browser session (Chrome extension could not reach localhost:4267 cross-machine) -- flagged as a Known Gap in the SUMMARY, not a full manual verification.
+- [Phase 116]: [Phase 116 P02]: Task 1 test file scopes explicitly to RPC-wrapper call-contract testing (not Postgres function execution) per the Open Question 1 honesty pattern from RESEARCH.md
+- [Phase 116]: [Phase 116 P02]: Audited tests/billing-entitlements-unit.test.ts for BTC-02 and confirmed all four precedence levels already covered -- added only a traceability comment, zero test logic changes
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-01T15:17:44.282Z
-Stopped at: Completed 115-03-PLAN.md (CreditsIndicator + TopBar/MobileMenu wiring + layout resolution)
+Last session: 2026-07-01T16:00:34.142Z
+Stopped at: Completed 116-02-PLAN.md (credit RPC wrapper + checkout session tests + BTC-02 audit)
 Resume file: None
