@@ -11,7 +11,7 @@ Continues from the prior milestone (v3.1 Websites Lead Ingestion ended at phase 
 
 - [x] **Phase 114: Metering Architecture** - Generic, reason-tagged credit-debit interface; Copilot refactored onto it with no behavior change (completed 2026-07-01)
 - [x] **Phase 115: Credit Balance Visibility** - Persistent, live-updating credit balance indicator in the global sidebar/header (completed 2026-07-01)
-- [ ] **Phase 116: Billing Test Coverage** - Automated tests for Stripe webhooks, entitlements resolution, credit RPCs, and checkout/top-up session creation
+- [x] **Phase 116: Billing Test Coverage** - Automated tests for Stripe webhooks, entitlements resolution, credit RPCs, and checkout/top-up session creation (completed 2026-07-01)
 - [ ] **Phase 117: Billing Observability** - Queryable, admin-visible record of webhook and credit-debit failures instead of silent swallowing
 
 ## Phase Details
@@ -59,7 +59,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 116-01-PLAN.md — Stripe webhook handler coverage (signature verification, all 6 event types, idempotency)
+- [x] 116-01-PLAN.md — Stripe webhook handler coverage (signature verification, all 6 event types, idempotency)
 - [x] 116-02-PLAN.md — Credit RPC wrapper tests, checkout/topup session tests, entitlements precedence audit
 
 ### Phase 117: Billing Observability
@@ -81,5 +81,5 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 |-------|----------------|--------|-----------|
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
 | 115. Credit Balance Visibility | 3/3 | Complete   | 2026-07-01 |
-| 116. Billing Test Coverage | 1/2 | In Progress|  |
+| 116. Billing Test Coverage | 2/2 | Complete   | 2026-07-01 |
 | 117. Billing Observability | 0/TBD | Not started | - |

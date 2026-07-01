@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
-status: executing
-stopped_at: Completed 116-02-PLAN.md (credit RPC wrapper + checkout session tests + BTC-02 audit)
-last_updated: "2026-07-01T16:00:34.148Z"
+status: verifying
+stopped_at: Completed 116-01-PLAN.md (Stripe webhook handler test coverage, BTC-01)
+last_updated: "2026-07-01T16:01:49.552Z"
 last_activity: 2026-07-01
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-01)
 
 Phase: 116 (Billing Test Coverage) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-01
 
 Progress: [██████████] 100%
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 115 P01 | 25 | 2 tasks | 4 files |
 | Phase 115-credit-balance-visibility P03 | 27min | 4 tasks | 5 files |
 | Phase 116 P02 | 13min | 3 tasks | 3 files |
+| Phase 116 P01 | 25min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Recent decisions affecting current work:
 - [Phase 115-credit-balance-visibility]: [Phase 115]: Task 4's manual checkpoint was approved by the user based on code/build/test review rather than a live clicked-through browser session (Chrome extension could not reach localhost:4267 cross-machine) -- flagged as a Known Gap in the SUMMARY, not a full manual verification.
 - [Phase 116]: [Phase 116 P02]: Task 1 test file scopes explicitly to RPC-wrapper call-contract testing (not Postgres function execution) per the Open Question 1 honesty pattern from RESEARCH.md
 - [Phase 116]: [Phase 116 P02]: Audited tests/billing-entitlements-unit.test.ts for BTC-02 and confirmed all four precedence levels already covered -- added only a traceability comment, zero test logic changes
+- [Phase 116]: [Phase 116 P01]: getStripe() mock must expose a real, delegated webhooks.constructEvent (not just subscriptions.retrieve) since the route calls getStripe().webhooks.constructEvent() directly for signature verification -- introduced buildFakeStripe(retrieve) helper to keep real HMAC signing intact while mocking subscriptions.retrieve per test
 
 ### Pending Todos
 
@@ -83,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-01T16:00:34.142Z
-Stopped at: Completed 116-02-PLAN.md (credit RPC wrapper + checkout session tests + BTC-02 audit)
+Last session: 2026-07-01T16:01:49.545Z
+Stopped at: Completed 116-01-PLAN.md (Stripe webhook handler test coverage, BTC-01)
 Resume file: None
