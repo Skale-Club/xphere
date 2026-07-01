@@ -8,6 +8,31 @@
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
+/**
+ * Feature/reason tag for a metered credit debit. Every debit through
+ * `meterDebit()` is tagged with one of these so the ledger records which
+ * feature consumed the credit (see the `reason` column on
+ * copilot_credit_ledger, migration 1225).
+ *
+ * TO HOOK IN A NEW FEATURE:
+ *   1. Add your tag to this union (e.g. 'workflow_run').
+ *   2. Call `meterDebit(orgId, 'your_tag', costUsd, refId)` after the cost
+ *      is incurred (never before — this is a post-hoc debit, not a
+ *      pre-check; gate the action separately with getCopilotBalance/
+ *      hasCopilotCredits if you need to block before running).
+ *   3. `meterDebit` fails OPEN: a wallet/DB error is caught, logged, and
+ *      the call returns `{ allowed: true, balanceAfter: 0 }` — it never
+ *      throws and never blocks your feature's success path. Do not wrap
+ *      it in a try/catch expecting to handle failure differently.
+ *   4. `refId` is optional and stored in `copilot_run_id` (FK to
+ *      copilot_runs, ON DELETE SET NULL) — today this column is still
+ *      Copilot-run-specific. If your feature's run/execution ID is not a
+ *      row in `copilot_runs`, pass `null` for now; generalizing this
+ *      column to a free-text ref is deferred (see RESEARCH.md Open
+ *      Question 3) until a second feature actually needs it.
+ */
+export type MeterReason = 'copilot_turn'
+
 export interface CopilotBalance {
   /** Monthly allowance remaining (resets each period). */
   includedUsd: number
@@ -60,6 +85,7 @@ export interface CreditLedgerEntry {
   amountUsd: number
   balanceAfter: number
   note: string | null
+  reason: string | null
   createdAt: string
 }
 
@@ -68,7 +94,7 @@ export async function getCopilotLedger(orgId: string, limit = 10): Promise<Credi
   const supabase = createServiceRoleClient()
   const { data } = await supabase
     .from('copilot_credit_ledger')
-    .select('id, kind, amount_usd, balance_after, note, created_at')
+    .select('id, kind, amount_usd, balance_after, note, reason, created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -78,20 +104,27 @@ export async function getCopilotLedger(orgId: string, limit = 10): Promise<Credi
     amountUsd: Number(r.amount_usd),
     balanceAfter: Number(r.balance_after),
     note: r.note,
+    reason: r.reason ?? null,
     createdAt: r.created_at,
   }))
 }
 
 /**
- * Debit a cost that has ALREADY been incurred (a completed Copilot turn). Always
- * applies (we never lose a real cost) and may drive the balance negative; the
- * pre-turn check gates the next turn. Fails OPEN: a wallet error must never break
- * the Copilot — it just isn't recorded.
+ * Debit a cost that has ALREADY been incurred, tagged with the feature/reason
+ * that triggered it. Always applies (we never lose a real cost) and may drive
+ * the balance negative; the pre-turn check gates the NEXT action, not this
+ * one. Fails OPEN: a wallet error must never break the caller — it just isn't
+ * recorded.
+ *
+ * This is the SINGLE reusable credit-debit interface (MET-01) — every
+ * feature that consumes Copilot credits calls this, not a feature-specific
+ * variant. See the `MeterReason` doc comment above for how to add a new tag.
  */
-export async function debitCopilot(
+export async function meterDebit(
   orgId: string,
+  reason: MeterReason,
   costUsd: number,
-  runId?: string | null,
+  refId?: string | null,
 ): Promise<{ allowed: boolean; balanceAfter: number }> {
   if (!(costUsd > 0)) return { allowed: true, balanceAfter: 0 }
   try {
@@ -99,13 +132,14 @@ export async function debitCopilot(
     const { data, error } = await supabase.rpc('debit_copilot_credits', {
       p_org_id: orgId,
       p_amount_usd: costUsd,
-      p_run_id: runId ?? null,
+      p_run_id: refId ?? null,
+      p_reason: reason,
     })
     if (error) throw error
     const res = (data ?? {}) as { allowed?: boolean; balance_after?: number }
     return { allowed: res.allowed ?? true, balanceAfter: Number(res.balance_after ?? 0) }
   } catch (err) {
-    console.error('[billing] debitCopilot failed (failing open):', err)
+    console.error('[billing] meterDebit failed (failing open):', err)
     return { allowed: true, balanceAfter: 0 }
   }
 }

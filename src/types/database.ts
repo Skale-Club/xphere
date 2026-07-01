@@ -707,6 +707,7 @@ export interface Database {
           copilot_run_id: string | null
           stripe_ref: string | null
           note: string | null
+          reason: string | null
           created_at: string
         }
         Insert: {
@@ -718,6 +719,7 @@ export interface Database {
           copilot_run_id?: string | null
           stripe_ref?: string | null
           note?: string | null
+          reason?: string | null
           created_at?: string
         }
         Update: {
@@ -729,6 +731,7 @@ export interface Database {
           copilot_run_id?: string | null
           stripe_ref?: string | null
           note?: string | null
+          reason?: string | null
           created_at?: string
         }
         Relationships: []
@@ -7477,7 +7480,7 @@ export interface Database {
     Views: Record<string, never>
     Functions: {
       debit_copilot_credits: {
-        Args: { p_org_id: string; p_amount_usd: number; p_run_id?: string | null }
+        Args: { p_org_id: string; p_amount_usd: number; p_run_id?: string | null; p_reason?: string | null }
         Returns: Json
       }
       credit_copilot_credits: {
