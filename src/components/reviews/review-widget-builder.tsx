@@ -569,22 +569,6 @@ export function ReviewWidgetBuilder({
                 <p className="text-[12px] text-text-tertiary">Preview and embed code</p>
               </div>
             </div>
-            {onSave ? (
-              <Button
-                type="button"
-                size="sm"
-                variant={saveState === 'saved' ? 'default' : 'secondary'}
-                onClick={handleSave}
-                disabled={saveState === 'saving'}
-                className="h-8 shrink-0 gap-1.5 text-[12px]"
-              >
-                {saveState === 'saved' ? (
-                  <><Check className="h-3.5 w-3.5" />Saved</>
-                ) : (
-                  <><Save className="h-3.5 w-3.5" />Save</>
-                )}
-              </Button>
-            ) : null}
           </div>
 
           <div className="mt-5 space-y-5">
