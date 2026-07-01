@@ -31,6 +31,7 @@ vi.mock('@/lib/billing/stripe', () => ({
   getStripe: vi.fn(),
   isStripeConfigured: vi.fn(() => true),
 }))
+vi.mock('@/lib/logger', () => ({ log: vi.fn() }))
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { syncSubscription } from '@/lib/billing/sync'
@@ -38,6 +39,7 @@ import { resolveOrgIdByCustomer } from '@/lib/billing/customers'
 import { grantCopilot, resetCopilotForPeriod } from '@/lib/billing/credits'
 import { getStripe } from '@/lib/billing/stripe'
 import { CREDIT_TOPUP_PACKAGES } from '@/lib/billing/catalog'
+import { log } from '@/lib/logger'
 import { POST } from '@/app/api/stripe/webhook/route'
 
 // ---- Real signing setup (NOT mocked — exercises actual constructEvent) ----
@@ -478,6 +480,17 @@ describe('Stripe webhook route — POST /api/stripe/webhook', () => {
       expect(response.status).toBe(500)
       expect(await response.text()).toBe('Processing error')
       expect(fakeAdmin.updateSpy).not.toHaveBeenCalled()
+      expect(log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'webhook.failed',
+          source: 'stripe-webhook',
+          severity: 'error',
+          status: 'failed',
+          actor_type: 'webhook',
+          actor_id: 'evt_processing_fail_1',
+          error_message: 'boom',
+        }),
+      )
     })
   })
 })

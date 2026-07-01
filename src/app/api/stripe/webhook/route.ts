@@ -20,6 +20,7 @@ import { grantCopilot, resetCopilotForPeriod } from '@/lib/billing/credits'
 import { CREDIT_TOPUP_PACKAGES, planByPriceId } from '@/lib/billing/catalog'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { captureApiError } from '@/lib/api-error'
+import { log } from '@/lib/logger'
 
 // Only these events change internal state. Everything else is ignored safely.
 const SUPPORTED_EVENTS = new Set<string>([
@@ -89,8 +90,19 @@ export async function POST(request: Request) {
     return Response.json({ received: true })
   } catch (err) {
     // Leave processed_at null so Stripe's retry re-runs the (idempotent) handler.
+    const message = err instanceof Error ? err.message : String(err)
     console.error(`[stripe/webhook] Failed handling ${event.type} (${event.id}):`, err)
     captureApiError(err)
+    void log({
+      event_type: 'webhook.failed',
+      source: 'stripe-webhook',
+      severity: 'error',
+      status: 'failed',
+      actor_type: 'webhook',
+      actor_id: event.id,
+      error_message: message,
+      payload: { stripe_event_type: event.type, stripe_event_id: event.id },
+    })
     return new Response('Processing error', { status: 500 })
   }
 }
