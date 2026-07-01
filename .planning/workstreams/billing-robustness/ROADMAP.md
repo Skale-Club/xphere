@@ -44,7 +44,7 @@ Plans:
 
 Plans:
 - [ ] 115-01-PLAN.md — Wave 0 tests + pure logic (hasCreditsPlan, getCreditsVisualState, resolveCreditsVisibility) + export toCredits
-- [ ] 115-02-PLAN.md — Migration enabling Realtime publication on copilot_credit_balances
+- [x] 115-02-PLAN.md — Migration enabling Realtime publication on copilot_credit_balances
 - [ ] 115-03-PLAN.md — CreditsIndicator component + TopBar/MobileMenu wiring + dashboard layout data resolution (manual checkpoint)
 
 ### Phase 116: Billing Test Coverage
@@ -76,6 +76,6 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
-| 115. Credit Balance Visibility | 0/3 | Not started | - |
+| 115. Credit Balance Visibility | 1/3 | In Progress|  |
 | 116. Billing Test Coverage | 0/TBD | Not started | - |
 | 117. Billing Observability | 0/TBD | Not started | - |
