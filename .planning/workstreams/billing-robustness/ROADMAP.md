@@ -56,7 +56,11 @@ Plans:
   2. Running the test suite exercises entitlements resolution and proves the precedence order (`plan_override > subscription > trial > none`) with a case per precedence level
   3. Running the test suite exercises the credit debit/credit RPCs: dual-bucket draw-down order, ledger entry creation, and insufficient-balance behavior
   4. Running the test suite exercises checkout session and top-up session creation, asserting correct metadata and correct price IDs are sent
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 116-01-PLAN.md — Stripe webhook handler coverage (signature verification, all 6 event types, idempotency)
+- [ ] 116-02-PLAN.md — Credit RPC wrapper tests, checkout/topup session tests, entitlements precedence audit
 
 ### Phase 117: Billing Observability
 **Goal**: When billing fails — a Stripe webhook errors, or a credit debit silently fails open — the platform admin can see it happened without querying the database directly.
@@ -77,5 +81,5 @@ Phases execute in numeric order: 114 → 115 → 116 → 117
 |-------|----------------|--------|-----------|
 | 114. Metering Architecture | 1/1 | Complete    | 2026-07-01 |
 | 115. Credit Balance Visibility | 3/3 | Complete   | 2026-07-01 |
-| 116. Billing Test Coverage | 0/TBD | Not started | - |
+| 116. Billing Test Coverage | 0/2 | Not started | - |
 | 117. Billing Observability | 0/TBD | Not started | - |
