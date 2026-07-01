@@ -12,6 +12,8 @@
 
 **Workstream:** `billing-robustness` (parallel to `v31-websites-lead-ingestion`, which has completed all 3 phases as of 2026-06-21 but is still pending formal `/gsd:complete-milestone` close-out)
 
+**Progress:** Phase 114 (Metering Architecture) complete 2026-07-01 — `meterDebit()` generic credit-debit interface (MET-01..04) replaces the Copilot-specific `debitCopilot`; migration 1225 adds the `reason` tag column.
+
 ## Previous: v3.1 Websites Lead Ingestion ✅ Phases complete 2026-06-21 (pending formal close-out)
 
 **Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
