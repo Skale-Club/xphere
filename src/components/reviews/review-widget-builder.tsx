@@ -315,23 +315,34 @@ function PreviewCarousel({
     viewportRef.current?.scrollBy({ left: dir * getStep(), behavior: 'smooth' })
   }, [getStep])
 
-  // Infinite loop: silently reset scroll when entering the cloned half
+  // Infinite loop in BOTH directions: the track renders three identical blocks
+  // ([before][originals][after]); we park on the middle block and snap back by
+  // one block width whenever scroll drifts a full block off-centre. The copies
+  // are identical, so the snap is invisible and neither end ever hits a wall.
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
+    const blockWidth = () => (vp.scrollWidth + 12) / 3 // 12 = gap-3
+    vp.scrollLeft = blockWidth() * 1.5 // centre of the middle block
     let lock = false
     const onScroll = () => {
       if (lock) return
-      const half = vp.scrollWidth / 2
-      if (vp.scrollLeft >= half) {
+      const bw = blockWidth()
+      if (bw <= 0) return
+      const x = vp.scrollLeft
+      if (x >= bw * 2.5) {
         lock = true
-        vp.scrollLeft -= half
+        vp.scrollLeft = x - bw
+        lock = false
+      } else if (x <= bw * 0.5) {
+        lock = true
+        vp.scrollLeft = x + bw
         lock = false
       }
     }
     vp.addEventListener('scroll', onScroll, { passive: true })
     return () => vp.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [reviews.length])
 
   useEffect(() => {
     if (hovered) return
@@ -385,8 +396,8 @@ function PreviewCarousel({
         onPointerLeave={onPointerUp}
       >
         <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
-          {[...reviews, ...reviews].map((review, i) => (
-            <div key={`${review.id}-${i}`} data-card aria-hidden={i >= reviews.length || undefined} className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
+          {[...reviews, ...reviews, ...reviews].map((review, i) => (
+            <div key={`${review.id}-${i}`} data-card aria-hidden={(i < reviews.length || i >= reviews.length * 2) || undefined} className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
               <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} />
             </div>
           ))}

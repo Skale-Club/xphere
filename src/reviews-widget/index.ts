@@ -163,8 +163,10 @@ const CSS = `
   overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
   -webkit-overflow-scrolling: touch; cursor: grab;
   /* 16px gutter on left so the first card never touches the edge;
-     36px bottom gives box-shadows room to render before overflow-y clips */
-  padding: 0 0 36px 16px;
+     8px bottom to EXACTLY match the dashboard preview's pb-2 (8px) — the gap
+     from the cards to the footer CTA is then 8 + 24 (footer margin) = 32px in
+     both the live widget and the preview. Keep these two in lock-step. */
+  padding: 0 0 8px 16px;
   scroll-padding-left: 16px;
   user-select: none; -webkit-user-select: none;
 }
@@ -260,6 +262,10 @@ const CSS = `
 }
 .orw-write-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.20); }
 .orw-footer-cta { display: flex; justify-content: center; margin-top: 24px; }
+/* The button's own 16px top margin is for the hero context; inside the footer
+   the 24px above already sets the gap, so zero it to match the preview (which
+   puts no margin on the footer button). Card->button stays 8 + 24 = 32px. */
+.orw-footer-cta .orw-write-btn { margin-top: 0; }
 
 .orw-empty {
   padding: 40px 20px; text-align: center; color: var(--orw-muted); font-size: 14px;
@@ -551,34 +557,64 @@ function wireCarousel(root: HTMLElement): void {
   const wrap: HTMLElement = wrapEl
 
   const AUTOPLAY_MS = 4000
+  const GAP = 16
 
-  // ── Infinite loop: duplicate all cards so the carousel never hits a wall ──
-  Array.from(track.querySelectorAll<HTMLElement>('.orw-card')).forEach(c => {
-    const clone = c.cloneNode(true) as HTMLElement
-    clone.setAttribute('aria-hidden', 'true')
-    track.appendChild(clone)
+  // Step = one card width + the track gap, so paging snaps card-to-card.
+  const getStep = (): number => {
+    const first = track.querySelector<HTMLElement>('.orw-card')
+    return first ? first.offsetWidth + GAP : 292
+  }
+
+  // If the original cards already fit without overflowing there's nothing to
+  // loop — leave the row static (no clones, no arrows, no autoplay).
+  if (track.scrollWidth - viewport.clientWidth <= 4) return
+
+  // ── Infinite loop, both directions ────────────────────────────────────────
+  // Clone the full set on BOTH sides so the track reads
+  //   [before-clones][originals][after-clones]
+  // and park the scroll on the middle block. Whenever scroll drifts a full
+  // block off-centre we snap it back by exactly one block width. Because every
+  // block is an identical copy, the snap is invisible — the user can scroll
+  // forever in either direction and never hit a wall.
+  const originals = Array.from(track.querySelectorAll<HTMLElement>('.orw-card'))
+  const before: HTMLElement[] = []
+  originals.forEach(card => {
+    const lead = card.cloneNode(true) as HTMLElement
+    lead.setAttribute('aria-hidden', 'true')
+    before.push(lead)
+    const trail = card.cloneNode(true) as HTMLElement
+    trail.setAttribute('aria-hidden', 'true')
+    track.appendChild(trail)
   })
-  // When scrollLeft reaches the midpoint (= original content width) silently
-  // reset to the mirrored position in the first half — user sees no jump.
+  before.forEach(node => track.insertBefore(node, originals[0]))
+
+  // The track now holds three identical blocks. One block advance =
+  // (scrollWidth + GAP) / 3 (the +GAP collapses the inter-card gaps evenly).
+  const blockWidth = (): number => (track.scrollWidth + GAP) / 3
+  // Park on the centre of the middle block: a full block of runway each side
+  // before a snap is needed, so single-step glides never reach a boundary.
+  const recenter = (): void => { viewport.scrollLeft = blockWidth() * 1.5 }
+  recenter()
+
   let loopLock = false
   viewport.addEventListener('scroll', () => {
     if (loopLock) return
-    const half = track.scrollWidth / 2
-    if (viewport.scrollLeft >= half) {
+    const bw = blockWidth()
+    if (bw <= 0) return
+    const x = viewport.scrollLeft
+    if (x >= bw * 2.5) {
       loopLock = true
-      viewport.scrollLeft -= half
+      viewport.scrollLeft = x - bw
+      loopLock = false
+    } else if (x <= bw * 0.5) {
+      loopLock = true
+      viewport.scrollLeft = x + bw
       loopLock = false
     }
   }, { passive: true })
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Step = one card width + the track gap, so paging snaps card-to-card.
-  const getStep = (): number => {
-    const first = track.querySelector<HTMLElement>('.orw-card')
-    return first ? first.offsetWidth + 16 : 292
-  }
-
-  // Prev / next arrows.
+  // Prev / next arrows — both always active now that there's no wall.
   const prev = document.createElement('button')
   prev.type = 'button'
   prev.className = 'orw-carousel-btn orw-carousel-prev'
@@ -594,16 +630,10 @@ function wireCarousel(root: HTMLElement): void {
   prev.addEventListener('click', () => viewport.scrollBy({ left: -getStep(), behavior: 'smooth' }))
   next.addEventListener('click', () => viewport.scrollBy({ left: getStep(), behavior: 'smooth' }))
 
-  // Buttons: prev disables only at position 0; next is always enabled (infinite).
-  const updateButtons = (): void => {
-    prev.toggleAttribute('disabled', viewport.scrollLeft <= 2)
-    next.removeAttribute('disabled')
-  }
-  viewport.addEventListener('scroll', updateButtons, { passive: true })
-  window.addEventListener('resize', updateButtons)
-  requestAnimationFrame(updateButtons)
+  // Re-park on resize — card (and therefore block) widths change with it.
+  window.addEventListener('resize', recenter)
 
-  // Autoplay — advance one step every 4s. The loop listener handles the reset.
+  // Autoplay — advance one step every 4s. The loop listener handles the wrap.
   let hovered = false
   let timer: ReturnType<typeof setInterval> | null = null
   const advance = (): void => {
