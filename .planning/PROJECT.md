@@ -14,6 +14,8 @@
 
 **Progress:** Phase 114 (Metering Architecture) complete 2026-07-01 — `meterDebit()` generic credit-debit interface (MET-01..04) replaces the Copilot-specific `debitCopilot`; migration 1225 adds the `reason` tag column.
 
+**Progress:** Phase 115 (Credit Balance Visibility) complete 2026-07-01 — `CreditsIndicator` in the global TopBar/MobileMenu (CRB-01..04), Realtime-backed live updates via migration 1226. 5 items pending real click-through verification (`115-HUMAN-UAT.md`) — approved on code/test evidence since the connected browser session couldn't reach the local dev server.
+
 ## Previous: v3.1 Websites Lead Ingestion ✅ Phases complete 2026-06-21 (pending formal close-out)
 
 **Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
