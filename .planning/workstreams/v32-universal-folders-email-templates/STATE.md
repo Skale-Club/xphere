@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
-current_plan: "114-02"
+current_plan: "115-01"
 status: in_progress
-stopped_at: "Completed 114-01-PLAN.md (universal folders migration + database.ts types)"
-last_updated: "2026-07-02T13:57:05.609Z"
-last_activity: 2026-07-02 — Milestone v3.2 roadmap created from approved plan (bright-booping-stream)
+stopped_at: "Completed 114-02-PLAN.md (universal foldering core module + signature smoke)"
+last_updated: "2026-07-02T15:30:09.000Z"
+last_activity: 2026-07-02 — Executed 114-02: src/lib/foldering/core.ts shared core (UFE-02) + tests/foldering-core.test.ts; build+test green
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 114 (Universal Folders Backend)
-Plan: 114-01 complete → 114-02 next
-Status: In progress — plan 114-01 executed (universal folders backend schema + types)
-Last activity: 2026-07-02 — Executed 114-01: additive `public.folders` migration (1225) + database.ts types
+Phase: 114 (Universal Folders Backend) — COMPLETE → Phase 115 next
+Plan: 114-01 + 114-02 complete
+Status: Phase 114 complete — universal folders backend schema + types (114-01) and shared foldering core (114-02) both executed
+Last activity: 2026-07-02 — Executed 114-02: `src/lib/foldering/core.ts` shared foldering core (UFE-02) + signature/scoping smoke; `npm run build` and `npx vitest run` green
 
 ## Progress
 
-**Phases Complete:** 0 / 8
-**Current Plan:** 114-02 (114-01 complete)
+**Phases Complete:** 1 / 8
+**Current Plan:** 115-01 (Phase 114 complete)
 **Roadmap:** 114 → 121 (linear; 116 and 117 depend on 114)
 
 ## Accumulated Context
@@ -35,6 +35,7 @@ Last activity: 2026-07-02 — Executed 114-01: additive `public.folders` migrati
 
 - Unify all folder tables (`workflow_folders`, `project_folders`, `tool_folders`) into one `folders` table with an `entity_type` discriminator; migrate all existing modules in this milestone (user decision, 2026-07-02).
 - Shared logic in `src/lib/foldering/core.ts`; each module keeps a thin `'use server'` wrapper (Next Server Action semantics).
+- (114-02) Foldering core functions take a leading `FolderingContext { supabase, entityType, itemTable }`; every folder query is `.eq('entity_type', ...)`-scoped; item writes target the dynamic `ctx.itemTable` (single narrow `as any` on that builder only). `created_by` resolved via `ctx.supabase.auth.getUser()` inside the core; auth gating stays the wrapper's job.
 - Migrations preserve folder UUIDs so existing `folder_id` FKs stay valid — zero loss of production folders.
 - Email blocks gain stable `id` via upgrade-on-read (`normalizeDocument`), no destructive data migration.
 - UI is already generic (`DraggableTreeNav` + `SubSidebarLayout`); reuse, don't rebuild.
@@ -46,5 +47,5 @@ Last activity: 2026-07-02 — Executed 114-01: additive `public.folders` migrati
 
 ## Session Continuity
 
-**Stopped At:** Completed 114-01-PLAN.md (universal folders migration + database.ts types); ready for 114-02
+**Stopped At:** Completed 114-02-PLAN.md (universal foldering core `src/lib/foldering/core.ts` + smoke test); Phase 114 complete, ready for Phase 115
 **Resume File:** None
