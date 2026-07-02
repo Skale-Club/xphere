@@ -36,7 +36,7 @@ import type {
   EmailDocument, EmailSection, EmailBlock,
   TextBlock, HeadingBlock, ImageBlock, ButtonBlock, DividerBlock, SpacerBlock, HtmlBlock,
 } from '@/lib/email/render-template'
-import { renderTemplate, emptyDocument, BLOCK_DEFAULTS } from '@/lib/email/render-template'
+import { renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument } from '@/lib/email/render-template'
 import { saveTemplate, saveReusableBlock, deleteReusableBlock } from '../actions'
 import type { EmailTemplateBuilderRow, ReusableBlock } from '../actions'
 
@@ -65,14 +65,6 @@ function makeSection(layout: 1 | 2 | 3 = 1): EmailSection {
   }
 }
 
-function normalizeDocument(raw: unknown): EmailDocument {
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    const doc = raw as Partial<EmailDocument>
-    if (Array.isArray(doc.sections)) return doc as EmailDocument
-  }
-  return emptyDocument()
-}
-
 // ─── Main editor ─────────────────────────────────────────────────────────────
 
 export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }: EmailTemplateEditorProps) {
@@ -84,7 +76,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [reusableBlocks, setReusableBlocks] = useState<ReusableBlock[]>(initialBlocks)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
-  const [selectedBlockPath, setSelectedBlockPath] = useState<{ sectionId: string; colIdx: number; blockIdx: number } | null>(null)
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [docSettingsOpen, setDocSettingsOpen] = useState(false)
 
   // Replace the UUID segment in the global breadcrumb with an inline-editable
@@ -159,7 +151,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   }, [])
 
   const addBlock = useCallback((sectionId: string, colIdx: number, blockType: string) => {
-    const block = { ...BLOCK_DEFAULTS[blockType] } as EmailBlock
+    const block = { ...BLOCK_DEFAULTS[blockType], id: makeBlockId() } as EmailBlock
     setDoc((prev) => ({
       ...prev,
       sections: prev.sections.map((s) => {
@@ -168,15 +160,13 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
         return { ...s, columns: cols }
       }),
     }))
-    const section = doc.sections.find((s) => s.id === sectionId)
-    if (section) {
-      setSelectedBlockPath({ sectionId, colIdx, blockIdx: (section.columns[colIdx]?.length ?? 0) })
-    }
-  }, [doc.sections])
+    setSelectedBlockId(block.id)
+  }, [])
 
   const insertReusableBlock = useCallback((sectionId: string, colIdx: number, rb: ReusableBlock) => {
-    const blocks = (rb.document as { blocks?: EmailBlock[] }).blocks ?? []
-    if (!blocks.length) return
+    const source = (rb.document as { blocks?: EmailBlock[] }).blocks ?? []
+    if (!source.length) return
+    const blocks = source.map((b) => ({ ...b, id: makeBlockId() }))
     setDoc((prev) => ({
       ...prev,
       sections: prev.sections.map((s) => {
@@ -187,26 +177,26 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     }))
   }, [])
 
-  const removeBlock = useCallback((sectionId: string, colIdx: number, blockIdx: number) => {
+  const removeBlock = useCallback((sectionId: string, colIdx: number, blockId: string) => {
     setDoc((prev) => ({
       ...prev,
       sections: prev.sections.map((s) => {
         if (s.id !== sectionId) return s
-        const cols = s.columns.map((col, ci) => ci === colIdx ? col.filter((_, bi) => bi !== blockIdx) : col)
+        const cols = s.columns.map((col, ci) => ci === colIdx ? col.filter((b) => b.id !== blockId) : col)
         return { ...s, columns: cols }
       }),
     }))
-    setSelectedBlockPath(null)
+    setSelectedBlockId(null)
   }, [])
 
-  const updateBlock = useCallback((sectionId: string, colIdx: number, blockIdx: number, updates: Partial<EmailBlock>) => {
+  const updateBlock = useCallback((sectionId: string, colIdx: number, blockId: string, updates: Partial<EmailBlock>) => {
     setDoc((prev) => ({
       ...prev,
       sections: prev.sections.map((s) => {
         if (s.id !== sectionId) return s
         const cols = s.columns.map((col, ci) => {
           if (ci !== colIdx) return col
-          return col.map((b, bi) => bi !== blockIdx ? b : { ...b, ...updates } as EmailBlock)
+          return col.map((b) => b.id !== blockId ? b : { ...b, ...updates } as EmailBlock)
         })
         return { ...s, columns: cols }
       }),
@@ -274,11 +264,8 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     toast.success('Reusable block deleted')
   }
 
-  const selectedBlock = selectedBlockPath
-    ? (() => {
-        const s = doc.sections.find((s) => s.id === selectedBlockPath.sectionId)
-        return s?.columns[selectedBlockPath.colIdx]?.[selectedBlockPath.blockIdx] ?? null
-      })()
+  const selectedBlock = selectedBlockId
+    ? doc.sections.flatMap((s) => s.columns.flat()).find((b) => b.id === selectedBlockId) ?? null
     : null
 
   return (
@@ -341,16 +328,15 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
                       key={section.id}
                       section={section}
                       isSelected={selectedSectionId === section.id}
-                      selectedBlockPath={selectedBlockPath}
+                      selectedBlockId={selectedBlockId}
                       onSelect={() => setSelectedSectionId(section.id)}
                       onRemove={() => removeSection(section.id)}
                       onUpdate={(u) => updateSection(section.id, u)}
                       onAddBlock={(colIdx, type) => addBlock(section.id, colIdx, type)}
                       onInsertReusable={(colIdx, rb) => insertReusableBlock(section.id, colIdx, rb)}
-                      onRemoveBlock={(colIdx, blockIdx) => removeBlock(section.id, colIdx, blockIdx)}
-                      onUpdateBlock={(colIdx, blockIdx, u) => updateBlock(section.id, colIdx, blockIdx, u)}
-                      onSelectBlock={(colIdx, blockIdx) =>
-                        setSelectedBlockPath({ sectionId: section.id, colIdx, blockIdx })}
+                      onRemoveBlock={(colIdx, blockId) => removeBlock(section.id, colIdx, blockId)}
+                      onUpdateBlock={(colIdx, blockId, u) => updateBlock(section.id, colIdx, blockId, u)}
+                      onSelectBlock={(blockId) => setSelectedBlockId(blockId)}
                       onSaveAsReusable={() => openSaveBlock(section.id)}
                       reusableBlocks={reusableBlocks}
                     />
@@ -553,21 +539,21 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
 interface SortableSectionProps {
   section: EmailSection
   isSelected: boolean
-  selectedBlockPath: { sectionId: string; colIdx: number; blockIdx: number } | null
+  selectedBlockId: string | null
   onSelect: () => void
   onRemove: () => void
   onUpdate: (updates: Partial<EmailSection>) => void
   onAddBlock: (colIdx: number, blockType: string) => void
   onInsertReusable: (colIdx: number, rb: ReusableBlock) => void
-  onRemoveBlock: (colIdx: number, blockIdx: number) => void
-  onUpdateBlock: (colIdx: number, blockIdx: number, updates: Partial<EmailBlock>) => void
-  onSelectBlock: (colIdx: number, blockIdx: number) => void
+  onRemoveBlock: (colIdx: number, blockId: string) => void
+  onUpdateBlock: (colIdx: number, blockId: string, updates: Partial<EmailBlock>) => void
+  onSelectBlock: (blockId: string) => void
   onSaveAsReusable: () => void
   reusableBlocks: ReusableBlock[]
 }
 
 function SortableSection({
-  section, isSelected, selectedBlockPath, onSelect, onRemove, onUpdate,
+  section, isSelected, selectedBlockId, onSelect, onRemove, onUpdate,
   onAddBlock, onInsertReusable, onRemoveBlock, onUpdateBlock, onSelectBlock,
   onSaveAsReusable, reusableBlocks,
 }: SortableSectionProps) {
@@ -666,12 +652,12 @@ function SortableSection({
               colIdx={colIdx}
               layout={section.layout}
               sectionId={section.id}
-              selectedBlockPath={selectedBlockPath}
+              selectedBlockId={selectedBlockId}
               onAddBlock={(type) => onAddBlock(colIdx, type)}
               onInsertReusable={(rb) => onInsertReusable(colIdx, rb)}
-              onRemoveBlock={(blockIdx) => onRemoveBlock(colIdx, blockIdx)}
-              onUpdateBlock={(blockIdx, updates) => onUpdateBlock(colIdx, blockIdx, updates)}
-              onSelectBlock={(blockIdx) => onSelectBlock(colIdx, blockIdx)}
+              onRemoveBlock={(blockId) => onRemoveBlock(colIdx, blockId)}
+              onUpdateBlock={(blockId, updates) => onUpdateBlock(colIdx, blockId, updates)}
+              onSelectBlock={(blockId) => onSelectBlock(blockId)}
               reusableBlocks={reusableBlocks}
               padding={section.padding}
             />
@@ -825,18 +811,18 @@ interface ColumnEditorProps {
   colIdx: number
   layout: number
   sectionId: string
-  selectedBlockPath: { sectionId: string; colIdx: number; blockIdx: number } | null
+  selectedBlockId: string | null
   onAddBlock: (type: string) => void
   onInsertReusable: (rb: ReusableBlock) => void
-  onRemoveBlock: (blockIdx: number) => void
-  onUpdateBlock: (blockIdx: number, updates: Partial<EmailBlock>) => void
-  onSelectBlock: (blockIdx: number) => void
+  onRemoveBlock: (blockId: string) => void
+  onUpdateBlock: (blockId: string, updates: Partial<EmailBlock>) => void
+  onSelectBlock: (blockId: string) => void
   reusableBlocks: ReusableBlock[]
   padding?: Partial<{ top: number; right: number; bottom: number; left: number }>
 }
 
 function ColumnEditor({
-  blocks, colIdx, layout, sectionId, selectedBlockPath, onAddBlock, onInsertReusable,
+  blocks, selectedBlockId, onAddBlock, onInsertReusable,
   onRemoveBlock, onUpdateBlock, onSelectBlock, reusableBlocks, padding,
 }: ColumnEditorProps) {
   const [showBlockMenu, setShowBlockMenu] = useState(false)
@@ -888,18 +874,14 @@ function ColumnEditor({
         </div>
       )}
 
-      {blocks.map((block, blockIdx) => (
+      {blocks.map((block) => (
         <BlockEditor
-          key={blockIdx}
+          key={block.id}
           block={block}
-          isSelected={
-            selectedBlockPath?.sectionId === sectionId &&
-            selectedBlockPath.colIdx === colIdx &&
-            selectedBlockPath.blockIdx === blockIdx
-          }
-          onSelect={() => onSelectBlock(blockIdx)}
-          onUpdate={(u) => onUpdateBlock(blockIdx, u)}
-          onRemove={() => onRemoveBlock(blockIdx)}
+          isSelected={selectedBlockId === block.id}
+          onSelect={() => onSelectBlock(block.id)}
+          onUpdate={(u) => onUpdateBlock(block.id, u)}
+          onRemove={() => onRemoveBlock(block.id)}
         />
       ))}
 
