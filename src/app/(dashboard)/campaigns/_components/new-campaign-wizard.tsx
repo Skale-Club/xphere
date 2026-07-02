@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { createCampaign } from '../actions'
+import { createCampaign, listCampaignEmailTemplates } from '../actions'
 import {
   listApprovedTemplates,
   type ApprovedTemplate,
@@ -96,6 +96,10 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
   // mapping[i] = source string ('contact.first_name' | 'literal:Hello' | etc)
   const [bodyMapping, setBodyMapping] = useState<string[]>([])
   const [headerMapping, setHeaderMapping] = useState<string[]>([])
+  // Email builder template (UFE-12)
+  const [emailTemplates, setEmailTemplates] = useState<Array<{ id: string; name: string }>>([])
+  const [loadingEmailTemplates, setLoadingEmailTemplates] = useState(false)
+  const [emailTemplateId, setEmailTemplateId] = useState<string>('')
 
   // Step 5 — schedule
   const [scheduleType, setScheduleType] = useState<'now' | 'later'>('now')
@@ -114,6 +118,19 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
           if (!cancelled) setWhatsappTemplates([])
         } finally {
           if (!cancelled) setLoadingTemplates(false)
+        }
+      })()
+    }
+    if (step === 4 && channel === 'email') {
+      void (async () => {
+        setLoadingEmailTemplates(true)
+        try {
+          const data = await listCampaignEmailTemplates()
+          if (!cancelled) setEmailTemplates(data)
+        } catch {
+          if (!cancelled) setEmailTemplates([])
+        } finally {
+          if (!cancelled) setLoadingEmailTemplates(false)
         }
       })()
     }
@@ -163,6 +180,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
   function canProceedStep4() {
     if (channel === 'calls') return !!vapiAssistantId && !!vapiPhoneNumberId
     if (channel === 'sms') return smsBody.trim().length >= 1
+    if (channel === 'email') return !!emailTemplateId
     if (channel === 'whatsapp') {
       if (!whatsappTemplateId) return false
       const tpl = whatsappTemplates.find((t) => t.id === whatsappTemplateId)
@@ -193,6 +211,7 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
         calls_per_minute: channel === 'calls' ? callsPerMinute : undefined,
         sms_body: channel === 'sms' ? smsBody.trim() : null,
         whatsapp_template_id: channel === 'whatsapp' ? whatsappTemplateId : null,
+        email_template_id: channel === 'email' ? emailTemplateId : null,
         whatsapp_variable_mapping:
           channel === 'whatsapp'
             ? {
@@ -429,9 +448,31 @@ export function NewCampaignWizard({ assistants, hasTwilio, hasResend, hasWhatsAp
             )}
 
             {channel === 'email' && (
-              <div className="rounded-md border border-border bg-bg-tertiary/50 p-4 text-center">
-                <p className="text-[13px] text-text-secondary">
-                  Email template configuration coming soon.
+              <div className="space-y-2">
+                <Label htmlFor="email-template">Email template <span className="text-destructive">*</span></Label>
+                {loadingEmailTemplates ? (
+                  <p className="text-[13px] text-text-tertiary">Loading templates…</p>
+                ) : emailTemplates.length === 0 ? (
+                  <div className="rounded-md border border-border bg-bg-tertiary/50 p-4 text-center">
+                    <p className="text-[13px] text-text-secondary">
+                      No published templates yet. Create and publish one in Email Templates first.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    id="email-template"
+                    value={emailTemplateId}
+                    onChange={(e) => setEmailTemplateId(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Select a template…</option>
+                    {emailTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-[11.5px] text-text-tertiary">
+                  Only published templates can be sent. Merge-tags like {'{{contact.first_name}}'} are filled per recipient.
                 </p>
               </div>
             )}
