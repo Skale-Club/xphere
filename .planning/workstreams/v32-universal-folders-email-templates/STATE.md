@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
-current_plan: All plans complete
-status: complete
-stopped_at: "Completed Phase 121 (Sending Integration, UFE-10/11/12) — the FINAL phase of v3.2. 121-01: renderWithVariables merge-tag renderer (src/lib/email/merge-tags.ts, pure/dependency-free, 15/15 vitest) + send_email_template executor (loads org-scoped email_templates row → renderWithVariables on subject+html_snapshot → sendPlatformEmail) dispatched via a PRE-SWITCH string branch in execute-action.ts (mirrors update_contact) — NO action_type enum migration. 121-02: send_email_template NodeSpec added to the NODES 'Action | email' group with integration_required:['resend'] (org-gated in /api/workflows/spec) + platform-default kind='tool' seed supabase/seeds/workflows/send-email-template-tool.yaml (passes workflows:validate; validate-all shows no seed regressed — the 4 remaining failures are pre-existing .planning/workflows/examples/* files logged in deferred-items.md). 121-03: email-campaign 'coming soon' stub replaced with a published-template picker persisting { email_template_id } in the existing campaigns.template_config JSONB (NO migration) + listCampaignEmailTemplates action + step-4 gate. CODE-ONLY: npm run build exit 0, no migration added (highest still 1229). Runtime send + campaign end-to-end is post-deploy human-verify (deferred, not a gap). Reminder: migrations 1225/1226/1227/1228/1229 remain unapplied — reconcile migration-history desync + apply before this code deploys."
-last_updated: "2026-07-02T18:23:00.000Z"
+current_plan: Not started
+status: verifying
+stopped_at: "Completed Phase 121 (Sending Integration, UFE-10/11/12) — the FINAL phase of the v3.2 workstream (all 8 phases / 18 plans complete). 121-01: renderWithVariables merge-tag renderer (src/lib/email/merge-tags.ts, pure/dependency-free, 15/15 vitest) + send_email_template executor (org-scoped template load → renderWithVariables on subject+html_snapshot → sendPlatformEmail) via a PRE-SWITCH string branch in execute-action.ts — no action_type enum migration. 121-02: send_email_template NodeSpec (integration_required:['resend'], org-gated in /api/workflows/spec) + platform-default kind='tool' seed passing workflows:validate (Rule-1 fix: quoted a YAML description containing an inline {…}). 121-03: email-campaign published-template picker replacing the 'coming soon' stub, persisting { email_template_id } in the existing campaigns.template_config JSONB (no migration) + listCampaignEmailTemplates + step-4 gate. CODE-ONLY: npm run build exit 0; no new supabase/migrations file (highest still 1229). Deferred/out-of-scope logged in phases/121-sending-integration/deferred-items.md (4 pre-existing example-file validate-all failures + unrelated working-tree edits). Runtime send + campaign end-to-end is post-deploy human-verify. Reminder: migrations 1225/1226/1227/1228/1229 remain unapplied — reconcile migration-history desync + apply before this code deploys."
+last_updated: "2026-07-02T18:27:02.486Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 121 complete — v3.2 milestone COMPLETE (all 8 phases)
+Phase: 121
 Plan: 121-01, 121-02, 121-03 complete
 Status: Phase 121 (Sending Integration, UFE-10/11/12) complete — builder email templates are now sendable. 121-01: pure unit-tested renderWithVariables merge-tag renderer (src/lib/email/merge-tags.ts, 15/15) + send_email_template action executor (org-scoped template load → renderWithVariables on subject+html_snapshot → sendPlatformEmail) dispatched via a PRE-SWITCH string branch in execute-action.ts — NO action_type enum migration (exhaustiveness never-check intact). 121-02: send_email_template NodeSpec in the NODES 'Action | email' group, integration_required:['resend'] (org-gated in /api/workflows/spec) + platform-default kind='tool' seed (supabase/seeds/workflows/send-email-template-tool.yaml) passing workflows:validate. 121-03: email-campaign builder-template picker replacing the 'coming soon' stub, persisting { email_template_id } in the existing campaigns.template_config JSONB (NO migration) via listCampaignEmailTemplates + a step-4 gate. CODE-ONLY: npm run build exit 0; no new supabase/migrations file (highest still 1229). Runtime send + campaign end-to-end deferred to post-deploy human-verify (not a gap). Reminder: migrations 1225/1226/1227/1228/1229 remain unapplied — reconcile the migration-history desync + apply before this code deploys.
 Last activity: 2026-07-02
@@ -26,7 +26,7 @@ Last activity: 2026-07-02
 ## Progress
 
 **Phases Complete:** 8 / 8
-**Current Plan:** All plans complete
+**Current Plan:** Not started
 **Roadmap:** 114 → 121 COMPLETE (linear; 116 and 117 depend on 114; 121 Sending Integration was the final phase)
 
 ## Accumulated Context
