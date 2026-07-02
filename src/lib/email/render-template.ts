@@ -32,7 +32,12 @@
 
 export type BlockPadding = { top: number; right: number; bottom: number; left: number }
 
-export type TextBlock = {
+/** Stable, editor-only identity shared by every block. Lives in the document
+ *  jsonb, backfilled on read by `normalizeDocument`, and NEVER emitted into the
+ *  rendered HTML. */
+export type BaseBlock = { id: string }
+
+export type TextBlock = BaseBlock & {
   blockType: 'text'
   content: string
   fontSize?: number
@@ -40,7 +45,7 @@ export type TextBlock = {
   align?: 'left' | 'center' | 'right'
 }
 
-export type HeadingBlock = {
+export type HeadingBlock = BaseBlock & {
   blockType: 'heading'
   content: string
   level?: 1 | 2 | 3
@@ -48,7 +53,7 @@ export type HeadingBlock = {
   align?: 'left' | 'center' | 'right'
 }
 
-export type ImageBlock = {
+export type ImageBlock = BaseBlock & {
   blockType: 'image'
   src: string
   alt?: string
@@ -56,7 +61,7 @@ export type ImageBlock = {
   link?: string
 }
 
-export type ButtonBlock = {
+export type ButtonBlock = BaseBlock & {
   blockType: 'button'
   label: string
   href: string
@@ -65,18 +70,18 @@ export type ButtonBlock = {
   borderRadius?: number
 }
 
-export type DividerBlock = {
+export type DividerBlock = BaseBlock & {
   blockType: 'divider'
   color?: string
   thickness?: number
 }
 
-export type SpacerBlock = {
+export type SpacerBlock = BaseBlock & {
   blockType: 'spacer'
   height?: number
 }
 
-export type HtmlBlock = {
+export type HtmlBlock = BaseBlock & {
   blockType: 'html'
   content: string
 }
@@ -104,6 +109,14 @@ export type EmailDocument = {
   contentWidth?: number
   fontFamily?: string
   sections: EmailSection[]
+}
+
+// ─── Block identity ───────────────────────────────────────────────────────────
+
+/** Stable, editor-only block id. Never rendered into HTML. Mirrors the
+ *  section-id generator so blocks and sections share one convention. */
+export function makeBlockId(): string {
+  return Math.random().toString(36).slice(2, 10)
 }
 
 // ─── Render ──────────────────────────────────────────────────────────────────
@@ -325,7 +338,39 @@ export function emptyDocument(): EmailDocument {
   }
 }
 
-export const BLOCK_DEFAULTS: Record<string, EmailBlock> = {
+// ─── Upgrade-on-read normalization ────────────────────────────────────────────
+
+/**
+ * Upgrade-on-read: validate the stored document shape and backfill missing
+ * block/section ids. Legacy templates (saved before Phase 118) have blocks with
+ * no `id`; this mints stable ids in memory so the editor can key/select by id.
+ * The backfilled ids persist on the next save — no DB migration required.
+ * ids are editor-only metadata and are never emitted by renderTemplate.
+ */
+export function normalizeDocument(raw: unknown): EmailDocument {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return emptyDocument()
+  }
+  const doc = raw as Partial<EmailDocument>
+  if (!Array.isArray(doc.sections)) {
+    return emptyDocument()
+  }
+  return {
+    ...doc,
+    sections: doc.sections.map((section) => ({
+      ...section,
+      id: section.id || makeBlockId(),
+      columns: (section.columns ?? []).map((col) =>
+        (col ?? []).map((block) => ({
+          ...block,
+          id: block.id || makeBlockId(),
+        })),
+      ),
+    })) as EmailSection[],
+  }
+}
+
+export const BLOCK_DEFAULTS: Record<string, Omit<EmailBlock, 'id'>> = {
   text: {
     blockType: 'text',
     content: 'Edit this text block.',
