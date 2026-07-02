@@ -25,8 +25,14 @@ export type FolderRow = Database['public']['Tables']['folders']['Row']
 export interface FolderingContext {
   supabase: SupabaseServerClient
   entityType: FolderEntityType
-  /** Item table whose rows carry folder_id + position, e.g. 'workflows'. */
+  /** Item table whose rows carry the folder-linkage column + position, e.g. 'workflows'. */
   itemTable: string
+  /**
+   * Name of the folder-linkage column on `itemTable`. Defaults to 'folder_id'.
+   * Projects override this with 'space_id' (projects.space_id). Workflows, Tools,
+   * and Email keep the default.
+   */
+  itemFolderColumn?: string
 }
 
 export type ActionResult<T = void> =
@@ -302,17 +308,19 @@ export async function moveItemToFolder(
   itemId: string,
   folderId: string | null,
 ): Promise<ActionResult<void>> {
+  const col = ctx.itemFolderColumn ?? 'folder_id'
+
   // Append at the end of the destination by default.
   const { data: tail } = await itemTable(ctx)
     .select('position')
-    .eq('folder_id', folderId as unknown as string)
+    .eq(col, folderId as unknown as string)
     .order('position', { ascending: false })
     .limit(1)
 
   const nextPosition = ((tail?.[0]?.position as number | undefined) ?? -1) + 1
 
   const { error } = await itemTable(ctx)
-    .update({ folder_id: folderId, position: nextPosition })
+    .update({ [col]: folderId, position: nextPosition })
     .eq('id', itemId)
 
   if (error) return { ok: false, error: error.message }
