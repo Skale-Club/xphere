@@ -4,8 +4,8 @@ milestone: v3.2
 milestone_name: milestone
 current_plan: Not started
 status: completed
-stopped_at: "Completed Phase 118 (both plans). 118-01 data layer: render-template.ts gains BaseBlock id on all seven block types + makeBlockId() + exported normalizeDocument() with upgrade-on-read id backfill (DistributiveOmit for id-free BLOCK_DEFAULTS) + tests/email-block-ids.test.ts (8/8, HTML byte-identical). 118-02 editor refactor: selectedBlockId + id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, imports shared normalizeDocument. PURE CODE — no DB/migration. Build green; email-template-builder.test.ts 17/17. Next: Phase 119 (Block Palette + Drag-and-Drop). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys."
-last_updated: "2026-07-02T17:12:00.000Z"
+stopped_at: "Completed Phase 118 (both plans). 118-01 data layer (render-template.ts: BaseBlock id on all seven types + makeBlockId() + exported normalizeDocument() id-backfill + DistributiveOmit for BLOCK_DEFAULTS + tests/email-block-ids.test.ts 8/8, HTML byte-identical) and 118-02 editor refactor (selectedBlockId + id-based add/remove/update + key={block.id} + reusable re-mint + shared normalizeDocument import). PURE CODE — no DB/migration. Build green; builder suite 17/17. Next: Phase 119 (Block Palette + Drag-and-Drop). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys."
+last_updated: "2026-07-02T17:15:48.751Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 119 (next)
+Phase: 119
 Plan: 118-01, 118-02 all complete
 Status: Phase 118 complete — every email block now carries a stable `id` (upgrade-on-read backfill) and the editor addresses blocks by id. Data layer: render-template.ts BaseBlock id on all seven types + makeBlockId() + exported normalizeDocument() (DistributiveOmit for id-free BLOCK_DEFAULTS) + tests/email-block-ids.test.ts (8/8, renderTemplate HTML byte-identical). Editor: selectedBlockId + id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, shared normalizeDocument import. PURE CODE — no DB/migration. Build green; builder suite 17/17. Migrations 1225/1226/1227/1228 still unapplied.
 Last activity: 2026-07-02
