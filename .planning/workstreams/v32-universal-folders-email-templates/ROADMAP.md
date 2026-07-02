@@ -126,3 +126,8 @@ This milestone extracts the folder/tree organization system (today duplicated as
 2. A `send_email_template` tool (input `template_id` + recipient + variables) sends via Resend and is registered in the workflow spec/validator, appearing in `/api/workflows/spec` when email is configured.
 3. A workflow run sends a chosen template to a test contact with variables filled.
 4. An email campaign can select a builder template; `npm run build` passes.
+
+**Plans:** 3 plans
+- [ ] 121-01-PLAN.md — Merge-tag renderer `renderWithVariables` (+ unit test) + `send_email_template` executor (pre-switch dispatch, no enum migration) (UFE-10, UFE-11)
+- [ ] 121-02-PLAN.md — Register `send_email_template` NodeSpec (org-gated on resend) + platform-default tool seed passing `workflows:validate` (UFE-11)
+- [ ] 121-03-PLAN.md — Email campaign builder-template selection via `template_config` JSONB (no migration) (UFE-12)
