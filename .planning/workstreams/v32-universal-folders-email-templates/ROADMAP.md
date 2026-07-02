@@ -26,6 +26,9 @@ This milestone extracts the folder/tree organization system (today duplicated as
 2. `src/lib/foldering/core.ts` exposes list/create/rename/updateMeta/reorderFolders/moveFolder/archive/delete plus moveItemToFolder/reorderItemsInFolder, parameterized by `entityType` + item table.
 3. `src/types/database.ts` includes the new table and `npm run build` passes.
 4. No existing module's folder behavior is changed (workflows/projects/tools still on their current tables).
+**Plans:** 2 plans (2 waves)
+- [ ] 114-01-PLAN.md — Additive `folders` migration (1225) + `database.ts` types (UFE-01)
+- [ ] 114-02-PLAN.md — `src/lib/foldering/core.ts` shared core + smoke test (UFE-02)
 
 ### Phase 115: Migrate Workflows to Universal Folders
 **Goal**: Move Workflows onto the universal folder store with zero loss of production folders and identical behavior.
