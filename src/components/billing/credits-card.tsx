@@ -35,7 +35,7 @@ interface Props {
   topupResult: 'success' | 'cancel' | null
 }
 
-function toCredits(usd: number): string {
+export function toCredits(usd: number): string {
   return Math.round(usd / CREDIT_USD_RATE).toLocaleString()
 }
 

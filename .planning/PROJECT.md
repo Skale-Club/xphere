@@ -1,6 +1,25 @@
 # Operator
 
-## Current Milestone: v3.1 Websites Lead Ingestion
+## Current Milestone: none — planning next
+
+v3.2 shipped 2026-07-01 (see below). No milestone currently in progress; run `/gsd:new-milestone` to start the next one. v3.1's formal close-out is also still pending (see below).
+
+## Previous: v3.2 Credits Visibility & Metering Architecture ✅ Shipped 2026-07-01
+
+**Goal:** Make credit balance visible across the platform and establish a reusable credit-metering architecture that other features can plug into later, backed by test coverage and failure observability.
+
+**Shipped (workstream `billing-robustness`, 4 phases, 7 plans, 51 commits, single session):**
+- Generic `meterDebit(orgId, reason, costUsd, refId)` credit-debit interface (migration 1225 adds `reason` column) replaces the Copilot-specific `debitCopilot`, zero behavior change (Phase 114, MET-01..04)
+- `CreditsIndicator` in the global TopBar/MobileMenu, Realtime-backed live updates (migration 1226), gated by plan not the enforcement flag (Phase 115, CRB-01..04)
+- 48 new/audited tests across the billing surface — real HMAC-signed Stripe webhook, credit RPCs, checkout/topup sessions, entitlements precedence (Phase 116, BTC-01..04)
+- Webhook and credit-debit failures now write to the existing `event_logs` table, surfaced via the existing `/admin/logs` page with zero new UI (Phase 117, BOB-01..03)
+- Deliberately did not wire workflows/campaigns/calls to actually debit credits — deferred to v2 requirements (see archived `v3.2-REQUIREMENTS.md`)
+
+**Known gaps (tracked, non-blocking):** 5 Phase 115 UI behaviors approved on code/test evidence rather than a live browser click-through (`115-HUMAN-UAT.md`, cross-machine browser networking limitation); Supabase CLI auth/migration-history desync needs a `supabase login` + `supabase migration repair` pass (schema itself is live and correct, applied via the Supabase Management API).
+
+**Archives:** [v3.2-ROADMAP.md](milestones/v3.2-ROADMAP.md) | [v3.2-REQUIREMENTS.md](milestones/v3.2-REQUIREMENTS.md) | [v3.2-MILESTONE-AUDIT.md](milestones/v3.2-MILESTONE-AUDIT.md)
+
+## Previous: v3.1 Websites Lead Ingestion ✅ Phases complete 2026-06-21 (pending formal close-out)
 
 **Goal:** Accept completed lead-form submissions from Skale Club Websites through a secure, idempotent, organization-scoped API and expose each accepted submission to Xphere workflows.
 
@@ -11,6 +30,8 @@
 - Create or update the correct CRM contact without overwriting richer tenant-managed data
 - Emit `lead.captured` for every accepted submission and `contact.created` only for new contacts
 - Publish integration validation and public API documentation for the sibling Websites product
+
+**Note:** All 3 phases (111-113) completed per `workstreams/v31-websites-lead-ingestion/STATE.md`; run `/gsd:complete-milestone --ws v31-websites-lead-ingestion` to archive formally when convenient.
 
 ## What This Is
 
@@ -287,6 +308,14 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Unified Calls Hub: `unified_calls` VIEW, `/calls` timeline with AI+Human filter, tabs sub-routes, detail variants — v2.7 (CALL-01..10)
 - Pipeline UX: OpportunityDetailSheet with edit mode, DnD click/drag fix, same-column kanban reorder — v2.7 (PIPE-01..08)
 - Scheduling Hardening: partial unique index, rate limiter, Resend booker emails, custom fields integration, 14 tests — v2.8 (SCHED-01..12)
+- Stripe billing foundation (customers/subscriptions/webhook idempotency), trial + manual plan override, Copilot credit wallet (included + topup buckets, ledger, atomic RPCs), checkout + top-up sessions, entitlements resolution, settings/billing UI — shipped out-of-band across v2.8-v3.0 without dedicated REQ-IDs
+
+### Validated (v3.2 additions)
+
+- Generic reason-tagged credit-metering interface (`meterDebit`), replacing the Copilot-specific debit path with zero behavior change — v3.2 (MET-01..04)
+- Persistent, Realtime-backed credit balance indicator in the global TopBar/MobileMenu, gated by plan rather than the enforcement flag — v3.2 (CRB-01..04)
+- Automated test coverage for the billing surface: Stripe webhook (real HMAC signing), entitlements precedence, credit RPCs, checkout/topup sessions — v3.2 (BTC-01..04)
+- Billing failure observability via the existing `event_logs`/`/admin/logs` infrastructure (no new UI) — v3.2 (BOB-01..03)
 
 ### Backlog (next milestone candidates)
 
@@ -303,7 +332,6 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Voice processing (STT/TTS) — handled by Vapi
 - Assistant configuration — handled in Vapi
 - LLM conversation logic for Vapi flows — handled by Vapi
-- Payment and billing — outside current scope
 - Mobile app
 - OAuth/social login
 - White-label branding
@@ -320,7 +348,7 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Canonical production origin: `https://operator.skale.club`
 - Vapi webhook routes run in Node.js route handlers (not Edge Runtime) for Vercel Hobby compatibility
 - Auth enforced in layouts and route handlers (not middleware)
-- Known tech debt: no Vapi HMAC validation, campaign calls don't appear in Observability, send_sms/custom_webhook are stubs
+- Known tech debt: no Vapi HMAC validation, campaign calls don't appear in Observability, send_sms/custom_webhook are stubs; no component-render test infrastructure (`vitest.config.ts` environment: `'node'`, no `@testing-library/react`) so React component rendering/interaction has no automated coverage; local Supabase CLI has no authenticated session for this project (migrations applied via the Supabase Management API leave the CLI's migration-history bookkeeping desynced — schema itself is correct, needs `supabase login` + `supabase migration repair`)
 
 ## Constraints
 
@@ -358,6 +386,10 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 | Widget config on `organizations` table (v1.2) | Avoids extra join/table; natural multi-tenant scope via RLS | ✓ Good |
 | Shadow DOM isolation for widget (v1.2) | Prevents host-site CSS bleed without iframe overhead | ✓ Validated Phase 4 |
 | `conversations`/`conversation_messages` naming (v1.2) | More readable table names; denormalized last_message for inbox previews | ✓ Good |
+| GSD workstreams for orthogonal milestone work (v3.2) | Ran `billing-robustness` in parallel to `v31-websites-lead-ingestion` instead of blocking on it — no file overlap, independent requirements | ✓ Good |
+| Credit metering built architecture-first, no features wired to consume it yet (v3.2) | Avoid guessing which features (workflows/campaigns/calls) should cost credits before the business decides — build the reusable interface, defer the wiring decision | Current framing — revisit when a feature needs to become credit-consuming |
+| Reuse existing `event_logs`/`/admin/logs` for billing observability instead of a dedicated panel (v3.2) | Avoid duplicating an already-solved generic problem | ✓ Good |
+| Credit indicator gated by resolved plan, not `BILLING_ENFORCEMENT_ENABLED` (v3.2) | Visibility shouldn't wait on the operational enforcement rollout — closes the "zero visibility" gap immediately | ✓ Good |
 
 ## Evolution
 
@@ -376,4 +408,4 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-*Last updated: 2026-05-21 — v3.0 Workflow Runtime Hardening started.*
+*Last updated: 2026-07-01 — v3.2 Credits Visibility & Metering Architecture shipped (workstream `billing-robustness`).*

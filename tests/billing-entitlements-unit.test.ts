@@ -5,6 +5,10 @@
 // trial > none) and the catalog lookups. The IO wrapper getEntitlements() is
 // covered by manual E2E (it only wires DB rows into resolveEffectivePlan).
 
+// BTC-02 audit (Phase 116): all four precedence levels (override, subscription,
+// trial, none) are confirmed covered above — see 'precedence', 'subscription',
+// and 'trial & none' describe blocks. No gap found; no new cases added.
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { resolveEffectivePlan } from '@/lib/billing/entitlements'
 import {

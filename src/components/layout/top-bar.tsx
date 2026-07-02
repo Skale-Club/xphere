@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, ShieldCheck, Menu, Command, X, Phone, Bell, Sun, Moon } from 'lucide-react'
+import { Search, ShieldCheck, Menu, Command, X, Phone, Bell, Sun, Moon, Sparkles } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AppBreadcrumb } from './app-breadcrumb'
@@ -13,6 +13,7 @@ import { useCommandPalette } from '@/components/command-palette'
 import { DialPadHeaderButton } from '@/components/calls/dial-pad-header-button'
 import { toggleDialPad } from '@/components/calls/dial-pad-context'
 import { NotificationBell } from '@/components/notifications/notification-bell'
+import { CreditsIndicator } from '@/components/billing/credits-indicator'
 import { cn } from '@/lib/utils'
 
 interface TopBarProps {
@@ -24,6 +25,17 @@ interface TopBarProps {
   /** True when the org has at least one active twilio_phone_numbers row.
    * Used to hide the dial-pad header button while there's nothing to dial from. */
   hasPhoneNumber: boolean
+  /** True when the org's plan grants Copilot credits, or it already has a
+   * provisioned/topup balance. Gates whether CreditsIndicator renders at all
+   * (CRB-03) — resolved server-side independent of isBillingEnforced(). */
+  hasCreditsPlan: boolean
+  /** Current Copilot wallet balance, or null if not yet resolved/no org. */
+  copilotBalance: {
+    includedUsd: number
+    topupUsd: number
+    totalUsd: number
+    includedAllowanceUsd: number
+  } | null
 }
 
 function SearchButton({ onClick }: { onClick: () => void }) {
@@ -60,6 +72,8 @@ function MobileMenu({
   activeOrgLogo,
   isPlatformAdmin,
   userId,
+  hasCreditsPlan,
+  copilotBalance,
   onOpenSearch,
 }: {
   open: boolean
@@ -69,6 +83,8 @@ function MobileMenu({
   activeOrgLogo?: string | null
   isPlatformAdmin: boolean
   userId: string | null
+  hasCreditsPlan: boolean
+  copilotBalance: TopBarProps['copilotBalance']
   onOpenSearch: () => void
 }) {
   const { theme, setTheme } = useTheme()
@@ -167,6 +183,17 @@ function MobileMenu({
               }
               <span className="text-sm text-text-secondary">Theme</span>
             </button>
+
+            {/* Credits — invisible overlay triggers the popover */}
+            {hasCreditsPlan && (
+              <div className="relative flex flex-col items-center justify-center gap-3 rounded-[14px] border border-border-subtle bg-bg-secondary px-3 py-6 hover:bg-bg-tertiary hover:border-border active:scale-95 transition-all duration-100 cursor-pointer">
+                <Sparkles className="h-6 w-6 text-text-secondary pointer-events-none" />
+                <span className="text-sm text-text-secondary pointer-events-none">Credits</span>
+                <div className="absolute inset-0 opacity-0">
+                  <CreditsIndicator orgId={activeOrgId} initialBalance={copilotBalance} />
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -196,7 +223,7 @@ function MobileMenu({
   )
 }
 
-export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAdmin, userId, hasPhoneNumber }: TopBarProps) {
+export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAdmin, userId, hasPhoneNumber, hasCreditsPlan, copilotBalance }: TopBarProps) {
   const { setOpen } = useCommandPalette()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -224,6 +251,7 @@ export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAd
           {hasPhoneNumber && <DialPadHeaderButton />}
           <NotificationBell userId={userId} />
           <ThemeToggle />
+          {hasCreditsPlan && <CreditsIndicator orgId={activeOrgId} initialBalance={copilotBalance} />}
           <div className="min-w-0">
             <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} />
           </div>
@@ -272,6 +300,8 @@ export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAd
         activeOrgLogo={activeOrgLogo}
         isPlatformAdmin={isPlatformAdmin}
         userId={userId}
+        hasCreditsPlan={hasCreditsPlan}
+        copilotBalance={copilotBalance}
         onOpenSearch={openSearch}
       />
     </>
