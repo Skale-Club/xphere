@@ -4,8 +4,8 @@ milestone: v3.2
 milestone_name: milestone
 current_plan: Not started
 status: completed
-stopped_at: Completed 115-02-PLAN.md (Workflows swapped onto universal folders via foldering core; build green); Phase 115 complete, ready for Phase 116
-last_updated: "2026-07-02T15:53:05.000Z"
+stopped_at: Completed 115-02-PLAN.md (Workflows swapped onto universal folders via foldering core; migration 1226 written as file; build green); Phase 115 complete, ready for Phase 116
+last_updated: "2026-07-02T15:56:36.508Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
