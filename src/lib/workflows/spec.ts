@@ -839,6 +839,43 @@ export const NODES: NodeSpec[] = [
       { to: '{{meeting.attendee_contact.email}}', subject: 'Your appointment is confirmed', body: '<p>Hi {{meeting.attendee_contact.first_name}}, ...</p>' },
     ],
   },
+  {
+    type: 'send_email_template',
+    kind: 'action',
+    description:
+      'Send a builder email template (from Email Templates) to a recipient, with ' +
+      'merge-tag personalization. Loads the template html_snapshot, fills {{variables}} ' +
+      'from the provided variables object, and sends via the platform Resend settings.',
+    // Org-gated: only appears in the spec when the org has Resend/email connected.
+    integration_required: ['resend'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        template_id: {
+          type: 'string',
+          description: 'UUID of the email_templates row to send (must have an html_snapshot).',
+        },
+        to: { type: 'string', description: 'Recipient email address.' },
+        subject: {
+          type: 'string',
+          description: 'Subject line; supports {{variables}}. Falls back to the template name.',
+        },
+        variables: {
+          type: 'object',
+          description: 'Merge-tag values, e.g. { "contact": { "first_name": "Ana" } }. Fills {{contact.first_name}} etc.',
+        },
+      },
+      required: ['template_id', 'to'],
+    },
+    examples: [
+      {
+        template_id: '00000000-0000-0000-0000-000000000000',
+        to: '{{contact.email}}',
+        subject: 'Welcome, {{contact.first_name}}!',
+        variables: { contact: { first_name: '{{contact.first_name}}', email: '{{contact.email}}' } },
+      },
+    ],
+  },
 
   // ─── Control flow
   {
