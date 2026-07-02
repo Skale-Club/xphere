@@ -17,6 +17,8 @@ export interface EmailTemplateBuilderRow {
   document: EmailDocument | Record<string, unknown>
   html_snapshot: string | null
   plain_text_snapshot: string | null
+  folder_id: string | null
+  position: number
   created_by: string | null
   created_at: string
   updated_at: string
@@ -43,7 +45,7 @@ export async function listTemplates(): Promise<ActionResult<EmailTemplateBuilder
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('email_templates')
-    .select('id, org_id, name, description, status, document, html_snapshot, plain_text_snapshot, created_by, created_at, updated_at')
+    .select('id, org_id, name, description, status, document, html_snapshot, plain_text_snapshot, folder_id, position, created_by, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) return { ok: false, error: error.message }
