@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
-current_plan: 117-01 (next phase)
-status: in_progress
-stopped_at: Completed Phase 116 (all 4 plans). Wave 2 code swaps done — Projects spaces + Tools folders now query folders(entity_type='project'/'tool') via the foldering core; grep for project_spaces/tool_folders in src reduces to generated database.ts types (+ intentional MCP tool name); build green. Migrations 1225/1226/1227 still NOT applied (see PENDING-MIGRATIONS.md).
-last_updated: "2026-07-02T16:26:29Z"
+current_plan: Not started
+status: completed
+stopped_at: "Completed Phase 116 (all 4 plans). Wave 2 done: 116-03 Projects spaces swap (spaces.ts core delegation + MCP tool folders queries) and 116-04 Tools folder swap (workflows/actions.ts core delegation with legacy-shape adapter + agent tool-picker). Build green; grep reduced to generated types. Next: Phase 117 (Email Templates Sub-Sidebar + Folders). Reminder: migrations 1225/1226/1227 remain unapplied — must reconcile migration-history desync + apply before this code deploys."
+last_updated: "2026-07-02T16:30:36.831Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 116 COMPLETE (all 4 plans); next is Phase 117 (Email Templates Sub-Sidebar + Folders)
+Phase: 117
 Plan: 116-01..116-04 all complete
 Status: Phase 116 complete — Wave 1 (core `itemFolderColumn` + migration 1227 file) and Wave 2 (Projects + Tools code swaps) done. Projects/Tools/agent tool-picker now read/write `folders(entity_type='project'/'tool')`; only generated `database.ts` types (+ the MCP tool name `project_spaces_create`) still mention the legacy names. Build green. Migrations 1225/1226/1227 still unapplied.
 Last activity: 2026-07-02
@@ -26,7 +26,7 @@ Last activity: 2026-07-02
 ## Progress
 
 **Phases Complete:** 3 / 8
-**Current Plan:** 117-01 (next phase)
+**Current Plan:** Not started
 **Roadmap:** 114 → 121 (linear; 116 and 117 depend on 114)
 
 ## Accumulated Context
