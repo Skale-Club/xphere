@@ -5,7 +5,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 
 export interface ToolPickerData {
-  folders: Database['public']['Tables']['tool_folders']['Row'][]
+  folders: Database['public']['Tables']['folders']['Row'][]
   tools: Array<
     Database['public']['Tables']['_legacy_tool_configs']['Row'] & {
       integration: {
@@ -27,7 +27,7 @@ export async function getToolPickerData(): Promise<ToolPickerData> {
   if (!user) return { folders: [], tools: [] }
   const supabase = await createClient()
   const [foldersRes, toolsRes] = await Promise.all([
-    supabase.from('tool_folders').select('*').order('name', { ascending: true }),
+    supabase.from('folders').select('*').eq('entity_type', 'tool').order('name', { ascending: true }),
     supabase
       .from('_legacy_tool_configs')
       .select('*, integration:integrations(id, name, is_active)')
