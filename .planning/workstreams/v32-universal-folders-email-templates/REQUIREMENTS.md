@@ -18,7 +18,7 @@
 ## Email Editor
 
 - [x] **UFE-07**: Every email block carries a stable identity, and existing saved templates keep rendering unchanged after the upgrade.
-- [ ] **UFE-08**: User can drag blocks from a left-hand palette into columns and reorder or move blocks within and between columns.
+- [x] **UFE-08**: User can drag blocks from a left-hand palette into columns and reorder or move blocks within and between columns.
 
 ## Email Lifecycle
 
@@ -49,7 +49,7 @@
 | UFE-05 | Phase 116 | Complete |
 | UFE-06 | Phase 117 | Complete |
 | UFE-07 | Phase 118 | Complete |
-| UFE-08 | Phase 119 | Pending |
+| UFE-08 | Phase 119 | Complete |
 | UFE-09 | Phase 120 | Pending |
 | UFE-10 | Phase 121 | Pending |
 | UFE-11 | Phase 121 | Pending |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-07-02*
-*Last updated: 2026-07-02 — UFE-07 completed (Phase 118: PURE CODE, no DB/migration. render-template.ts gains BaseBlock id on all seven block types + makeBlockId() + exported normalizeDocument() with upgrade-on-read id backfill (DistributiveOmit for id-free BLOCK_DEFAULTS); editor refactored to id-based selection (selectedBlockId), id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, imports the shared normalizeDocument. renderTemplate HTML byte-identical (proven by tests/email-block-ids.test.ts, 8/8); build green; email-template-builder.test.ts 17/17)*
+*Last updated: 2026-07-02 — UFE-08 completed (Phase 119: PURE CLIENT CODE, no DB/migration. 119-01 added three pure immutable EmailDocument helpers in src/lib/email/editor-dnd.ts (findBlockLocation/insertBlockInColumn/moveBlock) with tests/email-editor-dnd.test.ts 10/10. 119-02 turned the editor into a three-pane builder: new block-palette.tsx (useDraggable block-type + reusable chips), columns as droppable SortableContexts + empty-column useDroppable at a unified col:${sectionId}:${colIdx} id, blocks as grip-scoped useSortable, all wired into the SINGLE existing DndContext (closestCorners + DragOverlay) with onDragStart/Over/End delegating mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked (out of scope); +Block/Insert fallback menus + section reorder preserved. npm run build exit 0; email suites 35/35. Live pointer-drag deferred to post-migration human-verify — the editor route nests under the folder-querying layout (migrations 1225/1226/1227/1228 still unapplied).)*

@@ -11,7 +11,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 - [x] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
 - [x] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
 - [x] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
-- [ ] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
+- [x] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
 - [ ] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
 - [ ] **Phase 121: Sending Integration** - Merge-tags + `send_email_template` tool (spec/validator) + template selection in campaigns.
 
@@ -100,9 +100,9 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Blocks can be reordered within a column and moved between columns; section reorder still works.
 4. Live preview and saved snapshot reflect the new arrangement; `npm run build` passes.
 
-**Plans:** 2 plans
-- [ ] 119-01-PLAN.md — Pure DnD helpers `src/lib/email/editor-dnd.ts` (findBlockLocation/insertBlockInColumn/moveBlock) + `tests/email-editor-dnd.test.ts` (UFE-08)
-- [ ] 119-02-PLAN.md — Left `BlockPalette` (useDraggable) + multi-container dnd wiring in the editor (single DndContext, closestCorners, DragOverlay, onDragStart/Over/End) (UFE-08)
+**Plans:** 2/2 plans complete
+- [x] 119-01-PLAN.md — Pure DnD helpers `src/lib/email/editor-dnd.ts` (findBlockLocation/insertBlockInColumn/moveBlock) + `tests/email-editor-dnd.test.ts` — 10/10 (UFE-08)
+- [x] 119-02-PLAN.md — Left `BlockPalette` (useDraggable) + multi-container dnd wiring in the editor (single DndContext, closestCorners, DragOverlay, onDragStart/Over/End) (UFE-08)
 
 ### Phase 120: Publish Lifecycle
 **Goal**: Expose a coherent draft/published lifecycle and fix the status inconsistency.
