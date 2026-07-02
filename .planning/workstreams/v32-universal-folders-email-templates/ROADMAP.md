@@ -41,6 +41,10 @@ This milestone extracts the folder/tree organization system (today duplicated as
 4. `workflow_folders` is retired (renamed `_deprecated`) and the app references only `folders`.
 5. `npm run build` passes.
 
+**Plans:** 2/2 plans planned
+- [ ] 115-01-PLAN.md — Write migration 1226 (copy → repoint FK → rename `_deprecated`) + PENDING ledger (UFE-03)
+- [ ] 115-02-PLAN.md — Swap Workflows layout + folder actions onto `folders` via foldering core (UFE-03)
+
 ### Phase 116: Migrate Projects + Tools to Universal Folders
 **Goal**: Move Projects (spaces) and Tools onto the universal folder store, retiring their legacy tables.
 **Depends on**: Phase 114
