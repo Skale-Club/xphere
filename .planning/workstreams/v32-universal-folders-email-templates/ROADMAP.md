@@ -8,7 +8,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 
 - [ ] **Phase 114: Universal Folders Backend** - Single `folders` table + shared foldering core; no consumer migrated yet.
 - [ ] **Phase 115: Migrate Workflows to Universal Folders** - UUID-preserving data migration; retire `workflow_folders`; UX parity. (HIGH RISK — production data)
-- [ ] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_folders` and `tool_folders`; retire legacy tables.
+- [ ] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
 - [ ] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
 - [ ] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [ ] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
@@ -46,10 +46,10 @@ This milestone extracts the folder/tree organization system (today duplicated as
 **Depends on**: Phase 114
 **Requirements**: UFE-04, UFE-05
 **Success Criteria**:
-1. Data migrations copy `project_folders` and `tool_folders` into `folders` (entity_type='project'/'tool') preserving UUIDs and FKs.
+1. Data migrations copy `project_spaces` (renamed from `project_folders` in migration 1157) and `tool_folders` into `folders` (entity_type='project'/'tool') preserving UUIDs and FKs.
 2. Existing project spaces and tool folders appear unchanged post-migration.
 3. Both modules' sidebars operate through the shared foldering core.
-4. `project_folders` and `tool_folders` are retired; `workflow_folders_deprecated` is safe to drop.
+4. `project_spaces` and `tool_folders` are retired; `workflow_folders_deprecated` is safe to drop.
 5. `npm run build` passes.
 
 ### Phase 117: Email Templates Sub-Sidebar + Folders
