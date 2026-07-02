@@ -303,6 +303,7 @@ export async function executePipelineCreateOpportunity(
     const { data: defaultPipe } = await ctx.supabase
       .from('pipelines')
       .select('id')
+      .eq('org_id', ctx.organizationId)
       .order('is_default', { ascending: false })
       .order('position', { ascending: true })
       .limit(1)
@@ -340,6 +341,7 @@ export async function executePipelineCreateOpportunity(
       .from('contacts')
       .select('id')
       .eq('phone', phone)
+      .eq('org_id', ctx.organizationId)
       .limit(1)
       .maybeSingle()
     if (existing) {
