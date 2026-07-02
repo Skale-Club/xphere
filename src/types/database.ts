@@ -4614,6 +4614,9 @@ export interface Database {
           document: Json
           html_snapshot: string | null
           plain_text_snapshot: string | null
+          // folder linkage (migration 1228, Phase 117 / UFE-06)
+          folder_id: string | null
+          position: number
           created_by: string | null
           created_at: string
           updated_at: string
@@ -4631,6 +4634,8 @@ export interface Database {
           document?: Json
           html_snapshot?: string | null
           plain_text_snapshot?: string | null
+          folder_id?: string | null
+          position?: number
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -4648,6 +4653,8 @@ export interface Database {
           document?: Json
           html_snapshot?: string | null
           plain_text_snapshot?: string | null
+          folder_id?: string | null
+          position?: number
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -4658,6 +4665,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'email_templates_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
             referencedColumns: ['id']
           }
         ]
