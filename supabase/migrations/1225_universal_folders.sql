@@ -31,4 +31,4 @@ create index folders_org_entity_parent_pos_idx
 
 create trigger trg_folders_updated_at
   before update on public.folders
-  for each row execute function moddatetime(updated_at);
+  for each row execute function update_updated_at();
