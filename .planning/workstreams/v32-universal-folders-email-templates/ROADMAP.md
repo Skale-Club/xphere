@@ -114,7 +114,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Publishing refreshes the HTML snapshot; the badge/status is consistent in list and editor.
 4. `npm run build` passes.
 
-**Plans:** 1/1 plan complete
+**Plans:** 1/1 plans complete
 - [x] 120-01-PLAN.md — publishTemplate/unpublishTemplate actions (snapshot refresh) + getTemplate status select + migration 1229 (file) + STATUS_CLASSES/legacy-map + Publish/Unpublish in editor toolbar & list card (UFE-09)
 
 ### Phase 121: Sending Integration
