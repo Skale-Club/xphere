@@ -1,26 +1,44 @@
 'use server'
 
-// Project spaces (formerly "folders").
+// Project spaces now live in the universal `folders` store (entity_type='project').
 //
-// CRUD for the `project_spaces` table plus cascade helpers (archive/delete).
+// Thin 'use server' wrappers around src/lib/foldering/core.ts; export names +
+// return shapes preserved (ActionResult<ProjectSpaceRow>) so ProjectSubNav /
+// new-space-button / layout consume them unchanged. Archive/delete keep bespoke
+// cascades against `projects.space_id` (the core's cascade hardcodes 'folder_id',
+// which does not match the projects item column) but read the folder rows from
+// `folders` instead of the retired `project_spaces` table.
+//
 // All actions are org-scoped via RLS | the active org resolves through
 // `get_current_org_id()`, so we never need to filter by org_id manually.
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import * as core from '@/lib/foldering/core'
+import type { FolderingContext } from '@/lib/foldering/core'
 import type { ProjectSpaceRow } from '@/types/database'
 
-// Type-cast helper: Supabase doesn't have project tables in the generated Database type,
-// so we cast via `any` and let the caller's return type guarantee correctness.
+type ActionResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string }
+
+async function ctx(): Promise<FolderingContext> {
+  return {
+    supabase: await createClient(),
+    entityType: 'project',
+    itemTable: 'projects',
+    itemFolderColumn: 'space_id',
+  }
+}
+
+// Type-cast helper: Supabase doesn't have the `projects` table in the generated
+// Database type, so archive/delete cascades cast via `any`. Folder reads use the
+// typed `folders` client on the FolderingContext where possible.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db(supabase: Awaited<ReturnType<typeof createClient>>): any {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return supabase as any
 }
-
-type ActionResult<T = void> =
-  | { ok: true; data: T }
-  | { ok: false; error: string }
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -28,15 +46,9 @@ export async function listSpaces(): Promise<ActionResult<ProjectSpaceRow[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const supabase = await createClient()
-  const { data, error } = await db(supabase)
-    .from('project_spaces')
-    .select('*')
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: true })
-
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, data: (data ?? []) as ProjectSpaceRow[] }
+  const res = await core.listFolders(await ctx())
+  if (!res.ok) return res
+  return { ok: true, data: res.data as unknown as ProjectSpaceRow[] }
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -50,46 +62,10 @@ export async function createSpace(input: {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const name = input.name.trim()
-  if (!name) return { ok: false, error: 'name_required' }
-
-  const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { ok: false, error: 'no_active_org' }
-
-  // Pick next position within siblings.
-  const { data: siblings } = await db(supabase)
-    .from('project_spaces')
-    .select('position')
-    .eq('parent_id', input.parent_id ?? (null as unknown as string))
-    .order('position', { ascending: false })
-    .limit(1)
-
-  const nextPosition = (siblings?.[0]?.position ?? -1) + 1
-
-  const { data, error } = await db(supabase)
-    .from('project_spaces')
-    .insert({
-      org_id: orgId as string,
-      name,
-      color: input.color ?? null,
-      icon: input.icon ?? null,
-      parent_id: input.parent_id ?? null,
-      position: nextPosition,
-      created_by: user.id,
-    })
-    .select()
-    .single()
-
-  if (error || !data) {
-    if (error?.code === '23505') {
-      return { ok: false, error: 'A space with this name already exists here.' }
-    }
-    return { ok: false, error: error?.message ?? 'create_failed' }
-  }
-
+  const res = await core.createFolder(await ctx(), input)
+  if (!res.ok) return res
   revalidatePath('/projects')
-  return { ok: true, data: data as ProjectSpaceRow }
+  return { ok: true, data: res.data as unknown as ProjectSpaceRow }
 }
 
 // ─── Rename ───────────────────────────────────────────────────────────────────
@@ -101,24 +77,9 @@ export async function renameSpace(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const name = input.name.trim()
-  if (!name) return { ok: false, error: 'name_required' }
-
-  const supabase = await createClient()
-  const { error } = await db(supabase)
-    .from('project_spaces')
-    .update({ name })
-    .eq('id', id)
-
-  if (error) {
-    if (error.code === '23505') {
-      return { ok: false, error: 'A space with this name already exists here.' }
-    }
-    return { ok: false, error: error.message }
-  }
-
-  revalidatePath('/projects')
-  return { ok: true, data: undefined }
+  const res = await core.renameFolder(await ctx(), id, input)
+  if (res.ok) revalidatePath('/projects')
+  return res
 }
 
 // ─── Update meta (color / icon) ───────────────────────────────────────────────
@@ -130,20 +91,9 @@ export async function updateSpaceMeta(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const supabase = await createClient()
-  const patch: Record<string, unknown> = {}
-  if (input.color !== undefined) patch.color = input.color
-  if (input.icon !== undefined) patch.icon = input.icon
-  if (Object.keys(patch).length === 0) return { ok: true, data: undefined }
-
-  const { error } = await db(supabase)
-    .from('project_spaces')
-    .update(patch)
-    .eq('id', id)
-
-  if (error) return { ok: false, error: error.message }
-  revalidatePath('/projects')
-  return { ok: true, data: undefined }
+  const res = await core.updateFolderMeta(await ctx(), id, input)
+  if (res.ok) revalidatePath('/projects')
+  return res
 }
 
 // ─── Reorder spaces (siblings) ────────────────────────────────────────────────
@@ -153,18 +103,10 @@ export async function reorderSpaces(
 ): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
-  if (orderedIds.length === 0) return { ok: true, data: undefined }
 
-  const supabase = await createClient()
-  const updates = orderedIds.map((id, index) =>
-    db(supabase).from('project_spaces').update({ position: index }).eq('id', id),
-  )
-  const results = await Promise.all(updates)
-  const failed = results.find((r: { error: unknown }) => r.error)
-  if (failed) return { ok: false, error: 'Failed to save space order.' }
-
-  revalidatePath('/projects')
-  return { ok: true, data: undefined }
+  const res = await core.reorderFolders(await ctx(), orderedIds)
+  if (res.ok) revalidatePath('/projects')
+  return res
 }
 
 // ─── Move space (re-parent) ───────────────────────────────────────────────────
@@ -175,20 +117,18 @@ export async function moveSpace(
 ): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
-  if (parent_id === id) return { ok: false, error: 'cannot_nest_in_self' }
 
-  const supabase = await createClient()
-  const { error } = await db(supabase)
-    .from('project_spaces')
-    .update({ parent_id })
-    .eq('id', id)
-
-  if (error) return { ok: false, error: error.message }
-  revalidatePath('/projects')
-  return { ok: true, data: undefined }
+  const res = await core.moveFolder(await ctx(), id, parent_id)
+  if (res.ok) revalidatePath('/projects')
+  return res
 }
 
 // ─── Cascade helpers ──────────────────────────────────────────────────────────
+//
+// Kept bespoke (NOT delegated to the core) because the projects item column is
+// `space_id`, but core.archiveFolder / core.deleteFolder cascade items via a
+// hardcoded `.in('folder_id', ...)`. Folder rows are read from `folders`
+// (entity_type='project'); the `projects.space_id` cascades are preserved verbatim.
 
 async function collectDescendantSpaceIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -199,8 +139,9 @@ async function collectDescendantSpaceIds(
   // Bounded loop | practical space trees are shallow; cap at 16 levels.
   for (let depth = 0; depth < 16 && frontier.length > 0; depth++) {
     const { data: children } = await db(supabase)
-      .from('project_spaces')
+      .from('folders')
       .select('id')
+      .eq('entity_type', 'project')
       .in('parent_id', frontier)
     const childIds = (children ?? []).map((c: { id: string }) => c.id)
     if (childIds.length === 0) break
@@ -250,8 +191,9 @@ export async function deleteSpace(
   const supabase = await createClient()
 
   const { data: childRows } = await db(supabase)
-    .from('project_spaces')
+    .from('folders')
     .select('id')
+    .eq('entity_type', 'project')
     .eq('parent_id', id)
     .limit(1)
 
@@ -273,9 +215,10 @@ export async function deleteSpace(
 
   // Hard-delete the space; ON DELETE CASCADE handles nested spaces.
   const { error: sErr } = await db(supabase)
-    .from('project_spaces')
+    .from('folders')
     .delete()
     .eq('id', id)
+    .eq('entity_type', 'project')
 
   if (sErr) return { ok: false, error: sErr.message }
 
