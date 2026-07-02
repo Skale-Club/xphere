@@ -24,6 +24,8 @@ export interface CreateCampaignInput {
   // WhatsApp Cloud (Meta) specific
   whatsapp_template_id?: string | null
   whatsapp_variable_mapping?: Record<string, unknown> | null
+  // Email-specific (builder template selection, UFE-12)
+  email_template_id?: string | null
   // Audience
   audience_filter?: Record<string, unknown>
   // Schedule
@@ -95,9 +97,29 @@ export async function createCampaign(
     }
   }
 
-  const templateConfig: Json = input.channel === 'sms' && input.sms_body
-    ? ({ sms_body: input.sms_body } as Json)
-    : ({} as Json)
+  // For email campaigns, validate the chosen builder template exists, is
+  // org-scoped (RLS), and is published.
+  if (input.channel === 'email') {
+    if (!input.email_template_id) {
+      throw new Error('Select a published email template for this campaign.')
+    }
+    const { data: tpl } = await supabase
+      .from('email_templates')
+      .select('id, status')
+      .eq('id', input.email_template_id)
+      .maybeSingle()
+    if (!tpl) throw new Error('Selected email template not found.')
+    if (tpl.status !== 'published') {
+      throw new Error('Selected email template is not published. Publish it first.')
+    }
+  }
+
+  const templateConfig: Json =
+    input.channel === 'sms' && input.sms_body
+      ? ({ sms_body: input.sms_body } as Json)
+      : input.channel === 'email' && input.email_template_id
+      ? ({ email_template_id: input.email_template_id } as Json)
+      : ({} as Json)
 
   const audienceFilter: Json = (input.audience_filter ?? {}) as unknown as Json
 
@@ -128,6 +150,23 @@ export async function createCampaign(
   if (error) throw new Error(error.message)
   revalidatePath('/campaigns')
   return { id: data.id }
+}
+
+// ─── listCampaignEmailTemplates (UFE-12) ────────────────────────────────────────
+
+/** Published builder email templates for the active org (campaign picker source). */
+export async function listCampaignEmailTemplates(): Promise<
+  Array<{ id: string; name: string }>
+> {
+  const user = await getUser()
+  if (!user) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('email_templates')
+    .select('id, name, status')
+    .eq('status', 'published')
+    .order('name', { ascending: true })
+  return (data ?? []).map((t) => ({ id: t.id as string, name: t.name as string }))
 }
 
 // ─── launchCampaign ───────────────────────────────────────────────────────────
