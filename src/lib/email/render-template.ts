@@ -95,6 +95,11 @@ export type EmailBlock =
   | SpacerBlock
   | HtmlBlock
 
+/** Union-aware Omit. Plain `Omit<EmailBlock, 'id'>` collapses the discriminated
+ *  union to its shared keys (only `blockType`); this distributes over each
+ *  member so per-block properties survive — used for the id-free BLOCK_DEFAULTS. */
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+
 export type EmailSection = {
   id: string
   layout: 1 | 2 | 3
@@ -370,7 +375,7 @@ export function normalizeDocument(raw: unknown): EmailDocument {
   }
 }
 
-export const BLOCK_DEFAULTS: Record<string, Omit<EmailBlock, 'id'>> = {
+export const BLOCK_DEFAULTS: Record<string, DistributiveOmit<EmailBlock, 'id'>> = {
   text: {
     blockType: 'text',
     content: 'Edit this text block.',
