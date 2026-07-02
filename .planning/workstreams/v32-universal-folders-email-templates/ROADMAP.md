@@ -8,7 +8,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 
 - [x] **Phase 114: Universal Folders Backend** - Single `folders` table + shared foldering core; no consumer migrated yet.
 - [x] **Phase 115: Migrate Workflows to Universal Folders** - UUID-preserving data migration; retire `workflow_folders`; UX parity. (HIGH RISK — production data)
-- [ ] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
+- [x] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
 - [ ] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
 - [ ] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [ ] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
@@ -56,11 +56,11 @@ This milestone extracts the folder/tree organization system (today duplicated as
 4. `project_spaces` and `tool_folders` are retired; `workflow_folders_deprecated` is safe to drop.
 5. `npm run build` passes.
 
-**Plans:** 2/4 plans complete
+**Plans:** 4/4 plans complete
 - [x] 116-01-PLAN.md — Add backward-compatible `itemFolderColumn` to foldering core (UFE-04, UFE-05)
 - [x] 116-02-PLAN.md — Write migration 1227 (copy → repoint FKs → rename `_deprecated`) + PENDING ledger (UFE-04, UFE-05)
-- [ ] 116-03-PLAN.md — Swap Projects spaces actions + layout + MCP tool onto `folders` (UFE-04)
-- [ ] 116-04-PLAN.md — Swap Tools folder actions + agent tool-picker onto `folders` (UFE-05)
+- [x] 116-03-PLAN.md — Swap Projects spaces actions + layout + MCP tool onto `folders` (UFE-04)
+- [x] 116-04-PLAN.md — Swap Tools folder actions + agent tool-picker onto `folders` (UFE-05)
 
 ### Phase 117: Email Templates Sub-Sidebar + Folders
 **Goal**: Give Email Templates a Workflows-style sub-sidebar with universal folders and drag-and-drop organization.

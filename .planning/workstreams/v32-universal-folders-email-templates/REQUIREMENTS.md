@@ -8,8 +8,8 @@
 - [x] **UFE-01**: Any module stores its folders in a single shared `folders` table, scoped per org and per `entity_type`, replacing the per-entity folder tables.
 - [x] **UFE-02**: A shared foldering module provides the full folder + item organization contract (list/create/rename/color/icon/reorder/move/archive/delete) parameterized by entity type and item table, with no duplicated backend logic per module.
 - [x] **UFE-03**: Workflows use the universal folder system with every existing production folder preserved and drag-and-drop/UX parity with today.
-- [ ] **UFE-04**: Projects use the universal folder system (spaces) with existing data preserved.
-- [ ] **UFE-05**: Tools use the universal folder system with existing data preserved.
+- [x] **UFE-04**: Projects use the universal folder system (spaces) with existing data preserved.
+- [x] **UFE-05**: Tools use the universal folder system with existing data preserved.
 
 ## Email Organization
 
@@ -45,8 +45,8 @@
 | UFE-01 | Phase 114 | Complete |
 | UFE-02 | Phase 114 | Complete |
 | UFE-03 | Phase 115 | Complete |
-| UFE-04 | Phase 116 | Pending |
-| UFE-05 | Phase 116 | Pending |
+| UFE-04 | Phase 116 | Complete |
+| UFE-05 | Phase 116 | Complete |
 | UFE-06 | Phase 117 | Pending |
 | UFE-07 | Phase 118 | Pending |
 | UFE-08 | Phase 119 | Pending |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-07-02*
-*Last updated: 2026-07-02 — UFE-03 completed (Phase 115: Workflows migrated to universal folders — migration 1226 written + code swapped)*
+*Last updated: 2026-07-02 — UFE-04 + UFE-05 completed (Phase 116 Wave 2: Projects spaces + Tools folders code-swapped onto universal folders; migration 1227 file written in Wave 1)*
