@@ -16,4 +16,11 @@
 
 ---
 
+## 2. `1226_migrate_workflow_folders.sql` — Phase 115 (data migration, UFE-03)
+- **Status:** ⏳ pending apply (file committed: `supabase/migrations/1226_migrate_workflow_folders.sql`)
+- **What:** copies `workflow_folders` → `folders` (entity_type='workflow') preserving UUIDs, repoints `workflows.folder_id` FK to `folders(id)`, and renames `workflow_folders` → `workflow_folders_deprecated` (retire, not drop).
+- **Order:** apply AFTER `1225_universal_folders.sql`, BEFORE deploying the Phase 115 code (the swapped layout/actions query `folders` and would break if the copy hasn't run).
+- **Risk:** MEDIUM-HIGH (touches production data + repoints a foreign key). UUID preservation keeps `workflows.folder_id` valid; the RENAME leaves a rollback safety net.
+- **Verify after:** `select count(*) from public.folders where entity_type='workflow';` must match the old row count `select count(*) from public.workflow_folders_deprecated;`.
+
 <!-- Phase 115+ migrations will be appended here as they are built. -->
