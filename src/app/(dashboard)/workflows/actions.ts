@@ -2,6 +2,25 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Database } from '@/types/database'
+import * as core from '@/lib/foldering/core'
+import type { FolderingContext } from '@/lib/foldering/core'
+
+// Tool folders now live in the universal `folders` store (entity_type='tool').
+// itemTable is '_legacy_tool_configs' (the tools-config table this module uses);
+// the default itemFolderColumn 'folder_id' matches tool_configs.folder_id.
+async function toolCtx(): Promise<FolderingContext> {
+  return {
+    supabase: await createClient(),
+    entityType: 'tool',
+    itemTable: '_legacy_tool_configs',
+  }
+}
+
+// Adapt the core's ActionResult<void> to the legacy `{ error?: string } | void`
+// shape that the tools UI (tools-table.tsx) branches on.
+function toLegacy(res: { ok: true } | { ok: false; error: string }): { error?: string } | void {
+  if (!res.ok) return { error: res.error }
+}
 
 export type ToolConfigWithIntegration = {
   id: string
@@ -33,13 +52,9 @@ export type ToolFolder = {
 }
 
 export async function getFolders(): Promise<ToolFolder[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('tool_folders')
-    .select('*')
-    .order('position', { ascending: true })
-  if (error || !data) return []
-  return data as ToolFolder[]
+  const res = await core.listFolders(await toolCtx())
+  if (!res.ok) return []
+  return res.data as unknown as ToolFolder[]
 }
 
 export async function createFolder(
@@ -48,17 +63,9 @@ export async function createFolder(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { error: 'No organization found.' }
-  const { error } = await supabase.from('tool_folders').insert({
-    org_id: orgId,
-    name,
-    parent_id: parentId,
-    position: 0,
-  })
-  if (error) return { error: error.message }
-  revalidatePath('/workflows')
+  const res = await core.createFolder(await toolCtx(), { name, parent_id: parentId })
+  if (res.ok) revalidatePath('/workflows')
+  return toLegacy(res)
 }
 
 export async function updateFolder(
@@ -67,12 +74,19 @@ export async function updateFolder(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('tool_folders')
-    .update(data)
-    .eq('id', id)
-  if (error) return { error: error.message }
+  const ctx = await toolCtx()
+  if (data.name !== undefined) {
+    const res = await core.renameFolder(ctx, id, { name: data.name })
+    if (!res.ok) return { error: res.error }
+  }
+  if (data.position !== undefined) {
+    const { error } = await ctx.supabase
+      .from('folders')
+      .update({ position: data.position })
+      .eq('id', id)
+      .eq('entity_type', 'tool')
+    if (error) return { error: error.message }
+  }
   revalidatePath('/workflows')
 }
 
@@ -80,7 +94,7 @@ export async function deleteFolder(id: string): Promise<{ error?: string } | voi
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
-  const { error } = await supabase.from('tool_folders').delete().eq('id', id)
+  const { error } = await supabase.from('folders').delete().eq('id', id).eq('entity_type', 'tool')
   if (error) return { error: error.message }
   revalidatePath('/workflows')
 }
@@ -90,20 +104,15 @@ export async function deleteFolderWithTools(id: string): Promise<{ error?: strin
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  // Collect subfolder IDs (max 2 levels enforced by product | no recursion needed)
-  const { data: subfolders } = await supabase
-    .from('tool_folders')
-    .select('id')
-    .eq('parent_id', id)
+  // Subfolder collection kept for parity with prior behavior; DB ON DELETE
+  // CASCADE removes subfolders automatically.
+  await supabase.from('folders').select('id').eq('entity_type', 'tool').eq('parent_id', id)
 
-  const subfolderIds = (subfolders ?? []).map((s: { id: string }) => s.id)
-  const folderIds = [id, ...subfolderIds]
-
-  // Delete the folder | DB ON DELETE CASCADE removes subfolders automatically
   const { error: folderError } = await supabase
-    .from('tool_folders')
+    .from('folders')
     .delete()
     .eq('id', id)
+    .eq('entity_type', 'tool')
 
   if (folderError) return { error: folderError.message }
   revalidatePath('/workflows')
@@ -154,14 +163,9 @@ export async function reorderFolders(orderedIds: string[]): Promise<{ error?: st
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   if (orderedIds.length === 0) return
-  const supabase = await createClient()
-  const updates = orderedIds.map((id, index) =>
-    supabase.from('tool_folders').update({ position: index }).eq('id', id)
-  )
-  const results = await Promise.all(updates)
-  const failed = results.find((r) => r.error)
-  if (failed) return { error: 'Failed to save folder order.' }
-  revalidatePath('/workflows')
+  const res = await core.reorderFolders(await toolCtx(), orderedIds)
+  if (res.ok) revalidatePath('/workflows')
+  return toLegacy(res)
 }
 
 export async function moveToolToFolder(
