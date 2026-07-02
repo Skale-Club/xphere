@@ -259,9 +259,10 @@ export const projectsTools: McpToolDef[] = [
       const supabase = db()
       if (space_id) {
         const { data: space } = await supabase
-          .from('project_spaces')
+          .from('folders')
           .select('id')
           .eq('id', space_id)
+          .eq('entity_type', 'project')
           .eq('org_id', auth.orgId)
           .maybeSingle()
         if (!space) return { error: 'not_found', detail: 'space_id not found in this org', status: 404 }
@@ -299,17 +300,19 @@ export const projectsTools: McpToolDef[] = [
       const supabase = db()
       if (parent_id) {
         const { data: parent } = await supabase
-          .from('project_spaces')
+          .from('folders')
           .select('id')
           .eq('id', parent_id)
+          .eq('entity_type', 'project')
           .eq('org_id', auth.orgId)
           .maybeSingle()
         if (!parent) return { error: 'not_found', detail: 'parent_id not found in this org', status: 404 }
       }
       const { data, error } = await supabase
-        .from('project_spaces')
+        .from('folders')
         .insert({
           org_id: auth.orgId,
+          entity_type: 'project',
           created_by: auth.userId ?? null,
           name,
           color: color ?? null,
