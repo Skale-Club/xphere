@@ -100,6 +100,10 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Blocks can be reordered within a column and moved between columns; section reorder still works.
 4. Live preview and saved snapshot reflect the new arrangement; `npm run build` passes.
 
+**Plans:** 2 plans
+- [ ] 119-01-PLAN.md — Pure DnD helpers `src/lib/email/editor-dnd.ts` (findBlockLocation/insertBlockInColumn/moveBlock) + `tests/email-editor-dnd.test.ts` (UFE-08)
+- [ ] 119-02-PLAN.md — Left `BlockPalette` (useDraggable) + multi-container dnd wiring in the editor (single DndContext, closestCorners, DragOverlay, onDragStart/Over/End) (UFE-08)
+
 ### Phase 120: Publish Lifecycle
 **Goal**: Expose a coherent draft/published lifecycle and fix the status inconsistency.
 **Depends on**: Phase 117
