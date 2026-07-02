@@ -56,15 +56,24 @@ export function createXphereMcpServer(auth: McpAuthContext): McpServer {
   return server
 }
 
+// Unwraps a Zod schema down to its raw shape. Plain ZodObjects expose `.shape`
+// directly | schemas built with `.refine()`/`.transform()` are wrapped in a
+// ZodEffects that has no `.shape` of its own, so we recurse into its inner
+// `_def.schema` until we reach the underlying object.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function unwrapShape(schema: any): Record<string, z.ZodTypeAny> {
+  if (!schema) return {}
+  if (schema.shape && typeof schema.shape === 'object') return schema.shape
+  if (schema._def?.schema) return unwrapShape(schema._def.schema)
+  return {}
+}
+
 function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext) {
   // SDK accepts a ZodRawShape for tool() input schema. For our defs we built
   // each schema as a ZodObject | extract its shape, or fall back to no input.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schema: any = tool.inputSchema
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const shape: Record<string, z.ZodTypeAny> = (schema && typeof schema.shape === 'object')
-    ? schema.shape
-    : {}
+  const shape: Record<string, z.ZodTypeAny> = unwrapShape(schema)
 
   const annotations: ToolAnnotations = {
     ...inferAnnotations(tool.name),

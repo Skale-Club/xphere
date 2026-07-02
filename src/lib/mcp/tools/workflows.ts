@@ -1,11 +1,14 @@
 // MCP tools for workflows.
 // Workflows can be listed, inspected and manually triggered. Manual trigger
-// inserts a row in `workflow_runs` with status='queued' | the runtime worker
-// picks it up (same pattern used by the Copilot run_workflow tool).
+// executes the workflow inline (same engine used by the dashboard "Run now"
+// button and real event triggers) and returns once the run settles.
 
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { McpToolDef } from '../tool-types'
+import { runFlow } from '@/lib/flows/engine'
+import { FlowDefinition } from '@/lib/flows/schema'
+import { executeWorkflowTool } from '@/lib/agent-runtime/execute-workflow-tool'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -64,7 +67,7 @@ export const workflowsTools: McpToolDef[] = [
     name: 'workflows_trigger',
     title: 'Manually trigger a workflow run',
     description:
-      'Enqueue a manual run of a workflow. Returns { run_id, status } | the worker picks the row up async. The workflow must be active and not health-blocked.',
+      'Manually run a workflow now (kind=flow runs the full node DAG, kind=tool executes its single action). Executes inline and returns the settled run status. The workflow must be active and not health-blocked.',
     area: 'general_xphere',
     inputSchema: z.object({
       workflow_id: z.string().uuid(),
@@ -74,33 +77,63 @@ export const workflowsTools: McpToolDef[] = [
       const supabase = db()
       const { data: workflow } = await supabase
         .from('workflows')
-        .select('id, name, is_active, health_blocked')
+        .select('id, name, kind, is_active, health_blocked, current_version_id')
         .eq('id', workflow_id)
         .eq('org_id', auth.orgId)
         .maybeSingle()
       if (!workflow) return { error: 'not_found', status: 404 }
       if (!workflow.is_active) return { error: 'inactive', detail: 'workflow is not active' }
       if (workflow.health_blocked) return { error: 'health_blocked', detail: 'workflow is health-blocked' }
+      if (!workflow.current_version_id) {
+        return { error: 'no_version_to_run', detail: 'workflow has no published version' }
+      }
 
-      const { data: run, error } = await supabase
-        .from('workflow_runs')
-        .insert({
-          org_id: auth.orgId,
-          workflow_id,
-          trigger_type: 'manual',
-          trigger_payload: payload ?? {},
-          status: 'queued',
-          created_by: auth.userId ?? null,
+      const { data: version } = await supabase
+        .from('workflow_versions')
+        .select('id, definition')
+        .eq('id', workflow.current_version_id)
+        .maybeSingle()
+      if (!version) return { error: 'version_not_found' }
+
+      if (workflow.kind === 'tool') {
+        const result = await executeWorkflowTool({
+          workflowId: workflow.id,
+          kind: 'tool',
+          definition: version.definition,
+          input: payload ?? {},
+          context: { orgId: auth.orgId },
         })
-        .select('id, status, created_at')
-        .single()
-      if (error) return { error: 'enqueue_failed', detail: error.message }
+        return {
+          status: result.ok ? 'succeeded' : 'failed',
+          workflow_id,
+          workflow_name: workflow.name,
+          result: result.result,
+          error: result.error,
+        }
+      }
+
+      const parsed = FlowDefinition.safeParse(version.definition)
+      if (!parsed.success) {
+        return { error: 'invalid_definition', detail: parsed.error.issues[0]?.message ?? 'invalid definition' }
+      }
+
+      const result = await runFlow({
+        workflowId: workflow.id,
+        versionId: version.id,
+        definition: parsed.data,
+        orgId: auth.orgId,
+        triggerType: 'manual',
+        triggerPayload: payload ?? {},
+        createdBy: auth.userId ?? null,
+        supabase,
+      })
+
       return {
-        run_id: run.id,
-        status: run.status,
+        run_id: result.runId,
+        status: result.status,
         workflow_id,
         workflow_name: workflow.name,
-        created_at: run.created_at,
+        error: result.error,
       }
     },
   },
