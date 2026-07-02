@@ -65,6 +65,18 @@ function makeSection(layout: 1 | 2 | 3 = 1): EmailSection {
   }
 }
 
+// Shared block-type list — the source of truth for both the left palette
+// (block-palette.tsx) and the in-column `+ Block` menu below.
+export const BLOCK_TYPES: { type: string; label: string; icon: React.ReactNode }[] = [
+  { type: 'heading', label: 'Heading', icon: <Type className="h-3 w-3" /> },
+  { type: 'text', label: 'Text', icon: <AlignJustify className="h-3 w-3" /> },
+  { type: 'image', label: 'Image', icon: <Image className="h-3 w-3" /> },
+  { type: 'button', label: 'Button', icon: <MousePointerClick className="h-3 w-3" /> },
+  { type: 'divider', label: 'Divider', icon: <Minus className="h-3 w-3" /> },
+  { type: 'spacer', label: 'Spacer', icon: <AlignJustify className="h-3 w-3" /> },
+  { type: 'html', label: 'HTML', icon: <Code className="h-3 w-3" /> },
+]
+
 // ─── Main editor ─────────────────────────────────────────────────────────────
 
 export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }: EmailTemplateEditorProps) {
@@ -847,16 +859,6 @@ function ColumnEditor({
     bottom: padding?.bottom ?? 16,
     left: padding?.left ?? 24,
   }
-
-  const BLOCK_TYPES: { type: string; label: string; icon: React.ReactNode }[] = [
-    { type: 'heading', label: 'Heading', icon: <Type className="h-3 w-3" /> },
-    { type: 'text', label: 'Text', icon: <AlignJustify className="h-3 w-3" /> },
-    { type: 'image', label: 'Image', icon: <Image className="h-3 w-3" /> },
-    { type: 'button', label: 'Button', icon: <MousePointerClick className="h-3 w-3" /> },
-    { type: 'divider', label: 'Divider', icon: <Minus className="h-3 w-3" /> },
-    { type: 'spacer', label: 'Spacer', icon: <AlignJustify className="h-3 w-3" /> },
-    { type: 'html', label: 'HTML', icon: <Code className="h-3 w-3" /> },
-  ]
 
   return (
     <div
