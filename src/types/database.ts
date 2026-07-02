@@ -6596,6 +6596,59 @@ export interface Database {
           }
         ]
       }
+      folders: {
+        Row: {
+          id: string
+          org_id: string
+          entity_type: string
+          name: string
+          color: string | null
+          icon: string | null
+          parent_id: string | null
+          position: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entity_type: string
+          name: string
+          color?: string | null
+          icon?: string | null
+          parent_id?: string | null
+          position?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          entity_type?: string
+          name?: string
+          color?: string | null
+          icon?: string | null
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'folders_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'folders_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       workflow_folders: {
         Row: {
           id: string
