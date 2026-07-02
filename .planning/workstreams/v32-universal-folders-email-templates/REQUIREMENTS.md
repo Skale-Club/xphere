@@ -13,7 +13,7 @@
 
 ## Email Organization
 
-- [ ] **UFE-06**: User can organize email templates into folders via a sub-sidebar matching the Workflows experience (create/rename/color/icon/nest, drag templates between folders and reorder).
+- [x] **UFE-06**: User can organize email templates into folders via a sub-sidebar matching the Workflows experience (create/rename/color/icon/nest, drag templates between folders and reorder).
 
 ## Email Editor
 
@@ -47,7 +47,7 @@
 | UFE-03 | Phase 115 | Complete |
 | UFE-04 | Phase 116 | Complete |
 | UFE-05 | Phase 116 | Complete |
-| UFE-06 | Phase 117 | Pending |
+| UFE-06 | Phase 117 | Complete |
 | UFE-07 | Phase 118 | Pending |
 | UFE-08 | Phase 119 | Pending |
 | UFE-09 | Phase 120 | Pending |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-07-02*
-*Last updated: 2026-07-02 — UFE-04 + UFE-05 completed (Phase 116 Wave 2: Projects spaces + Tools folders code-swapped onto universal folders; migration 1227 file written in Wave 1)*
+*Last updated: 2026-07-02 — UFE-06 completed (Phase 117: email_templates gains folder_id/position via migration 1228 file + types; email-template foldering actions; EmailTemplateSubNav + settings/email-templates layout on the universal folder UI stack; NewFolderButton made entity-agnostic. Build green; migration 1228 written, not applied)*

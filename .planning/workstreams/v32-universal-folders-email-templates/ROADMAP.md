@@ -9,7 +9,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 - [x] **Phase 114: Universal Folders Backend** - Single `folders` table + shared foldering core; no consumer migrated yet.
 - [x] **Phase 115: Migrate Workflows to Universal Folders** - UUID-preserving data migration; retire `workflow_folders`; UX parity. (HIGH RISK — production data)
 - [x] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
-- [ ] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
+- [x] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
 - [ ] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [ ] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
 - [ ] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
@@ -72,9 +72,9 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. User can create/rename/color/icon/nest folders and drag templates between folders and reorder them.
 4. The list view is folder-scoped (Unfiled + folders) and `npm run build` passes.
 
-**Plans:** 2 plans
-- [ ] 117-01-PLAN.md — Migration 1228 (folder_id + position + index) + PENDING ledger + database.ts types + email-template folder/item actions (core delegation) + listTemplates select (UFE-06)
-- [ ] 117-02-PLAN.md — EmailTemplateSubNav (DraggableTreeNav) + settings/email-templates/layout.tsx (SubSidebarLayout) + entity-agnostic NewFolderButton + NewTemplateButton (UFE-06)
+**Plans:** 2/2 plans complete
+- [x] 117-01-PLAN.md — Migration 1228 (folder_id + position + index) + PENDING ledger + database.ts types + email-template folder/item actions (core delegation) + listTemplates select (UFE-06)
+- [x] 117-02-PLAN.md — EmailTemplateSubNav (DraggableTreeNav) + settings/email-templates/layout.tsx (SubSidebarLayout) + entity-agnostic NewFolderButton + NewTemplateButton (UFE-06)
 
 ### Phase 118: Stable Block IDs + Normalization
 **Goal**: Give every email block a stable identity without breaking any saved template.
