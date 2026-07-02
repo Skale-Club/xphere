@@ -36,6 +36,7 @@ import { executeUpdateContact } from '@/lib/action-engine/executors/update-conta
 import { executeContactAddTag } from '@/lib/action-engine/executors/contact-tag-actions'
 import { executeUpdateBookingStatus } from '@/lib/action-engine/executors/update-booking-status'
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
+import { executeSendEmailTemplate } from '@/lib/action-engine/executors/send-email-template'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
 import { executeSendPlatformEmail } from '@/lib/action-engine/executors/send-platform-email'
 import { executeSendZernioDm } from '@/lib/action-engine/executors/send-zernio-dm'
@@ -168,6 +169,15 @@ async function _executeActionInner(
       throw new Error('update_booking_status requires ctx.organizationId and ctx.supabase')
     }
     return executeUpdateBookingStatus(params, ctx.organizationId, ctx.supabase)
+  }
+
+  // send_email_template is not in the action_type DB enum — handled before the
+  // switch (mirrors update_contact/contact_add_tag), so it needs no enum migration.
+  if ((actionType as string) === 'send_email_template') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('send_email_template requires ctx.organizationId and ctx.supabase')
+    }
+    return executeSendEmailTemplate(params, ctx.organizationId, ctx.supabase)
   }
 
   switch (actionType) {
