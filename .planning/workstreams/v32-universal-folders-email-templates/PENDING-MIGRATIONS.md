@@ -41,4 +41,11 @@
 - **Risk:** LOW (additive columns, reversible via `alter table public.email_templates drop column folder_id, drop column position`).
 - **Verify after:** `select to_regclass('public.email_templates');` → non-null AND `select column_name from information_schema.columns where table_name='email_templates' and column_name in ('folder_id','position');` → returns both rows.
 
+## 5. `1229_normalize_email_template_status.sql` — Phase 120 (data normalization, UFE-09)
+- **Status:** ⏳ pending apply (file committed: `supabase/migrations/1229_normalize_email_template_status.sql`)
+- **What:** normalizes any legacy `email_templates.status = 'ready'` → `'published'` so the status vocabulary is uniformly draft | published | archived. Data-only; no schema change.
+- **Order:** apply anytime after `1228_email_templates_folders.sql`. Not blocking — the Phase 120 code also maps `'ready'` → published defensively in the UI, so applying is a cleanup, not a correctness requirement.
+- **Risk:** LOW (single idempotent `update`; may affect 0 rows).
+- **Verify after:** `select count(*) from public.email_templates where status = 'ready';` → 0.
+
 <!-- Phase 115+ migrations will be appended here as they are built. -->
