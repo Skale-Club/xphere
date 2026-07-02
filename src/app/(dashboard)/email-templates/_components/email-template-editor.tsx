@@ -23,9 +23,11 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor,
-  useSensor, useSensors, DragEndEvent,
+  DndContext, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverEvent,
+  DragOverlay, useDroppable, closestCorners,
 } from '@dnd-kit/core'
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core'
 import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
   useSortable, arrayMove,
@@ -37,8 +39,10 @@ import type {
   TextBlock, HeadingBlock, ImageBlock, ButtonBlock, DividerBlock, SpacerBlock, HtmlBlock,
 } from '@/lib/email/render-template'
 import { renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument } from '@/lib/email/render-template'
+import { findBlockLocation, insertBlockInColumn, moveBlock } from '@/lib/email/editor-dnd'
 import { saveTemplate, saveReusableBlock, deleteReusableBlock } from '../actions'
 import type { EmailTemplateBuilderRow, ReusableBlock } from '../actions'
+import { BlockPalette } from './block-palette'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -215,15 +219,136 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     }))
   }, [])
 
-  const handleSectionDragEnd = useCallback((event: DragEndEvent) => {
+  // ── Drag-and-drop (single DndContext: palette insert + block move + section reorder) ──
+
+  const [activeDrag, setActiveDrag] = useState<
+    | { kind: 'section'; id: string }
+    | { kind: 'block'; id: string }
+    | { kind: 'palette'; blockType?: string; reusableName?: string }
+    | null
+  >(null)
+
+  // Parse a `col:${sectionId}:${colIdx}` container id. Section ids are 8-char
+  // base36 (no colons), so splitting on the LAST colon is safe.
+  function parseColId(id: string): { sectionId: string; colIdx: number } | null {
+    if (!id.startsWith('col:')) return null
+    const rest = id.slice(4)
+    const lastColon = rest.lastIndexOf(':')
+    if (lastColon === -1) return null
+    return { sectionId: rest.slice(0, lastColon), colIdx: Number(rest.slice(lastColon + 1)) }
+  }
+
+  // Resolve the `over` node into a concrete { sectionId, colIdx, index }.
+  // `over` may be a `col:*` container/droppable id (empty col or container) OR a
+  // block id (a sortable item) — drop before that block's position.
+  function resolveDropTarget(overId: string): { sectionId: string; colIdx: number; index: number } | null {
+    const asCol = parseColId(overId)
+    if (asCol) {
+      const section = doc.sections.find((s) => s.id === asCol.sectionId)
+      const len = section?.columns[asCol.colIdx]?.length ?? 0
+      return { ...asCol, index: len }
+    }
+    const loc = findBlockLocation(doc, overId)
+    if (!loc) return null
+    return { sectionId: loc.sectionId, colIdx: loc.colIdx, index: loc.index }
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current
+    const id = String(event.active.id)
+    if (data?.type === 'palette') {
+      setActiveDrag({
+        kind: 'palette',
+        blockType: data.blockType as string | undefined,
+        reusableName: reusableBlocks.find((r) => r.id === data.reusableId)?.name,
+      })
+    } else if (data?.type === 'block' || findBlockLocation(doc, id)) {
+      setActiveDrag({ kind: 'block', id })
+    } else {
+      setActiveDrag({ kind: 'section', id })
+    }
+  }
+
+  function handleDragOver(_event: DragOverEvent): void {
+    // Intentionally a no-op: closestCorners + resolveDropTarget in onDragEnd
+    // computes the final placement; the DragOverlay handles live feedback.
+    void _event
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
-    if (!over || active.id === over.id) return
-    setDoc((prev) => {
-      const oldIndex = prev.sections.findIndex((s) => s.id === active.id)
-      const newIndex = prev.sections.findIndex((s) => s.id === over.id)
-      return { ...prev, sections: arrayMove(prev.sections, oldIndex, newIndex) }
-    })
-  }, [])
+    setActiveDrag(null)
+    if (!over) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    const data = active.data.current
+
+    // 1. PALETTE → insert a fresh block at the drop target.
+    if (data?.type === 'palette') {
+      const target = resolveDropTarget(overId)
+      if (!target) return
+      if (data.source === 'reusable') {
+        const rb = reusableBlocks.find((r) => r.id === data.reusableId)
+        const src = (rb?.document as { blocks?: EmailBlock[] })?.blocks ?? []
+        if (!src.length) return
+        // Re-mint every block id; insert sequentially at the target index.
+        let nextDoc = doc
+        src.forEach((b, i) => {
+          const minted = { ...b, id: makeBlockId() } as EmailBlock
+          nextDoc = insertBlockInColumn(nextDoc, target.sectionId, target.colIdx, target.index + i, minted)
+        })
+        setDoc(nextDoc)
+        return
+      }
+      const type = data.blockType as string
+      const fresh = { ...BLOCK_DEFAULTS[type], id: makeBlockId() } as EmailBlock
+      setDoc((prev) => insertBlockInColumn(prev, target.sectionId, target.colIdx, target.index, fresh))
+      setSelectedBlockId(fresh.id)
+      return
+    }
+
+    // 2. BLOCK → move within/between columns (NOT across sections — out of scope).
+    if (data?.type === 'block' || findBlockLocation(doc, activeId)) {
+      const from = findBlockLocation(doc, activeId)
+      const target = resolveDropTarget(overId)
+      if (!from || !target) return
+      if (target.sectionId !== from.sectionId) return   // block cross-section move is out of scope
+      if (from.colIdx === target.colIdx && from.index === target.index) return
+      setDoc((prev) => moveBlock(prev, activeId, target.sectionId, target.colIdx, target.index))
+      setSelectedBlockId(activeId)
+      return
+    }
+
+    // 3. SECTION → existing reorder (unchanged).
+    if (activeId !== overId) {
+      setDoc((prev) => {
+        const oldIndex = prev.sections.findIndex((s) => s.id === activeId)
+        const newIndex = prev.sections.findIndex((s) => s.id === overId)
+        if (oldIndex === -1 || newIndex === -1) return prev
+        return { ...prev, sections: arrayMove(prev.sections, oldIndex, newIndex) }
+      })
+    }
+  }
+
+  function renderDragOverlay() {
+    if (!activeDrag) return null
+    if (activeDrag.kind === 'palette') {
+      return (
+        <div className="px-2 py-1.5 text-xs rounded border border-accent bg-card shadow-md">
+          {activeDrag.blockType ?? activeDrag.reusableName ?? 'block'}
+        </div>
+      )
+    }
+    if (activeDrag.kind === 'block') {
+      const b = doc.sections.flatMap((s) => s.columns.flat()).find((x) => x.id === activeDrag.id)
+      return (
+        <div className="px-2 py-1.5 text-xs rounded border border-blue-500 bg-white shadow-md capitalize">
+          {b?.blockType ?? 'block'}
+        </div>
+      )
+    }
+    return <div className="px-3 py-2 text-xs rounded border border-blue-500 bg-white shadow-md">Section</div>
+  }
 
   // ── Save ────────────────────────────────────────────────────────────────────
 
@@ -282,8 +407,19 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* ── Canvas ──────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ── ONE DndContext wrapping palette + canvas (they share drag state) ──── */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        {/* ── Left palette (draggable block-type + reusable chips) ───────────── */}
+        <BlockPalette reusableBlocks={reusableBlocks} />
+
+        {/* ── Canvas ──────────────────────────────────────────────────────────── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/80 shrink-0 flex-wrap gap-y-1">
           <div className="flex items-center gap-1 ml-auto">
@@ -333,10 +469,9 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               className="w-full bg-white shadow-sm rounded overflow-hidden"
               style={{ maxWidth: `${doc.contentWidth ?? 600}px`, backgroundColor: doc.backgroundColor ?? '#f0f0f0' }}
             >
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-                <SortableContext items={doc.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-                  {doc.sections.map((section) => (
-                    <SortableSection
+              <SortableContext items={doc.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                {doc.sections.map((section) => (
+                  <SortableSection
                       key={section.id}
                       section={section}
                       isSelected={selectedSectionId === section.id}
@@ -352,9 +487,8 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
                       onSaveAsReusable={() => openSaveBlock(section.id)}
                       reusableBlocks={reusableBlocks}
                     />
-                  ))}
-                </SortableContext>
-              </DndContext>
+                ))}
+              </SortableContext>
 
               {/* Add section buttons */}
               <div className="px-4 py-4 flex items-center gap-2 flex-wrap border-t border-dashed border-zinc-300 bg-zinc-50">
@@ -375,7 +509,11 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
             </div>
           </div>
         </ScrollArea>
-      </div>
+        </div>
+
+        {/* ── Drag ghost ─────────────────────────────────────────────────────── */}
+        <DragOverlay>{renderDragOverlay()}</DragOverlay>
+      </DndContext>
 
       {/* ── Reusable blocks dialog ───────────────────────────────────────────── */}
       <Dialog
@@ -816,6 +954,60 @@ function ColumnGapDragHandle({
   )
 }
 
+// ─── Sortable block wrapper + empty-column drop zone ─────────────────────────
+
+/**
+ * Wraps a single block in a `useSortable` node. The drag `listeners`/`attributes`
+ * are handed to the child render-prop so they can be spread on the GRIP button
+ * ONLY — never on the whole wrapper — otherwise the PointerSensor would hijack
+ * contentEditable text editing + the inline block controls.
+ */
+function SortableBlock({
+  block, sectionId, colIdx, children,
+}: {
+  block: EmailBlock
+  sectionId: string
+  colIdx: number
+  children: (handleProps: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: block.id,
+    data: { type: 'block', blockId: block.id, sectionId, colIdx },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+    >
+      {children({ attributes, listeners })}
+    </div>
+  )
+}
+
+/**
+ * Droppable zone for an EMPTY column. dnd-kit can't target a column with no
+ * sortable items, so this registers a droppable at the SAME id string as the
+ * column's `SortableContext` (`col:${sectionId}:${colIdx}`) — the handlers'
+ * `resolveDropTarget` treats both identically.
+ */
+function EmptyColumnDropZone({ sectionId, colIdx }: { sectionId: string; colIdx: number }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col:${sectionId}:${colIdx}`,
+    data: { type: 'column', sectionId, colIdx },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex items-center justify-center min-h-16 border-2 border-dashed rounded mb-2 text-xs bg-zinc-50 transition-colors',
+        isOver ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-zinc-400 text-zinc-600',
+      )}
+    >
+      Drop a block here
+    </div>
+  )
+}
+
 // ─── Column editor ────────────────────────────────────────────────────────────
 
 interface ColumnEditorProps {
@@ -834,7 +1026,7 @@ interface ColumnEditorProps {
 }
 
 function ColumnEditor({
-  blocks, selectedBlockId, onAddBlock, onInsertReusable,
+  blocks, colIdx, sectionId, selectedBlockId, onAddBlock, onInsertReusable,
   onRemoveBlock, onUpdateBlock, onSelectBlock, reusableBlocks, padding,
 }: ColumnEditorProps) {
   const [showBlockMenu, setShowBlockMenu] = useState(false)
@@ -871,21 +1063,29 @@ function ColumnEditor({
       }}
     >
       {blocks.length === 0 && (
-        <div className="flex items-center justify-center min-h-16 border-2 border-dashed border-zinc-400 rounded mb-2 text-xs text-zinc-600 bg-zinc-50">
-          Empty column — add a block below
-        </div>
+        <EmptyColumnDropZone sectionId={sectionId} colIdx={colIdx} />
       )}
 
-      {blocks.map((block) => (
-        <BlockEditor
-          key={block.id}
-          block={block}
-          isSelected={selectedBlockId === block.id}
-          onSelect={() => onSelectBlock(block.id)}
-          onUpdate={(u) => onUpdateBlock(block.id, u)}
-          onRemove={() => onRemoveBlock(block.id)}
-        />
-      ))}
+      <SortableContext
+        id={`col:${sectionId}:${colIdx}`}
+        items={blocks.map((b) => b.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {blocks.map((block) => (
+          <SortableBlock key={block.id} block={block} sectionId={sectionId} colIdx={colIdx}>
+            {({ attributes, listeners }) => (
+              <BlockEditor
+                block={block}
+                isSelected={selectedBlockId === block.id}
+                onSelect={() => onSelectBlock(block.id)}
+                onUpdate={(u) => onUpdateBlock(block.id, u)}
+                onRemove={() => onRemoveBlock(block.id)}
+                dragHandleProps={{ attributes, listeners }}
+              />
+            )}
+          </SortableBlock>
+        ))}
+      </SortableContext>
 
       {/* Add block controls */}
       <div
@@ -961,9 +1161,10 @@ interface BlockEditorProps {
   onSelect: () => void
   onUpdate: (updates: Partial<EmailBlock>) => void
   onRemove: () => void
+  dragHandleProps?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
 }
 
-function BlockEditor({ block, isSelected, onSelect, onUpdate, onRemove }: BlockEditorProps) {
+function BlockEditor({ block, isSelected, onSelect, onUpdate, onRemove, dragHandleProps }: BlockEditorProps) {
   return (
     <div
       className={cn(
@@ -974,6 +1175,19 @@ function BlockEditor({ block, isSelected, onSelect, onUpdate, onRemove }: BlockE
     >
       {/* Block controls */}
       <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity z-10">
+        {dragHandleProps && (
+          // Drag listeners live on THIS grip button ONLY — spreading them on the
+          // whole wrapper would let the PointerSensor hijack text editing.
+          <button
+            {...dragHandleProps.attributes}
+            {...dragHandleProps.listeners}
+            className="h-5 w-5 flex items-center justify-center rounded bg-white border border-zinc-400 text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 shadow-sm cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to move block"
+          >
+            <GripVertical className="h-2.5 w-2.5" />
+          </button>
+        )}
         <button
           className="h-5 w-5 flex items-center justify-center rounded bg-white border border-zinc-400 text-zinc-700 hover:text-white hover:bg-red-500 hover:border-red-500 shadow-sm"
           onClick={(e) => { e.stopPropagation(); onRemove() }}
