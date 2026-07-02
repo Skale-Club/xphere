@@ -4,8 +4,8 @@ milestone: v3.2
 milestone_name: milestone
 current_plan: Not started
 status: completed
-stopped_at: "Completed Phase 117 (both plans). 117-01 backend: migration 1228 (email_templates.folder_id + position + index) file-only + PENDING ledger #4, database.ts email_templates type carries folder_id/position, email-templates/_actions/folders.ts core delegation (entity_type='email_template'), listTemplates selects folder_id/position. 117-02 UI: EmailTemplateSubNav on DraggableTreeNav, settings/email-templates/layout.tsx (SubSidebarLayout storageKey sub-sidebar:email-templates), NewFolderButton made entity-agnostic (optional createFolder prop, Workflows unaffected), NewTemplateButton. Build green. Next: Phase 118 (Stable Block IDs). Reminder: migrations 1225/1226/1227/1228 remain unapplied — must reconcile migration-history desync + apply before this code deploys."
-last_updated: "2026-07-02T16:51:27Z"
+stopped_at: "Completed Phase 117 (both plans). 117-01 backend (migration 1228 file + database.ts types + email-templates/_actions/folders.ts core delegation + listTemplates select) and 117-02 UI (EmailTemplateSubNav + settings/email-templates/layout.tsx + entity-agnostic NewFolderButton + NewTemplateButton). Build green. Next: Phase 118 (Stable Block IDs + Normalization). Reminder: migrations 1225/1226/1227/1228 remain unapplied — must reconcile migration-history desync + apply before this code deploys."
+last_updated: "2026-07-02T16:54:59.994Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 118 (next)
+Phase: 118
 Plan: 117-01, 117-02 all complete
 Status: Phase 117 complete — Email Templates now consume the universal foldering stack. Backend: email_templates.folder_id/position (migration 1228 file + types), email-templates/_actions/folders.ts (entity_type='email_template'). UI: EmailTemplateSubNav (DraggableTreeNav) + settings/email-templates/layout.tsx (SubSidebarLayout), entity-agnostic NewFolderButton, NewTemplateButton. Build green. Migrations 1225/1226/1227/1228 still unapplied.
 Last activity: 2026-07-02
