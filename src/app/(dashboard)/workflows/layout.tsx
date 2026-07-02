@@ -6,7 +6,7 @@ import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import { listUnifiedWorkflows } from '@/lib/workflows/list'
 import type { Database } from '@/types/database'
 
-type WorkflowFolderRow = Database['public']['Tables']['workflow_folders']['Row']
+type WorkflowFolderRow = Database['public']['Tables']['folders']['Row']
 
 export default async function WorkflowsLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -18,8 +18,9 @@ export default async function WorkflowsLayout({ children }: { children: React.Re
       : Promise.resolve([]),
     orgId
       ? supabase
-          .from('workflow_folders')
+          .from('folders')
           .select('*')
+          .eq('entity_type', 'workflow')
           .order('position', { ascending: true })
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] as WorkflowFolderRow[] }),

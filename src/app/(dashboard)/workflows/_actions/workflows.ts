@@ -8,10 +8,22 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
+import * as core from '@/lib/foldering/core'
+import type { FolderingContext } from '@/lib/foldering/core'
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
+
+// Phase 115 (UFE-03): the two folder-touching actions below delegate to the
+// universal foldering core, bound to entity_type='workflow' + item table 'workflows'.
+async function folderCtx(): Promise<FolderingContext> {
+  return {
+    supabase: await createClient(),
+    entityType: 'workflow',
+    itemTable: 'workflows',
+  }
+}
 
 // ─── Move workflow into a folder (or to "Unfiled") ───────────────────────────
 
@@ -22,26 +34,9 @@ export async function moveWorkflowToFolder(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const supabase = await createClient()
-
-  // Append at the end of the destination by default.
-  const { data: tail } = await supabase
-    .from('workflows')
-    .select('position')
-    .eq('folder_id', folderId as unknown as string)
-    .order('position', { ascending: false })
-    .limit(1)
-
-  const nextPosition = (tail?.[0]?.position ?? -1) + 1
-
-  const { error } = await supabase
-    .from('workflows')
-    .update({ folder_id: folderId, position: nextPosition })
-    .eq('id', workflowId)
-
-  if (error) return { ok: false, error: error.message }
-  revalidatePath('/workflows')
-  return { ok: true, data: undefined }
+  const res = await core.moveItemToFolder(await folderCtx(), workflowId, folderId)
+  if (res.ok) revalidatePath('/workflows')
+  return res
 }
 
 // ─── Reorder within a folder ─────────────────────────────────────────────────
@@ -52,18 +47,10 @@ export async function reorderWorkflowsInFolder(
 ): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
-  if (orderedIds.length === 0) return { ok: true, data: undefined }
 
-  const supabase = await createClient()
-  const updates = orderedIds.map((id, index) =>
-    supabase.from('workflows').update({ position: index }).eq('id', id),
-  )
-  const results = await Promise.all(updates)
-  const failed = results.find((r) => r.error)
-  if (failed) return { ok: false, error: 'Failed to save workflow order.' }
-
-  revalidatePath('/workflows')
-  return { ok: true, data: undefined }
+  const res = await core.reorderItemsInFolder(await folderCtx(), _folderId, orderedIds)
+  if (res.ok) revalidatePath('/workflows')
+  return res
 }
 
 // ─── Archive / unarchive ─────────────────────────────────────────────────────
