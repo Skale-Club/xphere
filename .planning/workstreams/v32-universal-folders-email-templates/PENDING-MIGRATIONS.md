@@ -1,6 +1,10 @@
-# v3.2 — Pending Production Migrations (apply BEFORE deploying the v3.2 code)
+# v3.2 — Production Migrations — ✅ ALL 5 APPLIED (1225–1229) 2026-07-02
 
-**Why this file exists:** the v3.2 code is being built and committed in "code-only" mode. Production DB writes are gated by the harness (auto-mode safety lock) and by a pre-existing migration-history desync that blocks `supabase db push`. So migrations are written as files + committed, but NOT applied. **They must be applied to the production CRM (`mwklvkmggmsintqcqfvu`, "Xphere") before the v3.2 code is deployed** — otherwise the new code will query tables/columns that don't exist yet and break existing features.
+> **STATUS: applied to prod `mwklvkmggmsintqcqfvu` ("Xphere") via MCP `apply_migration`, parity-verified — 24 folders (23 workflow + 1 project), 0 orphaned FK refs, no data loss.**
+> **⚠️ DEPLOY REQUIRED NOW:** the renames (`workflow_folders`/`project_spaces`/`tool_folders` → `_deprecated`) mean the CURRENTLY-DEPLOYED (old) code — which queries the old table names — now breaks on Workflows/Projects folder features until the v3.2 code is deployed. Deploy `main` to reconcile.
+> Two real migration bugs were fixed during apply (committed): `1225` `moddatetime`→`update_updated_at()`; `1227` tools item table `tool_configs`→`_legacy_tool_configs`.
+
+**Why this file exists (historical):** the v3.2 code was built in "code-only" mode; migrations were written as files, then applied here on 2026-07-02.
 
 **How to apply (recommended):** in an INTERACTIVE Claude Code session (not auto-mode), have Claude run the Supabase management MCP `apply_migration` on project `mwklvkmggmsintqcqfvu` for each item below, in order, approving each prompt. (The linked CLI `supabase db push` is currently blocked by a history desync — see [[project-supabase-migration-desync]] — so prefer MCP apply_migration or reconcile history first.)
 
