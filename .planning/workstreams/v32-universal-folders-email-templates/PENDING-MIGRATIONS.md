@@ -32,4 +32,13 @@
 - **Risk:** MEDIUM-HIGH (touches production data + repoints two foreign keys). UUID preservation keeps `projects.space_id` / `tool_configs.folder_id` valid; the RENAME leaves a rollback safety net.
 - **Verify after:** `select count(*) from public.folders where entity_type='project';` must match `select count(*) from public.project_spaces_deprecated;` AND `select count(*) from public.folders where entity_type='tool';` must match `select count(*) from public.tool_folders_deprecated;`.
 
+---
+
+## 4. `1228_email_templates_folders.sql` — Phase 117 (additive, UFE-06)
+- **Status:** ⏳ pending apply (file committed: `supabase/migrations/1228_email_templates_folders.sql`)
+- **What:** adds `folder_id` (FK → `folders(id)` ON DELETE SET NULL) + `position` (int, default 0) + index `email_templates_folder_idx` to `public.email_templates`. Additive — no data migration, greenfield (no pre-existing template folders).
+- **Order:** apply AFTER `1225_universal_folders.sql` (needs `public.folders` to exist for the FK), BEFORE deploying the Phase 117 code (the email-templates layout/sub-nav query `folder_id`/`position` and would break if the columns don't exist).
+- **Risk:** LOW (additive columns, reversible via `alter table public.email_templates drop column folder_id, drop column position`).
+- **Verify after:** `select to_regclass('public.email_templates');` → non-null AND `select column_name from information_schema.columns where table_name='email_templates' and column_name in ('folder_id','position');` → returns both rows.
+
 <!-- Phase 115+ migrations will be appended here as they are built. -->
