@@ -17,7 +17,7 @@
 
 ## Email Editor
 
-- [ ] **UFE-07**: Every email block carries a stable identity, and existing saved templates keep rendering unchanged after the upgrade.
+- [x] **UFE-07**: Every email block carries a stable identity, and existing saved templates keep rendering unchanged after the upgrade.
 - [ ] **UFE-08**: User can drag blocks from a left-hand palette into columns and reorder or move blocks within and between columns.
 
 ## Email Lifecycle
@@ -48,7 +48,7 @@
 | UFE-04 | Phase 116 | Complete |
 | UFE-05 | Phase 116 | Complete |
 | UFE-06 | Phase 117 | Complete |
-| UFE-07 | Phase 118 | Pending |
+| UFE-07 | Phase 118 | Complete |
 | UFE-08 | Phase 119 | Pending |
 | UFE-09 | Phase 120 | Pending |
 | UFE-10 | Phase 121 | Pending |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-07-02*
-*Last updated: 2026-07-02 — UFE-06 completed (Phase 117: email_templates gains folder_id/position via migration 1228 file + types; email-template foldering actions; EmailTemplateSubNav + settings/email-templates layout on the universal folder UI stack; NewFolderButton made entity-agnostic. Build green; migration 1228 written, not applied)*
+*Last updated: 2026-07-02 — UFE-07 completed (Phase 118: PURE CODE, no DB/migration. render-template.ts gains BaseBlock id on all seven block types + makeBlockId() + exported normalizeDocument() with upgrade-on-read id backfill (DistributiveOmit for id-free BLOCK_DEFAULTS); editor refactored to id-based selection (selectedBlockId), id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, imports the shared normalizeDocument. renderTemplate HTML byte-identical (proven by tests/email-block-ids.test.ts, 8/8); build green; email-template-builder.test.ts 17/17)*

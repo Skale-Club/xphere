@@ -4,30 +4,30 @@ milestone: v3.2
 milestone_name: milestone
 current_plan: Not started
 status: completed
-stopped_at: "Completed Phase 117 (both plans). 117-01 backend (migration 1228 file + database.ts types + email-templates/_actions/folders.ts core delegation + listTemplates select) and 117-02 UI (EmailTemplateSubNav + settings/email-templates/layout.tsx + entity-agnostic NewFolderButton + NewTemplateButton). Build green. Next: Phase 118 (Stable Block IDs + Normalization). Reminder: migrations 1225/1226/1227/1228 remain unapplied — must reconcile migration-history desync + apply before this code deploys."
-last_updated: "2026-07-02T16:54:59.994Z"
+stopped_at: "Completed Phase 118 (both plans). 118-01 data layer: render-template.ts gains BaseBlock id on all seven block types + makeBlockId() + exported normalizeDocument() with upgrade-on-read id backfill (DistributiveOmit for id-free BLOCK_DEFAULTS) + tests/email-block-ids.test.ts (8/8, HTML byte-identical). 118-02 editor refactor: selectedBlockId + id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, imports shared normalizeDocument. PURE CODE — no DB/migration. Build green; email-template-builder.test.ts 17/17. Next: Phase 119 (Block Palette + Drag-and-Drop). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys."
+last_updated: "2026-07-02T17:12:00.000Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 5
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 118
-Plan: 117-01, 117-02 all complete
-Status: Phase 117 complete — Email Templates now consume the universal foldering stack. Backend: email_templates.folder_id/position (migration 1228 file + types), email-templates/_actions/folders.ts (entity_type='email_template'). UI: EmailTemplateSubNav (DraggableTreeNav) + settings/email-templates/layout.tsx (SubSidebarLayout), entity-agnostic NewFolderButton, NewTemplateButton. Build green. Migrations 1225/1226/1227/1228 still unapplied.
+Phase: 119 (next)
+Plan: 118-01, 118-02 all complete
+Status: Phase 118 complete — every email block now carries a stable `id` (upgrade-on-read backfill) and the editor addresses blocks by id. Data layer: render-template.ts BaseBlock id on all seven types + makeBlockId() + exported normalizeDocument() (DistributiveOmit for id-free BLOCK_DEFAULTS) + tests/email-block-ids.test.ts (8/8, renderTemplate HTML byte-identical). Editor: selectedBlockId + id-based add/remove/update, key={block.id}, reusable-insert re-mints ids, shared normalizeDocument import. PURE CODE — no DB/migration. Build green; builder suite 17/17. Migrations 1225/1226/1227/1228 still unapplied.
 Last activity: 2026-07-02
 
 ## Progress
 
-**Phases Complete:** 4 / 8
+**Phases Complete:** 5 / 8
 **Current Plan:** Not started
-**Roadmap:** 114 → 121 (linear; 116 and 117 depend on 114)
+**Roadmap:** 114 → 121 (linear; 116 and 117 depend on 114; 118 done, next is 119)
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Last activity: 2026-07-02
 - (116-04) Tool folder actions in `workflows/actions.ts` delegate to the core (entity_type='tool', itemTable='_legacy_tool_configs', default folder_id) via a `toLegacy()` adapter that maps `ActionResult<T>` back to the legacy bare-array (`getFolders`) / `{error?}|void` shapes the tools UI (tools-table.tsx, inline-tool-name.tsx) branches on — different from 116-03 which keeps ActionResult. `deleteFolder`/`deleteFolderWithTools`/`updateFolder(position)` hit `folders(entity_type='tool')` directly to preserve exact prior hard-delete/positional behavior; `moveToolToFolder` keeps its `_legacy_tool_configs.folder_id` update. Agent tool-picker (`agents/_actions/tools.ts`) type + query → `folders(entity_type='tool')`. After both swaps, `grep -rn "project_spaces\|tool_folders" src/` = only generated `database.ts` (+ intentional MCP tool name + a comment); `npm run build` exit 0.
 - (117-01) Email templates gain folder linkage: migration 1228 (file-only) adds `email_templates.folder_id` (FK → `folders`, ON DELETE SET NULL) + `position` + index; `database.ts` `email_templates` Row/Insert/Update carry `folder_id`/`position` (+ folders FK relationship). `email-templates/_actions/folders.ts` is a thin `'use server'` module delegating to `@/lib/foldering/core` bound to `{ entityType:'email_template', itemTable:'email_templates' }` (default folder_id column), exposing the full TreeNavActions surface + `listFolders`/`createFolder` + `moveTemplateToFolder`/`reorderTemplatesInFolder`, revalidating `/settings/email-templates`. `listTemplates()` selects `folder_id`/`position`; `EmailTemplateBuilderRow` carries them. No lifecycle columns added to email_templates (core's archive/deleteFolder cascade is `as any` and not exercised in greenfield).
 - (117-02) `/settings/email-templates` (list + new + [id] editor) now renders inside `SubSidebarLayout` via a NEW `settings/email-templates/layout.tsx` (storageKey `sub-sidebar:email-templates`, nested inside the settings sub-sidebar) — the other route group `email-templates/page.tsx` stays a pure redirect (untouched). `EmailTemplateSubNav` mirrors `WorkflowSubNav` on `DraggableTreeNav` (itemNoun='template', Mail icon inheriting folder color, `/settings/email-templates/<id>` hrefs, hard-delete via `deleteTemplate` with `deleteItemLabel='Delete'`, no `renameItem`, no footer). `NewFolderButton` made entity-agnostic via an OPTIONAL `createFolder` prop defaulting to the aliased workflows action (`createWorkflowFolder`) — Workflows call sites unchanged; the email layout/sub-nav pass the email-template `createFolder`. `npm run build` exit 0.
+- (118-01) Email blocks gain a stable `id` at the TYPE + DATA layer in `render-template.ts` (PURE CODE — no DB/migration). Added `BaseBlock = { id: string }` mixed via `BaseBlock &` into all seven block types (union still discriminates on `blockType`); `makeBlockId()` reuses the editor's `Math.random().toString(36).slice(2,10)` (no new dep). `normalizeDocument` MOVED out of the client editor into `render-template.ts` and EXPORTED — it now backfills a fresh id on any block/section missing one (`x.id || makeBlockId()`), is idempotent, non-mutating, falls back to `emptyDocument()`. `BLOCK_DEFAULTS` retyped `Record<string, DistributiveOmit<EmailBlock,'id'>>` — plain `Omit` collapsed the discriminated union to shared keys and broke the build, so a `DistributiveOmit<T,K> = T extends unknown ? Omit<T,K> : never` helper was added (deviation, Rule 3). `tests/email-block-ids.test.ts` (8/8) proves renderTemplate HTML is byte-identical before/after normalization and that ids never appear in HTML.
+- (118-02) Editor refactored to id-based block addressing (zero user-visible change): `selectedBlockPath {sectionId,colIdx,blockIdx}` → `selectedBlockId: string|null`; `addBlock` mints `{ ...BLOCK_DEFAULTS[type], id: makeBlockId() }` and selects by id (dropped the stale `doc.sections` dep); `insertReusableBlock` re-mints via `source.map((b) => ({...b, id: makeBlockId()}))` so double-insert never collides; `removeBlock`/`updateBlock` locate by `b.id`; `ColumnEditor` keys `key={block.id}` with `isSelected={selectedBlockId === block.id}`; `SortableSection`/`ColumnEditor` prop types use `blockId`/`selectedBlockId`. Editor's local no-op `normalizeDocument` deleted; imports the shared one. Removed now-unused `colIdx/layout/sectionId` from the `ColumnEditor` destructure (kept on the props interface for Phase 119). `npm run build` exit 0; builder suite 17/17. ids persist via the existing `saveTemplate` action on next save — no migration.
 
 ### Blockers/Concerns
 
@@ -58,5 +60,5 @@ Last activity: 2026-07-02
 
 ## Session Continuity
 
-**Stopped At:** Completed Phase 117 (both plans). 117-01 backend (migration 1228 file + database.ts types + email-templates/_actions/folders.ts core delegation + listTemplates select) and 117-02 UI (EmailTemplateSubNav + settings/email-templates/layout.tsx + entity-agnostic NewFolderButton + NewTemplateButton). Build green. Next: Phase 118 (Stable Block IDs + Normalization). Reminder: migrations 1225/1226/1227/1228 remain unapplied — must reconcile migration-history desync + apply before this code deploys.
+**Stopped At:** Completed Phase 118 (both plans). 118-01 data layer (render-template.ts: BaseBlock id on all seven types + makeBlockId() + exported normalizeDocument() id-backfill + DistributiveOmit for BLOCK_DEFAULTS + tests/email-block-ids.test.ts 8/8, HTML byte-identical) and 118-02 editor refactor (selectedBlockId + id-based add/remove/update + key={block.id} + reusable re-mint + shared normalizeDocument import). PURE CODE — no DB/migration. Build green; builder suite 17/17. Next: Phase 119 (Block Palette + Drag-and-Drop). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys.
 **Resume File:** None

@@ -10,7 +10,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 - [x] **Phase 115: Migrate Workflows to Universal Folders** - UUID-preserving data migration; retire `workflow_folders`; UX parity. (HIGH RISK — production data)
 - [x] **Phase 116: Migrate Projects + Tools to Universal Folders** - Migrate `project_spaces` and `tool_folders`; retire legacy tables.
 - [x] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
-- [ ] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
+- [x] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [ ] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
 - [ ] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
 - [ ] **Phase 121: Sending Integration** - Merge-tags + `send_email_template` tool (spec/validator) + template selection in campaigns.
@@ -86,9 +86,9 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Editor selection and updates key blocks by `id` instead of array-index path.
 4. `npm run build` passes and an existing template round-trips (open → save) with unchanged HTML snapshot.
 
-**Plans:** 2 plans
-- [ ] 118-01-PLAN.md — `id` on all block types + `makeBlockId()` + `normalizeDocument()` id-backfill (moved to render-template.ts) + `tests/email-block-ids.test.ts` (UFE-07)
-- [ ] 118-02-PLAN.md — Editor refactor: `selectedBlockId` + id-based add/remove/update/insert + `key={block.id}` + reusable-insert re-mint (UFE-07)
+**Plans:** 2/2 plans complete
+- [x] 118-01-PLAN.md — `id` on all block types + `makeBlockId()` + `normalizeDocument()` id-backfill (moved to render-template.ts) + `tests/email-block-ids.test.ts` (UFE-07)
+- [x] 118-02-PLAN.md — Editor refactor: `selectedBlockId` + id-based add/remove/update/insert + `key={block.id}` + reusable-insert re-mint (UFE-07)
 
 ### Phase 119: Block Palette + Drag-and-Drop
 **Goal**: Turn the editor into a three-pane builder with a draggable block palette and cross-column block DnD.
