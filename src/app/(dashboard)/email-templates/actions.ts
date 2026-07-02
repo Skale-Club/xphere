@@ -134,6 +134,71 @@ export async function saveTemplate(
   return { ok: true, data: undefined }
 }
 
+// ─── publishTemplate ──────────────────────────────────────────────────────────
+
+export async function publishTemplate(id: string): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+
+  // Load the current document + name so we can refresh the published snapshot
+  // and run a light pre-publish check.
+  const { data: current, error: fetchError } = await supabase
+    .from('email_templates')
+    .select('name, document')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !current) return { ok: false, error: fetchError?.message ?? 'not_found' }
+
+  // Light pre-publish validation: must have a name and at least one section.
+  const doc = (current.document ?? {}) as EmailDocument
+  if (!current.name?.trim()) return { ok: false, error: 'name_required' }
+  if (!Array.isArray(doc.sections) || doc.sections.length === 0) {
+    return { ok: false, error: 'empty_document' }
+  }
+
+  // Refresh the snapshot so the published HTML matches the current document.
+  const { html, plainText } = renderTemplate(doc)
+
+  const { error } = await supabase
+    .from('email_templates')
+    .update({
+      status: 'published',
+      html_snapshot: html,
+      plain_text_snapshot: plainText,
+    })
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/email-templates')
+  revalidatePath(`/email-templates/${id}`)
+  revalidatePath('/settings/email-templates')
+  revalidatePath(`/settings/email-templates/${id}`)
+  return { ok: true, data: undefined }
+}
+
+// ─── unpublishTemplate ────────────────────────────────────────────────────────
+
+export async function unpublishTemplate(id: string): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('email_templates')
+    .update({ status: 'draft' })
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/email-templates')
+  revalidatePath(`/email-templates/${id}`)
+  revalidatePath('/settings/email-templates')
+  revalidatePath(`/settings/email-templates/${id}`)
+  return { ok: true, data: undefined }
+}
+
 // ─── deleteTemplate ───────────────────────────────────────────────────────────
 
 export async function deleteTemplate(id: string): Promise<ActionResult<void>> {
