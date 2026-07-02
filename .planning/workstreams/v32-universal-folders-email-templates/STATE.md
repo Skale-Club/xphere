@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: milestone
 current_plan: Not started
-status: completed
-stopped_at: "Completed Phase 119 (both plans). 119-01 pure helpers (src/lib/email/editor-dnd.ts: findBlockLocation/insertBlockInColumn/moveBlock, immutable + dependency-free; tests/email-editor-dnd.test.ts 10/10 pinning insert/clamp, within+cross-column move, immutability). 119-02 three-pane editor (new block-palette.tsx useDraggable chips; columns as droppable SortableContexts + empty-column useDroppable at a UNIFIED col:${sectionId}:${colIdx} id; grip-scoped useSortable blocks; ONE DndContext, closestCorners + DragOverlay; onDragStart/Over/End delegate mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked; +Block/Insert + section reorder preserved). UFE-08 complete. PURE CLIENT CODE — no DB/migration. Build exit 0; email suites 35/35. Next: Phase 120 (Publish Lifecycle). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys; live pointer-drag verify is post-apply."
-last_updated: "2026-07-02T17:39:00.000Z"
+status: verifying
+stopped_at: "Completed Phase 119 (both plans). 119-01 pure helpers (src/lib/email/editor-dnd.ts: findBlockLocation/insertBlockInColumn/moveBlock, immutable + dependency-free; tests/email-editor-dnd.test.ts 10/10). 119-02 three-pane editor (new block-palette.tsx useDraggable chips; columns droppable SortableContexts + empty-column useDroppable at a UNIFIED col:${sectionId}:${colIdx} id; grip-scoped useSortable blocks; ONE DndContext + closestCorners + DragOverlay; onDragStart/Over/End delegate mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked; +Block/Insert + section reorder preserved). UFE-08 complete. PURE CLIENT CODE — no DB/migration. Build exit 0; email suites 35/35. Next: Phase 120 (Publish Lifecycle, UFE-09). Reminder: migrations 1225/1226/1227/1228 remain unapplied — reconcile migration-history desync + apply before this code deploys; live pointer-drag verify is post-apply."
+last_updated: "2026-07-02T17:43:25.203Z"
 last_activity: 2026-07-02
 progress:
   total_phases: 8
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 120 (next)
+Phase: 120
 Plan: 119-01, 119-02 all complete
 Status: Phase 119 complete — the email editor is now a three-pane drag-and-drop builder (UFE-08). 119-01: three pure immutable EmailDocument helpers in src/lib/email/editor-dnd.ts (findBlockLocation/insertBlockInColumn/moveBlock) + tests/email-editor-dnd.test.ts (10/10). 119-02: new block-palette.tsx (useDraggable block-type + reusable chips), columns as droppable SortableContexts + empty-column useDroppable at a UNIFIED col:${sectionId}:${colIdx} id, grip-scoped useSortable blocks, all wired into the SINGLE existing DndContext (closestCorners + DragOverlay); handlers disambiguate palette/block/section and delegate mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked (out of scope); +Block/Insert fallback menus + section reorder preserved. PURE CLIENT CODE — no DB/migration. Build exit 0; email suites 35/35. Migrations 1225/1226/1227/1228 still unapplied; live pointer-drag verify is post-apply.
 Last activity: 2026-07-02
