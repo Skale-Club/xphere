@@ -12,7 +12,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 - [x] **Phase 117: Email Templates Sub-Sidebar + Folders** - Add `folder_id`/`position` to `email_templates`; new layout + `EmailTemplateSubNav` reusing `DraggableTreeNav`. (Greenfield)
 - [x] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [x] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
-- [ ] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
+- [x] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
 - [ ] **Phase 121: Sending Integration** - Merge-tags + `send_email_template` tool (spec/validator) + template selection in campaigns.
 
 ## Phase Details
@@ -114,8 +114,8 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Publishing refreshes the HTML snapshot; the badge/status is consistent in list and editor.
 4. `npm run build` passes.
 
-**Plans:** 1 plan
-- [ ] 120-01-PLAN.md — publishTemplate/unpublishTemplate actions (snapshot refresh) + getTemplate status select + migration 1229 (file) + STATUS_CLASSES/legacy-map + Publish/Unpublish in editor toolbar & list card (UFE-09)
+**Plans:** 1/1 plan complete
+- [x] 120-01-PLAN.md — publishTemplate/unpublishTemplate actions (snapshot refresh) + getTemplate status select + migration 1229 (file) + STATUS_CLASSES/legacy-map + Publish/Unpublish in editor toolbar & list card (UFE-09)
 
 ### Phase 121: Sending Integration
 **Goal**: Make templates sendable from workflows and campaigns, with personalization.

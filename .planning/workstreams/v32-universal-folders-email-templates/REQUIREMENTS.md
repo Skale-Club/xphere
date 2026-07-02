@@ -22,7 +22,7 @@
 
 ## Email Lifecycle
 
-- [ ] **UFE-09**: User can publish and unpublish a template, with a single consistent status shown in both the list and the editor.
+- [x] **UFE-09**: User can publish and unpublish a template, with a single consistent status shown in both the list and the editor.
 
 ## Email Sending
 
@@ -50,7 +50,7 @@
 | UFE-06 | Phase 117 | Complete |
 | UFE-07 | Phase 118 | Complete |
 | UFE-08 | Phase 119 | Complete |
-| UFE-09 | Phase 120 | Pending |
+| UFE-09 | Phase 120 | Complete |
 | UFE-10 | Phase 121 | Pending |
 | UFE-11 | Phase 121 | Pending |
 | UFE-12 | Phase 121 | Pending |
@@ -62,4 +62,5 @@
 
 ---
 *Requirements defined: 2026-07-02*
-*Last updated: 2026-07-02 — UFE-08 completed (Phase 119: PURE CLIENT CODE, no DB/migration. 119-01 added three pure immutable EmailDocument helpers in src/lib/email/editor-dnd.ts (findBlockLocation/insertBlockInColumn/moveBlock) with tests/email-editor-dnd.test.ts 10/10. 119-02 turned the editor into a three-pane builder: new block-palette.tsx (useDraggable block-type + reusable chips), columns as droppable SortableContexts + empty-column useDroppable at a unified col:${sectionId}:${colIdx} id, blocks as grip-scoped useSortable, all wired into the SINGLE existing DndContext (closestCorners + DragOverlay) with onDragStart/Over/End delegating mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked (out of scope); +Block/Insert fallback menus + section reorder preserved. npm run build exit 0; email suites 35/35. Live pointer-drag deferred to post-migration human-verify — the editor route nests under the folder-querying layout (migrations 1225/1226/1227/1228 still unapplied).)*
+*Last updated: 2026-07-02 — UFE-09 completed (Phase 120: publish lifecycle. publishTemplate(id) sets status='published' + refreshes html/plain snapshot via renderTemplate with light pre-publish validation; unpublishTemplate(id) sets status='draft'; both revalidate list + settings paths. STATUS_CLASSES reconciled to draft|published|archived with a defensive displayStatus mapping legacy 'ready'->'published'; createTemplate default stays 'draft'. Publish/Unpublish surfaced in BOTH the editor toolbar (local status state, flips without reload) and the list card (TemplateListActions gains a status prop + router.refresh). Migration 1229 (idempotent 'ready'->'published') written FILE-ONLY + ledgered LOW risk (not applied — code maps defensively so apply is a cleanup). npm run build exit 0. Runtime click-through deferred to post-migration human-verify.)*
+*Previously updated: 2026-07-02 — UFE-08 completed (Phase 119: PURE CLIENT CODE, no DB/migration. 119-01 added three pure immutable EmailDocument helpers in src/lib/email/editor-dnd.ts (findBlockLocation/insertBlockInColumn/moveBlock) with tests/email-editor-dnd.test.ts 10/10. 119-02 turned the editor into a three-pane builder: new block-palette.tsx (useDraggable block-type + reusable chips), columns as droppable SortableContexts + empty-column useDroppable at a unified col:${sectionId}:${colIdx} id, blocks as grip-scoped useSortable, all wired into the SINGLE existing DndContext (closestCorners + DragOverlay) with onDragStart/Over/End delegating mutation to the 119-01 helpers; palette/reusable inserts re-mint ids; cross-section block move blocked (out of scope); +Block/Insert fallback menus + section reorder preserved. npm run build exit 0; email suites 35/35. Live pointer-drag deferred to post-migration human-verify — the editor route nests under the folder-querying layout (migrations 1225/1226/1227/1228 still unapplied).)*
