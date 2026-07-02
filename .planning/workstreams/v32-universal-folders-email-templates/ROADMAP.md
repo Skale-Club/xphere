@@ -86,6 +86,10 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. Editor selection and updates key blocks by `id` instead of array-index path.
 4. `npm run build` passes and an existing template round-trips (open → save) with unchanged HTML snapshot.
 
+**Plans:** 2 plans
+- [ ] 118-01-PLAN.md — `id` on all block types + `makeBlockId()` + `normalizeDocument()` id-backfill (moved to render-template.ts) + `tests/email-block-ids.test.ts` (UFE-07)
+- [ ] 118-02-PLAN.md — Editor refactor: `selectedBlockId` + id-based add/remove/update/insert + `key={block.id}` + reusable-insert re-mint (UFE-07)
+
 ### Phase 119: Block Palette + Drag-and-Drop
 **Goal**: Turn the editor into a three-pane builder with a draggable block palette and cross-column block DnD.
 **Depends on**: Phase 118
