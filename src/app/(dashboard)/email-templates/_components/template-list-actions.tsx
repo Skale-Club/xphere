@@ -3,7 +3,7 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Copy, Trash2 } from 'lucide-react'
+import { Copy, Trash2, Send, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -16,15 +16,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { duplicateTemplate, deleteTemplate } from '../actions'
+import { duplicateTemplate, deleteTemplate, publishTemplate, unpublishTemplate } from '../actions'
 
 interface TemplateListActionsProps {
   templateId: string
+  status: string
   /** Base path for redirects after duplicate. Defaults to '/email-templates'. */
   basePath?: string
 }
 
-export function TemplateListActions({ templateId, basePath = '/email-templates' }: TemplateListActionsProps) {
+export function TemplateListActions({ templateId, status, basePath = '/email-templates' }: TemplateListActionsProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -52,8 +53,35 @@ export function TemplateListActions({ templateId, basePath = '/email-templates' 
     })
   }
 
+  const isPublished = status === 'published'
+
+  function handleTogglePublish() {
+    startTransition(async () => {
+      const result = isPublished
+        ? await unpublishTemplate(templateId)
+        : await publishTemplate(templateId)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(isPublished ? 'Template unpublished' : 'Template published')
+      router.refresh()
+    })
+  }
+
   return (
     <div className="flex items-center gap-1 mt-auto pt-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-xs gap-1"
+        onClick={handleTogglePublish}
+        disabled={isPending}
+      >
+        {isPublished ? <Undo2 className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+        {isPublished ? 'Unpublish' : 'Publish'}
+      </Button>
+
       <Button
         size="sm"
         variant="ghost"

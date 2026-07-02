@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import {
   Save, Eye, Plus, Trash2, Loader2, GripVertical,
   Type, Image, MousePointerClick, Minus, AlignJustify, Bookmark,
-  X, Settings, Code,
+  X, Settings, Code, Send, Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,7 +40,7 @@ import type {
 } from '@/lib/email/render-template'
 import { renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument } from '@/lib/email/render-template'
 import { findBlockLocation, insertBlockInColumn, moveBlock } from '@/lib/email/editor-dnd'
-import { saveTemplate, saveReusableBlock, deleteReusableBlock } from '../actions'
+import { saveTemplate, saveReusableBlock, deleteReusableBlock, publishTemplate, unpublishTemplate } from '../actions'
 import type { EmailTemplateBuilderRow, ReusableBlock } from '../actions'
 import { BlockPalette } from './block-palette'
 
@@ -86,6 +86,7 @@ export const BLOCK_TYPES: { type: string; label: string; icon: React.ReactNode }
 export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }: EmailTemplateEditorProps) {
   const [doc, setDoc] = useState<EmailDocument>(() => normalizeDocument(template.document))
   const [name, setName] = useState(template.name)
+  const [status, setStatus] = useState(template.status)
   const [isPending, startTransition] = useTransition()
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
@@ -360,6 +361,20 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     })
   }
 
+  // ── Publish / Unpublish ───────────────────────────────────────────────────────
+
+  function handleTogglePublish() {
+    const publishing = status !== 'published'
+    startTransition(async () => {
+      const result = publishing
+        ? await publishTemplate(template.id)
+        : await unpublishTemplate(template.id)
+      if (!result.ok) { toast.error(result.error); return }
+      setStatus(publishing ? 'published' : 'draft')
+      toast.success(publishing ? 'Template published' : 'Template unpublished')
+    })
+  }
+
   // ── Preview ─────────────────────────────────────────────────────────────────
 
   function handlePreview() {
@@ -449,6 +464,16 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
             >
               <Eye className="h-3.5 w-3.5" />
               Preview
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={handleTogglePublish}
+              disabled={isPending}
+            >
+              {status === 'published' ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              {status === 'published' ? 'Unpublish' : 'Publish'}
             </Button>
             <Button
               size="sm"

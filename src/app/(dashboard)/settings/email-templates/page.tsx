@@ -12,6 +12,12 @@ import { formatDistanceToNow } from 'date-fns'
 const STATUS_CLASSES: Record<string, string> = {
   draft: 'bg-yellow-500/15 text-yellow-400',
   published: 'bg-emerald-500/15 text-emerald-400',
+  archived: 'bg-zinc-500/15 text-zinc-400',
+}
+
+// Defensive: legacy rows may still carry 'ready' before migration 1229 runs.
+function displayStatus(status: string): string {
+  return status === 'ready' ? 'published' : status
 }
 
 export default async function SettingsEmailTemplatesPage() {
@@ -105,9 +111,9 @@ export default async function SettingsEmailTemplatesPage() {
                   </Link>
                   <Badge
                     variant="secondary"
-                    className={cn('text-[10px] capitalize shrink-0', STATUS_CLASSES[template.status] ?? '')}
+                    className={cn('text-[10px] capitalize shrink-0', STATUS_CLASSES[displayStatus(template.status)] ?? '')}
                   >
-                    {template.status}
+                    {displayStatus(template.status)}
                   </Badge>
                 </div>
 
@@ -115,7 +121,7 @@ export default async function SettingsEmailTemplatesPage() {
                   Updated {formatDistanceToNow(new Date(template.updated_at), { addSuffix: true })}
                 </p>
 
-                <TemplateListActions templateId={template.id} basePath="/settings/email-templates" />
+                <TemplateListActions templateId={template.id} status={displayStatus(template.status)} basePath="/settings/email-templates" />
               </div>
             </div>
           ))}
