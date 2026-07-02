@@ -20,9 +20,11 @@ select id, org_id, 'tool', name, null, null, parent_id, position, null, created_
 from public.tool_folders
 on conflict (id) do nothing;
 
-alter table public.tool_configs drop constraint if exists tool_configs_folder_id_fkey;
-alter table public.tool_configs
-  add constraint tool_configs_folder_id_fkey
+-- NOTE: tool_configs was renamed to _legacy_tool_configs on prod; that is the live tools item table.
+alter table public._legacy_tool_configs drop constraint if exists tool_configs_folder_id_fkey;
+alter table public._legacy_tool_configs drop constraint if exists _legacy_tool_configs_folder_id_fkey;
+alter table public._legacy_tool_configs
+  add constraint _legacy_tool_configs_folder_id_fkey
   foreign key (folder_id) references public.folders(id) on delete set null;
 
 alter table public.tool_folders rename to tool_folders_deprecated;
