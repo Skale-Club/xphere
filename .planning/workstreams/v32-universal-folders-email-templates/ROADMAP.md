@@ -56,6 +56,12 @@ This milestone extracts the folder/tree organization system (today duplicated as
 4. `project_spaces` and `tool_folders` are retired; `workflow_folders_deprecated` is safe to drop.
 5. `npm run build` passes.
 
+**Plans:** 0/4 plans complete
+- [ ] 116-01-PLAN.md — Add backward-compatible `itemFolderColumn` to foldering core (UFE-04, UFE-05)
+- [ ] 116-02-PLAN.md — Write migration 1227 (copy → repoint FKs → rename `_deprecated`) + PENDING ledger (UFE-04, UFE-05)
+- [ ] 116-03-PLAN.md — Swap Projects spaces actions + layout + MCP tool onto `folders` (UFE-04)
+- [ ] 116-04-PLAN.md — Swap Tools folder actions + agent tool-picker onto `folders` (UFE-05)
+
 ### Phase 117: Email Templates Sub-Sidebar + Folders
 **Goal**: Give Email Templates a Workflows-style sub-sidebar with universal folders and drag-and-drop organization.
 **Depends on**: Phase 114
