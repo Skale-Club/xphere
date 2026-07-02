@@ -23,4 +23,13 @@
 - **Risk:** MEDIUM-HIGH (touches production data + repoints a foreign key). UUID preservation keeps `workflows.folder_id` valid; the RENAME leaves a rollback safety net.
 - **Verify after:** `select count(*) from public.folders where entity_type='workflow';` must match the old row count `select count(*) from public.workflow_folders_deprecated;`.
 
+---
+
+## 3. `1227_migrate_project_tool_folders.sql` — Phase 116 (data migration, UFE-04/UFE-05)
+- **Status:** pending apply (file committed: `supabase/migrations/1227_migrate_project_tool_folders.sql`)
+- **What:** copies `project_spaces` -> `folders` (entity_type='project') and `tool_folders` -> `folders` (entity_type='tool') preserving UUIDs; repoints `projects.space_id` and `tool_configs.folder_id` FKs to `folders(id)`; renames both legacy tables `_deprecated` (retire, not drop). Tools copy nulls color/icon/created_by (source lacks them). Note: `folders` uses NULLS-DISTINCT uniqueness, slightly loosening top-level tool-folder-name uniqueness vs the old `NULLS NOT DISTINCT` constraint — acceptable.
+- **Order:** apply AFTER `1226_migrate_workflow_folders.sql`, BEFORE deploying the Phase 116 code (the swapped projects/tools layouts + actions query `folders` and would break if the copy hasn't run). After this applies and parity is confirmed, `workflow_folders_deprecated` is safe to drop.
+- **Risk:** MEDIUM-HIGH (touches production data + repoints two foreign keys). UUID preservation keeps `projects.space_id` / `tool_configs.folder_id` valid; the RENAME leaves a rollback safety net.
+- **Verify after:** `select count(*) from public.folders where entity_type='project';` must match `select count(*) from public.project_spaces_deprecated;` AND `select count(*) from public.folders where entity_type='tool';` must match `select count(*) from public.tool_folders_deprecated;`.
+
 <!-- Phase 115+ migrations will be appended here as they are built. -->
