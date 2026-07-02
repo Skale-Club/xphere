@@ -1,0 +1,46 @@
+# Platform-default tool — ships to every org (loaded per-org by the seed loader on deploy).
+# Callable by name from any AI agent, voice handler, or webhook: sends a builder
+# email template to a recipient with merge-tag personalization (UFE-11).
+#
+# CODE-ONLY: this file is committed and validated in CI (npm run workflows:validate-all).
+# It is NOT applied to production in this phase.
+
+name: send_email_template
+description: |
+  Sends a builder email template (from Email Templates) to a recipient, with
+  merge-tag personalization. Provide the template_id, the recipient email, an
+  optional subject, and a variables object used to fill {{contact.first_name}}-style
+  tokens in the template and subject.
+trigger:
+  type: tool_call
+  config:
+    tool_name: send_email_template
+    input_schema:
+      template_id:
+        type: string
+        description: UUID of the email template to send (must have a published/saved snapshot).
+        required: true
+      to:
+        type: string
+        description: Recipient email address.
+        required: true
+      subject:
+        type: string
+        description: Subject line; supports {{variables}}. Falls back to the template name.
+        required: false
+      variables:
+        type: object
+        description: 'Merge-tag values, e.g. { contact: { first_name: "Ana" } }.'
+        required: false
+
+nodes:
+  - id: action
+    kind: send_email_template
+    template_id: "{{input.template_id}}"
+    to: "{{input.to}}"
+    subject: "{{input.subject}}"
+    variables: "{{input.variables}}"
+
+edges:
+  - from: trigger
+    to: action
