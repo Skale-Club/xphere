@@ -13,7 +13,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 - [x] **Phase 118: Stable Block IDs + Normalization** - Add stable `id` to every block; upgrade-on-read for legacy documents. (Prereq for DnD)
 - [x] **Phase 119: Block Palette + Drag-and-Drop** - Left palette; multi-container dnd-kit for blocks into/between columns.
 - [x] **Phase 120: Publish Lifecycle** - Expose draft/published; reconcile status vocabulary.
-- [ ] **Phase 121: Sending Integration** - Merge-tags + `send_email_template` tool (spec/validator) + template selection in campaigns.
+- [x] **Phase 121: Sending Integration** - Merge-tags + `send_email_template` tool (spec/validator) + template selection in campaigns.
 
 ## Phase Details
 
@@ -127,7 +127,7 @@ This milestone extracts the folder/tree organization system (today duplicated as
 3. A workflow run sends a chosen template to a test contact with variables filled.
 4. An email campaign can select a builder template; `npm run build` passes.
 
-**Plans:** 3 plans
-- [ ] 121-01-PLAN.md — Merge-tag renderer `renderWithVariables` (+ unit test) + `send_email_template` executor (pre-switch dispatch, no enum migration) (UFE-10, UFE-11)
-- [ ] 121-02-PLAN.md — Register `send_email_template` NodeSpec (org-gated on resend) + platform-default tool seed passing `workflows:validate` (UFE-11)
-- [ ] 121-03-PLAN.md — Email campaign builder-template selection via `template_config` JSONB (no migration) (UFE-12)
+**Plans:** 3/3 plans complete
+- [x] 121-01-PLAN.md — Merge-tag renderer `renderWithVariables` (+ unit test) + `send_email_template` executor (pre-switch dispatch, no enum migration) (UFE-10, UFE-11)
+- [x] 121-02-PLAN.md — Register `send_email_template` NodeSpec (org-gated on resend) + platform-default tool seed passing `workflows:validate` (UFE-11)
+- [x] 121-03-PLAN.md — Email campaign builder-template selection via `template_config` JSONB (no migration) (UFE-12)
