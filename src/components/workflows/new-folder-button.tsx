@@ -20,14 +20,27 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createFolder } from '@/app/(dashboard)/workflows/_actions/folders'
+import { createFolder as createWorkflowFolder } from '@/app/(dashboard)/workflows/_actions/folders'
 
 interface NewFolderButtonProps {
   className?: string
   iconOnly?: boolean
+  /**
+   * Folder-create action. Defaults to the Workflows create action so existing
+   * Workflows call sites need no props. Other entities (e.g. email templates,
+   * Phase 117 / UFE-06) pass their own `createFolder` bound to the right
+   * entity_type.
+   */
+  createFolder?: (
+    input: { name: string },
+  ) => Promise<{ ok: true; data: { name: string } } | { ok: false; error: string }>
 }
 
-export function NewFolderButton({ className, iconOnly = false }: NewFolderButtonProps) {
+export function NewFolderButton({
+  className,
+  iconOnly = false,
+  createFolder = createWorkflowFolder,
+}: NewFolderButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
