@@ -36,8 +36,11 @@ Plans:
   3. Admin can filter the list by status (Approved/Pending/Rejected/Paused/Disabled), category, and language, independently or combined.
   4. Both existing provider paths (Meta Cloud API and Zernio) still render their templates and sync/approval mechanics exactly as before — no behavior regression for either provider.
   5. The pre-existing contextual entry points (integration panel "Manage templates" button, chat template picker fallback) still work and land on the relocated page.
-**Plans**: TBD
+**Plans**: 1 plan
 **UI hint**: yes
+
+Plans:
+- [ ] 123-01-PLAN.md — Relocate WhatsApp templates page to /settings/whatsapp-templates, repoint entry points, add name search + status/category/language filters
 
 ### Phase 124: Messages Templates Data Model + CRUD
 **Goal**: A brand-new, org-scoped "Messages" quick-reply template type exists with full CRUD, independent of and clearly distinct from WhatsApp Business templates.
