@@ -866,7 +866,10 @@ function FolderSection<T extends TreeNavItem>({
                 )}
               />
               {glyph}
-              <span className="flex-1 min-w-0 truncate text-left text-[12px] font-medium text-text-secondary">
+              <span
+                title={folder.name}
+                className="flex-1 min-w-0 truncate text-left text-[12px] font-medium text-text-secondary"
+              >
                 {folder.name}
               </span>
               <span className="text-[10px] text-text-tertiary tabular-nums shrink-0">
@@ -1235,7 +1238,7 @@ function ItemRow<T extends TreeNavItem>({
               <span className="flex h-3 w-3 shrink-0 items-center justify-center">
                 {renderItemIcon(item, { folderColor })}
               </span>
-              <span className="truncate">{item.name}</span>
+              <span title={item.name} className="truncate">{item.name}</span>
             </Link>
 
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -1348,7 +1351,7 @@ export function TreeNavChildLinks({
             {c.icon && (
               <span className="flex h-3 w-3 shrink-0 items-center justify-center">{c.icon}</span>
             )}
-            <span className="truncate">{c.label}</span>
+            <span title={c.label} className="truncate">{c.label}</span>
           </Link>
         )
       })}
