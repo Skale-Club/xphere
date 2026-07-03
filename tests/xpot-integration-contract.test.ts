@@ -26,6 +26,9 @@ function makeQueryBuilder(overrides: {
   builder.eq = vi.fn(() => builder)
   builder.neq = vi.fn(() => builder)
   builder.is = vi.fn(() => builder)
+  builder.ilike = vi.fn(() => builder)
+  builder.limit = vi.fn(() => builder)
+  builder.in = vi.fn(() => builder)
   builder.insert = vi.fn(() => builder)
   builder.update = vi.fn(() => builder)
   builder.maybeSingle = vi.fn(async () => overrides.maybeSingleResult ?? { data: null, error: null })
@@ -40,6 +43,9 @@ function makeQueryBuilder(overrides: {
     eq: ReturnType<typeof vi.fn>
     neq: ReturnType<typeof vi.fn>
     is: ReturnType<typeof vi.fn>
+    ilike: ReturnType<typeof vi.fn>
+    limit: ReturnType<typeof vi.fn>
+    in: ReturnType<typeof vi.fn>
     insert: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
     maybeSingle: ReturnType<typeof vi.fn>
@@ -263,5 +269,96 @@ describe('POST /api/integrations/xpot/visits — xpot visit sync target', () => 
 
     expect(res.status).toBe(200)
     expect(json).toEqual({ ok: true, ignored: 'no_match' })
+  })
+})
+
+describe('POST /api/v1/prospects — xpot lead sync target (company-kind)', () => {
+  // A sales_lead in Xpot is a business (legalName/industry, no personal name),
+  // so syncLeadToXphere() sends kind: 'company'. Accounts have no first-class
+  // email column, so the lead's email/legalName/industry ride in
+  // custom_fields — which /api/v1/prospects persists verbatim on create. This
+  // pins that behavior so no one has to rediscover it by reading both repos.
+
+  it('rejects a key without the prospects:write scope', async () => {
+    const from = vi.fn((table: string) => {
+      if (table === 'api_keys') return makeApiKeyBuilder({ id: 'key-1', org_id: 'org-1', scopes: ['contacts:write'] })
+      throw new Error(`unexpected table: ${table}`)
+    })
+    createServiceRoleClientMock.mockReturnValue({ from })
+
+    const { POST } = await import('@/app/api/v1/prospects/route')
+    const res = await POST(
+      new Request('https://xphere.app/api/v1/prospects', {
+        method: 'POST',
+        headers: { authorization: 'Bearer xph_test', 'content-type': 'application/json' },
+        body: JSON.stringify({ source: { type: 'xpot' }, prospects: [{ kind: 'company', name: 'Acme Roofing' }] }),
+      }),
+    )
+
+    expect(res.status).toBe(403)
+  })
+
+  it('creates a company prospect from the exact batch payload syncLeadToXphere sends, persisting email/legalName/industry via custom_fields', async () => {
+    const apiKeysBuilder = makeApiKeyBuilder({ id: 'key-1', org_id: 'org-1', scopes: ['prospects:write'] })
+    const sourceRunInsert = makeQueryBuilder({ singleResult: { data: { id: 'run-1' }, error: null } })
+    const sourceIdLookup = makeQueryBuilder({ maybeSingleResult: { data: null, error: null } })
+    const nameLookup = makeQueryBuilder({ maybeSingleResult: { data: null, error: null } })
+    const accountInsert = makeQueryBuilder({ singleResult: { data: { id: 'account-new-1' }, error: null } })
+    const accountsCalls = [sourceIdLookup, nameLookup, accountInsert]
+    let accountsCall = 0
+    const eventInsert = makeQueryBuilder()
+
+    const from = vi.fn((table: string) => {
+      if (table === 'api_keys') return apiKeysBuilder
+      if (table === 'prospect_sources') return sourceRunInsert
+      if (table === 'accounts') return accountsCalls[accountsCall++]
+      if (table === 'prospect_engagement_events') return eventInsert
+      throw new Error(`unexpected table: ${table}`)
+    })
+    createServiceRoleClientMock.mockReturnValue({ from })
+
+    const { POST } = await import('@/app/api/v1/prospects/route')
+
+    // Mirrors server/routes/xpot/helpers.ts syncLeadToXphere() exactly.
+    const res = await POST(
+      new Request('https://xphere.app/api/v1/prospects', {
+        method: 'POST',
+        headers: { authorization: 'Bearer xph_test', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          source: { type: 'xpot' },
+          prospects: [
+            {
+              kind: 'company',
+              name: 'Acme Roofing',
+              phone: '+1 (305) 555-0100',
+              source_id: '3',
+              custom_fields: { email: 'jane@acmeroofing.com', legal_name: 'Acme Roofing LLC', industry: 'Roofing' },
+            },
+          ],
+        }),
+      }),
+    )
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json).toEqual({
+      source_id: 'run-1',
+      total: 1,
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      results: [{ id: 'account-new-1', kind: 'company', action: 'created' }],
+    })
+    expect(accountInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        org_id: 'org-1',
+        name: 'Acme Roofing',
+        phone: '+13055550100',
+        lifecycle_stage: 'prospect',
+        source_type: 'xpot',
+        source_id: '3',
+        custom_fields: { email: 'jane@acmeroofing.com', legal_name: 'Acme Roofing LLC', industry: 'Roofing' },
+      }),
+    )
   })
 })
