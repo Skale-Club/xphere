@@ -77,10 +77,14 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
 
   // Live refs so save/preview always read the freshest committed doc/name even
   // when triggered from a keyboard shortcut in the same tick as a blur commit.
+  // Synced in an effect (never during render) so ref reads in event handlers /
+  // rAF callbacks always see the last committed value.
   const docRef = useRef(doc)
-  docRef.current = doc
   const nameRef = useRef(name)
-  nameRef.current = name
+  useEffect(() => {
+    docRef.current = doc
+    nameRef.current = name
+  })
 
   /** Commit any focused inline (contentEditable) edit, then run `cb` with the
    *  freshest document. When a text/heading block is being edited its content
