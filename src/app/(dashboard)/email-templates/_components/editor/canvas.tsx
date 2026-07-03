@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { Fragment } from 'react'
 import {
   Plus, GripVertical, Trash2, Copy, Bookmark, Palette, Columns2, ImageOff,
 } from 'lucide-react'
@@ -19,7 +19,6 @@ import type {
 } from '@/lib/email/render-template'
 import { resolveBlockPadding } from '@/lib/email/render-template'
 import { useEditor } from './context'
-import { BLOCK_TYPES } from './registry'
 
 type DragHandleProps = { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
 
@@ -50,16 +49,17 @@ export function Canvas() {
               <SortableSection key={section.id} section={section} />
             ))}
           </SortableContext>
-
-          <AddSectionBar />
         </div>
+
+        {/* Editor chrome — deliberately OUTSIDE the white email frame and centered
+            so it never reads as part of the email/preview content. */}
+        <AddSectionBar />
       </div>
     </ScrollArea>
   )
 }
 
 function EmptyCanvas() {
-  const editor = useEditor()
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -67,15 +67,7 @@ function EmptyCanvas() {
       </div>
       <div>
         <p className="text-sm font-medium text-zinc-700">Start your email</p>
-        <p className="text-xs text-zinc-500">Add a section, then drag blocks in from the left.</p>
-      </div>
-      <div className="flex gap-1.5">
-        {([1, 2, 3] as const).map((layout) => (
-          <Button key={layout} size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => editor.addSection(layout)}>
-            <Plus className="h-3 w-3" />
-            {layout}-col
-          </Button>
-        ))}
+        <p className="text-xs text-zinc-500">Use &ldquo;Add section&rdquo; below, then drag blocks in from the left.</p>
       </div>
     </div>
   )
@@ -84,14 +76,17 @@ function EmptyCanvas() {
 function AddSectionBar() {
   const editor = useEditor()
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-zinc-300 bg-zinc-50 px-4 py-3">
-      <span className="mr-1 text-xs font-medium text-zinc-600">Add section:</span>
+    <div
+      className="mt-5 flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-2 py-1.5 shadow-sm backdrop-blur-sm"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="px-1.5 text-xs font-medium text-muted-foreground">Add section</span>
       {([1, 2, 3] as const).map((layout) => (
         <Button
           key={layout}
           size="sm"
-          variant="outline"
-          className="h-7 gap-1 border-zinc-300 bg-white text-xs text-zinc-700 hover:bg-zinc-100"
+          variant="ghost"
+          className="h-7 gap-1 rounded-full px-2.5 text-xs"
           onClick={() => editor.addSection(layout)}
         >
           <Plus className="h-3 w-3" />
@@ -208,19 +203,7 @@ function ColumnEditor({
   colIdx: number
   padding: { top: number; right: number; bottom: number; left: number }
 }) {
-  const editor = useEditor()
   const blocks = section.columns[colIdx] ?? []
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    function onDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [menuOpen])
 
   return (
     <div
@@ -241,55 +224,9 @@ function ColumnEditor({
         ))}
       </SortableContext>
 
-      {/* Add-block affordance */}
-      <div
-        ref={menuRef}
-        className={cn(
-          'relative mt-1.5 transition-opacity',
-          blocks.length === 0 ? 'opacity-100' : 'opacity-0 group-hover/col:opacity-100',
-        )}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o) }}
-          className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-zinc-300 bg-white py-1.5 text-[11px] text-zinc-500 hover:border-primary/50 hover:text-primary"
-        >
-          <Plus className="h-3 w-3" /> Add block
-        </button>
-        {menuOpen && (
-          <div
-            className="absolute left-1/2 top-full z-40 mt-1 w-44 -translate-x-1/2 rounded-md border border-zinc-200 bg-white py-1 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {BLOCK_TYPES.map(({ type, label, icon }) => (
-              <button
-                key={type}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
-                onClick={() => { editor.addBlock(section.id, colIdx, type); setMenuOpen(false) }}
-              >
-                <span className="text-zinc-400">{icon}</span>
-                {label}
-              </button>
-            ))}
-            {editor.reusableBlocks.length > 0 && (
-              <>
-                <div className="my-1 border-t border-zinc-100" />
-                <p className="px-3 pb-0.5 pt-1 text-[9px] font-semibold uppercase tracking-wide text-zinc-400">Reusable</p>
-                {editor.reusableBlocks.map((rb) => (
-                  <button
-                    key={rb.id}
-                    className="flex w-full flex-col px-3 py-1.5 text-left text-xs text-zinc-700 hover:bg-zinc-100"
-                    onClick={() => { editor.insertReusable(section.id, colIdx, rb); setMenuOpen(false) }}
-                  >
-                    <span className="truncate">{rb.name}</span>
-                    <span className="text-[10px] text-zinc-400">{rb.block_type}</span>
-                  </button>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Blocks are added by dragging from the left palette — the tail zone below
+          lets you drop at the end of a non-empty column. */}
+      {blocks.length > 0 && <ColumnTailDropZone sectionId={section.id} colIdx={colIdx} />}
     </div>
   )
 }
@@ -309,6 +246,28 @@ function EmptyColumnDropZone({ sectionId, colIdx }: { sectionId: string; colIdx:
     >
       Drop a block here
     </div>
+  )
+}
+
+/**
+ * Append target at the end of a NON-empty column. A resting invisible strip that
+ * expands + highlights while a drag hovers it, so blocks can be dropped after the
+ * last one (dropping onto a block inserts before it). Shares the column's
+ * `col:*` droppable id — resolveDropTarget maps it to append (index = length).
+ */
+function ColumnTailDropZone({ sectionId, colIdx }: { sectionId: string; colIdx: number }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col:${sectionId}:${colIdx}`,
+    data: { type: 'column', sectionId, colIdx },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'rounded border-2 border-dashed transition-all',
+        isOver ? 'mt-1.5 h-12 border-primary bg-primary/5' : 'mt-0 h-2 border-transparent',
+      )}
+    />
   )
 }
 
