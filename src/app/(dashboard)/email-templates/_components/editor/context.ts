@@ -20,6 +20,10 @@ import type { ReusableBlock } from '../../actions'
 export interface EditorApi {
   doc: EmailDocument
 
+  /** 'template' = full email (multi-section, publish). 'section' = a single
+   *  reusable section template (no add-section, no publish, no section chrome). */
+  variant: 'template' | 'section'
+
   // ── Selection ──────────────────────────────────────────────
   selectedSectionId: string | null
   selectedBlockId: string | null

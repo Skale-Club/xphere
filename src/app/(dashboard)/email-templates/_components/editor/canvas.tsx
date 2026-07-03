@@ -52,8 +52,9 @@ export function Canvas() {
         </div>
 
         {/* Editor chrome — deliberately OUTSIDE the white email frame and centered
-            so it never reads as part of the email/preview content. */}
-        <AddSectionBar />
+            so it never reads as part of the email/preview content. Section
+            templates are a single section, so no add-section affordance. */}
+        {editor.variant !== 'section' && <AddSectionBar />}
       </div>
     </ScrollArea>
   )
@@ -131,30 +132,34 @@ function SortableSection({ section }: { section: EmailSection }) {
         editor.selectSection(section.id)
       }}
     >
-      {/* Floating section toolbar */}
-      <div className="absolute right-1 top-1 z-30 flex items-center gap-0.5 rounded border border-zinc-200 bg-white/95 opacity-0 shadow-sm transition-opacity group-hover/section:opacity-100">
-        <button
-          {...attributes}
-          {...listeners}
-          className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 active:cursor-grabbing"
-          title="Drag to reorder section"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="h-3 w-3" />
-        </button>
-        <SectionIconBtn title="Section settings" onClick={() => editor.selectSection(section.id)}>
-          <Palette className="h-3 w-3" />
-        </SectionIconBtn>
-        <SectionIconBtn title="Save as reusable block" onClick={() => editor.openSaveReusable(section.id)}>
-          <Bookmark className="h-3 w-3" />
-        </SectionIconBtn>
-        <SectionIconBtn title="Duplicate section" onClick={() => editor.duplicateSection(section.id)}>
-          <Copy className="h-3 w-3" />
-        </SectionIconBtn>
-        <SectionIconBtn title="Delete section" danger onClick={() => editor.removeSection(section.id)}>
-          <Trash2 className="h-3 w-3" />
-        </SectionIconBtn>
-      </div>
+      {/* Floating section toolbar — hidden for section templates (single section:
+          no reorder / duplicate / delete / save-as-reusable; styling is edited by
+          selecting the section → inspector). */}
+      {editor.variant !== 'section' && (
+        <div className="absolute right-1 top-1 z-30 flex items-center gap-0.5 rounded border border-zinc-200 bg-white/95 opacity-0 shadow-sm transition-opacity group-hover/section:opacity-100">
+          <button
+            {...attributes}
+            {...listeners}
+            className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 active:cursor-grabbing"
+            title="Drag to reorder section"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-3 w-3" />
+          </button>
+          <SectionIconBtn title="Section settings" onClick={() => editor.selectSection(section.id)}>
+            <Palette className="h-3 w-3" />
+          </SectionIconBtn>
+          <SectionIconBtn title="Save as reusable block" onClick={() => editor.openSaveReusable(section.id)}>
+            <Bookmark className="h-3 w-3" />
+          </SectionIconBtn>
+          <SectionIconBtn title="Duplicate section" onClick={() => editor.duplicateSection(section.id)}>
+            <Copy className="h-3 w-3" />
+          </SectionIconBtn>
+          <SectionIconBtn title="Delete section" danger onClick={() => editor.removeSection(section.id)}>
+            <Trash2 className="h-3 w-3" />
+          </SectionIconBtn>
+        </div>
+      )}
 
       {/* Columns */}
       <div className="flex" style={{ alignItems: valignToItems(valign) }}>

@@ -2,55 +2,70 @@ import { createClient } from '@/lib/supabase/server'
 import { SubSidebarLayout } from '@/components/layout/sub-sidebar'
 import { EmailTemplateSubNav } from '@/components/email-templates/email-template-sub-nav'
 import { NewTemplateButton } from '@/components/email-templates/new-template-button'
+import { NewSectionTemplateButton } from '@/components/email-templates/new-section-template-button'
 import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import { createFolder } from '@/app/(dashboard)/email-templates/_actions/folders'
-import { listTemplates } from '@/app/(dashboard)/email-templates/actions'
+import { listTemplates, getReusableBlocks } from '@/app/(dashboard)/email-templates/actions'
 import type { Database } from '@/types/database'
 
 type EmailFolderRow = Database['public']['Tables']['folders']['Row']
+
+function foldersQuery(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  entityType: string,
+  orgId: string | null,
+) {
+  return orgId
+    ? supabase
+        .from('folders')
+        .select('*')
+        .eq('entity_type', entityType)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true })
+    : Promise.resolve({ data: [] as EmailFolderRow[] })
+}
 
 export default async function EmailTemplatesLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
 
-  const [templatesRes, foldersRes] = await Promise.all([
+  const [templatesRes, tplFoldersRes, blocksRes, secFoldersRes] = await Promise.all([
     listTemplates(),
-    orgId
-      ? supabase
-          .from('folders')
-          .select('*')
-          .eq('entity_type', 'email_template')
-          .order('position', { ascending: true })
-          .order('created_at', { ascending: true })
-      : Promise.resolve({ data: [] as EmailFolderRow[] }),
+    foldersQuery(supabase, 'email_template', orgId as string | null),
+    getReusableBlocks(),
+    foldersQuery(supabase, 'reusable_email_block', orgId as string | null),
   ])
 
   const templates = templatesRes.ok ? templatesRes.data : []
-  const folders = ((foldersRes as { data: EmailFolderRow[] | null }).data ?? []) as EmailFolderRow[]
+  const sections = blocksRes.ok ? blocksRes.data : []
+  const tplFolders = ((tplFoldersRes as { data: EmailFolderRow[] | null }).data ?? []) as EmailFolderRow[]
+  const secFolders = ((secFoldersRes as { data: EmailFolderRow[] | null }).data ?? []) as EmailFolderRow[]
 
-  const navTemplates = templates.map((t) => ({
-    id: t.id,
-    name: t.name,
-    group_id: t.folder_id,
-  }))
-
-  const navFolders = folders.map((f) => ({
+  const toNavFolder = (f: EmailFolderRow) => ({
     id: f.id,
     name: f.name,
     color: f.color,
     icon: f.icon,
     parent_id: f.parent_id,
     position: f.position,
-  }))
+  })
 
   return (
     <SubSidebarLayout
       storageKey="sub-sidebar:email-templates"
       title="Email Templates"
-      nav={<EmailTemplateSubNav templates={navTemplates} folders={navFolders} />}
+      nav={
+        <EmailTemplateSubNav
+          templates={templates.map((t) => ({ id: t.id, name: t.name, group_id: t.folder_id }))}
+          templateFolders={tplFolders.map(toNavFolder)}
+          sections={sections.map((s) => ({ id: s.id, name: s.name, group_id: s.folder_id }))}
+          sectionFolders={secFolders.map(toNavFolder)}
+        />
+      }
       collapsedActions={
         <>
           <NewTemplateButton label="New template" iconOnly className="h-7 w-7 p-0" />
+          <NewSectionTemplateButton label="New section" iconOnly className="h-7 w-7 p-0" />
           <NewFolderButton iconOnly className="h-7 w-7 p-0" createFolder={createFolder} />
         </>
       }

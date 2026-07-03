@@ -4,7 +4,7 @@ import { useState, useTransition, useCallback, useEffect, useMemo, useRef } from
 import { toast } from 'sonner'
 import {
   Save, Eye, Loader2, Send, Undo2, Redo2, Trash2, Bookmark,
-  Smartphone, Monitor, Circle,
+  Smartphone, Monitor, Circle, Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,9 +42,18 @@ import { InspectorPanel } from './editor/inspector-panel'
 import { EditorContext, type EditorApi } from './editor/context'
 import { useEditorHistory } from './editor/use-editor-history'
 
+type SaveResult = { ok: true } | { ok: false; error?: string }
+
 interface EmailTemplateEditorProps {
   template: EmailTemplateBuilderRow
   reusableBlocks: ReusableBlock[]
+  /** 'section' constrains the editor to a single reusable section template:
+   *  hides publish/reusable/add-section/section chrome and saves via
+   *  onSaveDocument instead of the template save action. */
+  variant?: 'template' | 'section'
+  /** Section-mode save: receives the working document + name; the caller maps it
+   *  back to a reusable_email_blocks row. */
+  onSaveDocument?: (doc: EmailDocument, name: string) => Promise<SaveResult>
 }
 
 function makeSection(layout: 1 | 2 | 3 = 1): EmailSection {
@@ -61,7 +70,9 @@ function cloneBlock(b: EmailBlock): EmailBlock {
   return { ...b, id: makeBlockId() }
 }
 
-export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }: EmailTemplateEditorProps) {
+export function EmailTemplateEditor({
+  template, reusableBlocks: initialBlocks, variant = 'template', onSaveDocument,
+}: EmailTemplateEditorProps) {
   const initialDoc = useMemo(() => normalizeDocument(template.document), [template.document])
   const { state: doc, set: setDoc, undo, redo, canUndo, canRedo } = useEditorHistory<EmailDocument>(initialDoc)
 
@@ -227,6 +238,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   // ── Editor API (context value) ───────────────────────────────────────────────────
   const api: EditorApi = useMemo(() => ({
     doc,
+    variant,
     selectedSectionId,
     selectedBlockId,
     selectBlock,
@@ -246,7 +258,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     reusableBlocks,
     openSaveReusable,
   }), [
-    doc, selectedSectionId, selectedBlockId, selectBlock, selectSection,
+    doc, variant, selectedSectionId, selectedBlockId, selectBlock, selectSection,
     addSection, removeSection, duplicateSection, updateSection, moveSection,
     addBlock, insertReusable, removeBlock, duplicateBlock, updateBlock,
     moveBlockDir, setDoc, reusableBlocks, openSaveReusable,
@@ -292,12 +304,17 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const flushSave = useCallback((current: EmailDocument) => {
     startTransition(async () => {
       const snapshot = JSON.stringify(current)
-      const result = await saveTemplate(template.id, current, nameRef.current)
-      if (!result.ok) { toast.error(result.error); return }
+      const result = onSaveDocument
+        ? await onSaveDocument(current, nameRef.current)
+        : await saveTemplate(template.id, current, nameRef.current)
+      if (!result.ok) {
+        toast.error((result as { error?: string }).error ?? 'Save failed')
+        return
+      }
       setSavedSnapshot(snapshot)
-      toast.success('Template saved')
+      toast.success(variant === 'section' ? 'Section saved' : 'Template saved')
     })
-  }, [template.id])
+  }, [template.id, onSaveDocument, variant])
 
   const handleSave = useCallback(() => runWithFreshDoc(flushSave), [runWithFreshDoc, flushSave])
 
@@ -512,9 +529,15 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
                 </Button>
               </div>
 
-              <Badge variant={status === 'published' ? 'default' : 'outline'} className="h-5 text-[10px] capitalize">
-                {status}
-              </Badge>
+              {variant === 'section' ? (
+                <Badge variant="outline" className="h-5 gap-1 text-[10px]">
+                  <Layers className="h-3 w-3" /> Section template
+                </Badge>
+              ) : (
+                <Badge variant={status === 'published' ? 'default' : 'outline'} className="h-5 text-[10px] capitalize">
+                  {status}
+                </Badge>
+              )}
               {isDirty && (
                 <span className="flex items-center gap-1 text-[11px] text-amber-600" title="Unsaved changes">
                   <Circle className="h-2 w-2 fill-current" /> Unsaved
@@ -522,16 +545,20 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
               )}
 
               <div className="ml-auto flex items-center gap-1">
-                <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setReusableOpen(true)}>
-                  <Bookmark className="h-3.5 w-3.5" /> Reusable
-                </Button>
+                {variant === 'template' && (
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setReusableOpen(true)}>
+                    <Bookmark className="h-3.5 w-3.5" /> Reusable
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handlePreview}>
                   <Eye className="h-3.5 w-3.5" /> Preview
                 </Button>
-                <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleTogglePublish} disabled={isPending}>
-                  {status === 'published' ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-                  {status === 'published' ? 'Unpublish' : 'Publish'}
-                </Button>
+                {variant === 'template' && (
+                  <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleTogglePublish} disabled={isPending}>
+                    {status === 'published' ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                    {status === 'published' ? 'Unpublish' : 'Publish'}
+                  </Button>
+                )}
                 <Button size="sm" className="h-7 gap-1 text-xs" onClick={handleSave} disabled={isPending}>
                   {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save
