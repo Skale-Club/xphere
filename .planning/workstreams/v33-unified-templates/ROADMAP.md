@@ -55,7 +55,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 124-01-PLAN.md — message_templates migration (RLS + trigger) + hand-written database.ts types + server actions (list/get/create/update/delete)
+- [x] 124-01-PLAN.md — message_templates migration (RLS + trigger) + hand-written database.ts types + server actions (list/get/create/update/delete) (completed 2026-07-03)
 - [ ] 124-02-PLAN.md — List/new/editor UI at /settings/message-templates with SMS/Email/WhatsApp override tabs, delete confirmation, and Settings sub-nav entry
 
 ### Phase 125: Messages Preview + Templates Nav Finalization
@@ -78,5 +78,5 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 |-------|----------------|--------|-----------|
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 0/TBD | Not started | - |
-| 124. Messages Templates Data Model + CRUD | 0/TBD | Not started | - |
+| 124. Messages Templates Data Model + CRUD | 1/2 | In progress | - |
 | 125. Messages Preview + Templates Nav Finalization | 0/TBD | Not started | - |

@@ -51,10 +51,10 @@
 | NAV-02 | Phase 122 | Complete |
 | NAV-03 | Phase 125 | Pending |
 | NAV-04 | Phase 125 | Pending |
-| MSG-01 | Phase 124 | Pending |
-| MSG-02 | Phase 124 | Pending |
-| MSG-03 | Phase 124 | Pending |
-| MSG-04 | Phase 124 | Pending |
+| MSG-01 | Phase 124 | In progress (data model + server actions done, UI in 124-02) |
+| MSG-02 | Phase 124 | In progress (data model + server actions done, UI in 124-02) |
+| MSG-03 | Phase 124 | In progress (RLS policy live in migration 1233, pending remote apply) |
+| MSG-04 | Phase 124 | In progress (table/actions have no approval workflow by design; UI in 124-02) |
 | MSG-05 | Phase 125 | Pending |
 | WAT-01 | Phase 123 | Pending |
 | WAT-02 | Phase 123 | Pending |
