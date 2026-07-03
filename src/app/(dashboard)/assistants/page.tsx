@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function AssistantsPage() {
-  redirect('/calls/assistants')
+  redirect('/calls?settings=assistants')
 }

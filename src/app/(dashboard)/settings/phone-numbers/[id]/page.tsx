@@ -5,6 +5,6 @@ interface Props {
 }
 
 export default async function SettingsPhoneNumberDetailRedirect({ params }: Props) {
-  const { id } = await params
-  redirect(`/calls/phone-numbers/${id}`)
+  await params
+  redirect('/calls?settings=numbers')
 }

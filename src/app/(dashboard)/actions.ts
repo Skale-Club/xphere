@@ -110,7 +110,7 @@ export async function getActivityFeed(
         title: `Call ${verb} ${name}`,
         description: `${c.status ?? 'unknown'} · ${c.duration_seconds ?? 0}s`,
         timestamp: c.started_at ?? c.created_at,
-        href: `/calls/${c.id}`,
+        href: `/calls?call=${c.id}`,
         channel: 'voice',
       })
     }

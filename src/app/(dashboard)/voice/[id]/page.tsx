@@ -6,5 +6,5 @@ export default async function VoiceDetailRedirect({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  redirect(`/calls/${id}`)
+  redirect(`/calls?call=${encodeURIComponent(id)}`)
 }

@@ -41,6 +41,8 @@ import {
 interface Props {
   initial: TwilioPhoneNumberRow[]
   twilioConnected: boolean
+  /** Compact header for modal embedding (no page title, actions only). */
+  embedded?: boolean
 }
 
 function displayLabel(row: TwilioPhoneNumberRow): string {
@@ -84,7 +86,7 @@ function RoutingChip({ row }: { row: TwilioPhoneNumberRow }) {
   )
 }
 
-export function PhoneNumbersList({ initial, twilioConnected }: Props) {
+export function PhoneNumbersList({ initial, twilioConnected, embedded = false }: Props) {
   const router = useRouter()
   const [addOpen,  setAddOpen]  = React.useState(false)
   const [editRow,  setEditRow]  = React.useState<TwilioPhoneNumberRow | null>(null)
@@ -130,13 +132,15 @@ export function PhoneNumbersList({ initial, twilioConnected }: Props) {
   return (
     <>
       {/* ── Page header ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-[17px] font-semibold text-text-primary">Phone Numbers</h1>
-          <p className="mt-0.5 text-[12.5px] text-text-secondary">
-            Manage inbound/outbound numbers. Each number can have its own assistant, routing, and capabilities.
-          </p>
-        </div>
+      <div className={cn('flex items-center gap-4 mb-6', embedded ? 'justify-end mb-4' : 'justify-between')}>
+        {!embedded && (
+          <div>
+            <h1 className="text-[17px] font-semibold text-text-primary">Phone Numbers</h1>
+            <p className="mt-0.5 text-[12.5px] text-text-secondary">
+              Manage inbound/outbound numbers. Each number can have its own assistant, routing, and capabilities.
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-2 shrink-0">
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <Link href="/integrations/twilio/sms-webhook-setup">

@@ -164,7 +164,7 @@ export function PhoneNumberEditor({ number, members, onClose }: Props) {
         router.refresh()
         onClose()
       } else {
-        router.push('/calls/phone-numbers')
+        router.push('/calls?settings=numbers')
       }
     } finally {
       setActionLoading(null)

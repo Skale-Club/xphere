@@ -8,9 +8,11 @@ import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
 
 interface Props {
   call: UnifiedCallWithContact
+  /** Single-column layout for narrow containers (detail sheet). */
+  stacked?: boolean
 }
 
-export async function CallDetailAi({ call }: Props) {
+export async function CallDetailAi({ call, stacked = false }: Props) {
   const supabase = await createClient()
 
   // Fetch full Vapi call row for transcript_turns + ended_reason
@@ -38,8 +40,8 @@ export async function CallDetailAi({ call }: Props) {
     : []
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+    <div className={stacked ? 'flex flex-col gap-6' : 'grid gap-6 lg:grid-cols-3'}>
+      <div className={stacked ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
         {call.notes && (
           <div className="rounded-[14px] border border-border bg-bg-secondary p-5">
             <div className="flex items-center gap-2 mb-2">

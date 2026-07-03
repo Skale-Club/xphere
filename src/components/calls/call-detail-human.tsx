@@ -9,9 +9,11 @@ import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 
 interface Props {
   call: UnifiedCallWithContact
+  /** Single-column layout for narrow containers (detail sheet). */
+  stacked?: boolean
 }
 
-export async function CallDetailHuman({ call }: Props) {
+export async function CallDetailHuman({ call, stacked = false }: Props) {
   const supabase = await createClient()
 
   // Fetch full call_logs row for ended_at + call_sid + recording_duration
@@ -22,8 +24,8 @@ export async function CallDetailHuman({ call }: Props) {
     .maybeSingle()
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+    <div className={stacked ? 'flex flex-col gap-6' : 'grid gap-6 lg:grid-cols-3'}>
+      <div className={stacked ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
         {call.recording_url ? (
           <CallWaveformPlayer
             url={`/api/calls/${call.id}/recording`}

@@ -154,7 +154,7 @@ export async function RecentCalls() {
             return (
               <li key={r.id}>
                 <Link
-                  href={`/calls/${r.id}`}
+                  href={`/calls?call=${r.id}`}
                   className="group flex items-center gap-3 rounded-[8px] px-2 py-2 transition-colors hover:bg-bg-tertiary"
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle">

@@ -135,8 +135,7 @@ export async function saveCallSettings(
     if (error) return { error: error.message }
   }
 
-  revalidatePath('/calls/phone-numbers')
-  revalidatePath('/calls/my-phone')
+  revalidatePath('/calls')
 
   return {
     settings: {
@@ -193,8 +192,7 @@ export async function rotateSipPassword(): Promise<{ error?: string; password?: 
     })
   }
 
-  revalidatePath('/calls/phone-numbers')
-  revalidatePath('/calls/my-phone')
+  revalidatePath('/calls')
   return { password, username }
 }
 

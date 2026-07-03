@@ -165,6 +165,6 @@ export async function saveRoutingChain(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/calls/routing')
+  revalidatePath('/calls')
   return {}
 }

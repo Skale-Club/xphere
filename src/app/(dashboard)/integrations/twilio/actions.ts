@@ -255,8 +255,7 @@ export async function saveTwilioIntegration(
 
   revalidatePath('/integrations')
   revalidatePath('/integrations/twilio')
-  revalidatePath('/calls/phone-numbers')
-  revalidatePath('/settings/phone-numbers')
+  revalidatePath('/calls')
   return {}
 }
 
@@ -307,8 +306,7 @@ export async function clearTwilioFields(
   if (error) return { error: error.message }
 
   revalidatePath('/integrations/twilio')
-  revalidatePath('/calls/phone-numbers')
-  revalidatePath('/settings/phone-numbers')
+  revalidatePath('/calls')
   return {}
 }
 

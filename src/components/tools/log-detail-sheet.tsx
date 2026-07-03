@@ -53,7 +53,7 @@ export function LogDetailSheet({ log, open, onOpenChange }: LogDetailSheetProps)
             {log.call && (
               <p>
                 <Link
-                  href={`/calls/${log.call.id}`}
+                  href={`/calls?call=${log.call.id}`}
                   className="underline-offset-4 hover:underline text-foreground"
                 >
                   View related call

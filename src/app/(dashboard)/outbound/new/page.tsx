@@ -11,7 +11,7 @@ export default function NewCampaignPage() {
         eyebrowIcon={Megaphone}
         title="New campaign"
         description="Create an outbound calling campaign. Set pacing, schedule, and assistant."
-        back={{ href: '/calls/campaigns', label: 'Back to campaigns' }}
+        back={{ href: '/campaigns?channel=calls', label: 'Back to campaigns' }}
       />
       <CampaignForm />
     </PageContainer>

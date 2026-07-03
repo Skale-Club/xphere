@@ -186,7 +186,7 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
 
       {/* ── Phone numbers live in Calls now ─────────────────────────────── */}
       <Link
-        href="/calls/phone-numbers"
+        href="/calls?settings=numbers"
         className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-bg-secondary px-5 py-4 transition-colors hover:border-border-strong"
       >
         <div className="flex items-center gap-3">

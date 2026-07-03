@@ -212,6 +212,13 @@ export function UnifiedCallTimeline({
 }
 
 function UnifiedCallRow({ row }: { row: UnifiedCallWithContact }) {
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  const detailHref = React.useMemo(() => {
+    const params = new URLSearchParams(Array.from(sp.entries()));
+    params.set("call", row.id);
+    return `${pathname}?${params.toString()}`;
+  }, [pathname, sp, row.id]);
   const isMissed =
     row.direction === "inbound" &&
     ["no-answer", "busy", "failed", "canceled"].includes(row.status ?? "");
@@ -229,7 +236,8 @@ function UnifiedCallRow({ row }: { row: UnifiedCallWithContact }) {
 
   return (
     <Link
-      href={`/calls/${row.id}`}
+      href={detailHref}
+      scroll={false}
       className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] border border-border bg-bg-secondary px-3.5 py-3 transition-colors hover:border-border-strong hover:bg-bg-tertiary/40"
     >
       <Avatar className="h-9 w-9">
@@ -367,7 +375,7 @@ function EmptyTimeline() {
         </p>
       </div>
       <Button asChild variant="outline" size="sm">
-        <Link href="/calls/phone-numbers">Manage numbers</Link>
+        <Link href="/calls?settings=numbers">Manage numbers</Link>
       </Button>
     </div>
   );
