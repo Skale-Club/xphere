@@ -55,9 +55,9 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Templates',
     items: [
-      { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
+      { href: '/settings/email-templates', label: 'Email', icon: Mail },
       { href: '/settings/message-templates', label: 'Messages', icon: MessagesSquare },
-      { href: '/settings/whatsapp-templates', label: 'WhatsApp Templates', icon: MessageCircle },
+      { href: '/settings/whatsapp-templates', label: 'WhatsApp', icon: MessageCircle },
     ],
   },
   {
