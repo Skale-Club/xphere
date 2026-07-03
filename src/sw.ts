@@ -11,7 +11,9 @@ declare const self: EventTarget & {
         actions?: { action: string; title: string }[]
       },
     ) => Promise<void>
-    getNotifications: (options?: { tag?: string }) => Promise<{ close: () => void }[]>
+    getNotifications: (options?: {
+      tag?: string
+    }) => Promise<{ close: () => void; data?: { expiresAt?: number } }[]>
   }
   clients: {
     matchAll: (options?: { type?: string; includeUncontrolled?: boolean }) => Promise<{ url: string; focus: () => Promise<unknown> }[]>
@@ -136,11 +138,14 @@ self.addEventListener('push', (event: Event) => {
   const tag = data.tag
   const isIncomingCall = typeof tag === 'string' && tag.startsWith('incoming-')
 
+  const ringMs = (Math.min(120, Math.max(5, data.timeoutSeconds ?? 30)) + 10) * 1000
+  const expiresAt = isIncomingCall ? Date.now() + ringMs : undefined
+
   const show = self.registration.showNotification(data.title ?? 'New message', {
     body: data.body ?? '',
     icon: '/api/pwa/icons/192',
     badge: '/api/pwa/icons/72',
-    data: { url: data.url ?? '/inbox' },
+    data: { url: data.url ?? '/inbox', expiresAt },
     tag,
     renotify: true,
     ...(isIncomingCall
@@ -158,12 +163,19 @@ self.addEventListener('push', (event: Event) => {
   if (isIncomingCall && tag) {
     // A requireInteraction ring would otherwise sit on screen forever after the
     // call ends. Auto-dismiss once the stage's ring window (+ grace) has passed.
-    const ringMs = (Math.min(120, Math.max(5, data.timeoutSeconds ?? 30)) + 10) * 1000
+    // Same-tag pushes from later chain stages REPLACE the notification with a
+    // fresh expiresAt, so a stale timer from an earlier stage must check the
+    // CURRENT notification's expiry before closing it.
     pushEvent.waitUntil(
       show
         .then(() => new Promise((resolve) => setTimeout(resolve, ringMs)))
         .then(() => self.registration.getNotifications({ tag }))
-        .then((notifications) => notifications.forEach((n) => n.close())),
+        .then((notifications) =>
+          notifications.forEach((n) => {
+            const exp = n.data?.expiresAt
+            if (!exp || exp <= Date.now() + 1000) n.close()
+          }),
+        ),
     )
   } else {
     pushEvent.waitUntil(show)

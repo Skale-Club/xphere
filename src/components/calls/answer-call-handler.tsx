@@ -45,7 +45,7 @@ export function AnswerCallHandler({ callSid }: { callSid: string }) {
           toast.error(data.error ?? 'Could not connect the call.', { id })
         }
       } catch {
-        toast.error('Could not connect the call.', { id: undefined })
+        toast.error('Could not connect the call.', { id })
       } finally {
         clearParam()
       }
