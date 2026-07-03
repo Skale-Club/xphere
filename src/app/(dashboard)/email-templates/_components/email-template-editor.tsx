@@ -75,6 +75,27 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialDoc))
   const isDirty = useMemo(() => JSON.stringify(doc) !== savedSnapshot, [doc, savedSnapshot])
 
+  // Live refs so save/preview always read the freshest committed doc/name even
+  // when triggered from a keyboard shortcut in the same tick as a blur commit.
+  const docRef = useRef(doc)
+  docRef.current = doc
+  const nameRef = useRef(name)
+  nameRef.current = name
+
+  /** Commit any focused inline (contentEditable) edit, then run `cb` with the
+   *  freshest document. When a text/heading block is being edited its content
+   *  only lands in state on blur, so we blur first and defer a frame so the
+   *  onBlur state update has flushed into `docRef`. */
+  const runWithFreshDoc = useCallback((cb: (d: EmailDocument) => void) => {
+    const el = document.activeElement as HTMLElement | null
+    if (el && el.isContentEditable) {
+      el.blur()
+      requestAnimationFrame(() => cb(docRef.current))
+    } else {
+      cb(docRef.current)
+    }
+  }, [])
+
   // ── Selection ────────────────────────────────────────────────────────────────
   const selectBlock = useCallback((id: string | null) => setSelectedBlockId(id), [])
   const selectSection = useCallback((id: string | null) => {
@@ -264,15 +285,17 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   }, [template.id, name, nameEditing, nameDraft, setSegmentNode])
 
   // ── Save / publish / preview ─────────────────────────────────────────────────────
-  const handleSave = useCallback(() => {
+  const flushSave = useCallback((current: EmailDocument) => {
     startTransition(async () => {
-      const snapshot = JSON.stringify(doc)
-      const result = await saveTemplate(template.id, doc, name)
+      const snapshot = JSON.stringify(current)
+      const result = await saveTemplate(template.id, current, nameRef.current)
       if (!result.ok) { toast.error(result.error); return }
       setSavedSnapshot(snapshot)
       toast.success('Template saved')
     })
-  }, [doc, name, template.id])
+  }, [template.id])
+
+  const handleSave = useCallback(() => runWithFreshDoc(flushSave), [runWithFreshDoc, flushSave])
 
   function handleTogglePublish() {
     const publishing = status !== 'published'
@@ -288,9 +311,10 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
   function handlePreview() {
-    const { html } = renderTemplate(doc)
-    setPreviewHtml(html)
-    setPreviewOpen(true)
+    runWithFreshDoc((d) => {
+      setPreviewHtml(renderTemplate(d).html)
+      setPreviewOpen(true)
+    })
   }
 
   function handleSaveAsReusable() {
@@ -349,8 +373,6 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
     | { kind: 'section' }
     | null
   >(null)
-  const docRef = useRef(doc)
-  docRef.current = doc
 
   function parseColId(id: string): { sectionId: string; colIdx: number } | null {
     if (!id.startsWith('col:')) return null
@@ -506,7 +528,7 @@ export function EmailTemplateEditor({ template, reusableBlocks: initialBlocks }:
                   {status === 'published' ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
                   {status === 'published' ? 'Unpublish' : 'Publish'}
                 </Button>
-                <Button size="sm" className="h-7 gap-1 text-xs" onClick={handleSave} disabled={isPending || !isDirty}>
+                <Button size="sm" className="h-7 gap-1 text-xs" onClick={handleSave} disabled={isPending}>
                   {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save
                 </Button>

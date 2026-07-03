@@ -2,6 +2,27 @@ import type { EmailDocument, EmailBlock } from './render-template'
 
 export type BlockLocation = { sectionId: string; colIdx: number; index: number }
 
+/**
+ * Resize a section's columns array to `nextLayout` without losing blocks.
+ * Growing appends empty columns; shrinking merges the dropped columns' blocks
+ * into the last kept column (in order). Pure: never mutates `columns`.
+ */
+export function reflowSectionColumns(
+  columns: EmailBlock[][],
+  nextLayout: 1 | 2 | 3,
+): EmailBlock[][] {
+  const cur = columns ?? []
+  if (nextLayout >= cur.length) {
+    const next = cur.map((col) => col.slice())
+    while (next.length < nextLayout) next.push([])
+    return next
+  }
+  const kept = cur.slice(0, nextLayout).map((col) => col.slice())
+  const extras = cur.slice(nextLayout).flat()
+  if (extras.length) kept[nextLayout - 1] = [...kept[nextLayout - 1], ...extras]
+  return kept
+}
+
 /** Find where a block currently lives. Returns null if the id is not in the doc. */
 export function findBlockLocation(doc: EmailDocument, blockId: string): BlockLocation | null {
   for (const section of doc.sections) {

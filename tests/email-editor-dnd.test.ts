@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { findBlockLocation, insertBlockInColumn, moveBlock } from '@/lib/email/editor-dnd'
+import {
+  findBlockLocation, insertBlockInColumn, moveBlock, reflowSectionColumns,
+} from '@/lib/email/editor-dnd'
 import type { EmailBlock, EmailDocument } from '@/lib/email/render-template'
 
 function textBlock(id: string): EmailBlock {
@@ -86,5 +88,40 @@ describe('moveBlock — across columns', () => {
     moveBlock(d, 'b', 's1', 1, 0)
     expect(ids(d, 0)).toEqual(['a', 'b', 'c'])
     expect(ids(d, 1)).toEqual(['x', 'y'])
+  })
+})
+
+// ─── reflowSectionColumns ─────────────────────────────────────────────────────
+
+describe('reflowSectionColumns', () => {
+  const cols = (): EmailBlock[][] => [
+    [textBlock('a'), textBlock('b')],
+    [textBlock('x')],
+  ]
+
+  it('grows by appending empty columns, preserving existing blocks', () => {
+    const next = reflowSectionColumns(cols(), 3)
+    expect(next.length).toBe(3)
+    expect(next[0].map((b) => b.id)).toEqual(['a', 'b'])
+    expect(next[1].map((b) => b.id)).toEqual(['x'])
+    expect(next[2]).toEqual([])
+  })
+
+  it('shrinks by merging dropped columns into the last kept column', () => {
+    const next = reflowSectionColumns(cols(), 1)
+    expect(next.length).toBe(1)
+    expect(next[0].map((b) => b.id)).toEqual(['a', 'b', 'x'])
+  })
+
+  it('is a no-op (structurally) when the layout is unchanged', () => {
+    const next = reflowSectionColumns(cols(), 2)
+    expect(next.map((c) => c.map((b) => b.id))).toEqual([['a', 'b'], ['x']])
+  })
+
+  it('does not mutate the input columns', () => {
+    const input = cols()
+    reflowSectionColumns(input, 1)
+    expect(input.length).toBe(2)
+    expect(input[0].length).toBe(2)
   })
 })

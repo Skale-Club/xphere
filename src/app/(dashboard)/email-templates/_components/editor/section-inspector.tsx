@@ -1,6 +1,7 @@
 'use client'
 
-import type { EmailSection, EmailBlock } from '@/lib/email/render-template'
+import type { EmailSection } from '@/lib/email/render-template'
+import { reflowSectionColumns } from '@/lib/email/editor-dnd'
 import { ImageUploader } from './image-uploader'
 import {
   InspectorGroup, Field, ColorControl, NumberControl,
@@ -22,17 +23,7 @@ export function SectionInspector({
   const layout = section.layout ?? 1
 
   function changeLayout(next: 1 | 2 | 3) {
-    const cur = section.columns ?? []
-    let cols: EmailBlock[][]
-    if (next >= cur.length) {
-      cols = [...cur]
-      while (cols.length < next) cols.push([])
-    } else {
-      cols = cur.slice(0, next)
-      const extras = cur.slice(next).flat()
-      if (extras.length) cols[next - 1] = [...(cols[next - 1] ?? []), ...extras]
-    }
-    onUpdate({ layout: next, columns: cols })
+    onUpdate({ layout: next, columns: reflowSectionColumns(section.columns, next) })
   }
 
   return (
