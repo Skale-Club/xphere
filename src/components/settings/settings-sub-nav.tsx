@@ -13,6 +13,7 @@ import {
   MapPin,
   MessageCircle,
   MessageSquare,
+  MessagesSquare,
   Plug,
   Plug2,
   Settings2,
@@ -55,6 +56,7 @@ const SECTIONS: NavSection[] = [
     heading: 'Communications',
     items: [
       { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
+      { href: '/settings/message-templates', label: 'Messages', icon: MessagesSquare },
       { href: '/settings/whatsapp-templates', label: 'WhatsApp Templates', icon: MessageCircle },
     ],
   },
