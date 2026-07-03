@@ -110,6 +110,8 @@ interface PushData {
   body: string
   url: string
   tag: string
+  /** Incoming-call only: ring window in seconds — the SW auto-closes after it. */
+  timeoutSeconds?: number
 }
 
 function buildPushData(type: string, payload: Record<string, unknown>): PushData {
@@ -145,11 +147,16 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
         (payload.caller_name as string | undefined) ??
         (payload.caller_number as string | undefined) ??
         'Unknown caller'
+      const callId = payload.call_id as string | undefined
       return {
         title: 'Incoming call',
         body: `Call from ${caller}`,
-        url: '/calls',
-        tag: `incoming-${payload.call_id ?? 'call'}`,
+        // Deep link into the answer flow: the app registers the Voice SDK
+        // device and asks the server to redirect the ringing call to it.
+        url: callId ? `/calls?answer=${encodeURIComponent(callId)}` : '/calls',
+        tag: `incoming-${callId ?? 'call'}`,
+        timeoutSeconds:
+          typeof payload.timeout_seconds === 'number' ? payload.timeout_seconds : undefined,
       }
     }
     case 'flow_failed': {

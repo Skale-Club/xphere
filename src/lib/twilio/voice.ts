@@ -251,6 +251,45 @@ export async function createOutboundCall(
 }
 
 /**
+ * Replaces the TwiML of an in-flight call (POST Calls/{sid} Twiml=...). Twilio
+ * cancels whatever the call is currently executing (e.g. a ringing <Dial>) and
+ * runs the new document — this is how "Answer on this device" steals a ringing
+ * chain call and points it at the answering user's Voice SDK client.
+ *
+ * Throws `CallNotInProgressError` when the call already ended (Twilio 21220 or
+ * a 404) so callers can tell "too late" apart from real failures.
+ */
+export class CallNotInProgressError extends Error {
+  constructor() {
+    super('Call is no longer in progress')
+    this.name = 'CallNotInProgressError'
+  }
+}
+
+export async function redirectCall(
+  creds: TwilioVoiceCredentials,
+  callSid: string,
+  twiml: string,
+): Promise<void> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Calls/${encodeURIComponent(callSid)}.json`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: twilioBasicAuthHeader(creds),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ Twiml: twiml }).toString(),
+    cache: 'no-store',
+  })
+
+  if (res.ok) return
+  const text = await res.text().catch(() => `status ${res.status}`)
+  // 21220: "Unable to update record: Call is not in-progress" | 404: call gone.
+  if (res.status === 404 || text.includes('21220')) throw new CallNotInProgressError()
+  throw new Error(`Twilio redirect-call error ${res.status}: ${text}`)
+}
+
+/**
  * Ends an in-flight call via the Twilio REST API (POST Calls/{sid} Status=completed).
  * Used by the dialer "hang up" control for phone_forward / sip calls, where the
  * browser is not part of the call and can't disconnect locally.

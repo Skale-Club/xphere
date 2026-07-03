@@ -25,7 +25,13 @@ import type { CallRoutingStage } from '@/types/database'
 export async function fireIncomingCallPush(
   orgId: string,
   userIds: string[],
-  payload: { caller_number?: string; caller_name?: string; call_id?: string },
+  payload: {
+    caller_number?: string
+    caller_name?: string
+    call_id?: string
+    /** Ring window of the current stage — the PWA auto-dismisses after it. */
+    timeout_seconds?: number
+  },
 ): Promise<void> {
   if (userIds.length === 0) return
   await insertNotification(orgId, 'incoming_call', payload, userIds)
@@ -183,6 +189,8 @@ export interface StageRenderResult {
   twiml: string
   /** user_ids whose PWA should be woken via web-push for this ringing stage. */
   pwaUserIds: string[]
+  /** The rendered stage's ring window (drives the push notification lifetime). */
+  timeoutSeconds: number
 }
 
 /**
@@ -205,11 +213,12 @@ export async function renderChainStage(args: {
 
     const base = ctx.baseUrl.replace(/\/$/, '')
     const actionUrl = `${base}/api/twilio/voice/continue?org=${encodeURIComponent(orgId)}&stage=${i + 1}`
+    const timeoutSeconds = stages[i].timeout_seconds || 30
     const twiml = twimlDialStage(nouns, ctx, {
-      timeoutSeconds: stages[i].timeout_seconds || 30,
+      timeoutSeconds,
       actionUrl,
     })
-    return { twiml, pwaUserIds: nouns.pwaUserIds }
+    return { twiml, pwaUserIds: nouns.pwaUserIds, timeoutSeconds }
   }
 
   return null

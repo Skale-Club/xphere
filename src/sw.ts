@@ -11,6 +11,7 @@ declare const self: EventTarget & {
         actions?: { action: string; title: string }[]
       },
     ) => Promise<void>
+    getNotifications: (options?: { tag?: string }) => Promise<{ close: () => void }[]>
   }
   clients: {
     matchAll: (options?: { type?: string; includeUncontrolled?: boolean }) => Promise<{ url: string; focus: () => Promise<unknown> }[]>
@@ -60,6 +61,8 @@ interface PushPayload {
   body?: string
   url?: string
   tag?: string
+  /** Incoming-call only: ring window in seconds — auto-close after it. */
+  timeoutSeconds?: number
 }
 interface PushMessageData {
   json: () => PushPayload
@@ -133,26 +136,38 @@ self.addEventListener('push', (event: Event) => {
   const tag = data.tag
   const isIncomingCall = typeof tag === 'string' && tag.startsWith('incoming-')
 
-  pushEvent.waitUntil(
-    self.registration.showNotification(data.title ?? 'New message', {
-      body: data.body ?? '',
-      icon: '/api/pwa/icons/192',
-      badge: '/api/pwa/icons/72',
-      data: { url: data.url ?? '/inbox' },
-      tag,
-      renotify: true,
-      ...(isIncomingCall
-        ? {
-            requireInteraction: true,
-            vibrate: [400, 200, 400, 200, 400],
-            actions: [
-              { action: 'answer', title: 'Answer' },
-              { action: 'decline', title: 'Decline' },
-            ],
-          }
-        : {}),
-    }),
-  )
+  const show = self.registration.showNotification(data.title ?? 'New message', {
+    body: data.body ?? '',
+    icon: '/api/pwa/icons/192',
+    badge: '/api/pwa/icons/72',
+    data: { url: data.url ?? '/inbox' },
+    tag,
+    renotify: true,
+    ...(isIncomingCall
+      ? {
+          requireInteraction: true,
+          vibrate: [400, 200, 400, 200, 400],
+          actions: [
+            { action: 'answer', title: 'Answer' },
+            { action: 'decline', title: 'Decline' },
+          ],
+        }
+      : {}),
+  })
+
+  if (isIncomingCall && tag) {
+    // A requireInteraction ring would otherwise sit on screen forever after the
+    // call ends. Auto-dismiss once the stage's ring window (+ grace) has passed.
+    const ringMs = (Math.min(120, Math.max(5, data.timeoutSeconds ?? 30)) + 10) * 1000
+    pushEvent.waitUntil(
+      show
+        .then(() => new Promise((resolve) => setTimeout(resolve, ringMs)))
+        .then(() => self.registration.getNotifications({ tag }))
+        .then((notifications) => notifications.forEach((n) => n.close())),
+    )
+  } else {
+    pushEvent.waitUntil(show)
+  }
 })
 
 self.addEventListener('notificationclick', (event: Event) => {

@@ -113,6 +113,7 @@ export async function POST(request: Request): Promise<Response> {
             fireIncomingCallPush(orgId, rendered.pwaUserIds, {
               caller_number: from,
               call_id: callSid,
+              timeout_seconds: rendered.timeoutSeconds,
             }),
           )
         }

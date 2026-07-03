@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { KeyRound, Megaphone, Mic, PhoneIncoming, PhoneOutgoing, Plug, Sparkles } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { can } from '@/lib/rbac/server'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,8 @@ import { UnifiedCallTimeline } from '@/components/calls/unified-call-timeline'
 import { CallsOnboardingGate } from '@/components/calls/calls-onboarding-gate'
 import { CallsHeaderActions } from '@/components/calls/calls-header-actions'
 import { CallDetailSheet } from '@/components/calls/call-detail-sheet'
+import { AnswerCallHandler } from '@/components/calls/answer-call-handler'
+import { PushDeviceSection } from '@/components/calls/push-device-section'
 import { CallDetailAi } from '@/components/calls/call-detail-ai'
 import { CallDetailHuman } from '@/components/calls/call-detail-human'
 import { MyPhoneDialog } from '@/components/calls/my-phone-dialog'
@@ -54,6 +57,7 @@ export default async function CallsPage({ searchParams }: PageProps) {
   const pageNum = Math.max(1, Number(sp.page ?? '1') || 1)
 
   const callId = typeof sp.call === 'string' ? sp.call : undefined
+  const answerSid = typeof sp.answer === 'string' ? sp.answer : undefined
   const settingsTab = typeof sp.settings === 'string' && isVoiceSettingsTab(sp.settings)
     ? sp.settings
     : undefined
@@ -100,6 +104,8 @@ export default async function CallsPage({ searchParams }: PageProps) {
           <CallsOnboardingGate twilioConnected={twilioConnected} />
         </div>
       )}
+
+      {answerSid && <AnswerCallHandler callSid={answerSid} />}
 
       {callId && <CallDetail id={callId} />}
 
@@ -186,8 +192,33 @@ async function NumbersTab({ twilioConnected }: { twilioConnected: boolean }) {
 
 async function RoutingTab() {
   const [chain, members] = await Promise.all([getRoutingChain(), listOrgMembersForSelect()])
+
+  // Chains that ring browsers/PWAs silently do nothing when no org member has a
+  // push-registered device AND nobody keeps the app open. Surface that here.
+  let noDeviceWarning = false
+  const ringsSoftware = chain.stages.some(
+    (s) => s.enabled && s.targets.some((t) => t.type === 'team' || t.type === 'browser' || t.type === 'pwa'),
+  )
+  if (chain.is_active && ringsSoftware && members.length > 0) {
+    const admin = createServiceRoleClient()
+    const { count } = await admin
+      .from('push_subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .in('user_id', members.map((m) => m.user_id))
+    noDeviceWarning = (count ?? 0) === 0
+  }
+
   return (
     <div className="space-y-4">
+      {noDeviceWarning && (
+        <div className="rounded-[12px] border border-rose-500/30 bg-rose-500/[0.07] px-4 py-3 text-[12.5px] leading-relaxed text-text-secondary">
+          <span className="font-medium text-rose-300">No device is registered to ring.</span>{' '}
+          This routing rings browsers/PWAs, but no one in the organization has enabled
+          call notifications on any device — calls will ring only in open browser tabs.
+          Each member can enable their device in <span className="font-medium text-text-primary">My Phone</span>,
+          or add a phone-number target below as a reliable fallback.
+        </div>
+      )}
       <div className="rounded-[12px] border border-amber-400/25 bg-amber-400/[0.06] px-4 py-3 text-[12.5px] leading-relaxed text-text-secondary">
         <span className="font-medium text-text-primary">Routing priority:</span>{' '}
         when global routing is active it overrides each number&apos;s default routing
@@ -307,7 +338,10 @@ async function MyPhone() {
   const [settings, sipDomain] = await Promise.all([getCurrentCallSettings(), getSipDomain()])
   return (
     <MyPhoneDialog>
-      {settings ? <CallSettingsForm initial={settings} sipDomain={sipDomain} /> : null}
+      <div className="space-y-4">
+        <PushDeviceSection />
+        {settings ? <CallSettingsForm initial={settings} sipDomain={sipDomain} /> : null}
+      </div>
     </MyPhoneDialog>
   )
 }
