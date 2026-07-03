@@ -166,6 +166,42 @@
 
 ---
 
+## Milestone: v3.3 — Settings Nav Cleanup + Unified Templates
+
+**Shipped:** 2026-07-03
+**Phases:** 4 (122–125) | **Plans:** 6 | **Tasks:** 11 | **Timeline:** single session
+**Stats:** 21 files changed, +1,039 / −112 lines (workstream `v33-unified-templates`, run fully autonomously end-to-end)
+
+### What Was Built
+- Removed the redundant "Call Center" Settings nav link and moved "Chat Widget" into Build
+- Relocated the nav-orphaned WhatsApp templates screen to `/settings/whatsapp-templates` with name/status/category/language search+filter, dual-provider (Meta Cloud/Zernio) sync untouched
+- New org-scoped `message_templates` table (migration 1233) + full CRUD UI at `/settings/message-templates` — generic quick-reply templates with per-channel SMS/Email/WhatsApp overrides, explicitly not a WhatsApp-Business-style approval workflow
+- Live per-channel resolution preview tab in the Messages template editor, and the Settings "Communications" section renamed to "Templates" (Email Templates / Messages / WhatsApp Templates)
+
+### What Worked
+- **Deliberate phase sequencing around a known shared-file hazard** — all 4 phases touched `settings-sub-nav.tsx`; the roadmap explicitly ordered the nav-rename phase (125) last, after every real nav entry existed, instead of renaming a section with orphaned content
+- **Heading-keyed, order-independent nav edits** — every phase's instruction to the planner was "find the section by heading, append an item" rather than a positional/literal-string edit, which meant 3 phases could safely mutate the same array even when they executed with real wall-clock overlap during autonomous execution
+- **Explicit plan-checker cross-phase conflict checks** — before executing phases 123, 124, and 125, the plan-checker was explicitly asked to verify robustness against the other in-flight phases' edits to the same file, catching the hazard analytically before it could manifest as a race
+- **True autonomous run** — the entire milestone (discuss → plan → verify plans → execute → verify goals → audit → complete → archive) ran with only two small AskUserQuestion batches (grey-area defaults for schema/UX shape), everything else proceeded without pausing, at the user's explicit request
+
+### What Was Inefficient
+- **Concurrent executors did race on STATE.md/ROADMAP.md/REQUIREMENTS.md** (not on code files) — three separate executor agents independently detected and self-reconciled a shared-file clobber on these bookkeeping docs mid-run. No code or requirement tracking was lost, but each executor spent extra turns re-applying its own edits. A future improvement: serialize just the bookkeeping-file writes (e.g. a single orchestrator-side update after each executor returns) instead of letting every parallel executor write them directly
+- **Stale `.next` build-cache lock contention** — running 2-3 executors in the same working tree caused repeated `npm run build` retries due to Windows file-lock contention on the shared `.next` directory; cost extra wall-clock time per phase but never caused an incorrect pass/fail verdict
+
+### Patterns Established
+- "Key by heading/id, not position" as the standard instruction for any plan that mutates a shared static config array also touched by sibling phases in the same milestone
+- Explicit "cross-phase file conflict check" as a named, first-class ask to the plan-checker whenever a roadmap enumerates more than one phase touching the same file
+
+### Key Lessons
+- When a milestone's roadmap flags multiple phases as mutually independent ("Depends on: Nothing") but they in fact share a file, that shared-file risk needs to be surfaced explicitly to both the planner and the plan-checker — "no phase dependency" is not the same as "no file conflict"
+- Running phases genuinely in parallel (not just planning-in-parallel) is viable for small, additive, heading/id-keyed edits to shared config files, but bookkeeping docs (STATE/ROADMAP/REQUIREMENTS) need either serialization or a reconcile-before-commit habit to avoid churn
+
+### Cost Observations
+- Single session, fully autonomous after initial requirements-gathering
+- Heavy use of parallel subagents (up to 3 executors + verifiers concurrently) to compress a 4-phase, 6-plan milestone into one continuous run
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
