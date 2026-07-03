@@ -1,21 +1,23 @@
 # Operator
 
-## Current Milestone: v3.3 Settings Nav Cleanup + Unified Templates
+## Current Milestone: none — planning next
 
-**Workstream:** `v33-unified-templates` (parallel to any in-flight work; no file overlap expected)
+v3.3 shipped 2026-07-03 (see below). No milestone currently in progress; run `/gsd:new-milestone` to start the next one. v3.1's formal close-out and the `v32-universal-folders-email-templates` workstream's formal close-out are also still pending (see below).
 
-**Goal:** Reorganize the Settings navigation and introduce a unified, extensible "Templates" area covering Email (already built), a new generic cross-channel "Messages" template type, and a reorganized WhatsApp templates screen.
+## Previous: v3.3 Settings Nav Cleanup + Unified Templates ✅ Shipped 2026-07-03
 
-**Target features:**
-- Remove the redundant "Call Center" link from Settings (Calls already owns its own `/calls/settings` surface)
-- Move "Chat Widget" from Communications into the Build section of the Settings sub-nav
-- Rename "Communications" to "Templates"; nav becomes extensible for future template kinds
-- New "Messages" quick-reply template type (default body + optional per-channel overrides for SMS/Email/WhatsApp), Settings-only CRUD in this milestone (no composer/campaign integration yet)
-- WhatsApp templates screen gets a real nav entry point under Templates, plus search + status/category/language filtering (no folders — templates are provider-synced, not authored locally)
+**Goal:** Reorganize the Settings navigation and introduce a unified, extensible "Templates" area covering Email, a new generic cross-channel "Messages" template type, and a reorganized WhatsApp templates screen.
 
-**Explicitly out of scope:** redesigning the Calls/phone system architecture (deferred, needs more thought); wiring Messages templates into chat composers or campaigns (backlog).
+**Shipped (workstream `v33-unified-templates`, 4 phases, 6 plans, 11 tasks, single session):**
+- Removed the redundant "Call Center" Settings nav link and moved "Chat Widget" from Communications into Build (Phase 122, NAV-01/02)
+- Relocated the nav-orphaned WhatsApp templates screen to `/settings/whatsapp-templates` with name search + status/category/language filters, dual-provider (Meta Cloud/Zernio) sync mechanics unchanged (Phase 123, WAT-01..05)
+- New org-scoped `message_templates` table (migration 1233) + full CRUD UI at `/settings/message-templates` — a generic quick-reply template type with per-channel (SMS/Email/WhatsApp) body overrides, explicitly distinct from WhatsApp Business templates (no approval workflow) (Phase 124, MSG-01..04)
+- Live per-channel resolution preview in the Messages template editor, and the Settings "Communications" section renamed to "Templates" (Email Templates / Messages / WhatsApp Templates) (Phase 125, MSG-05, NAV-03/04)
+- Deliberately did not wire Messages templates into chat/inbox composers or campaign bodies — deferred to backlog; deliberately did not touch the Calls/phone system architecture (explicitly out of scope per operator request)
 
-v3.2 shipped 2026-07-01 (see below). v3.1's formal close-out is also still pending (see below). The `v32-universal-folders-email-templates` workstream (Email Templates system this milestone builds on) is also complete and awaiting formal close-out.
+**Known gaps (tracked, non-blocking):** Migration 1233 (`message_templates`) is code-complete but not yet applied to the remote Supabase database — server actions fail gracefully until `npx supabase db push` (or Management API equivalent) is run.
+
+**Archives:** [v3.3-ROADMAP.md](milestones/v3.3-ROADMAP.md) | [v3.3-REQUIREMENTS.md](milestones/v3.3-REQUIREMENTS.md) | [v3.3-MILESTONE-AUDIT.md](milestones/v3.3-MILESTONE-AUDIT.md)
 
 ## Previous: v3.2 Credits Visibility & Metering Architecture ✅ Shipped 2026-07-01
 
@@ -330,8 +332,19 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 - Automated test coverage for the billing surface: Stripe webhook (real HMAC signing), entitlements precedence, credit RPCs, checkout/topup sessions — v3.2 (BTC-01..04)
 - Billing failure observability via the existing `event_logs`/`/admin/logs` infrastructure (no new UI) — v3.2 (BOB-01..03)
 
+### Validated (v3.3 additions)
+
+- Settings navigation no longer duplicates the Calls surface or misfiles Chat Widget under Communications — v3.3 (NAV-01/02)
+- Settings "Templates" section (renamed from Communications) is the single, extensible home for Email/Messages/WhatsApp template management — v3.3 (NAV-03/04)
+- Generic cross-channel "Messages" quick-reply template type (`message_templates`, RLS-scoped, per-channel SMS/Email/WhatsApp body overrides, no approval workflow) with full CRUD and live per-channel resolution preview — v3.3 (MSG-01..05)
+- WhatsApp templates screen reachable from Settings nav with name/status/category/language search+filter, dual-provider (Meta Cloud/Zernio) sync mechanics unchanged — v3.3 (WAT-01..05)
+
 ### Backlog (next milestone candidates)
 
+- Apply migration 1233 (`message_templates`) to production via `npx supabase db push` — code-complete, not yet applied (carried over from v3.3)
+- Wire Messages templates into chat/inbox composer as quick-insert (carried over from v3.3)
+- Wire Messages templates as selectable SMS/WhatsApp campaign body, mirroring the Email template campaign picker (carried over from v3.3)
+- Rethink the Calls/phone system settings architecture (explicitly deferred by operator during v3.3)
 - Campaign calls auto-appear in Observability call list
 - Client-facing read-only panel (member role dashboard)
 - Email alerts on tool execution failures or latency threshold
@@ -403,6 +416,10 @@ Itens persistidos em `.planning/phases/32-ghl-lost-lead-reengagement-sms-automat
 | Credit metering built architecture-first, no features wired to consume it yet (v3.2) | Avoid guessing which features (workflows/campaigns/calls) should cost credits before the business decides — build the reusable interface, defer the wiring decision | Current framing — revisit when a feature needs to become credit-consuming |
 | Reuse existing `event_logs`/`/admin/logs` for billing observability instead of a dedicated panel (v3.2) | Avoid duplicating an already-solved generic problem | ✓ Good |
 | Credit indicator gated by resolved plan, not `BILLING_ENFORCEMENT_ENABLED` (v3.2) | Visibility shouldn't wait on the operational enforcement rollout — closes the "zero visibility" gap immediately | ✓ Good |
+| Messages templates use flexible JSONB `channel_overrides` instead of fixed per-channel columns (v3.3) | Future channels (e.g. push notifications) need zero migration — matches the existing free-form JSONB pattern already used in `campaigns.template_config` | ✓ Good |
+| Messages templates deliberately have no approval/status workflow (v3.3) | Distinct product surface from WhatsApp Business templates by design — free-form text usable immediately, not a Meta/Zernio-governed asset | ✓ Good |
+| WhatsApp templates get search/filter but no folder hierarchy (v3.3) | Templates are provider-synced, not authored locally — folders would add organizational complexity with no clear ownership model; revisit only if search+filter proves insufficient | ✓ Good |
+| Deferred Calls/phone system settings rethink out of v3.3 (v3.3) | Operator explicitly wants to design that surface separately rather than fold it into a nav-cleanup milestone | Pending — future milestone |
 
 ## Evolution
 
@@ -421,4 +438,4 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-*Last updated: 2026-07-01 — v3.2 Credits Visibility & Metering Architecture shipped (workstream `billing-robustness`).*
+*Last updated: 2026-07-03 — v3.3 Settings Nav Cleanup & Unified Templates shipped (workstream `v33-unified-templates`).*

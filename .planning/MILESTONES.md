@@ -1,5 +1,20 @@
 # Milestones
 
+## v3.3 Settings Nav Cleanup + Unified Templates (Shipped: 2026-07-03)
+
+**Phases completed:** 4 phases, 6 plans, 11 tasks
+
+**Key accomplishments:**
+
+- Removed the redundant "Call Center" settings nav item and relocated "Chat Widget" from Communications into the Build section of `settings-sub-nav.tsx`.
+- Relocated the WhatsApp templates screen from a nav-orphaned integrations sub-route to a real Settings entry at /settings/whatsapp-templates, and added a generic client-side name/status/category/language filter component shared by the Meta Cloud and Zernio render paths.
+- New org-scoped `message_templates` Postgres table (migration 1233) with RLS via `get_current_org_id()`, hand-written TypeScript types, and a 5-function server-action CRUD surface following the existing `email_templates/actions.ts` `ActionResult<T>` convention.
+- Full CRUD UI for the Messages quick-reply template library at `/settings/message-templates` — card-grid list, name-only creation flow, and a tabbed SMS/Email/WhatsApp override editor — wired directly to the 124-01 server actions with a new Settings sub-nav entry.
+- Added a 5th "Preview" tab to the Messages template editor that live-resolves SMS/Email/WhatsApp bodies from in-memory form state via `useWatch`, labeling each channel Custom or Using default — no save required.
+- Renamed the Settings sub-nav "Communications" heading to "Templates" — a one-line string change that closes out NAV-03 and confirms NAV-04's extensibility requirement was already met by the existing static array pattern.
+
+---
+
 ## v3.2 Credits Visibility & Metering Architecture (Shipped: 2026-07-01)
 
 **Stats:** 4 phases, 7 plans, 51 commits, 58 files, +7,712 / −62 lines — single-session (workstream `billing-robustness`, parallel to v3.1)

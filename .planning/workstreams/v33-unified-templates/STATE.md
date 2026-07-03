@@ -1,31 +1,29 @@
 ---
 gsd_state_version: 1.0
 milestone: v3.3
-milestone_name: milestone
-status: verifying
-stopped_at: Completed 125-01-PLAN.md (Messages Preview) and 125-02-PLAN.md (Templates Nav Finalization) — both plans of Phase 125 done. 125-01 added a live-resolved 5th 'Preview' tab (Default/SMS/Email/WhatsApp/Preview) to the Messages template editor via useWatch; 125-02 renamed Settings sub-nav 'Communications' heading to 'Templates'. Phase 125 fully complete; v3.3 milestone nav-finalization goal complete pending formal verification/close-out.
-last_updated: "2026-07-03T04:20:55.567Z"
+milestone_name: Settings Nav Cleanup + Unified Templates
+status: complete
+stopped_at: Milestone v3.3 complete and archived. All 4 phases (122-125) verified passed, audited as tech_debt (only pending item: migration 1233 not yet applied to remote DB — code-complete, fails gracefully), archived to .planning/milestones/v3.3-{ROADMAP,REQUIREMENTS,MILESTONE-AUDIT}.md, tagged.
+last_updated: "2026-07-03T05:00:00.000Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 6
   completed_plans: 6
-  percent: 80
+  percent: 100
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 125
-Phase: 123 (WhatsApp Templates Relocation + Search/Filter) — COMPLETE (123-01 executed, relocated + filtered)
-Phase: 124 (Messages Templates Data Model + CRUD) — COMPLETE (124-01 data model + CRUD actions; 124-02 list/new/editor UI + nav entry)
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 125 of 125 — COMPLETE (all 4 phases: 122, 123, 124, 125)
+Plan: 6/6 complete
+Status: Milestone complete — archived
 Last activity: 2026-07-03
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Roadmap Summary
 
