@@ -33,6 +33,10 @@ import type {
   CallRoutingTargetType,
 } from '@/types/database'
 import { saveRoutingChain, type RoutingChainState } from '@/app/(dashboard)/calls/routing-actions'
+import {
+  createSharedDestination,
+  type CallDestinationOption,
+} from '@/app/(dashboard)/calls/destination-actions'
 
 interface MemberOption {
   user_id: string
@@ -43,38 +47,69 @@ interface MemberOption {
 interface Props {
   initial: RoutingChainState
   members: MemberOption[]
+  destinations: CallDestinationOption[]
 }
 
 const TARGET_META: Record<
   CallRoutingTargetType,
   {
     label: string
-    needs: 'user' | 'number' | 'none'
+    needs: 'user' | 'number' | 'destination' | 'none'
     icon: React.ComponentType<{ className?: string }>
   }
 > = {
   team: { label: 'All users', needs: 'none', icon: Users },
+  member: { label: 'Team member', needs: 'user', icon: Users },
+  destination: { label: 'Shared destination', needs: 'destination', icon: PhoneCall },
+  forward: { label: 'External number', needs: 'number', icon: PhoneForwarded },
+  // Legacy granular targets — kept so pre-v3.5 chains render and stay editable.
   browser: { label: 'Browser softphone', needs: 'user', icon: Globe },
   pwa: { label: 'Mobile app (PWA)', needs: 'user', icon: Smartphone },
   cell: { label: 'Cell phone number', needs: 'number', icon: PhoneCall },
   sip: { label: 'SIP', needs: 'user', icon: Server },
-  forward: { label: 'Forward to number', needs: 'number', icon: PhoneForwarded },
 }
 
-const TARGET_ORDER: CallRoutingTargetType[] = ['team', 'browser', 'pwa', 'cell', 'sip', 'forward']
+// Semantic targets shown to everyone; legacy types appear in the dropdown only
+// when the target being edited already uses one.
+const TARGET_ORDER: CallRoutingTargetType[] = ['team', 'member', 'destination', 'forward']
+const LEGACY_TYPES: CallRoutingTargetType[] = ['browser', 'pwa', 'cell', 'sip']
 
 function newTarget(): CallRoutingTarget {
-  return { type: 'browser' }
+  return { type: 'member' }
 }
 
 function newStage(): CallRoutingStage {
   return { enabled: true, timeout_seconds: 25, targets: [newTarget()] }
 }
 
-export function RoutingChainEditor({ initial, members }: Props) {
+export function RoutingChainEditor({ initial, members, destinations }: Props) {
   const [isActive, setIsActive] = React.useState(initial.is_active)
   const [stages, setStages] = React.useState<CallRoutingStage[]>(initial.stages)
   const [saving, setSaving] = React.useState(false)
+  const [destOptions, setDestOptions] = React.useState<CallDestinationOption[]>(destinations)
+  // Inline "new shared destination" mini-form, keyed to the target being edited.
+  const [newDest, setNewDest] = React.useState<{
+    si: number
+    ti: number
+    name: string
+    number: string
+    saving: boolean
+  } | null>(null)
+
+  const handleCreateDestination = async () => {
+    if (!newDest || newDest.saving) return
+    setNewDest({ ...newDest, saving: true })
+    const res = await createSharedDestination({ name: newDest.name, number: newDest.number })
+    if (res.error || !res.destination) {
+      toast.error(res.error ?? 'Could not create destination.')
+      setNewDest({ ...newDest, saving: false })
+      return
+    }
+    setDestOptions((prev) => [...prev, res.destination!])
+    updateTarget(newDest.si, newDest.ti, { destination_id: res.destination.id })
+    setNewDest(null)
+    toast.success(`Destination "${res.destination.name}" created.`)
+  }
 
   const updateStage = (i: number, patch: Partial<CallRoutingStage>) =>
     setStages((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -128,8 +163,7 @@ export function RoutingChainEditor({ initial, members }: Props) {
       {/* Header + kill switch */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-text-primary">Call routing</h1>
-          <p className="mt-1 text-[13px] text-text-secondary">
+          <p className="text-[13px] text-text-secondary">
             Set the priority order for inbound calls. Each stage rings every destination at
             the same time. Whoever answers first gets the call; if nobody answers within
             the timeout, the call moves to the next stage.
@@ -207,75 +241,149 @@ export function RoutingChainEditor({ initial, members }: Props) {
             <div className="space-y-2">
               {stage.targets.map((target, ti) => {
                 const meta = TARGET_META[target.type]
+                const typeOptions = LEGACY_TYPES.includes(target.type)
+                  ? [...TARGET_ORDER, target.type]
+                  : TARGET_ORDER
+                const isCreatingHere = newDest?.si === si && newDest?.ti === ti
                 return (
-                  <div key={ti} className="flex items-center gap-2">
-                    <Select
-                      value={target.type}
-                      onValueChange={(v) =>
-                        updateTarget(si, ti, {
-                          type: v as CallRoutingTargetType,
-                          user_id: undefined,
-                          number: undefined,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-[200px] shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TARGET_ORDER.map((type) => {
-                          const Icon = TARGET_META[type].icon
-                          return (
-                            <SelectItem key={type} value={type}>
-                              <span className="flex items-center gap-2">
-                                <Icon className="h-3.5 w-3.5" />
-                                {TARGET_META[type].label}
-                              </span>
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-
-                    {meta.needs === 'user' ? (
+                  <div key={ti} className="space-y-2">
+                    <div className="flex items-center gap-2">
                       <Select
-                        value={target.user_id}
-                        onValueChange={(v) => updateTarget(si, ti, { user_id: v })}
+                        value={target.type}
+                        onValueChange={(v) => {
+                          setNewDest(null)
+                          updateTarget(si, ti, {
+                            type: v as CallRoutingTargetType,
+                            user_id: undefined,
+                            number: undefined,
+                            destination_id: undefined,
+                          })
+                        }}
                       >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Select a user" />
+                        <SelectTrigger className="w-[200px] shrink-0">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {members.map((m) => (
-                            <SelectItem key={m.user_id} value={m.user_id}>
-                              {m.display_name}
-                            </SelectItem>
-                          ))}
+                          {typeOptions.map((type) => {
+                            const Icon = TARGET_META[type].icon
+                            return (
+                              <SelectItem key={type} value={type}>
+                                <span className="flex items-center gap-2">
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {TARGET_META[type].label}
+                                </span>
+                              </SelectItem>
+                            )
+                          })}
                         </SelectContent>
                       </Select>
-                    ) : meta.needs === 'number' ? (
-                      <Input
-                        value={target.number ?? ''}
-                        onChange={(e) => updateTarget(si, ti, { number: e.target.value })}
-                        placeholder="+5511999999999"
-                        className="flex-1"
-                      />
-                    ) : (
-                      <span className="flex-1 px-2 text-[12px] text-text-tertiary">
-                        Rings every team member with a browser/PWA phone at the same time.
-                      </span>
-                    )}
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-text-tertiary"
-                      disabled={stage.targets.length === 1}
-                      onClick={() => removeTarget(si, ti)}
-                      aria-label="Remove destination"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                      {meta.needs === 'user' ? (
+                        <Select
+                          value={target.user_id}
+                          onValueChange={(v) => updateTarget(si, ti, { user_id: v })}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select a user" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {members.map((m) => (
+                              <SelectItem key={m.user_id} value={m.user_id}>
+                                {m.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : meta.needs === 'destination' ? (
+                        <Select
+                          value={isCreatingHere ? '__new__' : target.destination_id}
+                          onValueChange={(v) => {
+                            if (v === '__new__') {
+                              setNewDest({ si, ti, name: '', number: '', saving: false })
+                            } else {
+                              setNewDest(null)
+                              updateTarget(si, ti, { destination_id: v })
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select a shared destination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {destOptions
+                              .filter((d) => d.kind === 'shared')
+                              .map((d) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {d.name} {d.number ? `· ${d.number}` : ''}
+                                </SelectItem>
+                              ))}
+                            <SelectItem value="__new__">
+                              <span className="flex items-center gap-2 text-accent">
+                                <Plus className="h-3.5 w-3.5" />
+                                New shared destination…
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : meta.needs === 'number' ? (
+                        <Input
+                          value={target.number ?? ''}
+                          onChange={(e) => updateTarget(si, ti, { number: e.target.value })}
+                          placeholder="+5511999999999"
+                          className="flex-1"
+                        />
+                      ) : (
+                        <span className="flex-1 px-2 text-[12px] text-text-tertiary">
+                          Rings every member everywhere they answer — browser/PWA and their
+                          forward number — at the same time.
+                        </span>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-text-tertiary"
+                        disabled={stage.targets.length === 1}
+                        onClick={() => removeTarget(si, ti)}
+                        aria-label="Remove destination"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {isCreatingHere && newDest && (
+                      <div className="ml-[208px] flex items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-tertiary/40 p-2">
+                        <Input
+                          value={newDest.name}
+                          onChange={(e) => setNewDest({ ...newDest, name: e.target.value })}
+                          placeholder="Name (e.g. Reception)"
+                          className="h-8 flex-1"
+                        />
+                        <Input
+                          value={newDest.number}
+                          onChange={(e) => setNewDest({ ...newDest, number: e.target.value })}
+                          placeholder="+15085551234"
+                          className="h-8 w-44"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8"
+                          disabled={newDest.saving}
+                          onClick={handleCreateDestination}
+                        >
+                          {newDest.saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                          Create
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8"
+                          onClick={() => setNewDest(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )
               })}

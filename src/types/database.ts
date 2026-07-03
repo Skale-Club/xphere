@@ -415,17 +415,33 @@ export type CallRoutingMode = 'phone_forward' | 'sip' | 'browser'
 export type CallDirection = 'inbound' | 'outbound'
 
 // v2.x | call routing chains (simultaneous-ring + ordered fallback)
-// 'team' rings every org member's softphone/PWA at once (whoever is available
-// answers); it needs neither user_id nor number.
-export type CallRoutingTargetType = 'browser' | 'pwa' | 'cell' | 'sip' | 'forward' | 'team'
+// 'team' rings every org member everywhere they answer (softphone/PWA + their
+// configured forward number); it needs neither user_id nor number.
+// v3.5 | 'member' rings ONE member everywhere they answer; 'destination'
+// references a call_destinations row (personal or shared). Legacy raw types
+// (browser/pwa/cell/sip/forward) keep resolving for back-compat.
+export type CallRoutingTargetType =
+  | 'browser'
+  | 'pwa'
+  | 'cell'
+  | 'sip'
+  | 'forward'
+  | 'team'
+  | 'member'
+  | 'destination'
 
 export interface CallRoutingTarget {
   type: CallRoutingTargetType
-  /** Resolves a Voice SDK client identity / SIP username for browser|pwa|sip. */
+  /** Resolves a Voice SDK client identity / SIP username for browser|pwa|sip|member. */
   user_id?: string
-  /** Explicit E.164 number for cell|forward. */
+  /** Explicit E.164 number for cell|forward (legacy raw targets). */
   number?: string
+  /** call_destinations row for type='destination'. */
+  destination_id?: string
 }
+
+// v3.5 | call destinations registry (phase 3)
+export type CallDestinationKind = 'personal' | 'shared'
 
 export interface CallRoutingStage {
   enabled: boolean
@@ -3815,6 +3831,47 @@ export interface Database {
             foreignKeyName: 'call_routing_chains_org_id_fkey'
             columns: ['org_id']
             isOneToOne: true
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      call_destinations: {
+        Row: {
+          id: string
+          org_id: string
+          kind: CallDestinationKind
+          user_id: string | null
+          name: string
+          number: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          kind: CallDestinationKind
+          user_id?: string | null
+          name: string
+          number?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          kind?: CallDestinationKind
+          user_id?: string | null
+          name?: string
+          number?: string | null
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'call_destinations_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
             referencedRelation: 'organizations'
             referencedColumns: ['id']
           }

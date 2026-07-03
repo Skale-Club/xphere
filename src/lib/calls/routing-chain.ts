@@ -115,25 +115,72 @@ export async function resolveStageNouns(
   const sips: string[] = []
   const pwaUserIds: string[] = []
 
-  const userIds = stage.targets
-    .filter((t) => (t.type === 'browser' || t.type === 'pwa' || t.type === 'sip') && t.user_id)
-    .map((t) => t.user_id as string)
+  // Destination targets resolve through the call_destinations registry:
+  // personal rows point at a member; shared rows carry their own number.
+  const destinationIds = stage.targets
+    .filter((t) => t.type === 'destination' && t.destination_id)
+    .map((t) => t.destination_id as string)
+  const destinations = new Map<
+    string,
+    { kind: 'personal' | 'shared'; user_id: string | null; number: string | null }
+  >()
+  if (destinationIds.length > 0) {
+    const { data } = await supabase
+      .from('call_destinations')
+      .select('id, kind, user_id, number, is_active')
+      .eq('org_id', orgId)
+      .in('id', destinationIds)
+    for (const d of data ?? []) {
+      if (d.is_active) destinations.set(d.id, { kind: d.kind, user_id: d.user_id, number: d.number })
+    }
+  }
 
-  const settingsByUser = new Map<string, { identity: string | null; sip: string | null }>()
+  // Every member we may need call_settings for: legacy per-user targets,
+  // 'member' targets, and personal destinations.
+  const userIds = [
+    ...stage.targets
+      .filter(
+        (t) =>
+          (t.type === 'browser' || t.type === 'pwa' || t.type === 'sip' || t.type === 'member') &&
+          t.user_id,
+      )
+      .map((t) => t.user_id as string),
+    ...[...destinations.values()]
+      .filter((d) => d.kind === 'personal' && d.user_id)
+      .map((d) => d.user_id as string),
+  ]
+
+  const settingsByUser = new Map<
+    string,
+    { identity: string | null; sip: string | null; forward: string | null }
+  >()
   if (userIds.length > 0) {
     const { data } = await supabase
       .from('call_settings')
-      .select('user_id, twilio_client_identity, sip_username')
+      .select('user_id, twilio_client_identity, sip_username, phone_forward')
       .eq('org_id', orgId)
       .in('user_id', userIds)
     for (const r of data ?? []) {
-      settingsByUser.set(r.user_id, { identity: r.twilio_client_identity, sip: r.sip_username })
+      settingsByUser.set(r.user_id, {
+        identity: r.twilio_client_identity,
+        sip: r.sip_username,
+        forward: r.phone_forward,
+      })
     }
   }
 
   let sipDomain: string | null = null
   if (stage.targets.some((t) => t.type === 'sip')) {
     sipDomain = await getSipDomainForOrg(orgId)
+  }
+
+  // "Ring this member everywhere they answer": Voice SDK client (browser/PWA,
+  // with a wake-push) plus their configured forward number in parallel.
+  const ringMember = (userId: string) => {
+    const s = settingsByUser.get(userId)
+    if (s?.identity) clients.push(s.identity)
+    if (s?.forward) numbers.push(s.forward)
+    pwaUserIds.push(userId)
   }
 
   for (const t of stage.targets) {
@@ -146,22 +193,30 @@ export async function resolveStageNouns(
     } else if (t.type === 'sip') {
       const su = t.user_id ? settingsByUser.get(t.user_id)?.sip : null
       if (su && sipDomain) sips.push(`sip:${su}@${sipDomain}`)
+    } else if (t.type === 'member') {
+      if (t.user_id) ringMember(t.user_id)
+    } else if (t.type === 'destination') {
+      const dest = t.destination_id ? destinations.get(t.destination_id) : null
+      if (!dest) continue
+      if (dest.kind === 'personal' && dest.user_id) ringMember(dest.user_id)
+      else if (dest.kind === 'shared' && dest.number) numbers.push(dest.number)
     }
   }
 
-  // Team ring: every org member with a Voice SDK identity rings at once and
-  // also gets a PWA wake-push. Whoever is available answers first.
+  // Team ring: every org member, everywhere they answer — Voice SDK client
+  // (plus PWA wake-push) AND their configured forward number. Whoever is
+  // available answers first.
   if (stage.targets.some((t) => t.type === 'team')) {
     const { data: team } = await supabase
       .from('call_settings')
-      .select('user_id, twilio_client_identity')
+      .select('user_id, twilio_client_identity, phone_forward')
       .eq('org_id', orgId)
-      .not('twilio_client_identity', 'is', null)
     for (const r of team ?? []) {
       if (r.twilio_client_identity) {
         clients.push(r.twilio_client_identity)
         pwaUserIds.push(r.user_id)
       }
+      if (r.phone_forward) numbers.push(r.phone_forward)
     }
   }
 

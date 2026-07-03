@@ -24,16 +24,20 @@ const E164_REGEX = /^\+[1-9]\d{6,14}$/
 
 const TargetSchema = z
   .object({
-    type: z.enum(['browser', 'pwa', 'cell', 'sip', 'forward', 'team']),
+    type: z.enum(['browser', 'pwa', 'cell', 'sip', 'forward', 'team', 'member', 'destination']),
     user_id: z.string().uuid().optional(),
     number: z.string().regex(E164_REGEX, 'Number must be in E.164 format, e.g. +14155551234.').optional(),
+    destination_id: z.string().uuid().optional(),
   })
   .superRefine((t, ctx) => {
-    if ((t.type === 'browser' || t.type === 'pwa' || t.type === 'sip') && !t.user_id) {
+    if ((t.type === 'browser' || t.type === 'pwa' || t.type === 'sip' || t.type === 'member') && !t.user_id) {
       ctx.addIssue({ code: 'custom', message: 'Select the user for this destination.', path: ['user_id'] })
     }
     if ((t.type === 'cell' || t.type === 'forward') && !t.number) {
       ctx.addIssue({ code: 'custom', message: 'Enter the destination number.', path: ['number'] })
+    }
+    if (t.type === 'destination' && !t.destination_id) {
+      ctx.addIssue({ code: 'custom', message: 'Select the shared destination.', path: ['destination_id'] })
     }
   })
 
@@ -138,7 +142,7 @@ export async function saveRoutingChain(
   // actually rings everyone); otherwise just the named browser/pwa users.
   const voiceUserIds = chain.stages.flatMap((s) =>
     s.targets
-      .filter((t) => (t.type === 'browser' || t.type === 'pwa') && t.user_id)
+      .filter((t) => (t.type === 'browser' || t.type === 'pwa' || t.type === 'member') && t.user_id)
       .map((t) => t.user_id as string),
   )
   const hasTeamTarget = chain.stages.some((s) => s.targets.some((t) => t.type === 'team'))

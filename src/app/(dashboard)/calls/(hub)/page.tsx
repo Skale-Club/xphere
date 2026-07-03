@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { getUnifiedCall, getUnifiedCalls } from '../actions'
 import { getRoutingChain } from '../routing-actions'
+import { listCallDestinations } from '../destination-actions'
 import { getCurrentCallSettings, getSipDomain } from '../settings-actions'
 import { listTwilioNumbers, listOrgMembersForSelect } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
 import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/actions'
@@ -191,7 +192,11 @@ async function NumbersTab({ twilioConnected }: { twilioConnected: boolean }) {
 }
 
 async function RoutingTab() {
-  const [chain, members] = await Promise.all([getRoutingChain(), listOrgMembersForSelect()])
+  const [chain, members, destinations] = await Promise.all([
+    getRoutingChain(),
+    listOrgMembersForSelect(),
+    listCallDestinations(),
+  ])
 
   // Chains that ring browsers/PWAs silently do nothing when no org member has a
   // push-registered device AND nobody keeps the app open. Surface that here.
@@ -225,7 +230,7 @@ async function RoutingTab() {
         mode and every user&apos;s personal My Phone preference. Turn it off to fall
         back to those layers.
       </div>
-      <RoutingChainEditor initial={chain} members={members} />
+      <RoutingChainEditor initial={chain} members={members} destinations={destinations} />
     </div>
   )
 }

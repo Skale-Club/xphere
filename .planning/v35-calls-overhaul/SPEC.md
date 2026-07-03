@@ -48,7 +48,10 @@ Pendências de polish: cross-link no lado do módulo Agents apontando para Voice
 - Redirects de todas as rotas antigas; deletar página `[id]` e hub órfão; faxina de revalidatePath.
 - Renomeações + cross-links (Agents ↔ Voice Assistants, Phone Numbers ↔ Integrations/Twilio).
 
-### Fase 2 — Toque confiável (celular/PWA)
+### Fase 2 — Toque confiável (celular/PWA) ✅ BUILT 2026-07-03 (aguarda QA no browser/celular)
+Anomalia investigada e fechada: as inbound de 14/jun–02/jul eram da org Skleanings
+(número 8044, caminho legacy forward, sem chain) — não é bug; Skale Club só não teve
+inbound desde 12/jun. push-sender v5 deployado.
 - Onboarding de push: prompt no primeiro launch do PWA + status por aparelho no modal My Phone; lista de aparelhos registrados.
 - Aviso em Voice Settings quando há alvos team/pwa e 0 `push_subscriptions` na org.
 - Answer funcional: notificação → deep-link `?answer={callSid}` → registra Device → endpoint server-side redireciona a chamada em andamento (Twilio call update) para o client.
@@ -56,7 +59,14 @@ Pendências de polish: cross-link no lado do módulo Agents apontando para Voice
 - Alvo PSTN paralelo na chain (toque nativo garantido).
 - Investigar anomalia das notificações parardas em 12/jun.
 
-### Fase 3 — Modelo `call_destinations`
+### Fase 3 — Modelo `call_destinations` ✅ BUILT 2026-07-03 (migração 1238 aplicada em prod via MCP)
+Entregue: tabela + RLS, targets `member`/`destination` (legados continuam resolvendo),
+editor com seletor semântico (All users / Team member / Shared destination / External
+number) e criação inline de destino compartilhado, `team` agora toca browser+PWA+forward
+de cada membro — com isso o celular do Vanildo (+1 508 801 8190, `call_settings.phone_forward`)
+passa a tocar no número 866 sem mudança de dados.
+Pendências deliberadas: `twilio_phone_numbers.forward_to_number` continua número cru
+(referenciar destinos numa fase futura); sem data-migration de targets crus (prod não tem nenhum).
 - Tabela `call_destinations`: destino **pessoal** (ref. membro, telefone resolvido do perfil na hora da chamada) ou **compartilhado** (número nomeado org-level, ex. "Recepção", atendido por N pessoas).
 - Chain targets e `forward_to_number` passam a referenciar destinos; fim de número cru em config de roteamento.
 - Migração dos dados existentes (número presente em `call_settings.phone_forward` de um usuário → pessoal; demais → compartilhado p/ admin batizar).
