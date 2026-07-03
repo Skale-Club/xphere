@@ -53,7 +53,7 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    heading: 'Communications',
+    heading: 'Templates',
     items: [
       { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
       { href: '/settings/message-templates', label: 'Messages', icon: MessagesSquare },
