@@ -51,8 +51,12 @@ Plans:
   2. Admin can view a list of Messages templates, open one to edit its name/default body/overrides, and delete one, all from `/settings/message-templates`.
   3. A Messages template created in one org is never visible to another org (RLS-enforced like every other tenant table).
   4. A newly saved Messages template is immediately usable with no approval step or external sync — clearly a separate concept from WhatsApp Business templates, with no shared table or approval workflow between them.
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 124-01-PLAN.md — message_templates migration (RLS + trigger) + hand-written database.ts types + server actions (list/get/create/update/delete)
+- [ ] 124-02-PLAN.md — List/new/editor UI at /settings/message-templates with SMS/Email/WhatsApp override tabs, delete confirmation, and Settings sub-nav entry
 
 ### Phase 125: Messages Preview + Templates Nav Finalization
 **Goal**: Admins can verify what a Messages template will actually send per channel, and Settings navigation now has one coherent, extensible "Templates" home covering Email, Messages, and WhatsApp.
