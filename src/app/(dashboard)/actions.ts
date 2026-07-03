@@ -71,7 +71,7 @@ export async function getActivityFeed(
         title: `New message from ${who}`,
         description: preview,
         timestamp: m.created_at,
-        href: `/chat?conversation=${m.conversation_id}`,
+        href: `/inbox?conversation=${m.conversation_id}`,
         channel: m.conversations?.channel ?? null,
       })
     }

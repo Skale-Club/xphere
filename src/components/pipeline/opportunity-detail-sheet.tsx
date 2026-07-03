@@ -1101,7 +1101,7 @@ function ContactFields({
 
       {/* Open contact CTA */}
       <Button asChild variant="outline" size="sm" className="gap-1.5">
-        <Link href={`/chat?contact=${contactId}`} onClick={onOpenContact}>
+        <Link href={`/inbox?contact=${contactId}`} onClick={onOpenContact}>
           <ExternalLink className="h-3.5 w-3.5" />
           Open full contact
         </Link>

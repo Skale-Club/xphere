@@ -123,8 +123,8 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
         title: type === 'new_message' ? name : 'New conversation',
         body: preview ? (type === 'new_message' ? preview : `${name}: ${preview}`) : name,
         url: payload.conversation_id
-          ? `/chat?conversation=${payload.conversation_id}`
-          : '/chat',
+          ? `/inbox?conversation=${payload.conversation_id}`
+          : '/inbox',
         tag: `conv-${payload.conversation_id ?? 'inbox'}`,
       }
     }
@@ -165,7 +165,7 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
       return {
         title: 'New notification',
         body: '',
-        url: '/chat',
+        url: '/inbox',
         tag: `notif-${type}`,
       }
   }

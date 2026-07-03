@@ -105,7 +105,7 @@ export function CommentCard({ comment, onHidden }: CommentCardProps) {
             </button>
             {comment.contactId && (
               <a
-                href={`/chat?contact=${comment.contactId}`}
+                href={`/inbox?contact=${comment.contactId}`}
                 className="flex items-center gap-1 text-[12px] text-text-tertiary hover:text-accent transition-colors"
               >
                 <Mail className="h-3.5 w-3.5" />

@@ -1008,7 +1008,7 @@ export function ContactInfoPanel({
                 {contact.conversations.slice(0, 5).map((c) => (
                   <a
                     key={c.id}
-                    href={`/chat?conversation=${c.id}`}
+                    href={`/inbox?conversation=${c.id}`}
                     className="group flex items-center gap-2.5 rounded-[8px] border border-border-subtle bg-bg-secondary px-2.5 py-2 hover:border-border-strong transition-colors"
                   >
                     <ChannelBadge channel={(c.channel as Channel) ?? 'unknown'} showLabel={false} size="sm" />

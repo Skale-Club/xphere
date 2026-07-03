@@ -16,7 +16,6 @@ import {
   CalendarDays,
   FileText,
   CheckSquare,
-  CreditCard,
   Delete,
   ArrowUpRight,
 } from 'lucide-react'
@@ -164,11 +163,6 @@ export function MobileActiveCallScreen({
       label: 'Tasks',
       icon: CheckSquare,
       onPress: () => router.push('/tasks'),
-    },
-    {
-      label: 'Payments',
-      icon: CreditCard,
-      onPress: () => router.push('/payments'),
     },
     {
       label: 'Profile',

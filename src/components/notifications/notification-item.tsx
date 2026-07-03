@@ -52,7 +52,7 @@ function getNavigationTarget(notification: NotificationRow): string {
   switch (notification.type) {
     case 'new_conversation':
     case 'new_message':
-      return `/chat?conversation=${payload.conversation_id ?? ''}`
+      return `/inbox?conversation=${payload.conversation_id ?? ''}`
     case 'missed_call':
       return `/calls?highlight=${payload.call_log_id ?? ''}`
     case 'incoming_call':

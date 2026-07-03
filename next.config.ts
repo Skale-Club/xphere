@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
       { source: '/admin/traffic', destination: '/admin/analytics', permanent: true },
       // Traffic settings page became a modal inside /analytics.
       { source: '/settings/traffic', destination: '/analytics?settings=1', permanent: true },
+      // Chat inbox page moved from /chat to /inbox. Query strings (?conversation=,
+      // ?contact=) are preserved automatically, so already-delivered push
+      // notifications and bookmarks with /chat URLs keep working. Note: /api/chat/*
+      // is unaffected — this only matches the /chat page path.
+      { source: '/chat', destination: '/inbox', permanent: true },
     ]
   },
   async rewrites() {

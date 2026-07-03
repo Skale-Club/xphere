@@ -104,7 +104,7 @@ export async function RecentConversations() {
           {rows.map((r) => (
             <li key={r.id}>
               <Link
-                href={`/chat?conversation=${r.id}`}
+                href={`/inbox?conversation=${r.id}`}
                 className={cn(
                   'group flex items-center gap-3 rounded-[8px] px-2 py-2.5 transition-colors hover:bg-bg-tertiary',
                 )}

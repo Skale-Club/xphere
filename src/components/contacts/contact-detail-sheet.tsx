@@ -299,7 +299,7 @@ export function ContactDetailSheet({ contactId, onOpenChange, initialEditing = f
                       {contact.conversations.map((c) => (
                         <a
                           key={c.id}
-                          href={`/chat?conversation=${c.id}`}
+                          href={`/inbox?conversation=${c.id}`}
                           className="flex items-center gap-3 rounded-[10px] border border-border-subtle bg-bg-secondary px-3.5 py-3 hover:border-border-strong hover:bg-bg-tertiary/40 transition-colors duration-150"
                         >
                           <ChannelBadge channel={c.channel as Channel} showLabel={false} size="md" />
