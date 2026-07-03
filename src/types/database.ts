@@ -6666,6 +6666,47 @@ export interface Database {
           }
         ]
       }
+      message_templates: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          body: string
+          channel_overrides: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          body?: string
+          channel_overrides?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          body?: string
+          channel_overrides?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'message_templates_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       workflow_folders: {
         Row: {
           id: string
