@@ -1,8 +1,21 @@
 # Operator
 
-## Current Milestone: none — planning next
+## Current Milestone: v3.3 Settings Nav Cleanup + Unified Templates
 
-v3.2 shipped 2026-07-01 (see below). No milestone currently in progress; run `/gsd:new-milestone` to start the next one. v3.1's formal close-out is also still pending (see below).
+**Workstream:** `v33-unified-templates` (parallel to any in-flight work; no file overlap expected)
+
+**Goal:** Reorganize the Settings navigation and introduce a unified, extensible "Templates" area covering Email (already built), a new generic cross-channel "Messages" template type, and a reorganized WhatsApp templates screen.
+
+**Target features:**
+- Remove the redundant "Call Center" link from Settings (Calls already owns its own `/calls/settings` surface)
+- Move "Chat Widget" from Communications into the Build section of the Settings sub-nav
+- Rename "Communications" to "Templates"; nav becomes extensible for future template kinds
+- New "Messages" quick-reply template type (default body + optional per-channel overrides for SMS/Email/WhatsApp), Settings-only CRUD in this milestone (no composer/campaign integration yet)
+- WhatsApp templates screen gets a real nav entry point under Templates, plus search + status/category/language filtering (no folders — templates are provider-synced, not authored locally)
+
+**Explicitly out of scope:** redesigning the Calls/phone system architecture (deferred, needs more thought); wiring Messages templates into chat composers or campaigns (backlog).
+
+v3.2 shipped 2026-07-01 (see below). v3.1's formal close-out is also still pending (see below). The `v32-universal-folders-email-templates` workstream (Email Templates system this milestone builds on) is also complete and awaiting formal close-out.
 
 ## Previous: v3.2 Credits Visibility & Metering Architecture ✅ Shipped 2026-07-01
 
