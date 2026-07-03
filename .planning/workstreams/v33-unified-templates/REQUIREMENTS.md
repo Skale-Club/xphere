@@ -47,25 +47,26 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| NAV-01 | TBD | Pending roadmap |
-| NAV-02 | TBD | Pending roadmap |
-| NAV-03 | TBD | Pending roadmap |
-| NAV-04 | TBD | Pending roadmap |
-| MSG-01 | TBD | Pending roadmap |
-| MSG-02 | TBD | Pending roadmap |
-| MSG-03 | TBD | Pending roadmap |
-| MSG-04 | TBD | Pending roadmap |
-| MSG-05 | TBD | Pending roadmap |
-| WAT-01 | TBD | Pending roadmap |
-| WAT-02 | TBD | Pending roadmap |
-| WAT-03 | TBD | Pending roadmap |
-| WAT-04 | TBD | Pending roadmap |
-| WAT-05 | TBD | Pending roadmap |
+| NAV-01 | Phase 122 | Pending |
+| NAV-02 | Phase 122 | Pending |
+| NAV-03 | Phase 125 | Pending |
+| NAV-04 | Phase 125 | Pending |
+| MSG-01 | Phase 124 | Pending |
+| MSG-02 | Phase 124 | Pending |
+| MSG-03 | Phase 124 | Pending |
+| MSG-04 | Phase 124 | Pending |
+| MSG-05 | Phase 125 | Pending |
+| WAT-01 | Phase 123 | Pending |
+| WAT-02 | Phase 123 | Pending |
+| WAT-03 | Phase 123 | Pending |
+| WAT-04 | Phase 123 | Pending |
+| WAT-05 | Phase 123 | Pending |
 
 **Coverage:**
 - v3.3 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 (roadmap pending)
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-02*
+*Roadmap created: 2026-07-02 (Phases 122-125, workstream v33-unified-templates)*
