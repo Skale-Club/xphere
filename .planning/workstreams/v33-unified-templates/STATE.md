@@ -3,29 +3,29 @@ gsd_state_version: 1.0
 milestone: v3.3
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 123-01-PLAN.md (WhatsApp Templates Relocation + Search/Filter) — relocated to /settings/whatsapp-templates with nav entry, added name/status/category/language filters. Build passes with no type errors. Phase 124 has 1 more plan (124-02, UI).
-last_updated: "2026-07-03T02:21:14.000Z"
+stopped_at: Completed 124-02-PLAN.md (Messages Templates UI) — list/new/editor pages at /settings/message-templates with SMS/Email/WhatsApp override tabs, delete confirmation, and Settings sub-nav entry. Build passes with no type errors. Phase 124 fully complete; Phase 125 now unblocked (both dependencies, 123 and 124, are done).
+last_updated: "2026-07-03T02:36:35.000Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 3
-  percent: 60
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 124
+Phase: 125 (not started)
 Phase: 123 (WhatsApp Templates Relocation + Search/Filter) — COMPLETE (123-01 executed, relocated + filtered)
-Phase: 124 (Messages Templates Data Model + CRUD) — Plan 1 of 2 complete (124-01 data model + CRUD actions); 124-02 (UI) not started
+Phase: 124 (Messages Templates Data Model + CRUD) — COMPLETE (124-01 data model + CRUD actions; 124-02 list/new/editor UI + nav entry)
 Plan: Not started
-Status: Phase 123 complete; Phase 124 plan 01 complete — Phase 125 still blocked on 124-02
+Status: Phase 123 complete; Phase 124 complete — Phase 125 unblocked, ready to plan
 Last activity: 2026-07-03
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Roadmap Summary
 
@@ -47,16 +47,17 @@ Progress: [██████░░░░] 60%
 - Phase 124 plan 01 kept `message_templates` deliberately lean (no folder_id/position/status/document/html_snapshot) — no approval workflow or folder hierarchy for this template type in this milestone. `channel_overrides` is flexible JSONB with `sms`/`email`/`whatsapp` keys (matching the existing `campaigns.channel` enum values minus `calls`), not fixed columns, so future channels need no migration.
 - Migration 1233 (`message_templates`) was intentionally NOT applied to the remote database as part of 124-01 — it is a code deliverable only, per CLAUDE.md sensitive-paths guidance and the project's pending-migrations backlog. The operator must run `npx supabase db push` (or apply via Supabase Management API) before the table exists in production; 124-02 UI will not function against prod until then.
 - Phase 123 relocated the WhatsApp templates grouping logic into a new generic client component (`WhatsAppTemplatesFilters`) parameterized by a minimal `FilterableTemplate` shape and a `renderCard` callback, so the same filter UI serves both Meta Cloud and Zernio row types without duplicating filter/search logic per provider.
+- Phase 124 plan 02 placed the new "Messages" Settings nav entry between "Email Templates" and "WhatsApp Templates" in the Communications section's items array (cosmetic ordering only); the "Communications" heading itself was left unchanged, since renaming it to "Templates" is explicitly Phase 125's job (NAV-03).
 
 ### Pending Todos
 
-- Apply migration 1233 (`message_templates`) to the remote Supabase database before or alongside shipping 124-02's UI — not yet applied.
+- Apply migration 1233 (`message_templates`) to the remote Supabase database — not yet applied. The Messages templates UI (124-02) is code-complete but will fail at runtime against production until `npx supabase db push` (or equivalent) is run.
 
 ### Blockers/Concerns
 
-None yet — roadmap just created, no execution has started.
+None — Phase 124 is fully complete (data model + CRUD UI); Phase 125 is now unblocked since both of its dependencies (Phase 123 and Phase 124) are done. Operator still needs to apply migration 1233 to prod (see Pending Todos).
 
 ## Session Continuity
 
-**Stopped At:** Completed 123-01-PLAN.md (WhatsApp Templates Relocation + Search/Filter) — page + 3 sibling components moved from `/integrations/whatsapp/templates` to `/settings/whatsapp-templates`, Settings nav entry added under Communications, all 4 `revalidatePath` calls and both external entry points repointed, and a new generic `WhatsAppTemplatesFilters` client component adds name/status/category/language filtering to both the Meta Cloud and Zernio render paths. Build passes with no type errors. Ran concurrently with the Phase 124 executor in the same repo (no file overlap); build-lock contention and one stash-pop conflict on this workstream's own STATE/ROADMAP/REQUIREMENTS observed and resolved without losing either executor's work.
+**Stopped At:** Completed 124-02-PLAN.md (Messages Templates UI) — list page (card grid, empty state, edit/delete), new-template entry flow (name-only, redirects to editor), and editor page (name + default body + SMS/Email/WhatsApp override tabs via react-hook-form/zod) built at `/settings/message-templates`, plus a "Messages" Settings sub-nav entry under Communications. Build passes with no type errors (after clearing a stale `.next` build-cache lock left over from a prior interrupted build — not a code issue). Phase 124 is now fully complete (both 124-01 and 124-02 done); Phase 125 (Messages Preview + Templates Nav Finalization) is unblocked and ready to plan.
 **Resume File:** None

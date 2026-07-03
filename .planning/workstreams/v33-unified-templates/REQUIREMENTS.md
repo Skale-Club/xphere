@@ -12,10 +12,10 @@
 
 ## Messages Templates (new generic quick-reply library)
 
-- [ ] **MSG-01**: Admin can create a Messages template with a name, a default body, and optional per-channel body overrides for SMS, Email, and WhatsApp.
-- [ ] **MSG-02**: Admin can list, edit, and delete Messages templates from `/settings/message-templates`.
-- [ ] **MSG-03**: Messages templates are org-scoped via RLS like every other tenant table.
-- [ ] **MSG-04**: Messages templates are explicitly distinct from WhatsApp Business templates — free-form text, no Meta/Zernio approval workflow, usable immediately after saving.
+- [x] **MSG-01**: Admin can create a Messages template with a name, a default body, and optional per-channel body overrides for SMS, Email, and WhatsApp.
+- [x] **MSG-02**: Admin can list, edit, and delete Messages templates from `/settings/message-templates`.
+- [x] **MSG-03**: Messages templates are org-scoped via RLS like every other tenant table.
+- [x] **MSG-04**: Messages templates are explicitly distinct from WhatsApp Business templates — free-form text, no Meta/Zernio approval workflow, usable immediately after saving.
 - [ ] **MSG-05**: Admin can preview how a template resolves per channel (default body vs. channel override) before saving.
 
 ## WhatsApp Templates Reorganization
@@ -51,10 +51,10 @@
 | NAV-02 | Phase 122 | Complete |
 | NAV-03 | Phase 125 | Pending |
 | NAV-04 | Phase 125 | Pending |
-| MSG-01 | Phase 124 | In progress (data model + server actions done, UI in 124-02) |
-| MSG-02 | Phase 124 | In progress (data model + server actions done, UI in 124-02) |
-| MSG-03 | Phase 124 | In progress (RLS policy live in migration 1233, pending remote apply) |
-| MSG-04 | Phase 124 | In progress (table/actions have no approval workflow by design; UI in 124-02) |
+| MSG-01 | Phase 124 | Complete |
+| MSG-02 | Phase 124 | Complete |
+| MSG-03 | Phase 124 | Complete (RLS policy code-complete in migration 1233; pending remote `supabase db push` before live in prod) |
+| MSG-04 | Phase 124 | Complete |
 | MSG-05 | Phase 125 | Pending |
 | WAT-01 | Phase 123 | Complete |
 | WAT-02 | Phase 123 | Complete |

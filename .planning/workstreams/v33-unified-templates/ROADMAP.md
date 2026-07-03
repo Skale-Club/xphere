@@ -8,7 +8,7 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
 
 - [x] **Phase 122: Settings Nav Cleanup** - Remove the redundant Call Center link and move Chat Widget into Build; zero dependency on the rest of the milestone. (completed 2026-07-03)
 - [x] **Phase 123: WhatsApp Templates Relocation + Search/Filter** - Give the existing WhatsApp templates screen a real Settings route with search + status/category/language filtering, preserving dual-provider sync behavior. (completed 2026-07-03)
-- [ ] **Phase 124: Messages Templates Data Model + CRUD** - New `message_templates` table (RLS) with default body + per-channel overrides; list/create/edit/delete UI at `/settings/message-templates`.
+- [x] **Phase 124: Messages Templates Data Model + CRUD** - New `message_templates` table (RLS) with default body + per-channel overrides; list/create/edit/delete UI at `/settings/message-templates`. (completed 2026-07-03)
 - [ ] **Phase 125: Messages Preview + Templates Nav Finalization** - Per-channel resolution preview on the Messages template editor; rename Communications → Templates with Email/Messages/WhatsApp entries in an extensible shared pattern.
 
 ## Phase Details
@@ -56,7 +56,7 @@ Plans:
 
 Plans:
 - [x] 124-01-PLAN.md — message_templates migration (RLS + trigger) + hand-written database.ts types + server actions (list/get/create/update/delete) (completed 2026-07-03)
-- [ ] 124-02-PLAN.md — List/new/editor UI at /settings/message-templates with SMS/Email/WhatsApp override tabs, delete confirmation, and Settings sub-nav entry
+- [x] 124-02-PLAN.md — List/new/editor UI at /settings/message-templates with SMS/Email/WhatsApp override tabs, delete confirmation, and Settings sub-nav entry (completed 2026-07-03)
 
 ### Phase 125: Messages Preview + Templates Nav Finalization
 **Goal**: Admins can verify what a Messages template will actually send per channel, and Settings navigation now has one coherent, extensible "Templates" home covering Email, Messages, and WhatsApp.
@@ -78,5 +78,5 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 |-------|----------------|--------|-----------|
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 1/1 | Complete    | 2026-07-03 |
-| 124. Messages Templates Data Model + CRUD | 1/2 | In progress | - |
+| 124. Messages Templates Data Model + CRUD | 2/2 | Complete    | 2026-07-03 |
 | 125. Messages Preview + Templates Nav Finalization | 0/TBD | Not started | - |
