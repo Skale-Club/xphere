@@ -4,7 +4,7 @@ milestone: v3.3
 milestone_name: milestone
 status: planning
 stopped_at: Completed 124-02-PLAN.md (Messages Templates UI) — list page (card grid, empty state, edit/delete), new-template entry flow (name-only, redirects to editor), and editor page (name + default body + SMS/Email/WhatsApp override tabs via react-hook-form/zod) built at `/settings/message-templates`, plus a "Messages" Settings sub-nav entry under Communications. Build passes with no type errors (after clearing a stale `.next` build-cache lock left over from a prior interrupted build — not a code issue). Phase 124 is now fully complete (both 124-01 and 124-02 done); Phase 125 (Messages Preview + Templates Nav Finalization) is unblocked and ready to plan.
-last_updated: "2026-07-03T02:42:25.011Z"
+last_updated: "2026-07-03T02:47:26.716Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 4
@@ -18,7 +18,7 @@ progress:
 
 ## Current Position
 
-Phase: 124
+Phase: 125
 Phase: 123 (WhatsApp Templates Relocation + Search/Filter) — COMPLETE (123-01 executed, relocated + filtered)
 Phase: 124 (Messages Templates Data Model + CRUD) — COMPLETE (124-01 data model + CRUD actions; 124-02 list/new/editor UI + nav entry)
 Plan: Not started
