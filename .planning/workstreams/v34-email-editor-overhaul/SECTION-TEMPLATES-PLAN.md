@@ -1,5 +1,10 @@
 # Plan — Section Templates in the Email sidebar (v3.4 follow-up)
 
+**Status:** ✅ BUILT (Phases 1–3) on `feat/email-section-templates`, build + lint green,
+migration 1235 applied to prod. Pending: deploy + browser QA. Commits `82f6fb09`
+(backend), `292fc089` (sidebar tab + standalone editor).
+
+
 **Goal:** Surface "section templates" (the `reusable_email_blocks` — saved multi-block
 sections) in the left **EMAIL TEMPLATES** sub-sidebar, organizable in folders like
 templates are, instead of only living as chips in the editor palette.
