@@ -21,7 +21,10 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
   1. Admin opens Settings and no longer sees a "Call Center" link anywhere in the sub-nav — the only route to that surface is the top-level Calls sidebar item at `/calls/settings`.
   2. Admin finds "Chat Widget" listed under the Build section of Settings, not Communications.
   3. Visiting `/settings/widget` directly still works unchanged (route untouched, only its nav entry moved).
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 122-01-PLAN.md — Remove Call Center nav item, move Chat Widget to Build section
 
 ### Phase 123: WhatsApp Templates Relocation + Search/Filter
 **Goal**: WhatsApp templates stop being nav-orphaned and gain the search/filter tools admins need to find a template among many.
