@@ -6,7 +6,7 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
 
 ## Phases
 
-- [ ] **Phase 122: Settings Nav Cleanup** - Remove the redundant Call Center link and move Chat Widget into Build; zero dependency on the rest of the milestone.
+- [x] **Phase 122: Settings Nav Cleanup** - Remove the redundant Call Center link and move Chat Widget into Build; zero dependency on the rest of the milestone. (completed 2026-07-03)
 - [ ] **Phase 123: WhatsApp Templates Relocation + Search/Filter** - Give the existing WhatsApp templates screen a real Settings route with search + status/category/language filtering, preserving dual-provider sync behavior.
 - [ ] **Phase 124: Messages Templates Data Model + CRUD** - New `message_templates` table (RLS) with default body + per-channel overrides; list/create/edit/delete UI at `/settings/message-templates`.
 - [ ] **Phase 125: Messages Preview + Templates Nav Finalization** - Per-channel resolution preview on the Messages template editor; rename Communications → Templates with Email/Messages/WhatsApp entries in an extensible shared pattern.
@@ -24,7 +24,7 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
 **Plans**: 1 plan
 
 Plans:
-- [ ] 122-01-PLAN.md — Remove Call Center nav item, move Chat Widget to Build section
+- [x] 122-01-PLAN.md — Remove Call Center nav item, move Chat Widget to Build section
 
 ### Phase 123: WhatsApp Templates Relocation + Search/Filter
 **Goal**: WhatsApp templates stop being nav-orphaned and gain the search/filter tools admins need to find a template among many.
@@ -76,7 +76,7 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 122. Settings Nav Cleanup | 0/TBD | Not started | - |
+| 122. Settings Nav Cleanup | 1/1 | Complete   | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 0/TBD | Not started | - |
 | 124. Messages Templates Data Model + CRUD | 0/TBD | Not started | - |
 | 125. Messages Preview + Templates Nav Finalization | 0/TBD | Not started | - |
