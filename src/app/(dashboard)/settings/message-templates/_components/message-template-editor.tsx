@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import { updateMessageTemplate, type MessageTemplateRow } from '../_actions/message-templates'
 
 const schema = z.object({
@@ -33,6 +34,7 @@ export function MessageTemplateEditor({ template }: Props) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -44,6 +46,18 @@ export function MessageTemplateEditor({ template }: Props) {
       whatsapp_override: template.channel_overrides.whatsapp ?? '',
     },
   })
+
+  const watchedBody = useWatch({ control, name: 'body' })
+  const watchedSms = useWatch({ control, name: 'sms_override' })
+  const watchedEmail = useWatch({ control, name: 'email_override' })
+  const watchedWhatsapp = useWatch({ control, name: 'whatsapp_override' })
+
+  const resolvedSms = watchedSms.trim() ? watchedSms : watchedBody
+  const resolvedEmail = watchedEmail.trim() ? watchedEmail : watchedBody
+  const resolvedWhatsapp = watchedWhatsapp.trim() ? watchedWhatsapp : watchedBody
+  const isSmsOverridden = watchedSms.trim().length > 0
+  const isEmailOverridden = watchedEmail.trim().length > 0
+  const isWhatsappOverridden = watchedWhatsapp.trim().length > 0
 
   async function onSubmit(values: FormValues) {
     const channel_overrides: Record<string, string> = {}
@@ -74,20 +88,23 @@ export function MessageTemplateEditor({ template }: Props) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="body">Default body</Label>
-        <Textarea id="body" rows={5} {...register('body')} placeholder="Used for any channel without an override below." />
-        {errors.body && <p className="text-xs text-destructive">{errors.body.message}</p>}
-      </div>
-
-      <div className="space-y-1.5">
         <Label>Per-channel overrides (optional)</Label>
         <p className="text-xs text-muted-foreground">Leave a tab blank to fall back to the default body for that channel.</p>
-        <Tabs defaultValue="sms">
+        <Tabs defaultValue="default">
           <TabsList>
+            <TabsTrigger value="default">Default</TabsTrigger>
             <TabsTrigger value="sms">SMS</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
             <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
+          <TabsContent value="default">
+            <div className="space-y-1.5">
+              <Label htmlFor="body">Default body</Label>
+              <Textarea id="body" rows={5} {...register('body')} placeholder="Used for any channel without an override below." />
+              {errors.body && <p className="text-xs text-destructive">{errors.body.message}</p>}
+            </div>
+          </TabsContent>
           <TabsContent value="sms">
             <Textarea rows={4} {...register('sms_override')} placeholder="SMS-specific body (optional)" />
           </TabsContent>
@@ -96,6 +113,41 @@ export function MessageTemplateEditor({ template }: Props) {
           </TabsContent>
           <TabsContent value="whatsapp">
             <Textarea rows={4} {...register('whatsapp_override')} placeholder="WhatsApp-specific body (optional)" />
+          </TabsContent>
+          <TabsContent value="preview" className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label>SMS</Label>
+                <Badge variant={isSmsOverridden ? 'primary' : 'outline'}>
+                  {isSmsOverridden ? 'Custom' : 'Using default'}
+                </Badge>
+              </div>
+              <div className="rounded-md border border-border bg-bg-tertiary px-3 py-2 text-sm whitespace-pre-wrap">
+                {resolvedSms || <span className="text-muted-foreground">(empty)</span>}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label>Email</Label>
+                <Badge variant={isEmailOverridden ? 'primary' : 'outline'}>
+                  {isEmailOverridden ? 'Custom' : 'Using default'}
+                </Badge>
+              </div>
+              <div className="rounded-md border border-border bg-bg-tertiary px-3 py-2 text-sm whitespace-pre-wrap">
+                {resolvedEmail || <span className="text-muted-foreground">(empty)</span>}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label>WhatsApp</Label>
+                <Badge variant={isWhatsappOverridden ? 'primary' : 'outline'}>
+                  {isWhatsappOverridden ? 'Custom' : 'Using default'}
+                </Badge>
+              </div>
+              <div className="rounded-md border border-border bg-bg-tertiary px-3 py-2 text-sm whitespace-pre-wrap">
+                {resolvedWhatsapp || <span className="text-muted-foreground">(empty)</span>}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
