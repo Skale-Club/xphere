@@ -12,7 +12,6 @@ import {
   Mail,
   MapPin,
   MessageSquare,
-  Phone,
   Plug,
   Plug2,
   Settings2,
@@ -54,15 +53,14 @@ const SECTIONS: NavSection[] = [
   {
     heading: 'Communications',
     items: [
-      { href: '/calls/settings', label: 'Call Center', icon: Phone },
       { href: '/settings/email-templates', label: 'Email Templates', icon: Mail },
-      { href: '/settings/widget', label: 'Chat Widget', icon: MessageSquare },
     ],
   },
   {
     heading: 'Build',
     items: [
       { href: '/settings/knowledge', label: 'Knowledge', icon: BookOpen },
+      { href: '/settings/widget', label: 'Chat Widget', icon: MessageSquare },
     ],
   },
   {
