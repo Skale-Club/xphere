@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { SyncTemplatesButton } from './sync-templates-button'
 import { SyncZernioTemplatesButton } from './sync-zernio-templates-button'
 import { CreateTemplateButton } from './create-template-button'
+import { WhatsAppTemplatesFilters } from './whatsapp-templates-filters'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import { getZernioIntegrationSummary } from '@/app/(dashboard)/integrations/whatsapp/actions'
 import { listZernioWhatsAppAccounts } from '@/lib/zernio/whatsapp-templates'
@@ -81,8 +82,6 @@ export default async function WhatsAppTemplatesPage() {
       .order('name', { ascending: true })
       .returns<TemplateRow[]>()
 
-    const grouped = groupCloudByStatus(templates ?? [])
-
     return (
       <div className="px-6 py-6 max-w-5xl">
         <div className="flex items-start justify-between mb-6">
@@ -104,24 +103,11 @@ export default async function WhatsAppTemplatesPage() {
         </div>
 
         {templates && templates.length > 0 ? (
-          <div className="space-y-6">
-            {(['APPROVED', 'PENDING', 'PAUSED', 'REJECTED', 'DISABLED'] as const).map((status) => {
-              const list = grouped[status]
-              if (!list || list.length === 0) return null
-              return (
-                <section key={status} className="space-y-2">
-                  <h2 className="text-[12px] font-medium uppercase tracking-wide text-text-tertiary">
-                    {status} ({list.length})
-                  </h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {list.map((tpl) => (
-                      <CloudTemplateCard key={tpl.id} tpl={tpl} />
-                    ))}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
+          <WhatsAppTemplatesFilters
+            templates={templates}
+            statusOrder={['APPROVED', 'PENDING', 'PAUSED', 'REJECTED', 'DISABLED']}
+            renderCard={(tpl) => <CloudTemplateCard key={tpl.id} tpl={tpl} />}
+          />
         ) : (
           <EmptyState>
             Create approved templates in Meta Business Manager, then click{' '}
@@ -166,8 +152,6 @@ export default async function WhatsAppTemplatesPage() {
       .order('name', { ascending: true })
       .returns<ZernioTemplateRow[]>()
 
-    const grouped = groupZernioByStatus(zTemplates ?? [])
-
     return (
       <div className="px-6 py-6 max-w-5xl">
         <div className="flex items-start justify-between mb-6">
@@ -187,24 +171,11 @@ export default async function WhatsAppTemplatesPage() {
         </div>
 
         {zTemplates && zTemplates.length > 0 ? (
-          <div className="space-y-6">
-            {(['APPROVED', 'PENDING', 'REJECTED', 'DISABLED'] as const).map((status) => {
-              const list = grouped[status]
-              if (!list || list.length === 0) return null
-              return (
-                <section key={status} className="space-y-2">
-                  <h2 className="text-[12px] font-medium uppercase tracking-wide text-text-tertiary">
-                    {status} ({list.length})
-                  </h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {list.map((tpl) => (
-                      <ZernioTemplateCard key={tpl.id} tpl={tpl} />
-                    ))}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
+          <WhatsAppTemplatesFilters
+            templates={zTemplates}
+            statusOrder={['APPROVED', 'PENDING', 'REJECTED', 'DISABLED']}
+            renderCard={(tpl) => <ZernioTemplateCard key={tpl.id} tpl={tpl} />}
+          />
         ) : (
           <EmptyState>
             Create your first template above. It will be submitted to Meta for review and
@@ -298,25 +269,6 @@ function ZernioTemplateCard({ tpl }: { tpl: ZernioTemplateRow }) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-
-function groupCloudByStatus(rows: TemplateRow[]) {
-  const out: Record<TemplateRow['status'], TemplateRow[]> = {
-    APPROVED: [], PENDING: [], REJECTED: [], PAUSED: [], DISABLED: [],
-  }
-  for (const r of rows) out[r.status]?.push(r)
-  return out
-}
-
-function groupZernioByStatus(rows: ZernioTemplateRow[]) {
-  const out: Record<string, ZernioTemplateRow[]> = {
-    APPROVED: [], PENDING: [], REJECTED: [], DISABLED: [],
-  }
-  for (const r of rows) {
-    const key = r.status?.toUpperCase()
-    if (out[key]) out[key].push(r)
-  }
-  return out
-}
 
 function extractBody(components: unknown): string | null {
   if (!Array.isArray(components)) return null
