@@ -176,9 +176,14 @@ function resolvePadding(p?: Partial<BlockPadding>): BlockPadding {
 }
 
 /** The padding actually used to render a block: explicit padding wins; missing
- *  padding falls back to the per-type default. */
-function blockPadding(block: EmailBlock): BlockPadding {
+ *  padding falls back to the per-type default. Exported so the editor canvas
+ *  can mirror the rendered spacing (WYSIWYG parity). */
+export function resolveBlockPadding(block: EmailBlock): BlockPadding {
   return resolvePadding(block.padding ?? DEFAULT_BLOCK_PADDING[block.blockType])
+}
+
+function blockPadding(block: EmailBlock): BlockPadding {
+  return resolveBlockPadding(block)
 }
 
 function paddingCss(p: BlockPadding): string {
