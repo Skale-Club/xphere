@@ -59,6 +59,29 @@ export async function getRbacContext(): Promise<RbacContext> {
 }
 
 /**
+ * Lightweight "is the current user a platform admin?" check for hot paths that
+ * don't need the full RBAC context (org role, active org). Same canonical
+ * definition as getRbacContext: env bootstrap OR a row in platform_admins.
+ * Fails closed (returns false) on any error.
+ */
+export async function isCurrentUserPlatformAdmin(): Promise<boolean> {
+  const user = await getUser()
+  if (!user) return false
+  if (user.email && user.email === process.env.PLATFORM_ADMIN_EMAIL) return true
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    return !!data
+  } catch {
+    return false
+  }
+}
+
+/**
  * Does the current user hold `permissionKey` in their active org?
  * Platform admins and Owners always pass; Admin/User resolve against the
  * stored grant matrix, falling back to defaults when the org is uninitialized.

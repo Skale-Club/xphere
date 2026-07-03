@@ -86,7 +86,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // enforcement off — see CONTEXT.md Visibility Gating decision.
   let copilotBalance: { includedUsd: number; topupUsd: number; totalUsd: number; includedAllowanceUsd: number } | null = null
   let hasCreditsPlan = false
-  if (activeOrgId) {
+  // Platform (system) admins aren't metered, so the credit indicator is
+  // meaningless for them — skip it entirely (keeps hasCreditsPlan false).
+  if (activeOrgId && !rbacContext.isPlatformAdmin) {
     try {
       const visibility = await resolveCreditsVisibility(activeOrgId)
       copilotBalance = {

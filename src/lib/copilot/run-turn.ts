@@ -48,6 +48,9 @@ interface RunTurnInput {
   writeMode: boolean
   currentEntity?: { type: 'contact' | 'account' | 'opportunity'; id: string } | null
   history: Array<{ role: 'user' | 'assistant'; parts: MessagePart[] }>
+  /** Whether this turn's cost debits the credit wallet. Defaults to true; set
+   *  false for platform-admin/internal turns that must not consume credits. */
+  meterCredits?: boolean
 }
 
 export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult> {
@@ -135,9 +138,10 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
       })
       .eq('id', runId)
 
-    // Bill the Copilot credit wallet for the cost just incurred (enforcement only).
+    // Bill the Copilot credit wallet for the cost just incurred (enforcement only,
+    // and never for unmetered turns like platform admins — meterCredits === false).
     // Fails open (see meterDebit) — credit accounting never blocks the response.
-    if (isBillingEnforced()) {
+    if (isBillingEnforced() && input.meterCredits !== false) {
       await meterDebit(input.orgId, 'copilot_turn', costUsd, runId)
     }
 

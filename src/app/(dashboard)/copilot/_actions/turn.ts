@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { isBillingEnforced } from '@/lib/billing/config'
 import { getEntitlements } from '@/lib/billing/entitlements'
 import { ensureCopilotProvisioned, hasCopilotCredits } from '@/lib/billing/credits'
+import { isCurrentUserPlatformAdmin } from '@/lib/rbac/server'
 
 // S11 from the Security Review: AI endpoints must be rate-limited to prevent
 // cost-DoS by a compromised or misbehaving client. Copilot is interactive but
@@ -49,10 +50,16 @@ export async function sendCopilotMessage(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
-  // Copilot credit gate (only when billing enforcement is enabled). Provision the
-  // current period's allowance lazily, then refuse a new turn when the wallet is
-  // empty. The completed turn's cost is still debited afterwards regardless.
-  if (isBillingEnforced()) {
+  // Platform (system) admins are never metered: their Copilot usage neither
+  // gates on nor debits the org's credit wallet. Resolve once and thread it
+  // through so the post-turn debit in runCopilotTurn is skipped too.
+  const isPlatformAdmin = await isCurrentUserPlatformAdmin()
+
+  // Copilot credit gate (only when billing enforcement is enabled, and never for
+  // platform admins). Provision the current period's allowance lazily, then refuse
+  // a new turn when the wallet is empty. The completed turn's cost is still debited
+  // afterwards for metered users.
+  if (isBillingEnforced() && !isPlatformAdmin) {
     const ent = await getEntitlements()
     const periodEnd = ent.status === 'trialing' ? ent.trialEndsAt : null
     await ensureCopilotProvisioned(orgId as string, ent.copilotIncludedUsd, periodEnd)
@@ -111,6 +118,7 @@ export async function sendCopilotMessage(
       writeMode: Boolean(input.writeMode),
       currentEntity: input.currentEntity ?? null,
       history,
+      meterCredits: !isPlatformAdmin,
     })
 
     const { data: asstMsg, error: asstMsgErr } = await supabase
