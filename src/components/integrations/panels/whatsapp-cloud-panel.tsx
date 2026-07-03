@@ -276,7 +276,7 @@ function ConnectedState({
             Sync from Meta
           </Button>
           <Button size="sm" variant="ghost" asChild>
-            <Link href="/integrations/whatsapp/templates">
+            <Link href="/settings/whatsapp-templates">
               Manage templates <ExternalLink className="ml-1 h-3 w-3" />
             </Link>
           </Button>

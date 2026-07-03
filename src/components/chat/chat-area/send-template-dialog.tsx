@@ -251,7 +251,7 @@ export function SendTemplateDialog({
               variant="ghost"
               className="gap-1.5 text-[12.5px] text-accent"
             >
-              <Link href="/integrations/whatsapp/templates" target="_blank" rel="noopener noreferrer">
+              <Link href="/settings/whatsapp-templates" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-3.5 w-3.5" />
                 Create template
               </Link>

@@ -217,7 +217,7 @@ export async function syncCloudTemplates(): Promise<
   if (!orgId) return { ok: false, error: 'No active organization' }
   const result = await syncTemplates(orgId)
   if (!result.ok) return { ok: false, error: result.error }
-  revalidatePath('/integrations/whatsapp/templates')
+  revalidatePath('/settings/whatsapp-templates')
   return { ok: true, inserted: result.inserted, updated: result.updated, deleted: result.deleted }
 }
 
@@ -238,7 +238,7 @@ export async function createCloudTemplateAction(
 
   const result = await createCloudTemplate(orgId, { ...input, name })
   if (!result.ok) return { ok: false, error: result.error }
-  revalidatePath('/integrations/whatsapp/templates')
+  revalidatePath('/settings/whatsapp-templates')
   return { ok: true, status: result.status }
 }
 
@@ -397,7 +397,7 @@ export async function createZernioTemplateAction(
     { onConflict: 'org_id,zernio_account_id,name,language', ignoreDuplicates: false },
   )
 
-  revalidatePath('/integrations/whatsapp/templates')
+  revalidatePath('/settings/whatsapp-templates')
   return { ok: true, status: result.status }
 }
 
@@ -499,7 +499,7 @@ export async function syncZernioTemplatesAction(): Promise<
     }
   }
 
-  revalidatePath('/integrations/whatsapp/templates')
+  revalidatePath('/settings/whatsapp-templates')
   return { ok: true, synced }
 }
 
