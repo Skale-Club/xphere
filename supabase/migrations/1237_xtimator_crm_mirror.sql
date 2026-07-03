@@ -1,5 +1,8 @@
 -- =============================================================================
--- Migration 1213: Xtimator CRM Mirror
+-- Migration 1237: Xtimator CRM Mirror
+-- (Renumbered from 1213 to resolve a duplicate-prefix collision with
+--  1213_org_invites_token. Not yet applied to prod — pending the Xtimator
+--  integration going live.)
 --
 -- Adds the provenance + idempotency columns needed to mirror Xtimator users into
 -- this org's CRM as an Account (the business) + Contact (the owner) + Opportunity
