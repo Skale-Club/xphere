@@ -48,7 +48,8 @@ export function isNodeConfigComplete(
       return hasAllOf(config, ['to', 'body'])
 
     case 'send_telegram_notification':
-      return hasAllOf(config, ['chat_id', 'message'])
+      // chat_id is optional — falls back to the bot's configured notification_chat_ids.
+      return hasNonEmptyString(config?.text)
 
     case 'create_contact':
       return hasAnyOf(config, ['phone', 'email', 'name', 'first_name', 'last_name'])

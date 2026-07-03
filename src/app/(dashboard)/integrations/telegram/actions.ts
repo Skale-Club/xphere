@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { getMe, setWebhook, deleteWebhook } from '@/lib/telegram/client'
+import { executeSendTelegramNotification } from '@/lib/action-engine/executors/send-telegram-notification'
+import type { TelegramParseMode } from '@/lib/telegram/types'
 
 // ---------------------------------------------------------------------------
 // View shape returned to the client component
@@ -305,4 +307,50 @@ export async function disconnectTelegramBot(): Promise<{ ok: true } | { ok: fals
   revalidatePath('/integrations')
   revalidatePath('/integrations/telegram')
   return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// testSendTelegramNotification | fires a one-off message, bypassing the flow engine
+// ---------------------------------------------------------------------------
+
+export interface TestSendTelegramNotificationInput {
+  text: string
+  /** Overrides notification_chat_ids for this test send only. */
+  chatId?: string
+  /** Raw value as stored by the node config panel: 'HTML' | 'Markdown' | 'plain'. */
+  parseMode?: string
+}
+
+// Mirrors the normalization in src/lib/action-engine/execute-action.ts's
+// `send_telegram_notification` case | the config panel stores 'Markdown',
+// not the Telegram API's 'MarkdownV2'.
+function normalizeConfigParseMode(raw: string | undefined): TelegramParseMode | undefined {
+  if (raw === 'HTML') return 'HTML'
+  if (raw === 'Markdown' || raw === 'MarkdownV2') return 'MarkdownV2'
+  if (raw === 'plain') return 'plain'
+  return undefined
+}
+
+export async function testSendTelegramNotification(
+  input: TestSendTelegramNotificationInput,
+): Promise<{ success: boolean; error?: string; messageIds?: number[] }> {
+  const user = await getUser()
+  if (!user) return { success: false, error: 'Not authenticated.' }
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { success: false, error: 'No active organization.' }
+
+  const text = input.text.trim()
+  if (!text) return { success: false, error: 'Enter a message to send.' }
+
+  const result = await executeSendTelegramNotification({
+    orgId: orgId as string,
+    text,
+    chatId: input.chatId?.trim() || undefined,
+    parseMode: normalizeConfigParseMode(input.parseMode),
+  })
+
+  if (!result.ok) return { success: false, error: result.error ?? 'Test failed.' }
+  return { success: true, messageIds: result.messageIds }
 }

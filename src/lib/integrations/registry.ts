@@ -182,6 +182,18 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   },
 
   {
+    id: 'telegram',
+    name: 'Telegram',
+    description: 'Bot notifications for workflows, plus an automation bot that replies to DMs.',
+    category: 'messaging',
+    logo: { letter: 'T', color: 'bg-cyan-500' },
+    panelType: 'oauth',
+    canActivate: false,
+    testable: false,
+    oauthHref: '/integrations/telegram',
+  },
+
+  {
     id: 'resend',
     name: 'Resend',
     description:

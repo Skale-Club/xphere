@@ -1,7 +1,11 @@
 'use client'
 
-import { forwardRef, useState, type ButtonHTMLAttributes } from 'react'
-import { Braces, Check, ChevronDown, Trash2, X } from 'lucide-react'
+import { forwardRef, useEffect, useState, type ButtonHTMLAttributes } from 'react'
+import { toast } from 'sonner'
+import { Braces, Check, ChevronDown, SendHorizontal, Trash2, User, X } from 'lucide-react'
+import { testSendSms } from '@/app/(dashboard)/integrations/twilio/actions'
+import { testSendTelegramNotification } from '@/app/(dashboard)/integrations/telegram/actions'
+import { interpolate } from '@/lib/flows/interpolate'
 import {
   Command,
   CommandEmpty,
@@ -1084,6 +1088,193 @@ function EntityLinkFields({
   )
 }
 
+// ── Test-send rows — fire the action right now, independent of the saved
+// config, so an operator can confirm credentials/formatting actually work
+// without running the whole flow. Never persists anything to node config. ──
+
+// Some contact records only have `name` filled in, not the split
+// `first_name`/`last_name` columns. Derive them for the test preview so
+// {{contact.first_name}} still resolves instead of rendering blank.
+function withNameFallbacks(contact: Record<string, unknown>): Record<string, unknown> {
+  const name = typeof contact.name === 'string' ? contact.name.trim() : ''
+  const parts = name.split(/\s+/).filter(Boolean)
+  return {
+    ...contact,
+    first_name: contact.first_name || parts[0] || '',
+    last_name: contact.last_name || parts.slice(1).join(' ') || '',
+    name: contact.name || [contact.first_name, contact.last_name].filter(Boolean).join(' '),
+  }
+}
+
+function TestSendSmsRow({
+  to,
+  body,
+  phoneNumberId,
+}: {
+  to: string
+  body: string
+  phoneNumberId?: string
+}) {
+  const isTemplate = to.includes('{{')
+  const [dest, setDest] = useState(isTemplate ? '' : to)
+  const [running, setRunning] = useState(false)
+  const [contact, setContact] = useState<Record<string, unknown> | null>(null)
+
+  // Best-effort: if the test number matches an existing contact, fetch their
+  // record so the send below can substitute {{contact.*}} placeholders with
+  // real data instead of sending the literal template.
+  useEffect(() => {
+    const phone = dest.trim()
+    if (phone.length < 6) {
+      setContact(null)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      fetch(`/api/voice/contact-by-phone?phone=${encodeURIComponent(phone)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { contact?: Record<string, unknown> | null } | null) => {
+          if (!cancelled) setContact(data?.contact ?? null)
+        })
+        .catch(() => undefined)
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [dest])
+
+  // Only substitute when a real contact matched — otherwise leave the
+  // {{tokens}} visible rather than silently blanking them out.
+  const effectiveBody = contact
+    ? (interpolate(body, { contact: withNameFallbacks(contact) }) as string)
+    : body
+
+  async function run() {
+    const destination = dest.trim()
+    if (!destination) {
+      toast.error('Enter a real phone number to test with.')
+      return
+    }
+    setRunning(true)
+    try {
+      const res = await testSendSms({
+        to: destination,
+        body: effectiveBody.trim() || undefined,
+        fromNumberId: phoneNumberId?.trim() || undefined,
+      })
+      if (res.success) {
+        const who = contact?.name ? ` to ${String(contact.name)}` : ''
+        toast.success(`Test SMS sent${who} · SID ${res.sid}`)
+      } else {
+        toast.error(res.error ?? 'Test failed')
+      }
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-[8px] border border-border-subtle bg-bg-tertiary/40 p-2.5">
+      <Label className="text-[11px] text-text-tertiary">Test this action</Label>
+      <div className="flex gap-1.5">
+        <Input
+          value={dest}
+          onChange={(e) => setDest(e.target.value)}
+          placeholder="+14155551234"
+          className="h-8 flex-1 text-xs font-mono"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-8 shrink-0 gap-1 text-xs"
+          onClick={run}
+          loading={running}
+          disabled={running}
+        >
+          <SendHorizontal className="h-3.5 w-3.5" />
+          Send test
+        </Button>
+      </div>
+      {contact && (
+        <div className="space-y-1 rounded-[6px] bg-emerald-500/10 px-2 py-1.5">
+          <p className="flex items-center gap-1 text-[10.5px] text-emerald-400">
+            <User className="h-3 w-3" />
+            Sending to <strong className="font-medium">{String(contact.name ?? 'Unnamed')}</strong>
+          </p>
+          <p className="text-[10.5px] text-text-secondary">
+            <span className="italic">&quot;{effectiveBody || '(empty message)'}&quot;</span>
+          </p>
+        </div>
+      )}
+      <p className="text-[10.5px] text-text-tertiary">
+        Sends the message above right now to the number entered here — a real send, not a simulation.
+        {contact && ' {{contact.*}} placeholders are filled in with this contact’s data.'}
+      </p>
+    </div>
+  )
+}
+
+function TestSendTelegramRow({
+  text,
+  chatId,
+  parseMode,
+}: {
+  text: string
+  chatId: string
+  parseMode: string
+}) {
+  const [override, setOverride] = useState(chatId)
+  const [running, setRunning] = useState(false)
+
+  async function run() {
+    if (!text.trim()) {
+      toast.error('Write a message first.')
+      return
+    }
+    setRunning(true)
+    try {
+      const res = await testSendTelegramNotification({
+        text,
+        chatId: override.trim() || undefined,
+        parseMode: parseMode || undefined,
+      })
+      if (res.success) toast.success('Test notification sent')
+      else toast.error(res.error ?? 'Test failed')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-[8px] border border-border-subtle bg-bg-tertiary/40 p-2.5">
+      <Label className="text-[11px] text-text-tertiary">Test this action</Label>
+      <div className="flex gap-1.5">
+        <Input
+          value={override}
+          onChange={(e) => setOverride(e.target.value)}
+          placeholder="Chat ID (optional — falls back to configured chats)"
+          className="h-8 flex-1 text-xs font-mono"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-8 shrink-0 gap-1 text-xs"
+          onClick={run}
+          loading={running}
+          disabled={running}
+        >
+          <SendHorizontal className="h-3.5 w-3.5" />
+          Send test
+        </Button>
+      </div>
+      <p className="text-[10.5px] text-text-tertiary">
+        Sends the message above right now — a real send, not a simulation.
+      </p>
+    </div>
+  )
+}
+
 function ActionConfigFields({ actionType, config, onChange, variables, pickerData }: ActionConfigFieldsProps) {
   const get = (key: string) => (config[key] as string | undefined) ?? ''
 
@@ -1146,6 +1337,7 @@ function ActionConfigFields({ actionType, config, onChange, variables, pickerDat
             placeholder="{{phone.id}}"
             optional
           />
+          <TestSendSmsRow to={get('to')} body={get('body')} phoneNumberId={get('phone_number_id')} />
         </>
       )
 
@@ -1425,6 +1617,7 @@ function ActionConfigFields({ actionType, config, onChange, variables, pickerDat
               </SelectContent>
             </Select>
           </div>
+          <TestSendTelegramRow text={get('text')} chatId={get('chat_id')} parseMode={get('parse_mode') || 'HTML'} />
         </>
       )
 
