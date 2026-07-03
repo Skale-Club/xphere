@@ -7,7 +7,7 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
 ## Phases
 
 - [x] **Phase 122: Settings Nav Cleanup** - Remove the redundant Call Center link and move Chat Widget into Build; zero dependency on the rest of the milestone. (completed 2026-07-03)
-- [ ] **Phase 123: WhatsApp Templates Relocation + Search/Filter** - Give the existing WhatsApp templates screen a real Settings route with search + status/category/language filtering, preserving dual-provider sync behavior.
+- [x] **Phase 123: WhatsApp Templates Relocation + Search/Filter** - Give the existing WhatsApp templates screen a real Settings route with search + status/category/language filtering, preserving dual-provider sync behavior. (completed 2026-07-03)
 - [ ] **Phase 124: Messages Templates Data Model + CRUD** - New `message_templates` table (RLS) with default body + per-channel overrides; list/create/edit/delete UI at `/settings/message-templates`.
 - [ ] **Phase 125: Messages Preview + Templates Nav Finalization** - Per-channel resolution preview on the Messages template editor; rename Communications → Templates with Email/Messages/WhatsApp entries in an extensible shared pattern.
 
@@ -40,7 +40,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 123-01-PLAN.md — Relocate WhatsApp templates page to /settings/whatsapp-templates, repoint entry points, add name search + status/category/language filters
+- [x] 123-01-PLAN.md — Relocate WhatsApp templates page to /settings/whatsapp-templates, repoint entry points, add name search + status/category/language filters (completed 2026-07-03)
 
 ### Phase 124: Messages Templates Data Model + CRUD
 **Goal**: A brand-new, org-scoped "Messages" quick-reply template type exists with full CRUD, independent of and clearly distinct from WhatsApp Business templates.
@@ -77,6 +77,6 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
-| 123. WhatsApp Templates Relocation + Search/Filter | 0/TBD | Not started | - |
+| 123. WhatsApp Templates Relocation + Search/Filter | 1/1 | Complete    | 2026-07-03 |
 | 124. Messages Templates Data Model + CRUD | 1/2 | In progress | - |
 | 125. Messages Preview + Templates Nav Finalization | 0/TBD | Not started | - |

@@ -20,11 +20,11 @@
 
 ## WhatsApp Templates Reorganization
 
-- [ ] **WAT-01**: The existing WhatsApp templates screen is reachable from Settings → Templates (today it is nav-orphaned, reachable only via a contextual "Manage templates" button).
-- [ ] **WAT-02**: Admin can search WhatsApp templates by name.
-- [ ] **WAT-03**: Admin can filter WhatsApp templates by status (Approved/Pending/Rejected/Paused/Disabled), category, and language.
-- [ ] **WAT-04**: The existing dual-provider behavior (Meta Cloud API vs. Zernio) and their sync/approval mechanics are preserved unchanged.
-- [ ] **WAT-05**: Existing contextual entry points (integration panel "Manage templates" button, chat template picker fallback) continue to work, now landing on the relocated page.
+- [x] **WAT-01**: The existing WhatsApp templates screen is reachable from Settings → Templates (today it is nav-orphaned, reachable only via a contextual "Manage templates" button).
+- [x] **WAT-02**: Admin can search WhatsApp templates by name.
+- [x] **WAT-03**: Admin can filter WhatsApp templates by status (Approved/Pending/Rejected/Paused/Disabled), category, and language.
+- [x] **WAT-04**: The existing dual-provider behavior (Meta Cloud API vs. Zernio) and their sync/approval mechanics are preserved unchanged.
+- [x] **WAT-05**: Existing contextual entry points (integration panel "Manage templates" button, chat template picker fallback) continue to work, now landing on the relocated page.
 
 ## Future Requirements (deferred, not this milestone)
 
@@ -56,11 +56,11 @@
 | MSG-03 | Phase 124 | In progress (RLS policy live in migration 1233, pending remote apply) |
 | MSG-04 | Phase 124 | In progress (table/actions have no approval workflow by design; UI in 124-02) |
 | MSG-05 | Phase 125 | Pending |
-| WAT-01 | Phase 123 | Pending |
-| WAT-02 | Phase 123 | Pending |
-| WAT-03 | Phase 123 | Pending |
-| WAT-04 | Phase 123 | Pending |
-| WAT-05 | Phase 123 | Pending |
+| WAT-01 | Phase 123 | Complete |
+| WAT-02 | Phase 123 | Complete |
+| WAT-03 | Phase 123 | Complete |
+| WAT-04 | Phase 123 | Complete |
+| WAT-05 | Phase 123 | Complete |
 
 **Coverage:**
 - v3.3 requirements: 14 total
