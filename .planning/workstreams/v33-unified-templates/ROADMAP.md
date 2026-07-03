@@ -66,8 +66,12 @@ Plans:
   1. While editing a Messages template, admin can preview the resolved body for each channel (SMS/Email/WhatsApp), correctly showing the channel override when set and falling back to the default body when not, before saving.
   2. The Settings sub-nav section previously labeled "Communications" is now labeled "Templates" and lists Email Templates, Messages, and WhatsApp Templates as its entries.
   3. Adding a future template kind to this section is a one-line nav-item addition using the same shared section/card pattern as the existing three entries — no structural nav rework needed.
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 125-01-PLAN.md — Restructure Messages template editor into 5 tabs (Default/SMS/Email/WhatsApp/Preview) with live per-channel resolution preview
+- [ ] 125-02-PLAN.md — Rename Settings sub-nav Communications section to Templates
 
 ## Progress
 
@@ -79,4 +83,4 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 1/1 | Complete    | 2026-07-03 |
 | 124. Messages Templates Data Model + CRUD | 2/2 | Complete    | 2026-07-03 |
-| 125. Messages Preview + Templates Nav Finalization | 0/TBD | Not started | - |
+| 125. Messages Preview + Templates Nav Finalization | 0/2 | Not started | - |
