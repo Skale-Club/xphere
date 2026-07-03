@@ -4686,6 +4686,8 @@ export interface Database {
           name: string
           block_type: string
           document: Json
+          folder_id: string | null
+          position: number
           created_at: string
           updated_at: string
         }
@@ -4695,6 +4697,8 @@ export interface Database {
           name: string
           block_type: string
           document?: Json
+          folder_id?: string | null
+          position?: number
           created_at?: string
           updated_at?: string
         }
@@ -4704,6 +4708,8 @@ export interface Database {
           name?: string
           block_type?: string
           document?: Json
+          folder_id?: string | null
+          position?: number
           created_at?: string
           updated_at?: string
         }
@@ -4713,6 +4719,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'reusable_email_blocks_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
             referencedColumns: ['id']
           }
         ]

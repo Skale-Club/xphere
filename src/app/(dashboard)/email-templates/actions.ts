@@ -30,6 +30,8 @@ export interface ReusableBlock {
   name: string
   block_type: string
   document: Record<string, unknown>
+  folder_id: string | null
+  position: number
   created_at: string
   updated_at: string
 }
@@ -287,10 +289,102 @@ export async function getReusableBlocks(): Promise<ActionResult<ReusableBlock[]>
   const { data, error } = await supabase
     .from('reusable_email_blocks')
     .select('*')
+    .order('position', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: (data ?? []) as ReusableBlock[] }
+}
+
+// ─── getReusableBlock (one) ───────────────────────────────────────────────────
+
+export async function getReusableBlock(id: string): Promise<ActionResult<ReusableBlock>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('reusable_email_blocks')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error || !data) return { ok: false, error: error?.message ?? 'not_found' }
+  return { ok: true, data: data as ReusableBlock }
+}
+
+// ─── createReusableBlock (from scratch) ───────────────────────────────────────
+
+export async function createReusableBlock(
+  name: string,
+  folderId: string | null = null,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+  if (!name.trim()) return { ok: false, error: 'name_required' }
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'no_active_org' }
+
+  const { data, error } = await supabase
+    .from('reusable_email_blocks')
+    .insert({
+      org_id: orgId as string,
+      name: name.trim(),
+      block_type: 'custom',
+      document: { blocks: [] },
+      folder_id: folderId,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) return { ok: false, error: error?.message ?? 'create_failed' }
+  revalidatePath('/settings/email-templates')
+  return { ok: true, data: { id: data.id } }
+}
+
+// ─── renameReusableBlock ──────────────────────────────────────────────────────
+
+export async function renameReusableBlock(id: string, name: string): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+  if (!name.trim()) return { ok: false, error: 'name_required' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('reusable_email_blocks')
+    .update({ name: name.trim() })
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/settings/email-templates')
+  return { ok: true, data: undefined }
+}
+
+// ─── updateReusableBlock (document from the section editor) ────────────────────
+
+export async function updateReusableBlock(
+  id: string,
+  document: Record<string, unknown>,
+  name?: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const patch: { document: Json; name?: string } = { document: document as Json }
+  if (name !== undefined) patch.name = name.trim()
+
+  const { error } = await supabase
+    .from('reusable_email_blocks')
+    .update(patch)
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/settings/email-templates')
+  revalidatePath(`/settings/email-templates/sections/${id}`)
+  return { ok: true, data: undefined }
 }
 
 // ─── deleteReusableBlock ──────────────────────────────────────────────────────

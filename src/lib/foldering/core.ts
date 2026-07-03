@@ -18,7 +18,12 @@
 import type { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 
-export type FolderEntityType = 'workflow' | 'project' | 'tool' | 'email_template'
+export type FolderEntityType =
+  | 'workflow'
+  | 'project'
+  | 'tool'
+  | 'email_template'
+  | 'reusable_email_block'
 export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 export type FolderRow = Database['public']['Tables']['folders']['Row']
 
