@@ -7,8 +7,8 @@
 
 - [x] **NAV-01**: Admin no longer sees a "Call Center" link inside Settings — the surface remains solely under the top-level Calls sidebar item at `/calls/settings`.
 - [x] **NAV-02**: Admin finds "Chat Widget" configuration under the Build section of Settings instead of Communications.
-- [ ] **NAV-03**: The "Communications" section is renamed to "Templates" and contains Email, Messages, and WhatsApp entries.
-- [ ] **NAV-04**: Adding a future template kind to Settings requires adding one nav item under Templates, reusing a shared section/card pattern — no structural nav rework.
+- [x] **NAV-03**: The "Communications" section is renamed to "Templates" and contains Email, Messages, and WhatsApp entries.
+- [x] **NAV-04**: Adding a future template kind to Settings requires adding one nav item under Templates, reusing a shared section/card pattern — no structural nav rework.
 
 ## Messages Templates (new generic quick-reply library)
 
@@ -49,8 +49,8 @@
 |---|---|---|
 | NAV-01 | Phase 122 | Complete |
 | NAV-02 | Phase 122 | Complete |
-| NAV-03 | Phase 125 | Pending |
-| NAV-04 | Phase 125 | Pending |
+| NAV-03 | Phase 125 | Complete |
+| NAV-04 | Phase 125 | Complete |
 | MSG-01 | Phase 124 | Complete |
 | MSG-02 | Phase 124 | Complete |
 | MSG-03 | Phase 124 | Complete (RLS policy code-complete in migration 1233; pending remote `supabase db push` before live in prod) |

@@ -71,7 +71,7 @@ Plans:
 
 Plans:
 - [ ] 125-01-PLAN.md — Restructure Messages template editor into 5 tabs (Default/SMS/Email/WhatsApp/Preview) with live per-channel resolution preview
-- [ ] 125-02-PLAN.md — Rename Settings sub-nav Communications section to Templates
+- [x] 125-02-PLAN.md — Rename Settings sub-nav Communications section to Templates
 
 ## Progress
 
@@ -83,4 +83,4 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 1/1 | Complete    | 2026-07-03 |
 | 124. Messages Templates Data Model + CRUD | 2/2 | Complete    | 2026-07-03 |
-| 125. Messages Preview + Templates Nav Finalization | 0/2 | Not started | - |
+| 125. Messages Preview + Templates Nav Finalization | 1/2 | In Progress|  |

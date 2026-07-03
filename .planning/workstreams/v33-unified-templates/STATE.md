@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.3
 milestone_name: milestone
-status: planning
-stopped_at: Completed 124-02-PLAN.md (Messages Templates UI) — list page (card grid, empty state, edit/delete), new-template entry flow (name-only, redirects to editor), and editor page (name + default body + SMS/Email/WhatsApp override tabs via react-hook-form/zod) built at `/settings/message-templates`, plus a "Messages" Settings sub-nav entry under Communications. Build passes with no type errors (after clearing a stale `.next` build-cache lock left over from a prior interrupted build — not a code issue). Phase 124 is now fully complete (both 124-01 and 124-02 done); Phase 125 (Messages Preview + Templates Nav Finalization) is unblocked and ready to plan.
-last_updated: "2026-07-03T02:47:26.716Z"
+status: executing
+stopped_at: Completed 125-02-PLAN.md (Templates Nav Finalization) — renamed Settings sub-nav 'Communications' heading to 'Templates', confirming NAV-04 extensibility via existing SECTIONS array shape. Both plans of Phase 125 now need verification (125-01 status to be confirmed by its own executor). v3.3 milestone nav-finalization goal complete pending 125-01.
+last_updated: "2026-07-03T04:09:21.930Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 80
 ---
 
@@ -18,11 +18,11 @@ progress:
 
 ## Current Position
 
-Phase: 125
+Phase: 125 (Messages Preview + Templates Nav Finalization) — 125-02 COMPLETE (nav rename); 125-01 status pending confirmation from its own executor
 Phase: 123 (WhatsApp Templates Relocation + Search/Filter) — COMPLETE (123-01 executed, relocated + filtered)
 Phase: 124 (Messages Templates Data Model + CRUD) — COMPLETE (124-01 data model + CRUD actions; 124-02 list/new/editor UI + nav entry)
-Plan: Not started
-Status: Phase 123 complete; Phase 124 complete — Phase 125 unblocked, ready to plan
+Plan: 2 of 2
+Status: 125-02 complete
 Last activity: 2026-07-03
 
 Progress: [████████░░] 80%
@@ -48,6 +48,7 @@ Progress: [████████░░] 80%
 - Migration 1233 (`message_templates`) was intentionally NOT applied to the remote database as part of 124-01 — it is a code deliverable only, per CLAUDE.md sensitive-paths guidance and the project's pending-migrations backlog. The operator must run `npx supabase db push` (or apply via Supabase Management API) before the table exists in production; 124-02 UI will not function against prod until then.
 - Phase 123 relocated the WhatsApp templates grouping logic into a new generic client component (`WhatsAppTemplatesFilters`) parameterized by a minimal `FilterableTemplate` shape and a `renderCard` callback, so the same filter UI serves both Meta Cloud and Zernio row types without duplicating filter/search logic per provider.
 - Phase 124 plan 02 placed the new "Messages" Settings nav entry between "Email Templates" and "WhatsApp Templates" in the Communications section's items array (cosmetic ordering only); the "Communications" heading itself was left unchanged, since renaming it to "Templates" is explicitly Phase 125's job (NAV-03).
+- [Phase 125]: Phase 125 plan 02: single-line heading rename ('Communications' to 'Templates') confirms NAV-04 extensibility was already satisfied by the existing static SECTIONS array shape — no structural change needed.
 
 ### Pending Todos
 
@@ -59,5 +60,5 @@ None — Phase 124 is fully complete (data model + CRUD UI); Phase 125 is now un
 
 ## Session Continuity
 
-**Stopped At:** Completed 124-02-PLAN.md (Messages Templates UI) — list page (card grid, empty state, edit/delete), new-template entry flow (name-only, redirects to editor), and editor page (name + default body + SMS/Email/WhatsApp override tabs via react-hook-form/zod) built at `/settings/message-templates`, plus a "Messages" Settings sub-nav entry under Communications. Build passes with no type errors (after clearing a stale `.next` build-cache lock left over from a prior interrupted build — not a code issue). Phase 124 is now fully complete (both 124-01 and 124-02 done); Phase 125 (Messages Preview + Templates Nav Finalization) is unblocked and ready to plan.
+**Stopped At:** Completed 125-02-PLAN.md (Templates Nav Finalization) — renamed Settings sub-nav 'Communications' heading to 'Templates', confirming NAV-04 extensibility via existing SECTIONS array shape. Both plans of Phase 125 now need verification (125-01 status to be confirmed by its own executor). v3.3 milestone nav-finalization goal complete pending 125-01.
 **Resume File:** None
