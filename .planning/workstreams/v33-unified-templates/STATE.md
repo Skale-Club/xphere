@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.3
 milestone_name: milestone
-status: executing
-stopped_at: Completed 125-02-PLAN.md (Templates Nav Finalization) — renamed Settings sub-nav 'Communications' heading to 'Templates', confirming NAV-04 extensibility via existing SECTIONS array shape. Both plans of Phase 125 now need verification (125-01 status to be confirmed by its own executor). v3.3 milestone nav-finalization goal complete pending 125-01.
-last_updated: "2026-07-03T04:09:21.930Z"
+status: verifying
+stopped_at: Completed 125-01-PLAN.md (Messages Preview) and 125-02-PLAN.md (Templates Nav Finalization) — both plans of Phase 125 done. 125-01 added a live-resolved 5th 'Preview' tab (Default/SMS/Email/WhatsApp/Preview) to the Messages template editor via useWatch; 125-02 renamed Settings sub-nav 'Communications' heading to 'Templates'. Phase 125 fully complete; v3.3 milestone nav-finalization goal complete pending formal verification/close-out.
+last_updated: "2026-07-03T04:11:54.322Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 80
 ---
 
@@ -18,11 +18,11 @@ progress:
 
 ## Current Position
 
-Phase: 125 (Messages Preview + Templates Nav Finalization) — 125-02 COMPLETE (nav rename); 125-01 status pending confirmation from its own executor
+Phase: 125 (Messages Preview + Templates Nav Finalization) — COMPLETE (125-01 live Preview tab; 125-02 nav rename)
 Phase: 123 (WhatsApp Templates Relocation + Search/Filter) — COMPLETE (123-01 executed, relocated + filtered)
 Phase: 124 (Messages Templates Data Model + CRUD) — COMPLETE (124-01 data model + CRUD actions; 124-02 list/new/editor UI + nav entry)
 Plan: 2 of 2
-Status: 125-02 complete
+Status: Phase complete — ready for verification
 Last activity: 2026-07-03
 
 Progress: [████████░░] 80%
@@ -49,6 +49,7 @@ Progress: [████████░░] 80%
 - Phase 123 relocated the WhatsApp templates grouping logic into a new generic client component (`WhatsAppTemplatesFilters`) parameterized by a minimal `FilterableTemplate` shape and a `renderCard` callback, so the same filter UI serves both Meta Cloud and Zernio row types without duplicating filter/search logic per provider.
 - Phase 124 plan 02 placed the new "Messages" Settings nav entry between "Email Templates" and "WhatsApp Templates" in the Communications section's items array (cosmetic ordering only); the "Communications" heading itself was left unchanged, since renaming it to "Templates" is explicitly Phase 125's job (NAV-03).
 - [Phase 125]: Phase 125 plan 02: single-line heading rename ('Communications' to 'Templates') confirms NAV-04 extensibility was already satisfied by the existing static SECTIONS array shape — no structural change needed.
+- [Phase 125]: Phase 125 plan 01: merged the standalone Default body block into the Tabs component as a 5th sibling (Default/SMS/Email/WhatsApp/Preview), with Preview computed via useWatch — pure client-side derivation, no new server action or schema change
 
 ### Pending Todos
 
@@ -60,5 +61,5 @@ None — Phase 124 is fully complete (data model + CRUD UI); Phase 125 is now un
 
 ## Session Continuity
 
-**Stopped At:** Completed 125-02-PLAN.md (Templates Nav Finalization) — renamed Settings sub-nav 'Communications' heading to 'Templates', confirming NAV-04 extensibility via existing SECTIONS array shape. Both plans of Phase 125 now need verification (125-01 status to be confirmed by its own executor). v3.3 milestone nav-finalization goal complete pending 125-01.
+**Stopped At:** Completed 125-01-PLAN.md (Messages Preview) and 125-02-PLAN.md (Templates Nav Finalization) — both plans of Phase 125 done. 125-01 added a live-resolved 5th 'Preview' tab (Default/SMS/Email/WhatsApp/Preview) to the Messages template editor via useWatch; 125-02 renamed Settings sub-nav 'Communications' heading to 'Templates'. Phase 125 fully complete; v3.3 milestone nav-finalization goal complete pending formal verification/close-out.
 **Resume File:** None

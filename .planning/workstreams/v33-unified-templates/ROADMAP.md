@@ -9,7 +9,7 @@ This milestone cleans up two nav wrongs (a redundant Call Center link, a stray C
 - [x] **Phase 122: Settings Nav Cleanup** - Remove the redundant Call Center link and move Chat Widget into Build; zero dependency on the rest of the milestone. (completed 2026-07-03)
 - [x] **Phase 123: WhatsApp Templates Relocation + Search/Filter** - Give the existing WhatsApp templates screen a real Settings route with search + status/category/language filtering, preserving dual-provider sync behavior. (completed 2026-07-03)
 - [x] **Phase 124: Messages Templates Data Model + CRUD** - New `message_templates` table (RLS) with default body + per-channel overrides; list/create/edit/delete UI at `/settings/message-templates`. (completed 2026-07-03)
-- [ ] **Phase 125: Messages Preview + Templates Nav Finalization** - Per-channel resolution preview on the Messages template editor; rename Communications → Templates with Email/Messages/WhatsApp entries in an extensible shared pattern.
+- [x] **Phase 125: Messages Preview + Templates Nav Finalization** - Per-channel resolution preview on the Messages template editor; rename Communications → Templates with Email/Messages/WhatsApp entries in an extensible shared pattern. (completed 2026-07-03)
 
 ## Phase Details
 
@@ -70,7 +70,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 125-01-PLAN.md — Restructure Messages template editor into 5 tabs (Default/SMS/Email/WhatsApp/Preview) with live per-channel resolution preview
+- [x] 125-01-PLAN.md — Restructure Messages template editor into 5 tabs (Default/SMS/Email/WhatsApp/Preview) with live per-channel resolution preview
 - [x] 125-02-PLAN.md — Rename Settings sub-nav Communications section to Templates
 
 ## Progress
@@ -83,4 +83,4 @@ Phases 122 and 123 and 124 have no interdependency and may execute in any order 
 | 122. Settings Nav Cleanup | 1/1 | Complete    | 2026-07-03 |
 | 123. WhatsApp Templates Relocation + Search/Filter | 1/1 | Complete    | 2026-07-03 |
 | 124. Messages Templates Data Model + CRUD | 2/2 | Complete    | 2026-07-03 |
-| 125. Messages Preview + Templates Nav Finalization | 1/2 | In Progress|  |
+| 125. Messages Preview + Templates Nav Finalization | 2/2 | Complete   | 2026-07-03 |
