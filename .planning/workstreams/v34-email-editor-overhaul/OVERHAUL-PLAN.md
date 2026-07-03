@@ -1,6 +1,7 @@
 # v3.4 — Email Editor Overhaul
 
-**Status:** In progress (autonomous overnight run, 2026-07-03)
+**Status:** ✅ Built + tested (3 commits) — see [SUMMARY.md](./SUMMARY.md). Pending: apply migration 1234 + browser QA.
+**Original status:** In progress (autonomous overnight run, 2026-07-03)
 **Branch:** `feat/email-editor-overhaul` (NOT pushed — review + merge in the morning; `main` auto-deploys to prod)
 **Owner request (pt-BR):**
 1. Todos os campos de imagem passam a ser **upload de arquivo**, não campo de URL.
