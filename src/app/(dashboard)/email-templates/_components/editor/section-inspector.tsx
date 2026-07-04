@@ -5,7 +5,7 @@ import { reflowSectionColumns } from '@/lib/email/editor-dnd'
 import { ImageUploader } from './image-uploader'
 import {
   InspectorGroup, Field, ColorControl, NumberControl,
-  SpacingControl, SegmentedControl, SliderControl,
+  SpacingControl, SegmentedControl, SliderControl, PanelToggleButton,
 } from './controls'
 
 /**
@@ -16,9 +16,11 @@ import {
 export function SectionInspector({
   section,
   onUpdate,
+  onToggleCollapse,
 }: {
   section: EmailSection
   onUpdate: (updates: Partial<EmailSection>) => void
+  onToggleCollapse: () => void
 }) {
   const layout = section.layout ?? 1
 
@@ -28,8 +30,9 @@ export function SectionInspector({
 
   return (
     <div>
-      <div className="border-b border-border px-3.5 py-2.5">
+      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
         <p className="text-xs font-semibold">Section</p>
+        <PanelToggleButton collapsed={false} onClick={onToggleCollapse} />
       </div>
 
       <InspectorGroup title="Layout">

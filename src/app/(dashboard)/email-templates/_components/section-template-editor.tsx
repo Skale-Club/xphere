@@ -1,22 +1,27 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import type { EmailDocument, EmailBlock } from '@/lib/email/render-template'
 import { makeBlockId } from '@/lib/email/render-template'
 import { EmailTemplateEditor } from './email-template-editor'
-import { updateReusableBlock } from '../actions'
-import type { EmailTemplateBuilderRow, ReusableBlock } from '../actions'
+import { updateSectionTemplate, updateSectionTemplateType } from '../actions'
+import type { EmailTemplateBuilderRow, SectionTemplate } from '../actions'
 
 /**
- * Standalone editor for a section template (reusable_email_blocks). Wraps the
+ * Standalone editor for a section template (email_section_templates). Wraps the
  * flat `{ blocks }` fragment as a single 1-column section so the full block
  * editor can drive it, and on save flattens the columns back to `{ blocks }`.
  * Runs the shared EmailTemplateEditor in `variant="section"` (no publish,
- * add-section, or section chrome).
+ * add-section, or section chrome). The section_type is edited inline via the
+ * toolbar selector (persisted immediately, independent of the document Save).
  */
-export function SectionTemplateEditor({ block }: { block: ReusableBlock }) {
+export function SectionTemplateEditor({ sectionTemplate }: { sectionTemplate: SectionTemplate }) {
+  const [sectionType, setSectionType] = useState(sectionTemplate.section_type)
+  const [, startTransition] = useTransition()
+
   const syntheticRow: EmailTemplateBuilderRow = useMemo(() => {
-    const blocks = (block.document as { blocks?: EmailBlock[] }).blocks ?? []
+    const blocks = (sectionTemplate.document as { blocks?: EmailBlock[] }).blocks ?? []
     const doc: EmailDocument = {
       backgroundColor: '#f0f0f0',
       contentWidth: 600,
@@ -32,30 +37,42 @@ export function SectionTemplateEditor({ block }: { block: ReusableBlock }) {
       ],
     }
     return {
-      id: block.id,
-      org_id: block.org_id,
-      name: block.name,
+      id: sectionTemplate.id,
+      org_id: sectionTemplate.org_id,
+      name: sectionTemplate.name,
       description: null,
       status: 'draft',
       document: doc,
       html_snapshot: null,
       plain_text_snapshot: null,
-      folder_id: block.folder_id,
-      position: block.position,
+      folder_id: sectionTemplate.folder_id,
+      position: sectionTemplate.position,
       created_by: null,
-      created_at: block.created_at,
-      updated_at: block.updated_at,
+      created_at: sectionTemplate.created_at,
+      updated_at: sectionTemplate.updated_at,
     }
-  }, [block])
+  }, [sectionTemplate])
 
   return (
     <EmailTemplateEditor
       template={syntheticRow}
-      reusableBlocks={[]}
+      sectionTemplates={[]}
       variant="section"
+      sectionType={sectionType}
+      onSectionTypeChange={(value) => {
+        const prev = sectionType
+        setSectionType(value)
+        startTransition(async () => {
+          const res = await updateSectionTemplateType(sectionTemplate.id, value)
+          if (!res.ok) {
+            setSectionType(prev)
+            toast.error(res.error ?? 'Failed to update type')
+          }
+        })
+      }}
       onSaveDocument={async (doc, name) => {
         const blocks = doc.sections.flatMap((s) => s.columns.flat())
-        return updateReusableBlock(block.id, { blocks }, name)
+        return updateSectionTemplate(sectionTemplate.id, { blocks }, name)
       }}
     />
   )

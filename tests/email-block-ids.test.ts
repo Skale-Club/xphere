@@ -93,14 +93,14 @@ describe('renderTemplate — HTML is unchanged by ids', () => {
   })
 })
 
-describe('reusable-block re-mint — distinct ids (data-level guarantee)', () => {
+describe('section-template re-mint — distinct ids (data-level guarantee)', () => {
   it('re-minting a saved block set twice yields disjoint id sets', () => {
-    // Simulate a saved reusable block: two blocks that already carry ids.
+    // Simulate a saved section template: two blocks that already carry ids.
     const saved: EmailBlock[] = [
       { id: 'saved-a', blockType: 'text', content: 'A', fontSize: 14, color: '#333', align: 'left' },
       { id: 'saved-b', blockType: 'divider', color: '#ccc', thickness: 1 },
     ]
-    // The editor's insertReusableBlock does exactly this on each insert:
+    // The editor's insertSectionTemplate does exactly this on each insert:
     const remint = (blocks: EmailBlock[]) => blocks.map((b) => ({ ...b, id: makeBlockId() }))
     const firstInsert = remint(saved)
     const secondInsert = remint(saved)

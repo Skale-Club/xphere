@@ -3,7 +3,7 @@
 import { useState, useTransition, useCallback, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
-  Save, Eye, Loader2, Send, Undo2, Redo2, Trash2, Bookmark,
+  Save, Eye, Loader2, Send, Undo2, Redo2, Trash2,
   Smartphone, Monitor, Circle, Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -33,9 +33,9 @@ import type {
 import { renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument } from '@/lib/email/render-template'
 import { findBlockLocation, insertBlockInColumn, moveBlock } from '@/lib/email/editor-dnd'
 import {
-  saveTemplate, saveReusableBlock, deleteReusableBlock, publishTemplate, unpublishTemplate,
+  saveTemplate, saveSectionTemplate, deleteSectionTemplate, publishTemplate, unpublishTemplate,
 } from '../actions'
-import type { EmailTemplateBuilderRow, ReusableBlock } from '../actions'
+import type { EmailTemplateBuilderRow, SectionTemplate } from '../actions'
 import { BlockPalette } from './block-palette'
 import { Canvas } from './editor/canvas'
 import { InspectorPanel } from './editor/inspector-panel'
@@ -44,16 +44,23 @@ import { useEditorHistory } from './editor/use-editor-history'
 
 type SaveResult = { ok: true } | { ok: false; error?: string }
 
+/** Category tags for a section template — advisory only (no DB constraint). */
+const SECTION_TYPES = ['header', 'footer', 'cta', 'logo', 'social', 'legal', 'custom']
+
 interface EmailTemplateEditorProps {
   template: EmailTemplateBuilderRow
-  reusableBlocks: ReusableBlock[]
-  /** 'section' constrains the editor to a single reusable section template:
-   *  hides publish/reusable/add-section/section chrome and saves via
+  sectionTemplates: SectionTemplate[]
+  /** 'section' constrains the editor to a single section template:
+   *  hides publish/add-section/section chrome and saves via
    *  onSaveDocument instead of the template save action. */
   variant?: 'template' | 'section'
   /** Section-mode save: receives the working document + name; the caller maps it
-   *  back to a reusable_email_blocks row. */
+   *  back to an email_section_templates row. */
   onSaveDocument?: (doc: EmailDocument, name: string) => Promise<SaveResult>
+  /** Section-mode only: current section_type + change handler for the inline
+   *  type selector rendered in the toolbar. */
+  sectionType?: string
+  onSectionTypeChange?: (value: string) => void
 }
 
 function makeSection(layout: 1 | 2 | 3 = 1): EmailSection {
@@ -71,7 +78,8 @@ function cloneBlock(b: EmailBlock): EmailBlock {
 }
 
 export function EmailTemplateEditor({
-  template, reusableBlocks: initialBlocks, variant = 'template', onSaveDocument,
+  template, sectionTemplates: initialSectionTemplates, variant = 'template', onSaveDocument,
+  sectionType, onSectionTypeChange,
 }: EmailTemplateEditorProps) {
   const initialDoc = useMemo(() => normalizeDocument(template.document), [template.document])
   const { state: doc, set: setDoc, undo, redo, canUndo, canRedo } = useEditorHistory<EmailDocument>(initialDoc)
@@ -79,7 +87,7 @@ export function EmailTemplateEditor({
   const [name, setName] = useState(template.name)
   const [status, setStatus] = useState(template.status)
   const [isPending, startTransition] = useTransition()
-  const [reusableBlocks, setReusableBlocks] = useState<ReusableBlock[]>(initialBlocks)
+  const [sectionTemplates, setSectionTemplates] = useState<SectionTemplate[]>(initialSectionTemplates)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
 
@@ -170,8 +178,8 @@ export function EmailTemplateEditor({
     setSelectedBlockId(block.id)
   }, [setDoc])
 
-  const insertReusable = useCallback((sectionId: string, colIdx: number, rb: ReusableBlock) => {
-    const source = (rb.document as { blocks?: EmailBlock[] }).blocks ?? []
+  const insertSectionTemplate = useCallback((sectionId: string, colIdx: number, st: SectionTemplate) => {
+    const source = (st.document as { blocks?: EmailBlock[] }).blocks ?? []
     if (!source.length) return
     setDoc((prev) => {
       let next = prev
@@ -224,15 +232,14 @@ export function EmailTemplateEditor({
     setDoc((prev) => moveBlock(prev, blockId, loc.sectionId, loc.colIdx, target))
   }, [doc, setDoc])
 
-  // ── Save as reusable ───────────────────────────────────────────────────────────
-  const [saveBlockOpen, setSaveBlockOpen] = useState(false)
-  const [saveBlockName, setSaveBlockName] = useState('')
-  const [saveBlockType, setSaveBlockType] = useState('header')
+  // ── Save as section template ─────────────────────────────────────────────────────
+  const [saveSectionOpen, setSaveSectionOpen] = useState(false)
+  const [saveSectionName, setSaveSectionName] = useState('')
   const [targetSectionForSave, setTargetSectionForSave] = useState<string | null>(null)
 
-  const openSaveReusable = useCallback((sectionId: string) => {
+  const openSaveSectionTemplate = useCallback((sectionId: string) => {
     setTargetSectionForSave(sectionId)
-    setSaveBlockOpen(true)
+    setSaveSectionOpen(true)
   }, [])
 
   // ── Editor API (context value) ───────────────────────────────────────────────────
@@ -249,19 +256,19 @@ export function EmailTemplateEditor({
     updateSection,
     moveSection,
     addBlock,
-    insertReusable,
+    insertSectionTemplate,
     removeBlock,
     duplicateBlock,
     updateBlock,
     moveBlockDir,
     setDoc,
-    reusableBlocks,
-    openSaveReusable,
+    sectionTemplates,
+    openSaveSectionTemplate,
   }), [
     doc, variant, selectedSectionId, selectedBlockId, selectBlock, selectSection,
     addSection, removeSection, duplicateSection, updateSection, moveSection,
-    addBlock, insertReusable, removeBlock, duplicateBlock, updateBlock,
-    moveBlockDir, setDoc, reusableBlocks, openSaveReusable,
+    addBlock, insertSectionTemplate, removeBlock, duplicateBlock, updateBlock,
+    moveBlockDir, setDoc, sectionTemplates, openSaveSectionTemplate,
   ])
 
   // ── Breadcrumb inline name editing ───────────────────────────────────────────────
@@ -338,27 +345,27 @@ export function EmailTemplateEditor({
     })
   }
 
-  function handleSaveAsReusable() {
-    if (!targetSectionForSave || !saveBlockName.trim()) return
+  function handleSaveSectionTemplate() {
+    if (!targetSectionForSave || !saveSectionName.trim()) return
     const section = doc.sections.find((s) => s.id === targetSectionForSave)
     if (!section) return
     const blocks = section.columns.flat()
     startTransition(async () => {
-      const result = await saveReusableBlock(saveBlockName.trim(), saveBlockType, { blocks })
+      const result = await saveSectionTemplate(saveSectionName.trim(), { blocks })
       if (!result.ok) { toast.error(result.error); return }
-      toast.success('Saved as reusable block')
-      setSaveBlockOpen(false)
-      setSaveBlockName('')
+      toast.success('Saved as section template')
+      setSaveSectionOpen(false)
+      setSaveSectionName('')
     })
   }
 
-  async function handleDeleteReusable(id: string) {
-    const result = await deleteReusableBlock(id)
+  async function handleDeleteSectionTemplate(id: string) {
+    const result = await deleteSectionTemplate(id)
     if (!result.ok) { toast.error(result.error); return }
-    setReusableBlocks((prev) => prev.filter((b) => b.id !== id))
-    toast.success('Reusable block deleted')
+    setSectionTemplates((prev) => prev.filter((s) => s.id !== id))
+    toast.success('Section template deleted')
   }
-  const [reusableOpen, setReusableOpen] = useState(false)
+  const [sectionTemplatesOpen, setSectionTemplatesOpen] = useState(false)
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -389,7 +396,7 @@ export function EmailTemplateEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
   const [activeDrag, setActiveDrag] = useState<
-    | { kind: 'palette'; blockType?: string; reusableName?: string }
+    | { kind: 'palette'; blockType?: string; sectionTemplateName?: string }
     | { kind: 'block'; label: string }
     | { kind: 'section' }
     | null
@@ -422,7 +429,7 @@ export function EmailTemplateEditor({
       setActiveDrag({
         kind: 'palette',
         blockType: data.blockType as string | undefined,
-        reusableName: reusableBlocks.find((r) => r.id === data.reusableId)?.name,
+        sectionTemplateName: sectionTemplates.find((s) => s.id === data.sectionTemplateId)?.name,
       })
     } else if (data?.type === 'block' || findBlockLocation(docRef.current, id)) {
       const b = docRef.current.sections.flatMap((s) => s.columns.flat()).find((x) => x.id === id)
@@ -446,9 +453,9 @@ export function EmailTemplateEditor({
     if (data?.type === 'palette') {
       const target = resolveDropTarget(overId)
       if (!target) return
-      if (data.source === 'reusable') {
-        const rb = reusableBlocks.find((r) => r.id === data.reusableId)
-        const src = (rb?.document as { blocks?: EmailBlock[] })?.blocks ?? []
+      if (data.source === 'section') {
+        const st = sectionTemplates.find((s) => s.id === data.sectionTemplateId)
+        const src = (st?.document as { blocks?: EmailBlock[] })?.blocks ?? []
         if (!src.length) return
         setDoc((prev) => {
           let next = prev
@@ -494,7 +501,7 @@ export function EmailTemplateEditor({
     if (activeDrag.kind === 'palette') {
       return (
         <div className="rounded border border-primary bg-card px-2 py-1.5 text-xs capitalize shadow-md">
-          {activeDrag.blockType ?? activeDrag.reusableName ?? 'block'}
+          {activeDrag.blockType ?? activeDrag.sectionTemplateName ?? 'block'}
         </div>
       )
     }
@@ -515,7 +522,7 @@ export function EmailTemplateEditor({
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <BlockPalette reusableBlocks={reusableBlocks} />
+          <BlockPalette sectionTemplates={sectionTemplates} />
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Toolbar */}
@@ -530,9 +537,23 @@ export function EmailTemplateEditor({
               </div>
 
               {variant === 'section' ? (
-                <Badge variant="outline" className="h-5 gap-1 text-[10px]">
-                  <Layers className="h-3 w-3" /> Section template
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="h-5 gap-1 text-[10px]">
+                    <Layers className="h-3 w-3" /> Section template
+                  </Badge>
+                  {onSectionTypeChange && (
+                    <Select value={sectionType ?? 'custom'} onValueChange={onSectionTypeChange}>
+                      <SelectTrigger className="h-6 gap-1 px-2 text-[11px] capitalize">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SECTION_TYPES.map((t) => (
+                          <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               ) : (
                 <Badge variant={status === 'published' ? 'default' : 'outline'} className="h-5 text-[10px] capitalize">
                   {status}
@@ -546,8 +567,8 @@ export function EmailTemplateEditor({
 
               <div className="ml-auto flex items-center gap-1">
                 {variant === 'template' && (
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setReusableOpen(true)}>
-                    <Bookmark className="h-3.5 w-3.5" /> Reusable
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setSectionTemplatesOpen(true)}>
+                    <Layers className="h-3.5 w-3.5" /> Sections
                   </Button>
                 )}
                 <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handlePreview}>
@@ -575,29 +596,29 @@ export function EmailTemplateEditor({
         <InspectorPanel />
       </div>
 
-      {/* Reusable blocks management dialog */}
-      <Dialog open={reusableOpen} onOpenChange={setReusableOpen}>
+      {/* Section templates management dialog */}
+      <Dialog open={sectionTemplatesOpen} onOpenChange={setSectionTemplatesOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="mb-2">
-            <DialogTitle>Reusable Blocks</DialogTitle>
+            <DialogTitle>Section Templates</DialogTitle>
             <DialogDescription>
               Saved sections you can drag in from the palette or insert via a column&apos;s &quot;Add block&quot; menu.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2 pr-1">
-              {reusableBlocks.length === 0 && (
+              {sectionTemplates.length === 0 && (
                 <p className="py-6 text-center text-xs text-muted-foreground">
-                  No reusable blocks yet. Use a section&apos;s bookmark icon to save one.
+                  No section templates yet. Use a section&apos;s bookmark icon to save one.
                 </p>
               )}
-              {reusableBlocks.map((rb) => (
-                <div key={rb.id} className="flex items-start justify-between gap-2 rounded border border-border p-2.5">
+              {sectionTemplates.map((st) => (
+                <div key={st.id} className="flex items-start justify-between gap-2 rounded border border-border p-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-medium leading-tight">{rb.name}</p>
-                    <Badge variant="outline" className="mt-1 text-[10px]">{rb.block_type}</Badge>
+                    <p className="truncate text-xs font-medium leading-tight">{st.name}</p>
+                    <Badge variant="outline" className="mt-1 text-[10px]">{st.section_type}</Badge>
                   </div>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-destructive hover:text-destructive" onClick={() => handleDeleteReusable(rb.id)}>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-destructive hover:text-destructive" onClick={() => handleDeleteSectionTemplate(st.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -641,32 +662,21 @@ export function EmailTemplateEditor({
         </DialogContent>
       </Dialog>
 
-      {/* Save as reusable dialog */}
-      <Dialog open={saveBlockOpen} onOpenChange={setSaveBlockOpen}>
+      {/* Save as section template dialog */}
+      <Dialog open={saveSectionOpen} onOpenChange={setSaveSectionOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader className="mb-2">
-            <DialogTitle>Save as Reusable Block</DialogTitle>
+            <DialogTitle>Save as Section Template</DialogTitle>
             <DialogDescription>Save this section so you can reuse it in any template.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Block name</Label>
-              <Input value={saveBlockName} onChange={(e) => setSaveBlockName(e.target.value)} placeholder="e.g. Company Header" />
+              <Label>Section name</Label>
+              <Input value={saveSectionName} onChange={(e) => setSaveSectionName(e.target.value)} placeholder="e.g. Company Header" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Block type</Label>
-              <Select value={saveBlockType} onValueChange={setSaveBlockType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {['header', 'footer', 'cta', 'logo', 'social', 'legal'].map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={handleSaveAsReusable} disabled={!saveBlockName.trim() || isPending}>
+            <Button className="w-full" onClick={handleSaveSectionTemplate} disabled={!saveSectionName.trim() || isPending}>
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save block
+              Save section
             </Button>
           </div>
         </DialogContent>

@@ -5,7 +5,7 @@ import { NewTemplateButton } from '@/components/email-templates/new-template-but
 import { NewSectionTemplateButton } from '@/components/email-templates/new-section-template-button'
 import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import { createFolder } from '@/app/(dashboard)/email-templates/_actions/folders'
-import { listTemplates, getReusableBlocks } from '@/app/(dashboard)/email-templates/actions'
+import { listTemplates, listSectionTemplates } from '@/app/(dashboard)/email-templates/actions'
 import type { Database } from '@/types/database'
 
 type EmailFolderRow = Database['public']['Tables']['folders']['Row']
@@ -29,15 +29,15 @@ export default async function EmailTemplatesLayout({ children }: { children: Rea
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
 
-  const [templatesRes, tplFoldersRes, blocksRes, secFoldersRes] = await Promise.all([
+  const [templatesRes, tplFoldersRes, sectionsRes, secFoldersRes] = await Promise.all([
     listTemplates(),
     foldersQuery(supabase, 'email_template', orgId as string | null),
-    getReusableBlocks(),
-    foldersQuery(supabase, 'reusable_email_block', orgId as string | null),
+    listSectionTemplates(),
+    foldersQuery(supabase, 'email_section_template', orgId as string | null),
   ])
 
   const templates = templatesRes.ok ? templatesRes.data : []
-  const sections = blocksRes.ok ? blocksRes.data : []
+  const sections = sectionsRes.ok ? sectionsRes.data : []
   const tplFolders = ((tplFoldersRes as { data: EmailFolderRow[] | null }).data ?? []) as EmailFolderRow[]
   const secFolders = ((secFoldersRes as { data: EmailFolderRow[] | null }).data ?? []) as EmailFolderRow[]
 

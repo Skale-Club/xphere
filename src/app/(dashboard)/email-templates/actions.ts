@@ -24,11 +24,11 @@ export interface EmailTemplateBuilderRow {
   updated_at: string
 }
 
-export interface ReusableBlock {
+export interface SectionTemplate {
   id: string
   org_id: string
   name: string
-  block_type: string
+  section_type: string
   document: Record<string, unknown>
   folder_id: string | null
   position: number
@@ -250,11 +250,10 @@ export async function duplicateTemplate(id: string): Promise<ActionResult<{ id: 
   return { ok: true, data: { id: data.id } }
 }
 
-// ─── saveReusableBlock ────────────────────────────────────────────────────────
+// ─── saveSectionTemplate ──────────────────────────────────────────────────────
 
-export async function saveReusableBlock(
+export async function saveSectionTemplate(
   name: string,
-  blockType: string,
   document: Record<string, unknown>,
 ): Promise<ActionResult<void>> {
   const user = await getUser()
@@ -267,55 +266,56 @@ export async function saveReusableBlock(
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
   const { error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .insert({
       org_id: orgId as string,
       name: name.trim(),
-      block_type: blockType,
+      section_type: 'custom',
       document: document as Json,
     })
 
   if (error) return { ok: false, error: error.message }
+  revalidatePath('/settings/email-templates')
   return { ok: true, data: undefined }
 }
 
-// ─── getReusableBlocks ────────────────────────────────────────────────────────
+// ─── listSectionTemplates ─────────────────────────────────────────────────────
 
-export async function getReusableBlocks(): Promise<ActionResult<ReusableBlock[]>> {
+export async function listSectionTemplates(): Promise<ActionResult<SectionTemplate[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .select('*')
     .order('position', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, data: (data ?? []) as ReusableBlock[] }
+  return { ok: true, data: (data ?? []) as SectionTemplate[] }
 }
 
-// ─── getReusableBlock (one) ───────────────────────────────────────────────────
+// ─── getSectionTemplate (one) ─────────────────────────────────────────────────
 
-export async function getReusableBlock(id: string): Promise<ActionResult<ReusableBlock>> {
+export async function getSectionTemplate(id: string): Promise<ActionResult<SectionTemplate>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .select('*')
     .eq('id', id)
     .single()
 
   if (error || !data) return { ok: false, error: error?.message ?? 'not_found' }
-  return { ok: true, data: data as ReusableBlock }
+  return { ok: true, data: data as SectionTemplate }
 }
 
-// ─── createReusableBlock (from scratch) ───────────────────────────────────────
+// ─── createSectionTemplate (from scratch) ─────────────────────────────────────
 
-export async function createReusableBlock(
+export async function createSectionTemplate(
   name: string,
   folderId: string | null = null,
 ): Promise<ActionResult<{ id: string }>> {
@@ -328,11 +328,11 @@ export async function createReusableBlock(
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
   const { data, error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .insert({
       org_id: orgId as string,
       name: name.trim(),
-      block_type: 'custom',
+      section_type: 'custom',
       document: { blocks: [] },
       folder_id: folderId,
     })
@@ -344,16 +344,16 @@ export async function createReusableBlock(
   return { ok: true, data: { id: data.id } }
 }
 
-// ─── renameReusableBlock ──────────────────────────────────────────────────────
+// ─── renameSectionTemplate ────────────────────────────────────────────────────
 
-export async function renameReusableBlock(id: string, name: string): Promise<ActionResult<void>> {
+export async function renameSectionTemplate(id: string, name: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
   if (!name.trim()) return { ok: false, error: 'name_required' }
 
   const supabase = await createClient()
   const { error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .update({ name: name.trim() })
     .eq('id', id)
 
@@ -362,9 +362,30 @@ export async function renameReusableBlock(id: string, name: string): Promise<Act
   return { ok: true, data: undefined }
 }
 
-// ─── updateReusableBlock (document from the section editor) ────────────────────
+// ─── updateSectionTemplateType (inline type editor) ───────────────────────────
 
-export async function updateReusableBlock(
+export async function updateSectionTemplateType(
+  id: string,
+  sectionType: string,
+): Promise<ActionResult<void>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('email_section_templates')
+    .update({ section_type: sectionType })
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/settings/email-templates')
+  revalidatePath(`/settings/email-templates/sections/${id}`)
+  return { ok: true, data: undefined }
+}
+
+// ─── updateSectionTemplate (document from the section editor) ──────────────────
+
+export async function updateSectionTemplate(
   id: string,
   document: Record<string, unknown>,
   name?: string,
@@ -377,7 +398,7 @@ export async function updateReusableBlock(
   if (name !== undefined) patch.name = name.trim()
 
   const { error } = await supabase
-    .from('reusable_email_blocks')
+    .from('email_section_templates')
     .update(patch)
     .eq('id', id)
 
@@ -387,14 +408,14 @@ export async function updateReusableBlock(
   return { ok: true, data: undefined }
 }
 
-// ─── deleteReusableBlock ──────────────────────────────────────────────────────
+// ─── deleteSectionTemplate ────────────────────────────────────────────────────
 
-export async function deleteReusableBlock(id: string): Promise<ActionResult<void>> {
+export async function deleteSectionTemplate(id: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const supabase = await createClient()
-  const { error } = await supabase.from('reusable_email_blocks').delete().eq('id', id)
+  const { error } = await supabase.from('email_section_templates').delete().eq('id', id)
 
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: undefined }

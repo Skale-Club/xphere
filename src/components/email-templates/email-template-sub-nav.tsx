@@ -11,9 +11,9 @@ import {
   type TreeNavActions,
 } from '@/components/layout/draggable-tree-nav'
 import * as tplFolders from '@/app/(dashboard)/email-templates/_actions/folders'
-import * as secFolders from '@/app/(dashboard)/email-templates/_actions/reusable-block-folders'
+import * as secFolders from '@/app/(dashboard)/email-templates/_actions/section-template-folders'
 import {
-  deleteTemplate, deleteReusableBlock, renameReusableBlock,
+  deleteTemplate, deleteSectionTemplate, renameSectionTemplate,
 } from '@/app/(dashboard)/email-templates/actions'
 import { NewTemplateButton } from '@/components/email-templates/new-template-button'
 import { NewSectionTemplateButton } from '@/components/email-templates/new-section-template-button'
@@ -36,7 +36,7 @@ interface Props {
 }
 
 /**
- * Two-tab sub-sidebar: Templates (full emails) and Sections (reusable section
+ * Two-tab sub-sidebar: Templates (full emails) and Sections (section
  * templates). Each tab is an independent DraggableTreeNav bound to its own
  * entity's folder tree. The active tab seeds from the URL so deep-linking a
  * section editor opens on the Sections tab.
@@ -62,9 +62,9 @@ export function EmailTemplateSubNav({ templates, templateFolders, sections, sect
     deleteFolder: secFolders.deleteFolder,
     renameFolder: secFolders.renameFolder,
     updateFolderMeta: secFolders.updateFolderMeta,
-    moveItemToFolder: secFolders.moveReusableBlockToFolder,
-    reorderItemsInFolder: secFolders.reorderReusableBlocksInFolder,
-    renameItem: (id, input) => renameReusableBlock(id, input.name),
+    moveItemToFolder: secFolders.moveSectionTemplateToFolder,
+    reorderItemsInFolder: secFolders.reorderSectionTemplatesInFolder,
+    renameItem: (id, input) => renameSectionTemplate(id, input.name),
   }
 
   return (
@@ -120,7 +120,7 @@ export function EmailTemplateSubNav({ templates, templateFolders, sections, sect
               <Layers className="h-3 w-3" style={{ color: context?.folderColor ?? '#8b5cf6' }} />
             )}
             onDeleteItem={async (s) => {
-              const res = await deleteReusableBlock(s.id)
+              const res = await deleteSectionTemplate(s.id)
               if (!res.ok) { toast.error(res.error ?? 'Failed to delete'); return }
               toast.success(`Deleted "${s.name}"`)
               router.refresh()

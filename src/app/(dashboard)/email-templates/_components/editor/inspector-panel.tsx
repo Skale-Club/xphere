@@ -1,13 +1,17 @@
 'use client'
 
-import { Copy, Trash2, ChevronUp, ChevronDown, ArrowUpLeft, Palette } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  Copy, Trash2, ChevronUp, ChevronDown, ArrowUpLeft, Palette,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { findBlockLocation } from '@/lib/email/editor-dnd'
 import { useEditor } from './context'
 import { BlockInspector } from './block-inspector'
 import { SectionInspector } from './section-inspector'
 import {
-  InspectorGroup, Field, ColorControl, NumberControl, SelectControl,
+  InspectorGroup, Field, ColorControl, NumberControl, SelectControl, PanelToggleButton,
 } from './controls'
 
 const FONT_OPTIONS = [
@@ -20,9 +24,28 @@ const FONT_OPTIONS = [
   { value: 'system-ui, -apple-system, sans-serif', label: 'System UI' },
 ]
 
+const STORAGE_KEY = 'email-editor:inspector-collapsed'
+
 export function InspectorPanel() {
   const editor = useEditor()
   const { doc, selectedBlockId, selectedSectionId } = editor
+
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY)
+      if (stored !== null) setCollapsed(stored === '1')
+    } catch {}
+  }, [])
+
+  function toggle() {
+    setCollapsed((prev) => {
+      const next = !prev
+      try { window.localStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch {}
+      return next
+    })
+  }
 
   const selectedBlock = selectedBlockId
     ? doc.sections.flatMap((s) => s.columns.flat()).find((b) => b.id === selectedBlockId) ?? null
@@ -31,11 +54,24 @@ export function InspectorPanel() {
     ? doc.sections.find((s) => s.id === selectedSectionId) ?? null
     : null
 
+  if (collapsed) {
+    return (
+      <aside className="flex w-9 shrink-0 flex-col items-center overflow-hidden border-l border-border bg-card/40 py-2 transition-[width] duration-200 ease-out">
+        <PanelToggleButton collapsed={collapsed} onClick={toggle} />
+      </aside>
+    )
+  }
+
   return (
-    <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-border bg-card/40">
+    <aside
+      className={cn(
+        'flex w-72 shrink-0 flex-col overflow-hidden border-l border-border bg-card/40',
+        'transition-[width] duration-200 ease-out',
+      )}
+    >
       {selectedBlock ? (
         <>
-          <BlockActionsHeader />
+          <BlockActionsHeader onToggleCollapse={toggle} />
           <ScrollArea className="flex-1">
             <BlockInspector
               block={selectedBlock}
@@ -48,11 +84,12 @@ export function InspectorPanel() {
           <SectionInspector
             section={selectedSection}
             onUpdate={(u) => editor.updateSection(selectedSection.id, u)}
+            onToggleCollapse={toggle}
           />
         </ScrollArea>
       ) : (
         <ScrollArea className="flex-1">
-          <DocumentInspector />
+          <DocumentInspector onToggleCollapse={toggle} />
         </ScrollArea>
       )}
     </aside>
@@ -61,7 +98,7 @@ export function InspectorPanel() {
 
 // ─── Block actions (header) ──────────────────────────────────────────────────────
 
-function BlockActionsHeader() {
+function BlockActionsHeader({ onToggleCollapse }: { onToggleCollapse: () => void }) {
   const editor = useEditor()
   const id = editor.selectedBlockId!
   const loc = findBlockLocation(editor.doc, id)
@@ -86,6 +123,7 @@ function BlockActionsHeader() {
         <IconBtn title="Move down" onClick={() => editor.moveBlockDir(id, 1)}><ChevronDown className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn title="Duplicate" onClick={() => editor.duplicateBlock(id)}><Copy className="h-3.5 w-3.5" /></IconBtn>
         <IconBtn title="Delete" danger onClick={() => editor.removeBlock(id)}><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+        <PanelToggleButton collapsed={false} onClick={onToggleCollapse} />
       </div>
     </div>
   )
@@ -115,13 +153,16 @@ function IconBtn({
 
 // ─── Document inspector ──────────────────────────────────────────────────────────
 
-function DocumentInspector() {
+function DocumentInspector({ onToggleCollapse }: { onToggleCollapse: () => void }) {
   const { doc, setDoc } = useEditor()
   return (
     <div>
-      <div className="flex items-center gap-1.5 border-b border-border px-3.5 py-2.5">
-        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-        <p className="text-xs font-semibold">Email settings</p>
+      <div className="flex items-center justify-between gap-1.5 border-b border-border px-3.5 py-2.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Palette className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-xs font-semibold">Email settings</p>
+        </div>
+        <PanelToggleButton collapsed={false} onClick={onToggleCollapse} />
       </div>
       <div className="px-3.5 py-2">
         <p className="text-[10px] text-muted-foreground">

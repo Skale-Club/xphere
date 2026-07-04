@@ -23,7 +23,7 @@ export type FolderEntityType =
   | 'project'
   | 'tool'
   | 'email_template'
-  | 'reusable_email_block'
+  | 'email_section_template'
 export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 export type FolderRow = Database['public']['Tables']['folders']['Row']
 

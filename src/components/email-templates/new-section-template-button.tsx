@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { createReusableBlock } from '@/app/(dashboard)/email-templates/actions'
+import { createSectionTemplate } from '@/app/(dashboard)/email-templates/actions'
 
 interface Props {
   label?: string
@@ -32,7 +32,7 @@ export function NewSectionTemplateButton({ label = 'New section', className, ico
       aria-label={iconOnly ? label : undefined}
       onClick={() =>
         start(async () => {
-          const res = await createReusableBlock('Untitled section', folderId)
+          const res = await createSectionTemplate('Untitled section', folderId)
           if (!res.ok) {
             toast.error(res.error ?? 'Failed to create section')
             return

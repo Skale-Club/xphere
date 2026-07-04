@@ -15,8 +15,8 @@ import {
   createTemplate,
   saveTemplate,
   duplicateTemplate,
-  saveReusableBlock,
-  getReusableBlocks,
+  saveSectionTemplate,
+  listSectionTemplates,
 } from '@/app/(dashboard)/email-templates/actions'
 import { renderTemplate, emptyDocument } from '@/lib/email/render-template'
 
@@ -149,43 +149,46 @@ describe('duplicateTemplate', () => {
   })
 })
 
-// ─── saveReusableBlock ────────────────────────────────────────────────────────
+// ─── saveSectionTemplate ──────────────────────────────────────────────────────
 
-describe('saveReusableBlock', () => {
+describe('saveSectionTemplate', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   it('returns error when not authenticated', async () => {
     vi.mocked(getUser).mockResolvedValue(null)
-    const result = await saveReusableBlock('Header', 'header', {})
+    const result = await saveSectionTemplate('Header', {})
     expect(result.ok).toBe(false)
   })
 
-  it('saves reusable block', async () => {
+  it('saves section template with the custom type', async () => {
     vi.mocked(getUser).mockResolvedValue({ id: 'user-1' } as never)
     const supabase = makeSupabase()
     ;(supabase.insert as ReturnType<typeof vi.fn>).mockResolvedValue({ error: null })
     vi.mocked(createClient).mockResolvedValue(supabase as never)
 
-    const result = await saveReusableBlock('Company Header', 'header', { blocks: [] })
+    const result = await saveSectionTemplate('Company Header', { blocks: [] })
     expect(result.ok).toBe(true)
     expect(supabase.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Company Header', block_type: 'header' })
+      expect.objectContaining({ name: 'Company Header', section_type: 'custom' })
     )
   })
 })
 
-// ─── getReusableBlocks ────────────────────────────────────────────────────────
+// ─── listSectionTemplates ─────────────────────────────────────────────────────
 
-describe('getReusableBlocks', () => {
+describe('listSectionTemplates', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('returns empty array when no blocks', async () => {
+  it('returns empty array when no section templates', async () => {
     vi.mocked(getUser).mockResolvedValue({ id: 'user-1' } as never)
     const supabase = makeSupabase()
-    ;(supabase.order as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [], error: null })
+    // The query chains .order().order(); keep the first chainable, resolve the last.
+    ;(supabase.order as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(supabase)
+      .mockResolvedValueOnce({ data: [], error: null })
     vi.mocked(createClient).mockResolvedValue(supabase as never)
 
-    const result = await getReusableBlocks()
+    const result = await listSectionTemplates()
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data).toEqual([])
   })

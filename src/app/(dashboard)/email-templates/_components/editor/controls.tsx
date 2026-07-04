@@ -2,12 +2,32 @@
 
 import { useState } from 'react'
 import {
-  AlignLeft, AlignCenter, AlignRight, Link as LinkIcon, Unlink,
+  AlignLeft, AlignCenter, AlignRight, Link as LinkIcon, Unlink, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Align, BlockPadding } from '@/lib/email/render-template'
 
 // ─── Layout primitives ─────────────────────────────────────────────────────────
+
+/** Collapse/expand toggle for the inspector panel, shared across its header variants. */
+export function PanelToggleButton({
+  collapsed, onClick,
+}: {
+  collapsed: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={collapsed ? 'Expand settings panel' : 'Collapse settings panel'}
+      title={collapsed ? 'Expand settings panel' : 'Collapse settings panel'}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      {collapsed ? <PanelRightOpen className="h-3.5 w-3.5" /> : <PanelRightClose className="h-3.5 w-3.5" />}
+    </button>
+  )
+}
 
 /** A titled group of controls in the inspector. */
 export function InspectorGroup({

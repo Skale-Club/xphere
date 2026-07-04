@@ -7,7 +7,7 @@ import type {
   EmailBlock,
   EmailBlockType,
 } from '@/lib/email/render-template'
-import type { ReusableBlock } from '../../actions'
+import type { SectionTemplate } from '../../actions'
 
 /**
  * The editor API shared across the palette, canvas and inspector via context —
@@ -21,7 +21,7 @@ export interface EditorApi {
   doc: EmailDocument
 
   /** 'template' = full email (multi-section, publish). 'section' = a single
-   *  reusable section template (no add-section, no publish, no section chrome). */
+   *  section template (no add-section, no publish, no section chrome). */
   variant: 'template' | 'section'
 
   // ── Selection ──────────────────────────────────────────────
@@ -39,7 +39,7 @@ export interface EditorApi {
 
   // ── Block mutations ────────────────────────────────────────
   addBlock: (sectionId: string, colIdx: number, blockType: EmailBlockType) => void
-  insertReusable: (sectionId: string, colIdx: number, rb: ReusableBlock) => void
+  insertSectionTemplate: (sectionId: string, colIdx: number, st: SectionTemplate) => void
   removeBlock: (blockId: string) => void
   duplicateBlock: (blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<EmailBlock>) => void
@@ -48,9 +48,9 @@ export interface EditorApi {
   // ── Raw doc setter (used by drag-and-drop handlers) ────────
   setDoc: (updater: (prev: EmailDocument) => EmailDocument) => void
 
-  // ── Reusable blocks ────────────────────────────────────────
-  reusableBlocks: ReusableBlock[]
-  openSaveReusable: (sectionId: string) => void
+  // ── Section templates ──────────────────────────────────────
+  sectionTemplates: SectionTemplate[]
+  openSaveSectionTemplate: (sectionId: string) => void
 }
 
 export const EditorContext = createContext<EditorApi | null>(null)

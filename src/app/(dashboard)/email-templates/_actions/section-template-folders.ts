@@ -1,33 +1,33 @@
 'use server'
 
-// v3.4 — Section templates (reusable_email_blocks) join the universal folders
-// store under entity_type='reusable_email_block'. Thin 'use server' wrappers over
+// v3.4 — Section templates (email_section_templates) join the universal folders
+// store under entity_type='email_section_template'. Thin 'use server' wrappers over
 // src/lib/foldering/core.ts, mirroring _actions/folders.ts (the email_template
 // wrapper). Auth + revalidatePath stay here; CRUD/move/reorder live in the core.
 //
-// deleteFolder is custom: reusable_email_blocks has no soft-delete lifecycle
+// deleteFolder is custom: email_section_templates has no soft-delete lifecycle
 // (no deleted_at/archived_at), so instead of the core's item-tombstoning we just
 // delete the folder row — the FK `folder_id … on delete set null` re-homes its
-// blocks to Unfiled and `parent_id … on delete cascade` removes child folders.
+// sections to Unfiled and `parent_id … on delete cascade` removes child folders.
 
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import * as core from '@/lib/foldering/core'
 import type { FolderingContext, FolderRow, ActionResult } from '@/lib/foldering/core'
 
-export type ReusableBlockFolderRow = FolderRow
+export type SectionTemplateFolderRow = FolderRow
 
 async function ctx(): Promise<FolderingContext> {
   return {
     supabase: await createClient(),
-    entityType: 'reusable_email_block',
-    itemTable: 'reusable_email_blocks',
+    entityType: 'email_section_template',
+    itemTable: 'email_section_templates',
   }
 }
 
 const REVALIDATE = '/settings/email-templates'
 
-export async function listFolders(): Promise<ActionResult<ReusableBlockFolderRow[]>> {
+export async function listFolders(): Promise<ActionResult<SectionTemplateFolderRow[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
   return core.listFolders(await ctx())
@@ -38,7 +38,7 @@ export async function createFolder(input: {
   color?: string | null
   icon?: string | null
   parent_id?: string | null
-}): Promise<ActionResult<ReusableBlockFolderRow>> {
+}): Promise<ActionResult<SectionTemplateFolderRow>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
   const res = await core.createFolder(await ctx(), input)
@@ -93,7 +93,7 @@ export async function deleteFolder(
   const { data: childRows } = await supabase
     .from('folders')
     .select('id')
-    .eq('entity_type', 'reusable_email_block')
+    .eq('entity_type', 'email_section_template')
     .eq('parent_id', id)
     .limit(1)
 
@@ -105,25 +105,25 @@ export async function deleteFolder(
     .from('folders')
     .delete()
     .eq('id', id)
-    .eq('entity_type', 'reusable_email_block')
+    .eq('entity_type', 'email_section_template')
 
   if (error) return { ok: false, error: error.message }
   revalidatePath(REVALIDATE)
   return { ok: true, data: undefined }
 }
 
-export async function moveReusableBlockToFolder(
-  blockId: string,
+export async function moveSectionTemplateToFolder(
+  sectionId: string,
   folderId: string | null,
 ): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
-  const res = await core.moveItemToFolder(await ctx(), blockId, folderId)
+  const res = await core.moveItemToFolder(await ctx(), sectionId, folderId)
   if (res.ok) revalidatePath(REVALIDATE)
   return res
 }
 
-export async function reorderReusableBlocksInFolder(
+export async function reorderSectionTemplatesInFolder(
   _folderId: string | null,
   orderedIds: string[],
 ): Promise<ActionResult<void>> {

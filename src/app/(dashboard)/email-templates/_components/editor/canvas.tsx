@@ -133,7 +133,7 @@ function SortableSection({ section }: { section: EmailSection }) {
       }}
     >
       {/* Floating section toolbar — hidden for section templates (single section:
-          no reorder / duplicate / delete / save-as-reusable; styling is edited by
+          no reorder / duplicate / delete / save-as-section-template; styling is edited by
           selecting the section → inspector). */}
       {editor.variant !== 'section' && (
         <div className="absolute right-1 top-1 z-30 flex items-center gap-0.5 rounded border border-zinc-200 bg-white/95 opacity-0 shadow-sm transition-opacity group-hover/section:opacity-100">
@@ -149,7 +149,7 @@ function SortableSection({ section }: { section: EmailSection }) {
           <SectionIconBtn title="Section settings" onClick={() => editor.selectSection(section.id)}>
             <Palette className="h-3 w-3" />
           </SectionIconBtn>
-          <SectionIconBtn title="Save as reusable block" onClick={() => editor.openSaveReusable(section.id)}>
+          <SectionIconBtn title="Save as section template" onClick={() => editor.openSaveSectionTemplate(section.id)}>
             <Bookmark className="h-3 w-3" />
           </SectionIconBtn>
           <SectionIconBtn title="Duplicate section" onClick={() => editor.duplicateSection(section.id)}>
