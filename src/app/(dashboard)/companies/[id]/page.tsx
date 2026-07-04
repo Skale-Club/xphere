@@ -5,8 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   getAccountDetail,
-  getAccountOpportunities,
-  getAccountActivities,
+  getAccountOpportunitiesAndActivities,
 } from './actions'
 import { AccountDetailHeader } from '@/components/accounts/account-detail-header'
 import { AccountContactsTab } from '@/components/accounts/account-contacts-tab'
@@ -25,16 +24,17 @@ interface Props {
 export default async function AccountDetailPage({ params }: Props) {
   const { id } = await params
 
-  const [detailResult, oppsResult, activitiesResult] = await Promise.all([
+  const [detailResult, oppsAndActivitiesResult] = await Promise.all([
     getAccountDetail(id),
-    getAccountOpportunities(id),
-    getAccountActivities(id),
+    getAccountOpportunitiesAndActivities(id),
   ])
 
   if (!detailResult.ok) notFound()
   const { account, contacts } = detailResult.data
-  const opportunities = oppsResult.ok ? oppsResult.data : []
-  const activities = activitiesResult.ok ? activitiesResult.data : []
+  const opportunities = oppsAndActivitiesResult.ok
+    ? oppsAndActivitiesResult.data.opportunities
+    : []
+  const activities = oppsAndActivitiesResult.ok ? oppsAndActivitiesResult.data.activities : []
 
   return (
     // EntityDetailTemplate marks this as a shared CRM detail surface so Prospects
