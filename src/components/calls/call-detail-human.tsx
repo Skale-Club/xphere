@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Clock, Hash, User2, User } from 'lucide-react'
 
-import { CallWaveformPlayer } from '@/components/calls/call-waveform-player'
+import { CallWaveformPlayerLazy } from '@/components/calls/call-waveform-player-lazy'
 import { CallNotesEditor } from '@/components/calls/call-notes-editor'
 import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
@@ -20,7 +20,7 @@ export async function CallDetailHuman({ call, stacked = false }: Props) {
     <div className={stacked ? 'flex flex-col gap-6' : 'grid gap-6 lg:grid-cols-3'}>
       <div className={stacked ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
         {call.recording_url ? (
-          <CallWaveformPlayer
+          <CallWaveformPlayerLazy
             url={`/api/calls/${call.id}/recording`}
             duration={call.recording_duration ?? call.duration_seconds ?? 0}
           />

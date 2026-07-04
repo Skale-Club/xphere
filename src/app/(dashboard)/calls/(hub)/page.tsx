@@ -17,17 +17,17 @@ import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/acti
 import { UnifiedCallTimeline } from '@/components/calls/unified-call-timeline'
 import { CallsOnboardingGate } from '@/components/calls/calls-onboarding-gate'
 import { CallsHeaderActions } from '@/components/calls/calls-header-actions'
-import { CallDetailDialog } from '@/components/calls/call-detail-dialog'
+import { CallDetailDialogLazy } from '@/components/calls/call-detail-dialog-lazy'
 import { AnswerCallHandler } from '@/components/calls/answer-call-handler'
 import { PushDeviceSection } from '@/components/calls/push-device-section'
 import { CallDetailAi } from '@/components/calls/call-detail-ai'
 import { CallDetailHuman } from '@/components/calls/call-detail-human'
 import { MyPhoneDialog } from '@/components/calls/my-phone-dialog'
 import { CallSettingsForm } from '@/components/calls/call-settings-form'
-import { VoiceSettingsDialog } from '@/components/calls/voice-settings-dialog'
+import { VoiceSettingsDialogLazy } from '@/components/calls/voice-settings-dialog-lazy'
 import { isVoiceSettingsTab, type VoiceSettingsTab } from '@/components/calls/voice-settings-tabs'
 import { PhoneNumbersList } from '@/components/phone-numbers/phone-numbers-list'
-import { RoutingChainEditor } from '@/components/calls/routing-chain-editor'
+import { RoutingChainEditorLazy } from '@/components/calls/routing-chain-editor-lazy'
 import { AssistantMappingsTable } from '@/components/assistants/assistant-mappings-table'
 import type { Database } from '@/types/database'
 
@@ -130,7 +130,7 @@ async function CallDetail({ id, rows }: { id: string; rows: UnifiedCallWithConta
     call.contact?.name ?? call.counterpart_name ?? call.counterpart_number ?? 'Unknown'
 
   return (
-    <CallDetailDialog>
+    <CallDetailDialogLazy>
       <div className="mb-5 flex items-center gap-3 pr-8">
         <Avatar className="h-10 w-10">
           <AvatarFallback className="bg-bg-tertiary text-[13px] font-medium text-text-secondary">
@@ -157,7 +157,7 @@ async function CallDetail({ id, rows }: { id: string; rows: UnifiedCallWithConta
           ? <CallDetailAi call={call} />
           : <CallDetailHuman call={call} />}
       </Suspense>
-    </CallDetailDialog>
+    </CallDetailDialogLazy>
   )
 }
 
@@ -199,12 +199,12 @@ async function VoiceSettings({
   twilioConnected: boolean
 }) {
   return (
-    <VoiceSettingsDialog tab={tab}>
+    <VoiceSettingsDialogLazy tab={tab}>
       {tab === 'numbers' && <NumbersTab twilioConnected={twilioConnected} />}
       {tab === 'routing' && <RoutingTab />}
       {tab === 'assistants' && <AssistantsTab />}
       {tab === 'general' && <GeneralTab />}
-    </VoiceSettingsDialog>
+    </VoiceSettingsDialogLazy>
   )
 }
 
@@ -252,7 +252,7 @@ async function RoutingTab() {
         mode and every user&apos;s personal My Phone preference. Turn it off to fall
         back to those layers.
       </div>
-      <RoutingChainEditor initial={chain} members={members} destinations={destinations} />
+      <RoutingChainEditorLazy initial={chain} members={members} destinations={destinations} />
     </div>
   )
 }
