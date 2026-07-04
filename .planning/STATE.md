@@ -72,9 +72,10 @@ None.
 | 260524-r62 | Projects Module UI Refinements — 13 R-items (R01-R15 except R08/R14) on branch feat/projects-ui-refinements | 2026-05-24 | 8ccc056 | Verified | [260524-r62-projects-module-ui-refinements-r01-r15-e](./quick/260524-r62-projects-module-ui-refinements-r01-r15-e/) |
 | 260704-pr3 | Performance SEED-048 Fases A+C — eliminate Calls detail dialog duplicate-fetch waterfall + parallelize dashboard layout/org/RBAC round-trips | 2026-07-04 | 570a3bcd, de5d7591 | Complete | [260704-pr3-performance-seed-048-fases-a-c-eliminar-](./quick/260704-pr3-performance-seed-048-fases-a-c-eliminar-/) |
 | 260704-r15 | SEED-048 Phase B code-splitting — lazy-load Twilio Voice SDK + dynamic-import wavesurfer/dialog/routing-editor via *-lazy.tsx wrappers | 2026-07-04 | 2ed200f5 | Complete | [260704-r15-performance-seed-048-fase-b-code-splitti](./quick/260704-r15-performance-seed-048-fase-b-code-splitti/) |
+| 260704-r5t | SEED-048 Phases D+E — parallelized dashboard feed, SQL-bounded campaign contact counts, deduped company-detail + pipeline org-id lookups, paginated CSV export, 3 new index migrations (not yet applied) | 2026-07-04 | b2e13468 | Complete | [260704-r5t-performance-seed-048-fases-d-e-paraleliz](./quick/260704-r5t-performance-seed-048-fases-d-e-paraleliz/) |
 
 ## Session Continuity
 
 Current session: 2026-07-04
-Stopped at: Completed quick task 260704-r15 (SEED-048 Phase B code-splitting)
+Stopped at: Completed quick task 260704-r5t (SEED-048 Phases D+E performance refactor)
 Resume file: —

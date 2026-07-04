@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritable } from '@/lib/demo/guard'
-import { requirePermission } from '@/lib/rbac/server'
+import { requirePermission, getRbacContext, can } from '@/lib/rbac/server'
 import type { Database, OpportunityStatus } from '@/types/database'
 import {
   pipelineSchema,
@@ -350,13 +350,17 @@ export async function createOpportunity(
   if (denied) return denied
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
-  const perm = await requirePermission('pipeline.manage')
-  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
+  const rbac = await getRbacContext()
+  if (!rbac.isPlatformAdmin && rbac.role !== 'owner') {
+    const allowed =
+      rbac.role === 'admin' || rbac.role === 'member' ? await can('pipeline.manage') : false
+    if (!allowed) return { error: 'You do not have permission to do this.' }
+  }
   const parsed = opportunitySchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid input' }
   const data = parsed.data
   const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  const orgId = rbac.orgId
   if (!orgId) return { error: 'No organization found.' }
 
   // Validate and persist custom fields (CF-07, Phase 71)
@@ -425,14 +429,18 @@ export async function updateOpportunity(
 ): Promise<{ error?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
-  const perm = await requirePermission('pipeline.manage')
-  if (!perm.ok) return { error: perm.error ?? 'Forbidden' }
+  const rbac = await getRbacContext()
+  if (!rbac.isPlatformAdmin && rbac.role !== 'owner') {
+    const allowed =
+      rbac.role === 'admin' || rbac.role === 'member' ? await can('pipeline.manage') : false
+    if (!allowed) return { error: 'You do not have permission to do this.' }
+  }
   const supabase = await createClient()
 
   // Validate and persist custom fields (CF-07, Phase 71)
   const cfPayloadUpdate = input.custom_fields ?? {}
   if (Object.keys(cfPayloadUpdate).length > 0) {
-    const { data: orgIdForCf } = await supabase.rpc('get_current_org_id')
+    const orgIdForCf = rbac.orgId
     if (orgIdForCf) {
       const cfResult = await validateCustomFields(orgIdForCf, 'opportunity', cfPayloadUpdate)
       if (!cfResult.ok) return { error: 'custom_fields_invalid' }

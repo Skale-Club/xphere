@@ -274,21 +274,47 @@ export async function getCampaigns(channel?: string): Promise<CampaignListItem[]
     query = query.eq('channel', channel as CampaignChannel)
   }
 
-  const [campaignsRes, contactsRes] = await Promise.all([
-    query,
-    supabase.from('campaign_contacts').select('campaign_id, status'),
-  ])
-
-  if (campaignsRes.error) {
-    console.error('[campaigns:getCampaigns] failed to load', campaignsRes.error)
+  const { data: campaigns, error } = await query
+  if (error) {
+    console.error('[campaigns:getCampaigns] failed to load', error)
     return []
   }
+  if (!campaigns || campaigns.length === 0) return []
 
-  const campaigns = campaignsRes.data ?? []
-  const allContacts = contactsRes.data ?? []
+  // Narrow the contacts fetch to only the campaigns being listed (bounded by
+  // the channel filter above) instead of every campaign_contacts row in the
+  // org, then aggregate counts in a single pass (SEED-048 Phase D).
+  const campaignIds = campaigns.map((c) => c.id)
+  const { data: allContacts } = await supabase
+    .from('campaign_contacts')
+    .select('campaign_id, status')
+    .in('campaign_id', campaignIds)
+
+  const contactsByCampaign = new Map<
+    string,
+    { total: number; pending: number; completed: number; failed: number }
+  >()
+  for (const cc of allContacts ?? []) {
+    const bucket = contactsByCampaign.get(cc.campaign_id) ?? {
+      total: 0,
+      pending: 0,
+      completed: 0,
+      failed: 0,
+    }
+    bucket.total++
+    if (cc.status === 'pending') bucket.pending++
+    else if (cc.status === 'completed') bucket.completed++
+    else if (cc.status === 'failed') bucket.failed++
+    contactsByCampaign.set(cc.campaign_id, bucket)
+  }
 
   return campaigns.map((c) => {
-    const contacts = allContacts.filter((cc) => cc.campaign_id === c.id)
+    const bucket = contactsByCampaign.get(c.id) ?? {
+      total: 0,
+      pending: 0,
+      completed: 0,
+      failed: 0,
+    }
     return {
       ...c,
       channel: c.channel ?? 'calls',
@@ -296,10 +322,10 @@ export async function getCampaigns(channel?: string): Promise<CampaignListItem[]
       description: c.description ?? null,
       started_at: c.started_at ?? null,
       completed_at: c.completed_at ?? null,
-      total_contacts: contacts.length,
-      pending_contacts: contacts.filter((cc) => cc.status === 'pending').length,
-      completed_contacts: contacts.filter((cc) => cc.status === 'completed').length,
-      failed_contacts: contacts.filter((cc) => cc.status === 'failed').length,
+      total_contacts: bucket.total,
+      pending_contacts: bucket.pending,
+      completed_contacts: bucket.completed,
+      failed_contacts: bucket.failed,
     }
   })
 }

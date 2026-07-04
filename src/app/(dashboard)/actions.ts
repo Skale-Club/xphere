@@ -32,10 +32,44 @@ export async function getActivityFeed(
   const fetchAll = filter === 'all'
   const cap = offset + limit
 
-  const events: ActivityFeedEvent[] = []
+  type MsgRow = {
+    id: string
+    role: string
+    content: string
+    created_at: string
+    conversation_id: string
+    conversations: {
+      id: string
+      channel: string | null
+      visitor_name: string | null
+      contacts: { name: string | null } | null
+    } | null
+  }
+
+  type CallRow = {
+    id: string
+    direction: 'inbound' | 'outbound'
+    status: string | null
+    duration_seconds: number | null
+    started_at: string | null
+    created_at: string
+    from_number: string | null
+    to_number: string | null
+    contacts: { name: string | null } | null
+  }
+
+  type ActRow = {
+    id: string
+    type: string
+    content: string | null
+    created_at: string
+    opportunity_id: string
+    opportunities: { title: string | null } | null
+  }
 
   // Messages
-  if (fetchAll || filter === 'messages') {
+  async function fetchMessages(): Promise<ActivityFeedEvent[]> {
+    if (!(fetchAll || filter === 'messages')) return []
     const { data: msgs } = await supabase
       .from('conversation_messages')
       .select(
@@ -45,27 +79,14 @@ export async function getActivityFeed(
       .order('created_at', { ascending: false })
       .limit(cap)
 
-    type MsgRow = {
-      id: string
-      role: string
-      content: string
-      created_at: string
-      conversation_id: string
-      conversations: {
-        id: string
-        channel: string | null
-        visitor_name: string | null
-        contacts: { name: string | null } | null
-      } | null
-    }
-
+    const out: ActivityFeedEvent[] = []
     for (const m of (msgs as unknown as MsgRow[] | null) ?? []) {
       const who =
         m.conversations?.contacts?.name ||
         m.conversations?.visitor_name ||
         (m.role === 'assistant' ? 'Agent' : 'Visitor')
       const preview = (m.content ?? '').slice(0, 120)
-      events.push({
+      out.push({
         id: `msg-${m.id}`,
         type: 'message',
         title: `New message from ${who}`,
@@ -75,10 +96,12 @@ export async function getActivityFeed(
         channel: m.conversations?.channel ?? null,
       })
     }
+    return out
   }
 
   // Calls
-  if (fetchAll || filter === 'calls') {
+  async function fetchCalls(): Promise<ActivityFeedEvent[]> {
+    if (!(fetchAll || filter === 'calls')) return []
     const { data: calls } = await supabase
       .from('call_logs')
       .select(
@@ -88,23 +111,12 @@ export async function getActivityFeed(
       .order('started_at', { ascending: false, nullsFirst: false })
       .limit(cap)
 
-    type CallRow = {
-      id: string
-      direction: 'inbound' | 'outbound'
-      status: string | null
-      duration_seconds: number | null
-      started_at: string | null
-      created_at: string
-      from_number: string | null
-      to_number: string | null
-      contacts: { name: string | null } | null
-    }
-
+    const out: ActivityFeedEvent[] = []
     for (const c of (calls as unknown as CallRow[] | null) ?? []) {
       const phone = c.direction === 'inbound' ? c.from_number : c.to_number
       const name = c.contacts?.name || (phone ? formatPhoneDisplay(phone) : null) || 'Unknown'
       const verb = c.direction === 'inbound' ? 'inbound from' : 'outbound to'
-      events.push({
+      out.push({
         id: `call-${c.id}`,
         type: 'call',
         title: `Call ${verb} ${name}`,
@@ -114,10 +126,12 @@ export async function getActivityFeed(
         channel: 'voice',
       })
     }
+    return out
   }
 
   // Opportunity activities
-  if (fetchAll || filter === 'deals') {
+  async function fetchDeals(): Promise<ActivityFeedEvent[]> {
+    if (!(fetchAll || filter === 'deals')) return []
     const { data: acts } = await supabase
       .from('opportunity_activities')
       .select(
@@ -127,15 +141,7 @@ export async function getActivityFeed(
       .order('created_at', { ascending: false })
       .limit(cap)
 
-    type ActRow = {
-      id: string
-      type: string
-      content: string | null
-      created_at: string
-      opportunity_id: string
-      opportunities: { title: string | null } | null
-    }
-
+    const out: ActivityFeedEvent[] = []
     for (const a of (acts as unknown as ActRow[] | null) ?? []) {
       const title = a.opportunities?.title ?? 'Opportunity'
       let label = a.type as string
@@ -143,7 +149,7 @@ export async function getActivityFeed(
       else if (label === 'created') label = 'Created'
       else if (label === 'won') label = 'Won'
       else if (label === 'lost') label = 'Lost'
-      events.push({
+      out.push({
         id: `opp-${a.id}`,
         type: a.type === 'won' ? 'agent' : a.type === 'lost' ? 'error' : 'tool',
         title: `${label}: ${title}`,
@@ -153,18 +159,21 @@ export async function getActivityFeed(
         channel: null,
       })
     }
+    return out
   }
 
   // Reviews
-  if (fetchAll || filter === 'reviews') {
+  async function fetchReviews(): Promise<ActivityFeedEvent[]> {
+    if (!(fetchAll || filter === 'reviews')) return []
     const { data: revs } = await supabase
       .from('google_reviews')
       .select(`id, rating, reviewer_name, text, first_seen_at`)
       .order('first_seen_at', { ascending: false })
       .limit(cap)
 
+    const out: ActivityFeedEvent[] = []
     for (const r of revs ?? []) {
-      events.push({
+      out.push({
         id: `rev-${r.id}`,
         type: 'review',
         title: `${r.rating}★ review from ${r.reviewer_name ?? 'anonymous'}`,
@@ -174,7 +183,18 @@ export async function getActivityFeed(
         channel: null,
       })
     }
+    return out
   }
+
+  const [msgEvents, callEvents, dealEvents, reviewEvents] = await Promise.all([
+    fetchMessages(),
+    fetchCalls(),
+    fetchDeals(),
+    fetchReviews(),
+  ])
+
+  const events: ActivityFeedEvent[] = []
+  events.push(...msgEvents, ...callEvents, ...dealEvents, ...reviewEvents)
 
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   return events.slice(offset, offset + limit)
