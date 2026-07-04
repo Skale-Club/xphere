@@ -34,17 +34,23 @@ const DEFAULTS: OrgSettings = {
   address: { line1: null, line2: null, city: null, state: null, postalCode: null, country: null },
 }
 
-export const getOrgSettings = cache(async (): Promise<OrgSettings> => {
+/**
+ * @param orgId Pre-resolved org id (e.g. from getActiveOrg()) to skip a
+ * redundant get_current_org_id() RPC when the caller already has it. Pass
+ * `undefined` (or omit) to self-resolve via RPC as before; pass `null`
+ * explicitly for "no active org".
+ */
+export const getOrgSettings = cache(async (orgId?: string | null): Promise<OrgSettings> => {
   try {
     const supabase = await createClient()
-    const { data: orgId } = await supabase.rpc('get_current_org_id')
-    if (!orgId) return DEFAULTS
+    const resolvedOrgId = orgId !== undefined ? orgId : (await supabase.rpc('get_current_org_id')).data
+    if (!resolvedOrgId) return DEFAULTS
     const { data } = await supabase
       .from('organizations')
       .select(
         'id, timezone, default_currency, legal_name, tax_id, address_line1, address_line2, address_city, address_state, address_postal_code, address_country',
       )
-      .eq('id', orgId as string)
+      .eq('id', resolvedOrgId as string)
       .maybeSingle()
     if (!data) return DEFAULTS
     return {

@@ -67,6 +67,8 @@ interface SidebarProps {
    * (enforcement off, or no org) → items aren't hidden by plan.
    */
   entitledFeatures?: string[] | null
+  /** Server-computed seed for the inbox unread-chat badge (avoids a client round-trip on first paint). */
+  initialUnreadCount?: number
 }
 
 /**
@@ -97,6 +99,7 @@ interface SidebarBodyProps {
   entitledFeatures?: string[] | null
   pathname: string
   onSignOut: () => void
+  initialUnreadCount?: number
 }
 
 function SidebarBody({
@@ -117,8 +120,9 @@ function SidebarBody({
   entitledFeatures,
   pathname,
   onSignOut,
+  initialUnreadCount,
 }: SidebarBodyProps) {
-  const chatUnreadCount = useUnreadCount(userId)
+  const chatUnreadCount = useUnreadCount(userId, initialUnreadCount ?? 0)
   return (
     <>
       {/* Header | brand + collapse */}
@@ -321,7 +325,7 @@ function SidebarBody({
   )
 }
 
-export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isOrgAdmin, isDemo, navPermissions, entitledFeatures }: SidebarProps) {
+export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activeOrgName, brandName, logoUrl: _logoUrl, isPlatformAdmin, isOrgAdmin, isDemo, navPermissions, entitledFeatures, initialUnreadCount }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebarState()
@@ -387,6 +391,7 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
     entitledFeatures,
     pathname,
     onSignOut: handleSignOut,
+    initialUnreadCount,
   }
 
   return (

@@ -40,9 +40,11 @@ interface OrgSwitcherProps {
   currentOrgLogo?: string | null
   /** Compact (icon-only) when used inside a collapsed sidebar */
   collapsed?: boolean
+  /** Server-preloaded org list — when present, skips the lazy fetch on first dropdown open. */
+  initialOrgs?: Org[]
 }
 
-interface Org {
+export interface Org {
   id: string
   name: string
   logo_url: string | null
@@ -129,11 +131,11 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   )
 }
 
-export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, collapsed = false }: OrgSwitcherProps) {
+export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, collapsed = false, initialOrgs }: OrgSwitcherProps) {
   const [isSwitching, startSwitchTransition] = useTransition()
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [orgs, setOrgs] = useState<Org[] | null>(null)
+  const [orgs, setOrgs] = useState<Org[] | null>(initialOrgs ?? null)
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   const router = useRouter()
   const pathname = usePathname()

@@ -17,9 +17,13 @@ async function fetchUnreadCount(): Promise<number> {
 /**
  * Returns the live count of conversations with unread messages for the current user.
  * Refreshes whenever conversation_reads or conversations change via Supabase Realtime.
+ *
+ * @param initialCount Server-computed seed value so the badge paints correctly
+ * on first render instead of always starting at 0 and waiting for the client
+ * fetch. The mount-time fetch still runs and reconciles to the live count.
  */
-export function useUnreadCount(userId: string | null | undefined): number {
-  const [count, setCount] = useState(0)
+export function useUnreadCount(userId: string | null | undefined, initialCount = 0): number {
+  const [count, setCount] = useState(initialCount)
   const instanceId = useRef(Math.random().toString(36).slice(2))
 
   useEffect(() => {

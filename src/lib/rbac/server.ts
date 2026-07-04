@@ -31,24 +31,27 @@ export async function getRbacContext(): Promise<RbacContext> {
   // Platform admin: env bootstrap OR a row in platform_admins (table may not
   // exist until migration 1116 is applied — treat any error as "not admin").
   const isEnvAdmin = !!user.email && user.email === process.env.PLATFORM_ADMIN_EMAIL
-  let isTableAdmin = false
-  const { data: pa } = await supabase
-    .from('platform_admins')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-  isTableAdmin = !!pa
 
-  let role: OrgRole | null = null
-  if (orgId) {
-    const { data: membership } = await supabase
-      .from('org_members')
-      .select('role')
+  // platform_admins doesn't depend on orgId at all, and org_members only needs
+  // orgId (already resolved above) — run both in parallel instead of
+  // sequentially awaiting each other.
+  const [{ data: pa }, membershipResult] = await Promise.all([
+    supabase
+      .from('platform_admins')
+      .select('user_id')
       .eq('user_id', user.id)
-      .eq('organization_id', orgId as string)
-      .maybeSingle()
-    role = (membership?.role as OrgRole) ?? null
-  }
+      .maybeSingle(),
+    orgId
+      ? supabase
+          .from('org_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('organization_id', orgId as string)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  const isTableAdmin = !!pa
+  const role = (membershipResult.data?.role as OrgRole) ?? null
 
   return {
     userId: user.id,
