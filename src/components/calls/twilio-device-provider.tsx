@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react'
-import { Device, type Call } from '@twilio/voice-sdk'
+import type { Device, Call } from '@twilio/voice-sdk'
 
 type DeviceState = 'idle' | 'registering' | 'ready' | 'on-call' | 'unsupported' | 'error'
 
@@ -85,6 +85,7 @@ export function TwilioDeviceProvider({ enabled = true, children }: TwilioDeviceP
         const data = (await res.json()) as { token: string; identity: string }
         if (cancelled) return
 
+        const { Device } = await import('@twilio/voice-sdk')
         const device = new Device(data.token, {
           logLevel: 'WARN',
           appName: 'Xphere',
