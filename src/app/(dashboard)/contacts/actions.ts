@@ -1559,11 +1559,32 @@ export async function exportContactsCsv(): Promise<{ error?: string; csv?: strin
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
 
-  const [{ data: contacts }, defsResult] = await Promise.all([
-    supabase.from('contacts').select('*').order('created_at', { ascending: false }).limit(5000),
-    getDefinitions({ entity: 'contact', includeArchived: false }),
-  ])
-  if (!contacts) return { error: 'Failed to fetch contacts.' }
+  // Kick off definitions lookup in parallel with the contacts pagination
+  // loop below (it doesn't depend on `contacts`).
+  const defsPromise = getDefinitions({ entity: 'contact', includeArchived: false })
+
+  // Paginate through all contacts via .range() instead of a hard 5000-row
+  // limit(), which silently dropped rows for orgs above that size
+  // (SEED-048 Phase E).
+  const PAGE_SIZE = 1000
+  const contacts: ContactRow[] = []
+  let page = 0
+  while (true) {
+    const from = page * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (error) return { error: 'Failed to fetch contacts.' }
+    if (!data || data.length === 0) break
+    contacts.push(...(data as ContactRow[]))
+    if (data.length < PAGE_SIZE) break
+    page++
+  }
+
+  const defsResult = await defsPromise
   const defs = defsResult.ok ? defsResult.data : []
 
   // Standard headers
