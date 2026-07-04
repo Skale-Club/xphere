@@ -15,7 +15,7 @@ import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/acti
 import { UnifiedCallTimeline } from '@/components/calls/unified-call-timeline'
 import { CallsOnboardingGate } from '@/components/calls/calls-onboarding-gate'
 import { CallsHeaderActions } from '@/components/calls/calls-header-actions'
-import { CallDetailSheet } from '@/components/calls/call-detail-sheet'
+import { CallDetailDialog } from '@/components/calls/call-detail-dialog'
 import { AnswerCallHandler } from '@/components/calls/answer-call-handler'
 import { PushDeviceSection } from '@/components/calls/push-device-section'
 import { CallDetailAi } from '@/components/calls/call-detail-ai'
@@ -128,7 +128,7 @@ async function CallDetail({ id }: { id: string }) {
     call.contact?.name ?? call.counterpart_name ?? call.counterpart_number ?? 'Unknown'
 
   return (
-    <CallDetailSheet>
+    <CallDetailDialog>
       <div className="mb-5 flex items-center gap-3 pr-8">
         <Avatar className="h-10 w-10">
           <AvatarFallback className="bg-bg-tertiary text-[13px] font-medium text-text-secondary">
@@ -151,9 +151,9 @@ async function CallDetail({ id }: { id: string }) {
       </div>
 
       {call.call_type === 'ai'
-        ? <CallDetailAi call={call} stacked />
-        : <CallDetailHuman call={call} stacked />}
-    </CallDetailSheet>
+        ? <CallDetailAi call={call} />
+        : <CallDetailHuman call={call} />}
+    </CallDetailDialog>
   )
 }
 

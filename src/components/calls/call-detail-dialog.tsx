@@ -3,14 +3,14 @@
 import * as React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 /**
- * URL-driven detail sheet for the Calls timeline. The server page renders it
+ * URL-driven detail dialog for the Calls timeline. The server page renders it
  * (with server-component children) only when `?call={id}` is present; closing
  * strips the param so the timeline keeps its filters and scroll context.
  */
-export function CallDetailSheet({ children }: { children: React.ReactNode }) {
+export function CallDetailDialog({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
@@ -22,14 +22,11 @@ export function CallDetailSheet({ children }: { children: React.ReactNode }) {
   }, [router, pathname, sp])
 
   return (
-    <Sheet open onOpenChange={(open) => { if (!open) close() }}>
-      <SheetContent
-        side="right"
-        className="w-full overflow-y-auto p-5 sm:max-w-2xl"
-      >
-        <SheetTitle className="sr-only">Call details</SheetTitle>
+    <Dialog open onOpenChange={(open) => { if (!open) close() }}>
+      <DialogContent className="max-h-[88vh] w-[calc(100vw-2rem)] overflow-y-auto p-5 sm:max-w-[960px]">
+        <DialogTitle className="sr-only">Call details</DialogTitle>
         {children}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
