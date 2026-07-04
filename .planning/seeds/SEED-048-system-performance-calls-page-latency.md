@@ -1,11 +1,15 @@
 ---
 id: SEED-048
-status: dormant
+status: complete
 planted: 2026-07-04
 planted_during: post-v3.3 (Settings Nav Cleanup + Unified Templates) — no milestone in progress; ad-hoc performance audit requested by operator after reports of slow click-to-render across the dashboard, most visible on the Calls page
 trigger_when: any milestone or quick task that touches the Calls page, the dashboard root layout, the Action Engine's activity feed, or is explicitly scoped as "performance" / "otimização" / "velocidade"; or the next time a user reports "demora para carregar" / "trava ao clicar" on any dashboard page
 scope: Large
 depends_on: []
+phases_shipped: [A, C]
+phases_pending: [B, D, E, F, G]
+shipped_as: quick task 260704-pr3
+shipped: 2026-07-04
 ---
 
 # SEED-048: System Performance — Click-to-Render Latency (Calls Page + Dashboard-Wide)
