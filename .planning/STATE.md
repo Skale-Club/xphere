@@ -70,6 +70,7 @@ None.
 |---|-------------|------|--------|--------|-----------|
 | 260524-pwe | Auth modal redesign — 2-step popup with reset password tab + remove dedicated /login /signup routes | 2026-05-24 | d0d2ac9 |  | [260524-pwe-auth-modal-redesign-2-step-popup-with-re](./quick/260524-pwe-auth-modal-redesign-2-step-popup-with-re/) |
 | 260524-r62 | Projects Module UI Refinements — 13 R-items (R01-R15 except R08/R14) on branch feat/projects-ui-refinements | 2026-05-24 | 8ccc056 | Verified | [260524-r62-projects-module-ui-refinements-r01-r15-e](./quick/260524-r62-projects-module-ui-refinements-r01-r15-e/) |
+| 260704-r5t | SEED-048 Phases D+E — parallelized dashboard feed, SQL-bounded campaign contact counts, deduped company-detail + pipeline org-id lookups, paginated CSV export, 3 new index migrations (not yet applied) | 2026-07-04 | b2e13468 |  | [260704-r5t-performance-seed-048-fases-d-e-paraleliz](./quick/260704-r5t-performance-seed-048-fases-d-e-paraleliz/) |
 
 ## Session Continuity
 
