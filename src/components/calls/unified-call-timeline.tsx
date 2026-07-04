@@ -216,7 +216,11 @@ export function UnifiedCallTimeline({
   );
 }
 
-function UnifiedCallRow({ row }: { row: UnifiedCallWithContact }) {
+const UnifiedCallRow = React.memo(function UnifiedCallRow({
+  row,
+}: {
+  row: UnifiedCallWithContact;
+}) {
   const pathname = usePathname();
   const sp = useSearchParams();
   const detailHref = React.useMemo(() => {
@@ -309,7 +313,11 @@ function UnifiedCallRow({ row }: { row: UnifiedCallWithContact }) {
       </div>
     </Link>
   );
-}
+}, (prev, next) =>
+  prev.row.id === next.row.id &&
+  prev.row.status === next.row.status &&
+  prev.row.notes === next.row.notes,
+);
 
 function TypeBadge({ type }: { type: "ai" | "human" }) {
   if (type === "ai") {

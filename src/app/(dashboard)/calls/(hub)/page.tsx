@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { KeyRound, Megaphone, Mic, PhoneIncoming, PhoneOutgoing, Plug, Sparkles } from 'lucide-react'
 
@@ -6,7 +7,8 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { can } from '@/lib/rbac/server'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { getUnifiedCall, getUnifiedCalls } from '../actions'
+import { Skeleton } from '@/components/ui/skeleton'
+import { getUnifiedCall, getUnifiedCalls, type UnifiedCallWithContact } from '../actions'
 import { getRoutingChain } from '../routing-actions'
 import { listCallDestinations } from '../destination-actions'
 import { getCurrentCallSettings, getSipDomain } from '../settings-actions'
@@ -107,7 +109,7 @@ export default async function CallsPage({ searchParams }: PageProps) {
 
       {answerSid && <AnswerCallHandler callSid={answerSid} />}
 
-      {callId && <CallDetail id={callId} />}
+      {callId && <CallDetail id={callId} rows={result.rows} />}
 
       {settingsTab && canManage && (
         <VoiceSettings tab={settingsTab} twilioConnected={twilioConnected} />
@@ -120,8 +122,8 @@ export default async function CallsPage({ searchParams }: PageProps) {
 
 /* ── Detail sheet (?call=) ─────────────────────────────────────────── */
 
-async function CallDetail({ id }: { id: string }) {
-  const call = await getUnifiedCall(id)
+async function CallDetail({ id, rows }: { id: string; rows: UnifiedCallWithContact[] }) {
+  const call = rows.find((r) => r.id === id) ?? (await getUnifiedCall(id))
   if (!call) return null
 
   const displayName =
@@ -150,10 +152,31 @@ async function CallDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {call.call_type === 'ai'
-        ? <CallDetailAi call={call} />
-        : <CallDetailHuman call={call} />}
+      <Suspense fallback={<CallDetailSkeleton />}>
+        {call.call_type === 'ai'
+          ? <CallDetailAi call={call} />
+          : <CallDetailHuman call={call} />}
+      </Suspense>
     </CallDetailDialog>
+  )
+}
+
+function CallDetailSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-3">
+      <div className="lg:col-span-2 space-y-6">
+        <Skeleton className="h-24 w-full" rounded="lg" />
+        <Skeleton className="h-40 w-full" rounded="lg" />
+      </div>
+      <aside className="space-y-4">
+        <div className="space-y-3 rounded-[14px] border border-border bg-bg-secondary p-5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+      </aside>
+    </div>
   )
 }
 
