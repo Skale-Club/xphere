@@ -7,7 +7,7 @@ import { Search, ShieldCheck, Menu, Command, X, Phone, Bell, Sun, Moon, Sparkles
 import { useTheme } from 'next-themes'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AppBreadcrumb } from './app-breadcrumb'
-import { OrgSwitcher } from './org-switcher'
+import { OrgSwitcher, type Org } from './org-switcher'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useCommandPalette } from '@/components/command-palette'
 import { DialPadHeaderButton } from '@/components/calls/dial-pad-header-button'
@@ -36,6 +36,8 @@ interface TopBarProps {
     totalUsd: number
     includedAllowanceUsd: number
   } | null
+  /** Server-preloaded org list threaded down to OrgSwitcher (desktop + mobile). */
+  initialOrgs: Org[]
 }
 
 function SearchButton({ onClick }: { onClick: () => void }) {
@@ -75,6 +77,7 @@ function MobileMenu({
   hasCreditsPlan,
   copilotBalance,
   onOpenSearch,
+  initialOrgs,
 }: {
   open: boolean
   onClose: () => void
@@ -86,6 +89,7 @@ function MobileMenu({
   hasCreditsPlan: boolean
   copilotBalance: TopBarProps['copilotBalance']
   onOpenSearch: () => void
+  initialOrgs: Org[]
 }) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
@@ -129,7 +133,7 @@ function MobileMenu({
         <section className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Workspace</p>
           <div className="rounded-[14px] border border-border-subtle bg-bg-secondary px-4 py-4">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} />
+            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} initialOrgs={initialOrgs} />
           </div>
         </section>
 
@@ -223,7 +227,7 @@ function MobileMenu({
   )
 }
 
-export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAdmin, userId, hasPhoneNumber, hasCreditsPlan, copilotBalance }: TopBarProps) {
+export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAdmin, userId, hasPhoneNumber, hasCreditsPlan, copilotBalance, initialOrgs }: TopBarProps) {
   const { setOpen } = useCommandPalette()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -253,7 +257,7 @@ export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAd
           <ThemeToggle />
           {hasCreditsPlan && <CreditsIndicator orgId={activeOrgId} initialBalance={copilotBalance} />}
           <div className="min-w-0">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} />
+            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} initialOrgs={initialOrgs} />
           </div>
           {isPlatformAdmin && (
             <Tooltip>
@@ -303,6 +307,7 @@ export function TopBar({ activeOrgId, activeOrgName, activeOrgLogo, isPlatformAd
         hasCreditsPlan={hasCreditsPlan}
         copilotBalance={copilotBalance}
         onOpenSearch={openSearch}
+        initialOrgs={initialOrgs}
       />
     </>
   )

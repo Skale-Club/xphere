@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { Clock, Hash, User2, User } from 'lucide-react'
 
-import { createClient } from '@/lib/supabase/server'
 import { CallWaveformPlayer } from '@/components/calls/call-waveform-player'
 import { CallNotesEditor } from '@/components/calls/call-notes-editor'
 import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
@@ -14,15 +13,9 @@ interface Props {
 }
 
 export async function CallDetailHuman({ call, stacked = false }: Props) {
-  const supabase = await createClient()
-
-  // Fetch full call_logs row for ended_at + call_sid + recording_duration
-  const { data: logRow } = await supabase
-    .from('call_logs')
-    .select('*')
-    .eq('id', call.id)
-    .maybeSingle()
-
+  // call_logs.ended_at / call_sid / recording_duration are already exposed on
+  // the unified_calls view as ended_at / external_id / recording_duration —
+  // no need to re-fetch call_logs here.
   return (
     <div className={stacked ? 'flex flex-col gap-6' : 'grid gap-6 lg:grid-cols-3'}>
       <div className={stacked ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
@@ -53,7 +46,7 @@ export async function CallDetailHuman({ call, stacked = false }: Props) {
           <MetaRow icon={Hash} label="Call SID" value={call.external_id} mono />
           <MetaRow icon={User2} label="Routing" value={routingLabel(call.routing_mode)} />
           <MetaRow icon={Clock} label="Started" value={formatDateTime(call.started_at)} />
-          <MetaRow icon={Clock} label="Ended" value={formatDateTime(logRow?.ended_at ?? null)} />
+          <MetaRow icon={Clock} label="Ended" value={formatDateTime(call.ended_at)} />
         </div>
 
         {call.contact && (

@@ -70,9 +70,10 @@ None.
 |---|-------------|------|--------|--------|-----------|
 | 260524-pwe | Auth modal redesign — 2-step popup with reset password tab + remove dedicated /login /signup routes | 2026-05-24 | d0d2ac9 |  | [260524-pwe-auth-modal-redesign-2-step-popup-with-re](./quick/260524-pwe-auth-modal-redesign-2-step-popup-with-re/) |
 | 260524-r62 | Projects Module UI Refinements — 13 R-items (R01-R15 except R08/R14) on branch feat/projects-ui-refinements | 2026-05-24 | 8ccc056 | Verified | [260524-r62-projects-module-ui-refinements-r01-r15-e](./quick/260524-r62-projects-module-ui-refinements-r01-r15-e/) |
+| 260704-pr3 | Performance SEED-048 Fases A+C — eliminate Calls detail dialog duplicate-fetch waterfall + parallelize dashboard layout/org/RBAC round-trips | 2026-07-04 | 570a3bcd, de5d7591 | Complete | [260704-pr3-performance-seed-048-fases-a-c-eliminar-](./quick/260704-pr3-performance-seed-048-fases-a-c-eliminar-/) |
 
 ## Session Continuity
 
-Current session: 2026-05-22
-Stopped at: Phase 107 complete, ready for Phase 108
+Current session: 2026-07-04
+Stopped at: Completed quick task 260704-pr3 (SEED-048 Fases A+C performance refactor)
 Resume file: —

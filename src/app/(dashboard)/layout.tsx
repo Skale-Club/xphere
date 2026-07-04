@@ -24,6 +24,7 @@ import { DemoBanner } from '@/components/demo/demo-banner'
 import { getMyPermissions, getRbacContext } from '@/lib/rbac/server'
 import { getOrgSettings } from '@/lib/org/settings'
 import { getActiveOrg } from '@/lib/org/active-org'
+import { getUserOrgs } from '@/app/(dashboard)/organizations/actions'
 import { OrgSettingsProvider } from '@/components/providers/org-settings-provider'
 import { getOrgBranding } from '@/lib/branding.server'
 import { getFaviconUrl } from '@/lib/seo'
@@ -116,9 +117,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // top bar uses this to hide the dial-pad button on orgs that haven't
   // connected a number yet (matches the /calls onboarding gate behavior).
   let hasPhoneNumber = false
+  // Server-computed seed for the sidebar's unread-chat badge — fails open to 0
+  // (matches /api/chat/unread-count's own fail-open behavior).
+  let initialUnreadCount = 0
   try {
     const supabase = await createClient()
-    const [{ data: settings }, { count: numberCount }] = await Promise.all([
+    const [{ data: settings }, { count: numberCount }, chainResult, { data: unreadCountRaw }] = await Promise.all([
       supabase
         .from('call_settings')
         .select('routing_mode, twilio_client_identity')
@@ -129,30 +133,33 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .select('id', { count: 'exact', head: true })
         .eq('is_active', true)
         .eq('capability_voice', true),
+      activeOrgId
+        ? supabase
+            .from('call_routing_chains')
+            .select('is_active, stages')
+            .eq('org_id', activeOrgId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.rpc('inbox_unread_count'),
     ])
+    const chain = chainResult.data
+    initialUnreadCount = typeof unreadCountRaw === 'number' ? unreadCountRaw : 0
     // Mount the Voice SDK Device for users who are EITHER on legacy
     // routing_mode='browser' OR a browser/pwa target in the org's active routing
     // chain — both need a live Device to receive the <Client> leg. A client
     // identity is required to mint the token, so gate on it either way.
     let isChainVoiceTarget = false
-    if (activeOrgId) {
-      const { data: chain } = await supabase
-        .from('call_routing_chains')
-        .select('is_active, stages')
-        .eq('org_id', activeOrgId)
-        .maybeSingle()
-      if (chain?.is_active && Array.isArray(chain.stages)) {
-        isChainVoiceTarget = chain.stages.some(
-          (s) =>
-            !!s &&
-            Array.isArray(s.targets) &&
-            s.targets.some(
-              (t) =>
-                t.type === 'team' ||
-                ((t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id),
-            ),
-        )
-      }
+    if (chain?.is_active && Array.isArray(chain.stages)) {
+      isChainVoiceTarget = chain.stages.some(
+        (s) =>
+          !!s &&
+          Array.isArray(s.targets) &&
+          s.targets.some(
+            (t) =>
+              t.type === 'team' ||
+              ((t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id),
+          ),
+      )
     }
     browserVoiceEnabled =
       Boolean(settings?.twilio_client_identity) &&
@@ -161,6 +168,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } catch {
     browserVoiceEnabled = false
     hasPhoneNumber = false
+    initialUnreadCount = 0
   }
 
   // Copilot visibility:
@@ -205,7 +213,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Org timezone + currency → client context so client-side date/money
   // formatting matches server rendering (org is the source of truth).
-  const orgSettings = await getOrgSettings()
+  // Reuses the org id already resolved by getActiveOrg() above instead of
+  // re-invoking get_current_org_id().
+  const orgSettings = await getOrgSettings(activeOrgId)
+
+  // Preload the org-switcher dropdown list server-side so it opens instantly
+  // instead of lazy-fetching on first click.
+  const initialOrgs = await getUserOrgs()
 
   return (
     <BreadcrumbOverrideProvider>
@@ -233,6 +247,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   isDemo={isDemo}
                   navPermissions={navPermissions}
                   entitledFeatures={entitledFeatures}
+                  initialUnreadCount={initialUnreadCount}
                 />
                 <div className="flex min-w-0 flex-1 h-dvh overflow-hidden">
                   <main className="flex flex-1 min-h-0 flex-col overflow-auto">
@@ -246,6 +261,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                       hasPhoneNumber={hasPhoneNumber}
                       hasCreditsPlan={hasCreditsPlan}
                       copilotBalance={copilotBalance}
+                      initialOrgs={initialOrgs}
                     />
                     <div className="flex-1 min-h-0">
                       <PageTransition>

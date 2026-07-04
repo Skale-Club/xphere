@@ -19,7 +19,8 @@ export function CallDetailDialog({ children }: { children: React.ReactNode }) {
     const params = new URLSearchParams(Array.from(sp.entries()))
     params.delete('call')
     router.replace(`${pathname}${params.toString() ? `?${params.toString()}` : ''}`)
-  }, [router, pathname, sp])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, pathname, sp.get('call')])
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) close() }}>
