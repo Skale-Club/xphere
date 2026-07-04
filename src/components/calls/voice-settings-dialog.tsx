@@ -12,8 +12,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import type { VoiceSettingsTab } from '@/components/calls/voice-settings-tabs'
 
-export type VoiceSettingsTab = 'numbers' | 'routing' | 'assistants' | 'general'
+export type { VoiceSettingsTab } from '@/components/calls/voice-settings-tabs'
 
 const TABS: Array<{ id: VoiceSettingsTab; label: string; icon: LucideIcon }> = [
   { id: 'numbers', label: 'Phone Numbers', icon: Phone },
@@ -21,10 +22,6 @@ const TABS: Array<{ id: VoiceSettingsTab; label: string; icon: LucideIcon }> = [
   { id: 'assistants', label: 'Voice Assistants', icon: Bot },
   { id: 'general', label: 'General', icon: Settings2 },
 ]
-
-export function isVoiceSettingsTab(v: string | undefined): v is VoiceSettingsTab {
-  return v === 'numbers' || v === 'routing' || v === 'assistants' || v === 'general'
-}
 
 /**
  * Org-level voice configuration modal, driven by `?settings={tab}`. The server

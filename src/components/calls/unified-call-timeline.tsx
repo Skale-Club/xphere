@@ -50,6 +50,7 @@ interface UnifiedCallTimelineProps {
   currentType: TypeFilter;
   currentDirection: DirectionFilter;
   currentQuery?: string;
+  headerActions?: React.ReactNode;
 }
 
 export function UnifiedCallTimeline({
@@ -60,6 +61,7 @@ export function UnifiedCallTimeline({
   currentType,
   currentDirection,
   currentQuery,
+  headerActions,
 }: UnifiedCallTimelineProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -118,44 +120,47 @@ export function UnifiedCallTimeline({
           containerClassName="min-w-0 flex-1 max-w-none sm:max-w-md"
         />
 
-        <FilterPopover activeCount={activeFilterCount}>
-          <FilterPopoverHeader
-            title="Filters"
-            showClear={activeFilterCount > 0}
-            onClear={clearFilters}
-          />
-          <div className="space-y-5 p-4">
-            <FilterSection title="Type">
-              {TYPE_FILTERS.map((filter) => (
-                <FilterPill
-                  key={filter.id}
-                  active={currentType === filter.id}
-                  onClick={() =>
-                    setParam("type", filter.id === "all" ? null : filter.id)
-                  }
-                >
-                  {filter.label}
-                </FilterPill>
-              ))}
-            </FilterSection>
-            <FilterSection title="Direction">
-              {DIR_FILTERS.map((filter) => (
-                <FilterPill
-                  key={filter.id}
-                  active={currentDirection === filter.id}
-                  onClick={() =>
-                    setParam(
-                      "direction",
-                      filter.id === "all" ? null : filter.id,
-                    )
-                  }
-                >
-                  {filter.label}
-                </FilterPill>
-              ))}
-            </FilterSection>
-          </div>
-        </FilterPopover>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {headerActions}
+          <FilterPopover activeCount={activeFilterCount}>
+            <FilterPopoverHeader
+              title="Filters"
+              showClear={activeFilterCount > 0}
+              onClear={clearFilters}
+            />
+            <div className="space-y-5 p-4">
+              <FilterSection title="Type">
+                {TYPE_FILTERS.map((filter) => (
+                  <FilterPill
+                    key={filter.id}
+                    active={currentType === filter.id}
+                    onClick={() =>
+                      setParam("type", filter.id === "all" ? null : filter.id)
+                    }
+                  >
+                    {filter.label}
+                  </FilterPill>
+                ))}
+              </FilterSection>
+              <FilterSection title="Direction">
+                {DIR_FILTERS.map((filter) => (
+                  <FilterPill
+                    key={filter.id}
+                    active={currentDirection === filter.id}
+                    onClick={() =>
+                      setParam(
+                        "direction",
+                        filter.id === "all" ? null : filter.id,
+                      )
+                    }
+                  >
+                    {filter.label}
+                  </FilterPill>
+                ))}
+              </FilterSection>
+            </div>
+          </FilterPopover>
+        </div>
       </div>
 
       {/* List */}

@@ -22,11 +22,8 @@ import { CallDetailAi } from '@/components/calls/call-detail-ai'
 import { CallDetailHuman } from '@/components/calls/call-detail-human'
 import { MyPhoneDialog } from '@/components/calls/my-phone-dialog'
 import { CallSettingsForm } from '@/components/calls/call-settings-form'
-import {
-  VoiceSettingsDialog,
-  isVoiceSettingsTab,
-  type VoiceSettingsTab,
-} from '@/components/calls/voice-settings-dialog'
+import { VoiceSettingsDialog } from '@/components/calls/voice-settings-dialog'
+import { isVoiceSettingsTab, type VoiceSettingsTab } from '@/components/calls/voice-settings-tabs'
 import { PhoneNumbersList } from '@/components/phone-numbers/phone-numbers-list'
 import { RoutingChainEditor } from '@/components/calls/routing-chain-editor'
 import { AssistantMappingsTable } from '@/components/assistants/assistant-mappings-table'
@@ -88,8 +85,6 @@ export default async function CallsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <CallsHeaderActions canManage={canManage} />
-
       {hasAnyNumber ? (
         <UnifiedCallTimeline
           rows={result.rows}
@@ -99,11 +94,15 @@ export default async function CallsPage({ searchParams }: PageProps) {
           currentType={type}
           currentDirection={direction}
           currentQuery={q}
+          headerActions={<CallsHeaderActions canManage={canManage} />}
         />
       ) : (
-        <div className="pt-4">
-          <CallsOnboardingGate twilioConnected={twilioConnected} />
-        </div>
+        <>
+          <CallsHeaderActions canManage={canManage} />
+          <div className="pt-4">
+            <CallsOnboardingGate twilioConnected={twilioConnected} />
+          </div>
+        </>
       )}
 
       {answerSid && <AnswerCallHandler callSid={answerSid} />}
