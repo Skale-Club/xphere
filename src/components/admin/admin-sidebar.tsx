@@ -16,6 +16,7 @@ import {
   ScrollText,
   KeyRound,
   BookOpen,
+  Target,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ const navItems = [
   { href: '/admin/seo',      label: 'SEO & Branding', icon: Search },
   { href: '/admin/landing',  label: 'Landing Page',   icon: ImageIcon },
   { href: '/admin/analytics', label: 'Analytics',     icon: BarChart3 },
+  { href: '/admin/tracking', label: 'Tracking',       icon: Target },
 ]
 
 const STORAGE_KEY = 'admin:sidebar:collapsed'

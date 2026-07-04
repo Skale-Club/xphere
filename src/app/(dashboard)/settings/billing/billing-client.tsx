@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { createCheckoutSession, createPortalSession } from '@/lib/billing/actions'
+import { trackEvent } from '@/lib/tracking/events'
 
 interface Subscription {
   status: string
@@ -21,6 +22,7 @@ interface Props {
   subscription: Subscription | null
   plans: string[]
   checkoutResult: 'success' | 'cancel' | null
+  checkoutSessionId: string | null
 }
 
 // Stripe subscription status → human label + badge tone.
@@ -55,7 +57,7 @@ function formatDate(iso: string | null): string | null {
     : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-export function BillingClient({ isAdmin, subscription, plans, checkoutResult }: Props) {
+export function BillingClient({ isAdmin, subscription, plans, checkoutResult, checkoutSessionId }: Props) {
   const router = useRouter()
   // Tracks which action is in flight (e.g. 'portal' or `checkout:pro`) so only
   // the clicked button shows a spinner while every button is disabled.
@@ -68,17 +70,26 @@ export function BillingClient({ isAdmin, subscription, plans, checkoutResult }: 
     if (!checkoutResult) return
     if (checkoutResult === 'success') {
       toast.success('Checkout complete — your subscription will activate once payment is confirmed.')
+      // Dedupe against sessionStorage so a page refresh (or the router.replace
+      // below re-rendering before the URL updates) doesn't double-fire the
+      // conversion event for the same Stripe Checkout Session.
+      const dedupeKey = checkoutSessionId ? `purchase_tracked_${checkoutSessionId}` : null
+      if (!dedupeKey || !window.sessionStorage.getItem(dedupeKey)) {
+        trackEvent('purchase', { session_id: checkoutSessionId ?? undefined })
+        if (dedupeKey) window.sessionStorage.setItem(dedupeKey, '1')
+      }
     } else {
       toast('Checkout canceled. No changes were made.')
     }
     router.replace('/settings/billing')
-  }, [checkoutResult, router])
+  }, [checkoutResult, checkoutSessionId, router])
 
   async function startCheckout(planKey: string) {
     setPending(`checkout:${planKey}`)
     try {
       const res = await createCheckoutSession(planKey)
       if (res.ok) {
+        trackEvent('checkout_started', { plan: planKey })
         window.location.assign(res.data.url) // redirect to Stripe Hosted Checkout
         return // keep the spinner: the page is navigating away
       }

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/form'
 import { mapSupabaseError, authErrorCodeToMessage } from '@/lib/auth/errors'
 import { signInWithEmail, signUpWithEmail } from '@/actions/auth'
+import { trackEvent } from '@/lib/tracking/events'
 
 export type AuthMode = 'signin' | 'signup'
 export type AuthView = 'step1' | 'step2' | 'reset'
@@ -363,6 +364,7 @@ function SignUpForm({
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
         return
       }
+      trackEvent('sign_up', { method: 'email' })
       if (!result.hasSession) {
         onEmailSent(values.email)
       }

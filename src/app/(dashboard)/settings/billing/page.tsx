@@ -43,6 +43,7 @@ export default async function BillingSettingsPage({
   const sp = await searchParams
   const checkoutResult = oneOf<CheckoutResult>(sp.checkout, ['success', 'cancel'])
   const topupResult = oneOf<'success' | 'cancel'>(sp.topup, ['success', 'cancel'])
+  const checkoutSessionId = Array.isArray(sp.session_id) ? sp.session_id[0] : sp.session_id ?? null
 
   // RLS scopes all of these to the caller's org. Resolve subscription, effective
   // entitlements, the Copilot wallet, and usage counts in parallel.
@@ -126,6 +127,7 @@ export default async function BillingSettingsPage({
         subscription={subscription}
         plans={configuredPlanKeys()}
         checkoutResult={checkoutResult}
+        checkoutSessionId={checkoutSessionId}
       />
 
       <CostCapCard

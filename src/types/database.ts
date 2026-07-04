@@ -76,6 +76,16 @@ export interface PlatformEmailSettingsRow {
   updated_at: string
 }
 
+// Platform tracking config (migration 1240): GTM + Facebook Pixel, super admin only
+export interface PlatformTrackingConfigRow {
+  id: string
+  gtm_container_id: string | null
+  facebook_pixel_id: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface TenantEmailIntegrationRow {
   id: string
   org_id: string
@@ -4736,12 +4746,12 @@ export interface Database {
           }
         ]
       }
-      reusable_email_blocks: {
+      email_section_templates: {
         Row: {
           id: string
           org_id: string
           name: string
-          block_type: string
+          section_type: string
           document: Json
           folder_id: string | null
           position: number
@@ -4752,7 +4762,7 @@ export interface Database {
           id?: string
           org_id: string
           name: string
-          block_type: string
+          section_type: string
           document?: Json
           folder_id?: string | null
           position?: number
@@ -4763,7 +4773,7 @@ export interface Database {
           id?: string
           org_id?: string
           name?: string
-          block_type?: string
+          section_type?: string
           document?: Json
           folder_id?: string | null
           position?: number
@@ -5110,6 +5120,31 @@ export interface Database {
           provider?: string
           is_active?: boolean
           last_tested_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_tracking_config: {
+        Row: {
+          id: string
+          gtm_container_id: string | null
+          facebook_pixel_id: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          gtm_container_id?: string | null
+          facebook_pixel_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          gtm_container_id?: string | null
+          facebook_pixel_id?: string | null
+          is_active?: boolean
           updated_at?: string
         }
         Relationships: []

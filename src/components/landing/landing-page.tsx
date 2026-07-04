@@ -10,6 +10,7 @@ import { CTAButton } from '@/components/design-system/cta-button'
 import { LoginDialog, type AuthMode, type AuthView } from '@/components/auth/login-dialog'
 import { XphereOrb } from '@/components/xphere-orb'
 import { loadSequential } from '@/lib/preload/sequential'
+import { trackEvent } from '@/lib/tracking/events'
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -377,7 +378,7 @@ export function LandingPage({
           >
             <CTAButton href={startHref}>Start</CTAButton>
             {demoEnabled && (
-              <Link href="/demo">
+              <Link href="/demo" onClick={() => trackEvent('demo_start')}>
                 <Button
                   variant="outline"
                   className="h-11 px-6 text-sm border-white/15 bg-white/5 text-[#FAFAFA] hover:bg-white/10"
