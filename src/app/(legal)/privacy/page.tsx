@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { APP_NAME } from '@/lib/config'
 
 export const metadata: Metadata = {
-  title: `Privacy Policy · ${APP_NAME}`,
+  title: 'Privacy Policy',
   description: `How ${APP_NAME} collects, uses, and protects your data.`,
 }
 

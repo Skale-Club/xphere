@@ -5,6 +5,14 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 // Next.js 16 requires a cache profile as the second arg to revalidateTag.
 const REVALIDATE_PROFILE = 'max'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { getUser } from '@/lib/supabase/server'
+
+async function assertAdmin() {
+  const user = await getUser()
+  if (!user || user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
+    throw new Error('Unauthorized')
+  }
+}
 
 export type SeoConfig = {
   id: string
@@ -30,6 +38,7 @@ export async function getSeoConfig(): Promise<SeoConfig> {
 }
 
 export async function updateFaviconUrl(id: string, favicon_url: string | null): Promise<void> {
+  await assertAdmin()
   const admin = createServiceRoleClient()
   const { error } = await admin
     .from('seo_config')
@@ -41,12 +50,14 @@ export async function updateFaviconUrl(id: string, favicon_url: string | null): 
 }
 
 export async function updateOgImageUrl(id: string, og_image_url: string | null): Promise<void> {
+  await assertAdmin()
   const admin = createServiceRoleClient()
   const { error } = await admin
     .from('seo_config')
     .update({ og_image_url, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(`Failed to update OG image: ${error.message}`)
+  revalidateTag('seo-metadata-config', REVALIDATE_PROFILE)
   revalidatePath('/', 'layout')
   revalidatePath('/admin/seo')
 }
@@ -62,6 +73,7 @@ export async function updateSeoConfig(
     keywords: string[]
   }
 ): Promise<void> {
+  await assertAdmin()
   const admin = createServiceRoleClient()
   const { error } = await admin
     .from('seo_config')
@@ -70,5 +82,6 @@ export async function updateSeoConfig(
 
   if (error) throw new Error(`Failed to update SEO config: ${error.message}`)
   revalidateTag('seo-favicon', REVALIDATE_PROFILE)
+  revalidateTag('seo-metadata-config', REVALIDATE_PROFILE)
   revalidatePath('/', 'layout')
 }

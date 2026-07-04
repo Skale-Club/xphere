@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import Script from 'next/script'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/components/theme-provider'
+import { MarketingTrackingScripts } from '@/components/tracking/marketing-tracking-scripts'
 import { APP_NAME } from '@/lib/config'
-import { getFaviconUrl } from '@/lib/seo'
+import { getFaviconUrl, getSeoMetadataConfig } from '@/lib/seo'
+import { getSiteOriginFromHeaders } from '@/lib/site-url'
 import { getTrackingConfig } from '@/lib/tracking/config'
 import './globals.css'
 
@@ -48,10 +49,20 @@ export const viewport: Viewport = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const faviconUrl = await getFaviconUrl()
+  const [faviconUrl, seoConfig, siteOrigin] = await Promise.all([
+    getFaviconUrl(),
+    getSeoMetadataConfig(),
+    getSiteOriginFromHeaders(),
+  ])
+
   return {
-    title: APP_NAME,
-    description: 'AI Operations Platform',
+    metadataBase: new URL(siteOrigin),
+    title: {
+      template: seoConfig?.titleTemplate ?? '%s | Xphere',
+      default: seoConfig?.siteTitle ?? APP_NAME,
+    },
+    description: seoConfig?.description ?? 'AI Operations Platform',
+    keywords: seoConfig?.keywords,
     applicationName: APP_NAME,
     manifest: '/manifest.webmanifest',
     appleWebApp: {
@@ -80,26 +91,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        {tracking?.gtmContainerId && (
-          <>
-            <Script id="gtm-base" strategy="afterInteractive">
-              {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${tracking.gtmContainerId}');`}
-            </Script>
-            <noscript>
-              <iframe
-                src={`https://www.googletagmanager.com/ns.html?id=${tracking.gtmContainerId}`}
-                height="0"
-                width="0"
-                style={{ display: 'none', visibility: 'hidden' }}
-              />
-            </noscript>
-          </>
-        )}
-        {tracking?.facebookPixelId && (
-          <Script id="fb-pixel-base" strategy="afterInteractive">
-            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${tracking.facebookPixelId}');fbq('track','PageView');`}
-          </Script>
-        )}
+        <MarketingTrackingScripts tracking={tracking} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

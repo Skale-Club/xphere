@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next'
+import { getSiteOrigin } from '@/lib/site-url'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
+  const base = getSiteOrigin()
   const now = new Date()
 
   return [

@@ -1,34 +1,41 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { LandingPage } from '@/components/landing/landing-page'
-import { getFaviconUrl } from '@/lib/seo'
+import { getFaviconUrl, getSeoMetadataConfig } from '@/lib/seo'
 import { getLandingPublicConfig } from '@/lib/landing/public-config'
+import { getSiteOrigin } from '@/lib/site-url'
 import { getUser } from '@/lib/supabase/server'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
+const SITE_URL = getSiteOrigin()
 
-export const metadata: Metadata = {
-  title: 'Xphere | The AI Operations Platform for Modern Businesses',
-  description:
-    'Centralize AI assistants, automate client workflows, and manage every interaction | voice, chat, SMS, and WhatsApp | from one powerful dashboard.',
-  metadataBase: new URL(SITE_URL),
-  openGraph: {
-    title: 'Xphere | The AI Operations Platform',
+export async function generateMetadata(): Promise<Metadata> {
+  const seoConfig = await getSeoMetadataConfig()
+  const ogImages = seoConfig?.ogImageUrl ? [{ url: seoConfig.ogImageUrl }] : undefined
+
+  return {
+    title: 'Xphere | The AI Operations Platform for Modern Businesses',
     description:
-      'Centralize AI assistants, automate client workflows, and manage every interaction from one powerful dashboard.',
-    url: SITE_URL,
-    siteName: 'Xphere',
-    type: 'website',
-    locale: 'en_US',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Xphere | The AI Operations Platform',
-    description:
-      'Centralize AI assistants, automate client workflows, and manage every interaction from one powerful dashboard.',
-  },
-  keywords: ['AI operations', 'business platform', 'AI assistants', 'workflow automation', 'CRM', 'multi-channel inbox'],
-  alternates: { canonical: SITE_URL },
+      'Centralize AI assistants, automate client workflows, and manage every interaction | voice, chat, SMS, and WhatsApp | from one powerful dashboard.',
+    openGraph: {
+      title: 'Xphere | The AI Operations Platform',
+      description:
+        'Centralize AI assistants, automate client workflows, and manage every interaction from one powerful dashboard.',
+      url: SITE_URL,
+      siteName: 'Xphere',
+      type: 'website',
+      locale: 'en_US',
+      images: ogImages,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Xphere | The AI Operations Platform',
+      description:
+        'Centralize AI assistants, automate client workflows, and manage every interaction from one powerful dashboard.',
+      images: ogImages,
+    },
+    keywords: ['AI operations', 'business platform', 'AI assistants', 'workflow automation', 'CRM', 'multi-channel inbox'],
+    alternates: { canonical: SITE_URL },
+  }
 }
 
 const jsonLd = {

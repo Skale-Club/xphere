@@ -4,7 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/supabase/server'
 
 const ALLOWED = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/svg+xml'])
-const MAX_BYTES = 8 * 1024 * 1024 // matches bucket file_size_limit set in 1040_landing_config.sql
+const MAX_BYTES = 8 * 1024 * 1024 // matches bucket file_size_limit set in 1050_landing_config.sql
 const KIND_FOLDERS: Record<string, string> = {
   cta: 'landing',
   scroll: 'landing/scroll',

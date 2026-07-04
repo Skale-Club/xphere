@@ -19,3 +19,44 @@ export const getFaviconUrl = unstable_cache(
   ['seo-favicon'],
   { revalidate: 3600, tags: ['seo-favicon'] }
 )
+
+export interface SeoMetadataConfig {
+  siteTitle: string
+  titleTemplate: string
+  description: string
+  keywords: string[]
+  ogImageUrl: string | null
+}
+
+/** Admin-configured metadata (title/description/keywords/OG image) for public pages. */
+export const getSeoMetadataConfig = unstable_cache(
+  async (): Promise<SeoMetadataConfig | null> => {
+    try {
+      const admin = createServiceRoleClient()
+      const { data } = await admin
+        .from('seo_config')
+        .select('site_title, title_template, description, keywords, og_image_url')
+        .limit(1)
+        .single()
+      if (!data) return null
+      const row = data as {
+        site_title: string
+        title_template: string
+        description: string
+        keywords: string[] | null
+        og_image_url: string | null
+      }
+      return {
+        siteTitle: row.site_title,
+        titleTemplate: row.title_template,
+        description: row.description,
+        keywords: row.keywords ?? [],
+        ogImageUrl: row.og_image_url,
+      }
+    } catch {
+      return null
+    }
+  },
+  ['seo-metadata-config'],
+  { revalidate: 3600, tags: ['seo-metadata-config'] }
+)

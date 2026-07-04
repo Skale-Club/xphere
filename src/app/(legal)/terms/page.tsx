@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { APP_NAME } from '@/lib/config'
 
 export const metadata: Metadata = {
-  title: `Terms of Service · ${APP_NAME}`,
+  title: 'Terms of Service',
   description: `The terms that govern your use of ${APP_NAME}.`,
 }
 

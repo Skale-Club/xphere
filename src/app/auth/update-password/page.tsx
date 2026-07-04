@@ -3,7 +3,7 @@ import { getUser } from '@/lib/supabase/server'
 import { UpdatePasswordForm } from './update-password-form'
 
 export const metadata = {
-  title: 'Set a new password | Xphere',
+  title: 'Set a new password',
   robots: { index: false, follow: false },
 }
 

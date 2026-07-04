@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { APP_NAME } from '@/lib/config'
 
 export const metadata: Metadata = {
-  title: `Data Deletion · ${APP_NAME}`,
+  title: 'Data Deletion',
   description: `How to delete your data from ${APP_NAME}.`,
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // One-off migration runner that bypasses the supabase CLI migration-history
-// conflict for migration 104. Reads supabase/migrations/1040_landing_config.sql
+// conflict for migration 105. Reads supabase/migrations/1050_landing_config.sql
 // and applies it against the pooled connection in DATABASE_URL.
 const fs = require('fs')
 const path = require('path')
@@ -20,7 +20,7 @@ async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL missing in .env.local')
 
-  const sqlPath = path.join(__dirname, '..', 'supabase', 'migrations', '1040_landing_config.sql')
+  const sqlPath = path.join(__dirname, '..', 'supabase', 'migrations', '1050_landing_config.sql')
   const sql = fs.readFileSync(sqlPath, 'utf8')
 
   const { Client } = require('pg')

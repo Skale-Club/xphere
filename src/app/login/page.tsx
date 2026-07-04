@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import { LandingPage } from '@/components/landing/landing-page'
 import { getLandingPublicConfig } from '@/lib/landing/public-config'
 import { getFaviconUrl } from '@/lib/seo'
+import { getSiteOrigin } from '@/lib/site-url'
 import { getUser } from '@/lib/supabase/server'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://xphere.app'
+const SITE_URL = getSiteOrigin()
 
 export const metadata: Metadata = {
-  title: 'Login | Xphere',
+  title: 'Login',
   description: 'Sign in to your Xphere workspace.',
   alternates: { canonical: `${SITE_URL}/login` },
 }

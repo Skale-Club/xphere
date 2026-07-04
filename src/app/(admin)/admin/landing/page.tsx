@@ -9,7 +9,7 @@ export default async function AdminLandingPage() {
     return (
       <div className="p-6">
         <p className="text-sm text-text-secondary">
-          Failed to load landing config. Run migration 1040_landing_config.sql and refresh.
+          Failed to load landing config. Run migration 1050_landing_config.sql and refresh.
         </p>
       </div>
     )
