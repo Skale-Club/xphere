@@ -12,6 +12,7 @@ import {
   PhoneOff,
   Bot,
   User as UserIcon,
+  MessageSquare,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -221,6 +222,7 @@ const UnifiedCallRow = React.memo(function UnifiedCallRow({
 }: {
   row: UnifiedCallWithContact;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
   const detailHref = React.useMemo(() => {
@@ -305,10 +307,28 @@ const UnifiedCallRow = React.memo(function UnifiedCallRow({
             Transcript
           </span>
         )}
+        <span className="text-[11.5px] tabular-nums text-text-tertiary">
+          {formatTime(row.started_at ?? row.created_at)}
+        </span>
         <span className="inline-flex items-center gap-1 text-[11.5px] text-text-tertiary">
           <Clock className="h-3 w-3" />
           {formatDuration(row.duration_seconds)}
         </span>
+        {row.contact && (
+          <button
+            type="button"
+            title="Message contact"
+            aria-label={`Message ${displayName}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/inbox?contact=${row.contact!.id}`);
+            }}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-accent"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
+        )}
         <StatusPill status={row.status ?? null} />
       </div>
     </Link>
@@ -401,6 +421,14 @@ function initialsOf(name: string | null | undefined): string {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return base.slice(0, 2).toUpperCase();
+}
+
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatDuration(seconds: number | null | undefined): string {

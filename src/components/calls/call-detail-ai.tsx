@@ -1,8 +1,10 @@
-import { Bot, Clock, Hash, DollarSign, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Bot, Clock, Hash, DollarSign, Sparkles, MessageSquare } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
 import { buildTimeline } from '@/lib/calls/timeline'
 import { CallTranscript } from '@/components/calls/call-transcript'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { ArtifactMessage } from '@/types/vapi'
 import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
 
@@ -88,6 +90,36 @@ export async function CallDetailAi({ call, stacked = false }: Props) {
           <MetaRow icon={Clock} label="Started" value={formatDateTime(call.started_at)} />
           <MetaRow icon={Clock} label="Ended" value={formatDateTime(call.ended_at)} />
         </div>
+
+        {call.contact && (
+          <div className="rounded-[14px] border border-border bg-bg-secondary p-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[12px] font-medium uppercase tracking-[0.08em] text-text-tertiary">
+                Contact
+              </h3>
+              <Link
+                href={`/inbox?contact=${call.contact.id}`}
+                className="inline-flex items-center gap-1 text-[11.5px] font-medium text-accent hover:underline"
+              >
+                <MessageSquare className="h-3 w-3" />
+                Message
+              </Link>
+            </div>
+            <Link
+              href={`/contacts?id=${call.contact.id}`}
+              className="block rounded-[10px] border border-border-subtle bg-bg-tertiary/40 p-3 transition-colors hover:bg-bg-tertiary/70"
+            >
+              <div className="text-[13.5px] font-medium text-text-primary">
+                {call.contact.name ?? '(unnamed contact)'}
+              </div>
+              {call.contact.phone && (
+                <div className="text-[11.5px] tabular-nums text-text-tertiary">
+                  {formatPhoneDisplay(call.contact.phone)}
+                </div>
+              )}
+            </Link>
+          </div>
+        )}
       </aside>
     </div>
   )
