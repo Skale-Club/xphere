@@ -30,6 +30,7 @@ export function NewSectionTemplateButton({ label = 'New section', className, ico
       className={className}
       disabled={pending}
       aria-label={iconOnly ? label : undefined}
+      title={iconOnly ? label : undefined}
       onClick={() =>
         start(async () => {
           const res = await createSectionTemplate('Untitled section', folderId)

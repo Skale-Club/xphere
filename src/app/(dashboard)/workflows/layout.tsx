@@ -36,6 +36,9 @@ export default async function WorkflowsLayout({ children }: { children: React.Re
     kind: w.kind,
     trigger_type: w.trigger_type,
     group_id: w.folder_id,
+    is_active: w.is_active,
+    health_blocked: w.health_blocked,
+    health_blocked_reason: w.health_blocked_reason,
   }))
 
   const navFolders = folders.map((f) => ({

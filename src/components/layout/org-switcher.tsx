@@ -42,6 +42,8 @@ interface OrgSwitcherProps {
   collapsed?: boolean
   /** Server-preloaded org list — when present, skips the lazy fetch on first dropdown open. */
   initialOrgs?: Org[]
+  /** 'lg' matches the full-width card rows in the mobile menu; 'sm' (default) is the compact topbar/sidebar pill. */
+  size?: 'sm' | 'lg'
 }
 
 export interface Org {
@@ -131,7 +133,7 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   )
 }
 
-export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, collapsed = false, initialOrgs }: OrgSwitcherProps) {
+export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, collapsed = false, initialOrgs, size = 'sm' }: OrgSwitcherProps) {
   const [isSwitching, startSwitchTransition] = useTransition()
   const [createOpen, setCreateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -176,29 +178,31 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
             disabled={isSwitching}
             aria-label="Switch organization"
             className={cn(
-              'flex w-full items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-[12.5px] font-medium',
-              'border border-border-subtle bg-bg-tertiary/40',
-              'hover:bg-bg-tertiary hover:border-border motion-fast',
+              'flex w-full items-center text-left font-medium motion-fast',
+              'border border-border-subtle bg-bg-tertiary/40 hover:bg-bg-tertiary hover:border-border',
               'text-text-primary',
               collapsed && 'justify-center',
+              size === 'lg'
+                ? 'gap-3 rounded-[14px] px-4 py-4 text-base'
+                : 'gap-2 rounded-[7px] px-2 py-1.5 text-[12.5px]',
             )}
           >
             {isSwitching ? (
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-text-tertiary" />
+              <Loader2 className={cn('shrink-0 animate-spin text-text-tertiary', size === 'lg' ? 'h-5 w-5' : 'h-3.5 w-3.5')} />
             ) : (
-              <OrgAvatar name={currentOrgName} logo={currentOrgLogo} size={collapsed ? 22 : 18} />
+              <OrgAvatar name={currentOrgName} logo={currentOrgLogo} size={collapsed ? 22 : size === 'lg' ? 28 : 18} />
             )}
             {!collapsed && (
               <>
-                <span className="max-w-[140px] truncate flex-1">
+                <span className={cn('truncate flex-1', size === 'lg' ? 'max-w-none' : 'max-w-[140px]')}>
                   {currentOrgName ?? 'Select organization'}
                 </span>
-                <ChevronsUpDown className="h-3 w-3 shrink-0 text-text-tertiary" />
+                <ChevronsUpDown className={cn('shrink-0 text-text-tertiary', size === 'lg' ? 'h-4 w-4' : 'h-3 w-3')} />
               </>
             )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side={collapsed ? 'right' : 'top'} className="w-60">
+        <DropdownMenuContent align="start" side={collapsed ? 'right' : size === 'lg' ? 'bottom' : 'top'} className="w-60">
           {isLoadingOrgs ? (
             <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-text-tertiary">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

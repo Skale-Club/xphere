@@ -70,7 +70,7 @@ export function TemplateListActions({ templateId, status, basePath = '/email-tem
   }
 
   return (
-    <div className="flex items-center gap-1 mt-auto pt-1">
+    <div className="flex flex-wrap items-center gap-1 mt-auto pt-1">
       <Button
         size="sm"
         variant="ghost"

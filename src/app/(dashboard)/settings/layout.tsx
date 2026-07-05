@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/supabase/server'
 import { redirectIfDemo } from '@/lib/demo/route-guard'
 import { SubSidebarLayout } from '@/components/layout/sub-sidebar'
-import { SettingsSubNav } from '@/components/settings/settings-sub-nav'
+import { SettingsSubNav, SettingsSubNavCollapsed } from '@/components/settings/settings-sub-nav'
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
@@ -16,6 +16,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       title="Settings"
       expandedWidth={176}
       nav={<SettingsSubNav />}
+      collapsedActions={<SettingsSubNavCollapsed />}
     >
       {children}
     </SubSidebarLayout>

@@ -85,6 +85,7 @@ export function NewFolderButton({
           size="sm"
           className={className}
           aria-label={iconOnly ? 'Folder' : undefined}
+          title={iconOnly ? 'Folder' : undefined}
         >
           <FolderPlus className="h-3.5 w-3.5" />
           {!iconOnly && 'Folder'}

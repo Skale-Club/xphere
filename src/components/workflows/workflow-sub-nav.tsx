@@ -33,10 +33,14 @@ import {
 } from '@/app/(dashboard)/workflows/_actions/workflows'
 import { NewWorkflowButton } from '@/components/flows/new-workflow-button'
 import { NewFolderButton } from '@/components/workflows/new-folder-button'
+import { WorkflowToggle } from '@/components/workflows/workflow-toggle'
 
 interface WorkflowItem extends TreeNavItem {
   kind: 'tool' | 'flow'
   trigger_type: 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url'
+  is_active: boolean
+  health_blocked: boolean
+  health_blocked_reason: string | null
 }
 
 interface FolderItem {
@@ -93,6 +97,16 @@ export function WorkflowSubNav({ workflows, folders }: Props) {
           />
         )
       }}
+      renderItemExtra={(w) => (
+        <WorkflowToggle
+          workflowId={w.id}
+          initialActive={w.is_active}
+          blocked={w.health_blocked}
+          blockedReason={w.health_blocked_reason}
+          compact
+        />
+      )}
+      isItemMuted={(w) => !w.is_active}
       onDeleteItem={async (w) => {
         const res = await softDeleteWorkflow(w.id)
         if (!res.ok) {

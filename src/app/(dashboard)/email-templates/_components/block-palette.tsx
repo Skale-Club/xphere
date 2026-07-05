@@ -88,10 +88,10 @@ export function BlockPalette({ sectionTemplates }: { sectionTemplates: SectionTe
         </div>
       ) : (
         <>
-          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between gap-2">
+          <div className="h-10 px-3 border-b border-border shrink-0 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-xs font-semibold">Blocks</p>
-              <p className="text-[10px] text-muted-foreground">Drag onto the canvas</p>
+              <p className="text-xs font-semibold leading-tight">Blocks</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">Drag onto the canvas</p>
             </div>
             <ToggleButton collapsed={collapsed} onClick={toggle} />
           </div>

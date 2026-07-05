@@ -260,6 +260,11 @@ interface DraggableTreeNavProps<T extends TreeNavItem> {
   itemNoun: string
   getHref: (item: T) => string
   renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
+  /** Optional extra control rendered inline before the "···" menu, e.g. an
+   *  active/inactive switch. Omit → no extra content, unchanged row layout. */
+  renderItemExtra?: (item: T) => React.ReactNode
+  /** Marks a row as muted (dims its icon and name). Omit → never muted. */
+  isItemMuted?: (item: T) => boolean
   /** Performs the soft-delete (incl. its own toast). Refresh is handled here. */
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
@@ -290,6 +295,8 @@ export function DraggableTreeNav<T extends TreeNavItem>({
   itemNoun,
   getHref,
   renderItemIcon,
+  renderItemExtra,
+  isItemMuted,
   onDeleteItem,
   actions,
   enableFolderIcon,
@@ -514,6 +521,8 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                 isOver={overGroupId === UNFILED_ID}
                 getHref={getHref}
                 renderItemIcon={renderItemIcon}
+                renderItemExtra={renderItemExtra}
+                isItemMuted={isItemMuted}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
@@ -535,6 +544,8 @@ export function DraggableTreeNav<T extends TreeNavItem>({
                   isOver={overGroupId === folder.id}
                   getHref={getHref}
                   renderItemIcon={renderItemIcon}
+                  renderItemExtra={renderItemExtra}
+                  isItemMuted={isItemMuted}
                   onDeleteItem={onDeleteItem}
                   actions={actions}
                   itemNoun={itemNoun}
@@ -588,6 +599,8 @@ function UnfiledSection<T extends TreeNavItem>({
   isOver,
   getHref,
   renderItemIcon,
+  renderItemExtra,
+  isItemMuted,
   onDeleteItem,
   itemNoun,
   getItemChildren,
@@ -598,6 +611,8 @@ function UnfiledSection<T extends TreeNavItem>({
   isOver: boolean
   getHref: (item: T) => string
   renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
+  renderItemExtra?: (item: T) => React.ReactNode
+  isItemMuted?: (item: T) => boolean
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
   getItemChildren?: (item: T) => TreeNavChild[]
@@ -643,6 +658,8 @@ function UnfiledSection<T extends TreeNavItem>({
                 folderId={null}
                 getHref={getHref}
                 renderItemIcon={renderItemIcon}
+                renderItemExtra={renderItemExtra}
+                isItemMuted={isItemMuted}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
@@ -666,6 +683,8 @@ function FolderSection<T extends TreeNavItem>({
   isOver,
   getHref,
   renderItemIcon,
+  renderItemExtra,
+  isItemMuted,
   onDeleteItem,
   actions,
   itemNoun,
@@ -681,6 +700,8 @@ function FolderSection<T extends TreeNavItem>({
   isOver: boolean
   getHref: (item: T) => string
   renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
+  renderItemExtra?: (item: T) => React.ReactNode
+  isItemMuted?: (item: T) => boolean
   onDeleteItem: (item: T) => Promise<void>
   actions: TreeNavActions
   itemNoun: string
@@ -1023,6 +1044,8 @@ function FolderSection<T extends TreeNavItem>({
                 folderColor={folderColor}
                 getHref={getHref}
                 renderItemIcon={renderItemIcon}
+                renderItemExtra={renderItemExtra}
+                isItemMuted={isItemMuted}
                 onDeleteItem={onDeleteItem}
                 itemNoun={itemNoun}
                 getItemChildren={getItemChildren}
@@ -1050,6 +1073,8 @@ function ItemRow<T extends TreeNavItem>({
   folderColor,
   getHref,
   renderItemIcon,
+  renderItemExtra,
+  isItemMuted,
   onDeleteItem,
   itemNoun,
   getItemChildren,
@@ -1061,6 +1086,8 @@ function ItemRow<T extends TreeNavItem>({
   folderColor?: string | null
   getHref: (item: T) => string
   renderItemIcon: (item: T, context?: TreeNavItemIconContext) => React.ReactNode
+  renderItemExtra?: (item: T) => React.ReactNode
+  isItemMuted?: (item: T) => boolean
   onDeleteItem: (item: T) => Promise<void>
   itemNoun: string
   getItemChildren?: (item: T) => TreeNavChild[]
@@ -1070,6 +1097,7 @@ function ItemRow<T extends TreeNavItem>({
   const pathname = usePathname()
   const { onNavigate } = useSubSidebar()
   const href = getHref(item)
+  const muted = isItemMuted?.(item) ?? false
 
   // `expandable` is gated on the PROP, not the per-item result, so consumers
   // that never pass getItemChildren (Projects/Workflows) render zero extra DOM.
@@ -1233,6 +1261,7 @@ function ItemRow<T extends TreeNavItem>({
                 isActive
                   ? 'text-text-primary font-medium bg-accent/8'
                   : 'text-text-secondary hover:bg-bg-tertiary/60 hover:text-text-primary',
+                muted && 'opacity-60',
               )}
             >
               <span className="flex h-3 w-3 shrink-0 items-center justify-center">
@@ -1240,6 +1269,10 @@ function ItemRow<T extends TreeNavItem>({
               </span>
               <span title={item.name} className="truncate">{item.name}</span>
             </Link>
+
+            {renderItemExtra && (
+              <span className="ml-1 shrink-0">{renderItemExtra(item)}</span>
+            )}
 
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>

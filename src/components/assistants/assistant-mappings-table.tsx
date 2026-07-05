@@ -122,7 +122,7 @@ export function AssistantMappingsTable({
   return (
     <div className="flex flex-col">
       {/* Toolbar */}
-      <div className="-mt-6 flex items-center gap-2 pb-4">
+      <div className="flex items-center gap-2 pb-4">
         <Button
           size="sm"
           variant="outline"

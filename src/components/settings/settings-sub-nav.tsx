@@ -132,3 +132,39 @@ export function SettingsSubNav() {
     </nav>
   )
 }
+
+/** Icon-only rendering of the same nav items, used in the collapsed rail. */
+export function SettingsSubNavCollapsed() {
+  const pathname = usePathname()
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      {SECTIONS.map((section, index) => (
+        <React.Fragment key={section.heading}>
+          {index > 0 && <div className="my-1 h-px w-5 shrink-0 bg-border-subtle" />}
+          {section.items.map((item) => {
+            const Icon = item.icon
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                aria-label={item.label}
+                className={cn(
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
+                  isActive
+                    ? 'bg-accent/10 text-accent'
+                    : 'text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </Link>
+            )
+          })}
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}

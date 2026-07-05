@@ -526,7 +526,7 @@ export function EmailTemplateEditor({
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Toolbar */}
-            <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-card/80 px-3 py-2">
+            <div className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-card/80 px-3">
               <div className="mr-2 flex items-center gap-0.5">
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={undo} disabled={!canUndo} title="Undo (⌘Z)">
                   <Undo2 className="h-3.5 w-3.5" />

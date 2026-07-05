@@ -107,8 +107,8 @@ function MobileMenu({
     <div
       className={cn(
         'fixed inset-0 z-50 flex flex-col bg-bg-primary sm:hidden',
-        'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-        open ? 'translate-y-0' : 'translate-y-full pointer-events-none',
+        'transition-opacity duration-200 ease-out',
+        open ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}
     >
       {/* Top bar inside menu */}
@@ -132,9 +132,13 @@ function MobileMenu({
         {/* Workspace */}
         <section className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Workspace</p>
-          <div className="rounded-[14px] border border-border-subtle bg-bg-secondary px-4 py-4">
-            <OrgSwitcher currentOrgId={activeOrgId} currentOrgName={activeOrgName} currentOrgLogo={activeOrgLogo} initialOrgs={initialOrgs} />
-          </div>
+          <OrgSwitcher
+            currentOrgId={activeOrgId}
+            currentOrgName={activeOrgName}
+            currentOrgLogo={activeOrgLogo}
+            initialOrgs={initialOrgs}
+            size="lg"
+          />
         </section>
 
         {/* Search */}
