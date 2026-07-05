@@ -70,9 +70,10 @@ None.
 |---|-------------|------|--------|--------|-----------|
 | 260524-pwe | Auth modal redesign — 2-step popup with reset password tab + remove dedicated /login /signup routes | 2026-05-24 | d0d2ac9 |  | [260524-pwe-auth-modal-redesign-2-step-popup-with-re](./quick/260524-pwe-auth-modal-redesign-2-step-popup-with-re/) |
 | 260524-r62 | Projects Module UI Refinements — 13 R-items (R01-R15 except R08/R14) on branch feat/projects-ui-refinements | 2026-05-24 | 8ccc056 | Verified | [260524-r62-projects-module-ui-refinements-r01-r15-e](./quick/260524-r62-projects-module-ui-refinements-r01-r15-e/) |
+| 260704-rwo | SEED-048 Phases F+G (final) — Knowledge Manager realtime subscription replaces 5s polling, Evolution QR poll self-terminates on connect, incoming-call contact lookups cached with 5min TTL, next.config.ts optimizePackageImports for @phosphor-icons/react; migration 1244 not yet applied | 2026-07-05 | 3767a3c0, 2e5474e4 | Complete | [260704-rwo-performance-seed-048-fases-f-g-reduzir-p](./quick/260704-rwo-performance-seed-048-fases-f-g-reduzir-p/) |
 
 ## Session Continuity
 
-Current session: 2026-05-22
-Stopped at: Phase 107 complete, ready for Phase 108
+Current session: 2026-07-05
+Stopped at: Completed quick task 260704-rwo (SEED-048 Phases F+G — closes out all of SEED-048 A-G)
 Resume file: —
