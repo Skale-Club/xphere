@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button'
 import { useTwilioDevice } from './twilio-device-provider'
 import { cn } from '@/lib/utils'
 
+const CONTACT_LOOKUP_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const contactLookupCache = new Map<string, { name: string | null; fetchedAt: number }>()
+
 /**
  * Floating banner shown when a Twilio Voice SDK `incoming` event fires.
  * Slides in from the top of the viewport with a soft pulse, big Accept/Reject.
@@ -23,12 +26,21 @@ export function IncomingCallBanner() {
   // shipping the server-action bundle to the client.
   React.useEffect(() => {
     if (!fromNumber) return
+
+    const cached = contactLookupCache.get(fromNumber)
+    if (cached && Date.now() - cached.fetchedAt < CONTACT_LOOKUP_TTL_MS) {
+      setContactName(cached.name)
+      return
+    }
+
     let cancelled = false
     fetch(`/api/voice/contact-by-phone?phone=${encodeURIComponent(fromNumber)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { name?: string } | null) => {
+        const name = data?.name ?? null
+        contactLookupCache.set(fromNumber, { name, fetchedAt: Date.now() })
         if (cancelled) return
-        setContactName(data?.name ?? null)
+        setContactName(name)
       })
       .catch(() => undefined)
     return () => {
