@@ -6,10 +6,10 @@ planted_during: post-v3.3 (Settings Nav Cleanup + Unified Templates) — no mile
 trigger_when: any milestone or quick task that touches the Calls page, the dashboard root layout, the Action Engine's activity feed, or is explicitly scoped as "performance" / "otimização" / "velocidade"; or the next time a user reports "demora para carregar" / "trava ao clicar" on any dashboard page
 scope: Large
 depends_on: []
-phases_shipped: [A, C]
-phases_pending: [B, D, E, F, G]
-shipped_as: quick task 260704-pr3
-shipped: 2026-07-04
+phases_shipped: [A, B, C, D, E, F, G]
+phases_pending: []
+shipped_as: quick tasks 260704-pr3 (A+C), 260704-r15 (B), 260704-r5t (D+E), 260704-rwo (F+G)
+shipped: 2026-07-05
 ---
 
 # SEED-048: System Performance — Click-to-Render Latency (Calls Page + Dashboard-Wide)
