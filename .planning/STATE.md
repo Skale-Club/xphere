@@ -73,9 +73,10 @@ None.
 | 260704-pr3 | Performance SEED-048 Fases A+C — eliminate Calls detail dialog duplicate-fetch waterfall + parallelize dashboard layout/org/RBAC round-trips | 2026-07-04 | 570a3bcd, de5d7591 | Complete | [260704-pr3-performance-seed-048-fases-a-c-eliminar-](./quick/260704-pr3-performance-seed-048-fases-a-c-eliminar-/) |
 | 260704-r15 | SEED-048 Phase B code-splitting — lazy-load Twilio Voice SDK + dynamic-import wavesurfer/dialog/routing-editor via *-lazy.tsx wrappers | 2026-07-04 | 2ed200f5 | Complete | [260704-r15-performance-seed-048-fase-b-code-splitti](./quick/260704-r15-performance-seed-048-fase-b-code-splitti/) |
 | 260704-r5t | SEED-048 Phases D+E — parallelized dashboard feed, SQL-bounded campaign contact counts, deduped company-detail + pipeline org-id lookups, paginated CSV export, 3 new index migrations (not yet applied) | 2026-07-04 | b2e13468 | Complete | [260704-r5t-performance-seed-048-fases-d-e-paraleliz](./quick/260704-r5t-performance-seed-048-fases-d-e-paraleliz/) |
+| 260704-rwo | SEED-048 Phases F+G (final) — Knowledge Manager realtime subscription replaces 5s polling, Evolution QR poll self-terminates on connect, incoming-call contact lookups cached with 5min TTL, next.config.ts optimizePackageImports for @phosphor-icons/react; migration 1244 not yet applied | 2026-07-05 | 3767a3c0, 2e5474e4 | Complete | [260704-rwo-performance-seed-048-fases-f-g-reduzir-p](./quick/260704-rwo-performance-seed-048-fases-f-g-reduzir-p/) |
 
 ## Session Continuity
 
-Current session: 2026-07-04
-Stopped at: Completed quick task 260704-r5t (SEED-048 Phases D+E performance refactor)
+Current session: 2026-07-05
+Stopped at: Completed quick task 260704-rwo (SEED-048 Phases F+G — closes out all of SEED-048 A-G)
 Resume file: —

@@ -6,6 +6,7 @@ import {
   AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database, FileText,
   Loader2, RefreshCw, Trash2, Unplug, Upload,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -135,13 +136,26 @@ export function GlobalKnowledgeManager({
   )?.title
 
   useEffect(() => {
-    const hasActiveSync =
-      notionState.roots.some((root) => root.status === 'pending' || root.status === 'syncing') ||
-      notionState.jobs.some((job) => job.status === 'queued' || job.status === 'processing')
-    if (!hasActiveSync) return
-    const timer = window.setInterval(() => router.refresh(), 5_000)
-    return () => window.clearInterval(timer)
-  }, [notionState.jobs, notionState.roots, router])
+    const connectionId = notionState.connection?.id
+    if (!connectionId) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`global-knowledge-sync-${connectionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'global_knowledge_sync_jobs',
+          filter: `connection_id=eq.${connectionId}`,
+        },
+        () => router.refresh(),
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [notionState.connection?.id, router])
 
   useEffect(() => {
     if (!notionState.connection?.id) {

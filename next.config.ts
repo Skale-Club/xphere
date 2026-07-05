@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   // NOT be bundled by webpack. sharp is excluded for the same reason.
   serverExternalPackages: ['sharp', 'playwright', 'playwright-core', 'cheerio'],
   turbopack: {},
+  experimental: {
+    optimizePackageImports: ['@phosphor-icons/react'],
+  },
   async redirects() {
     return [
       // Legacy /accounts URLs now point to the canonical /companies route.
