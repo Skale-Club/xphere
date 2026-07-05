@@ -371,11 +371,29 @@ function QRCodeCard({
 
   // Auto-refresh every 8s while pending
   useEffect(() => {
-    refresh()
-    const id = setInterval(() => {
-      refresh()
+    let stopped = false
+    async function tick() {
+      if (stopped) return
+      await refresh()
+    }
+    tick()
+    const id = setInterval(async () => {
+      if (stopped) return
+      const res = await getEvolutionQRCode()
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      setQr(res.data)
+      if (res.data.status === 'connected') {
+        stopped = true
+        clearInterval(id)
+      }
     }, 8000)
-    return () => clearInterval(id)
+    return () => {
+      stopped = true
+      clearInterval(id)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
