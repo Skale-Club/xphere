@@ -78,7 +78,11 @@ function emailFromCustomFields(cf: unknown): string | null {
 }
 
 function toXmailLead(p: ResolvedProspect): XmailLead {
-  const customFields = { xphere_id: p.id, xphere_kind: p.kind, score: p.score, source_type: p.source_type }
+  // xphere_kind must use the resolver's vocabulary ('contact' | 'account'), not
+  // the prospect's own 'person' | 'company' kind — see resolveProspectEntity in
+  // src/lib/prospects/events.ts.
+  const xphereKind = p.kind === 'company' ? 'account' : 'contact'
+  const customFields = { xphere_id: p.id, xphere_kind: xphereKind, score: p.score, source_type: p.source_type }
   if (p.kind === 'company') {
     return { email: p.email as string, companyName: p.name ?? undefined, website: p.website ?? undefined, customFields }
   }

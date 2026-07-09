@@ -30,6 +30,10 @@ jobs:
           NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET }}
           NOTION_WEBHOOK_VERIFICATION_TOKEN: ${{ secrets.NOTION_WEBHOOK_VERIFICATION_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          XMAIL_API_URL: ${{ secrets.XMAIL_API_URL }}
+          XMAIL_USER_ID: ${{ secrets.XMAIL_USER_ID }}
+          XMAIL_ORG_ID: ${{ secrets.XMAIL_ORG_ID }}
+          XMAIL_SERVICE_KEY: ${{ secrets.XMAIL_SERVICE_KEY }}
         run: |
           set -euo pipefail
           if [ -z "${COOLIFY_TOKEN}" ]; then
@@ -73,6 +77,10 @@ jobs:
           upsert NOTION_CLIENT_SECRET                "${NOTION_CLIENT_SECRET}"
           upsert NOTION_WEBHOOK_VERIFICATION_TOKEN  "${NOTION_WEBHOOK_VERIFICATION_TOKEN}"
           upsert CRON_SECRET                         "${CRON_SECRET}"
+          upsert XMAIL_API_URL                       "${XMAIL_API_URL}"
+          upsert XMAIL_USER_ID                        "${XMAIL_USER_ID}"
+          upsert XMAIL_ORG_ID                         "${XMAIL_ORG_ID}"
+          upsert XMAIL_SERVICE_KEY                    "${XMAIL_SERVICE_KEY}"
 
           echo "==> Triggering redeploy so new env vars take effect"
           curl --fail-with-body -sS --retry 3 --retry-all-errors \

@@ -162,6 +162,7 @@ export async function POST(request: Request): Promise<Response> {
 
   // ── 4. Ingest each prospect ──────────────────────────────────────────────────
   const results: IngestOutcome[] = []
+  let errors = 0
   for (const p of prospects) {
     try {
       const outcome =
@@ -176,6 +177,7 @@ export async function POST(request: Request): Promise<Response> {
         }
       }
     } catch (err) {
+      errors++
       console.error('[api/v1/prospects] ingest error:', err)
     }
   }
@@ -210,7 +212,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   return Response.json(
-    { source_id: runId, total: prospects.length, created, updated, skipped, results },
+    { source_id: runId, total: prospects.length, created, updated, skipped, errors, results },
     { status: 201, headers: CORS_HEADERS },
   )
 }
@@ -441,12 +443,16 @@ async function ingestCompany(
     return { id: existing.id, kind: 'company', action: 'updated' }
   }
 
+  const websiteFromCustomFields =
+    typeof p.custom_fields?.website === 'string' ? (p.custom_fields.website as string).trim() || null : null
+
   const { data, error } = await supabase
     .from('accounts')
     .insert({
       org_id: orgId,
       name: name ?? 'Untitled company',
       domain,
+      website: websiteFromCustomFields,
       phone: normalisePhone(p.phone),
       tags: p.tags ?? [],
       source: 'manual',
