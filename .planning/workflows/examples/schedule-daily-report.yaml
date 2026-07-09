@@ -16,7 +16,10 @@ nodes:
   - id: send_digest
     kind: send_sms
     integration: twilio
-    to: "{{org.admin_phone}}"
+    # The schedule trigger exposes only trigger.fired_at — there is no
+    # contact/org namespace on a cron run — so the recipient is configured
+    # inline. Replace the placeholder with the admin's number in E.164.
+    to: "+15555550123"
     body: "Good morning! Your daily Xphere digest is ready. Log in at https://xphere.app to review today's activity."
 
 edges:

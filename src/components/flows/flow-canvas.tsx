@@ -38,6 +38,8 @@ interface FlowCanvasProps {
   workflowName: string
   isActive: boolean
   initialDefinition: FlowDefinition
+  /** The version id this editor loaded — used for optimistic-concurrency autosave. */
+  initialVersionId?: string | null
   activeIntegrations: IntegrationKey[]
   agents?: AgentOption[]
   pickerData?: import('@/app/(dashboard)/workflows/flows/_actions/picker-data').FlowPickerData
@@ -66,8 +68,11 @@ const edgeTypes = {
   deletable: DeletableEdge,
 }
 
-function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, activeIntegrations, agents = [], pickerData }: FlowCanvasProps) {
+function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, initialVersionId, activeIntegrations, agents = [], pickerData }: FlowCanvasProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
+  // Tracks the version id this editor is bound to. Sent as baseVersionId on
+  // autosave so we never overwrite a version another tab published since load.
+  const baseVersionIdRef = useRef<string | null>(initialVersionId ?? null)
   const [, setRfInstance] = useState<ReactFlowInstance | null>(null)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const [snapToGrid, setSnapToGrid] = useState(false)
@@ -98,11 +103,16 @@ function CanvasInner({ workflowId, workflowName, isActive, initialDefinition, ac
     if (!dirty) return
     const timer = setTimeout(async () => {
       const def = toDefinition()
-      const result = await saveWorkflowDefinition(workflowId, def)
+      const result = await saveWorkflowDefinition(workflowId, def, {
+        baseVersionId: baseVersionIdRef.current ?? undefined,
+      })
       if (!result.ok) {
         toast.error(`Save failed: ${result.error}`)
         return
       }
+      // Track the (possibly new) version we just wrote so subsequent autosaves
+      // overwrite our own work, not a concurrently-published version.
+      baseVersionIdRef.current = result.data.versionId
       markSaved()
     }, 1500)
 

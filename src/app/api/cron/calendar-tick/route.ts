@@ -131,16 +131,29 @@ export async function GET(request: Request) {
         continue
       }
 
-      await emitCalendarEvent(
-        { supabase, depth: 0 },
-        {
-          event: 'meeting.starts_in',
-          booking_id: booking.id as string,
-          org_id: booking.org_id as string,
-          offset_minutes: offsetMinutes,
-        },
-      )
-      totalDispatched++
+      try {
+        await emitCalendarEvent(
+          { supabase, depth: 0 },
+          {
+            event: 'meeting.starts_in',
+            booking_id: booking.id as string,
+            org_id: booking.org_id as string,
+            offset_minutes: offsetMinutes,
+          },
+        )
+        totalDispatched++
+      } catch (emitErr) {
+        // Release the idempotency claim so the next tick retries.
+        console.error('[calendar-tick] starts_in emit failed, releasing tick:', emitErr)
+        await supabase
+          .from('scheduled_workflow_ticks')
+          .delete()
+          .eq('workflow_id', wf.id)
+          .eq('booking_id', booking.id as string)
+          .eq('event_type', 'meeting.starts_in')
+          .eq('fired_minute', windowStart)
+        totalSkipped++
+      }
     }
   }
 
@@ -177,15 +190,27 @@ export async function GET(request: Request) {
         continue
       }
 
-      await emitCalendarEvent(
-        { supabase, depth: 0 },
-        {
-          event: 'meeting.ended',
-          booking_id: booking.id as string,
-          org_id: booking.org_id as string,
-        },
-      )
-      totalDispatched++
+      try {
+        await emitCalendarEvent(
+          { supabase, depth: 0 },
+          {
+            event: 'meeting.ended',
+            booking_id: booking.id as string,
+            org_id: booking.org_id as string,
+          },
+        )
+        totalDispatched++
+      } catch (emitErr) {
+        console.error('[calendar-tick] ended emit failed, releasing tick:', emitErr)
+        await supabase
+          .from('scheduled_workflow_ticks')
+          .delete()
+          .eq('workflow_id', wf.id)
+          .eq('booking_id', booking.id as string)
+          .eq('event_type', 'meeting.ended')
+          .eq('fired_minute', windowStart)
+        totalSkipped++
+      }
     }
   }
 
@@ -205,7 +230,10 @@ export async function GET(request: Request) {
   let timedOutWaits = 0
   const expired = await findExpiredWaits(supabase, windowStart)
   for (const w of expired) {
-    await satisfyWait(supabase, w.id, { timedOut: true })
+    // Only resume if we win the atomic claim — an event arriving in the same
+    // minute may already be resuming this run (see resume-waits.ts).
+    const claimed = await satisfyWait(supabase, w.id, { timedOut: true })
+    if (!claimed) continue
     try {
       await resumeRun(supabase, { runId: w.run_id, nodeId: w.node_id, timedOut: true })
       timedOutWaits++
@@ -234,10 +262,10 @@ const OPPORTUNITY_TIME_BASED_EVENTS: readonly OpportunityEventType[] = [
   'opportunity.stale',
 ]
 
-// Re-fire guard: a tick row for (workflow, opportunity, event) anywhere in the
-// past 24h blocks a new emission. The cron runs every 5 minutes so without this
-// guard a daily condition would fire ~288 times.
-const TICK_DEDUPE_WINDOW_HOURS = 24
+// Re-fire guard: a unique (workflow, opportunity, event, UTC-day) index on
+// scheduled_opportunity_ticks (migration 1245) enforces at-most-once per day.
+// The cron runs every 5 minutes so without this a daily condition would fire
+// ~288 times.
 
 interface OpportunityWorkflowRow {
   id: string
@@ -296,27 +324,9 @@ async function processOpportunityTimeBasedEvents(
         )
         if (!matched) continue
 
-        // Idempotency: skip if this (workflow, opportunity, event) has already
-        // produced a tick row in the dedupe window.
-        const windowStartIso = new Date(
-          now.getTime() - TICK_DEDUPE_WINDOW_HOURS * 60 * 60_000,
-        ).toISOString()
-
-        const { data: existing } = await supabase
-          .from('scheduled_opportunity_ticks')
-          .select('id')
-          .eq('workflow_id', wf.id)
-          .eq('opportunity_id', opp.id)
-          .eq('event_type', eventType)
-          .gte('fire_at', windowStartIso)
-          .limit(1)
-          .maybeSingle()
-
-        if (existing) {
-          skipped++
-          continue
-        }
-
+        // Idempotency: the DB enforces at-most-once per (workflow, opportunity,
+        // event) per UTC day via a unique index (migration 1245). We claim the
+        // slot by inserting; a duplicate-key error means it already fired today.
         const fireAtIso = now.toISOString()
         const { data: inserted, error: insErr } = await supabase
           .from('scheduled_opportunity_ticks')
@@ -332,22 +342,30 @@ async function processOpportunityTimeBasedEvents(
           .single()
 
         if (insErr || !inserted) {
+          // Unique violation (already dispatched today) or transient error.
           skipped++
           continue
         }
 
-        const snapshot = buildOpportunitySnapshot(eventType, cfg, opp, now)
-        await emitOpportunityEvent(wf.org_id, eventType, {
-          opportunity_id: opp.id,
-          opportunity_snapshot: snapshot,
-        })
-
-        await supabase
-          .from('scheduled_opportunity_ticks')
-          .update({ fired: true, fired_at: new Date().toISOString() })
-          .eq('id', (inserted as { id: string }).id)
-
-        dispatched++
+        const tickId = (inserted as { id: string }).id
+        try {
+          const snapshot = buildOpportunitySnapshot(eventType, cfg, opp, now)
+          await emitOpportunityEvent(wf.org_id, eventType, {
+            opportunity_id: opp.id,
+            opportunity_snapshot: snapshot,
+          })
+          await supabase
+            .from('scheduled_opportunity_ticks')
+            .update({ fired: true, fired_at: new Date().toISOString() })
+            .eq('id', tickId)
+          dispatched++
+        } catch (emitErr) {
+          // Emit failed → release the claim so a later tick retries instead of
+          // permanently losing the dispatch while the audit says it fired.
+          console.error('[calendar-tick] opportunity emit failed, releasing tick:', emitErr)
+          await supabase.from('scheduled_opportunity_ticks').delete().eq('id', tickId)
+          skipped++
+        }
       }
     }
   }

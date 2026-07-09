@@ -15,31 +15,9 @@ import type { Database, Json } from '@/types/database'
 import type { CalendarEvent, CalendarEventPayload } from '@/lib/calendar/events'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
 import { buildMeetingScope } from '@/lib/calendar/scope'
-import { runFlow, resumeRun, definitionHasWait } from '@/lib/flows/engine'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
 import type { FlowDefinition } from '@/lib/flows/schema'
-import { findUnsatisfiedWaits, satisfyWait } from '@/lib/flows/wait'
-
-// Resume any runs suspended at a wait node that this event satisfies (correlated
-// to the event's contact). Fire-and-forget per wait so one failure can't block.
-async function resumeMatchingWaits(
-  supabase: SupabaseClient<Database>,
-  params: { orgId: string; eventType: string; contactId: string | null; payload: Record<string, unknown> },
-): Promise<void> {
-  const waits = await findUnsatisfiedWaits(supabase, {
-    orgId: params.orgId,
-    eventType: params.eventType,
-    contactId: params.contactId,
-  })
-  for (const w of waits) {
-    await satisfyWait(supabase, w.id)
-    await resumeRun(supabase, {
-      runId: w.run_id,
-      nodeId: w.node_id,
-      event: params.eventType,
-      payload: params.payload,
-    })
-  }
-}
+import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 
 type BookingStatus = 'confirmed' | 'cancelled' | 'no_show' | 'showed'
 

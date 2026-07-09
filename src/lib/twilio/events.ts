@@ -19,6 +19,9 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
+import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import { buildPhoneScope, lookupContactByPhone } from '@/lib/twilio/scope'
 
 export type InboundPhoneEventType = 'inbound_sms_to_number' | 'inbound_call_to_number'
@@ -173,16 +176,30 @@ export async function emitInboundPhoneEvent(
         )
       : null
 
-    if (matched.length === 0) {
-      return { dispatched: 0, dispatch_id: dispatchId }
-    }
-
     const triggerInput: Record<string, unknown> = {
       phone,
       contact,
       event: eventType,
       from_number: payload.fromNumber,
       to_number: payload.toNumber,
+    }
+
+    // Resume runs suspended on a wait node this inbound event satisfies.
+    const phoneContactId =
+      (contact as { id?: unknown } | null)?.id != null
+        ? String((contact as { id?: unknown }).id)
+        : null
+    void resumeMatchingWaits(supabase, {
+      orgId,
+      eventType,
+      contactId: phoneContactId,
+      payload: triggerInput,
+    }).catch((err) => {
+      console.error('[twilio/events] resumeMatchingWaits error:', err)
+    })
+
+    if (matched.length === 0) {
+      return { dispatched: 0, dispatch_id: dispatchId }
     }
 
     const versionIds = matched
@@ -206,14 +223,28 @@ export async function emitInboundPhoneEvent(
     for (const wf of matched) {
       const definition = wf.current_version_id ? defById.get(wf.current_version_id) : null
       if (!definition) continue
-      void runFlowSync({
-        workflowId: wf.id,
-        definition,
-        triggerInput,
-        context: { orgId },
-      }).catch((err) => {
-        console.error('[twilio/events] runFlowSync error:', err)
-      })
+      if (definitionHasWait(definition)) {
+        void runFlow({
+          workflowId: wf.id,
+          versionId: wf.current_version_id ?? null,
+          definition: definition as FlowDefinition,
+          orgId,
+          triggerType: 'event',
+          triggerPayload: triggerInput,
+          supabase,
+        }).catch((err) => {
+          console.error('[twilio/events] runFlow error:', err)
+        })
+      } else {
+        void runFlowSync({
+          workflowId: wf.id,
+          definition,
+          triggerInput,
+          context: { orgId },
+        }).catch((err) => {
+          console.error('[twilio/events] runFlowSync error:', err)
+        })
+      }
     }
 
     return { dispatched: matched.length, dispatch_id: dispatchId }

@@ -14,19 +14,19 @@ trigger:
     input_schema:
       date:
         type: string
-        description: ISO 8601 date string (e.g. 2026-06-01) to check availability for.
+        description: Date to check, YYYY-MM-DD (e.g. 2026-06-01).
         required: true
-      timezone:
+      serviceIds:
         type: string
-        description: IANA timezone identifier (e.g. America/New_York). Defaults to org timezone.
-        required: false
+        description: Comma-separated service id(s) to check availability for.
+        required: true
 
 nodes:
   - id: action
-    kind: get_availability
-    integration: cal
+    kind: xkedule_check_availability
+    integration: xkedule
     date: "{{input.date}}"
-    timezone: "{{input.timezone}}"
+    serviceIds: "{{input.serviceIds}}"
 
 edges:
   - from: trigger

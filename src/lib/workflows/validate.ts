@@ -56,8 +56,27 @@ export interface ValidationResult {
 // Variable scope is tracked as a set of prefixes. A reference like
 // `{{contact.phone}}` is valid if `contact.` is in scope (we don't validate
 // the leaf field | the runtime resolves the actual lookup).
-function buildInitialScope(triggerType: string): Set<string> {
+//
+// The authoritative source of a trigger's namespaces is the spec's
+// `triggers[].variables` (e.g. ['meeting.*', 'contact.*', 'trigger.fired_at']).
+// We derive scope prefixes from those so any trigger — including comment.*,
+// inbound-phone, and analytics — accepts exactly the variables it advertises.
+function prefixOf(variable: string): string {
+  // 'meeting.*' → 'meeting'; 'trigger.fired_at' → 'trigger'; 'contact' → 'contact'
+  return variable.split('.')[0].replace(/\*$/, '').trim()
+}
+
+function buildInitialScope(triggerType: string, variables?: string[]): Set<string> {
   const scope = new Set<string>(['trigger', 'input'])
+
+  // Seed from the spec's advertised variables (the source of truth).
+  for (const v of variables ?? []) {
+    const p = prefixOf(v)
+    if (p) scope.add(p)
+  }
+
+  // Fallback seeds for when a triggerSpec isn't available (e.g. the static CLI
+  // spec) — keeps behaviour for the common event families.
   if (triggerType.startsWith('event:meeting.')) {
     scope.add('meeting')
     scope.add('contact')
@@ -83,6 +102,16 @@ function buildInitialScope(triggerType: string): Set<string> {
     scope.add('contact')          // contact is opportunistic | present when caller provides it
   }
   return scope
+}
+
+// Pull variable references out of a condition-node expression. Catches both
+// `{{a.b}} == 1` and the bare-identifier form `a.b == 1`.
+function conditionRefs(expression: unknown): string[] {
+  if (typeof expression !== 'string' || !expression.trim()) return []
+  const braced = extractVariableRefs(expression)
+  if (braced.length > 0) return braced
+  const m = expression.match(/^\s*([A-Za-z_$][\w$.]*)/)
+  return m ? [m[1]] : []
 }
 
 function extractVariableRefs(value: unknown, out: string[] = []): string[] {
@@ -135,7 +164,11 @@ export function validateWorkflow(
     return { ok: false, errors }
   }
 
-  const triggerKey = trigger.event ? `event:${trigger.event}` : trigger.type
+  // Only treat `event` as the discriminator when the trigger type is actually
+  // `event`. Otherwise a stray `event:` on a tool_call/schedule trigger would
+  // silently repoint the key and bypass that trigger's guardrails.
+  const triggerKey =
+    trigger.type === 'event' && trigger.event ? `event:${trigger.event}` : trigger.type
   const triggerSpec = spec.triggers.find((t) => t.type === triggerKey)
 
   if (!triggerSpec) {
@@ -176,7 +209,28 @@ export function validateWorkflow(
     }
   }
 
-  const scope = buildInitialScope(triggerKey)
+  // ─── Trigger config_schema: required fields ──────────────────────────────────
+  // Enforce the trigger's declared required config (e.g. schedule → cron,
+  // meeting.starts_in → offset). Without this, a schedule with no cron passes
+  // author-time validation and silently never fires.
+  const triggerConfigSchema = triggerSpec?.config_schema as
+    | { required?: string[]; properties?: Record<string, unknown> }
+    | undefined
+  if (triggerConfigSchema?.required && Array.isArray(triggerConfigSchema.required)) {
+    const triggerConfig = (trigger.config ?? {}) as Record<string, unknown>
+    for (const field of triggerConfigSchema.required) {
+      if (triggerConfig[field] === undefined || triggerConfig[field] === null || triggerConfig[field] === '') {
+        errors.push({
+          path: `trigger.config.${field}`,
+          code: 'missing_field',
+          message: `Trigger "${triggerKey}" requires config field "${field}".`,
+          suggestion: `Add \`trigger.config.${field}\`. Required by this trigger: ${triggerConfigSchema.required.join(', ')}.`,
+        })
+      }
+    }
+  }
+
+  const scope = buildInitialScope(triggerKey, triggerSpec?.variables)
 
   // ─── Nodes ──────────────────────────────────────────────────────────────────
   const nodes = definition.nodes ?? []
@@ -188,6 +242,10 @@ export function validateWorkflow(
       suggestion: 'Add an action node | for example { id: "notify", kind: "send_sms", ... }.',
     })
   }
+
+  // Collected during pass 1, validated for variable scope in pass 3 (after edges
+  // are known) so scope reflects true execution order, not node-array position.
+  const nodeRefs: Array<{ id: string; path: string; refs: string[] }> = []
 
   const seenIds = new Set<string>()
   for (let i = 0; i < nodes.length; i++) {
@@ -272,30 +330,42 @@ export function validateWorkflow(
       }
     }
 
-    // Variable references | every {{ref}} in the node body must be in scope.
-    const refs = extractVariableRefs(node)
-    for (const ref of refs) {
-      if (!variableInScope(ref, scope)) {
-        errors.push({
-          path,
-          code: 'unresolved_variable',
-          message: `{{${ref}}} is not in scope at this node.`,
-          suggestion:
-            'Variables available at this trigger: ' +
-            (triggerSpec?.variables.join(', ') ?? 'trigger.*, input.*') +
-            '. Pick a variable from a namespace that is in scope, or move this node downstream of a node that produces the value.',
-        })
+    // Required params (params_schema.required) must be present. Missing ones
+    // pass unnoticed today and only fail/no-op at runtime. Params are authored
+    // as top-level node fields (YAML shape) or under node.config (flow shape).
+    const paramsSchema = nodeSpec.params_schema as
+      | { required?: string[] }
+      | undefined
+    if (paramsSchema?.required && Array.isArray(paramsSchema.required)) {
+      const config = (node.config as Record<string, unknown> | undefined) ?? {}
+      for (const field of paramsSchema.required) {
+        const present =
+          (node as Record<string, unknown>)[field] !== undefined ||
+          config[field] !== undefined
+        if (!present) {
+          errors.push({
+            path: `${path}.${field}`,
+            code: 'missing_field',
+            message: `Node "${node.kind}" is missing required param "${field}".`,
+            suggestion: `Add "${field}" to this node. Required params for "${node.kind}": ${paramsSchema.required.join(', ')}.`,
+          })
+        }
       }
     }
 
-    // After this node executes, its id becomes available as a scope prefix.
-    // This is how downstream nodes reference earlier outputs.
-    scope.add(node.id)
+    // Collect variable references (node body + condition expression) for the
+    // topological scope check in pass 3.
+    const refs = extractVariableRefs(node)
+    if (node.kind === 'condition') {
+      refs.push(...conditionRefs((node as Record<string, unknown>).expression))
+    }
+    nodeRefs.push({ id: node.id, path, refs })
   }
 
   // ─── Edges ──────────────────────────────────────────────────────────────────
   const edges = definition.edges ?? []
   const adjacency: Record<string, string[]> = {}
+  const reverseAdjacency: Record<string, string[]> = {}
   const incoming = new Set<string>()
 
   for (let i = 0; i < edges.length; i++) {
@@ -327,25 +397,79 @@ export function validateWorkflow(
     }
     adjacency[e.from] = adjacency[e.from] ?? []
     adjacency[e.from].push(e.to)
+    reverseAdjacency[e.to] = reverseAdjacency[e.to] ?? []
+    reverseAdjacency[e.to].push(e.from)
     incoming.add(e.to)
   }
 
-  // ─── Cycle detection ────────────────────────────────────────────────────────
-  function detectCycle(start: string): boolean {
-    const stack = [{ node: start, path: new Set<string>() }]
+  // ─── Variable scope (topological) ─────────────────────────────────────────────
+  // A node may reference {{trigger.*}}/{{input.*}}, the trigger's namespaces,
+  // and the output of any node that actually runs before it (a graph ancestor) —
+  // NOT any node that merely appears earlier in the array. Compute each node's
+  // ancestors from the edges so ordering doesn't produce false accept/reject.
+  function ancestorsOf(nodeId: string): Set<string> {
+    const seen = new Set<string>()
+    const stack = [...(reverseAdjacency[nodeId] ?? [])]
     while (stack.length > 0) {
-      const { node, path } = stack.pop()!
-      if (path.has(node)) return true
-      const nextPath = new Set(path)
-      nextPath.add(node)
-      for (const next of adjacency[node] ?? []) {
-        stack.push({ node: next, path: nextPath })
+      const cur = stack.pop()!
+      if (cur === 'trigger' || seen.has(cur)) continue
+      seen.add(cur)
+      for (const prev of reverseAdjacency[cur] ?? []) stack.push(prev)
+    }
+    return seen
+  }
+
+  for (const { id, path, refs } of nodeRefs) {
+    const nodeScope = new Set(scope)
+    for (const anc of ancestorsOf(id)) nodeScope.add(anc)
+    for (const ref of refs) {
+      if (!variableInScope(ref, nodeScope)) {
+        errors.push({
+          path,
+          code: 'unresolved_variable',
+          message: `{{${ref}}} is not in scope at this node.`,
+          suggestion:
+            'Variables available at this trigger: ' +
+            (triggerSpec?.variables.join(', ') ?? 'trigger.*, input.*') +
+            '. Pick a variable from a namespace that is in scope, or move this node downstream of a node that produces the value.',
+        })
       }
     }
-    return false
   }
-  for (const id of ['trigger', ...seenIds]) {
-    if (detectCycle(id)) {
+
+  // ─── Cycle detection (O(V+E), colour-marking DFS) ─────────────────────────────
+  // white = unvisited, grey = on the current DFS stack, black = finished.
+  // A grey→grey edge is a back edge ⇒ cycle. Runs once over the whole graph.
+  {
+    const WHITE = 0, GREY = 1, BLACK = 2
+    const colour: Record<string, number> = {}
+    const roots = ['trigger', ...seenIds]
+    let cycleFound = false
+
+    for (const root of roots) {
+      if (colour[root] === BLACK || colour[root] === GREY) continue
+      // Iterative DFS carrying an index cursor per frame.
+      const stack: Array<{ node: string; i: number }> = [{ node: root, i: 0 }]
+      colour[root] = GREY
+      while (stack.length > 0 && !cycleFound) {
+        const frame = stack[stack.length - 1]
+        const neighbours = adjacency[frame.node] ?? []
+        if (frame.i >= neighbours.length) {
+          colour[frame.node] = BLACK
+          stack.pop()
+          continue
+        }
+        const next = neighbours[frame.i++]
+        if (colour[next] === GREY) { cycleFound = true; break }
+        if (colour[next] === undefined || colour[next] === WHITE) {
+          colour[next] = GREY
+          stack.push({ node: next, i: 0 })
+        }
+      }
+      if (cycleFound) break
+    }
+
+    if (cycleFound) {
       errors.push({
         path: 'edges',
         code: 'cycle_detected',
@@ -353,7 +477,6 @@ export function validateWorkflow(
         suggestion:
           'Remove or restructure edges so that no path returns to a previously-visited node.',
       })
-      break
     }
   }
 

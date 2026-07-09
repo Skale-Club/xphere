@@ -8,15 +8,13 @@ description: |
   Accepts first_name, last_name, phone, and email as inputs.
 trigger:
   type: tool_call
-  tool_name: create_contact_ghl
-  input_schema:
-    type: object
-    properties:
-      first_name: { type: string }
+  config:
+    tool_name: create_contact_ghl
+    input_schema:
+      first_name: { type: string, required: true }
       last_name:  { type: string }
-      phone:      { type: string }
+      phone:      { type: string, required: true }
       email:      { type: string }
-    required: [first_name, phone]
 
 nodes:
   - id: create

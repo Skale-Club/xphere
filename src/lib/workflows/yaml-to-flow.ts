@@ -99,10 +99,20 @@ export function yamlToFlow(definition: WorkflowDefinition, _options: ConvertOpti
   let edgeCounter = 0
   for (const yamlEdge of yamlEdges) {
     edgeCounter++
+    // Preserve the condition branch label so the flow engine can pick the
+    // right outgoing edge. YAML authors it as `when`/`handle`; the flow engine
+    // reads it from `sourceHandle`. Dropping it here collapsed every condition
+    // to its first edge.
+    const e = yamlEdge as Record<string, unknown>
+    const branch =
+      e.when !== undefined ? String(e.when)
+      : e.handle !== undefined ? String(e.handle)
+      : undefined
     edges.push({
       id: `e${edgeCounter}`,
       source: String(yamlEdge.from ?? ''),
       target: String(yamlEdge.to ?? ''),
+      ...(branch !== undefined ? { sourceHandle: branch } : {}),
     })
   }
 

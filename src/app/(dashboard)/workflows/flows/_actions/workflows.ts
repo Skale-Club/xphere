@@ -149,7 +149,7 @@ export async function createWorkflow(
 export async function saveWorkflowDefinition(
   workflowId: string,
   definition: FlowDefinition,
-  options: { notes?: string; createNewVersion?: boolean } = {},
+  options: { notes?: string; createNewVersion?: boolean; baseVersionId?: string } = {},
 ): Promise<ActionResult<{ versionId: string; versionNumber: number }>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
@@ -168,7 +168,15 @@ export async function saveWorkflowDefinition(
       .eq('id', workflowId)
       .single()
 
-    if (workflow?.current_version_id) {
+    // Optimistic concurrency: only overwrite in place when the current version
+    // is still the one this editor loaded. If another tab/session published a
+    // new version since load, `baseVersionId` won't match — fall through to the
+    // new-version path so we append instead of clobbering their work.
+    const currentMatchesBase =
+      options.baseVersionId === undefined ||
+      workflow?.current_version_id === options.baseVersionId
+
+    if (workflow?.current_version_id && currentMatchesBase) {
       const { error } = await supabase
         .from('workflow_versions')
         .update({ definition: parsed.data as unknown as Record<string, unknown> })

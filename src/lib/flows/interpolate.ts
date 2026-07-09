@@ -8,7 +8,10 @@
 //     → "c_42"
 // Non-resolvable paths become empty strings.
 
-const PATH_PATTERN = /\{\{\s*([a-zA-Z_$][\w$.]*)\s*\}\}/g
+// Allow hyphens in path segments so node ids like `send-sms` resolve (the sync
+// engine already accepts them). Leading char stays restricted to avoid matching
+// stray `{{ }}` with operators.
+const PATH_PATTERN = /\{\{\s*([a-zA-Z_$][\w$.-]*)\s*\}\}/g
 
 export function interpolate(template: unknown, state: Record<string, unknown>): unknown {
   if (typeof template === 'string') return interpolateString(template, state)

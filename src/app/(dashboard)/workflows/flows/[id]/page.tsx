@@ -32,6 +32,7 @@ export default async function FlowEditorPage({
           workflowName={result.data.name}
           isActive={result.data.is_active ?? false}
           initialDefinition={result.data.definition}
+          initialVersionId={result.data.current_version_id}
           activeIntegrations={activeIntegrations}
           agents={agents}
           pickerData={pickerData}

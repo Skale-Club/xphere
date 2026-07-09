@@ -43,9 +43,12 @@ export function extractActionTypeFromDefinition(definition: unknown): string {
       if (dataKind && dataKind !== 'action') continue
     }
 
-    // YAML/spec shape | node has top-level `kind` (the action name)
+    // YAML/spec shape | node has top-level `kind` (the action name).
+    // Control-flow kinds are not actions — skip so a condition/wait/end node is
+    // never returned as the workflow's action_type.
     const ys = node as YamlStyleNode
-    if (typeof ys.kind === 'string' && ys.id !== 'trigger') {
+    const CONTROL_FLOW = new Set(['trigger', 'condition', 'wait', 'end', 'agent'])
+    if (typeof ys.kind === 'string' && ys.id !== 'trigger' && !CONTROL_FLOW.has(ys.kind)) {
       nonTriggerNodes.push({ actionType: ys.kind })
     }
   }

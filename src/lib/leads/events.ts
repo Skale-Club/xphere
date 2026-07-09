@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
+import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import type { LeadIngestionPayload } from '@/lib/leads/ingestion-schema'
 
 type ServiceClient = SupabaseClient<Database>
@@ -55,26 +58,12 @@ export async function emitLeadCaptured(
         .eq('org_id', orgId)
     }
 
-    if (matched.length === 0) return { dispatched: 0, dispatchId }
-
     const { data: contact } = await supabase
       .from('contacts')
       .select('id, name, first_name, last_name, email, phone, company, notes, source')
       .eq('id', contactId)
       .eq('org_id', orgId)
       .maybeSingle()
-    if (!contact) return { dispatched: 0, dispatchId }
-
-    const versionIds = matched
-      .map((workflow) => workflow.current_version_id)
-      .filter((id): id is string => Boolean(id))
-    if (versionIds.length === 0) return { dispatched: 0, dispatchId }
-
-    const { data: versions } = await supabase
-      .from('workflow_versions')
-      .select('id, definition')
-      .in('id', versionIds)
-    const definitions = new Map((versions ?? []).map((version) => [version.id, version.definition]))
 
     const triggerInput = {
       event: 'lead.captured',
@@ -92,19 +81,57 @@ export async function emitLeadCaptured(
       },
     }
 
+    // Resume runs suspended on a wait node this event satisfies (by contact).
+    void resumeMatchingWaits(supabase, {
+      orgId,
+      eventType: 'lead.captured',
+      contactId,
+      payload: triggerInput,
+    }).catch((error) => {
+      console.error('[leads/events] resumeMatchingWaits error', error instanceof Error ? error.message : 'unknown error')
+    })
+
+    if (matched.length === 0) return { dispatched: 0, dispatchId }
+    if (!contact) return { dispatched: 0, dispatchId }
+
+    const versionIds = matched
+      .map((workflow) => workflow.current_version_id)
+      .filter((id): id is string => Boolean(id))
+    if (versionIds.length === 0) return { dispatched: 0, dispatchId }
+
+    const { data: versions } = await supabase
+      .from('workflow_versions')
+      .select('id, definition')
+      .in('id', versionIds)
+    const definitions = new Map((versions ?? []).map((version) => [version.id, version.definition]))
+
     for (const workflow of matched) {
       const definition = workflow.current_version_id
         ? definitions.get(workflow.current_version_id)
         : null
       if (!definition) continue
-      void runFlowSync({
-        workflowId: workflow.id,
-        definition,
-        triggerInput,
-        context: { orgId },
-      }).catch((error) => {
-        console.error('[leads/events] workflow failed', error instanceof Error ? error.message : 'unknown error')
-      })
+      if (definitionHasWait(definition)) {
+        void runFlow({
+          workflowId: workflow.id,
+          versionId: workflow.current_version_id ?? null,
+          definition: definition as FlowDefinition,
+          orgId,
+          triggerType: 'event',
+          triggerPayload: triggerInput,
+          supabase,
+        }).catch((error) => {
+          console.error('[leads/events] runFlow failed', error instanceof Error ? error.message : 'unknown error')
+        })
+      } else {
+        void runFlowSync({
+          workflowId: workflow.id,
+          definition,
+          triggerInput,
+          context: { orgId },
+        }).catch((error) => {
+          console.error('[leads/events] workflow failed', error instanceof Error ? error.message : 'unknown error')
+        })
+      }
     }
 
     return { dispatched: matched.length, dispatchId }

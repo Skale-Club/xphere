@@ -11,6 +11,7 @@ import { createWait, durationToMs, resolveRunContactId } from './wait'
 import { executeAgentNode } from './execute-agent-node'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
+import { assertPublicHttpUrl } from '@/lib/flows/url-guard'
 
 const MAX_STEPS = 100
 
@@ -73,14 +74,23 @@ export async function runFlow(input: RunInput): Promise<RunResult> {
   }
 
   const triggerPayload = input.triggerPayload ?? {}
+  // Scope shape kept identical to the sync engine (src/lib/workflows/run-flow-sync.ts):
+  // {{input.*}} and {{trigger.payload.*}} both reach the payload; {{trigger.type}}
+  // and {{trigger.fired_at}} are available; node outputs read as both
+  // {{<node_id>.output.*}} and {{steps.<node_id>.output.*}}.
   const state: Record<string, unknown> = {
-    trigger: { type: input.triggerType ?? 'manual', payload: triggerPayload },
+    trigger: {
+      type: input.triggerType ?? 'manual',
+      fired_at: new Date().toISOString(),
+      payload: triggerPayload,
+    },
+    input: triggerPayload,
     steps: {} as Record<string, { output: Record<string, unknown> }>,
   }
   // Promote top-level trigger payload keys (e.g. `meeting`, `event`) into scope so
   // node templates can use {{meeting.x}} (matches the run-flow-sync scope shape).
   for (const [key, value] of Object.entries(triggerPayload)) {
-    if (key === 'trigger' || key === 'steps') continue
+    if (key === 'trigger' || key === 'steps' || key === 'input') continue
     if (state[key] === undefined) state[key] = value
   }
 
@@ -258,6 +268,12 @@ async function walkFrom(p: WalkParams): Promise<{ status: 'succeeded' | 'failed'
     }
 
     ;(state.steps as Record<string, { output: Record<string, unknown> }>)[node.id] = { output }
+    // Also expose as a top-level namespace ({{<node_id>.output.*}}) for parity
+    // with the sync engine. Only when the key is free, so a promoted payload key
+    // (e.g. `contact`) is never shadowed — such outputs remain on {{steps.*}}.
+    if (state[node.id] === undefined) {
+      state[node.id] = { output }
+    }
 
     if (node.type === 'end') break
 
@@ -313,6 +329,21 @@ export async function resumeRun(
     return { runId: params.runId, status: (run.status as RunResult['status']) }
   }
 
+  // Atomic claim: flip waiting→running conditionally. Two concurrent resumers
+  // (event arrival racing the timeout cron) both read status='waiting' above;
+  // only the one whose UPDATE matches `status='waiting'` proceeds. The loser
+  // gets an empty result set and no-ops, so post-wait nodes execute once.
+  const { data: claimed } = await supabase
+    .from('workflow_runs')
+    .update({ status: 'running' } as never)
+    .eq('id', params.runId)
+    .eq('status', 'waiting')
+    .select('id')
+  if (!Array.isArray(claimed) || claimed.length !== 1) {
+    // Another resumer won the claim and is (or already finished) executing.
+    return { runId: params.runId, status: (run.status as RunResult['status']) }
+  }
+
   if (!run.workflow_version_id) {
     await finalizeRun(supabase, params.runId, 'failed', {}, 'no_version_to_resume')
     return { runId: params.runId, status: 'failed', error: 'no_version_to_resume' }
@@ -342,8 +373,7 @@ export async function resumeRun(
     state[k] = v
   }
 
-  await supabase.from('workflow_runs').update({ status: 'running' } as never).eq('id', params.runId)
-
+  // Status was already flipped to 'running' by the atomic claim above.
   const flowCtx: FlowExecutorContext = { orgId: run.org_id as string, supabase, state }
   const startNode = waitNode ? pickNextNode(waitNode, {}, def.edges, nodesById, state) : undefined
 
@@ -429,13 +459,17 @@ async function executeSubFlow(
 async function executeHttpRequest(
   config: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const url = String(config.url ?? '')
-  if (!url) throw new Error('http_request requires a url')
+  const rawUrl = String(config.url ?? '')
+  if (!rawUrl) throw new Error('http_request requires a url')
+
+  // SSRF guard: reject non-public targets (loopback, private ranges, cloud
+  // metadata) before issuing the request. Authored URLs are org-member input.
+  const url = await assertPublicHttpUrl(rawUrl)
 
   const method = String(config.method ?? 'GET').toUpperCase()
   const headers = (config.headers as Record<string, string>) ?? { 'Content-Type': 'application/json' }
   const body = config.body
-  const init: RequestInit = { method, headers }
+  const init: RequestInit = { method, headers, redirect: 'manual' }
   if (body !== undefined && body !== null && method !== 'GET') {
     init.body = typeof body === 'string' ? body : JSON.stringify(body)
   }
@@ -805,8 +839,13 @@ function pickNextNode(
 ): FlowNode | undefined {
   if (current.data.kind === 'condition') {
     const branch = evaluateCondition(current.data.expression, state) ? 'true' : 'false'
-    const edge = edges.find((e) => e.source === current.id && (e.sourceHandle ?? 'true') === branch)
-      ?? edges.find((e) => e.source === current.id)
+    // Unified branch selection (mirrors src/lib/workflows/run-flow-sync.ts):
+    // 1) an edge labeled with this branch, else 2) an unlabeled default edge,
+    // else 3) stop. An unlabeled edge acts as the "otherwise" path.
+    const outs = edges.filter((e) => e.source === current.id)
+    const edge =
+      outs.find((e) => (e.sourceHandle ?? undefined) === branch) ??
+      outs.find((e) => e.sourceHandle == null || e.sourceHandle === '')
     return edge ? nodesById.get(edge.target) : undefined
   }
 
