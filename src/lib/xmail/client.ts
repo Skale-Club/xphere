@@ -7,17 +7,25 @@
 // flows back to Xphere via the webhook receiver at /api/integrations/xmail/events.
 //
 // Config is environment-driven (no hardcoded domains):
-//   XMAIL_API_URL   base URL of the Xmail backend
-//   XMAIL_USER_ID   the Xmail user id Xphere acts as (x-user-id header)
-//   XMAIL_ORG_ID    the Xmail organization id that owns the outreach data
-//   XMAIL_WEBHOOK_SECRET shared secret for verifying inbound event webhooks
+//   XMAIL_API_URL     base URL of the Xmail backend
+//   XMAIL_USER_ID     the Xmail user id Xphere acts as (x-user-id header)
+//   XMAIL_ORG_ID      the Xmail organization id that owns the outreach data
+//   XMAIL_SERVICE_KEY machine-to-machine credential Xmail requires on all
+//                      /api/outreach/ routes (x-service-key header). Xmail's
+//                      global middleware otherwise demands a Supabase JWT.
+//
+// Auth contract: every request sends x-user-id (acting identity) AND
+// x-service-key (service credential). Inbound engagement events flow back via
+// a separate mechanism — Xmail's events receiver authenticates with an Xphere
+// API key, not a shared webhook secret.
 
 const XMAIL_API_URL = (process.env.XMAIL_API_URL || '').replace(/\/$/, '')
 const XMAIL_USER_ID = process.env.XMAIL_USER_ID || ''
 const XMAIL_ORG_ID = process.env.XMAIL_ORG_ID || ''
+const XMAIL_SERVICE_KEY = process.env.XMAIL_SERVICE_KEY || ''
 
 export function isXmailConfigured(): boolean {
-  return Boolean(XMAIL_API_URL && XMAIL_USER_ID && XMAIL_ORG_ID)
+  return Boolean(XMAIL_API_URL && XMAIL_USER_ID && XMAIL_ORG_ID && XMAIL_SERVICE_KEY)
 }
 
 /** Low-level fetch against the Xmail outreach API with the service identity header. */
@@ -26,7 +34,10 @@ async function xmailFetch(
   init: { method?: string; body?: unknown; query?: Record<string, string> } = {},
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
   if (!isXmailConfigured()) {
-    return { ok: false, error: 'Xmail integration is not configured (set XMAIL_API_URL + XMAIL_USER_ID + XMAIL_ORG_ID).' }
+    return {
+      ok: false,
+      error: 'Xmail integration is not configured (set XMAIL_API_URL + XMAIL_USER_ID + XMAIL_ORG_ID + XMAIL_SERVICE_KEY).',
+    }
   }
   const url = new URL(`${XMAIL_API_URL}${path}`)
   for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v)
@@ -36,6 +47,7 @@ async function xmailFetch(
       headers: {
         'Content-Type': 'application/json',
         'x-user-id': XMAIL_USER_ID,
+        'x-service-key': XMAIL_SERVICE_KEY,
       },
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
     })

@@ -45,7 +45,7 @@ A bulk action only appears when its service is configured.
 
 | Service | Env (on Xphere) | What Xphere calls |
 |---------|-----------------|-------------------|
-| Xmail | `XMAIL_API_URL`, `XMAIL_USER_ID` | `POST {XMAIL_API_URL}/api/outreach/leads/bulk-import` (`x-user-id`) |
+| Xmail | `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | `POST {XMAIL_API_URL}/api/outreach/leads/bulk-import` (`x-user-id`, `x-service-key`) |
 | Xpot | `XPOT_API_URL`, `XPOT_API_KEY` | `POST {XPOT_API_URL}/api/xpot/inbound/prospects` (Bearer) |
 
 ## The four integrations
@@ -85,9 +85,10 @@ never converts.
    Copy the `xph_…` token.
 2. **Xcraper** env: `XPHERE_API_KEY=<token>` (+ `XPHERE_API_URL` if not prod).
    → "Push to Xphere" appears on the search-results view.
-3. **Xmail**: set `XMAIL_API_URL` + `XMAIL_USER_ID` on Xphere; in Xmail, add a
-   webhook to `https://xphere.app/api/integrations/xmail/events` authorized with
-   the `xph_…` token, subscribed to the engagement events.
+3. **Xmail**: set `XMAIL_API_URL` + `XMAIL_USER_ID` + `XMAIL_ORG_ID` +
+   `XMAIL_SERVICE_KEY` on Xphere; in Xmail, add a webhook to
+   `https://xphere.app/api/integrations/xmail/events` authorized with the
+   `xph_…` token, subscribed to the engagement events.
 4. **Xpot**: apply migration `0005` (`drizzle push`); set `XPHERE_INBOUND_API_KEY`
    (any shared secret) + `XPHERE_API_KEY=<token>` on Xpot; set `XPOT_API_URL` +
    `XPOT_API_KEY=<same shared secret>` on Xphere. → "Send to Xpot" appears.
