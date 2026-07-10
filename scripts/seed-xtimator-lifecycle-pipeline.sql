@@ -1,7 +1,9 @@
 -- =============================================================================
 -- One-off seed: "Xtimator Lifecycle" pipeline for the Xtimator org.
 --
--- Run ONCE against the Xphere production DB, AFTER migration 1213 is applied.
+-- Already seeded in prod: the "Xtimator Lifecycle" pipeline exists and the
+-- integration is live. Kept for reference / re-provisioning; safe to re-run
+-- (idempotent — see below). Depends on migration 1237 (renumbered from 1213).
 -- Creates the dedicated subscription-lifecycle pipeline that
 -- POST /api/xtimator/webhook resolves by name. The org's existing generic
 -- "Sales" pipeline is left untouched (stays the default).
