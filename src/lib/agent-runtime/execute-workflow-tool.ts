@@ -11,6 +11,8 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { executeAction, type ActionContext } from '@/lib/action-engine/execute-action'
 import { extractActionTypeFromDefinition } from '@/lib/workflows/derive-action-type'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
 import type { Database } from '@/types/database'
 
 type ActionType = Database['public']['Enums']['action_type']
@@ -102,6 +104,39 @@ export async function executeWorkflowTool(
   }
 
   if (params.kind === 'flow') {
+    // Flows with a wait node must suspend on the persistent engine so post-wait
+    // nodes actually run later — the sync runner would silently drop them and
+    // report success. Resume needs the version id, so look it up.
+    if (definitionHasWait(params.definition)) {
+      const supabase = createServiceRoleClient()
+      const { data: wf } = await supabase
+        .from('workflows')
+        .select('current_version_id')
+        .eq('id', params.workflowId)
+        .maybeSingle()
+      const result = await runFlow({
+        workflowId: params.workflowId,
+        versionId: wf?.current_version_id ?? null,
+        definition: params.definition as FlowDefinition,
+        orgId: params.context.orgId,
+        triggerType: 'tool_call',
+        triggerPayload: params.input,
+        supabase,
+      })
+      if (result.status === 'waiting') {
+        return {
+          ok: true,
+          result: `Workflow started. Run id: ${result.runId}. It will continue in the background when the awaited event or timeout occurs.`,
+          run_id: result.runId,
+        }
+      }
+      return {
+        ok: result.status !== 'failed',
+        result: `Workflow ${result.status}. Run id: ${result.runId}.`,
+        error: result.error,
+        run_id: result.runId,
+      }
+    }
     return runFlowSync({
       workflowId: params.workflowId,
       definition: params.definition,

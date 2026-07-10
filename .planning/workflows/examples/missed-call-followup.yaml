@@ -1,15 +1,15 @@
-# Canonical example — missed-call follow-up with a short delay.
-# Trigger: call.missed fires when an inbound call ends without being answered.
-# Scope:   call.*, contact.* are populated by the call event.
+# Canonical example — inbound-call follow-up with a short delay.
+# Trigger: inbound_call_to_number fires when a call reaches one of the org's
+#          numbers. Scope: phone.*, contact.* are populated by the event.
 # Pattern: wait node introduces a human-feeling delay before the SMS goes out.
 
 name: missed-call-followup
 description: |
-  Waits 5 minutes after a missed call, then sends an SMS to the caller
-  apologising and offering to call them back.
+  Waits 5 minutes after an inbound call, then sends an SMS to the caller
+  offering to call them back.
 trigger:
   type: event
-  event: call.missed
+  event: inbound_call_to_number
 
 nodes:
   - id: pause

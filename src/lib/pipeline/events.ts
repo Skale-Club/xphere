@@ -18,6 +18,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { buildOpportunityScope } from '@/lib/pipeline/scope'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
+import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import { enqueueQualified, enqueuePurchase } from '@/lib/meta/capi-enqueue'
 
 export type OpportunityEventType =
@@ -205,10 +208,6 @@ export async function emitOpportunityEvent(
     })
   }
 
-  if (matched.length === 0) {
-    return { dispatched: 0, dispatch_id: dispatchId }
-  }
-
   // Build the trigger input | workflow runtime spreads this into scope under
   // top-level namespaces (opportunity, contact, stage, pipeline, changes, note).
   const triggerInput: Record<string, unknown> = {
@@ -217,6 +216,26 @@ export async function emitOpportunityEvent(
   }
   if (payload.changes) triggerInput.changes = payload.changes
   if (payload.note) triggerInput.note = payload.note
+
+  // Resume any runs suspended on a wait node that this event satisfies,
+  // correlated to the opportunity's contact. Independent of trigger matches,
+  // so an opportunity/pipeline wait actually resumes by event (not only timeout).
+  const oppContactId =
+    (scope as { contact?: { id?: unknown } }).contact?.id != null
+      ? String((scope as { contact?: { id?: unknown } }).contact!.id)
+      : null
+  void resumeMatchingWaits(supabase, {
+    orgId,
+    eventType,
+    contactId: oppContactId,
+    payload: triggerInput,
+  }).catch((err) => {
+    console.error('[pipeline/events] resumeMatchingWaits error:', err)
+  })
+
+  if (matched.length === 0) {
+    return { dispatched: 0, dispatch_id: dispatchId }
+  }
 
   // Load each workflow's current definition and dispatch via the synchronous
   // runner. The runner enforces its own timeout | we fire-and-forget here so
@@ -244,20 +263,36 @@ export async function emitOpportunityEvent(
       ? defById.get(wf.current_version_id)
       : null
     if (!definition) continue
-    // Fire-and-forget | propagate cascade depth via context.
-    void runFlowSync({
-      workflowId: wf.id,
-      definition,
-      triggerInput,
-      context: {
+    // Flows containing a wait node run through the persistent engine (supports
+    // suspend/resume). Everything else stays on the lightweight sync runner.
+    if (definitionHasWait(definition)) {
+      void runFlow({
+        workflowId: wf.id,
+        versionId: wf.current_version_id ?? null,
+        definition: definition as FlowDefinition,
         orgId,
-        // Depth threading: future workflow actions that re-emit
-        // pipeline events can read this from the action context. See
-        // src/lib/action-engine/executors/pipeline-actions.ts.
-      },
-    }).catch((err) => {
-      console.error('[pipeline/events] runFlowSync error:', err)
-    })
+        triggerType: 'event',
+        triggerPayload: triggerInput,
+        supabase,
+      }).catch((err) => {
+        console.error('[pipeline/events] runFlow error:', err)
+      })
+    } else {
+      // Fire-and-forget | propagate cascade depth via context.
+      void runFlowSync({
+        workflowId: wf.id,
+        definition,
+        triggerInput,
+        context: {
+          orgId,
+          // Depth threading: future workflow actions that re-emit
+          // pipeline events can read this from the action context. See
+          // src/lib/action-engine/executors/pipeline-actions.ts.
+        },
+      }).catch((err) => {
+        console.error('[pipeline/events] runFlowSync error:', err)
+      })
+    }
   }
 
   return { dispatched: matched.length, dispatch_id: dispatchId }

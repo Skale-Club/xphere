@@ -89,7 +89,7 @@ export async function createWait(supabase: Db, params: CreateWaitParams): Promis
     contact_id: params.contactId,
     event_filter: params.eventFilter ?? {},
     timeout_at: params.timeoutAt,
-  } as never)
+  })
   if (error) throw new Error(`createWait failed: ${error.message}`)
 }
 
@@ -110,7 +110,7 @@ export async function findUnsatisfiedWaits(
   supabase: Db,
   params: { orgId: string; eventType: string; contactId: string | null },
 ): Promise<PendingWait[]> {
-  let query = supabase
+  const query = supabase
     .from('workflow_waits')
     .select('id, run_id, node_id, event_type, contact_id')
     .eq('org_id', params.orgId)
@@ -139,19 +139,27 @@ export async function findExpiredWaits(supabase: Db, nowIso: string): Promise<Pe
   return data as unknown as PendingWait[]
 }
 
-/** Mark a wait satisfied (resumed by event) or timed out. */
+/**
+ * Mark a wait satisfied (resumed by event) or timed out. The update is a
+ * conditional claim (`satisfied_at IS NULL`) so concurrent resumers race for
+ * it atomically. Returns `true` only for the caller that actually claimed the
+ * wait — callers MUST gate resumeRun on this so a wait is resumed exactly once.
+ */
 export async function satisfyWait(
   supabase: Db,
   waitId: string,
   opts: { timedOut?: boolean } = {},
-): Promise<void> {
+): Promise<boolean> {
   const now = new Date().toISOString()
-  await supabase
+  const { data } = await supabase
     .from('workflow_waits')
     .update({
       satisfied_at: now,
       ...(opts.timedOut ? { timed_out_at: now } : {}),
-    } as never)
+    })
     .eq('id', waitId)
     .is('satisfied_at', null)
+    .select('id')
+  // Exactly one row is returned to the winner; losers get an empty set.
+  return Array.isArray(data) && data.length === 1
 }

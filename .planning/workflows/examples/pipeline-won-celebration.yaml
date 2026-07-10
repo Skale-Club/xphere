@@ -21,7 +21,7 @@ nodes:
     kind: pipeline_add_note
     integration: gohighlevel
     opportunity_id: "{{opportunity.id}}"
-    note: "Deal won — congratulations SMS sent to {{opportunity.contact.phone}} automatically."
+    content: "Deal won — congratulations SMS sent to {{opportunity.contact.phone}} automatically."
 
 edges:
   - from: trigger

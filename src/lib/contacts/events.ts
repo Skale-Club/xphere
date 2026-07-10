@@ -14,6 +14,9 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
+import { runFlow, definitionHasWait } from '@/lib/flows/engine'
+import type { FlowDefinition } from '@/lib/flows/schema'
+import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import { enqueueLead } from '@/lib/meta/capi-enqueue'
 
 export type ContactEventType = 'contact.created'
@@ -111,12 +114,22 @@ export async function emitContactEvent(
       })
     }
 
-    if (matched.length === 0) return { dispatched: 0, dispatch_id: dispatchId }
-
     const contact = await buildContactScope(supabase, contactId)
-    if (!contact) return { dispatched: 0, dispatch_id: dispatchId }
 
     const triggerInput: Record<string, unknown> = { contact, event: eventType }
+
+    // Resume runs suspended on a wait node this event satisfies (by contact).
+    void resumeMatchingWaits(supabase, {
+      orgId,
+      eventType,
+      contactId,
+      payload: triggerInput,
+    }).catch((err) => {
+      console.error('[contacts/events] resumeMatchingWaits error:', err)
+    })
+
+    if (matched.length === 0) return { dispatched: 0, dispatch_id: dispatchId }
+    if (!contact) return { dispatched: 0, dispatch_id: dispatchId }
 
     const versionIds = matched
       .map((m) => m.current_version_id)
@@ -135,14 +148,28 @@ export async function emitContactEvent(
       const definition = wf.current_version_id ? defById.get(wf.current_version_id) : null
       if (!definition) continue
       // Fire-and-forget — a failing workflow must never block contact creation.
-      void runFlowSync({
-        workflowId: wf.id,
-        definition,
-        triggerInput,
-        context: { orgId },
-      }).catch((err) => {
-        console.error('[contacts/events] runFlowSync error:', err)
-      })
+      if (definitionHasWait(definition)) {
+        void runFlow({
+          workflowId: wf.id,
+          versionId: wf.current_version_id ?? null,
+          definition: definition as FlowDefinition,
+          orgId,
+          triggerType: 'event',
+          triggerPayload: triggerInput,
+          supabase,
+        }).catch((err) => {
+          console.error('[contacts/events] runFlow error:', err)
+        })
+      } else {
+        void runFlowSync({
+          workflowId: wf.id,
+          definition,
+          triggerInput,
+          context: { orgId },
+        }).catch((err) => {
+          console.error('[contacts/events] runFlowSync error:', err)
+        })
+      }
     }
 
     return { dispatched: matched.length, dispatch_id: dispatchId }

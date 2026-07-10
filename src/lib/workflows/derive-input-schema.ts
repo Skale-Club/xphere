@@ -45,24 +45,38 @@ function extractInputSchemaMap(definition: unknown): InputSchemaMap {
 
 function fieldToZod(meta: InputSchemaField): z.ZodTypeAny {
   let field: z.ZodTypeAny
-  switch (meta.type) {
-    case 'number':
-    case 'integer':
-      field = z.number()
-      break
-    case 'boolean':
-      field = z.boolean()
-      break
-    case 'array':
-      field = z.array(z.unknown())
-      break
-    case 'object':
-      field = z.record(z.unknown())
-      break
-    case 'string':
-    default:
-      field = z.string()
-      break
+  // A declared string enum becomes a Zod enum so the agent tool boundary
+  // actually constrains the value to the allowed set (the input_schema promises
+  // it; dropping it let any string through).
+  const enumValues = Array.isArray(meta.enum)
+    ? meta.enum.filter((v): v is string => typeof v === 'string')
+    : []
+  if (
+    enumValues.length > 0 &&
+    enumValues.length === (meta.enum?.length ?? 0) &&
+    (meta.type === undefined || meta.type === 'string')
+  ) {
+    field = z.enum(enumValues as [string, ...string[]])
+  } else {
+    switch (meta.type) {
+      case 'number':
+      case 'integer':
+        field = z.number()
+        break
+      case 'boolean':
+        field = z.boolean()
+        break
+      case 'array':
+        field = z.array(z.unknown())
+        break
+      case 'object':
+        field = z.record(z.unknown())
+        break
+      case 'string':
+      default:
+        field = z.string()
+        break
+    }
   }
   if (meta.description) field = field.describe(meta.description)
   if (meta.required === false || meta.required === undefined) field = field.optional()

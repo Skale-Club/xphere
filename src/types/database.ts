@@ -6274,6 +6274,48 @@ export interface Database {
         }
         Relationships: []
       }
+      workflow_waits: {
+        Row: {
+          id: string
+          run_id: string
+          event_filter: Record<string, unknown>
+          timeout_at: string | null
+          satisfied_at: string | null
+          created_at: string
+          org_id: string | null
+          node_id: string | null
+          event_type: string | null
+          contact_id: string | null
+          timed_out_at: string | null
+        }
+        Insert: {
+          id?: string
+          run_id: string
+          event_filter?: Record<string, unknown>
+          timeout_at?: string | null
+          satisfied_at?: string | null
+          created_at?: string
+          org_id?: string | null
+          node_id?: string | null
+          event_type?: string | null
+          contact_id?: string | null
+          timed_out_at?: string | null
+        }
+        Update: {
+          id?: string
+          run_id?: string
+          event_filter?: Record<string, unknown>
+          timeout_at?: string | null
+          satisfied_at?: string | null
+          created_at?: string
+          org_id?: string | null
+          node_id?: string | null
+          event_type?: string | null
+          contact_id?: string | null
+          timed_out_at?: string | null
+        }
+        Relationships: []
+      }
       copilot_conversations: {
         Row: {
           id: string

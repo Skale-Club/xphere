@@ -141,11 +141,15 @@ function normalizeGraph(definition: unknown): NormalizedGraph {
     const from = String(edge.from ?? edge.source ?? '')
     const to = String(edge.to ?? edge.target ?? '')
     if (!from || !to) continue
-    out.edges.push({
-      from,
-      to,
-      when: edge.when !== undefined ? String(edge.when) : undefined,
-    })
+    // Condition branch label. Authored as `when`/`handle` in YAML and stored as
+    // `sourceHandle` in the flow-engine shape — read all three so branching
+    // behaves identically to the durable engine (src/lib/flows/engine.ts).
+    const branch =
+      edge.when !== undefined ? String(edge.when)
+      : edge.sourceHandle != null ? String(edge.sourceHandle)
+      : edge.handle !== undefined ? String(edge.handle)
+      : undefined
+    out.edges.push({ from, to, when: branch })
   }
 
   return out
@@ -153,15 +157,22 @@ function normalizeGraph(definition: unknown): NormalizedGraph {
 
 // ─── Simple `{{var}}` interpolation against an accumulated scope ─────────────
 
+// Path resolution shared-in-spirit with src/lib/flows/interpolate.ts: walks a
+// dot-separated path through objects AND arrays (so `list.0.name` resolves the
+// same way in both engines).
+function resolveScopePath(scope: unknown, path: string): unknown {
+  let cur: unknown = scope
+  for (const seg of path.split('.')) {
+    if (cur === null || cur === undefined || typeof cur !== 'object') return undefined
+    cur = (cur as Record<string, unknown>)[seg]
+  }
+  return cur
+}
+
 function interpolateValue(value: unknown, scope: Record<string, unknown>): unknown {
   if (typeof value === 'string') {
     return value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, expr: string) => {
-      const path = expr.trim().split('.')
-      let cur: unknown = scope
-      for (const seg of path) {
-        if (!isObject(cur)) return ''
-        cur = cur[seg]
-      }
+      const cur = resolveScopePath(scope, expr.trim())
       if (cur === undefined || cur === null) return ''
       if (typeof cur === 'object') return JSON.stringify(cur)
       return String(cur)
@@ -260,20 +271,38 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
     triggerInput: params.triggerInput,
   })
 
+  // Scope shape is kept identical to the durable engine (src/lib/flows/engine.ts)
+  // so a workflow resolves the same variables regardless of which engine runs it:
+  //   {{input.*}} and {{trigger.payload.*}} both point at the trigger payload;
+  //   {{trigger.type}}, {{trigger.fired_at}} are available;
+  //   node outputs are readable as BOTH {{<node_id>.output.*}} and
+  //   {{steps.<node_id>.output.*}}.
+  const triggerType =
+    isObject(params.triggerInput) && typeof params.triggerInput.event === 'string'
+      ? params.triggerInput.event
+      : 'tool_call'
   const scope: Record<string, unknown> = {
-    trigger: { fired_at: new Date().toISOString() },
+    trigger: { type: triggerType, fired_at: new Date().toISOString(), payload: params.triggerInput },
     input: params.triggerInput,
+    steps: {} as Record<string, { output: unknown }>,
   }
 
   // Promote top-level keys of the trigger payload into the scope so that
   // event-triggered workflows can reference {{opportunity.title}}, {{contact.name}},
   // {{meeting.attendee_contact.name}}, etc. directly without the `input.`
-  // prefix. Reserved keys (trigger/input) are never overwritten.
+  // prefix. Reserved keys are never overwritten.
   if (isObject(params.triggerInput)) {
     for (const [key, value] of Object.entries(params.triggerInput)) {
-      if (key === 'trigger' || key === 'input') continue
+      if (key === 'trigger' || key === 'input' || key === 'steps') continue
       if (scope[key] === undefined) scope[key] = value
     }
+  }
+
+  // Record a node's output under both scope shapes so downstream {{...}} refs
+  // resolve the same way in either engine.
+  const recordOutput = (nodeId: string, output: unknown): void => {
+    scope[nodeId] = { output }
+    ;(scope.steps as Record<string, { output: unknown }>)[nodeId] = { output }
   }
 
   // Build a topological ordering by following edges from `trigger` (or first
@@ -295,7 +324,9 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
   let lastOutput: unknown = undefined
   let runError: string | undefined
   let stepCount = 0
-  const MAX_STEPS = 50
+  // Aligned with the durable engine (src/lib/flows/engine.ts) so a workflow's
+  // step budget doesn't depend on which engine runs it.
+  const MAX_STEPS = 100
 
   while (cursorId && stepCount < MAX_STEPS) {
     stepCount++
@@ -335,7 +366,7 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
       // triggered flows (no agentId) run the agent normally.
       if (params.context.agentId) {
         lastOutput = { _skipped: true, _note: 'Agent node skipped inside an agent-tool flow (recursion guard).' }
-        ;(scope as Record<string, unknown>)[node.id] = { output: lastOutput }
+        recordOutput(node.id, lastOutput)
       } else {
         const cfg = node.config as Record<string, unknown>
         const userMessage = interpolateValue(String(cfg.input ?? ''), scope) as string
@@ -348,7 +379,7 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
           maxSteps: Number.isFinite(maxStepsRaw) ? maxStepsRaw : undefined,
         })
         lastOutput = out
-        ;(scope as Record<string, unknown>)[node.id] = { output: out }
+        recordOutput(node.id, out)
       }
       const nextEdge = graph.edges.find((e) => e.from === node.id)
       cursorId = nextEdge?.to
@@ -359,9 +390,13 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
       const cfg = node.config as Record<string, unknown>
       const expr = String(cfg.expression ?? '')
       const branch = evaluateCondition(expr, scope as Record<string, unknown>) ? 'true' : 'false'
+      // Unified branch selection (mirrors src/lib/flows/engine.ts pickNextNode):
+      // 1) an edge labeled with this branch, else 2) an unlabeled default edge,
+      // else 3) stop. Prevents "always take the first edge" divergence.
+      const outs = graph.edges.filter((e) => e.from === node.id)
       const nextEdge =
-        graph.edges.find((e) => e.from === node.id && e.when === branch) ??
-        graph.edges.find((e) => e.from === node.id)
+        outs.find((e) => e.when === branch) ??
+        outs.find((e) => e.when === undefined || e.when === '')
       cursorId = nextEdge?.to
       continue
     }
@@ -377,7 +412,7 @@ async function runInline(params: RunFlowSyncParams): Promise<RunFlowSyncResult> 
           actionCtx,
         )
         lastOutput = result
-        ;(scope as Record<string, unknown>)[node.id] = { output: result }
+        recordOutput(node.id, result)
       } catch (err) {
         runError = err instanceof Error ? err.message : String(err)
         break

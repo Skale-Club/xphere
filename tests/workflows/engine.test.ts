@@ -202,12 +202,14 @@ describe('runFlow — lib/flows/engine.ts', () => {
       nodes: [trig(), wait(), act('a1'), end()],
       edges: [edge('trigger', 'w1'), edge('w1', 'a1'), edge('a1', 'end1')],
     })
-    // Tailored supabase: run is waiting + version returns the definition.
+    // Tailored supabase: run is waiting + version returns the definition. The
+    // status→running claim UPDATE ... WHERE status='waiting' RETURNING id must
+    // return one row (this resumer wins the atomic claim).
     const supabase = {
       from: vi.fn().mockImplementation((table: string) => {
         if (table === 'workflow_runs') {
           return {
-            ...makeChain({ data: null, error: null }),
+            ...makeChain({ data: [{ id: 'run-1' }], error: null }),
             maybeSingle: vi.fn().mockResolvedValue({
               data: {
                 id: 'run-1', org_id: 'org-1', workflow_id: 'wf-1',
@@ -231,6 +233,44 @@ describe('runFlow — lib/flows/engine.ts', () => {
     expect(result.status).toBe('succeeded')
     // The deferred action now runs.
     expect(vi.mocked(executeAction)).toHaveBeenCalledOnce()
+  })
+
+  it('resumeRun no-ops when the atomic claim is lost (double-resume guard)', async () => {
+    const { resumeRun } = await import('@/lib/flows/engine')
+    const def = makeFlow({
+      nodes: [trig(), wait(), act('a1'), end()],
+      edges: [edge('trigger', 'w1'), edge('w1', 'a1'), edge('a1', 'end1')],
+    })
+    // Run reads as 'waiting', but the claim UPDATE affects ZERO rows (another
+    // resumer already flipped it to 'running') → this call must not execute.
+    const supabase = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'workflow_runs') {
+          return {
+            ...makeChain({ data: [], error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'run-1', org_id: 'org-1', workflow_id: 'wf-1',
+                workflow_version_id: 'ver-1', state: { steps: {} }, status: 'waiting',
+              },
+              error: null,
+            }),
+          }
+        }
+        if (table === 'workflow_versions') {
+          return {
+            ...makeChain({ data: null, error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { definition: def }, error: null }),
+          }
+        }
+        return makeChain({ data: null, error: null })
+      }),
+    } as unknown as SupabaseClient<Database>
+
+    const result = await resumeRun(supabase, { runId: 'run-1', nodeId: 'w1', event: 'meeting.confirmed' })
+    expect(result.status).toBe('waiting')
+    // The post-wait action must NOT run — the other resumer owns this run.
+    expect(vi.mocked(executeAction)).not.toHaveBeenCalled()
   })
 
   it('stops execution at end node and skips subsequent action', async () => {
