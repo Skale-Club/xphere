@@ -24,6 +24,24 @@ export type ProviderChoice =
 export const DEFAULT_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4.5'
 export const DEFAULT_ANTHROPIC_MODEL  = 'claude-sonnet-4-6'
 
+// Org-selectable model tiers (Settings → Copilot). Each tier maps to a
+// concrete model id per provider so the org picks a speed/quality trade-off
+// without caring which provider path their key resolves to.
+export type CopilotModelTier = 'fast' | 'default' | 'max'
+
+export const COPILOT_MODEL_TIERS: Record<
+  CopilotModelTier,
+  { openrouterModel: string; anthropicModel: string }
+> = {
+  fast:    { openrouterModel: 'anthropic/claude-haiku-4.5', anthropicModel: 'claude-haiku-4-5' },
+  default: { openrouterModel: DEFAULT_OPENROUTER_MODEL,     anthropicModel: DEFAULT_ANTHROPIC_MODEL },
+  max:     { openrouterModel: 'anthropic/claude-opus-4.5',  anthropicModel: 'claude-opus-4-5' },
+}
+
+export function isCopilotModelTier(v: unknown): v is CopilotModelTier {
+  return v === 'fast' || v === 'default' || v === 'max'
+}
+
 export async function resolveCopilotProvider(
   orgId: string,
   overrides?: { openrouterModel?: string; anthropicModel?: string },
@@ -62,9 +80,30 @@ export async function resolveCopilotProvider(
 
 // Approximate token → USD cost. Numbers are rough; real spend tracking is
 // best-effort at v1 (operator owns the key + the real invoice).
+//
+// Lookup order: exact id (after normalizing away the OpenRouter `vendor/`
+// prefix and dotted versions) → model family → Sonnet-rate fallback, so an
+// unknown-but-named Haiku/Opus still debits at roughly the right rate.
 const PRICING_PER_MTOK_USD: Record<string, { input: number; output: number }> = {
   'claude-sonnet-4-6': { input: 3, output: 15 },
-  'anthropic/claude-sonnet-4.5': { input: 3, output: 15 },
+  'claude-sonnet-4-5': { input: 3, output: 15 },
+  'claude-haiku-4-5':  { input: 1, output: 5 },
+  'claude-opus-4-5':   { input: 5, output: 25 },
+  'claude-opus-4-1':   { input: 15, output: 75 },
+}
+
+const FAMILY_PRICING: Array<{ match: string; input: number; output: number }> = [
+  { match: 'haiku',  input: 1,  output: 5 },
+  { match: 'opus',   input: 5,  output: 25 },
+  { match: 'sonnet', input: 3,  output: 15 },
+]
+
+function rateFor(model: string): { input: number; output: number } {
+  const normalized = model.toLowerCase().split('/').pop()!.replace(/\./g, '-')
+  const exact = PRICING_PER_MTOK_USD[normalized]
+  if (exact) return exact
+  const family = FAMILY_PRICING.find((f) => normalized.includes(f.match))
+  return family ?? { input: 3, output: 15 }
 }
 
 export function estimateCostUsd(
@@ -72,7 +111,7 @@ export function estimateCostUsd(
   inputTokens: number,
   outputTokens: number,
 ): number {
-  const rate = PRICING_PER_MTOK_USD[model] ?? { input: 3, output: 15 }
+  const rate = rateFor(model)
   const usd = (inputTokens * rate.input + outputTokens * rate.output) / 1_000_000
   return Math.round(usd * 10000) / 10000
 }

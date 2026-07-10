@@ -7,15 +7,48 @@ import { toast } from 'sonner'
 
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { setCopilotEnabled } from '@/app/(dashboard)/settings/copilot/actions'
+import { cn } from '@/lib/utils'
+import {
+  setCopilotEnabled,
+  setCopilotModelTier,
+} from '@/app/(dashboard)/settings/copilot/actions'
+import type { CopilotModelTier } from '@/lib/copilot/resolve-provider'
+
+const MODEL_TIER_OPTIONS: Array<{
+  value: CopilotModelTier
+  label: string
+  description: string
+}> = [
+  {
+    value: 'fast',
+    label: 'Fast (Haiku)',
+    description: 'Cheapest and quickest. Great for lookups and simple edits.',
+  },
+  {
+    value: 'default',
+    label: 'Balanced (Sonnet)',
+    description: 'Recommended. Strong reasoning at a moderate cost.',
+  },
+  {
+    value: 'max',
+    label: 'Max (Opus)',
+    description: 'Most capable. Best for complex analysis; costs more per turn.',
+  },
+]
 
 interface CopilotSettingsFormProps {
   initialEnabled: boolean
   hasProvider: boolean
+  initialModelTier: CopilotModelTier
 }
 
-export function CopilotSettingsForm({ initialEnabled, hasProvider }: CopilotSettingsFormProps) {
+export function CopilotSettingsForm({
+  initialEnabled,
+  hasProvider,
+  initialModelTier,
+}: CopilotSettingsFormProps) {
   const [enabled, setEnabled] = useState(initialEnabled)
+  const [modelTier, setModelTier] = useState<CopilotModelTier>(initialModelTier)
   const [isPending, startTransition] = useTransition()
 
   function handleToggle(value: boolean) {
@@ -27,6 +60,20 @@ export function CopilotSettingsForm({ initialEnabled, hasProvider }: CopilotSett
       } catch {
         setEnabled(!value) // revert on error
         toast.error('Failed to update Copilot settings')
+      }
+    })
+  }
+
+  function handleTierChange(value: CopilotModelTier) {
+    const previous = modelTier
+    setModelTier(value)
+    startTransition(async () => {
+      try {
+        await setCopilotModelTier(value)
+        toast.success('Copilot model updated')
+      } catch {
+        setModelTier(previous) // revert on error
+        toast.error('Failed to update Copilot model')
       }
     })
   }
@@ -55,6 +102,42 @@ export function CopilotSettingsForm({ initialEnabled, hasProvider }: CopilotSett
           aria-label="Enable or disable Copilot"
         />
       </div>
+
+      {/* Model tier — which model the copilot runs on for this workspace */}
+      {enabled && (
+        <div className="rounded-lg border border-border bg-bg-secondary p-5">
+          <p className="text-[14px] font-medium text-text-primary">Model</p>
+          <p className="mt-1 text-[13px] leading-snug text-text-tertiary">
+            The speed/quality trade-off for every Copilot turn in this
+            workspace. Applies to both OpenRouter and direct Anthropic keys.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Copilot model">
+            {MODEL_TIER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={modelTier === opt.value}
+                disabled={isPending}
+                onClick={() => handleTierChange(opt.value)}
+                className={cn(
+                  'rounded-lg border p-3 text-left transition-colors',
+                  modelTier === opt.value
+                    ? 'border-accent bg-accent/5'
+                    : 'border-border bg-bg-primary hover:bg-bg-tertiary',
+                )}
+              >
+                <span className="block text-[13px] font-medium text-text-primary">
+                  {opt.label}
+                </span>
+                <span className="mt-0.5 block text-[12px] leading-snug text-text-tertiary">
+                  {opt.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Provider status — only relevant when copilot is on */}
       {enabled && !hasProvider && (
