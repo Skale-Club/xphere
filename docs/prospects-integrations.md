@@ -46,6 +46,7 @@ A bulk action only appears when its service is configured.
 | Service | Env (on Xphere) | What Xphere calls |
 |---------|-----------------|-------------------|
 | Xmail | `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | `POST {XMAIL_API_URL}/api/outreach/leads/bulk-import` (`x-user-id`, `x-service-key`) |
+| Xmail (1:1 send) | same as above, plus optional `XMAIL_ESTIMATE_FROM` | `POST {XMAIL_API_URL}/api/outreach/send-message` (`x-user-id`, `x-service-key`) — used by the `prospect_send_message` MCP tool |
 | Xpot | `XPOT_API_URL`, `XPOT_API_KEY` | `POST {XPOT_API_URL}/api/xpot/inbound/prospects` (Bearer) |
 
 ## The four integrations
@@ -63,6 +64,16 @@ them as Xmail leads. Xmail runs the sending and POSTs engagement events back to
 bounced/unsubscribed` onto the timeline and `engagement_status`. **Replies update
 engagement only — never lifecycle.** Xmail needs no code changes: point an Xmail
 webhook at the Xphere endpoint (with the workspace API key) and set `x-user-id`.
+
+**`prospect_send_message` (MCP tool)** is the reusable "door" for a single 1:1
+message to one prospect — e.g. dropping an estimate link into their inbox —
+as opposed to bulk campaign enrollment. Email sends through Xmail's native
+info@ inbox (`POST /api/outreach/send-message`, defaulting `from` to
+`XMAIL_ESTIMATE_FROM` or `info@skale.club`); SMS sends through the org's
+connected Twilio number. Gated by `confirmed:true` — the agent must preview
+(no `confirmed`) and get human approval before it actually sends. On success
+it logs a `sent` row in `prospect_engagement_events` and sets
+`engagement_status='contacted'` on the prospect, same as the bulk path.
 
 ### Xpot (field visits) — repo `xpot`
 The **Send to Xpot** bulk action posts prospects to `/api/xpot/inbound/prospects`,

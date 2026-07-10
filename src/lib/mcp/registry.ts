@@ -26,6 +26,7 @@ import { bookingsTools } from './tools/bookings'
 import { adsTools } from './tools/ads'
 import { organizationsTools } from './tools/organizations'
 import { prospectsTools } from './tools/prospects'
+import { prospectSendMessageTools } from './tools/prospect-send-message'
 
 export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...projectsTools,
@@ -51,6 +52,7 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...adsTools,
   ...organizationsTools,
   ...prospectsTools,
+  ...prospectSendMessageTools,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_MCP_TOOLS.map((t) => [t.name, t]))

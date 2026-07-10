@@ -71,7 +71,7 @@ function splitName(name: string | null): { firstName: string | null; lastName: s
 }
 
 /** Companies have no email column; the scraped email (enriched runs only) lives in custom_fields.email. */
-function emailFromCustomFields(cf: unknown): string | null {
+export function emailFromCustomFields(cf: unknown): string | null {
   if (!cf || typeof cf !== 'object') return null
   const e = (cf as Record<string, unknown>).email
   return typeof e === 'string' && e.includes('@') ? e.trim() : null
