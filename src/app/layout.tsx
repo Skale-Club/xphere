@@ -76,7 +76,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: faviconUrl ? [{ url: faviconUrl }] : [{ url: '/xphere-icon.svg', type: 'image/svg+xml' }],
       ...(faviconUrl && { shortcut: faviconUrl }),
-      apple: '/api/pwa/icons/180',
+      apple: '/api/pwa/icons/180?bg=1',
     },
   }
 }

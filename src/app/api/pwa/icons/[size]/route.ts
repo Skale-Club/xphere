@@ -4,6 +4,9 @@ import sharp from 'sharp'
 import { getFaviconUrl } from '@/lib/seo'
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 }
+// Matches --bg-primary in dark mode (globals.css) — keeps iOS home screen icons
+// (which can't render transparency and fall back to white) consistent with the admin panel.
+const DARK_BG = { r: 0x0a, g: 0x0a, b: 0x0b, alpha: 1 }
 
 /**
  * Static "orb" brand mark — concentric circles matching XphereOrb at rest.
@@ -31,6 +34,9 @@ export async function GET(
   // Maskable icons keep the mark inside the safe zone so OS masking never clips it.
   const maskable = request.nextUrl.searchParams.has('maskable')
   const inner = maskable ? Math.round(size * 0.8) : size
+  // iOS renders transparent home screen icon corners as white — opt into an
+  // opaque plate (e.g. for apple-touch-icon) to match the admin panel instead.
+  const plate = request.nextUrl.searchParams.has('bg') ? DARK_BG : TRANSPARENT
 
   try {
     const faviconUrl = await getFaviconUrl()
@@ -44,15 +50,15 @@ export async function GET(
       inputBuffer = orbSvg(inner)
     }
 
-    // Render the mark, then center it on a transparent square — stays circular,
-    // never paints a solid background plate.
+    // Render the mark, then center it on the plate — transparent by default so
+    // it stays circular with no background, or opaque when the caller needs one.
     const mark = await sharp(inputBuffer)
       .resize(inner, inner, { fit: 'contain', background: TRANSPARENT })
       .png()
       .toBuffer()
 
     const png = await sharp({
-      create: { width: size, height: size, channels: 4, background: TRANSPARENT },
+      create: { width: size, height: size, channels: 4, background: plate },
     })
       .composite([{ input: mark, gravity: 'center' }])
       .png()
