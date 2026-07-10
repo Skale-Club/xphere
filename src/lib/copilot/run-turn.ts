@@ -51,10 +51,15 @@ interface RunTurnInput {
   /** Whether this turn's cost debits the credit wallet. Defaults to true; set
    *  false for platform-admin/internal turns that must not consume credits. */
   meterCredits?: boolean
+  /** Org-level model overrides (Settings → Copilot model tier). */
+  modelOverrides?: { openrouterModel?: string; anthropicModel?: string }
+  /** Called as each part (text block / finished tool call) is produced, so
+   *  callers can stream progress to the client while the turn runs. */
+  onPart?: (part: MessagePart) => void
 }
 
 export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult> {
-  const provider = await resolveCopilotProvider(input.orgId)
+  const provider = await resolveCopilotProvider(input.orgId, input.modelOverrides)
   if (!provider) {
     throw new Error('ai_not_configured: connect OpenRouter or Anthropic under Integrations')
   }
@@ -94,37 +99,24 @@ export async function runCopilotTurn(input: RunTurnInput): Promise<RunTurnResult
   let outputTokens = 0
 
   try {
-    if (provider.kind === 'openrouter') {
-      const usage = await loopOpenRouter({
-        provider,
-        system,
-        history: input.history,
-        userMessage: input.userMessage,
-        images: input.images,
-        toolDefs,
-        toolCtx,
-        runId,
-        supabase: input.supabase,
-        parts,
-      })
-      inputTokens = usage.inputTokens
-      outputTokens = usage.outputTokens
-    } else {
-      const usage = await loopAnthropic({
-        provider,
-        system,
-        history: input.history,
-        userMessage: input.userMessage,
-        images: input.images,
-        toolDefs,
-        toolCtx,
-        runId,
-        supabase: input.supabase,
-        parts,
-      })
-      inputTokens = usage.inputTokens
-      outputTokens = usage.outputTokens
+    const loopArgs: LoopArgs = {
+      provider,
+      system,
+      history: input.history,
+      userMessage: input.userMessage,
+      images: input.images,
+      toolDefs,
+      toolCtx,
+      runId,
+      supabase: input.supabase,
+      parts,
+      onPart: input.onPart,
     }
+    const usage = provider.kind === 'openrouter'
+      ? await loopOpenRouter(loopArgs)
+      : await loopAnthropic(loopArgs)
+    inputTokens = usage.inputTokens
+    outputTokens = usage.outputTokens
 
     const costUsd = estimateCostUsd(provider.model, inputTokens, outputTokens)
     await input.supabase
@@ -181,6 +173,48 @@ interface LoopArgs {
   runId: string
   supabase: SupabaseClient<Database>
   parts: MessagePart[]
+  onPart?: (part: MessagePart) => void
+}
+
+function emitPart(args: LoopArgs, part: MessagePart) {
+  args.parts.push(part)
+  args.onPart?.(part)
+}
+
+// ─── History serialization ───────────────────────────────────────────────────
+//
+// Prior turns are replayed as plain text, but tool calls must survive the
+// round-trip: without them the model can't see IDs or data it already fetched
+// and is forced to re-query (or worse, guess). Outputs are truncated so a long
+// conversation doesn't blow up the context window.
+
+const HISTORY_TOOL_INPUT_MAX = 400
+const HISTORY_TOOL_OUTPUT_MAX = 1200
+
+function truncatedJson(value: unknown, max: number): string {
+  let s: string
+  try {
+    s = JSON.stringify(value) ?? 'null'
+  } catch {
+    s = String(value)
+  }
+  return s.length > max ? `${s.slice(0, max)}…(truncated)` : s
+}
+
+function partsToHistoryText(parts: MessagePart[]): string {
+  const chunks: string[] = []
+  for (const p of parts) {
+    if (p.type === 'text' && p.text) chunks.push(p.text)
+    if (p.type === 'tool_call' && p.tool_name) {
+      const outcome = p.success === false
+        ? `error: ${p.error ?? 'unknown'}`
+        : truncatedJson(p.output ?? null, HISTORY_TOOL_OUTPUT_MAX)
+      chunks.push(
+        `[tool_call ${p.tool_name} input=${truncatedJson(p.input ?? {}, HISTORY_TOOL_INPUT_MAX)} → ${outcome}]`,
+      )
+    }
+  }
+  return chunks.join('\n')
 }
 
 function toOpenAiTools(defs: Anthropic.Tool[]): OpenAI.ChatCompletionTool[] {
@@ -199,8 +233,8 @@ function historyToOpenAiMessages(
 ): OpenAI.ChatCompletionMessageParam[] {
   const msgs: OpenAI.ChatCompletionMessageParam[] = []
   for (const m of history) {
-    const textParts = m.parts.filter((p) => p.type === 'text' && p.text).map((p) => p.text!).join('\n')
-    if (textParts) msgs.push({ role: m.role, content: textParts })
+    const text = partsToHistoryText(m.parts)
+    if (text) msgs.push({ role: m.role, content: text })
   }
   return msgs
 }
@@ -245,7 +279,7 @@ async function loopOpenRouter(args: LoopArgs): Promise<{ inputTokens: number; ou
     const msg = choice.message
 
     if (msg.content) {
-      args.parts.push({ type: 'text', text: msg.content })
+      emitPart(args, { type: 'text', text: msg.content })
     }
 
     const toolCalls = (msg.tool_calls ?? []).filter(
@@ -268,7 +302,7 @@ async function loopOpenRouter(args: LoopArgs): Promise<{ inputTokens: number; ou
       try { parsed = JSON.parse(tc.function.arguments) } catch { /* ignore */ }
       const { result, durationMs } = await dispatchCopilotTool(tc.function.name, parsed, args.toolCtx)
 
-      args.parts.push({
+      emitPart(args, {
         type: 'tool_call',
         tool_name: tc.function.name,
         input: parsed,
@@ -309,14 +343,24 @@ function historyToAnthropicMessages(
 ): Anthropic.MessageParam[] {
   const msgs: Anthropic.MessageParam[] = []
   for (const m of history) {
-    const textParts = m.parts.filter((p) => p.type === 'text' && p.text).map((p) => p.text!).join('\n')
-    if (textParts) msgs.push({ role: m.role, content: textParts })
+    const text = partsToHistoryText(m.parts)
+    if (text) msgs.push({ role: m.role, content: text })
   }
   return msgs
 }
 
 async function loopAnthropic(args: LoopArgs): Promise<{ inputTokens: number; outputTokens: number }> {
   const client = new Anthropic({ apiKey: args.provider.apiKey })
+
+  // Prompt caching: the system prompt + tool definitions are identical across
+  // every iteration of this loop (and across turns in a conversation), so mark
+  // them as cache breakpoints. Cache reads are ~90% cheaper than fresh input.
+  const system: Anthropic.TextBlockParam[] = [
+    { type: 'text', text: args.system, cache_control: { type: 'ephemeral' } },
+  ]
+  const tools: Anthropic.Tool[] = args.toolDefs.map((t, i) =>
+    i === args.toolDefs.length - 1 ? { ...t, cache_control: { type: 'ephemeral' } } : t,
+  )
 
   const firstUserContent: Anthropic.ContentBlockParam[] = [
     { type: 'text', text: args.userMessage },
@@ -343,13 +387,21 @@ async function loopAnthropic(args: LoopArgs): Promise<{ inputTokens: number; out
     const response = await client.messages.create({
       model: args.provider.model,
       max_tokens: 4096,
-      system: args.system,
-      tools: args.toolDefs,
+      system,
+      tools,
       messages,
     })
 
-    inputTokens += response.usage?.input_tokens ?? 0
-    outputTokens += response.usage?.output_tokens ?? 0
+    // Fold cache activity into the input-token count at its effective price
+    // ratio (writes bill at 1.25×, reads at 0.1×) so estimateCostUsd stays a
+    // single input/output formula while still reflecting caching savings.
+    const u = response.usage
+    inputTokens += Math.round(
+      (u?.input_tokens ?? 0) +
+      1.25 * (u?.cache_creation_input_tokens ?? 0) +
+      0.1 * (u?.cache_read_input_tokens ?? 0),
+    )
+    outputTokens += u?.output_tokens ?? 0
 
     const textParts: string[] = []
     const toolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
@@ -365,7 +417,7 @@ async function loopAnthropic(args: LoopArgs): Promise<{ inputTokens: number; out
     }
 
     if (textParts.length > 0) {
-      args.parts.push({ type: 'text', text: textParts.join('\n') })
+      emitPart(args, { type: 'text', text: textParts.join('\n') })
     }
     if (toolUses.length === 0) break
 
@@ -375,7 +427,7 @@ async function loopAnthropic(args: LoopArgs): Promise<{ inputTokens: number; out
     for (const tu of toolUses) {
       const { result, durationMs } = await dispatchCopilotTool(tu.name, tu.input, args.toolCtx)
 
-      args.parts.push({
+      emitPart(args, {
         type: 'tool_call',
         tool_name: tu.name,
         input: tu.input,

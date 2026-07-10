@@ -30,7 +30,8 @@ import {
   createConversation,
   getConversation,
 } from "@/app/(dashboard)/copilot/_actions/conversations";
-import { sendCopilotMessage } from "@/app/(dashboard)/copilot/_actions/turn";
+import type { MessagePart } from "@/lib/copilot/run-turn";
+import type { CopilotTurnOutput } from "@/lib/copilot/execute-turn";
 
 const VOICE_BAR_COUNT = 11;
 const DESKTOP_STORAGE_KEY = "copilot-panel-height";
@@ -116,6 +117,70 @@ function compressImage(file: File, maxPx = 1024): Promise<string> {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+// ─── Streaming turn client ────────────────────────────────────────────────────
+//
+// POSTs to /api/copilot/turn and parses the SSE stream, invoking onPart for
+// each incremental part so the panel renders progress live. Resolves with the
+// terminal event ('done' with the persisted turn, or 'error').
+
+type TurnEvent =
+  | { type: "part"; part: MessagePart }
+  | { type: "done"; data: CopilotTurnOutput }
+  | { type: "error"; error: string };
+
+async function streamCopilotTurn(
+  body: {
+    conversationId: string;
+    message: string;
+    images?: string[];
+    writeMode?: boolean;
+  },
+  onPart: (part: MessagePart) => void,
+): Promise<{ ok: true; data: CopilotTurnOutput } | { ok: false; error: string }> {
+  const res = await fetch("/api/copilot/turn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    return { ok: false, error: `request_failed_${res.status}` };
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let terminal: { ok: true; data: CopilotTurnOutput } | { ok: false; error: string } | null =
+    null;
+
+  const handleEvent = (evt: TurnEvent) => {
+    if (evt.type === "part") onPart(evt.part);
+    else if (evt.type === "done") terminal = { ok: true, data: evt.data };
+    else if (evt.type === "error") terminal = { ok: false, error: evt.error };
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      const dataLine = frame
+        .split("\n")
+        .find((l) => l.startsWith("data: "));
+      if (!dataLine) continue;
+      try {
+        handleEvent(JSON.parse(dataLine.slice(6)) as TurnEvent);
+      } catch {
+        // Malformed frame — skip; the terminal event decides the outcome.
+      }
+    }
+  }
+
+  return terminal ?? { ok: false, error: "stream_interrupted" };
 }
 
 // ─── No-provider notice ───────────────────────────────────────────────────────
@@ -423,13 +488,22 @@ export function CopilotPanel({ hasProvider }: CopilotPanelProps) {
     });
 
     startSend(async () => {
+      // Parts stream in one at a time; keep a local accumulator so each
+      // update replaces the pending message's parts with everything so far.
+      const streamedParts: MessagePart[] = [];
       try {
-        const res = await sendCopilotMessage({
-          conversationId: activeConvId!,
-          message: text || "(describe the image)",
-          images: sentImages.length > 0 ? sentImages : undefined,
-          writeMode,
-        });
+        const res = await streamCopilotTurn(
+          {
+            conversationId: activeConvId!,
+            message: text || "(describe the image)",
+            images: sentImages.length > 0 ? sentImages : undefined,
+            writeMode,
+          },
+          (part) => {
+            streamedParts.push(part);
+            updateMessage(assistantMsgId, { parts: [...streamedParts] });
+          },
+        );
         if (res.ok) {
           updateMessage(assistantMsgId, {
             id: res.data.assistantMessageId,
@@ -441,13 +515,17 @@ export function CopilotPanel({ hasProvider }: CopilotPanelProps) {
           addCost(res.data.costUsd);
         } else {
           updateMessage(assistantMsgId, {
-            parts: [{ type: "text", text: `Error: ${res.error}` }],
+            parts: [
+              ...streamedParts,
+              { type: "text", text: `Error: ${res.error}` },
+            ],
             pending: false,
           });
         }
       } catch (err) {
         updateMessage(assistantMsgId, {
           parts: [
+            ...streamedParts,
             {
               type: "text",
               text: `Error: ${err instanceof Error ? err.message : String(err)}`,

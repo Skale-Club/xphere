@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Bot } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import { isCopilotModelTier } from '@/lib/copilot/resolve-provider'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { CopilotSettingsForm } from '@/components/settings/copilot-settings-form'
 
@@ -29,6 +30,9 @@ export default async function CopilotSettingsPage() {
 
   const settings = (orgResult.data?.settings ?? {}) as Record<string, unknown>
   const copilotEnabled = settings.copilot_enabled !== false // default true
+  const modelTier = isCopilotModelTier(settings.copilot_model_tier)
+    ? settings.copilot_model_tier
+    : 'default'
   const hasProvider = (providerResult.count ?? 0) > 0
 
   return (
@@ -42,6 +46,7 @@ export default async function CopilotSettingsPage() {
       <CopilotSettingsForm
         initialEnabled={copilotEnabled}
         hasProvider={hasProvider}
+        initialModelTier={modelTier}
       />
     </PageContainer>
   )
