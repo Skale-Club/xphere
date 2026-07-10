@@ -16,7 +16,7 @@ import { z } from 'zod'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 
 // Untyped service-role client: the mirror columns (external_source on
-// contacts/accounts, external_* on opportunities) land via migration 1213 and
+// contacts/accounts, external_* on opportunities) land via migration 1237 and
 // aren't in the generated Database types yet — same pattern the receiver used.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type MirrorDb = any

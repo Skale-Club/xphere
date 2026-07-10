@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { randomInt } from 'crypto'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
 import type {
@@ -402,6 +403,8 @@ export async function getProjectTasks(projectId: string): Promise<TaskWithLabels
     .select('*')
     .eq('project_id', projectId)
     .is('parent_task_id', null)
+    .is('archived_at', null)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (!tasks) return []
@@ -817,7 +820,7 @@ function generateToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let result = 'xph_'
   for (let i = 0; i < 32; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)]
+    result += chars[randomInt(chars.length)]
   }
   return result
 }
@@ -908,6 +911,7 @@ export interface TaskDependency {
   depends_on_step: string
   depends_on_completed: boolean
   depends_on_validation_status: string
+  depends_on_execution_status: string
   is_blocking: boolean
 }
 
@@ -923,10 +927,10 @@ export async function getTaskDependencies(taskId: string): Promise<TaskDependenc
   const depIds = (deps as { task_id: string; depends_on_id: string; dependency_rule: string }[]).map((d) => d.depends_on_id)
   const { data: tasks } = await db(supabase)
     .from('project_tasks')
-    .select('id, name, step, completed, validation_status')
+    .select('id, name, step, completed, validation_status, execution_status')
     .in('id', depIds)
-  const taskMap = new Map<string, { name: string; step: string; completed: boolean; validation_status: string }>()
-  for (const t of (tasks as { id: string; name: string; step: string; completed: boolean; validation_status: string }[]) ?? []) {
+  const taskMap = new Map<string, { name: string; step: string; completed: boolean; validation_status: string; execution_status: string }>()
+  for (const t of (tasks as { id: string; name: string; step: string; completed: boolean; validation_status: string; execution_status: string }[]) ?? []) {
     taskMap.set(t.id, t)
   }
   return (deps as { task_id: string; depends_on_id: string; dependency_rule: string }[]).map((d) => {
@@ -934,7 +938,7 @@ export async function getTaskDependencies(taskId: string): Promise<TaskDependenc
     const rule = d.dependency_rule
     const isBlocking =
       rule === 'after_done' ? !(parent?.completed) :
-      rule === 'after_delivered' ? !(parent?.step === 'done') :
+      rule === 'after_delivered' ? !(parent?.execution_status === 'delivered') :
       !(parent?.validation_status === 'approved')
     return {
       task_id: d.task_id,
@@ -944,6 +948,7 @@ export async function getTaskDependencies(taskId: string): Promise<TaskDependenc
       depends_on_step: parent?.step ?? '',
       depends_on_completed: parent?.completed ?? false,
       depends_on_validation_status: parent?.validation_status ?? '',
+      depends_on_execution_status: parent?.execution_status ?? '',
       is_blocking: isBlocking,
     }
   })
