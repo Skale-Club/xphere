@@ -23,8 +23,11 @@ describe('AVAILABLE_MODELS', () => {
   it('contains the default model', () => {
     expect(AVAILABLE_MODELS).toContain('anthropic/claude-sonnet-4-6')
   })
-  it('has 7 entries', () => {
-    expect(AVAILABLE_MODELS).toHaveLength(7)
+  it('lists only Anthropic models (pricing catalog is Anthropic-only, not a provider limitation)', () => {
+    expect(AVAILABLE_MODELS.length).toBeGreaterThan(0)
+    for (const model of AVAILABLE_MODELS) {
+      expect(model).toMatch(/^anthropic\//)
+    }
   })
 })
 

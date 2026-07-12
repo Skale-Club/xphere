@@ -256,7 +256,7 @@ describe('updateInvocationEnd (D-34-03 + D-34-15)', () => {
       assistantReply: 'Error fallback',
       tokensIn: 0,
       tokensOut: 0,
-      errorDetail: 'no_anthropic_key',
+      errorDetail: 'no_llm_key',
     })
 
     const update = capturedUpdates[0]

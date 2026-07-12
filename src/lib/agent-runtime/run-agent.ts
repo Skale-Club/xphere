@@ -5,11 +5,18 @@
 // D-34-09: wired into web widget route.ts in Phase 35 (CHAN-03).
 //
 // LLM call pattern: ADOPT ai@^6
-// Blocking path: generateText from 'ai' + @ai-sdk/anthropic (locked in 34-01-SUMMARY.md)
-// Streaming path: streamText from 'ai' + @ai-sdk/anthropic (locked in D-35-09)
+// Blocking path: generateText from 'ai' (locked in 34-01-SUMMARY.md)
+// Streaming path: streamText from 'ai' (locked in D-35-09)
+//
+// Provider: OpenRouter is the primary path in production — platform_settings
+// only carries OPENROUTER_API_KEY (no ANTHROPIC_API_KEY), matching the
+// resolution precedence already established by src/lib/copilot/resolve-provider.ts.
+// The direct Anthropic path (@ai-sdk/anthropic) is kept as a fallback for orgs/
+// deployments that configure ANTHROPIC_API_KEY directly. See resolveLlmProvider().
 
 import { generateText, streamText, dynamicTool, stepCountIs } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { jsonSchema } from 'ai'
 import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -27,6 +34,7 @@ import {
   checkTokenCap,
   checkDailyCostCap,
 } from './guardrails'
+import { anthropicApiModelId } from '@/lib/agents/models'
 import { resolveAgent } from './resolve-agent'
 import { resolveAgentTool } from './resolve-agent-tool'
 import {
@@ -49,8 +57,18 @@ import type { Json } from '@/types/database'
 // Constants
 // ---------------------------------------------------------------------------
 
+// Turn timeout has three tiers, picked by turnTimeoutFor():
+//   1. AGENT_TURN_TIMEOUT_MS (8s)         — plain text-only turns.
+//   2. AGENT_TURN_TIMEOUT_MS_TOOLS (30s)  — turns with tools assembled; a single
+//      tool call (workflow flows especially) can take up to ~30s.
+//   3. AGENT_TURN_TIMEOUT_MS_THINKING (30s) — extended-thinking turns (added
+//      latency); never shorter than the tools tier.
 const AGENT_TURN_TIMEOUT_MS = parseInt(
   process.env.AGENT_TURN_TIMEOUT_MS ?? '8000',
+  10
+)
+const AGENT_TURN_TIMEOUT_MS_TOOLS = parseInt(
+  process.env.AGENT_TURN_TIMEOUT_MS_TOOLS ?? '30000',
   10
 )
 const MAX_LLM_CALLS_PER_TURN = parseInt(
@@ -78,31 +96,109 @@ function resolveThinkingBudget(agentBudget?: number): number {
   return THINKING_BUDGET_TOKENS_ENV
 }
 
-/** Turn timeout widens automatically when thinking is on. */
-function turnTimeoutFor(budget: number): number {
-  return budget > 0 ? AGENT_TURN_TIMEOUT_MS_THINKING : AGENT_TURN_TIMEOUT_MS
+/**
+ * Turn timeout tier selection. Thinking turns get the thinking budget (never
+ * smaller than the tools tier); non-thinking turns that assembled any tools get
+ * the tools tier; plain text turns get the base timeout.
+ */
+function turnTimeoutFor(budget: number, hasTools: boolean): number {
+  if (budget > 0) {
+    return Math.max(AGENT_TURN_TIMEOUT_MS_THINKING, hasTools ? AGENT_TURN_TIMEOUT_MS_TOOLS : 0)
+  }
+  return hasTools ? AGENT_TURN_TIMEOUT_MS_TOOLS : AGENT_TURN_TIMEOUT_MS
 }
 
 /**
  * Per-call LLM extras for extended thinking. When enabled the caller must omit
- * a custom temperature (API forces 1) and ensure maxOutputTokens exceeds the
- * thinking budget.
+ * a custom temperature (Anthropic forces temperature=1 with thinking enabled)
+ * and ensure maxOutputTokens exceeds the thinking budget.
+ *
+ * Anthropic path: providerOptions.anthropic.thinking — native Messages API param.
+ * OpenRouter path: providerOptions.openrouter.reasoning.max_tokens — OpenRouter's
+ * normalized "reasoning tokens" param, which it maps onto whichever underlying
+ * vendor param applies (e.g. Anthropic's thinking.budget_tokens) for the routed
+ * model. https://openrouter.ai/docs/use-cases/reasoning-tokens
  */
-function thinkingLlmExtras(maxTokens: number, budget: number): {
-  providerOptions?: { anthropic: { thinking: { type: 'enabled'; budgetTokens: number } } }
+function thinkingLlmExtras(
+  maxTokens: number,
+  budget: number,
+  providerKind: LlmProviderChoice['kind'],
+): {
+  providerOptions?: {
+    anthropic?: { thinking: { type: 'enabled'; budgetTokens: number } }
+    openrouter?: { reasoning: { max_tokens: number } }
+  }
   maxOutputTokens: number
   includeTemperature: boolean
 } {
   if (!(budget > 0)) {
     return { maxOutputTokens: maxTokens, includeTemperature: true }
   }
+  const providerOptions =
+    providerKind === 'anthropic'
+      ? { anthropic: { thinking: { type: 'enabled' as const, budgetTokens: budget } } }
+      : { openrouter: { reasoning: { max_tokens: budget } } }
   return {
-    providerOptions: {
-      anthropic: { thinking: { type: 'enabled', budgetTokens: budget } },
-    },
+    providerOptions,
     maxOutputTokens: Math.max(maxTokens, budget + 2048),
     includeTemperature: false,
   }
+}
+
+// ---------------------------------------------------------------------------
+// LLM credential + provider resolution (org OpenRouter → platform OpenRouter →
+// org Anthropic → platform Anthropic)
+// ---------------------------------------------------------------------------
+// Mirrors the precedence in src/lib/copilot/resolve-provider.ts, but resolved
+// against the service-role client already used throughout this module (this
+// runtime is invoked from webhook/background contexts with no authenticated
+// request session, unlike the copilot route which has one) and against the
+// agent's own configured model rather than copilot's fixed model tiers.
+
+type LlmProviderChoice =
+  | { kind: 'openrouter'; apiKey: string }
+  | { kind: 'anthropic'; apiKey: string }
+
+async function resolveLlmProvider(
+  orgId: string,
+  serviceClient: ReturnType<typeof createServiceRoleClient>,
+): Promise<LlmProviderChoice> {
+  const { getPlatformSetting } = await import('@/lib/platform-settings')
+
+  const orgOpenRouterKey = await getProviderKey('openrouter', orgId, serviceClient)
+  if (orgOpenRouterKey) return { kind: 'openrouter', apiKey: orgOpenRouterKey }
+
+  const platformOpenRouterKey = await getPlatformSetting('OPENROUTER_API_KEY', serviceClient)
+  if (platformOpenRouterKey) return { kind: 'openrouter', apiKey: platformOpenRouterKey }
+
+  const orgAnthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
+  if (orgAnthropicKey) return { kind: 'anthropic', apiKey: orgAnthropicKey }
+
+  const platformAnthropicKey = await getPlatformSetting('ANTHROPIC_API_KEY', serviceClient)
+  if (platformAnthropicKey) return { kind: 'anthropic', apiKey: platformAnthropicKey }
+
+  throw new Error('no_llm_key')
+}
+
+/**
+ * Builds the ai@^6 LanguageModel for a resolved provider choice.
+ * - OpenRouter: pass the FULL model id (e.g. `anthropic/claude-sonnet-4-6`) —
+ *   that vendor-prefixed form is OpenRouter's native model id, not a prefix to
+ *   strip.
+ * - Anthropic: strip the `anthropic/` routing prefix via anthropicApiModelId()
+ *   since the Messages API expects bare ids (e.g. `claude-sonnet-4-6`).
+ */
+function buildLanguageModel(providerChoice: LlmProviderChoice, modelId: string) {
+  if (providerChoice.kind === 'openrouter') {
+    const openrouterProvider = createOpenRouter({ apiKey: providerChoice.apiKey })
+    // Explicit .chat() — the bare callable form's first overload resolves to
+    // the legacy completion (text-completion, no tool calling) API when no
+    // settings are passed. .chat() is OpenRouter's chat-completions-compatible
+    // endpoint and is required for tool use + streaming here.
+    return openrouterProvider.chat(modelId)
+  }
+  const anthropicProvider = createAnthropic({ apiKey: providerChoice.apiKey })
+  return anthropicProvider(anthropicApiModelId(modelId))
 }
 
 // ---------------------------------------------------------------------------
@@ -503,10 +599,11 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
   }
 
   // Step 10: Create AbortController with the turn budget (RUNTIME-08).
-  // Budget widens automatically when extended thinking is enabled.
+  // The timeout is SCHEDULED later (right before generateText), once the toolSet
+  // is assembled and the tool tier is known. Budget widens for thinking turns.
   const thinkingBudget = resolveThinkingBudget(resolvedAgent.thinkingBudgetTokens)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), turnTimeoutFor(thinkingBudget))
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   // Accumulated state across the LLM call
   const toolCallsLog: Json[] = []
@@ -527,22 +624,12 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
     } else {
       const serviceClient = createServiceRoleClient()
 
-      // Get Anthropic API key | Phase 34 supports Anthropic only (ADOPT path)
-      // OpenRouter path is deferred to Phase 35 (ai SDK @ai-sdk/openai)
-      // Resolution: org key → platform key (managed by super admin at /admin/settings)
-      let anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
-      if (!anthropicKey) {
-        const { getPlatformSetting } = await import('@/lib/platform-settings')
-        anthropicKey = await getPlatformSetting('ANTHROPIC_API_KEY')
-      }
-      if (!anthropicKey) {
-        throw new Error('no_anthropic_key')
-      }
-
-      // Set ANTHROPIC_API_KEY for the @ai-sdk/anthropic provider
-      // The provider reads this env var at model instantiation time
-      // This is safe for server-only code (never runs in browser context)
-      process.env.ANTHROPIC_API_KEY = anthropicKey
+      // Resolve LLM credential + provider: org OpenRouter → platform
+      // OpenRouter → org Anthropic → platform Anthropic (throws no_llm_key
+      // if none configured). Per-call provider bound to this org's key avoids
+      // mutating any process.env credential, which would race across
+      // concurrent requests from different orgs.
+      const llmProviderChoice = await resolveLlmProvider(orgId, serviceClient)
 
       // Pre-fetch the agent's attached tools to build the ToolSet
       const { data: agentToolRows } = await serviceClient
@@ -794,12 +881,19 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       const effectiveMaxSteps = opts.maxSteps
         ? Math.min(50, Math.max(1, opts.maxSteps))
         : (resolvedAgent.maxSteps ?? MAX_LLM_CALLS_PER_TURN)
-      const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget)
+      const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget, llmProviderChoice.kind)
+
+      // Schedule the turn timeout now that the toolSet is known: tool-using
+      // turns get the wider tools/thinking tier (RUNTIME-08). The thinking
+      // tier applies regardless of provider (thinkingBudget is provider-agnostic).
+      const hasTools = Object.keys(toolSet).length > 0
+      timeoutId = setTimeout(() => controller.abort(), turnTimeoutFor(thinkingBudget, hasTools))
+
       const llmResult = await generateText({
-        model: anthropic(resolvedAgent.model),
+        model: buildLanguageModel(llmProviderChoice, resolvedAgent.model),
         system: systemPrompt,
         messages,
-        tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
+        tools: hasTools ? toolSet : undefined,
         stopWhen: stepCountIs(effectiveMaxSteps),
         abortSignal: controller.signal,
         ...(thinkingExtras.includeTemperature && resolvedAgent.temperature !== undefined
@@ -825,10 +919,10 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       })
       finalStatus = 'aborted'
       errorDetail = 'turn_timeout'
-    } else if (error.message === 'no_anthropic_key') {
-      createLogger({ traceId, orgId }).error('no_anthropic_key', { agentId: resolvedAgentId })
+    } else if (error.message === 'no_llm_key') {
+      createLogger({ traceId, orgId }).error('no_llm_key', { agentId: resolvedAgentId })
       finalStatus = 'error'
-      errorDetail = 'no_anthropic_key'
+      errorDetail = 'no_llm_key'
       finalText = resolvedAgent.fallbackMessage
     } else {
       createLogger({ traceId, orgId }).error('runAgent_error', {
@@ -840,7 +934,7 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
       finalText = resolvedAgent.fallbackMessage
     }
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId) clearTimeout(timeoutId)
 
     // Step 13: UPDATE invocation row with final state (D-34-03)
     await updateInvocationEnd({
@@ -1043,21 +1137,20 @@ function runAgentStreaming(
           parentInvocationId,
         })
 
-        // AbortController (RUNTIME-08) | budget widens when thinking is enabled
+        // AbortController (RUNTIME-08) | timeout SCHEDULED later (before streamText)
+        // once the toolSet is assembled and the tool tier is known.
         const thinkingBudget = resolveThinkingBudget(resolvedAgent.thinkingBudgetTokens)
         const abortController = new AbortController()
-        const timeoutId = setTimeout(() => abortController.abort(), turnTimeoutFor(thinkingBudget))
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
 
         try {
-          // Build Anthropic API key | org first, platform fallback
+          // Resolve LLM credential + provider: org OpenRouter → platform
+          // OpenRouter → org Anthropic → platform Anthropic (throws
+          // no_llm_key if none configured). Per-call provider bound to this
+          // org's key avoids mutating any process.env credential, which
+          // would race across concurrent requests from different orgs.
           const serviceClient = createServiceRoleClient()
-          let anthropicKey = await getProviderKey('anthropic', orgId, serviceClient)
-          if (!anthropicKey) {
-            const { getPlatformSetting } = await import('@/lib/platform-settings')
-            anthropicKey = await getPlatformSetting('ANTHROPIC_API_KEY', serviceClient)
-          }
-          if (!anthropicKey) throw new Error('no_anthropic_key')
-          process.env.ANTHROPIC_API_KEY = anthropicKey
+          const llmProviderChoice = await resolveLlmProvider(orgId, serviceClient)
 
           // Pre-fetch agent tools
           const { data: agentToolRows } = await serviceClient
@@ -1213,13 +1306,25 @@ function runAgentStreaming(
           ]
 
           // Call LLM via streamText (D-35-09 | DO NOT await streamText)
-          const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget)
+          // stopWhen: opts.maxSteps (caller override) > resolvedAgent.maxSteps
+          //           (channel_override.max_steps — Q6) > env default.
+          const effectiveMaxSteps = opts.maxSteps
+            ? Math.min(50, Math.max(1, opts.maxSteps))
+            : (resolvedAgent.maxSteps ?? MAX_LLM_CALLS_PER_TURN)
+          const thinkingExtras = thinkingLlmExtras(resolvedAgent.maxTokens, thinkingBudget, llmProviderChoice.kind)
+
+          // Schedule the turn timeout now that the toolSet is known: tool-using
+          // turns get the wider tools/thinking tier (RUNTIME-08). The thinking
+          // tier applies regardless of provider (thinkingBudget is provider-agnostic).
+          const hasTools = Object.keys(toolSet).length > 0
+          timeoutId = setTimeout(() => abortController.abort(), turnTimeoutFor(thinkingBudget, hasTools))
+
           const result = streamText({
-            model: anthropic(resolvedAgent.model),
+            model: buildLanguageModel(llmProviderChoice, resolvedAgent.model),
             system: systemPrompt,
             messages,
-            tools: Object.keys(toolSet).length > 0 ? toolSet : undefined,
-            stopWhen: stepCountIs(MAX_LLM_CALLS_PER_TURN),
+            tools: hasTools ? toolSet : undefined,
+            stopWhen: stepCountIs(effectiveMaxSteps),
             abortSignal: abortController.signal,
             ...(thinkingExtras.includeTemperature && resolvedAgent.temperature !== undefined
               ? { temperature: resolvedAgent.temperature }
@@ -1251,9 +1356,9 @@ function runAgentStreaming(
           if (error.name === 'AbortError') {
             finalStatus = 'aborted'
             errorDetail = 'turn_timeout'
-          } else if (error.message === 'no_anthropic_key') {
+          } else if (error.message === 'no_llm_key') {
             finalStatus = 'error'
-            errorDetail = 'no_anthropic_key'
+            errorDetail = 'no_llm_key'
             accumulatedText = resolvedAgent.fallbackMessage
             emit({ event: 'token', text: resolvedAgent.fallbackMessage })
           } else {
@@ -1263,7 +1368,7 @@ function runAgentStreaming(
             emit({ event: 'token', text: resolvedAgent.fallbackMessage })
           }
         } finally {
-          clearTimeout(timeoutId)
+          if (timeoutId) clearTimeout(timeoutId)
         }
 
         emit({ event: 'done' })

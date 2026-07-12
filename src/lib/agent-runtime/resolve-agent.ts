@@ -22,6 +22,8 @@ export async function resolveAgent(
       id,
       name,
       model,
+      temperature,
+      max_tokens,
       max_history,
       fallback_message,
       allowed_channels,
@@ -67,15 +69,21 @@ export async function resolveAgent(
     ? channelOverride.model
     : agent.model
 
-  // temperature: replace if present in override (column does not exist in DB | override-only)
+  // temperature: channel_override wins, else agents.temperature (migration 044,
+  // NUMERIC → coerce to number), else undefined (let the SDK use its default).
   const temperature = typeof channelOverride.temperature === 'number'
     ? channelOverride.temperature
-    : undefined
+    : agent.temperature != null
+      ? Number(agent.temperature)
+      : undefined
 
-  // max_tokens: replace if present in override (column does not exist in DB | override-only with default)
+  // max_tokens: channel_override wins, else agents.max_tokens (migration 044),
+  // else a 1024-token default.
   const maxTokens = typeof channelOverride.max_tokens === 'number'
     ? channelOverride.max_tokens
-    : 1024
+    : agent.max_tokens != null
+      ? Number(agent.max_tokens)
+      : 1024
 
   // max_history: replace if present in override
   const maxHistory = typeof channelOverride.max_history === 'number'

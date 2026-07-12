@@ -3,8 +3,9 @@
 // Phase 34 RUNTIME-01..10 + TOOL-06 (tool denial path) + AGENT-10 (inactive agent).
 // Requires .env.local with SUPABASE_* credentials (loaded by setup/load-env.ts).
 //
-// NOTE: If ANTHROPIC_API_KEY is not in .env.local, runAgent() will return status='error'
-// (no_anthropic_key). Tests assert invocation rows are still written correctly.
+// NOTE: If neither OPENROUTER_API_KEY nor ANTHROPIC_API_KEY is configured
+// (org or platform), runAgent() will return status='error' (no_llm_key).
+// Tests assert invocation rows are still written correctly.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
