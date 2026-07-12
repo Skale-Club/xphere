@@ -29,12 +29,13 @@ describe('Phase 36 — phase gate lifecycle', () => {
     const svc = serviceClient()
 
     // (1) Create a second agent (the "Specialist") via the same shape createAgent uses.
+    // Unique slug so the vitest retry (retry: 1) doesn't collide with a prior attempt.
     const { data: specialist, error: createErr } = await svc
       .from('agents')
       .insert({
         organization_id: fx.orgId,
         name: 'Specialist',
-        slug: 'specialist',
+        slug: `specialist-${Date.now()}`,
         description: 'Gate test specialist.',
         system_prompt: 'You are a specialist.',
         model: 'anthropic/claude-sonnet-4-6',
@@ -59,22 +60,29 @@ describe('Phase 36 — phase gate lifecycle', () => {
       .eq('agent_id', specialist!.id)
     expect(initialToolCount).toBe(0)
 
-    // (3) Seed a tool_config and attach it to Specialist (simulates updateAgent + setAgentTools).
+    // (3) Seed a legacy tool config and attach it to Specialist (simulates
+    //     updateAgent + setAgentTools). tool_configs was renamed to
+    //     _legacy_tool_configs (migration 084) but remains the live table
+    //     behind the tool picker. Upsert the integration — (org, provider)
+    //     is unique and a retried test body would otherwise collide.
     const { data: integ, error: integErr } = await svc
       .from('integrations')
-      .insert({
-        organization_id: fx.orgId,
-        provider: 'twilio',
-        name: 'Gate',
-        is_active: true,
-        encrypted_api_key: 'test-key',
-      })
+      .upsert(
+        {
+          organization_id: fx.orgId,
+          provider: 'twilio',
+          name: 'Gate',
+          is_active: true,
+          encrypted_api_key: 'test-key',
+        },
+        { onConflict: 'organization_id,provider' }
+      )
       .select('id')
       .single()
     expect(integErr).toBeNull()
 
     const { data: tc, error: tcErr } = await svc
-      .from('tool_configs')
+      .from('_legacy_tool_configs')
       .insert({
         organization_id: fx.orgId,
         integration_id: integ!.id,
@@ -166,7 +174,7 @@ describe('Phase 36 — phase gate lifecycle', () => {
       .insert({
         organization_id: fx.orgId,
         name: 'Bounds Bot',
-        slug: 'bounds-bot',
+        slug: `bounds-bot-${Date.now()}`,
         system_prompt: 'x',
         model: 'anthropic/claude-sonnet-4-6',
         fallback_message: 'x',
@@ -190,7 +198,7 @@ describe('Phase 36 — phase gate lifecycle', () => {
       .insert({
         organization_id: fx.orgId,
         name: 'Bad Bot',
-        slug: 'bad-bot',
+        slug: `bad-bot-${Date.now()}`,
         system_prompt: 'x',
         model: 'anthropic/claude-sonnet-4-6',
         fallback_message: 'x',
