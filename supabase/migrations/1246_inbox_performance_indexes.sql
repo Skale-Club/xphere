@@ -1,0 +1,62 @@
+-- =============================================================================
+-- Migration 1246: Inbox performance indexes (fix misnamed index + composite
+-- support for inbox_entries)
+-- =============================================================================
+-- Audit finding #1 — a misleading index name:
+--   Migration 011 created chat_sessions.idx_chat_sessions_last_active on the
+--   `last_active_at` column. Migration 015 renamed chat_sessions -> conversations
+--   and, in the same pass, renamed that index to `idx_conversations_last_message_at`
+--   — but it only renamed the INDEX, not the underlying column. `last_active_at`
+--   is still the column being indexed; `last_message_at` was added as a brand
+--   new (separate, then-unindexed) column a few lines later in 015. Anyone
+--   reading `idx_conversations_last_message_at` today would reasonably assume
+--   `last_message_at` (the column the inbox actually sorts by, per the
+--   inbox_entries RPC — see below) is indexed. It is not. Rename the index back
+--   to something that describes what it actually covers.
+ALTER INDEX IF EXISTS idx_conversations_last_message_at
+  RENAME TO idx_conversations_last_active_at;
+
+-- Audit finding #2 — the inbox's real sort/filter columns have no supporting
+-- index. `inbox_entries` (last defined in 1161_inbox_unread_count.sql, body
+-- unchanged from 1144 except for the added is_unread column) builds its
+-- `filtered` CTE as:
+--
+--   FROM conversations c
+--   LEFT JOIN contacts ct ON ct.id = c.contact_id
+--   WHERE ((p_status IS NOT NULL AND c.status = p_status)
+--           OR (p_status IS NULL AND c.status <> 'closed'))
+--     AND (p_assigned IS DISTINCT FROM 'me' OR c.assigned_user_id = p_user)
+--     AND (p_channels IS NULL OR ...)
+--     AND (NOT p_starred OR c.starred = true)
+--     ...
+--
+-- and every non-superadmin call runs through RLS's `org_id = get_current_org_id()`
+-- policy on `conversations`, which Postgres folds into the same WHERE as a plain
+-- equality qual. So the two predicates present on effectively EVERY call
+-- (default inbox view, badge poll, filtered views alike) are org_id (always,
+-- via RLS) and status (always — either an explicit p_status equality or the
+-- default `<> 'closed'`). `rep` then picks one representative per contact via
+-- `ORDER BY grp, (last_message_at IS NULL) ASC, last_message_at DESC NULLS LAST,
+-- created_at DESC`, and the final list is `ORDER BY a.max_act DESC NULLS LAST`
+-- where act = COALESCE(last_message_at, updated_at, created_at). last_message_at
+-- is therefore the dominant sort key in practice (updated_at/created_at only
+-- break ties for placeholder conversations that never received a message).
+--
+-- A composite index on (org_id, status, last_message_at DESC) lets Postgres
+-- narrow straight to "this org's non-closed conversations" instead of a
+-- sequential scan of the whole table — which is what was happening on every
+-- inbox page load AND every unread-badge poll (inbox_unread_count calls
+-- inbox_entries with p_limit := 2147483647, i.e. an unbounded scan under the
+-- hood). Note the final ORDER BY is over the aggregated max_act, so the sort
+-- itself remains; the win here is the org+status narrowing, not sort removal.
+CREATE INDEX IF NOT EXISTS idx_conversations_org_status_last_message
+  ON public.conversations (org_id, status, last_message_at DESC NULLS LAST);
+
+-- No new index for the contact-grouping step: the join
+-- `LEFT JOIN contacts ct ON ct.id = c.contact_id` probes contacts by its
+-- PRIMARY KEY (contacts_pkey), so it needs no index on the conversations
+-- side. The `GROUP BY grp` / `DISTINCT ON (grp)` steps in the `rep` and
+-- `agg` CTEs operate on the already org+status-narrowed row set produced above
+-- and are cheap hash aggregates over that small slice — they don't need, and
+-- would not be planned to use, a further (org_id, contact_id) index. Adding one
+-- would only add write overhead for no read benefit given this query shape.
