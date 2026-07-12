@@ -34,6 +34,7 @@ import {
   ConversationMessage,
   ConversationPriority,
   ConversationStatus,
+  ConversationLabel,
 } from '@/types/chat'
 import {
   toggleBotStatus,
@@ -44,6 +45,7 @@ import {
   setConversationOperatorNamePrefix,
   listAgentDefaultChannels,
   listOrgMembers,
+  listConversationLabels,
   resolveContactStartChannels,
   createContactConversation,
   prepareContactConversationForOpen,
@@ -262,6 +264,9 @@ export function ChatLayout({
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false)
   const [botTogglingId, setBotTogglingId] = useState<string | null>(null)
   const [members, setMembers] = useState<OrgMember[]>([])
+  const [orgLabels, setOrgLabels] = useState<Array<{ id: string; name: string; color: string }>>([])
+  // Labels assigned to the currently-selected conversation (SEED-035 picker).
+  const [conversationLabels, setConversationLabels] = useState<ConversationLabel[]>([])
   const [agentDefaultChannels, setAgentDefaultChannels] = useState<Set<string> | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; label: string; e164: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
@@ -492,6 +497,32 @@ export function ChatLayout({
   useEffect(() => {
     listOrgMembers().then(setMembers).catch(() => setMembers([]))
   }, [])
+
+  // Fetch the org's conversation labels once, for the FilterPanel + label picker.
+  useEffect(() => {
+    fetch('/api/chat/labels')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setOrgLabels(data?.labels ?? []))
+      .catch(() => setOrgLabels([]))
+  }, [])
+
+  // Fetch the labels assigned to the selected conversation whenever it changes.
+  useEffect(() => {
+    if (!selectedId) {
+      setConversationLabels([])
+      return
+    }
+    let cancelled = false
+    setConversationLabels([])
+    listConversationLabels(selectedId)
+      .then((labels) => {
+        if (!cancelled) setConversationLabels(labels)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId])
 
   // Fetch channels that have an AI agent configured. Conversations on channels
   // without a default agent can still be handled manually, but the bot cannot
@@ -1011,6 +1042,14 @@ export function ChatLayout({
     }
   }
 
+  // SEED-035: mutate the labels assigned to the selected conversation. Only
+  // the selected thread's picker is mounted, so `id` always matches
+  // `selectedId` — the guard just keeps this safe against a stale callback.
+  function handleLabelsChange(id: string, labels: ConversationLabel[]) {
+    if (id !== selectedId) return
+    setConversationLabels(labels)
+  }
+
   // ───────────────────────── Derived ─────────────────────────
 
   // Selected conversation may be in either bucket on the current page, or — when
@@ -1133,6 +1172,8 @@ export function ChatLayout({
             }}
             onPin={handlePinToggle}
             onStar={handleStarToggle}
+            orgLabels={orgLabels}
+            members={members}
             phoneNumbers={phoneNumbers}
             hasCommentsChannel={hasCommentsChannel}
             inboxTab={inboxTab}
@@ -1166,6 +1207,9 @@ export function ChatLayout({
             onStarToggle={handleStarToggle}
             onPriorityCycle={handlePriorityCycle}
             onAssign={handleAssign}
+            orgLabels={orgLabels}
+            onLabelsChange={handleLabelsChange}
+            selectedLabels={conversationLabels}
             members={members}
             infoPanelOpen={infoOpen}
             onToggleInfoPanel={() => setInfoOpen((v) => !v)}
@@ -1285,6 +1329,8 @@ export function ChatLayout({
               }}
               onPin={handlePinToggle}
               onStar={handleStarToggle}
+              orgLabels={orgLabels}
+              members={members}
               phoneNumbers={phoneNumbers}
               hasCommentsChannel={hasCommentsChannel}
               inboxTab={inboxTab}
@@ -1310,6 +1356,9 @@ export function ChatLayout({
               onStarToggle={handleStarToggle}
               onPriorityCycle={handlePriorityCycle}
               onAssign={handleAssign}
+              orgLabels={orgLabels}
+              onLabelsChange={handleLabelsChange}
+              selectedLabels={conversationLabels}
               members={members}
               infoPanelOpen={false}
               onToggleInfoPanel={() => setMobileView('info')}

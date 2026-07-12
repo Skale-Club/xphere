@@ -5,6 +5,7 @@ import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { resolveLiveContactId } from '@/lib/contacts/server'
 import type { Database } from '@/types/database'
 import type {
+  ConversationLabel,
   ConversationPriority,
   ConversationStatus,
   ConversationSummary,
@@ -182,6 +183,20 @@ export interface OrgMember {
 /**
  * Returns the list of users in the active org. Used by the "Assign to..."
  * dropdown in the chat header. RLS scopes to the active org automatically.
+ *
+ * `get_current_org_id()` is SECURITY DEFINER but resolves from `auth.uid()`
+ * of the caller's own session (see CLAUDE.md), so `orgId` here is always the
+ * requester's own active org — no separate membership check is needed before
+ * calling `get_org_member_profiles`.
+ *
+ * auth.users isn't readable via the authenticated client, so display names
+ * can't come from a plain `org_members` select/join. We reuse the same
+ * SECURITY DEFINER RPC the members settings pages already rely on for this
+ * (see `listMembers` in src/app/(dashboard)/members/actions.ts and
+ * supabase/migrations/091_member_profiles_fn.sql /
+ * 1037_member_profiles_fn.sql), which joins `org_members` to `auth.users`
+ * server-side and returns email/full_name. We pass a large page size since
+ * this dropdown needs the whole roster, not a paginated slice.
  */
 export async function listOrgMembers(): Promise<OrgMember[]> {
   const user = await getUser()
@@ -191,26 +206,55 @@ export async function listOrgMembers(): Promise<OrgMember[]> {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return []
 
-  // RLS on org_members only returns rows the caller can see (i.e., their org).
-  // The `users` join is RLS-restricted too | we keep this best-effort. If the
-  // join fails (e.g., no display_name on the join target), we still return the
-  // user_id list with `?` placeholders so the dropdown is usable.
-  const { data: members } = await supabase
-    .from('org_members')
-    .select('user_id')
-    .eq('organization_id', orgId as string)
+  const { data: profiles, error } = await supabase.rpc('get_org_member_profiles', {
+    p_org_id: orgId as string,
+    p_page: 1,
+    p_per_page: 1000,
+  })
 
-  if (!members || members.length === 0) return []
+  if (error) {
+    console.error('[chat:list-org-members]', error)
+    return []
+  }
 
-  const userIds = members.map((m) => m.user_id)
-  // auth.users isn't readable via the user client | best we can do is return
-  // user_id placeholders. Callers can resolve names from a separate fetch if
-  // needed. For now we return user_id as both fields so the UI is functional.
-  return userIds.map((id) => ({
-    userId: id,
-    email: id === user.id ? (user.email ?? id) : id,
-    displayName: id === user.id ? (user.email ?? null) : null,
+  const members: OrgMember[] = (profiles ?? []).map((row) => ({
+    userId: row.user_id,
+    email: row.email ?? row.user_id,
+    displayName: row.full_name ?? null,
   }))
+
+  // Sort by the same "effective label" the dropdowns render
+  // (displayName ?? email ?? userId), so grouped-by-name UIs read alphabetically.
+  return members.sort((a, b) => (a.displayName ?? a.email).localeCompare(b.displayName ?? b.email))
+}
+
+/**
+ * SEED-035 | Labels currently assigned to a conversation. Used to populate
+ * the ConversationLabelPicker in the chat header for the selected thread.
+ * (There's no REST GET for a single conversation's labels — only POST/DELETE
+ * on /api/chat/conversations/[id]/labels — so this reads the assignment
+ * join directly.)
+ */
+export async function listConversationLabels(
+  conversationId: string,
+): Promise<ConversationLabel[]> {
+  const user = await getUser()
+  if (!user) return []
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('conversation_label_assignments')
+    .select('label_id, conversation_labels ( id, name, color )')
+    .eq('conversation_id', conversationId)
+
+  if (error) {
+    console.error('[chat:list-conversation-labels]', error)
+    return []
+  }
+
+  return ((data ?? []) as Record<string, unknown>[])
+    .map((row) => row.conversation_labels as ConversationLabel | null)
+    .filter((label): label is ConversationLabel => Boolean(label))
 }
 
 /**

@@ -27,6 +27,8 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  UserPlus,
+  Check,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -62,6 +64,7 @@ import { cn } from '@/lib/utils'
 import type { OrgMember } from '@/app/(dashboard)/inbox/actions'
 import { DndBadge } from '@/components/contacts/dnd-badge'
 import { ContactDetailSheet } from '@/components/contacts/contact-detail-sheet'
+import { ConversationLabelPicker } from '@/components/chat/conversation-label-picker'
 
 interface ChatHeaderProps {
   conversation: ConversationSummary
@@ -80,6 +83,8 @@ interface ChatHeaderProps {
   orgLabels?: Array<{ id: string; name: string; color: string }>
   /** SEED-035: mutate the labels assigned to this conversation. */
   onLabelsChange?: (id: string, labels: ConversationLabel[]) => void
+  /** SEED-035: labels currently assigned to the selected conversation. */
+  selectedLabels?: ConversationLabel[]
   members: OrgMember[]
   /** Right contact-info panel visible? */
   infoPanelOpen: boolean
@@ -113,11 +118,12 @@ export function ChatHeader({
   isBotToggling: _isBotToggling,
   onPinToggle,
   onPriorityCycle: _onPriorityCycle,
-  onAssign: _onAssign,
+  onAssign,
   onStarToggle,
-  orgLabels: _orgLabels,
-  onLabelsChange: _onLabelsChange,
-  members: _members,
+  orgLabels = [],
+  onLabelsChange,
+  selectedLabels = [],
+  members,
   infoPanelOpen,
   onToggleInfoPanel,
   callPhone,
@@ -138,6 +144,10 @@ export function ChatHeader({
   const initial = name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?'
   const isOpen = conversation.status === 'open'
   const isStarred = Boolean(conversation.starred)
+  const assignedMember = members.find((m) => m.userId === conversation.assignedUserId)
+  const assigneeLabel = assignedMember
+    ? assignedMember.displayName ?? assignedMember.email ?? assignedMember.userId
+    : null
 
   // Subtitle: phone OR email if available, with the receiving phone number
   // appended when an inbound number is linked (phone-numbers Phase 4).
@@ -250,6 +260,58 @@ export function ChatHeader({
               <TooltipContent>{isStarred ? 'Unstar' : 'Star'}</TooltipContent>
             </Tooltip>
           )}
+
+          {/* Assign conversation to a team member */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label={assigneeLabel ? `Assigned to ${assigneeLabel}` : 'Assign conversation'}
+                  >
+                    <UserPlus className={cn('h-4 w-4', assigneeLabel && 'text-accent')} />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{assigneeLabel ? `Assigned to ${assigneeLabel}` : 'Assign to…'}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs text-text-tertiary">Assign to</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onAssign(conversation.id, null)}>
+                <span className="flex-1">Unassigned</span>
+                {!conversation.assignedUserId && (
+                  <Check className="h-3.5 w-3.5 text-accent shrink-0" />
+                )}
+              </DropdownMenuItem>
+              {members.length > 0 && <DropdownMenuSeparator />}
+              {members.map((m) => {
+                const label = m.displayName ?? m.email ?? m.userId
+                const selected = m.userId === conversation.assignedUserId
+                return (
+                  <DropdownMenuItem key={m.userId} onClick={() => onAssign(conversation.id, m.userId)}>
+                    <Avatar className="h-5 w-5 shrink-0">
+                      <AvatarFallback className="text-[9px] font-semibold">
+                        {label.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="flex-1 truncate">{label}</span>
+                    {selected && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Labels assigned to this conversation */}
+          <ConversationLabelPicker
+            conversationId={conversation.id}
+            allLabels={orgLabels}
+            selectedLabels={selectedLabels}
+            onChange={(next) => onLabelsChange?.(conversation.id, next)}
+          />
 
           <DropdownMenu>
             <Tooltip>

@@ -126,6 +126,8 @@ interface ChatAreaProps {
   orgLabels?: Array<{ id: string; name: string; color: string }>
   /** SEED-035 */
   onLabelsChange?: (id: string, labels: ConversationLabel[]) => void
+  /** SEED-035 | labels currently assigned to the selected conversation. */
+  selectedLabels?: ConversationLabel[]
   members: OrgMember[]
   infoPanelOpen: boolean
   onToggleInfoPanel: () => void
@@ -181,6 +183,7 @@ export function ChatArea({
   onStarToggle,
   orgLabels,
   onLabelsChange,
+  selectedLabels = [],
   members,
   infoPanelOpen,
   onToggleInfoPanel,
@@ -470,6 +473,7 @@ export function ChatArea({
         onStarToggle={onStarToggle}
         orgLabels={orgLabels}
         onLabelsChange={onLabelsChange}
+        selectedLabels={selectedLabels}
         members={members}
         infoPanelOpen={infoPanelOpen}
         onToggleInfoPanel={onToggleInfoPanel}
