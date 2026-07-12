@@ -52,23 +52,31 @@ describe('Phase 36 — cross-org isolation (data shape)', () => {
   it('agent_tools rows are partitioned by organization_id', async () => {
     const svc = serviceClient()
 
-    // Insert an integration + tool_config + agent_tools row for each org.
+    // Insert an integration + legacy tool config + agent_tools row for each org.
+    // tool_configs was renamed to _legacy_tool_configs (migration 084); it is
+    // still the live table behind agent_tools.tool_config_id. Upsert/reset so a
+    // vitest retry (retry: 1) of this body stays idempotent.
     async function seedToolFor(o: TestOrgFixture) {
+      await svc.from('agent_tools').delete().eq('organization_id', o.orgId)
+
       const { data: integ, error: integErr } = await svc
         .from('integrations')
-        .insert({
-          organization_id: o.orgId,
-          provider: 'twilio',
-          name: 'rls',
-          is_active: true,
-          encrypted_api_key: 'test-key',
-        })
+        .upsert(
+          {
+            organization_id: o.orgId,
+            provider: 'twilio',
+            name: 'rls',
+            is_active: true,
+            encrypted_api_key: 'test-key',
+          },
+          { onConflict: 'organization_id,provider' }
+        )
         .select('id')
         .single()
       if (integErr || !integ) throw integErr ?? new Error('integration create failed')
 
       const { data: tc, error: tcErr } = await svc
-        .from('tool_configs')
+        .from('_legacy_tool_configs')
         .insert({
           organization_id: o.orgId,
           integration_id: integ.id,

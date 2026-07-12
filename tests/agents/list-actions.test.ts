@@ -192,16 +192,24 @@ describe('list-actions DB correctness', () => {
   })
 
   it('tools count: agent_tools rows can be counted via embedded relation', async () => {
-    // Create an integration + 3 tool_configs + attach to main agent
+    // Create an integration + 3 legacy tool configs + attach to main agent.
+    // tool_configs was renamed to _legacy_tool_configs (migration 084); it is
+    // still the live table behind agent_tools.tool_config_id. Reset/upsert so
+    // a vitest retry (retry: 1) of this body stays idempotent.
+    await svc.from('agent_tools').delete().eq('agent_id', fx.mainAgentId)
+
     const { data: integ, error: integErr } = await svc
       .from('integrations')
-      .insert({
-        organization_id: fx.orgId,
-        name: 'Test Integ',
-        provider: 'gohighlevel',
-        encrypted_api_key: 'test-key',
-        is_active: true,
-      })
+      .upsert(
+        {
+          organization_id: fx.orgId,
+          name: 'Test Integ',
+          provider: 'gohighlevel',
+          encrypted_api_key: 'test-key',
+          is_active: true,
+        },
+        { onConflict: 'organization_id,provider' }
+      )
       .select('id')
       .single()
     expect(integErr).toBeNull()
@@ -210,7 +218,7 @@ describe('list-actions DB correctness', () => {
     const tools = [] as string[]
     for (let i = 0; i < 3; i++) {
       const { data: t } = await svc
-        .from('tool_configs')
+        .from('_legacy_tool_configs')
         .insert({
           organization_id: fx.orgId,
           integration_id: integId,
@@ -238,7 +246,7 @@ describe('list-actions DB correctness', () => {
 
     // Cleanup: agent_tools cascade on agent? They cascade on tool_config delete too.
     await svc.from('agent_tools').delete().eq('agent_id', fx.mainAgentId)
-    await svc.from('tool_configs').delete().in('id', tools)
+    await svc.from('_legacy_tool_configs').delete().in('id', tools)
     await svc.from('integrations').delete().eq('id', integId)
   })
 })

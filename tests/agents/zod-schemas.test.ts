@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { agentSchema, channelOverrideSchema } from '@/lib/agents/zod-schemas'
 import { AVAILABLE_MODELS } from '@/lib/agents/models'
-import { AGENT_CHANNELS } from '@/lib/agents/channels'
+import {
+  AGENT_CHANNELS,
+  AGENT_CHANNEL_LABELS,
+  PUBLIC_AGENT_CHANNELS,
+} from '@/lib/agents/channels'
 
 const validPayload = {
   name: 'Sales Bot',
@@ -30,10 +34,19 @@ describe('AVAILABLE_MODELS', () => {
 
 describe('AGENT_CHANNELS', () => {
   it('mirrors the agent_channel enum', () => {
-    expect(AGENT_CHANNELS).toHaveLength(8)
+    // Full domain = public picker channels + server-initiated 'workflow'
+    // (added in migration 1132). Assert structurally so new channels only
+    // need updating in channels.ts.
+    expect(AGENT_CHANNELS).toEqual([...PUBLIC_AGENT_CHANNELS, 'workflow'])
     expect(AGENT_CHANNELS).toContain('web_widget')
     expect(AGENT_CHANNELS).toContain('whatsapp')
     expect(AGENT_CHANNELS).toContain('zernio')
+    expect(PUBLIC_AGENT_CHANNELS).not.toContain('workflow')
+  })
+  it('has a label for every channel', () => {
+    expect(Object.keys(AGENT_CHANNEL_LABELS).sort()).toEqual(
+      [...AGENT_CHANNELS].sort()
+    )
   })
 })
 

@@ -28,8 +28,10 @@ beforeAll(async () => {
     .select('id')
     .single()
   if (intErr || !integration) throw intErr ?? new Error('integration create failed')
+  // tool_configs was renamed to _legacy_tool_configs (migration 084, SEED-025);
+  // it is still the live table behind the agent tool picker (see _actions/tools.ts).
   const { data: tc, error: tcErr } = await svc
-    .from('tool_configs')
+    .from('_legacy_tool_configs')
     .insert({
       organization_id: fixture.orgId,
       integration_id: integration.id,
@@ -46,7 +48,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await fixture.cleanup()
+  if (fixture) await fixture.cleanup()
 })
 
 describe('createAgent deny-by-default (TOOL-03)', () => {
@@ -57,7 +59,7 @@ describe('createAgent deny-by-default (TOOL-03)', () => {
       .insert({
         organization_id: fixture.orgId,
         name: 'Specialist Bot',
-        slug: 'specialist-bot',
+        slug: `specialist-bot-${Date.now()}`,
         system_prompt: 'You specialize.',
         model: 'anthropic/claude-sonnet-4-6',
         fallback_message: 'Sorry.',
@@ -83,7 +85,7 @@ describe('setAgentTools diff (TOOL-02, Pitfall 5)', () => {
       .insert({
         organization_id: fixture.orgId,
         name: 'Diff Bot',
-        slug: 'diff-bot',
+        slug: `diff-bot-${Date.now()}`,
         system_prompt: 'x',
         model: 'anthropic/claude-sonnet-4-6',
         fallback_message: 'x',
@@ -101,12 +103,17 @@ describe('setAgentTools diff (TOOL-02, Pitfall 5)', () => {
       allowed_channels: ['whatsapp'],
     })
 
-    // Simulate setAgentTools(agent.id, [toolConfigId]) — same tool selected, must NOT UPDATE
+    // Simulate setAgentTools(agent.id, [toolConfigId]) — same tool selected, must NOT UPDATE.
+    // tool_config_id is nullable since migration 095 (XOR with workflow_id), so
+    // filter nulls the same way _actions/tools.ts does.
     const { data: existing } = await svc
       .from('agent_tools')
       .select('tool_config_id, allowed_channels')
       .eq('agent_id', agent!.id)
-    const currentSet = new Set(existing!.map((r) => r.tool_config_id))
+      .not('tool_config_id', 'is', null)
+    const currentSet = new Set(
+      existing!.map((r) => r.tool_config_id).filter((id): id is string => id !== null)
+    )
     const nextSet = new Set([toolConfigId])
     const toAdd = [...nextSet].filter((id) => !currentSet.has(id))
     const toRemove = [...currentSet].filter((id) => !nextSet.has(id))
@@ -158,7 +165,7 @@ describe('AGENT-02 persistence', () => {
       .insert({
         organization_id: fixture.orgId,
         name: 'Gen Bot',
-        slug: 'gen-bot',
+        slug: `gen-bot-${Date.now()}`,
         system_prompt: 'x',
         model: 'anthropic/claude-sonnet-4-6',
         fallback_message: 'x',
