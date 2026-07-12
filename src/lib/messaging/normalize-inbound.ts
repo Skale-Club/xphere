@@ -265,7 +265,7 @@ export async function normalizeInbound(
   // through normalizeInbound (SMS, WhatsApp, Telegram, GHL, email, Zernio…)
   // produces a notification — previously only Meta/Vapi/flows did, so channels
   // routed through this helper never pushed at all.
-  void notifyInboundMessage(supabase, orgId, conversationId, isNew, message)
+  void notifyInboundMessage(supabase, orgId, channel, conversationId, isNew, message)
 
   return { conversationId, isNew, existing, messageId: (msg as { id: string }).id, duplicate: false }
 }
@@ -281,6 +281,7 @@ export async function normalizeInbound(
 async function notifyInboundMessage(
   supabase: Db,
   orgId: string,
+  channel: string,
   conversationId: string,
   isNew: boolean,
   message: Record<string, unknown>,
@@ -313,7 +314,11 @@ async function notifyInboundMessage(
     await insertNotification(
       orgId,
       isNew ? 'new_conversation' : 'new_message',
-      { conversation_id: conversationId, contact_name: contactName, message_preview: messagePreview },
+      // `channel` lets the notification bell render the right channel badge
+      // (see components/notifications/notification-item.tsx) — previously
+      // omitted here, so every channel routed through normalizeInbound
+      // (Evolution, Telegram, Meta, GHL, Zernio) rendered an "unknown" badge.
+      { conversation_id: conversationId, contact_name: contactName, message_preview: messagePreview, channel },
       // Assigned operator only; undefined fans out to all org members.
       assigned ? [assigned] : undefined,
     )

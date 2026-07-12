@@ -18,6 +18,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { sendWhatsappMessage } from './send-message'
@@ -334,12 +335,18 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
 
     // --- 5. Invoke agent + send reply ------------------------------------
     try {
+      const historyWindow = await loadHistoryWindow({
+        supabase,
+        conversationId,
+        currentUserMessage: messageText,
+      })
       const result = await runAgent({
         orgId,
         agentId: defaultRow.agent_id,
         channel: 'whatsapp',
         userMessage: messageText,
         conversationId,
+        historyWindow,
         stream: false,
       })
 

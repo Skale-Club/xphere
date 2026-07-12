@@ -9,6 +9,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import type { ChannelProvider } from '@/types/database'
@@ -373,12 +374,19 @@ export async function processTelegramUpdate(
 
     // ----- 8. runAgent + reply ----------------------------------------
     try {
+      const userMessage = text || '[media message]'
+      const historyWindow = await loadHistoryWindow({
+        supabase,
+        conversationId,
+        currentUserMessage: userMessage,
+      })
       const result = await runAgent({
         orgId,
         agentId: bot.agent_id,
         channel: 'telegram',
-        userMessage: text || '[media message]',
+        userMessage,
         conversationId,
+        historyWindow,
         stream: false,
       })
 

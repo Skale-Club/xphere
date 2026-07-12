@@ -14,10 +14,14 @@ vi.mock('@/lib/action-engine/execute-action', () => ({
 }))
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { executeAction } from '@/lib/action-engine/execute-action'
+import { sendGhlMessage } from '@/lib/ghl/send-message'
 
 interface MockOpts {
   existingConversation?: { id: string; bot_status?: string; last_inbound_at?: string | null } | null
   ghlChannel?: { encrypted_api_key: string; automation_id: string | null; agent_id: string | null } | null
+  /** conversation_messages row matching the ghl_message_id idempotency guard */
+  duplicateMessage?: { id: string } | null
 }
 
 function buildMockSupabase(opts: MockOpts = {}) {
@@ -60,7 +64,15 @@ function buildMockSupabase(opts: MockOpts = {}) {
       }
     }
     if (table === 'conversation_messages') {
-      return { insert: insertMessageSpy }
+      // normalizeInbound's idempotency guard: select…eq…eq…contains…limit…maybeSingle
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: opts.duplicateMessage ?? null, error: null }),
+        insert: insertMessageSpy,
+      }
     }
     return {
       select: vi.fn().mockReturnThis(),
@@ -85,6 +97,7 @@ function makePayload(overrides: Record<string, unknown> = {}) {
     firstName: 'Jo',
     lastName: 'Doe',
     email: 'jo@example.com',
+    messageId: 'ghlmsg-1',
     ...overrides,
   }
 }
@@ -166,5 +179,41 @@ describe('GHL process-event — inbound message', () => {
 
     expect(db.insertConversationSpy).not.toHaveBeenCalled()
     expect(db.insertMessageSpy).not.toHaveBeenCalled()
+  })
+
+  it('stamps the inbound message metadata with ghl_message_id for idempotency', async () => {
+    const db = buildMockSupabase({ existingConversation: null })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(createServiceRoleClient).mockReturnValue(db as any)
+
+    const { processGhlEvent } = await import('@/lib/ghl/process-event')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await processGhlEvent(makePayload({ messageId: 'ghlmsg-42' }) as any, 'org-1')
+
+    expect(db.insertMessageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { ghl_message_id: 'ghlmsg-42' } }),
+    )
+  })
+
+  it('webhook retry (duplicate ghl_message_id) skips the message insert AND the automation dispatch', async () => {
+    const db = buildMockSupabase({
+      existingConversation: { id: 'conv-existing', bot_status: 'active' },
+      ghlChannel: { encrypted_api_key: 'enc', automation_id: 'auto-1', agent_id: null },
+      duplicateMessage: { id: 'msg-already-there' },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(createServiceRoleClient).mockReturnValue(db as any)
+
+    const { processGhlEvent } = await import('@/lib/ghl/process-event')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await processGhlEvent(makePayload({ messageId: 'ghlmsg-retry' }) as any, 'org-1')
+
+    // Message insert was skipped by the idempotency guard.
+    expect(db.insertMessageSpy).not.toHaveBeenCalled()
+    // Without the duplicate guard, execution would fall through to the
+    // automation dispatch below and send a second reply to the customer —
+    // this must not happen on a webhook retry.
+    expect(vi.mocked(executeAction)).not.toHaveBeenCalled()
+    expect(vi.mocked(sendGhlMessage)).not.toHaveBeenCalled()
   })
 })

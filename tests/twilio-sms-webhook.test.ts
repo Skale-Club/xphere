@@ -32,6 +32,13 @@ async function flushAfterCallbacks(): Promise<void> {
     const next = pendingAfterCallbacks.shift()
     if (next) await next
   }
+  // The Twilio SMS route does NOT wrap continueTwilioSmsAutomation in next/server's
+  // after() (see route.ts comment: it's a bare `void promise.catch(...)` fire-and-forget,
+  // safe under the app's long-running Node deployment). That promise chain (loadHistoryWindow
+  // → runAgent → sendSms → message insert) is therefore invisible to the after()-callback
+  // queue above and needs its own drain — a macrotask tick lets every already-scheduled
+  // microtask in that chain settle before assertions run.
+  await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 // ---- Mock createServiceRoleClient ----

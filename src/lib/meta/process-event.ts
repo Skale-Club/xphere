@@ -13,6 +13,7 @@ import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { sendMetaMessage } from './send-message'
 import { formatOutbound as formatMeta } from '@/lib/agent-runtime/adapters/meta'
 import { insertNotification } from '@/lib/notifications/insert'
@@ -247,6 +248,18 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
             .eq('id', conversationId)
         }
 
+        // 4b. Bot gate | skip AI response if a human operator has taken over the
+        // conversation (bot_status='paused', including via the handoff_to_human
+        // builtin tool). Everything above (message persistence, notification,
+        // 24h window bookkeeping) still runs — only the automated reply (agent
+        // or legacy automation) is skipped. Mirrors whatsapp/process-message.ts,
+        // ghl/process-event.ts, zernio/process-event.ts.
+        const botStatus = existing?.bot_status ?? 'active'
+        if (botStatus !== 'active') {
+          console.log('[meta/webhook] Bot paused for conversation:', conversationId, '| skipping AI response')
+          continue
+        }
+
         // 5. XOR dispatch: agent_id takes priority over automation_id
         // Skip auto-reply when there's no text (media-only) | agents shouldn't answer "[image]" blindly.
         if (agentId && messageText) {
@@ -328,12 +341,18 @@ interface AgentReplyInput {
 
 async function dispatchAgentReply(input: AgentReplyInput): Promise<void> {
   try {
+    const historyWindow = await loadHistoryWindow({
+      supabase: input.supabase,
+      conversationId: input.conversationId,
+      currentUserMessage: input.userMessage,
+    })
     const result = await runAgent({
       orgId: input.orgId,
       agentId: input.agentId,
       channel: input.channel,
       userMessage: input.userMessage,
       conversationId: input.conversationId,
+      historyWindow,
       stream: false,
     })
 

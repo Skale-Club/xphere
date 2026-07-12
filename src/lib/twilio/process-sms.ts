@@ -15,7 +15,9 @@
 // automation promises so webhook responses never fail after Twilio delivery.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { sendSms } from './send-sms'
 import { formatOutbound as formatSms } from '@/lib/agent-runtime/adapters/sms'
 import { downloadAndStoreTwilioMedia } from './media'
@@ -87,8 +89,15 @@ export async function ingestTwilioSms(
   const messageSid = payload.MessageSid
   const receivedAt = payload.ReceivedAt ?? new Date().toISOString()
 
-  // Idempotency first. Reconciliation may process older pages repeatedly; a
-  // duplicate must not move a conversation's last_message backwards.
+  // Idempotency pre-check. Reconciliation may process older pages repeatedly;
+  // this must run BEFORE any conversation write so an exact retry of the same
+  // MessageSid never touches the conversation row at all (avoids moving
+  // last_message/last_inbound_at even by a no-op timestamp bump). This is
+  // deliberately kept even though normalizeInbound below also receives
+  // `idempotencyMetadata` for the same key — that second check only closes the
+  // narrow race between this pre-check and the eventual message insert; it is
+  // NOT a replacement for this early return, which is what guarantees a known
+  // duplicate never reaches the conversation upsert.
   if (messageSid) {
     const { data: existingMessage } = await supabase
       .from('conversation_messages')
@@ -105,80 +114,67 @@ export async function ingestTwilioSms(
     }
   }
 
-  // --- 1. Upsert conversation (de-duplicate by org + channel + From) -----
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id, bot_status')
-    .eq('org_id', orgId)
-    .eq('channel', 'sms')
-    .eq('visitor_phone', fromNumber)
-    .limit(1)
-    .maybeSingle()
-
-  let conversationId: string
-
-  if (existing) {
-    conversationId = existing.id
-    await supabase
-      .from('conversations')
-      .update({
-        last_message: messageText || mediaPreview,
-        last_message_at: receivedAt,
-        last_inbound_at: receivedAt,
-        updated_at: new Date().toISOString(),
-        // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
-        ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
-      })
-      .eq('id', conversationId)
-  } else {
-    const { data: created, error: insertError } = await supabase
-      .from('conversations')
-      .insert({
-        org_id: orgId,
-        widget_token: '',
-        channel: 'sms',
-        channel_metadata: {
-          from_number: fromNumber,
-          to_number: toNumber,
-          last_message_sid: messageSid,
-        },
-        visitor_phone: fromNumber,
-        last_message: messageText || mediaPreview,
-        last_message_at: receivedAt,
-        last_inbound_at: receivedAt,
-        phone_number_id: phoneNumberId,
-      })
-      .select('id')
-      .single()
-
-    if (insertError || !created) {
-      console.error('[twilio/sms] Failed to create conversation:', insertError?.message)
-      return null
-    }
-    conversationId = created.id
-  }
-
   const messageType = hasMedia && !messageText ? 'image' : hasMedia ? 'mixed' : 'text'
+  const lastMessageDisplay = messageText || mediaPreview
 
-  const { data: insertedMsg, error: msgInsertError } = await supabase
-    .from('conversation_messages')
-    .insert({
-      conversation_id: conversationId,
-      org_id: orgId,
+  // --- 1+2. Upsert conversation + insert inbound message via the shared
+  // normalizer (dedup by org + channel='sms' + visitor_phone; idempotent by
+  // message_sid as a second, narrower guard — see comment above). The
+  // monotonic guard now protects last_message/last_inbound_at against
+  // reconciliation replaying older pages out of order — previously
+  // unprotected, despite this file's own header comment calling out the risk.
+  const norm = await normalizeInbound({
+    supabase,
+    orgId,
+    channel: 'sms',
+    match: { by: 'visitor_phone', phone: fromNumber },
+    updatePayload: {
+      last_message: lastMessageDisplay,
+      last_message_at: receivedAt,
+      last_inbound_at: receivedAt,
+      updated_at: new Date().toISOString(),
+      // Backfill phone_number_id on existing conversations that pre-dated Phase 2.
+      ...(phoneNumberId ? { phone_number_id: phoneNumberId } : {}),
+    },
+    createPayload: {
+      widget_token: '',
+      channel_metadata: {
+        from_number: fromNumber,
+        to_number: toNumber,
+        last_message_sid: messageSid,
+      },
+      visitor_phone: fromNumber,
+      last_message: lastMessageDisplay,
+      last_message_at: receivedAt,
+      last_inbound_at: receivedAt,
+      phone_number_id: phoneNumberId,
+    },
+    message: {
       role: 'user',
       content: messageText,
       created_at: receivedAt,
       message_type: messageType,
       channel: 'sms',
       metadata: { message_sid: messageSid, from_number: fromNumber },
-    })
-    .select('id')
-    .single()
+    },
+    idempotencyMetadata: { message_sid: messageSid },
+  })
 
-  if (msgInsertError || !insertedMsg) {
-    console.error('[twilio/sms] Failed to insert message:', msgInsertError?.message)
+  if (norm.error) {
+    console.error('[twilio/sms] normalizeInbound failed:', norm.error)
     return null
   }
+  if (norm.duplicate) {
+    console.log('[twilio/sms] Duplicate MessageSid (race) | skipping:', messageSid)
+    return null
+  }
+  if (!norm.messageId) {
+    console.error('[twilio/sms] normalizeInbound returned no messageId unexpectedly')
+    return null
+  }
+
+  const conversationId = norm.conversationId
+  const insertedMsgId = norm.messageId
 
   // Fire inbound_sms_to_number workflow event. Emitter never throws; it runs
   // matched workflows fire-and-forget so the rest of the inbound pipeline
@@ -210,7 +206,7 @@ export async function ingestTwilioSms(
         authToken: payload._authToken,
         orgId,
         conversationId,
-        messageId: insertedMsg.id,
+        messageId: insertedMsgId,
         idx,
       })
 
@@ -233,11 +229,11 @@ export async function ingestTwilioSms(
         .update({
           metadata: { message_sid: messageSid, from_number: fromNumber, media: mediaItems },
         })
-        .eq('id', insertedMsg.id)
+        .eq('id', insertedMsgId)
     }
   }
 
-  let botStatus = existing?.bot_status ?? 'active'
+  let botStatus = norm.existing?.bot_status ?? 'active'
   if (botStatus === 'active') {
     const { data: defaultRow } = await supabase
       .from('agent_channel_defaults')
@@ -301,12 +297,18 @@ export async function continueTwilioSmsAutomation(result: TwilioSmsIngestResult)
   // --- 5. Invoke the agent runtime (blocking path) ----------------------
   let replyText = ''
   try {
+    const historyWindow = await loadHistoryWindow({
+      supabase,
+      conversationId,
+      currentUserMessage: messageText,
+    })
     const result = await runAgent({
       orgId,
       agentId: defaultRow.agent_id,
       channel: 'sms',
       userMessage: messageText,
       conversationId,
+      historyWindow,
       stream: false,
     })
     replyText = result.text

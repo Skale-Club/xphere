@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
+import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { storeContactAvatarFromUrl } from '@/lib/contacts/store-avatar'
 import { sendZernioDm } from './send-dm'
@@ -975,12 +976,18 @@ async function maybeRunAgentAndReply({
       return
     }
 
+    const historyWindow = await loadHistoryWindow({
+      supabase,
+      conversationId,
+      currentUserMessage: userMessage,
+    })
     const result = await runAgent({
       orgId,
       agentId: defaultRow.agent_id,
       channel: agentChannel,
       userMessage,
       conversationId,
+      historyWindow,
       stream: false,
     })
 

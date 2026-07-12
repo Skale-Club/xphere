@@ -23,6 +23,11 @@ export type GhlWebhookPayload = {
   lastName?: string
   email?: string
   dateAdded?: string
+  // Per-message id — confirmed present on GHL's InboundMessage webhook shape
+  // (https://marketplace.gohighlevel.com/docs/webhook/InboundMessage/index.html).
+  // Used for idempotency below so a webhook retry doesn't duplicate the
+  // message or re-run the automation reply.
+  messageId?: string
 }
 
 function messageTypeToChannel(messageType: string): 'ghl_sms' | 'ghl_whatsapp' {
@@ -82,7 +87,9 @@ export async function processGhlEvent(
 
   // 3+4. De-duplicate + upsert conversation + insert the inbound message via
   // the shared normalizer (dedup by org + channel + channel_metadata
-  // contact_id/location_id). GHL has no media or provider-message-id idempotency.
+  // contact_id/location_id; idempotent by GHL's messageId — see norm.duplicate
+  // below, which also guards the automation-dispatch reply against retries).
+  // GHL has no inbound media handling.
   const now = new Date().toISOString()
   const visitorName = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || null
 
@@ -122,11 +129,20 @@ export async function processGhlEvent(
     message: {
       role: 'user',
       content: messageText,
+      metadata: { ghl_message_id: payload.messageId },
     },
+    idempotencyMetadata: { ghl_message_id: payload.messageId },
   })
 
   if (norm.error) {
     console.error('[ghl/webhook] Failed to persist inbound message:', norm.error)
+    return
+  }
+  if (norm.duplicate) {
+    // Webhook retry of the same GHL message — the message was already
+    // persisted, so skip re-running the automation dispatch below too
+    // (otherwise a retry would send a second reply to the customer).
+    console.log('[ghl/webhook] Duplicate messageId | skipping:', payload.messageId)
     return
   }
   const conversationId = norm.conversationId
