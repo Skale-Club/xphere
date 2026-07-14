@@ -520,15 +520,31 @@ function getDisplayInitial(displayName: string): string {
   return displayName.trim().charAt(0).toUpperCase() || DEFAULT_WIDGET_CONFIG.displayName.charAt(0)
 }
 
-async function fetchWidgetConfig(apiBase: string, token: string): Promise<WidgetConfig> {
+// Result of the config fetch. `blocked` is true only when the server explicitly
+// denies this URL (HTTP 403 from the widget's URL rules) — the signal the widget
+// uses to keep itself hidden. Any other failure falls back to defaults and shows
+// the widget (fail-open on transient errors; the chat endpoint still enforces).
+interface WidgetConfigResult {
+  config: WidgetConfig
+  blocked: boolean
+}
+
+async function fetchWidgetConfig(apiBase: string, token: string): Promise<WidgetConfigResult> {
   try {
-    const response = await fetch(`${apiBase}/api/widget/${token}/config`, {
+    // Send the full page URL so the server can enforce URL rules at path level
+    // (browsers strip the path from cross-origin Referer).
+    const url = `${apiBase}/api/widget/${token}/config?u=${encodeURIComponent(location.href)}`
+    const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     })
 
+    if (response.status === 403) {
+      return { config: DEFAULT_WIDGET_CONFIG, blocked: true }
+    }
+
     if (!response.ok) {
-      return DEFAULT_WIDGET_CONFIG
+      return { config: DEFAULT_WIDGET_CONFIG, blocked: false }
     }
 
     const payload = await response.json() as Record<string, unknown>
@@ -536,15 +552,18 @@ async function fetchWidgetConfig(apiBase: string, token: string): Promise<Widget
     const welcomeMessage = normalizeWidgetText(payload.welcomeMessage, DEFAULT_WIDGET_CONFIG.welcomeMessage)
     const rawDelay = typeof payload.greetingDelaySeconds === 'number' ? payload.greetingDelaySeconds : DEFAULT_WIDGET_CONFIG.greetingDelaySeconds
     return {
-      displayName: normalizeWidgetText(payload.displayName, DEFAULT_WIDGET_CONFIG.displayName),
-      primaryColor: normalizePrimaryColor(payload.primaryColor),
-      welcomeMessage,
-      greetingEnabled: payload.greetingEnabled !== false,
-      greetingMessage: normalizeWidgetText(payload.greetingMessage, welcomeMessage),
-      greetingDelaySeconds: Math.max(0, Math.min(30, rawDelay)),
+      config: {
+        displayName: normalizeWidgetText(payload.displayName, DEFAULT_WIDGET_CONFIG.displayName),
+        primaryColor: normalizePrimaryColor(payload.primaryColor),
+        welcomeMessage,
+        greetingEnabled: payload.greetingEnabled !== false,
+        greetingMessage: normalizeWidgetText(payload.greetingMessage, welcomeMessage),
+        greetingDelaySeconds: Math.max(0, Math.min(30, rawDelay)),
+      },
+      blocked: false,
     }
   } catch {
-    return DEFAULT_WIDGET_CONFIG
+    return { config: DEFAULT_WIDGET_CONFIG, blocked: false }
   }
 }
 
@@ -604,7 +623,7 @@ async function sendMessage(params: {
     res = await fetch(`${apiBase}/api/chat/${token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, ...(sessionId ? { sessionId } : {}) }),
+      body: JSON.stringify({ message, pageUrl: location.href, ...(sessionId ? { sessionId } : {}) }),
     })
   } catch {
     onEvent({ event: 'error' })
@@ -865,6 +884,9 @@ function initWidget(token: string, apiBase: string): void {
   // Shadow host (must be unstyled | no transform/filter or position:fixed breaks)
   const host = document.createElement('div')
   host.id = 'opps-root'
+  // Keep hidden until the config fetch authorizes this URL — avoids any flash of
+  // the bubble on pages where the widget's URL rules disallow it.
+  host.style.display = 'none'
   document.body.appendChild(host)
 
   const shadow = host.attachShadow({ mode: 'open' })
@@ -976,7 +998,13 @@ function initWidget(token: string, apiBase: string): void {
 
   let greetingTimer: ReturnType<typeof setTimeout> | null = null
 
-  void fetchWidgetConfig(apiBase, token).then((config) => {
+  void fetchWidgetConfig(apiBase, token).then(({ config, blocked }) => {
+    // URL rules deny this page → remove the widget entirely, never reveal it.
+    if (blocked) {
+      host.remove()
+      return
+    }
+    host.style.display = '' // authorized → reveal
     host.style.setProperty('--opps-primary-color', config.primaryColor)
     applyConfig(config)
     if (config.greetingEnabled && !greetingDismissed()) {

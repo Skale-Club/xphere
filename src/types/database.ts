@@ -578,6 +578,8 @@ export interface Database {
           widget_greeting_enabled: boolean
           widget_greeting_message: string | null
           widget_greeting_delay_seconds: number
+          widget_url_mode: string
+          widget_url_rules: string[]
           daily_cost_cap_usd_override: number | null
           daily_cost_cap_enabled: boolean
           delegation_visibility: string
@@ -614,6 +616,8 @@ export interface Database {
           widget_greeting_enabled?: boolean
           widget_greeting_message?: string | null
           widget_greeting_delay_seconds?: number
+          widget_url_mode?: string
+          widget_url_rules?: string[]
           daily_cost_cap_usd_override?: number | null
           daily_cost_cap_enabled?: boolean
           delegation_visibility?: string
@@ -649,6 +653,8 @@ export interface Database {
           widget_greeting_enabled?: boolean
           widget_greeting_message?: string | null
           widget_greeting_delay_seconds?: number
+          widget_url_mode?: string
+          widget_url_rules?: string[]
           daily_cost_cap_usd_override?: number | null
           daily_cost_cap_enabled?: boolean
           delegation_visibility?: string

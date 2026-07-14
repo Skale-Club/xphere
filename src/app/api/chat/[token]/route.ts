@@ -13,6 +13,7 @@ import { getSession, setSession, type ChatSessionContext } from '@/lib/chat/sess
 import { ensureDbSession, persistMessage } from '@/lib/chat/persist'
 import { runAgent } from '@/lib/agent-runtime'
 import { createLogger } from '@/lib/obs/logger'
+import { isRequestAllowed, normalizeWidgetUrlMode, normalizeWidgetUrlRules } from '@/lib/widget/url-rules'
 
 export const runtime = 'nodejs'
 export const maxDuration = 10
@@ -30,6 +31,10 @@ export async function OPTIONS() {
 const ChatRequestSchema = z.object({
   message: z.string().min(1, 'message is required'),
   sessionId: z.string().optional(),
+  // Full page URL, sent by the widget so URL rules can be enforced at path level
+  // (browsers strip the path from cross-origin Referer). The host is still
+  // verified against the unspoofable Origin header before the path is trusted.
+  pageUrl: z.string().optional(),
 })
 
 export async function POST(
@@ -55,18 +60,34 @@ export async function POST(
     if (!parsed.success) {
       return Response.json({ error: parsed.error.errors[0]?.message ?? 'Invalid request' }, { status: 400, headers: CORS_HEADERS })
     }
-    const { message, sessionId: incomingSessionId } = parsed.data
+    const { message, sessionId: incomingSessionId, pageUrl } = parsed.data
 
     // 3. Resolve org by widget token
     const supabase = createServiceRoleClient()
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, is_active')
+      .select('id, name, is_active, widget_url_mode, widget_url_rules')
       .eq('widget_token', token)
       .single()
 
     if (orgError || !org || !org.is_active) {
       return Response.json({ error: 'Invalid or inactive token' }, { status: 401, headers: CORS_HEADERS })
+    }
+
+    // 3b. Enforce URL authorization rules server-side. This is the real security
+    // boundary against token reuse on unauthorized domains: the Origin header is
+    // browser-set and cannot be forged by page JS.
+    const allowed = isRequestAllowed(
+      normalizeWidgetUrlMode(org.widget_url_mode),
+      normalizeWidgetUrlRules(org.widget_url_rules),
+      {
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer'),
+        clientUrl: pageUrl ?? null,
+      },
+    )
+    if (!allowed) {
+      return Response.json({ error: 'not_authorized_for_origin' }, { status: 403, headers: CORS_HEADERS })
     }
 
     // 4. Get or create session

@@ -3,6 +3,11 @@
 import { revalidatePath } from 'next/cache'
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import {
+  normalizeWidgetUrlMode,
+  normalizeWidgetUrlRules,
+  type WidgetUrlMode,
+} from '@/lib/widget/url-rules'
 
 
 export interface WidgetSettingsInput {
@@ -12,6 +17,10 @@ export interface WidgetSettingsInput {
   greetingEnabled?: boolean
   greetingMessage?: string | null
   greetingDelaySeconds?: number
+  // Where the widget may run. `urlRules` accepts an array or a
+  // newline/comma-separated string (as typed in the settings textarea).
+  urlMode?: WidgetUrlMode
+  urlRules?: string[] | string | null
 }
 
 export interface WidgetActionResult {
@@ -30,7 +39,12 @@ function normalizeWidgetSettings(input: WidgetSettingsInput): WidgetSettingsInpu
   const rawDelay = typeof input.greetingDelaySeconds === 'number' ? input.greetingDelaySeconds : 3
   const greetingDelaySeconds = Math.max(0, Math.min(30, Math.round(rawDelay)))
 
-  return { displayName, welcomeMessage, avatarUrl, greetingEnabled, greetingMessage, greetingDelaySeconds }
+  const urlMode = normalizeWidgetUrlMode(input.urlMode)
+  // In 'all' mode the rules are irrelevant; keep what was entered so toggling
+  // back to allow/block doesn't lose the list.
+  const urlRules = normalizeWidgetUrlRules(input.urlRules)
+
+  return { displayName, welcomeMessage, avatarUrl, greetingEnabled, greetingMessage, greetingDelaySeconds, urlMode, urlRules }
 }
 
 async function getActiveOrgId() {
@@ -79,6 +93,8 @@ export async function saveWidgetSettings(
       widget_greeting_enabled: settings.greetingEnabled ?? true,
       widget_greeting_message: settings.greetingMessage || null,
       widget_greeting_delay_seconds: settings.greetingDelaySeconds ?? 3,
+      widget_url_mode: settings.urlMode ?? 'all',
+      widget_url_rules: Array.isArray(settings.urlRules) ? settings.urlRules : [],
     })
     .eq('id', orgId)
 
