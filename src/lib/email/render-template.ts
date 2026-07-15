@@ -215,7 +215,7 @@ export function renderTemplate(
   const fontFamily = doc.fontFamily ?? 'Arial, sans-serif'
   const sections = doc.sections ?? []
 
-  const sectionHtml = sections.map((s) => renderSection(s, fontFamily)).join('\n')
+  const sectionHtml = sections.map((s) => renderSection(s, fontFamily, width)).join('\n')
   const plainText = extractPlainText(sections)
 
   const subject = (meta?.subject ?? '').trim()
@@ -229,13 +229,16 @@ export function renderTemplate(
 `
 
   const html = `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="x-apple-disable-message-reformatting" />
   <title>${escHtml(subject)}</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
   <style type="text/css">
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
@@ -270,15 +273,21 @@ ${sectionHtml}
 
 // ─── Section renderer ─────────────────────────────────────────────────────────
 
-function renderSection(section: EmailSection, fontFamily: string): string {
+function renderSection(section: EmailSection, fontFamily: string, contentWidth: number): string {
   const bg = section.backgroundColor ?? '#ffffff'
   const pad = resolvePadding(section.padding ?? { top: 16, right: 24, bottom: 16, left: 24 })
   const valign = section.verticalAlign ?? 'top'
   const radius = section.borderRadius ?? 0
 
   // Section-level background image (cover). Emitted as a CSS background on the
-  // section wrapper table with a VML fallback skipped for simplicity — modern
-  // clients honor background-image on tables; the color remains the fallback.
+  // section wrapper table. KNOWN LIMITATION: Outlook desktop (Windows,
+  // Word-rendering-engine builds) does not honor CSS `background-image` on
+  // tables/divs, so it falls back to `backgroundColor` with no image at all.
+  // A full fix requires a `v:fill`/`v:rect` VML fallback (image behind the
+  // whole section, with the same content overlaid) which is materially more
+  // complex than the button fallback below. Deliberately out of scope for
+  // this pass — see PLAN.md Phase 4. Modern clients (Gmail, Apple Mail,
+  // Outlook web/mobile, Outlook 365 "new" webview) all honor the CSS.
   const bgImage = section.backgroundImage
     ? `background-image:url('${escAttr(section.backgroundImage)}');background-size:cover;background-position:center;`
     : ''
@@ -293,7 +302,7 @@ function renderSection(section: EmailSection, fontFamily: string): string {
   const colsHtml = cols
     .slice(0, layout)
     .map((blocks, idx) => {
-      const blocksHtml = blocks.map((b) => renderBlock(b, fontFamily)).join('\n')
+      const blocksHtml = blocks.map((b) => renderBlock(b, fontFamily, contentWidth)).join('\n')
       if (layout === 1) {
         return `<td class="col-block" valign="${valign}" style="padding:${paddingCss(pad)};">\n${blocksHtml}\n</td>`
       }
@@ -313,16 +322,18 @@ ${colsHtml}
 // ─── Block renderers ──────────────────────────────────────────────────────────
 
 /** Wrap a block's inner HTML in a padding div. The wrapper is the SINGLE source
- *  of vertical rhythm — inner renderers never add their own margins. */
-function renderBlock(block: EmailBlock, fontFamily: string): string {
-  const inner = renderBlockInner(block, fontFamily)
+ *  of vertical rhythm — inner renderers never add their own margins.
+ *  `contentWidth` is the document's overall content width (px) — only
+ *  consumed by the button renderer, to approximate a VML width for Outlook. */
+function renderBlock(block: EmailBlock, fontFamily: string, contentWidth: number): string {
+  const inner = renderBlockInner(block, fontFamily, contentWidth)
   if (!inner) return ''
   const pad = blockPadding(block)
   if (pad.top === 0 && pad.right === 0 && pad.bottom === 0 && pad.left === 0) return inner
   return `<div style="padding:${paddingCss(pad)};">${inner}</div>`
 }
 
-function renderBlockInner(block: EmailBlock, fontFamily: string): string {
+function renderBlockInner(block: EmailBlock, fontFamily: string, contentWidth: number): string {
   switch (block.blockType) {
     case 'text':
       return renderTextBlock(block, fontFamily)
@@ -331,7 +342,7 @@ function renderBlockInner(block: EmailBlock, fontFamily: string): string {
     case 'image':
       return renderImageBlock(block)
     case 'button':
-      return renderButtonBlock(block, fontFamily)
+      return renderButtonBlock(block, fontFamily, contentWidth)
     case 'divider':
       return renderDividerBlock(block)
     case 'spacer':
@@ -375,7 +386,40 @@ function renderImageBlock(block: ImageBlock): string {
   return `<div style="text-align:${align};">${wrapped}</div>`
 }
 
-function renderButtonBlock(block: ButtonBlock, fontFamily: string): string {
+/** Outlook desktop (the Word rendering engine used by Outlook 2007–2021 and
+ *  365 "classic") ignores CSS `border-radius` and mis-spaces the padding on
+ *  an inline-block `<a>`, producing a square, cramped button. There is no way
+ *  to size a VML shape from rendered text metrics in Node, so `width` here is
+ *  a **documented approximation**, not pixel-perfect typesetting:
+ *   - non-fullWidth: `label.length * fontSize * 0.6` (rough average glyph
+ *     width for common sans-serif email fonts) plus the horizontal padding.
+ *   - fullWidth: the document's overall `contentWidth` — the real available
+ *     width is narrower once section/column padding is subtracted, so the
+ *     VML button in Outlook desktop may render a little wider than the HTML
+ *     version in other clients. Acceptable per PLAN.md Phase 4.
+ *  `arcsize` is derived from `borderRadius` so the VML corner curvature
+ *  matches the CSS corner radius: VML's arcsize is a percentage of the
+ *  shorter side representing the *diameter* of the rounded corner, so
+ *  `arcsize% = (2 * radius / shortSide) * 100`, capped to VML's 0–100% range
+ *  (100% = fully rounded pill: arcsize is a percentage of HALF the short side). */
+function estimateButtonVmlGeometry(
+  block: ButtonBlock,
+  contentWidth: number,
+): { width: number; height: number; arcsize: number } {
+  const fontSize = block.fontSize ?? 15
+  const py = block.paddingY ?? 12
+  const px = block.paddingX ?? 24
+  const radius = block.borderRadius ?? 4
+  const height = Math.max(1, Math.round(fontSize * 1.2 + py * 2))
+  const width = block.fullWidth
+    ? Math.max(height, Math.round(contentWidth))
+    : Math.max(height, Math.round(block.label.length * fontSize * 0.6) + px * 2)
+  const shortSide = Math.min(width, height)
+  const arcsize = shortSide > 0 ? Math.max(0, Math.min(100, Math.round(((2 * radius) / shortSide) * 100))) : 0
+  return { width, height, arcsize }
+}
+
+function renderButtonBlock(block: ButtonBlock, fontFamily: string, contentWidth: number): string {
   const bg = block.backgroundColor ?? '#000000'
   const fg = block.textColor ?? '#ffffff'
   const radius = block.borderRadius ?? 4
@@ -386,10 +430,34 @@ function renderButtonBlock(block: ButtonBlock, fontFamily: string): string {
   const displayCss = block.fullWidth
     ? 'display:block;text-align:center;'
     : 'display:inline-block;'
+  const href = escAttr(block.href)
+  const label = escHtml(block.label)
+  const bgAttr = escAttr(bg)
+  const fgAttr = escAttr(fg)
+
+  // VML fallback: Outlook desktop only (the `[if mso]` conditional comment is
+  // parsed by Word's HTML engine; every other client — including Outlook web
+  // and Outlook mobile — sees an ordinary comment and renders nothing here).
+  // `<w:anchorlock/>` keeps the whole shape clickable as one link. The
+  // `[if !mso]><!--> ... <!--<![endif]-->` pair on the HTML anchor is the
+  // mirror image: MSO treats it as a comment and skips the anchor entirely,
+  // so Outlook desktop never renders (and never clips) both button versions.
+  const vmlGeometry = estimateButtonVmlGeometry(block, contentWidth)
+  const vmlButton = `<!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${vmlGeometry.height}px;v-text-anchor:middle;width:${vmlGeometry.width}px;" arcsize="${vmlGeometry.arcsize}%" strokecolor="${bgAttr}" fillcolor="${bgAttr}">
+          <w:anchorlock/>
+          <center style="color:${fgAttr};font-family:${fontFamily};font-size:${fontSize}px;font-weight:600;">${label}</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->`
+  const htmlAnchor = `<a href="${href}" target="_blank" rel="noopener" style="${displayCss}font-family:${fontFamily};font-size:${fontSize}px;font-weight:600;color:${fg};text-decoration:none;padding:${py}px ${px}px;border-radius:${radius}px;background-color:${bg};">${label}</a>
+        <!--<![endif]-->`
+
   const buttonTable = `<table border="0" cellpadding="0" cellspacing="0" role="presentation"${block.fullWidth ? ' width="100%"' : ''} style="${block.fullWidth ? 'width:100%;' : ''}">
     <tr>
       <td align="center" style="border-radius:${radius}px;background-color:${bg};">
-        <a href="${escAttr(block.href)}" target="_blank" rel="noopener" style="${displayCss}font-family:${fontFamily};font-size:${fontSize}px;font-weight:600;color:${fg};text-decoration:none;padding:${py}px ${px}px;border-radius:${radius}px;background-color:${bg};">${escHtml(block.label)}</a>
+        ${vmlButton}
+        ${htmlAnchor}
       </td>
     </tr>
   </table>`
