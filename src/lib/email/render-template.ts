@@ -192,7 +192,20 @@ function paddingCss(p: BlockPadding): string {
 
 // ─── Render ──────────────────────────────────────────────────────────────────
 
-export function renderTemplate(document: EmailDocument | Record<string, unknown>): {
+/** Subject/preview-text are stored as columns on `email_templates`
+ *  (`subject_line`, `preview_text`) — not part of the document jsonb, so they
+ *  are passed in as render metadata rather than read off `document`. Callers
+ *  (save/publish actions, the editor's live preview, the test-send action)
+ *  are responsible for supplying the current values. */
+export type RenderMeta = {
+  subject?: string
+  previewText?: string
+}
+
+export function renderTemplate(
+  document: EmailDocument | Record<string, unknown>,
+  meta?: RenderMeta,
+): {
   html: string
   plainText: string
 } {
@@ -205,6 +218,16 @@ export function renderTemplate(document: EmailDocument | Record<string, unknown>
   const sectionHtml = sections.map((s) => renderSection(s, fontFamily)).join('\n')
   const plainText = extractPlainText(sections)
 
+  const subject = (meta?.subject ?? '').trim()
+  const previewText = (meta?.previewText ?? '').trim()
+  // Pad the preheader so email clients don't fall back to pulling body text
+  // as the inbox snippet — mirrors src/lib/email-marketing/render.ts.
+  const preheaderPad = '&nbsp;&zwnj;'.repeat(80)
+  const preheaderHtml = `  <div style="display:none;font-size:1px;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all;font-family:sans-serif;">
+    ${escHtml(previewText)}${preheaderPad}
+  </div>
+`
+
   const html = `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -212,6 +235,7 @@ export function renderTemplate(document: EmailDocument | Record<string, unknown>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="x-apple-disable-message-reformatting" />
+  <title>${escHtml(subject)}</title>
   <style type="text/css">
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
@@ -225,7 +249,7 @@ export function renderTemplate(document: EmailDocument | Record<string, unknown>
   </style>
 </head>
 <body style="margin:0;padding:0;background-color:${bgColor};">
-  <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="background-color:${bgColor};">
+${preheaderHtml}  <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="background-color:${bgColor};">
     <tr>
       <td align="center" valign="top" style="padding:32px 16px;">
         <table class="email-container" border="0" cellpadding="0" cellspacing="0" role="presentation" width="${width}" style="background-color:#ffffff;max-width:${width}px;width:100%;">
@@ -478,6 +502,56 @@ export function normalizeDocument(raw: unknown): EmailDocument {
         })),
       ),
     })) as EmailSection[],
+  }
+}
+
+// ─── Section templates: upgrade-on-read normalization ────────────────────────
+
+/** Default padding for a freshly-minted 1-column section — mirrors
+ *  `makeSection()` in email-template-editor.tsx so a legacy `{ blocks }` row
+ *  upgrades into a section that looks the same as one the editor would create. */
+const DEFAULT_SECTION_PADDING: BlockPadding = { top: 16, right: 24, bottom: 16, left: 24 }
+
+export type SectionTemplateDocument = { section: EmailSection }
+
+/**
+ * `email_section_templates.document` upgrade-on-read, mirroring
+ * `normalizeDocument` above. Legacy rows store a flat `{ blocks: EmailBlock[] }`
+ * bag with no layout/background/padding — those are lost forever unless
+ * upgraded here into a synthetic 1-column section using the same defaults a
+ * freshly-added section gets. Modern rows already store `{ section }` and
+ * pass through with the same id-backfill treatment `normalizeDocument` does
+ * for a full document. Never mutates `raw`; always returns a new object.
+ */
+export function normalizeSectionTemplateDoc(raw: unknown): SectionTemplateDocument {
+  const obj = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+
+  const rawSection = obj.section
+  if (rawSection && typeof rawSection === 'object' && !Array.isArray(rawSection)) {
+    const s = rawSection as Partial<EmailSection>
+    return {
+      section: {
+        ...s,
+        id: s.id || makeBlockId(),
+        layout: s.layout ?? 1,
+        columns: (s.columns ?? []).map((col) =>
+          (col ?? []).map((block) => ({ ...block, id: block.id || makeBlockId() })),
+        ),
+      } as EmailSection,
+    }
+  }
+
+  // Legacy shape (or unrecognized/empty input): treat `blocks` as a single
+  // column and synthesize the rest of the section from editor defaults.
+  const blocks = Array.isArray(obj.blocks) ? (obj.blocks as EmailBlock[]) : []
+  return {
+    section: {
+      id: makeBlockId(),
+      layout: 1,
+      backgroundColor: '#ffffff',
+      padding: { ...DEFAULT_SECTION_PADDING },
+      columns: [blocks.map((block) => ({ ...block, id: block.id || makeBlockId() }))],
+    },
   }
 }
 

@@ -14,10 +14,12 @@ description: |
   as kind:'marketing'; the executor's 'transactional' escape hatch isn't
   reachable through a flat node config, since `kind` is the node's own
   type-discriminator key — use the send_tenant_email tool directly for a
-  transactional send). Provide the template_id, the recipient email, a
-  required subject, and a variables object used to fill
-  {{contact.first_name}}-style tokens in the template and subject. The
-  template must be published unless allow_draft is set.
+  transactional send). Provide the template_id, the recipient email, and a
+  variables object used to fill {{contact.first_name}}-style tokens in the
+  template and subject. Subject is optional — it falls back to the
+  template's own subject line (set in the builder's Document inspector) when
+  omitted; the send fails only if neither is set. The template must be
+  published unless allow_draft is set.
 trigger:
   type: tool_call
   config:
@@ -33,8 +35,11 @@ trigger:
         required: true
       subject:
         type: string
-        description: Subject line; supports {{variables}}. Required — the send fails without it.
-        required: true
+        description: >-
+          Subject line; supports {{variables}}. Optional — falls back to the
+          template's own subject line when omitted; the send fails only if
+          neither is set.
+        required: false
       variables:
         type: object
         description: 'Merge-tag values, e.g. { contact: { first_name: "Ana" } }.'

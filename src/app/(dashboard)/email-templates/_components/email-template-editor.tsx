@@ -4,7 +4,7 @@ import { useState, useTransition, useCallback, useEffect, useMemo, useRef } from
 import { toast } from 'sonner'
 import {
   Save, Eye, Loader2, Send, Undo2, Redo2, Trash2,
-  Smartphone, Monitor, Circle, Layers,
+  Smartphone, Monitor, Circle, Layers, Check, TestTube2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import {
 import { useBreadcrumbOverride } from '@/components/layout/breadcrumb-override-context'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 import {
@@ -30,10 +31,14 @@ import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable'
 import type {
   EmailDocument, EmailSection, EmailBlock, EmailBlockType,
 } from '@/lib/email/render-template'
-import { renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument } from '@/lib/email/render-template'
+import {
+  renderTemplate, BLOCK_DEFAULTS, makeBlockId, normalizeDocument, normalizeSectionTemplateDoc,
+} from '@/lib/email/render-template'
+import { renderWithVariables } from '@/lib/email/merge-tags'
 import { findBlockLocation, insertBlockInColumn, moveBlock } from '@/lib/email/editor-dnd'
 import {
   saveTemplate, saveSectionTemplate, deleteSectionTemplate, publishTemplate, unpublishTemplate,
+  sendTestEmail,
 } from '../actions'
 import type { EmailTemplateBuilderRow, SectionTemplate } from '../actions'
 import { BlockPalette } from './block-palette'
@@ -43,6 +48,26 @@ import { EditorContext, type EditorApi } from './editor/context'
 import { useEditorHistory } from './editor/use-editor-history'
 
 type SaveResult = { ok: true } | { ok: false; error?: string }
+
+// Sample values for the preview dialog's "Sample data" toggle — mirrors the
+// canonical tag list in merge-tag-picker.tsx's MERGE_TAGS (kept in sync by
+// hand; both are small, static lists).
+const SAMPLE_VARS = {
+  contact: {
+    first_name: 'Ana',
+    last_name: 'Silva',
+    name: 'Ana Silva',
+    email: 'ana@example.com',
+    phone: '+1 555-0142',
+    company: 'Acme Co',
+  },
+  org: { name: 'Your Company' },
+}
+
+// Debounce window between the last doc/subject/preview edit and the silent
+// autosave (Phase 6). Long enough to not fire on every keystroke, short
+// enough that a stray tab close loses at most a few seconds of work.
+const AUTOSAVE_DELAY_MS = 2500
 
 /** Category tags for a section template — advisory only (no DB constraint). */
 const SECTION_TYPES = ['header', 'footer', 'cta', 'logo', 'social', 'legal', 'custom']
@@ -86,16 +111,30 @@ export function EmailTemplateEditor({
 
   const [name, setName] = useState(template.name)
   const [status, setStatus] = useState(template.status)
+  // Subject/preview text — persisted in the `email_templates.subject_line` /
+  // `preview_text` columns (not the document jsonb; see actions.ts). Not
+  // applicable to variant='section' (a section template has no subject), but
+  // kept as real state either way so EditorApi has a uniform shape.
+  const [subjectLine, setSubjectLine] = useState(template.subject_line ?? '')
+  const [previewText, setPreviewText] = useState(template.preview_text ?? '')
   const [isPending, startTransition] = useTransition()
   const [sectionTemplates, setSectionTemplates] = useState<SectionTemplate[]>(initialSectionTemplates)
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
 
-  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialDoc))
-  const isDirty = useMemo(() => JSON.stringify(doc) !== savedSnapshot, [doc, savedSnapshot])
+  const snapshotOf = useCallback(
+    (d: EmailDocument, subject: string, preview: string) => JSON.stringify({ doc: d, subjectLine: subject, previewText: preview }),
+    [],
+  )
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotOf(initialDoc, subjectLine, previewText))
+  const isDirty = useMemo(
+    () => snapshotOf(doc, subjectLine, previewText) !== savedSnapshot,
+    [doc, subjectLine, previewText, savedSnapshot, snapshotOf],
+  )
 
-  // Warn before closing/reloading the tab with unsaved changes — there's no
-  // autosave, so a stray close/refresh silently loses in-progress edits.
+  // Warn before closing/reloading the tab with unsaved changes. Autosave
+  // (below) narrows the exposure window to a few seconds, but doesn't
+  // eliminate it (e.g. a save in flight, or a very fast close).
   useEffect(() => {
     if (!isDirty) return
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -106,15 +145,20 @@ export function EmailTemplateEditor({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [isDirty])
 
-  // Live refs so save/preview always read the freshest committed doc/name even
-  // when triggered from a keyboard shortcut in the same tick as a blur commit.
-  // Synced in an effect (never during render) so ref reads in event handlers /
-  // rAF callbacks always see the last committed value.
+  // Live refs so save/preview always read the freshest committed doc/name/
+  // subject/preview even when triggered from a keyboard shortcut (or the
+  // autosave timer) in the same tick as a blur commit. Synced in an effect
+  // (never during render) so ref reads in event handlers / rAF callbacks /
+  // timers always see the last committed value.
   const docRef = useRef(doc)
   const nameRef = useRef(name)
+  const subjectRef = useRef(subjectLine)
+  const previewRef = useRef(previewText)
   useEffect(() => {
     docRef.current = doc
     nameRef.current = name
+    subjectRef.current = subjectLine
+    previewRef.current = previewText
   })
 
   /** Commit any focused inline (contentEditable) edit, then run `cb` with the
@@ -184,22 +228,31 @@ export function EmailTemplateEditor({
   }, [setDoc])
 
   // ── Block mutations ──────────────────────────────────────────────────────────────
-  const addBlock = useCallback((sectionId: string, colIdx: number, blockType: EmailBlockType) => {
-    const block = { ...BLOCK_DEFAULTS[blockType], id: makeBlockId() } as EmailBlock
-    setDoc((prev) => insertBlockInColumn(prev, sectionId, colIdx, Number.MAX_SAFE_INTEGER, block))
-    setSelectedBlockId(block.id)
-  }, [setDoc])
+  // (Blocks are added by dragging a chip from the palette onto the canvas —
+  // there is no programmatic/menu-driven "add block" affordance; a prior
+  // `addBlock` callback here was dead code and was removed, Phase 3 cleanup.)
 
-  const insertSectionTemplate = useCallback((sectionId: string, colIdx: number, st: SectionTemplate) => {
-    const source = (st.document as { blocks?: EmailBlock[] }).blocks ?? []
-    if (!source.length) return
+  /** Inserts a saved section template as a NEW section (fresh section + block
+   *  ids), positioned after `afterSectionId` — or at the document end when
+   *  null/not found. Section templates store a full `EmailSection` (Phase 3;
+   *  upgrade-on-read handles legacy `{ blocks }` rows), so this clones the
+   *  whole section rather than splicing blocks into an existing column. */
+  const insertSectionTemplate = useCallback((afterSectionId: string | null, st: SectionTemplate) => {
+    const { section } = normalizeSectionTemplateDoc(st.document)
+    const cloned: EmailSection = {
+      ...section,
+      id: makeBlockId(),
+      columns: section.columns.map((col) => col.map(cloneBlock)),
+    }
     setDoc((prev) => {
-      let next = prev
-      source.forEach((b) => {
-        next = insertBlockInColumn(next, sectionId, colIdx, Number.MAX_SAFE_INTEGER, cloneBlock(b))
-      })
-      return next
+      const idx = afterSectionId ? prev.sections.findIndex((s) => s.id === afterSectionId) : -1
+      const insertAt = idx === -1 ? prev.sections.length : idx + 1
+      const next = prev.sections.slice()
+      next.splice(insertAt, 0, cloned)
+      return { ...prev, sections: next }
     })
+    setSelectedBlockId(null)
+    setSelectedSectionId(cloned.id)
   }, [setDoc])
 
   const updateBlock = useCallback((blockId: string, updates: Partial<EmailBlock>) => {
@@ -258,6 +311,10 @@ export function EmailTemplateEditor({
   const api: EditorApi = useMemo(() => ({
     doc,
     variant,
+    subjectLine,
+    previewText,
+    setSubjectLine,
+    setPreviewText,
     selectedSectionId,
     selectedBlockId,
     selectBlock,
@@ -267,7 +324,6 @@ export function EmailTemplateEditor({
     duplicateSection,
     updateSection,
     moveSection,
-    addBlock,
     insertSectionTemplate,
     removeBlock,
     duplicateBlock,
@@ -277,9 +333,9 @@ export function EmailTemplateEditor({
     sectionTemplates,
     openSaveSectionTemplate,
   }), [
-    doc, variant, selectedSectionId, selectedBlockId, selectBlock, selectSection,
+    doc, variant, subjectLine, previewText, selectedSectionId, selectedBlockId, selectBlock, selectSection,
     addSection, removeSection, duplicateSection, updateSection, moveSection,
-    addBlock, insertSectionTemplate, removeBlock, duplicateBlock, updateBlock,
+    insertSectionTemplate, removeBlock, duplicateBlock, updateBlock,
     moveBlockDir, setDoc, sectionTemplates, openSaveSectionTemplate,
   ])
 
@@ -320,22 +376,73 @@ export function EmailTemplateEditor({
   }, [template.id, name, nameEditing, nameDraft, setSegmentNode])
 
   // ── Save / publish / preview ─────────────────────────────────────────────────────
+  const [justSaved, setJustSaved] = useState(false)
+
   const flushSave = useCallback((current: EmailDocument) => {
     startTransition(async () => {
-      const snapshot = JSON.stringify(current)
+      const subject = subjectRef.current
+      const preview = previewRef.current
+      const snapshot = snapshotOf(current, subject, preview)
       const result = onSaveDocument
         ? await onSaveDocument(current, nameRef.current)
-        : await saveTemplate(template.id, current, nameRef.current)
+        : await saveTemplate(template.id, current, nameRef.current, subject, preview)
       if (!result.ok) {
         toast.error((result as { error?: string }).error ?? 'Save failed')
         return
       }
       setSavedSnapshot(snapshot)
+      setJustSaved(true)
       toast.success(variant === 'section' ? 'Section saved' : 'Template saved')
     })
-  }, [template.id, onSaveDocument, variant])
+  }, [template.id, onSaveDocument, variant, snapshotOf])
 
   const handleSave = useCallback(() => runWithFreshDoc(flushSave), [runWithFreshDoc, flushSave])
+
+  // ── Autosave (Phase 6) ───────────────────────────────────────────────────────────
+  // Debounced, silent save ~2.5s after the last doc/subject/preview edit. Must
+  // NOT blur the active contentEditable (unlike the manual Save path) — a
+  // background autosave stealing focus mid-sentence would be worse than the
+  // data-loss risk it's trying to prevent. So this reads docRef/subjectRef/
+  // previewRef directly instead of going through runWithFreshDoc; the last
+  // COMMITTED state is acceptable (an in-progress, not-yet-blurred edit is
+  // picked up by the next tick once it commits, or by the next autosave).
+  //
+  // Skipped entirely for variant='section': the section-template editor is
+  // opened for short, focused styling tweaks (no publish, no autosave
+  // indicator built into that surface's toolbar chrome), and unlike the full
+  // template editor it has no independent "discard" path if an autosave
+  // landed a half-finished section — the explicit Save button is enough there.
+  useEffect(() => {
+    if (variant === 'section') return
+    if (!isDirty || isPending) return
+    const timer = setTimeout(() => {
+      startTransition(async () => {
+        const current = docRef.current
+        const subject = subjectRef.current
+        const preview = previewRef.current
+        const snapshot = snapshotOf(current, subject, preview)
+        const result = await saveTemplate(template.id, current, nameRef.current, subject, preview)
+        if (!result.ok) {
+          // Silent by design — no toast. isDirty stays true, so either the
+          // next autosave tick retries, or the user's next manual Save
+          // surfaces the error.
+          return
+        }
+        setSavedSnapshot(snapshot)
+        setJustSaved(true)
+      })
+    }, AUTOSAVE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [doc, subjectLine, previewText, isDirty, isPending, variant, template.id, snapshotOf])
+
+  // "Saved" is a transient confirmation, not a persistent state — fades after
+  // a couple seconds (or immediately once the next edit makes it stale, via
+  // the isDirty-takes-precedence render order below).
+  useEffect(() => {
+    if (!justSaved) return
+    const timer = setTimeout(() => setJustSaved(false), 2500)
+    return () => clearTimeout(timer)
+  }, [justSaved])
 
   function handleTogglePublish() {
     const publishing = status !== 'published'
@@ -350,20 +457,24 @@ export function EmailTemplateEditor({
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
+  const [previewSampleData, setPreviewSampleData] = useState(false)
   function handlePreview() {
     runWithFreshDoc((d) => {
-      setPreviewHtml(renderTemplate(d).html)
+      setPreviewHtml(renderTemplate(d, { subject: subjectRef.current, previewText: previewRef.current }).html)
       setPreviewOpen(true)
     })
   }
+  // "Sample data" toggle (task 6): runs the pure, client-safe renderWithVariables
+  // over the already-rendered HTML with a hardcoded sample contact/org, so the
+  // preview shows what a real recipient would see instead of raw {{ tags }}.
+  const previewHtmlDisplayed = previewSampleData ? renderWithVariables(previewHtml, SAMPLE_VARS) : previewHtml
 
   function handleSaveSectionTemplate() {
     if (!targetSectionForSave || !saveSectionName.trim()) return
     const section = doc.sections.find((s) => s.id === targetSectionForSave)
     if (!section) return
-    const blocks = section.columns.flat()
     startTransition(async () => {
-      const result = await saveSectionTemplate(saveSectionName.trim(), { blocks })
+      const result = await saveSectionTemplate(saveSectionName.trim(), { section })
       if (!result.ok) { toast.error(result.error); return }
       toast.success('Saved as section template')
       setSaveSectionOpen(false)
@@ -378,6 +489,22 @@ export function EmailTemplateEditor({
     toast.success('Section template deleted')
   }
   const [sectionTemplatesOpen, setSectionTemplatesOpen] = useState(false)
+
+  // ── Send test email ──────────────────────────────────────────────────────────────
+  // `sendTestEmail` re-fetches the template server-side and renders its
+  // PERSISTED `document` fresh (not the possibly-stale `html_snapshot`) — it
+  // does not take a client-supplied document. That means a test send
+  // reflects the last SAVED state, which autosave keeps within ~2.5s of the
+  // editor; it does not include an edit still in flight this tick. Simpler
+  // and safer than threading unsaved client state through a send path, and
+  // consistent with "test send" implying "what's actually stored."
+  function handleSendTest() {
+    startTransition(async () => {
+      const result = await sendTestEmail(template.id)
+      if (!result.ok) { toast.error(result.error); return }
+      toast.success('Test email sent')
+    })
+  }
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -434,6 +561,16 @@ export function EmailTemplateEditor({
     return { sectionId: loc.sectionId, colIdx: loc.colIdx, index: loc.index }
   }
 
+  /** Section-template chips insert a whole NEW section rather than dropping
+   *  into a column — this resolves "which section to insert after" from
+   *  whatever the drop landed on (a column, a block, or the section itself). */
+  function resolveSectionForInsert(overId: string): string | null {
+    const target = resolveDropTarget(overId)
+    if (target) return target.sectionId
+    const section = docRef.current.sections.find((s) => s.id === overId)
+    return section ? section.id : null
+  }
+
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current
     const id = String(event.active.id)
@@ -461,23 +598,16 @@ export function EmailTemplateEditor({
     const overId = String(over.id)
     const data = active.data.current
 
-    // 1. Palette → insert fresh block(s).
+    // 1. Palette → insert fresh block(s), or a whole new section.
     if (data?.type === 'palette') {
-      const target = resolveDropTarget(overId)
-      if (!target) return
       if (data.source === 'section') {
         const st = sectionTemplates.find((s) => s.id === data.sectionTemplateId)
-        const src = (st?.document as { blocks?: EmailBlock[] })?.blocks ?? []
-        if (!src.length) return
-        setDoc((prev) => {
-          let next = prev
-          src.forEach((b, i) => {
-            next = insertBlockInColumn(next, target.sectionId, target.colIdx, target.index + i, cloneBlock(b))
-          })
-          return next
-        })
+        if (!st) return
+        insertSectionTemplate(resolveSectionForInsert(overId), st)
         return
       }
+      const target = resolveDropTarget(overId)
+      if (!target) return
       const type = data.blockType as EmailBlockType
       const fresh = { ...BLOCK_DEFAULTS[type], id: makeBlockId() } as EmailBlock
       setDoc((prev) => insertBlockInColumn(prev, target.sectionId, target.colIdx, target.index, fresh))
@@ -485,13 +615,15 @@ export function EmailTemplateEditor({
       return
     }
 
-    // 2. Block → move within/between columns of the same section.
+    // 2. Block → move within a column, between columns, or across sections
+    //    (moveBlock already supports cross-section moves; only guard the
+    //    true same-position no-op — same section AND same column AND same
+    //    index — everything else is a real move).
     if (data?.type === 'block' || findBlockLocation(docRef.current, activeId)) {
       const from = findBlockLocation(docRef.current, activeId)
       const target = resolveDropTarget(overId)
       if (!from || !target) return
-      if (target.sectionId !== from.sectionId) return
-      if (from.colIdx === target.colIdx && from.index === target.index) return
+      if (from.sectionId === target.sectionId && from.colIdx === target.colIdx && from.index === target.index) return
       setDoc((prev) => moveBlock(prev, activeId, target.sectionId, target.colIdx, target.index))
       setSelectedBlockId(activeId)
       return
@@ -571,11 +703,22 @@ export function EmailTemplateEditor({
                   {status}
                 </Badge>
               )}
-              {isDirty && (
+              {/* Save status — isDirty always wins so a fresh edit immediately
+                  hides a lingering "Saved" from a moment ago. isPending covers
+                  BOTH manual Save and the silent autosave (same transition). */}
+              {isPending ? (
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Saving…
+                </span>
+              ) : isDirty ? (
                 <span className="flex items-center gap-1 text-[11px] text-amber-600" title="Unsaved changes">
                   <Circle className="h-2 w-2 fill-current" /> Unsaved
                 </span>
-              )}
+              ) : justSaved ? (
+                <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                  <Check className="h-3 w-3" /> Saved
+                </span>
+              ) : null}
 
               <div className="ml-auto flex items-center gap-1">
                 {variant === 'template' && (
@@ -586,6 +729,11 @@ export function EmailTemplateEditor({
                 <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handlePreview}>
                   <Eye className="h-3.5 w-3.5" /> Preview
                 </Button>
+                {variant === 'template' && (
+                  <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleSendTest} disabled={isPending} title="Send a test copy to your own email">
+                    <TestTube2 className="h-3.5 w-3.5" /> Send test
+                  </Button>
+                )}
                 {variant === 'template' && (
                   <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleTogglePublish} disabled={isPending}>
                     {status === 'published' ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
@@ -614,7 +762,7 @@ export function EmailTemplateEditor({
           <DialogHeader className="mb-2">
             <DialogTitle>Section Templates</DialogTitle>
             <DialogDescription>
-              Saved sections you can drag in from the palette or insert via a column&apos;s &quot;Add block&quot; menu.
+              Saved sections you can drag from the palette to insert as a new section, complete with their layout, background, and padding.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
@@ -645,26 +793,34 @@ export function EmailTemplateEditor({
         <DialogContent className="flex h-[85vh] flex-col gap-0 p-0 sm:max-w-4xl">
           <DialogHeader className="flex flex-row items-center justify-between border-b border-border px-6 py-3">
             <DialogTitle className="text-sm font-medium">Preview — {name}</DialogTitle>
-            <div className="mr-6 inline-flex overflow-hidden rounded border border-border">
-              <button
-                type="button"
-                onClick={() => setPreviewDevice('desktop')}
-                className={cn('flex h-7 items-center gap-1 px-2.5 text-xs', previewDevice === 'desktop' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground')}
-              >
-                <Monitor className="h-3.5 w-3.5" /> Desktop
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewDevice('mobile')}
-                className={cn('flex h-7 items-center gap-1 border-l border-border px-2.5 text-xs', previewDevice === 'mobile' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground')}
-              >
-                <Smartphone className="h-3.5 w-3.5" /> Mobile
-              </button>
+            <div className="mr-6 flex items-center gap-3">
+              {variant === 'template' && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Switch size="sm" checked={previewSampleData} onCheckedChange={setPreviewSampleData} />
+                  Sample data
+                </label>
+              )}
+              <div className="inline-flex overflow-hidden rounded border border-border">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('desktop')}
+                  className={cn('flex h-7 items-center gap-1 px-2.5 text-xs', previewDevice === 'desktop' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground')}
+                >
+                  <Monitor className="h-3.5 w-3.5" /> Desktop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice('mobile')}
+                  className={cn('flex h-7 items-center gap-1 border-l border-border px-2.5 text-xs', previewDevice === 'mobile' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground')}
+                >
+                  <Smartphone className="h-3.5 w-3.5" /> Mobile
+                </button>
+              </div>
             </div>
           </DialogHeader>
           <div className="flex flex-1 justify-center overflow-auto bg-muted/40 p-4">
             <iframe
-              srcDoc={previewHtml}
+              srcDoc={previewHtmlDisplayed}
               title="Email preview"
               sandbox="allow-same-origin"
               className="h-full border-0 bg-white shadow-sm transition-all"

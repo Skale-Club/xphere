@@ -5,12 +5,16 @@ import {
   sanitizeUrl,
   sanitizeEmailDocument,
   sanitizeBlocks,
+  sanitizeSectionTemplateDoc,
 } from '@/lib/email/sanitize'
-import { validateEmailDocument, validateSectionFragment } from '@/lib/email/schema'
+import {
+  validateEmailDocument, validateSectionFragment, validateSectionTemplateDoc,
+} from '@/lib/email/schema'
 import {
   BLOCK_DEFAULTS,
   makeBlockId,
   normalizeDocument,
+  normalizeSectionTemplateDoc,
   type EmailDocument,
   type TextBlock,
   type HeadingBlock,
@@ -338,5 +342,70 @@ describe('validateSectionFragment', () => {
       blocks: Object.entries(BLOCK_DEFAULTS).map(([, def]) => ({ ...def, id: makeBlockId() })),
     })
     expect(result.ok).toBe(true)
+  })
+})
+
+// Phase 3 (email-builder-hardening) — the modern section-template doc shape.
+// The intended pipeline is normalizeSectionTemplateDoc -> validateSectionTemplateDoc
+// -> sanitizeSectionTemplateDoc, mirroring normalizeDocument -> validateEmailDocument
+// -> sanitizeEmailDocument for full templates.
+describe('validateSectionTemplateDoc + sanitizeSectionTemplateDoc ({ section } shape)', () => {
+  it('rejects a non-object', () => {
+    expect(validateSectionTemplateDoc(null).ok).toBe(false)
+    expect(validateSectionTemplateDoc([]).ok).toBe(false)
+  })
+
+  it('accepts a normalized legacy { blocks } row (round-trip through normalizeSectionTemplateDoc)', () => {
+    const normalized = normalizeSectionTemplateDoc({
+      blocks: Object.entries(BLOCK_DEFAULTS).map(([, def]) => ({ ...def, id: makeBlockId() })),
+    })
+    const result = validateSectionTemplateDoc(normalized)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.doc.section.layout).toBe(1)
+  })
+
+  it('accepts a modern { section } document with full layout/background/padding', () => {
+    const normalized = normalizeSectionTemplateDoc({
+      section: {
+        id: 's1',
+        layout: 3,
+        backgroundColor: '#eeeeee',
+        padding: { top: 10, right: 10, bottom: 10, left: 10 },
+        columns: [
+          [{ id: 'b1', blockType: 'text', content: 'a' }],
+          [{ id: 'b2', blockType: 'text', content: 'b' }],
+          [{ id: 'b3', blockType: 'text', content: 'c' }],
+        ],
+      },
+    })
+    const result = validateSectionTemplateDoc(normalized)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.doc.section.layout).toBe(3)
+      expect(result.doc.section.backgroundColor).toBe('#eeeeee')
+    }
+  })
+
+  it('sanitizeSectionTemplateDoc strips dangerous content the same way sanitizeEmailDocument does', () => {
+    const normalized = normalizeSectionTemplateDoc({
+      section: {
+        id: 's1',
+        layout: 1,
+        backgroundImage: 'javascript:alert(1)',
+        columns: [[
+          { id: 'b1', blockType: 'text', content: '<script>alert(1)</script><b>ok</b>' },
+          { id: 'b2', blockType: 'button', label: 'Go', href: 'javascript:alert(1)' },
+        ]],
+      },
+    })
+    const validated = validateSectionTemplateDoc(normalized)
+    expect(validated.ok).toBe(true)
+    if (!validated.ok) return
+    const sanitized = sanitizeSectionTemplateDoc(validated.doc)
+    expect(sanitized.section.backgroundImage).toBe('')
+    const [text, button] = sanitized.section.columns[0] as [TextBlock, ButtonBlock]
+    expect(text.content).not.toContain('<script')
+    expect(text.content).toContain('<b>ok</b>')
+    expect(button.href).toBe('')
   })
 })

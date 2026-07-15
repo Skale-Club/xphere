@@ -848,6 +848,8 @@ export const NODES: NodeSpec[] = [
       '{{variables}} from the provided variables object, and sends via the org\'s tenant Resend ' +
       "integration (sendTenantEmail) — honouring the unsubscribe suppression list and, for " +
       "kind:'marketing' (the default), adding the compliance footer and List-Unsubscribe headers. " +
+      'Subject is optional: it falls back to the template\'s own subject line (set in the builder\'s ' +
+      'Document inspector) when omitted — the send only fails if neither is set. ' +
       'The template must be published unless allow_draft is set.',
     // Org-gated: only appears in the spec when the org has Resend/email connected.
     integration_required: ['resend'],
@@ -861,7 +863,9 @@ export const NODES: NodeSpec[] = [
         to: { type: 'string', description: 'Recipient email address.' },
         subject: {
           type: 'string',
-          description: 'Required. Subject line; supports {{variables}}. No fallback — the send fails without it.',
+          description:
+            'Optional. Subject line; supports {{variables}}. Falls back to the template\'s own subject line ' +
+            '(set in the builder\'s Document inspector) when omitted — the send fails only if neither is set.',
         },
         variables: {
           type: 'object',
@@ -879,7 +883,7 @@ export const NODES: NodeSpec[] = [
           description: 'Send an unpublished (draft) template. Default false — unpublished templates are rejected.',
         },
       },
-      required: ['template_id', 'to', 'subject'],
+      required: ['template_id', 'to'],
     },
     examples: [
       {

@@ -210,3 +210,11 @@ export function sanitizeEmailDocument(doc: EmailDocument): EmailDocument {
     sections: (doc.sections ?? []).map(sanitizeSection),
   }
 }
+
+/** Sanitizes the modern `{ section: EmailSection }` section-template shape —
+ *  reuses the same per-section walk `sanitizeEmailDocument` uses. Call this
+ *  AFTER `normalizeSectionTemplateDoc` + `validateSectionTemplateDoc` and
+ *  BEFORE persisting. */
+export function sanitizeSectionTemplateDoc(doc: { section: EmailSection }): { section: EmailSection } {
+  return { section: sanitizeSection(doc.section) }
+}

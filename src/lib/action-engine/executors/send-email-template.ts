@@ -13,6 +13,12 @@
 // Deliberate behavior change (email-builder-hardening Phase 2): orgs without a
 // connected tenant Resend integration will now get a clear error from
 // sendTenantEmail instead of silently sending via the platform Resend key.
+//
+// Phase 3 addition: subject resolution is now a fallback chain —
+// params.subject (override) wins; when omitted/blank, the template's own
+// `subject_line` column (set in the builder's Document inspector) is used;
+// only when BOTH are empty does this throw. Still never silently falls back
+// to the template *name* — that was the original Finding #7 bug.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -31,8 +37,10 @@ export async function executeSendEmailTemplate(
       ? (params.variables as Record<string, unknown>)
       : {}
 
-  // Subject is required — no silent fallback to the template name.
-  const subjectInput = typeof params.subject === 'string' ? params.subject.trim() : ''
+  // Subject override — resolved against the template's own subject_line
+  // AFTER the template loads (see the fallback chain below). Not required
+  // yet at this point; only "no subject anywhere" is an error.
+  const subjectOverride = typeof params.subject === 'string' ? params.subject.trim() : ''
 
   // kind: defaults to 'marketing' (suppression + compliance footer + one-click
   // unsubscribe). 'transactional' is an explicit escape hatch for non-marketing
@@ -52,13 +60,12 @@ export async function executeSendEmailTemplate(
 
   if (!templateId) throw new Error('send_email_template requires "template_id"')
   if (!to) throw new Error('send_email_template requires "to"')
-  if (!subjectInput) throw new Error('send_email_template requires "subject"')
 
   // Load the template scoped to the org (RLS via the authenticated client; the
   // action-engine passes a service-role client, so filter org_id explicitly).
   const { data: template, error } = await supabase
     .from('email_templates')
-    .select('id, name, status, html_snapshot, plain_text_snapshot')
+    .select('id, name, status, subject_line, html_snapshot, plain_text_snapshot')
     .eq('id', templateId)
     .eq('org_id', orgId)
     .maybeSingle()
@@ -76,8 +83,20 @@ export async function executeSendEmailTemplate(
     )
   }
 
+  // Subject fallback chain: params.subject wins; otherwise fall back to the
+  // template's stored subject_line (set in the builder's Document inspector).
+  // Still never silently falls back to the template *name* — throw a clear
+  // error instead when neither is set.
+  const templateSubject = typeof template.subject_line === 'string' ? template.subject_line.trim() : ''
+  const resolvedSubjectInput = subjectOverride || templateSubject
+  if (!resolvedSubjectInput) {
+    throw new Error(
+      `send_email_template requires "subject" — pass a subject or set the template's subject line first (template ${templateId} has neither)`,
+    )
+  }
+
   // Personalize subject, HTML, and (when available) the plain-text part.
-  const subject = renderWithVariables(subjectInput, variables)
+  const subject = renderWithVariables(resolvedSubjectInput, variables)
   const html = renderWithVariables(template.html_snapshot, variables)
   const text = template.plain_text_snapshot
     ? renderWithVariables(template.plain_text_snapshot, variables)

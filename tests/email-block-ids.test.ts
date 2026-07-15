@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   renderTemplate,
   normalizeDocument,
+  normalizeSectionTemplateDoc,
   makeBlockId,
   type EmailBlock,
   type EmailDocument,
@@ -90,6 +91,74 @@ describe('renderTemplate — HTML is unchanged by ids', () => {
     for (const id of allBlockIds(normalized)) {
       expect(html).not.toContain(id)
     }
+  })
+})
+
+// Phase 3 (email-builder-hardening) — email_section_templates.document
+// upgrades from the legacy flat `{ blocks }` shape to `{ section: EmailSection }`
+// on read, mirroring normalizeDocument's id-backfill treatment.
+describe('normalizeSectionTemplateDoc — upgrade-on-read', () => {
+  it('wraps a legacy { blocks } fragment into a synthetic 1-column section with editor defaults', () => {
+    const legacy = {
+      blocks: [
+        { id: 'b1', blockType: 'text', content: 'Hi', fontSize: 15 },
+        { blockType: 'divider', color: '#ccc' }, // no id — legacy
+      ],
+    }
+    const { section } = normalizeSectionTemplateDoc(legacy)
+    expect(section.layout).toBe(1)
+    expect(section.backgroundColor).toBe('#ffffff')
+    expect(section.padding).toEqual({ top: 16, right: 24, bottom: 16, left: 24 })
+    expect(section.columns).toHaveLength(1)
+    expect(section.columns[0]).toHaveLength(2)
+    expect(section.columns[0][0].id).toBe('b1')
+    expect(section.columns[0][1].id).toBeTruthy() // backfilled
+  })
+
+  it('treats an empty/unrecognized input as an empty legacy fragment', () => {
+    expect(normalizeSectionTemplateDoc({}).section.columns).toEqual([[]])
+    expect(normalizeSectionTemplateDoc(null).section.columns).toEqual([[]])
+    expect(normalizeSectionTemplateDoc([]).section.columns).toEqual([[]])
+  })
+
+  it('passes a modern { section } shape through, preserving layout/background/padding', () => {
+    const modern = {
+      section: {
+        id: 's1',
+        layout: 2,
+        backgroundColor: '#111111',
+        padding: { top: 8, right: 8, bottom: 8, left: 8 },
+        columns: [
+          [{ id: 'b1', blockType: 'text', content: 'left' }],
+          [{ id: 'b2', blockType: 'text', content: 'right' }],
+        ],
+      },
+    }
+    const { section } = normalizeSectionTemplateDoc(modern)
+    expect(section.id).toBe('s1')
+    expect(section.layout).toBe(2)
+    expect(section.backgroundColor).toBe('#111111')
+    expect(section.padding).toEqual({ top: 8, right: 8, bottom: 8, left: 8 })
+    expect(section.columns).toHaveLength(2)
+  })
+
+  it('backfills a missing section id and missing block ids in the modern shape too', () => {
+    const modern = {
+      section: {
+        layout: 1,
+        columns: [[{ blockType: 'text', content: 'no ids here' }]],
+      },
+    }
+    const { section } = normalizeSectionTemplateDoc(modern)
+    expect(section.id).toBeTruthy()
+    expect(section.columns[0][0].id).toBeTruthy()
+  })
+
+  it('does not mutate its input', () => {
+    const legacy = { blocks: [{ id: 'b1', blockType: 'text', content: 'x' }] }
+    const before = JSON.stringify(legacy)
+    normalizeSectionTemplateDoc(legacy)
+    expect(JSON.stringify(legacy)).toBe(before)
   })
 })
 

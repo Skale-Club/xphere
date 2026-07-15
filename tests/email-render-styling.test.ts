@@ -197,3 +197,55 @@ describe('defaults', () => {
     }
   })
 })
+
+// Phase 3 (email-builder-hardening) — subject/preview-text are columns on
+// email_templates, not document fields, so renderTemplate takes them as a
+// separate `meta` argument (see actions.ts callers) rather than reading them
+// off `document`.
+describe('renderTemplate — subject/preheader meta', () => {
+  it('emits the subject as <title> when meta.subject is provided', () => {
+    const doc = emptyDocument()
+    const { html } = renderTemplate(doc, { subject: 'Welcome aboard' })
+    expect(html).toContain('<title>Welcome aboard</title>')
+  })
+
+  it('escapes HTML-significant characters in the subject/preview meta', () => {
+    const doc = emptyDocument()
+    const { html } = renderTemplate(doc, {
+      subject: 'Deals <50% off> & more',
+      previewText: 'A "special" offer <for you>',
+    })
+    expect(html).not.toContain('<50%')
+    expect(html).toContain('&lt;50%')
+    expect(html).toContain('&amp;')
+    expect(html).toContain('&quot;special&quot;')
+  })
+
+  it('emits the preview text in a hidden preheader div, padded with the zero-width entity pattern', () => {
+    const doc = emptyDocument()
+    const { html } = renderTemplate(doc, { previewText: 'Your order has shipped' })
+    expect(html).toContain('Your order has shipped')
+    expect(html).toContain('display:none')
+    expect(html).toContain('&nbsp;&zwnj;')
+  })
+
+  it('produces a well-formed (empty but present) <title> and preheader when meta is omitted', () => {
+    const doc = emptyDocument()
+    const { html } = renderTemplate(doc)
+    expect(html).toContain('<title></title>')
+    expect(html).toContain('display:none')
+  })
+
+  it('does not leak subject/preview meta into the plain-text part', () => {
+    const doc = emptyDocument()
+    doc.sections.push({
+      id: 's1',
+      layout: 1,
+      columns: [[{ id: 'b1', blockType: 'text', content: 'Body copy' }]],
+    })
+    const { plainText } = renderTemplate(doc, { subject: 'Subject Line', previewText: 'Preview snippet' })
+    expect(plainText).not.toContain('Subject Line')
+    expect(plainText).not.toContain('Preview snippet')
+    expect(plainText).toContain('Body copy')
+  })
+})
