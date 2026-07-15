@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment } from 'react'
+import DOMPurify from 'dompurify'
 import {
   Plus, GripVertical, Trash2, Copy, Bookmark, Palette, Columns2, ImageOff,
 } from 'lucide-react'
@@ -21,6 +22,18 @@ import { resolveBlockPadding } from '@/lib/email/render-template'
 import { useEditor } from './context'
 
 type DragHandleProps = { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
+
+// Client-side defense in depth for `dangerouslySetInnerHTML` previews. The
+// real security boundary is the server-side sanitizer (`@/lib/email/sanitize`)
+// applied on save — this guards against documents persisted before that
+// existed, and against any gap in the server-side pass. DOMPurify has no
+// window during the Next.js SSR pass (Node has no `window`/`document`), so
+// this is a deliberate no-op on the server; hydration re-renders the
+// sanitized version immediately after.
+function sanitizePreviewHtml(html: string): string {
+  if (typeof window === 'undefined') return html
+  return DOMPurify.sanitize(html)
+}
 
 // ─── Canvas ───────────────────────────────────────────────────────────────────
 
@@ -386,7 +399,7 @@ function TextPreview({ block, onUpdate }: { block: TextBlock; onUpdate: (u: Part
         minHeight: '1.4em',
       }}
       onBlur={(e) => onUpdate({ content: e.currentTarget.innerHTML })}
-      dangerouslySetInnerHTML={{ __html: block.content }}
+      dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(block.content) }}
     />
   )
 }
@@ -407,7 +420,7 @@ function HeadingPreview({ block, onUpdate }: { block: HeadingBlock; onUpdate: (u
         minHeight: '1.3em',
       }}
       onBlur={(e) => onUpdate({ content: e.currentTarget.innerHTML })}
-      dangerouslySetInnerHTML={{ __html: block.content }}
+      dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(block.content) }}
     />
   )
 }
@@ -500,7 +513,7 @@ function HtmlPreview({ block }: { block: HtmlBlock }) {
   if (!block.content?.trim()) {
     return <div className="rounded border border-dashed border-zinc-300 bg-zinc-50 px-3 py-4 text-center text-[11px] italic text-zinc-400">Empty HTML block — edit in the panel →</div>
   }
-  return <div className="text-sm [&_*]:max-w-full" dangerouslySetInnerHTML={{ __html: block.content }} />
+  return <div className="text-sm [&_*]:max-w-full" dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(block.content) }} />
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────────

@@ -94,6 +94,18 @@ export function EmailTemplateEditor({
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialDoc))
   const isDirty = useMemo(() => JSON.stringify(doc) !== savedSnapshot, [doc, savedSnapshot])
 
+  // Warn before closing/reloading the tab with unsaved changes — there's no
+  // autosave, so a stray close/refresh silently loses in-progress edits.
+  useEffect(() => {
+    if (!isDirty) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
+
   // Live refs so save/preview always read the freshest committed doc/name even
   // when triggered from a keyboard shortcut in the same tick as a blur commit.
   // Synced in an effect (never during render) so ref reads in event handlers /

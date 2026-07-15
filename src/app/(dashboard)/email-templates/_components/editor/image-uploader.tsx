@@ -123,7 +123,7 @@ export function ImageUploader({
             <>
               <Upload className="h-5 w-5" />
               <span className="text-xs font-medium">Click or drop an image</span>
-              <span className="text-[10px]">PNG, JPG, GIF, WebP, SVG · up to {MAX_SIZE_MB} MB</span>
+              <span className="text-[10px]">PNG, JPG, GIF, WebP · up to {MAX_SIZE_MB} MB</span>
             </>
           )}
         </button>
@@ -132,7 +132,7 @@ export function ImageUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        accept="image/png,image/jpeg,image/gif,image/webp"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]

@@ -28,6 +28,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { resolveCopilotProvider } from '@/lib/copilot/resolve-provider'
 import { renderTemplate, type EmailDocument } from '@/lib/email/render-template'
+import { sanitizeEmailDocument } from '@/lib/email/sanitize'
 
 export const runtime = 'nodejs'
 
@@ -204,6 +205,10 @@ export async function POST(request: Request) {
         { status: 502 },
       )
     }
+
+    // AI output is not trustworthy any more than user input is — sanitize
+    // before it's ever saved or handed back to the caller.
+    document = sanitizeEmailDocument(document)
 
     // Optionally save as draft template
     let savedTemplateId: string | undefined
