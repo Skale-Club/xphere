@@ -5,7 +5,6 @@ import type {
   EmailDocument,
   EmailSection,
   EmailBlock,
-  EmailBlockType,
 } from '@/lib/email/render-template'
 import type { SectionTemplate } from '../../actions'
 
@@ -24,6 +23,15 @@ export interface EditorApi {
    *  section template (no add-section, no publish, no section chrome). */
   variant: 'template' | 'section'
 
+  // ── Document-level email settings (Phase 3 — persisted in the
+  //    `email_templates.subject_line` / `preview_text` columns, not the
+  //    document jsonb). Always present in the API for a uniform Document
+  //    inspector; 'section' variant callers just don't render the fields. ──
+  subjectLine: string
+  previewText: string
+  setSubjectLine: (v: string) => void
+  setPreviewText: (v: string) => void
+
   // ── Selection ──────────────────────────────────────────────
   selectedSectionId: string | null
   selectedBlockId: string | null
@@ -38,8 +46,11 @@ export interface EditorApi {
   moveSection: (sectionId: string, dir: -1 | 1) => void
 
   // ── Block mutations ────────────────────────────────────────
-  addBlock: (sectionId: string, colIdx: number, blockType: EmailBlockType) => void
-  insertSectionTemplate: (sectionId: string, colIdx: number, st: SectionTemplate) => void
+  /** Inserts a saved section template as a NEW section (cloned ids), after
+   *  `afterSectionId` — or at the document end when null. Section templates
+   *  now store a full `EmailSection` (Phase 3), not a blocks-only fragment
+   *  spliced into a column. */
+  insertSectionTemplate: (afterSectionId: string | null, st: SectionTemplate) => void
   removeBlock: (blockId: string) => void
   duplicateBlock: (blockId: string) => void
   updateBlock: (blockId: string, updates: Partial<EmailBlock>) => void

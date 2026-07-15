@@ -12,7 +12,9 @@ export interface BlockTypeMeta {
 }
 
 /**
- * Source of truth for the block palette and the in-column "+ Block" menu.
+ * Source of truth for the block palette. Blocks are added by dragging a chip
+ * from here onto the canvas (there is no in-column "+ Block" menu — that
+ * affordance was removed; see `EditorApi.addBlock` removal, Phase 3 cleanup).
  * Order here is the order shown in the palette.
  */
 export const BLOCK_TYPES: BlockTypeMeta[] = [

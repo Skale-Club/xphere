@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { forwardRef, useState } from 'react'
 import {
   AlignLeft, AlignCenter, AlignRight, Link as LinkIcon, Unlink, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
@@ -332,19 +332,17 @@ export function SelectControl<T extends string>({
 
 // ─── Text ────────────────────────────────────────────────────────────────────────
 
-export function TextControl({
-  value,
-  onChange,
-  placeholder,
-  mono,
-}: {
+/** `ref` forwards to the underlying <input> — used by the merge-tag picker to
+ *  insert `{{ tag }}` at the live cursor position instead of only appending. */
+export const TextControl = forwardRef<HTMLInputElement, {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   mono?: boolean
-}) {
+}>(function TextControl({ value, onChange, placeholder, mono }, ref) {
   return (
     <input
+      ref={ref}
       type="text"
       value={value}
       placeholder={placeholder}
@@ -355,4 +353,4 @@ export function TextControl({
       )}
     />
   )
-}
+})
