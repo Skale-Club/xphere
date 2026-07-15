@@ -1,29 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.3
-milestone_name: Settings Nav Cleanup + Unified Templates
-status: complete
-stopped_at: Milestone v3.3 complete and archived. All 4 phases (122-125) verified passed, audited as tech_debt (only pending item: migration 1233 not yet applied to remote DB — code-complete, fails gracefully), archived to .planning/milestones/v3.3-{ROADMAP,REQUIREMENTS,MILESTONE-AUDIT}.md, tagged.
-last_updated: "2026-07-03T05:00:00.000Z"
-last_activity: 2026-07-03
+milestone: v3.4
+milestone_name: Calendar Reliability & Workflow Integrity
+status: planning
+last_updated: "2026-07-15T11:32:04.727Z"
+last_activity: 2026-07-15
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 125 of 125 — COMPLETE (all 4 phases: 122, 123, 124, 125)
-Plan: 6/6 complete
-Status: Milestone complete — archived
-Last activity: 2026-07-03
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-15 — Milestone v3.4 started
 
 ## Roadmap Summary
 
