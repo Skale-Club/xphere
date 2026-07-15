@@ -2,7 +2,11 @@
 // v3.4 Email Editor Overhaul.
 //
 // Accepts multipart/form-data with a `file` field.
-// Validates: auth, file size (max 10MB), and MIME type (images only).
+// Validates: auth, file size (max 10MB), and MIME type (raster images only —
+// PNG/JPEG/GIF/WebP. SVG is deliberately excluded: it's script-capable
+// content (<script>, event handler attributes, external references) served
+// from a public bucket, which is a stored-XSS vector for anyone who can
+// guess/enumerate an asset URL).
 // Uses the service-role client for Storage uploads (bypasses RLS on the bucket).
 // Returns { url: string } | the public URL of the uploaded image.
 //
@@ -22,7 +26,6 @@ const ALLOWED_MIME = [
   'image/jpeg',
   'image/gif',
   'image/webp',
-  'image/svg+xml',
 ]
 
 export async function POST(request: Request): Promise<Response> {
@@ -50,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
   const mimeType = file.type || 'application/octet-stream'
   if (!ALLOWED_MIME.includes(mimeType)) {
     return Response.json(
-      { error: 'Invalid file type. Allowed: PNG, JPEG, GIF, WebP, SVG.' },
+      { error: 'Invalid file type. Allowed: PNG, JPEG, GIF, WebP.' },
       { status: 400 }
     )
   }
