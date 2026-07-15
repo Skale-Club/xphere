@@ -26,6 +26,9 @@ function makeTemplateRow(overrides: Record<string, unknown> = {}) {
     id: 'tpl-1',
     name: 'Welcome Email',
     status: 'published',
+    // Empty by default so existing "no subject anywhere" tests still throw;
+    // tests exercising the fallback pass an explicit subject_line override.
+    subject_line: '',
     html_snapshot: '<p>Hi {{contact.first_name}}</p>',
     plain_text_snapshot: 'Hi {{contact.first_name}}',
     ...overrides,
@@ -67,7 +70,7 @@ describe('send_email_template executor', () => {
     expect(sendTenantEmail).toHaveBeenCalledOnce()
   })
 
-  it('rejects a missing or empty subject', async () => {
+  it('rejects when both params.subject and the template subject_line are missing/blank', async () => {
     const supabase = makeSupabase({ data: makeTemplateRow(), error: null })
 
     await expect(
@@ -83,6 +86,70 @@ describe('send_email_template executor', () => {
     ).rejects.toThrow(/requires "subject"/)
 
     expect(sendTenantEmail).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the template\'s stored subject_line when params.subject is omitted', async () => {
+    const supabase = makeSupabase({
+      data: makeTemplateRow({ subject_line: 'Stored Subject {{contact.first_name}}' }),
+      error: null,
+    })
+    vi.mocked(sendTenantEmail).mockResolvedValue({ id: 'em_fallback' })
+
+    const result = await executeSendEmailTemplate(
+      {
+        template_id: 'tpl-1',
+        to: 'a@example.com',
+        variables: { contact: { first_name: 'Ana' } },
+      },
+      ORG_ID,
+      supabase,
+    )
+
+    expect(sendTenantEmail).toHaveBeenCalledWith(
+      ORG_ID,
+      'a@example.com',
+      'Stored Subject Ana',
+      expect.any(String),
+      undefined,
+      expect.objectContaining({ kind: 'marketing' }),
+    )
+    expect(result).toContain('em_fallback')
+  })
+
+  it('also falls back when params.subject is present but blank', async () => {
+    const supabase = makeSupabase({
+      data: makeTemplateRow({ subject_line: 'Stored Subject' }),
+      error: null,
+    })
+    vi.mocked(sendTenantEmail).mockResolvedValue({ id: 'em_blank' })
+
+    await executeSendEmailTemplate(
+      { template_id: 'tpl-1', to: 'a@example.com', subject: '   ' },
+      ORG_ID,
+      supabase,
+    )
+
+    expect(sendTenantEmail).toHaveBeenCalledWith(
+      ORG_ID, 'a@example.com', 'Stored Subject', expect.any(String), undefined, expect.anything(),
+    )
+  })
+
+  it('prefers params.subject over the template\'s stored subject_line', async () => {
+    const supabase = makeSupabase({
+      data: makeTemplateRow({ subject_line: 'Stored Subject' }),
+      error: null,
+    })
+    vi.mocked(sendTenantEmail).mockResolvedValue({ id: 'em_override' })
+
+    await executeSendEmailTemplate(
+      { template_id: 'tpl-1', to: 'a@example.com', subject: 'Override Subject' },
+      ORG_ID,
+      supabase,
+    )
+
+    expect(sendTenantEmail).toHaveBeenCalledWith(
+      ORG_ID, 'a@example.com', 'Override Subject', expect.any(String), undefined, expect.anything(),
+    )
   })
 
   it('rejects an invalid "kind" value', async () => {
