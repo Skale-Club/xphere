@@ -271,6 +271,49 @@ ${sectionHtml}
   return { html, plainText }
 }
 
+// ─── Signature fragment renderer ──────────────────────────────────────────────
+
+/**
+ * Render an email-signature `EmailDocument` as a self-contained HTML *fragment*
+ * — no `<!DOCTYPE>`, `<html>`, `<head>`, `<style>`, preheader, page background
+ * or white "card" wrapper that `renderTemplate` emits. A signature is appended
+ * to an existing email body and pasted into a Gmail/Outlook compose window, so
+ * it must survive HTML sanitization that strips `<style>`/classes: everything
+ * here is table-based with 100% inline CSS (the per-button MSO/VML fallback in
+ * `renderButtonBlock` still applies and is harmless in clients that strip
+ * conditional comments).
+ *
+ * `contentWidth` defaults narrower than a full email (signatures aren't 600px
+ * banners) but is width-capped rather than fixed so it never stretches a
+ * compose window. Returns the same `{ html, plainText }` contract as
+ * `renderTemplate` so the plain-text part can be reused for text/* bodies and
+ * "copy as text".
+ */
+export function renderSignatureFragment(
+  document: EmailDocument | Record<string, unknown>,
+): {
+  html: string
+  plainText: string
+} {
+  const doc = document as EmailDocument
+  const width = doc.contentWidth ?? 500
+  const fontFamily = doc.fontFamily ?? 'Arial, sans-serif'
+  const sections = doc.sections ?? []
+
+  const sectionHtml = sections.map((s) => renderSection(s, fontFamily, width)).join('\n')
+  const plainText = extractPlainText(sections)
+
+  const html = `<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="${width}" style="max-width:${width}px;width:100%;font-family:${escAttr(fontFamily)};">
+  <tr>
+    <td>
+${sectionHtml}
+    </td>
+  </tr>
+</table>`
+
+  return { html, plainText }
+}
+
 // ─── Section renderer ─────────────────────────────────────────────────────────
 
 function renderSection(section: EmailSection, fontFamily: string, contentWidth: number): string {

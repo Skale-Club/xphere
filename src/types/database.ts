@@ -102,6 +102,20 @@ export interface TenantEmailIntegrationRow {
   updated_at: string
 }
 
+// migration 1248: per-org HTML email signature library
+export interface EmailSignatureRow {
+  id: string
+  org_id: string
+  name: string
+  document: Record<string, unknown>
+  html_snapshot: string | null
+  plain_text_snapshot: string | null
+  is_default: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface InboundEmailRouteRow {
   id: string
   org_id: string
