@@ -4,6 +4,8 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { EmailDocument } from '@/lib/email/render-template'
 import { renderTemplate } from '@/lib/email/render-template'
+import { validateEmailDocument, validateSectionFragment } from '@/lib/email/schema'
+import { sanitizeEmailDocument, sanitizeBlocks } from '@/lib/email/sanitize'
 import type { Json } from '@/types/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -110,7 +112,11 @@ export async function saveTemplate(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const { html, plainText } = renderTemplate(document as EmailDocument)
+  const validated = validateEmailDocument(document)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const sanitized = sanitizeEmailDocument(validated.doc)
+
+  const { html, plainText } = renderTemplate(sanitized)
 
   const supabase = await createClient()
   const updatePayload: {
@@ -119,7 +125,7 @@ export async function saveTemplate(
     plain_text_snapshot: string
     name?: string
   } = {
-    document: document as Json,
+    document: sanitized as Json,
     html_snapshot: html,
     plain_text_snapshot: plainText,
   }
@@ -161,13 +167,20 @@ export async function publishTemplate(id: string): Promise<ActionResult<void>> {
     return { ok: false, error: 'empty_document' }
   }
 
+  const validated = validateEmailDocument(doc)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const sanitized = sanitizeEmailDocument(validated.doc)
+
   // Refresh the snapshot so the published HTML matches the current document.
-  const { html, plainText } = renderTemplate(doc)
+  // Also write back the sanitized document — this is the one path that
+  // guarantees a legacy (pre-hardening) stored document gets cleaned up.
+  const { html, plainText } = renderTemplate(sanitized)
 
   const { error } = await supabase
     .from('email_templates')
     .update({
       status: 'published',
+      document: sanitized as Json,
       html_snapshot: html,
       plain_text_snapshot: plainText,
     })
@@ -261,6 +274,10 @@ export async function saveSectionTemplate(
 
   if (!name.trim()) return { ok: false, error: 'name_required' }
 
+  const validated = validateSectionFragment(document)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const sanitizedDoc = { ...validated.doc, blocks: sanitizeBlocks(validated.doc.blocks) }
+
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
@@ -271,7 +288,7 @@ export async function saveSectionTemplate(
       org_id: orgId as string,
       name: name.trim(),
       section_type: 'custom',
-      document: document as Json,
+      document: sanitizedDoc as Json,
     })
 
   if (error) return { ok: false, error: error.message }
@@ -393,8 +410,12 @@ export async function updateSectionTemplate(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
+  const validated = validateSectionFragment(document)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  const sanitizedDoc = { ...validated.doc, blocks: sanitizeBlocks(validated.doc.blocks) }
+
   const supabase = await createClient()
-  const patch: { document: Json; name?: string } = { document: document as Json }
+  const patch: { document: Json; name?: string } = { document: sanitizedDoc as Json }
   if (name !== undefined) patch.name = name.trim()
 
   const { error } = await supabase
