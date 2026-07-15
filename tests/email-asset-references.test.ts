@@ -72,6 +72,71 @@ describe('isOrphanedAsset', () => {
   })
 })
 
+// Opus validator follow-ups: regression tests for the two flagged tricky
+// edges of the `haystack.includes(path)` matcher. See the SANITIZER
+// CONTRACT block in src/lib/email/asset-references.ts for the full
+// rationale.
+describe('flagged edge: URL-encoding vs stored object name', () => {
+  // Same regex as src/app/api/email-templates/upload/route.ts:71 — the
+  // contract that makes substring matching deletion-safe.
+  function sanitizeLikeUploadRoute(rawName: string): string {
+    return rawName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200)
+  }
+
+  it('sanitized names are URL-encoding-invariant, so a referenced asset is KEPT (fails safe)', () => {
+    // A filename full of characters that WOULD percent-encode…
+    const rawName = 'my logo (final) éàü 100%.png'
+    const safeName = sanitizeLikeUploadRoute(rawName)
+
+    // …cannot survive the upload sanitizer: everything outside
+    // [a-zA-Z0-9._-] (all URL-unreserved chars) becomes "_", so the
+    // stored name IS its own URL form. This assertion is the contract.
+    expect(encodeURIComponent(safeName)).toBe(safeName)
+
+    const path = `org1/123-${safeName}`
+    const haystack = `https://x.supabase.co/storage/v1/object/public/email-assets/${path}`
+    expect(isOrphanedAsset({ path, createdAt: TEN_DAYS_AGO }, haystack, NOW)).toBe(false)
+  })
+
+  it('TRIPWIRE: a %-encoded reference does NOT match a raw stored name — unreachable today, over-deletes if the sanitizer is ever loosened', () => {
+    // This input cannot exist in production while the upload sanitizer
+    // holds (a stored name can never contain a space). If the sanitizer
+    // is loosened (spaces/unicode allowed), a document referencing the
+    // encoded public URL would diverge from the raw stored name, the
+    // includes() matcher would miss it, and a REFERENCED asset would be
+    // classified as an orphan — the unsafe direction. When that happens,
+    // switch the matcher to exact URL comparison and flip this
+    // assertion deliberately.
+    const candidate: OrphanCandidate = { path: 'org1/123-my file.png', createdAt: TEN_DAYS_AGO }
+    const haystack =
+      'https://x.supabase.co/storage/v1/object/public/email-assets/org1/123-my%20file.png'
+    expect(isOrphanedAsset(candidate, haystack, NOW)).toBe(true)
+  })
+})
+
+describe('flagged edge: substring overlap (abc.png vs abc.png.bak)', () => {
+  it('KEEPS abc.png when only abc.png.bak is referenced (substring over-keep — the safe false-positive)', () => {
+    // The candidate's path is a substring of the referenced longer path,
+    // so includes() reports it as referenced. Over-keeping, never
+    // over-deleting.
+    const candidate: OrphanCandidate = { path: 'org1/abc.png', createdAt: TEN_DAYS_AGO }
+    const haystack =
+      '<img src="https://x.supabase.co/storage/v1/object/public/email-assets/org1/abc.png.bak">'
+    expect(isOrphanedAsset(candidate, haystack, NOW)).toBe(false)
+  })
+
+  it('treats abc.png.bak as an orphan when only abc.png is referenced (genuinely unreferenced — correct deletion)', () => {
+    // The reverse direction is NOT a false positive: a reference to the
+    // shorter abc.png does not protect an unreferenced .bak sibling.
+    // includes() only keeps an object when the haystack contains its
+    // FULL path, so the longer name is correctly swept.
+    const candidate: OrphanCandidate = { path: 'org1/abc.png.bak', createdAt: TEN_DAYS_AGO }
+    const haystack =
+      '<img src="https://x.supabase.co/storage/v1/object/public/email-assets/org1/abc.png">'
+    expect(isOrphanedAsset(candidate, haystack, NOW)).toBe(true)
+  })
+})
+
 describe('partitionOrphanAssets', () => {
   it('splits candidates into toDelete (orphaned+old) and toKeep (everything else)', () => {
     const candidates: OrphanCandidate[] = [

@@ -13,6 +13,29 @@
  * matching against a stringified blob of every document/snapshot is robust
  * to shape changes.
  *
+ * SANITIZER CONTRACT — why `haystack.includes(path)` is deletion-safe:
+ * the upload route sanitizes every filename to [a-zA-Z0-9._-] before
+ * storing it (src/app/api/email-templates/upload/route.ts:71 — the
+ * `safeName` replace), so a stored object name can never contain a
+ * character that URL-encoding would rewrite. The path as listed from
+ * Storage is therefore always byte-identical to the path embedded in the
+ * asset's public URL inside documents/snapshots. If that sanitizer is
+ * ever loosened (spaces, unicode, `%` …), an object named `my file.png`
+ * would be referenced as `my%20file.png` in URLs, `includes()` would
+ * miss it, and this matcher would wrongly classify a referenced asset as
+ * an orphan — it must then switch to exact URL comparison (encode the
+ * listed path the same way the public URL does before matching).
+ * Substring matching errs toward over-KEEPING, which is the safe
+ * direction: a reference to the longer `abc.png.bak` also (incidentally)
+ * keeps a sibling object named `abc.png`, because `abc.png` is a
+ * substring of the referenced path. The reverse cannot over-delete
+ * relative to exact matching: `abc.png.bak` is kept only when the
+ * haystack contains the full `abc.png.bak` string — a reference to just
+ * `abc.png` does not protect a `.bak` copy, and an unreferenced `.bak`
+ * copy is a true orphan. Over-keeping is acceptable; over-deleting is
+ * not. Regression tests for both edges live in
+ * tests/email-asset-references.test.ts.
+ *
  * The route (src/app/api/email-templates/assets/cleanup/route.ts) owns all
  * I/O: listing the bucket, querying the two tables, and calling remove().
  */

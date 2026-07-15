@@ -1,8 +1,11 @@
 'use client'
 
 // @deprecated Legacy /email-marketing system, retired in favor of the
-// block-based builder at /settings/email-templates. Kept for existing
-// data only — do not build new features against this. See
+// block-based builder at /settings/email-templates. Dead code — unreachable
+// now that every /email-marketing route redirects. Retained deliberately
+// during the deprecation window; scheduled for deletion once production
+// data confirms no org used the legacy system. Do not build new features
+// against this. See
 // .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
 
 import { useState } from 'react'
