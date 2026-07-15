@@ -2,39 +2,34 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import type { EmailDocument, EmailBlock } from '@/lib/email/render-template'
-import { makeBlockId } from '@/lib/email/render-template'
+import type { EmailDocument } from '@/lib/email/render-template'
+import { normalizeSectionTemplateDoc } from '@/lib/email/render-template'
 import { EmailTemplateEditor } from './email-template-editor'
 import { updateSectionTemplate, updateSectionTemplateType } from '../actions'
 import type { EmailTemplateBuilderRow, SectionTemplate } from '../actions'
 
 /**
- * Standalone editor for a section template (email_section_templates). Wraps the
- * flat `{ blocks }` fragment as a single 1-column section so the full block
- * editor can drive it, and on save flattens the columns back to `{ blocks }`.
- * Runs the shared EmailTemplateEditor in `variant="section"` (no publish,
- * add-section, or section chrome). The section_type is edited inline via the
- * toolbar selector (persisted immediately, independent of the document Save).
+ * Standalone editor for a section template (email_section_templates). Wraps
+ * the stored `{ section }` document (upgrade-on-read from any legacy
+ * `{ blocks }` row via normalizeSectionTemplateDoc) as a single-section
+ * document so the full block editor can drive it — including the section's
+ * own layout/background/padding, which now round-trip intact (Phase 3; the
+ * legacy flatten-to-blocks-on-save lost them). Runs the shared
+ * EmailTemplateEditor in `variant="section"` (no publish, add-section, or
+ * section chrome). The section_type is edited inline via the toolbar
+ * selector (persisted immediately, independent of the document Save).
  */
 export function SectionTemplateEditor({ sectionTemplate }: { sectionTemplate: SectionTemplate }) {
   const [sectionType, setSectionType] = useState(sectionTemplate.section_type)
   const [, startTransition] = useTransition()
 
   const syntheticRow: EmailTemplateBuilderRow = useMemo(() => {
-    const blocks = (sectionTemplate.document as { blocks?: EmailBlock[] }).blocks ?? []
+    const { section } = normalizeSectionTemplateDoc(sectionTemplate.document)
     const doc: EmailDocument = {
       backgroundColor: '#f0f0f0',
       contentWidth: 600,
       fontFamily: 'Arial, Helvetica, sans-serif',
-      sections: [
-        {
-          id: makeBlockId(),
-          layout: 1,
-          backgroundColor: '#ffffff',
-          padding: { top: 16, right: 24, bottom: 16, left: 24 },
-          columns: [blocks],
-        },
-      ],
+      sections: [section],
     }
     return {
       id: sectionTemplate.id,
@@ -42,6 +37,10 @@ export function SectionTemplateEditor({ sectionTemplate }: { sectionTemplate: Se
       name: sectionTemplate.name,
       description: null,
       status: 'draft',
+      // Section templates have no subject/preview — not applicable outside
+      // the full template editor (variant='template' hides those fields).
+      subject_line: '',
+      preview_text: '',
       document: doc,
       html_snapshot: null,
       plain_text_snapshot: null,
@@ -71,8 +70,12 @@ export function SectionTemplateEditor({ sectionTemplate }: { sectionTemplate: Se
         })
       }}
       onSaveDocument={async (doc, name) => {
-        const blocks = doc.sections.flatMap((s) => s.columns.flat())
-        return updateSectionTemplate(sectionTemplate.id, { blocks }, name)
+        // variant='section' never adds/removes sections (no add-section bar,
+        // no section chrome), so doc.sections always has exactly the one
+        // section this editor was seeded with.
+        const section = doc.sections[0]
+        if (!section) return { ok: false, error: 'Section is empty' }
+        return updateSectionTemplate(sectionTemplate.id, { section }, name)
       }}
     />
   )
