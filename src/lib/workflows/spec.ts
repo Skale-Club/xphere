@@ -844,8 +844,11 @@ export const NODES: NodeSpec[] = [
     kind: 'action',
     description:
       'Send a builder email template (from Email Templates) to a recipient, with ' +
-      'merge-tag personalization. Loads the template html_snapshot, fills {{variables}} ' +
-      'from the provided variables object, and sends via the platform Resend settings.',
+      'merge-tag personalization. Loads the template html_snapshot/plain_text_snapshot, fills ' +
+      '{{variables}} from the provided variables object, and sends via the org\'s tenant Resend ' +
+      "integration (sendTenantEmail) — honouring the unsubscribe suppression list and, for " +
+      "kind:'marketing' (the default), adding the compliance footer and List-Unsubscribe headers. " +
+      'The template must be published unless allow_draft is set.',
     // Org-gated: only appears in the spec when the org has Resend/email connected.
     integration_required: ['resend'],
     params_schema: {
@@ -858,14 +861,25 @@ export const NODES: NodeSpec[] = [
         to: { type: 'string', description: 'Recipient email address.' },
         subject: {
           type: 'string',
-          description: 'Subject line; supports {{variables}}. Falls back to the template name.',
+          description: 'Required. Subject line; supports {{variables}}. No fallback — the send fails without it.',
         },
         variables: {
           type: 'object',
           description: 'Merge-tag values, e.g. { "contact": { "first_name": "Ana" } }. Fills {{contact.first_name}} etc.',
         },
+        kind: {
+          type: 'string',
+          enum: ['marketing', 'transactional'],
+          description:
+            "Default: 'marketing' (suppression list honoured, compliance footer + one-click unsubscribe added). " +
+            "Pass 'transactional' as an explicit escape hatch for non-marketing sends (receipts, confirmations).",
+        },
+        allow_draft: {
+          type: 'boolean',
+          description: 'Send an unpublished (draft) template. Default false — unpublished templates are rejected.',
+        },
       },
-      required: ['template_id', 'to'],
+      required: ['template_id', 'to', 'subject'],
     },
     examples: [
       {

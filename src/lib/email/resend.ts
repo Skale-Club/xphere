@@ -74,7 +74,8 @@ function escapeHtml(s: string): string {
 export async function sendPlatformEmail(
   to: string,
   subject: string,
-  html: string
+  html: string,
+  text?: string
 ): Promise<{ id?: string; error?: string }> {
   try {
     const supabase = createServiceRoleClient()
@@ -103,7 +104,13 @@ export async function sendPlatformEmail(
     const fromName = settings.default_from_name ?? 'Xphere'
     const from = `${fromName} <${fromEmail}>`
 
-    const { data, error } = await resend.emails.send({ from, to, subject, html })
+    const { data, error } = await resend.emails.send({
+      from,
+      to,
+      subject,
+      html,
+      ...(text ? { text } : {}),
+    })
 
     if (error) {
       console.error('[sendPlatformEmail] Resend error:', error)
@@ -130,7 +137,7 @@ export async function sendTenantEmail(
   subject: string,
   html: string,
   replyTo?: string,
-  opts?: { kind?: EmailKind }
+  opts?: { kind?: EmailKind; text?: string }
 ): Promise<{ id?: string; error?: string; skipped?: boolean }> {
   try {
     const kind: EmailKind = opts?.kind ?? 'transactional'
@@ -204,6 +211,7 @@ export async function sendTenantEmail(
       to,
       subject,
       html: finalHtml,
+      ...(opts?.text ? { text: opts.text } : {}),
       ...(resolvedReplyTo ? { reply_to: resolvedReplyTo } : {}),
       ...(headers ? { headers } : {}),
     })
