@@ -3,7 +3,7 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { EmailDocument } from '@/lib/email/render-template'
-import { renderTemplate } from '@/lib/email/render-template'
+import { renderTemplate, normalizeDocument } from '@/lib/email/render-template'
 import { validateEmailDocument, validateSectionFragment } from '@/lib/email/schema'
 import { sanitizeEmailDocument, sanitizeBlocks } from '@/lib/email/sanitize'
 import type { Json } from '@/types/database'
@@ -161,9 +161,13 @@ export async function publishTemplate(id: string): Promise<ActionResult<void>> {
   if (fetchError || !current) return { ok: false, error: fetchError?.message ?? 'not_found' }
 
   // Light pre-publish validation: must have a name and at least one section.
-  const doc = (current.document ?? {}) as EmailDocument
+  // normalizeDocument runs BEFORE schema validation: legacy rows (saved before
+  // Phase 118 / before this hardening) have blocks and sections without ids,
+  // which the zod schema would otherwise reject with a cryptic "id: Required".
+  // Normalizing also backfills those ids permanently on publish.
+  const doc = normalizeDocument(current.document ?? {})
   if (!current.name?.trim()) return { ok: false, error: 'name_required' }
-  if (!Array.isArray(doc.sections) || doc.sections.length === 0) {
+  if (doc.sections.length === 0) {
     return { ok: false, error: 'empty_document' }
   }
 

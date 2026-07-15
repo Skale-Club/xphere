@@ -124,7 +124,10 @@ const blockSchema = z.discriminatedUnion('blockType', [
 const sectionSchema = z
   .object({
     id: z.string(),
-    layout: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    // Optional for legacy tolerance: sections saved before the layout field
+    // existed have none, and the renderer defaults absent layout to 1. When
+    // present it must be exactly 1, 2, or 3.
+    layout: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     backgroundColor: z.string().optional(),
     backgroundImage: z.string().max(MAX_CONTENT_BYTES).optional(),
     verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),

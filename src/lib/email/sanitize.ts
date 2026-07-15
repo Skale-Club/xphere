@@ -140,14 +140,20 @@ export function sanitizeUrl(value: string | undefined | null): string {
   const trimmed = String(value).trim()
   if (!trimmed) return trimmed
 
-  if (MERGE_TAG_RE.test(trimmed)) return trimmed
-
-  // Strip embedded whitespace (space/tab/newline/etc, including obscure
-  // unicode spaces matched by \s) that can be used to obfuscate a dangerous
-  // scheme — e.g. "java\tscript:" — before testing. Also test the raw value
-  // in case stripping changes something incidentally.
+  // Dangerous-scheme guard runs FIRST — before the merge-tag exemption —
+  // so "javascript:alert(1)//{{contact.id}}" can't smuggle an executable
+  // scheme past the filter by embedding a merge tag. Strip embedded
+  // whitespace (space/tab/newline/etc, including obscure unicode spaces
+  // matched by \s) that can be used to obfuscate a scheme — e.g.
+  // "java\tscript:" — before testing. Also test the raw value in case
+  // stripping changes something incidentally.
   const collapsed = trimmed.replace(/\s+/g, '')
   if (DANGEROUS_SCHEME_RE.test(collapsed) || DANGEROUS_SCHEME_RE.test(trimmed)) return ''
+
+  // Merge-tag exemption: a value containing {{...}} with a non-dangerous
+  // (or absent) scheme passes through — merge tags are resolved at send
+  // time and typically have no parseable scheme (e.g. "{{contact.website}}").
+  if (MERGE_TAG_RE.test(trimmed)) return trimmed
 
   const scheme = detectScheme(collapsed) ?? detectScheme(trimmed)
   if (!scheme) return trimmed // relative URL — no scheme, nothing to execute

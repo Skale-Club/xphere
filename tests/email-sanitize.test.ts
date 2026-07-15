@@ -10,6 +10,7 @@ import { validateEmailDocument, validateSectionFragment } from '@/lib/email/sche
 import {
   BLOCK_DEFAULTS,
   makeBlockId,
+  normalizeDocument,
   type EmailDocument,
   type TextBlock,
   type HeadingBlock,
@@ -134,7 +135,17 @@ describe('sanitizeUrl', () => {
 
   it('preserves values containing {{ merge }} tags', () => {
     expect(sanitizeUrl('{{unsubscribe_url}}')).toBe('{{unsubscribe_url}}')
+    expect(sanitizeUrl('{{contact.website}}')).toBe('{{contact.website}}')
     expect(sanitizeUrl('https://xphere.app/u/{{contact.id}}')).toBe('https://xphere.app/u/{{contact.id}}')
+    expect(sanitizeUrl('https://x.com?u={{contact.id}}')).toBe('https://x.com?u={{contact.id}}')
+  })
+
+  it('rejects a dangerous scheme even when the value contains a merge tag (bypass regression)', () => {
+    expect(sanitizeUrl('javascript:alert(1)//{{contact.id}}')).toBe('')
+    expect(sanitizeUrl('javascript:alert(document.cookie)//{{contact.id}}')).toBe('')
+    expect(sanitizeUrl('data:text/html,{{contact.id}}')).toBe('')
+    expect(sanitizeUrl('vbscript:msgbox(1)//{{contact.id}}')).toBe('')
+    expect(sanitizeUrl('java\tscript:alert(1)//{{contact.id}}')).toBe('')
   })
 
   it('passes through relative/schemeless values', () => {
@@ -285,6 +296,34 @@ describe('validateEmailDocument', () => {
     })
     expect(result.ok).toBe(true)
     if (result.ok) expect((result.doc as Record<string, unknown>).someFutureField).toBe('kept')
+  })
+
+  it('accepts a section without layout (legacy tolerance — renderer defaults to 1)', () => {
+    const result = validateEmailDocument({
+      sections: [
+        { id: 's1', columns: [[{ id: 'b1', blockType: 'text', content: 'hi' }]] },
+      ],
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('legacy document (no section/block ids) passes after normalizeDocument (publish ordering regression)', () => {
+    // As stored in the DB before Phase 118: no ids anywhere.
+    const legacy = {
+      backgroundColor: '#f0f0f0',
+      sections: [
+        {
+          layout: 1,
+          columns: [[{ blockType: 'text', content: 'legacy' }]],
+        },
+      ],
+    }
+    // Raw legacy shape fails the schema (section id missing)...
+    expect(validateEmailDocument(legacy).ok).toBe(false)
+    // ...but publishTemplate normalizes first, which backfills ids in memory.
+    const normalized = normalizeDocument(legacy)
+    const result = validateEmailDocument(normalized)
+    expect(result.ok).toBe(true)
   })
 })
 
