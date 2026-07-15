@@ -64,7 +64,7 @@ const navItems = [
   { icon: CheckSquare, label: 'Tasks', href: '/tasks', active: true },
   { icon: FileText, label: 'Notes', href: '/notes', active: true },
   { icon: CalendarDays, label: 'Calendar', href: '/calendar', active: true },
-  { icon: Mail, label: 'Email', href: '/email-marketing', active: true },
+  { icon: Mail, label: 'Email', href: '/settings/email-templates', active: true },
   { icon: Sparkles, label: 'Copilot', href: '/copilot/conversations', active: true },
   { icon: Star, label: 'Reviews', href: '/reviews', active: true },
 ]

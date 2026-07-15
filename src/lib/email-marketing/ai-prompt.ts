@@ -1,3 +1,9 @@
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates (own AI generation via
+// /api/email-templates/generate). Kept for existing components/data only —
+// do not build new features against this. See
+// .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+//
 // System prompt and schema for AI email generation via Anthropic.
 
 export const EMAIL_SYSTEM_PROMPT = `You are an expert email marketing copywriter and HTML developer.

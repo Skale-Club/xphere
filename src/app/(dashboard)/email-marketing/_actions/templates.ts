@@ -1,5 +1,14 @@
 'use server'
 
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates
+// (src/app/(dashboard)/email-templates/actions.ts). Dead code — its only
+// callers (src/components/email-marketing/*) are themselves unreachable now
+// that every /email-marketing route redirects. Retained deliberately during
+// the deprecation window; scheduled for deletion once production data
+// confirms no org used the legacy system. Do not build new features against
+// this. See .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'

@@ -1,5 +1,13 @@
 'use client'
 
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates (own AI generation via
+// /api/email-templates/generate). Dead code — unreachable now that every
+// /email-marketing route redirects. Retained deliberately during the
+// deprecation window; scheduled for deletion once production data confirms
+// no org used the legacy system. Do not build new features against this.
+// See .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'

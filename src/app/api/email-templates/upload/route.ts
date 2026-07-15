@@ -17,6 +17,7 @@
 import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { checkUploadQuota } from '@/lib/email/upload-quota'
 
 export const runtime = 'nodejs'
 
@@ -75,6 +76,28 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const adminClient = createServiceRoleClient()
+
+    // Per-org quota (Finding #8): cap object count and cumulative bytes so a
+    // single org can't unbounded-grow the shared public bucket.
+    // Invariant: this single list({ limit: 1000 }) page is only correct while
+    // MAX_UPLOAD_OBJECTS (500) < 1000 — raising the cap past the page size
+    // requires paginating here.
+    const { data: existing, error: listError } = await adminClient.storage
+      .from('email-assets')
+      .list(orgId, { limit: 1000 })
+
+    if (listError) {
+      console.error('[email-templates/upload] Quota list error:', listError.message)
+      return Response.json({ error: 'Upload failed' }, { status: 500 })
+    }
+
+    const quota = checkUploadQuota(
+      (existing ?? []).map((obj) => ({ sizeBytes: obj.metadata?.size ?? 0 })),
+    )
+    if (!quota.ok) {
+      return Response.json({ error: quota.error }, { status: 400 })
+    }
+
     const { error } = await adminClient.storage
       .from('email-assets')
       .upload(path, buffer, {
