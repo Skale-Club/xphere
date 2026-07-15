@@ -8,9 +8,16 @@
 name: send_email_template
 description: |
   Sends a builder email template (from Email Templates) to a recipient, with
-  merge-tag personalization. Provide the template_id, the recipient email, an
-  optional subject, and a variables object used to fill {{contact.first_name}}-style
-  tokens in the template and subject.
+  merge-tag personalization, via the org's tenant Resend integration —
+  honouring the unsubscribe suppression list and adding the compliance
+  footer + List-Unsubscribe headers (this platform-default tool always sends
+  as kind:'marketing'; the executor's 'transactional' escape hatch isn't
+  reachable through a flat node config, since `kind` is the node's own
+  type-discriminator key — use the send_tenant_email tool directly for a
+  transactional send). Provide the template_id, the recipient email, a
+  required subject, and a variables object used to fill
+  {{contact.first_name}}-style tokens in the template and subject. The
+  template must be published unless allow_draft is set.
 trigger:
   type: tool_call
   config:
@@ -26,11 +33,15 @@ trigger:
         required: true
       subject:
         type: string
-        description: Subject line; supports {{variables}}. Falls back to the template name.
-        required: false
+        description: Subject line; supports {{variables}}. Required — the send fails without it.
+        required: true
       variables:
         type: object
         description: 'Merge-tag values, e.g. { contact: { first_name: "Ana" } }.'
+        required: false
+      allow_draft:
+        type: boolean
+        description: Send an unpublished (draft) template. Default false.
         required: false
 
 nodes:
@@ -40,6 +51,7 @@ nodes:
     to: "{{input.to}}"
     subject: "{{input.subject}}"
     variables: "{{input.variables}}"
+    allow_draft: "{{input.allow_draft}}"
 
 edges:
   - from: trigger
