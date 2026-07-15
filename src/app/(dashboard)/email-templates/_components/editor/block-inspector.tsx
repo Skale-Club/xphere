@@ -1,11 +1,13 @@
 'use client'
 
+import { useRef } from 'react'
 import type {
   EmailBlock, TextBlock, HeadingBlock, ImageBlock,
   ButtonBlock, DividerBlock, SpacerBlock, HtmlBlock, Align,
 } from '@/lib/email/render-template'
 import { BLOCK_TYPE_LABEL } from './registry'
 import { ImageUploader } from './image-uploader'
+import { MergeTagPicker, insertTokenAtCursor } from './merge-tag-picker'
 import {
   InspectorGroup, Field, ColorControl, NumberControl, SliderControl,
   AlignControl, SpacingControl, SelectControl, TextControl, SegmentedControl,
@@ -60,11 +62,28 @@ function renderInspector(block: EmailBlock, onUpdate: (u: Partial<EmailBlock>) =
 
 // ─── Text ────────────────────────────────────────────────────────────────────────
 
+/** Text/heading `content` is HTML edited via the canvas's contentEditable —
+ *  there's no plain text field in the inspector to place a cursor in, so
+ *  merge-tag insertion here appends the token to the end of `content`
+ *  instead of the cursor-aware insert used for <input>-backed fields below.
+ *  Documented tradeoff (Phase 3 plan): simple, always-correct, but the user
+ *  may need to drag the token into place afterward. */
+function appendMergeTag(block: { content: string }, token: string): string {
+  const trimmed = block.content?.trimEnd() ?? ''
+  return trimmed ? `${trimmed} ${token}` : token
+}
+
 function TextInspector({ block, onUpdate }: { block: TextBlock; onUpdate: (u: Partial<TextBlock>) => void }) {
   return (
     <>
       <InspectorGroup title="Typography">
-        <p className="text-[10px] text-muted-foreground">Edit the text directly on the canvas.</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] text-muted-foreground">Edit the text directly on the canvas.</p>
+          <MergeTagPicker
+            title="Append a merge tag to this block"
+            onInsert={(token) => onUpdate({ content: appendMergeTag(block, token) })}
+          />
+        </div>
         <Field label="Size">
           <NumberControl value={block.fontSize ?? 15} min={8} max={64} unit="px" onChange={(v) => onUpdate({ fontSize: v })} />
         </Field>
@@ -87,7 +106,13 @@ function TextInspector({ block, onUpdate }: { block: TextBlock; onUpdate: (u: Pa
 function HeadingInspector({ block, onUpdate }: { block: HeadingBlock; onUpdate: (u: Partial<HeadingBlock>) => void }) {
   return (
     <InspectorGroup title="Heading">
-      <p className="text-[10px] text-muted-foreground">Edit the heading directly on the canvas.</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] text-muted-foreground">Edit the heading directly on the canvas.</p>
+        <MergeTagPicker
+          title="Append a merge tag to this block"
+          onInsert={(token) => onUpdate({ content: appendMergeTag(block, token) })}
+        />
+      </div>
       <Field label="Level">
         <SegmentedControl<string>
           value={String(block.level ?? 2)}
@@ -118,6 +143,7 @@ function ImageInspector({ block, onUpdate }: { block: ImageBlock; onUpdate: (u: 
   const widthMode: 'full' | 'custom' =
     block.width === undefined || block.width === '100%' || block.width === 'full' ? 'full' : 'custom'
   const customWidth = typeof block.width === 'number' ? block.width : 300
+  const linkRef = useRef<HTMLInputElement>(null)
 
   return (
     <>
@@ -127,7 +153,16 @@ function ImageInspector({ block, onUpdate }: { block: ImageBlock; onUpdate: (u: 
           <TextControl value={block.alt ?? ''} placeholder="Describe the image" onChange={(v) => onUpdate({ alt: v })} />
         </Field>
         <Field label="Link (on click)" stacked>
-          <TextControl value={block.link ?? ''} placeholder="https://…" onChange={(v) => onUpdate({ link: v })} />
+          <div className="flex items-center gap-1">
+            <TextControl ref={linkRef} value={block.link ?? ''} placeholder="https://…" onChange={(v) => onUpdate({ link: v })} />
+            <MergeTagPicker
+              onInsert={(token) => {
+                const { value, cursor } = insertTokenAtCursor(linkRef.current, block.link ?? '', token)
+                onUpdate({ link: value })
+                requestAnimationFrame(() => { linkRef.current?.focus(); linkRef.current?.setSelectionRange(cursor, cursor) })
+              }}
+            />
+          </div>
         </Field>
       </InspectorGroup>
       <InspectorGroup title="Layout">
@@ -160,14 +195,35 @@ function ImageInspector({ block, onUpdate }: { block: ImageBlock; onUpdate: (u: 
 // ─── Button ──────────────────────────────────────────────────────────────────────
 
 function ButtonInspector({ block, onUpdate }: { block: ButtonBlock; onUpdate: (u: Partial<ButtonBlock>) => void }) {
+  const labelRef = useRef<HTMLInputElement>(null)
+  const hrefRef = useRef<HTMLInputElement>(null)
+
   return (
     <>
       <InspectorGroup title="Button">
         <Field label="Label" stacked>
-          <TextControl value={block.label} onChange={(v) => onUpdate({ label: v })} />
+          <div className="flex items-center gap-1">
+            <TextControl ref={labelRef} value={block.label} onChange={(v) => onUpdate({ label: v })} />
+            <MergeTagPicker
+              onInsert={(token) => {
+                const { value, cursor } = insertTokenAtCursor(labelRef.current, block.label, token)
+                onUpdate({ label: value })
+                requestAnimationFrame(() => { labelRef.current?.focus(); labelRef.current?.setSelectionRange(cursor, cursor) })
+              }}
+            />
+          </div>
         </Field>
         <Field label="Link (URL)" stacked>
-          <TextControl value={block.href} placeholder="https://…" onChange={(v) => onUpdate({ href: v })} />
+          <div className="flex items-center gap-1">
+            <TextControl ref={hrefRef} value={block.href} placeholder="https://…" onChange={(v) => onUpdate({ href: v })} />
+            <MergeTagPicker
+              onInsert={(token) => {
+                const { value, cursor } = insertTokenAtCursor(hrefRef.current, block.href, token)
+                onUpdate({ href: value })
+                requestAnimationFrame(() => { hrefRef.current?.focus(); hrefRef.current?.setSelectionRange(cursor, cursor) })
+              }}
+            />
+          </div>
         </Field>
       </InspectorGroup>
       <InspectorGroup title="Style">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Copy, Trash2, ChevronUp, ChevronDown, ArrowUpLeft, Palette,
 } from 'lucide-react'
@@ -10,8 +10,9 @@ import { findBlockLocation } from '@/lib/email/editor-dnd'
 import { useEditor } from './context'
 import { BlockInspector } from './block-inspector'
 import { SectionInspector } from './section-inspector'
+import { MergeTagPicker, insertTokenAtCursor } from './merge-tag-picker'
 import {
-  InspectorGroup, Field, ColorControl, NumberControl, SelectControl, PanelToggleButton,
+  InspectorGroup, Field, ColorControl, NumberControl, SelectControl, TextControl, PanelToggleButton,
 } from './controls'
 
 const FONT_OPTIONS = [
@@ -154,7 +155,30 @@ function IconBtn({
 // ─── Document inspector ──────────────────────────────────────────────────────────
 
 function DocumentInspector({ onToggleCollapse }: { onToggleCollapse: () => void }) {
-  const { doc, setDoc } = useEditor()
+  const {
+    doc, setDoc, variant, subjectLine, previewText, setSubjectLine, setPreviewText,
+  } = useEditor()
+  const subjectRef = useRef<HTMLInputElement>(null)
+  const previewRef = useRef<HTMLInputElement>(null)
+
+  function insertIntoSubject(token: string) {
+    const { value, cursor } = insertTokenAtCursor(subjectRef.current, subjectLine, token)
+    setSubjectLine(value)
+    requestAnimationFrame(() => {
+      subjectRef.current?.focus()
+      subjectRef.current?.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  function insertIntoPreview(token: string) {
+    const { value, cursor } = insertTokenAtCursor(previewRef.current, previewText, token)
+    setPreviewText(value)
+    requestAnimationFrame(() => {
+      previewRef.current?.focus()
+      previewRef.current?.setSelectionRange(cursor, cursor)
+    })
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-1.5 border-b border-border px-3.5 py-2.5">
@@ -169,6 +193,25 @@ function DocumentInspector({ onToggleCollapse }: { onToggleCollapse: () => void 
           Select a block or section to edit it. These settings apply to the whole email.
         </p>
       </div>
+      {variant === 'template' && (
+        <InspectorGroup title="Email settings">
+          <Field label="Subject" stacked>
+            <div className="flex items-center gap-1">
+              <TextControl ref={subjectRef} value={subjectLine} placeholder="Subject line" onChange={setSubjectLine} />
+              <MergeTagPicker title="Insert merge tag into subject" onInsert={insertIntoSubject} />
+            </div>
+          </Field>
+          <Field label="Preview text" stacked>
+            <div className="flex items-center gap-1">
+              <TextControl ref={previewRef} value={previewText} placeholder="Inbox preview snippet" onChange={setPreviewText} />
+              <MergeTagPicker title="Insert merge tag into preview text" onInsert={insertIntoPreview} />
+            </div>
+          </Field>
+          <p className="text-[10px] text-muted-foreground">
+            Preview text shows as the inbox snippet next to the subject — it isn&apos;t rendered in the email body.
+          </p>
+        </InspectorGroup>
+      )}
       <InspectorGroup title="Canvas">
         <Field label="Background">
           <ColorControl value={doc.backgroundColor} fallback="#f0f0f0" onChange={(v) => setDoc((p) => ({ ...p, backgroundColor: v }))} />
