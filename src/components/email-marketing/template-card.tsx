@@ -1,5 +1,10 @@
 'use client'
 
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates. Kept for existing
+// data only — do not build new features against this. See
+// .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'

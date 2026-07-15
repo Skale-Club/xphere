@@ -1,3 +1,9 @@
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates (renderer:
+// src/lib/email/render-template.ts). Kept for existing components/data only —
+// do not build new features against this. See
+// .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+//
 // Assembles a complete email HTML document from a template and its ordered sections.
 
 export type RenderableTemplate = {

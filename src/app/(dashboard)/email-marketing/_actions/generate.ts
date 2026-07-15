@@ -1,5 +1,12 @@
 'use server'
 
+// @deprecated Legacy /email-marketing system, retired in favor of the
+// block-based builder at /settings/email-templates (own AI generation via
+// /api/email-templates/generate). Kept only because
+// src/components/email-marketing/* still call these actions for existing
+// data — do not build new features against this. See
+// .planning/workstreams/email-builder-hardening/PLAN.md Phase 5.
+
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
