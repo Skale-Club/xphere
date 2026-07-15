@@ -9,7 +9,7 @@
 //   story-reply context captured in metadata.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { normalizeInbound, emitProspectReplyEvent } from '@/lib/messaging/normalize-inbound'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
@@ -222,6 +222,12 @@ export async function processMetaEvent(payload: MetaWebhookPayload): Promise<voi
           message_type: messageType,
           metadata: messageMetadata,
         })
+
+        // Prospect-reply tracking: this handler doesn't resolve a contact_id
+        // at ingest (unlike Zernio/Evolution/WhatsApp), so this only fires
+        // when the conversation was already linked to a contact by some other
+        // path (e.g. manual assignment) — no new resolution logic added here.
+        void emitProspectReplyEvent(supabase, orgId, existing?.contact_id ?? null, channelType)
 
         // 4. 24h window check
         const lastInboundAt = existing?.last_inbound_at ? new Date(existing.last_inbound_at) : null

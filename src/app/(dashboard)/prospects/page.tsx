@@ -18,6 +18,7 @@ type SearchParams = {
   engagement?: string
   intent?: string
   qualification?: string
+  city?: string
   list?: string
   sort?: string
   page?: string
@@ -36,6 +37,7 @@ export default async function ProspectsPage({
     engagement: sp.engagement as CrmEngagementStatus | undefined,
     intent: sp.intent as CrmIntentLevel | undefined,
     qualification: sp.qualification as CrmQualificationStatus | undefined,
+    city: sp.city,
     listId: sp.list,
     sort: (sp.sort as ProspectSort) || 'recent',
     page: sp.page ? Math.max(1, parseInt(sp.page, 10) || 1) : 1,

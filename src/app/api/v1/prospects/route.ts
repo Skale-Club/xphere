@@ -22,7 +22,8 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { normalizePhoneToE164 } from '@/lib/phone-numbers/normalize'
 import { hasScope } from '@/lib/api-keys/scopes'
 import { runAnalysis } from '@/services/website-analyzer'
 import type { Json } from '@/types/database'
@@ -44,6 +45,9 @@ const prospectSchema = z.object({
   name: z.string().min(1).max(200).optional().nullable(),
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
+  // ISO 3166-1 alpha-2 (e.g. "US", "BR", "PT") — tells us how to read a bare
+  // national-format `phone` (no leading "+"). Falls back to `source.default_country`.
+  phone_country: z.string().length(2).optional().nullable(),
   company: z.string().max(200).optional().nullable(),
   domain: z.string().max(255).optional().nullable(),
   tags: z.array(z.string().min(1).max(60)).max(50).optional(),
@@ -64,6 +68,10 @@ const sourceSchema = z.object({
   key: z.string().max(60).optional(),
   label: z.string().max(200).optional(),
   external_run_id: z.string().max(200).optional(),
+  // ISO 3166-1 alpha-2 country for this whole run (e.g. a scrape run scoped
+  // to one country) — used as the phone_country fallback for every record
+  // in the batch that doesn't set its own.
+  default_country: z.string().length(2).optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -159,6 +167,7 @@ export async function POST(request: Request): Promise<Response> {
     .single()
 
   const runId = run?.id ?? null
+  const defaultCountry = source.default_country?.trim() || null
 
   // ── 4. Ingest each prospect ──────────────────────────────────────────────────
   const results: IngestOutcome[] = []
@@ -167,8 +176,8 @@ export async function POST(request: Request): Promise<Response> {
     try {
       const outcome =
         p.kind === 'company'
-          ? await ingestCompany(supabase, orgId, p, sourceType, runId)
-          : await ingestPerson(supabase, orgId, p, sourceType, runId)
+          ? await ingestCompany(supabase, orgId, p, sourceType, runId, defaultCountry)
+          : await ingestPerson(supabase, orgId, p, sourceType, runId, defaultCountry)
       if (outcome) {
         results.push(outcome)
         // Auto-trigger website analysis for newly created company prospects that have a domain
@@ -288,8 +297,9 @@ async function ingestPerson(
   p: Prospect,
   sourceType: string,
   runId: string | null,
+  defaultCountry: string | null,
 ): Promise<IngestOutcome | null> {
-  const phoneNorm = normalisePhone(p.phone)
+  const phoneNorm = normalizePhoneToE164(p.phone, p.phone_country ?? defaultCountry)
   const emailNorm = normaliseEmail(p.email)
   const sourceId = p.source_id?.trim() || null
 
@@ -386,10 +396,12 @@ async function ingestCompany(
   p: Prospect,
   sourceType: string,
   runId: string | null,
+  defaultCountry: string | null,
 ): Promise<IngestOutcome | null> {
   const name = (p.name ?? p.company)?.trim() || null
   const domain = p.domain?.trim() || null
   const sourceId = p.source_id?.trim() || null
+  const phoneCountry = p.phone_country ?? defaultCountry
 
   if (!name && !domain && !sourceId) return null
 
@@ -432,7 +444,7 @@ async function ingestCompany(
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (name) patch.name = name
     if (domain) patch.domain = domain
-    if (p.phone) patch.phone = normalisePhone(p.phone)
+    if (p.phone) patch.phone = normalizePhoneToE164(p.phone, phoneCountry)
     if (p.tags?.length) patch.tags = p.tags
     if (p.intent_level) patch.intent_level = p.intent_level
     if (p.qualification_status) patch.qualification_status = p.qualification_status
@@ -453,7 +465,7 @@ async function ingestCompany(
       name: name ?? 'Untitled company',
       domain,
       website: websiteFromCustomFields,
-      phone: normalisePhone(p.phone),
+      phone: normalizePhoneToE164(p.phone, phoneCountry),
       tags: p.tags ?? [],
       source: 'manual',
       lifecycle_stage: 'prospect',

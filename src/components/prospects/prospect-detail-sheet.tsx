@@ -5,6 +5,7 @@ import {
   Activity,
   Building2,
   CheckCircle2,
+  Copy,
   ExternalLink,
   Gauge,
   Globe,
@@ -35,13 +36,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 function statusLabel(value: string): string {
   return value.replaceAll('_', ' ')
@@ -129,30 +131,30 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
   }
 
   return (
-    <Sheet open={Boolean(prospect)} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-[480px]">
-        <SheetHeader className="border-b border-border-subtle px-5 py-4">
+    <Dialog open={Boolean(prospect)} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[min(780px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[560px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border-subtle px-5 py-4 pr-12">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-accent-muted text-accent">
               {prospect?.kind === 'company' ? <Building2 className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
             </span>
             <div className="min-w-0">
-              <SheetTitle className="truncate text-[15px]">
+              <DialogTitle className="truncate text-[15px]">
                 {prospect?.name || 'Prospect'}
-              </SheetTitle>
-              <SheetDescription className="truncate text-[12px]">
+              </DialogTitle>
+              <DialogDescription className="truncate text-[12px]">
                 {prospect?.company || prospect?.email || prospect?.phone || (prospect?.kind === 'company' ? 'Company prospect' : 'Person prospect')}
-              </SheetDescription>
+              </DialogDescription>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
         {loading || !detail ? (
-          <div className="flex items-center justify-center py-20 text-text-tertiary">
+          <div className="flex flex-1 items-center justify-center py-20 text-text-tertiary">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-6 px-5 py-5">
+          <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
             {/* Qualification chips */}
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="secondary" className="capitalize">{statusLabel(detail.engagementStatus)}</Badge>
@@ -176,14 +178,45 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
               </div>
               {suggestion && (
                 <div className="mt-2 space-y-2">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="outline" className="capitalize">intent: {suggestion.intentLevel}</Badge>
                     <Badge variant="outline" className="capitalize">{statusLabel(suggestion.qualificationStatus)}</Badge>
                     {suggestion.recommendedChannel && (
                       <Badge variant="outline" className="capitalize">→ {suggestion.recommendedChannel}</Badge>
                     )}
+                    <Badge
+                      variant="outline"
+                      className={
+                        suggestion.source === 'ai'
+                          ? 'ml-auto border-accent/40 text-accent'
+                          : 'ml-auto text-text-tertiary'
+                      }
+                    >
+                      {suggestion.source === 'ai' ? 'AI' : 'rules'}
+                    </Badge>
                   </div>
                   <p className="text-[12px] text-text-tertiary">{suggestion.rationale}</p>
+                  {suggestion.opener && (
+                    <div className="rounded-[8px] border border-border-subtle bg-bg-secondary p-2.5">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                          Suggested opener
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 gap-1 px-2 text-[11px]"
+                          onClick={() => {
+                            navigator.clipboard.writeText(suggestion.opener ?? '')
+                            toast.success('Copied')
+                          }}
+                        >
+                          <Copy className="h-3 w-3" /> Copy
+                        </Button>
+                      </div>
+                      <p className="whitespace-pre-wrap text-[12.5px] text-text-primary">{suggestion.opener}</p>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button size="sm" className="h-7" onClick={handleApplySuggestion} disabled={aiBusy}>
                       Apply
@@ -200,7 +233,7 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
             <Section icon={Activity} title="Details">
               <dl className="grid gap-1.5 text-[13px]">
                 <DetailRow label="Email" value={detail.email} />
-                <DetailRow label="Phone" value={detail.phone} />
+                <DetailRow label="Phone" value={formatPhoneDisplay(detail.phone) || null} />
                 <DetailRow label="Company" value={detail.company} />
                 <DetailRow
                   label="Source"
@@ -329,8 +362,8 @@ export function ProspectDetailSheet({ prospect, onOpenChange, onChanged }: Prosp
             )}
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -390,18 +423,18 @@ function WebsiteAnalysisSection({
 
   if (analysis.status === 'failed') {
     return (
-      <Section icon={Globe} title="Análise do site">
+      <Section icon={Globe} title="Website analysis">
         <p className="text-[12.5px] text-text-tertiary">
-          Análise falhou{analysis.errorMessage ? `: ${analysis.errorMessage.split('\n')[0]}` : '.'}
+          Analysis failed{analysis.errorMessage ? `: ${analysis.errorMessage.split('\n')[0]}` : '.'}
         </p>
       </Section>
     )
   }
   if (analysis.status !== 'completed') {
     return (
-      <Section icon={Globe} title="Análise do site">
+      <Section icon={Globe} title="Website analysis">
         <p className="flex items-center gap-1.5 text-[12.5px] text-text-tertiary">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o site…
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing the website…
         </p>
       </Section>
     )
@@ -416,15 +449,15 @@ function WebsiteAnalysisSection({
 
   // Site problems = selling points for "we already built you a better version".
   const problems: string[] = []
-  if (ev.isMobileResponsive === false) problems.push('Não é responsivo no celular')
-  if (analysis.logoUrl === null) problems.push('Sem logo identificável')
-  if (ev.hasCTA === false) problems.push('Sem botão de ação claro (CTA)')
-  if (typeof ev.loadMs === 'number' && ev.loadMs > 4000) problems.push(`Carrega devagar (${(ev.loadMs / 1000).toFixed(1)}s)`)
-  if (ev.hasContactInfo === false) problems.push('Contato difícil de encontrar')
+  if (ev.isMobileResponsive === false) problems.push('Not mobile responsive')
+  if (analysis.logoUrl === null) problems.push('No identifiable logo')
+  if (ev.hasCTA === false) problems.push('No clear call to action (CTA)')
+  if (typeof ev.loadMs === 'number' && ev.loadMs > 4000) problems.push(`Slow to load (${(ev.loadMs / 1000).toFixed(1)}s)`)
+  if (ev.hasContactInfo === false) problems.push('Contact info hard to find')
 
   const score = analysis.leadScore ?? 0
   const verdict =
-    score >= 60 ? 'Forte oportunidade' : score >= 40 ? 'Boa oportunidade' : score >= 20 ? 'Oportunidade fraca' : 'Site já está bom'
+    score >= 60 ? 'Strong opportunity' : score >= 40 ? 'Good opportunity' : score >= 20 ? 'Weak opportunity' : 'Website already solid'
 
   async function handlePreview() {
     setBusy(true)
@@ -434,12 +467,12 @@ function WebsiteAnalysisSection({
       toast.error(res.error)
       return
     }
-    toast.success('Preview gerado em websites.skale.club')
+    toast.success('Preview generated at websites.skale.club')
     await onChanged()
   }
 
   return (
-    <Section icon={Globe} title="Análise do site">
+    <Section icon={Globe} title="Website analysis">
       <div className="space-y-3">
         {/* Score + verdict */}
         <div className="flex items-center gap-2 text-[12.5px]">
@@ -457,7 +490,7 @@ function WebsiteAnalysisSection({
               rel="noopener noreferrer"
               className="ml-auto inline-flex items-center gap-1 text-text-tertiary hover:text-accent hover:underline"
             >
-              ver site <ExternalLink className="h-3 w-3" />
+              view site <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
@@ -494,7 +527,7 @@ function WebsiteAnalysisSection({
         {problems.length > 0 && (
           <div className="rounded-[8px] border border-border-subtle bg-bg-tertiary/30 p-2.5">
             <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              <TriangleAlert className="h-3.5 w-3.5" /> Problemas (argumentos de venda)
+              <TriangleAlert className="h-3.5 w-3.5" /> Issues (selling points)
             </span>
             <ul className="space-y-0.5">
               {problems.map((p) => (
@@ -524,16 +557,16 @@ function WebsiteAnalysisSection({
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 rounded-[8px] border border-accent/40 bg-accent-muted/30 px-3 py-2 text-[12.5px] font-medium text-accent hover:bg-accent-muted/50"
           >
-            <Globe className="h-4 w-4" /> Ver preview gerado <ExternalLink className="h-3.5 w-3.5" />
+            <Globe className="h-4 w-4" /> View generated preview <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : (
           <Button onClick={handlePreview} disabled={busy} variant="secondary" className="w-full">
             <Globe className="h-4 w-4" />
-            {busy ? 'Gerando preview…' : 'Gerar preview do site melhorado'}
+            {busy ? 'Generating preview…' : 'Generate improved website preview'}
           </Button>
         )}
         <p className="text-[11px] text-text-tertiary">
-          O preview só é criado quando você clica — não cadastramos o cliente automaticamente.
+          The preview is only created when you click — we don&apos;t register the client automatically.
         </p>
       </div>
     </Section>

@@ -21,6 +21,8 @@ import {
   type ProspectRow,
 } from '@/app/(dashboard)/prospects/actions'
 import { ProspectDetailSheet } from '@/components/prospects/prospect-detail-sheet'
+import { VoiceCampaignDialog } from '@/components/prospects/voice-campaign-dialog'
+import { WhatsAppBulkDialog } from '@/components/prospects/whatsapp-bulk-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,6 +35,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneDisplay } from '@/components/phone/phone-display'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -144,6 +148,7 @@ export function ProspectsTable({
   const [detail, setDetail] = React.useState<ProspectRow | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [searchValue, setSearchValue] = React.useState(filters.q ?? '')
+  const [cityValue, setCityValue] = React.useState(filters.city ?? '')
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
@@ -162,12 +167,18 @@ export function ProspectsTable({
     updateParam({ q: searchValue.trim() || null })
   }
 
-  const selectedRefs: ProspectRef[] = React.useMemo(
-    () =>
-      rows
-        .filter((r) => selected.has(rowKey(r)))
-        .map((r) => ({ kind: r.kind, id: r.id })),
+  function submitCity(e: React.FormEvent) {
+    e.preventDefault()
+    updateParam({ city: cityValue.trim() || null })
+  }
+
+  const selectedRows: ProspectRow[] = React.useMemo(
+    () => rows.filter((r) => selected.has(rowKey(r))),
     [rows, selected],
+  )
+  const selectedRefs: ProspectRef[] = React.useMemo(
+    () => selectedRows.map((r) => ({ kind: r.kind, id: r.id })),
+    [selectedRows],
   )
 
   const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(rowKey(r)))
@@ -200,6 +211,11 @@ export function ProspectsTable({
       return
     }
     toast.success(`${label}: ${res.affected ?? selectedRefs.length} updated`)
+    setSelected(new Set())
+    router.refresh()
+  }
+
+  function clearAndRefresh() {
     setSelected(new Set())
     router.refresh()
   }
@@ -261,6 +277,15 @@ export function ProspectsTable({
             ...QUALIFICATION_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) })),
           ]}
         />
+        <form onSubmit={submitCity}>
+          <Input
+            value={cityValue}
+            onChange={(e) => setCityValue(e.target.value)}
+            onBlur={() => updateParam({ city: cityValue.trim() || null })}
+            placeholder="City…"
+            className="h-8 w-[130px] text-[12.5px]"
+          />
+        </form>
         {lists.length > 0 && (
           <FilterSelect
             value={filters.listId ?? ALL}
@@ -327,6 +352,18 @@ export function ProspectsTable({
           >
             Send to Xpot
           </Button>
+          <VoiceCampaignDialog
+            selectedRefs={selectedRefs}
+            selectedRows={selectedRows}
+            disabled={busy}
+            onDone={clearAndRefresh}
+          />
+          <WhatsAppBulkDialog
+            selectedRefs={selectedRefs}
+            selectedRows={selectedRows}
+            disabled={busy}
+            onDone={clearAndRefresh}
+          />
           <Button size="sm" variant="ghost" className="h-7 text-red-500 hover:text-red-600" disabled={busy}
             onClick={() => {
               if (confirm(`Delete ${selectedRefs.length} prospect(s)? This cannot be undone.`)) {
@@ -344,13 +381,13 @@ export function ProspectsTable({
 
       {/* List */}
       <div className="rounded-[12px] border border-border bg-bg-secondary overflow-hidden">
-        <div className="hidden grid-cols-[28px_1.6fr_1fr_70px_1fr_80px_1fr_90px] items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary sm:grid">
+        <div className="hidden grid-cols-[28px_1.6fr_1fr_1fr_1fr_70px_1fr_90px] items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary sm:grid">
           <input type="checkbox" checked={allOnPageSelected} onChange={toggleAll} className="h-3.5 w-3.5 accent-[var(--accent)]" aria-label="Select all" />
           <div>Prospect</div>
+          <div>Phone</div>
+          <div>City</div>
           <div>Source</div>
           <div className="text-right">Score</div>
-          <div>Engagement</div>
-          <div>Intent</div>
           <div>Qualification</div>
           <div className="text-right">Added</div>
         </div>
@@ -368,7 +405,7 @@ export function ProspectsTable({
                   key={rowKey(row)}
                   className={cn(
                     'grid grid-cols-[28px_minmax(0,1fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-tertiary/40',
-                    'sm:grid-cols-[28px_1.6fr_1fr_70px_1fr_80px_1fr_90px]',
+                    'sm:grid-cols-[28px_1.6fr_1fr_1fr_1fr_70px_1fr_90px]',
                     isSelected && 'bg-accent-muted/20',
                   )}
                 >
@@ -415,6 +452,13 @@ export function ProspectsTable({
                     </div>
                   </div>
                   <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
+                    <PhoneDisplay value={row.phone} stopPropagation />
+                    {!row.phone && '—'}
+                  </div>
+                  <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
+                    {row.city || '—'}
+                  </div>
+                  <div className="hidden truncate text-[12.5px] text-text-secondary sm:block">
                     {row.sourceType || row.source}
                   </div>
                   <div className="hidden text-right sm:block">
@@ -424,12 +468,6 @@ export function ProspectsTable({
                     >
                       {row.score}
                     </span>
-                  </div>
-                  <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
-                    {statusLabel(row.engagementStatus)}
-                  </div>
-                  <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
-                    {row.intentLevel}
                   </div>
                   <div className="hidden text-[12.5px] capitalize text-text-secondary sm:block">
                     {statusLabel(row.qualificationStatus)}
@@ -529,11 +567,12 @@ function BulkSelect({
 function ImportProspectsDialog({ onImported }: { onImported: () => void }) {
   const [open, setOpen] = React.useState(false)
   const [csv, setCsv] = React.useState('name,email,phone,company,source_id\n')
+  const [defaultCountry, setDefaultCountry] = React.useState('')
   const [pending, startTransition] = React.useTransition()
 
   function submit() {
     startTransition(async () => {
-      const res = await importProspectsCsv(csv)
+      const res = await importProspectsCsv(csv, defaultCountry.trim() || undefined)
       if (!res.ok) {
         toast.error(res.error)
         return
@@ -556,6 +595,8 @@ function ImportProspectsDialog({ onImported }: { onImported: () => void }) {
           <DialogTitle>Import prospects</DialogTitle>
           <DialogDescription>
             Paste CSV with headers such as name, email, phone, company, and source_id.
+            Add a <code>country</code> column (ISO code, e.g. <code>BR</code>, <code>PT</code>, <code>US</code>) to
+            read bare local-format phone numbers correctly per row.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -564,6 +605,16 @@ function ImportProspectsDialog({ onImported }: { onImported: () => void }) {
             onChange={(event) => setCsv(event.target.value)}
             className="min-h-[220px] font-mono text-[12px]"
           />
+          <div className="space-y-1.5">
+            <Label>Default phone country (optional)</Label>
+            <Input
+              value={defaultCountry}
+              onChange={(e) => setDefaultCountry(e.target.value)}
+              placeholder="ISO code, e.g. BR — used for rows without their own country column"
+              maxLength={2}
+              className="uppercase"
+            />
+          </div>
           <Button onClick={submit} disabled={pending || csv.trim().split('\n').length < 2} className="w-full">
             {pending ? 'Importing...' : 'Import prospects'}
           </Button>
@@ -649,7 +700,7 @@ function NewProspectDialog({ onCreated }: { onCreated: () => void }) {
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional phone" />
+              <PhoneInput value={phone} onChange={setPhone} placeholder="Optional phone" />
             </div>
           </div>
           <div className="space-y-1.5">

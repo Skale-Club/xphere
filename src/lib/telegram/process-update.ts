@@ -6,7 +6,7 @@
 import { after } from 'next/server'
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { normalizeInbound, emitProspectReplyEvent } from '@/lib/messaging/normalize-inbound'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
@@ -181,6 +181,11 @@ export async function processTelegramUpdate(
     // + media are bespoke). Contact resolution runs lazily on the create path.
     const now = new Date().toISOString()
 
+    // Captured inside createPayload below (new-conversation path only); for an
+    // existing conversation we read contact_id off norm.existing instead. Used
+    // to fire emitProspectReplyEvent after the message insert further down.
+    let capturedContactId: string | null = null
+
     const norm = await normalizeInbound({
       supabase,
       orgId,
@@ -261,6 +266,7 @@ export async function processTelegramUpdate(
           }
         }
 
+        capturedContactId = contactId
         return {
           widget_token: '',
           channel_metadata: {
@@ -286,6 +292,7 @@ export async function processTelegramUpdate(
     }
     const conversationId = norm.conversationId
     const existing = norm.existing
+    const resolvedContactId = existing?.contact_id ?? capturedContactId
 
     // ----- 4. Idempotency by telegram_message_id ------------------------
     const { data: dup } = await supabase
@@ -355,6 +362,8 @@ export async function processTelegramUpdate(
       .insert(insertMessage as any)
     if (msgErr) {
       console.error('[telegram/process] insert message error:', msgErr.message)
+    } else {
+      void emitProspectReplyEvent(supabase, orgId, resolvedContactId, 'telegram')
     }
 
     // Bump conversation freshness regardless of bot gate

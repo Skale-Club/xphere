@@ -145,13 +145,14 @@ ingestion never pulls a real contact back to the prospect stage.
   "source": {
     "type": "xcraper",
     "key": "xcraper",
-    "label": "Google Maps — cleaning São Paulo",
+    "label": "Google Maps — construction New Bedford",
     "external_run_id": "run_123",
-    "metadata": { "query": "cleaning", "location": "São Paulo" }
+    "default_country": "US",
+    "metadata": { "query": "construction", "location": "New Bedford, MA" }
   },
   "prospects": [
-    { "kind": "company", "name": "Acme Cleaning", "domain": "acme.com", "source_id": "place_abc" },
-    { "kind": "person", "name": "Maria Souza", "email": "maria@acme.com", "source_id": "ct_456" }
+    { "kind": "company", "name": "Acme Cleaning", "domain": "acme.com", "phone": "5087001010", "source_id": "place_abc" },
+    { "kind": "person", "name": "Maria Souza", "email": "maria@acme.com", "phone": "11987654321", "phone_country": "BR", "source_id": "ct_456" }
   ]
 }
 ```
@@ -161,6 +162,7 @@ ingestion never pulls a real contact back to the prospect stage.
 | `kind` | `"person"` \| `"company"` | — | Defaults to `person`. Person → contact, company → account. |
 | `name` | string | — | Person/company name (company falls back to `company`). |
 | `email`, `phone` | string | — | Person identifiers, normalized. |
+| `phone_country` | string (ISO 3166-1 alpha-2) | — | Tells us how to read a bare national-format `phone` with no leading `+` (e.g. `"BR"`, `"PT"`, `"US"`). Falls back to `source.default_country`. Numbers already sent in E.164 (`+...`) don't need this. |
 | `company`, `domain` | string | — | `domain` is the company dedup key. |
 | `tags` | string[] | — | Tags to assign. |
 | `intent_level` | `none`\|`low`\|`medium`\|`high` | — | Defaults to `none`. |
@@ -170,9 +172,26 @@ ingestion never pulls a real contact back to the prospect stage.
 | `source_id` | string | — | Stable external id for idempotent re-import. |
 | `source_payload` | object | — | Raw record kept for enrichment/debugging. |
 | `custom_fields` | object | — | Free-form key/value pairs. |
-| `source` | object | — | Batch only — describes the run (`type`, `key`, `label`, `external_run_id`, `metadata`). |
+| `source` | object | — | Batch only — describes the run (`type`, `key`, `label`, `external_run_id`, `default_country`, `metadata`). |
 
 At least one of `name`, `email`, `phone`, or `source_id` must be provided per record.
+
+**Phone numbers and country context**
+
+Store phone numbers in E.164 (`+15087001010`) whenever the source already knows
+it — that's always unambiguous and needs no country hint. When a source only
+has a bare national number (e.g. a Google Maps scrape returning `"5087001010"`
+with no country code), pass a country so it's stored correctly instead of as
+raw, unformatted digits:
+
+- Per-record: set `phone_country` on that prospect.
+- Per-run: set `source.default_country` once for a batch that's all scoped to
+  one country (e.g. a scrape run targeting Brazil), and every record in it
+  inherits that country unless it sets its own `phone_country`.
+
+Without either, a bare non-`+` number is stored as-is (digits only) — it will
+still display as raw digits in the CRM rather than a formatted number, since
+there's no reliable way to infer a country from digits alone.
 
 **Response — single (201 / 200)**
 

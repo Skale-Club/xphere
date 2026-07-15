@@ -4,7 +4,7 @@
 // webhook handlers never see exceptions.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { normalizeInbound, emitProspectReplyEvent } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
@@ -67,6 +67,11 @@ export async function processWhatsAppMessage(
     // the resolved conversationId BEFORE the insert, and the whatsapp_message_id
     // dedup check + freshness bump need to run in the same relative order as
     // before — same reason src/lib/meta/process-event.ts uses skipMessage.
+    // Captured inside createPayload below (new-conversation path only); for an
+    // existing conversation we read contact_id off norm.existing instead. Used
+    // to fire emitProspectReplyEvent after the message insert further down.
+    let capturedContactId: string | null = null
+
     const norm = await normalizeInbound({
       supabase,
       orgId,
@@ -166,6 +171,7 @@ export async function processWhatsAppMessage(
         if (msg.provider === 'evolution') {
           insertPayload.evolution_instance_id = provider.id
         }
+        capturedContactId = contactId
         return insertPayload
       },
       message: {},
@@ -180,6 +186,7 @@ export async function processWhatsAppMessage(
     const conversationId = norm.conversationId
     const existing = norm.existing
     const isNew = norm.isNew
+    const resolvedContactId = existing?.contact_id ?? capturedContactId
 
     // --- 1b. WhatsApp Cloud opt-in side effect -------------------------------
     // Meta requires explicit opt-in for MARKETING templates. Any inbound from a
@@ -259,6 +266,8 @@ export async function processWhatsAppMessage(
       .insert(insertMessage as any)
     if (msgErr) {
       console.error('[whatsapp/process] insert message error:', msgErr.message)
+    } else {
+      void emitProspectReplyEvent(supabase, orgId, resolvedContactId, 'whatsapp')
     }
 
     // Conversation freshness (last_message/last_message_at/last_inbound_at/

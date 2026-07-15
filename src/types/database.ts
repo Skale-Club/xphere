@@ -3139,6 +3139,38 @@ export interface Database {
           }
         ]
       }
+      // Unified read-only view over prospect-stage contacts + accounts
+      // (migration 1247). See supabase/migrations/1247_prospect_rows_view.sql.
+      prospect_rows: {
+        Row: {
+          id: string
+          org_id: string
+          kind: 'person' | 'company'
+          name: string | null
+          email: string | null
+          phone: string | null
+          company: string | null
+          website: string | null
+          domain: string | null
+          city: string | null
+          tags: string[]
+          source: string
+          source_type: string | null
+          source_id: string | null
+          engagement_status: CrmEngagementStatus
+          intent_level: CrmIntentLevel
+          qualification_status: CrmQualificationStatus
+          recommended_channel: CrmRecommendedChannel | null
+          score: number
+          last_contacted_at: string | null
+          last_replied_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       // ----- Prospects full system (migration 1158) ---------------------------
       prospect_lists: {
         Row: {

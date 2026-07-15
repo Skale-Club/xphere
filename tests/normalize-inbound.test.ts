@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
+import { normalizeInbound, emitProspectReplyEvent } from '@/lib/messaging/normalize-inbound'
+
+/** Flush the microtask queue — needed for assertions on the fire-and-forget
+ * `void emitProspectReplyEvent(...)` call inside normalizeInbound, whose
+ * internal chain (contacts select → event insert → contacts update) resolves
+ * a few ticks after normalizeInbound itself has already returned. */
+const flush = () => new Promise((resolve) => setImmediate(resolve))
 
 // Chainable Supabase mock supporting the queries normalizeInbound runs:
 //   conversations: select…eq…[order]…limit…maybeSingle | update…eq | insert…select…single
@@ -11,6 +17,10 @@ function makeSupabase({
   createErr = null as { message: string } | null,
   msgId = 'msg-1',
   msgErr = null as { message: string } | null,
+  // emitProspectReplyEvent fixtures — contacts.lifecycle_stage lookup +
+  // prospect_engagement_events insert + contacts engagement_status update.
+  contactLifecycle = null as string | null,
+  contactSelectThrows = false,
 } = {}) {
   const convUpdateEq = vi.fn().mockResolvedValue({ data: null, error: null })
   const convUpdate = vi.fn(() => ({ eq: convUpdateEq }))
@@ -43,13 +53,47 @@ function makeSupabase({
   })
   const msgInsert = vi.fn(() => ({ select: vi.fn(() => ({ single: msgInsertSingle })) }))
 
+  // contacts: .select('lifecycle_stage').eq(...).eq(...).maybeSingle() +
+  // .update({...}).eq(...).eq(...)
+  const contactMaybeSingle = vi.fn(() =>
+    contactSelectThrows
+      ? Promise.reject(new Error('contacts select boom'))
+      : Promise.resolve({ data: contactLifecycle ? { lifecycle_stage: contactLifecycle } : null, error: null }),
+  )
+  const contactSelectChain: Record<string, unknown> = {}
+  contactSelectChain.eq = vi.fn(() => contactSelectChain)
+  contactSelectChain.maybeSingle = contactMaybeSingle
+  const contactSelect = vi.fn(() => contactSelectChain)
+
+  // `.update(...).eq('id', ...).eq('org_id', ...)` is awaited bare (no
+  // `.then`/destructure), so the chain just needs to support N chained `.eq()`
+  // calls — awaiting a plain object resolves immediately to that object.
+  const contactUpdateChain: Record<string, unknown> = {}
+  contactUpdateChain.eq = vi.fn(() => contactUpdateChain)
+  const contactUpdate = vi.fn(() => contactUpdateChain)
+
+  // prospect_engagement_events: .insert({...}) — no further chaining.
+  const prospectEventsInsert = vi.fn().mockResolvedValue({ data: null, error: null })
+
   const from = vi.fn((table: string) => {
     if (table === 'conversations') return { select: convSelect, update: convUpdate, insert: convInsert }
     if (table === 'conversation_messages') return { select: msgSelect, insert: msgInsert }
+    if (table === 'contacts') return { select: contactSelect, update: contactUpdate }
+    if (table === 'prospect_engagement_events') return { insert: prospectEventsInsert }
     return {}
   })
 
-  return { from, convUpdate, convInsert, msgInsert, convSelectChain, msgSelectChain } as never
+  return {
+    from,
+    convUpdate,
+    convInsert,
+    msgInsert,
+    convSelectChain,
+    msgSelectChain,
+    contactSelect,
+    contactUpdate,
+    prospectEventsInsert,
+  } as never
 }
 
 const baseMsg = { role: 'user', content: 'hi', message_type: 'text', metadata: { x: 1 } }
@@ -269,5 +313,136 @@ describe('normalizeInbound', () => {
     })
     expect(res.error).toBe('msg boom')
     expect(res.messageId).toBeNull()
+  })
+})
+
+describe('emitProspectReplyEvent', () => {
+  it('prospect contact: inserts prospect_engagement_events (event_type=replied) and updates contacts', async () => {
+    const sb = makeSupabase({ contactLifecycle: 'prospect' })
+    await emitProspectReplyEvent(sb, 'org-1', 'contact-1', 'whatsapp')
+
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        org_id: 'org-1',
+        entity_type: 'contact',
+        entity_id: 'contact-1',
+        event_type: 'replied',
+        channel: 'whatsapp',
+        source_platform: 'inbox',
+      }),
+    )
+    // @ts-expect-error test-only spy access
+    expect(sb.contactUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ engagement_status: 'replied' }),
+    )
+    // Never writes lifecycle_stage — a reply must not auto-promote.
+    // @ts-expect-error test-only spy access
+    const updateArg = sb.contactUpdate.mock.calls[0][0]
+    expect(updateArg).not.toHaveProperty('lifecycle_stage')
+  })
+
+  it('non-prospect lifecycle_stage: no event, no contacts update', async () => {
+    const sb = makeSupabase({ contactLifecycle: 'customer' })
+    await emitProspectReplyEvent(sb, 'org-1', 'contact-1', 'sms')
+
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).not.toHaveBeenCalled()
+    // @ts-expect-error test-only spy access
+    expect(sb.contactUpdate).not.toHaveBeenCalled()
+  })
+
+  it('null contactId: no-op, never queries contacts', async () => {
+    const sb = makeSupabase({ contactLifecycle: 'prospect' })
+    await emitProspectReplyEvent(sb, 'org-1', null, 'sms')
+
+    // @ts-expect-error test-only spy access
+    expect(sb.contactSelect).not.toHaveBeenCalled()
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).not.toHaveBeenCalled()
+  })
+
+  it('undefined contactId: no-op (same as null)', async () => {
+    const sb = makeSupabase({ contactLifecycle: 'prospect' })
+    await emitProspectReplyEvent(sb, 'org-1', undefined, 'sms')
+
+    // @ts-expect-error test-only spy access
+    expect(sb.contactSelect).not.toHaveBeenCalled()
+  })
+
+  it('a thrown DB error inside the hook is caught and swallowed (never throws)', async () => {
+    const sb = makeSupabase({ contactSelectThrows: true })
+    await expect(emitProspectReplyEvent(sb, 'org-1', 'contact-1', 'sms')).resolves.toBeUndefined()
+
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('normalizeInbound + prospect reply hook integration', () => {
+  it('full-mode insert for a prospect fires the hook off the shared choke point', async () => {
+    const sb = makeSupabase({
+      existing: { id: 'conv-x', bot_status: 'active', contact_id: 'contact-1' },
+      contactLifecycle: 'prospect',
+    })
+    const res = await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: {},
+      updatePayload: { last_message: 'hi' },
+      message: baseMsg, // role: 'user'
+    })
+    expect(res.messageId).toBe('msg-1')
+    await flush()
+
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ entity_id: 'contact-1', event_type: 'replied', channel: 'whatsapp' }),
+    )
+  })
+
+  it('a DB error inside the hook never surfaces on, or breaks, normalizeInbound\'s own result', async () => {
+    const sb = makeSupabase({
+      existing: { id: 'conv-x', bot_status: 'active', contact_id: 'contact-1' },
+      contactSelectThrows: true,
+    })
+    const res = await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: {},
+      updatePayload: {},
+      message: baseMsg,
+    })
+    // normalizeInbound's own success is untouched by the hook's internal error.
+    expect(res.error).toBeUndefined()
+    expect(res.messageId).toBe('msg-1')
+    await flush()
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).not.toHaveBeenCalled()
+  })
+
+  it('non-"user" role message never fires the hook (outbound/assistant writes through normalizeInbound)', async () => {
+    const sb = makeSupabase({
+      existing: { id: 'conv-x', bot_status: 'active', contact_id: 'contact-1' },
+      contactLifecycle: 'prospect',
+    })
+    await normalizeInbound({
+      supabase: sb,
+      orgId: 'org-1',
+      channel: 'whatsapp',
+      match: { by: 'visitor_phone', phone: '+1' },
+      createPayload: {},
+      updatePayload: {},
+      message: { role: 'assistant', content: 'hi', message_type: 'text', metadata: {} },
+    })
+    await flush()
+    // @ts-expect-error test-only spy access
+    expect(sb.contactSelect).not.toHaveBeenCalled()
+    // @ts-expect-error test-only spy access
+    expect(sb.prospectEventsInsert).not.toHaveBeenCalled()
   })
 })

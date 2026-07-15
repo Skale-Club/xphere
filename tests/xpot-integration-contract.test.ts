@@ -347,6 +347,7 @@ describe('POST /api/v1/prospects — xpot lead sync target (company-kind)', () =
       created: 1,
       updated: 0,
       skipped: 0,
+      errors: 0,
       results: [{ id: 'account-new-1', kind: 'company', action: 'created' }],
     })
     expect(accountInsert.insert).toHaveBeenCalledWith(

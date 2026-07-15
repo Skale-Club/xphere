@@ -150,9 +150,15 @@ export async function normalizeInbound(
   // 2. Upsert the conversation.
   let conversationId: string
   let isNew: boolean
+  // Captured for emitProspectReplyEvent below: existing.contact_id on the
+  // match path, the resolved create payload's contact_id on the create path.
+  // Stays null for channels that don't resolve a contact at ingest (Twilio
+  // SMS, GHL, web-chat) — the emit helper no-ops on a null contactId.
+  let contactId: string | null = null
   if (existing) {
     conversationId = existing.id
     isNew = false
+    contactId = existing.contact_id
     // Skip an empty update — some handlers (e.g. Telegram) don't touch the
     // conversation during the upsert and bump last_message later themselves.
     const safeUpdate = applyMonotonicGuard(updatePayload, existing)
@@ -189,6 +195,7 @@ export async function normalizeInbound(
         if (racedExisting) {
           conversationId = racedExisting.id
           isNew = false
+          contactId = racedExisting.contact_id
           const safeUpdate = applyMonotonicGuard(updatePayload, racedExisting)
           if (Object.keys(safeUpdate).length > 0) {
             await supabase.from('conversations').update(safeUpdate as never).eq('id', conversationId)
@@ -216,6 +223,8 @@ export async function normalizeInbound(
     } else {
       conversationId = (created as { id: string }).id
       isNew = true
+      const rc = resolvedCreate as Record<string, unknown>
+      contactId = typeof rc.contact_id === 'string' ? rc.contact_id : null
     }
   }
 
@@ -266,6 +275,15 @@ export async function normalizeInbound(
   // produces a notification — previously only Meta/Vapi/flows did, so channels
   // routed through this helper never pushed at all.
   void notifyInboundMessage(supabase, orgId, channel, conversationId, isNew, message)
+
+  // Prospect-reply tracking (SEED-xxx): only for genuinely inbound user
+  // messages — every full-mode caller sets role='user' for real inbound
+  // (outbound echoes take a separate, non-normalizeInbound insert path, e.g.
+  // Zernio's processOutgoingMessage), but gate on it explicitly here too as
+  // defense-in-depth against a future full-mode caller passing role='assistant'.
+  if (message.role === 'user') {
+    void emitProspectReplyEvent(supabase, orgId, contactId, channel)
+  }
 
   return { conversationId, isNew, existing, messageId: (msg as { id: string }).id, duplicate: false }
 }
@@ -324,5 +342,67 @@ async function notifyInboundMessage(
     )
   } catch (err) {
     console.error('[normalize-inbound] notify error:', err)
+  }
+}
+
+/**
+ * Emit a `prospect_engagement_events` row (event_type='replied') and bump
+ * `contacts.engagement_status`/`last_replied_at` when an inbound message
+ * arrives from a contact whose `lifecycle_stage='prospect'`. Closes the loop
+ * so prospects who reply via an inbox channel (WhatsApp, SMS, Meta, Zernio,
+ * Telegram…) surface on /prospects/replies — previously only the Xmail/Xpot
+ * webhook route did this (see src/app/api/integrations/xmail/events/route.ts,
+ * whose update semantics this mirrors: engagement_status is set
+ * unconditionally on every reply, no downgrade guard).
+ *
+ * Deliberately never writes lifecycle_stage — a reply must not auto-promote
+ * a prospect; it's read only as a gate.
+ *
+ * Called both from normalizeInbound's own full-mode message insert (above)
+ * and directly by handlers that write their inbound message themselves via
+ * `skipMessage: true` (Meta, WhatsApp-unified, Telegram), passing whatever
+ * contact_id they already have resolved in scope. A null/undefined contactId
+ * (channels with no contact resolution at ingest — Twilio SMS, GHL, web-chat)
+ * is a silent no-op.
+ *
+ * Fire-and-forget by design: every failure is caught and logged, never
+ * thrown, so it can never break message ingestion.
+ */
+export async function emitProspectReplyEvent(
+  supabase: Db,
+  orgId: string,
+  contactId: string | null | undefined,
+  channel: string,
+): Promise<void> {
+  if (!contactId) return
+  try {
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('lifecycle_stage')
+      .eq('id', contactId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+    if ((contact as { lifecycle_stage: string } | null)?.lifecycle_stage !== 'prospect') return
+
+    const now = new Date().toISOString()
+
+    await supabase.from('prospect_engagement_events').insert({
+      org_id: orgId,
+      entity_type: 'contact',
+      entity_id: contactId,
+      event_type: 'replied',
+      channel,
+      source_platform: 'inbox',
+      occurred_at: now,
+      payload: {},
+    } as never)
+
+    await supabase
+      .from('contacts')
+      .update({ engagement_status: 'replied', last_replied_at: now, updated_at: now } as never)
+      .eq('id', contactId)
+      .eq('org_id', orgId)
+  } catch (err) {
+    console.error('[normalize-inbound] prospect reply event error:', err)
   }
 }
