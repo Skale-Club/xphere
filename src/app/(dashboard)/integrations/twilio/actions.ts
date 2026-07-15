@@ -329,6 +329,12 @@ export async function testSendSms(
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return { success: false, error: 'No active organization.' }
 
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', orgId as string)
+    .maybeSingle()
+
   const { data: row } = await supabase
     .from('integrations')
     .select('encrypted_api_key')
@@ -387,7 +393,9 @@ export async function testSendSms(
 
   const to = input.to.trim()
   if (!to) return { success: false, error: 'Provide a destination phone number.' }
-  const body = input.body?.trim() || 'Test SMS from Xphere | Twilio integration is connected.'
+  const orgName = org?.name?.trim() || 'Xphere'
+  const body =
+    input.body?.trim() || `Test SMS from ${orgName} | Twilio integration is connected.`
 
   const basicAuth = btoa(`${blob.account_sid}:${blob.auth_token}`)
   const url = `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/Messages.json`

@@ -392,7 +392,9 @@ export function AgentSettingsForm({
             </TabsContent>
           </Tabs>
 
-          <div className="sticky bottom-0 bg-background border-t py-3 flex justify-end gap-2">
+          {/* Lifted clear of the Copilot launcher pinned bottom-right | at narrow
+              widths this column reaches the launcher and would bury the button. */}
+          <div className="sticky bottom-24 bg-background border-t py-3 flex justify-end gap-2">
             <Button type="submit" disabled={isPending}>
               {isPending ? 'Saving…' : 'Save settings'}
             </Button>

@@ -288,8 +288,8 @@ export function TwilioSettings({ initial }: TwilioSettingsProps) {
         <TestSipRow disabled={!view.sipConfigured} />
       </SectionCard>
 
-      {/* Save bar */}
-      <div className="sticky bottom-4 flex items-center justify-between rounded-[12px] border border-border bg-bg-secondary/80 px-4 py-3 backdrop-blur">
+      {/* Save bar | lifted clear of the Copilot launcher pinned bottom-right. */}
+      <div className="sticky bottom-24 flex items-center justify-between gap-3 rounded-[12px] border border-border bg-bg-secondary/80 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2 text-[12.5px] text-text-tertiary">
           <ShieldCheck className="h-3.5 w-3.5" />
           <span>Secrets are encrypted with AES-256-GCM before they hit the database.</span>

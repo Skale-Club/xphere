@@ -8,6 +8,7 @@ export function OwnerRolesClient({ initialConfig }: { initialConfig: OrgRolesCon
   return (
     <RoleMatrix
       config={initialConfig}
+      clearsCopilotLauncher
       onSave={(role: ConfigurableRole, permissions, restrictToAssigned) =>
         saveOwnRoleConfig({ role, permissions, restrictToAssigned })
       }

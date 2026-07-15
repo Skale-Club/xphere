@@ -51,6 +51,7 @@ import {
   type ConfigurableRole,
   type OrgRolesConfig,
 } from '@/lib/rbac/permissions'
+import { cn } from '@/lib/utils'
 
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -110,9 +111,15 @@ interface Props {
   /** Change this (e.g. to the org id) to reset the matrix to a fresh config. */
   resetKey?: string
   disabled?: boolean
+  /**
+   * Lift the sticky footer clear of the Copilot launcher, which is pinned to the
+   * bottom-right of every dashboard page. Only needed when the matrix renders
+   * directly on a page | dialogs portal above the launcher already.
+   */
+  clearsCopilotLauncher?: boolean
 }
 
-export function RoleMatrix({ config, onSave, resetKey, disabled }: Props) {
+export function RoleMatrix({ config, onSave, resetKey, disabled, clearsCopilotLauncher }: Props) {
   const [role, setRole] = useState<ConfigurableRole>('admin')
   const [search, setSearch] = useState('')
   const [saved, setSaved] = useState<OrgRolesConfig>(() => cloneConfig(config))
@@ -278,7 +285,12 @@ export function RoleMatrix({ config, onSave, resetKey, disabled }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 flex items-center justify-end gap-2 bg-bg-primary/80 py-3 backdrop-blur">
+        <div
+          className={cn(
+            'sticky flex items-center justify-end gap-2 bg-bg-primary/80 py-3 backdrop-blur',
+            clearsCopilotLauncher ? 'bottom-24' : 'bottom-0',
+          )}
+        >
           <Button variant="ghost" onClick={onCancel} disabled={!dirty || isSaving}>
             Cancel
           </Button>
