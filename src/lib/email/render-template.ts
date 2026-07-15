@@ -400,7 +400,8 @@ function renderImageBlock(block: ImageBlock): string {
  *  `arcsize` is derived from `borderRadius` so the VML corner curvature
  *  matches the CSS corner radius: VML's arcsize is a percentage of the
  *  shorter side representing the *diameter* of the rounded corner, so
- *  `arcsize% = (2 * radius / shortSide) * 100`, capped to VML's 0–50% range. */
+ *  `arcsize% = (2 * radius / shortSide) * 100`, capped to VML's 0–100% range
+ *  (100% = fully rounded pill: arcsize is a percentage of HALF the short side). */
 function estimateButtonVmlGeometry(
   block: ButtonBlock,
   contentWidth: number,
@@ -414,7 +415,7 @@ function estimateButtonVmlGeometry(
     ? Math.max(height, Math.round(contentWidth))
     : Math.max(height, Math.round(block.label.length * fontSize * 0.6) + px * 2)
   const shortSide = Math.min(width, height)
-  const arcsize = shortSide > 0 ? Math.max(0, Math.min(50, Math.round(((2 * radius) / shortSide) * 100))) : 0
+  const arcsize = shortSide > 0 ? Math.max(0, Math.min(100, Math.round(((2 * radius) / shortSide) * 100))) : 0
   return { width, height, arcsize }
 }
 

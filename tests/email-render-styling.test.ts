@@ -611,11 +611,13 @@ describe('MSO/Outlook hardening — conditional comments + VML button fallback',
     expect(bigArcsize).toBeGreaterThan(smallArcsize)
   })
 
-  it('caps arcsize at 50% even for an extreme borderRadius', () => {
+  it('caps arcsize at 100% (full pill) even for an extreme borderRadius', () => {
     const doc = docWith({ id: 'b1', blockType: 'button', label: 'X', href: 'https://x', borderRadius: 999 })
     const { html } = renderTemplate(doc)
     const arcsize = Number(/arcsize="(\d+)%"/.exec(html)?.[1])
-    expect(arcsize).toBeLessThanOrEqual(50)
+    // Above 50 proves the old too-conservative cap is gone; 100 is VML's true max.
+    expect(arcsize).toBeGreaterThan(50)
+    expect(arcsize).toBeLessThanOrEqual(100)
   })
 
   it('escapes the button label and href inside the VML branch', () => {
