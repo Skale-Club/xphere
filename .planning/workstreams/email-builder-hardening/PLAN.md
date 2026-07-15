@@ -1,6 +1,6 @@
 # Email Builder — Production Hardening Plan
 
-**Status:** 🚧 In progress (2026-07-14) — Phases 1+2 ✅ merged to main (`037eefa5`, `d1fabe9f`), both Sonnet-executed + Opus-validated (Phase 1 got 2 validator fixes in `c4f9242c`). Phases 3+6 and 5 running in parallel; Phase 4 queued behind 3. Phase 0 (browser QA) blocked on an authenticated session.
+**Status:** 🚧 In progress (2026-07-15) — Phases 1+2 ✅ deployed to prod (`037eefa5`, `d1fabe9f` + fixes `c4f9242c`). Phase 5 ✅ merged (`968d40b5`: legacy /email-marketing retired — prod data confirmed zero legacy usage, so full deletion is safe later; upload quota; orphan-asset cleanup endpoint). Phases 3+6 ✅ merged (subject/preview_text columns + preheader/title, cross-section drag, full `{section}` section templates with upgrade-on-read, merge-tag picker, sample-data preview, test send, autosave). All Sonnet-executed + Opus-validated. Remaining: Phase 4 (MSO/VML + client QA matrix), Phase 0 (browser QA — needs an authenticated session).
 **Owner request (pt-BR):** "nosso sistema ainda está meio em beta mode, precisamos fazer um plano para deixar ele pronto e robusto"
 **Scope:** the block-based email template builder (`/email-templates`, `src/app/(dashboard)/email-templates/`, `src/lib/email/render-template.ts`) and its send path.
 **Context:** builder created 2026-05-26 (commit `e0c9e079`), overhauled in v3.4 (3-pane editor, image upload). Architecture is solid; what's missing is security hardening, send-path compliance, and a handful of product gaps. Browser QA from v3.4 was never done.
