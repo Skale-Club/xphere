@@ -15,7 +15,7 @@
  */
 
 import { z } from 'zod'
-import type { EmailBlock, EmailDocument } from './render-template'
+import type { EmailBlock, EmailDocument, EmailSection } from './render-template'
 
 // ─── Limits ─────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ const blockSchema = z.discriminatedUnion('blockType', [
 
 // ─── Section + document schemas ─────────────────────────────────────────────
 
-const sectionSchema = z
+export const sectionSchema = z
   .object({
     id: z.string(),
     // Optional for legacy tolerance: sections saved before the layout field
@@ -214,4 +214,31 @@ export function validateSectionFragment(raw: unknown): ValidateSectionFragmentRe
   }
 
   return { ok: true, doc: result.data as unknown as { blocks: EmailBlock[] } }
+}
+
+// ─── Section-template doc schema (`{ section }`, the modern shape) ─────────
+//
+// Phase 3 (email-builder-hardening): section templates now store the FULL
+// section (layout/background/padding/columns), not just a flat block bag.
+// Pair with `normalizeSectionTemplateDoc` from `./render-template` — call
+// that FIRST so legacy `{ blocks }` rows upgrade into this shape before
+// validation, exactly like `normalizeDocument` + `validateEmailDocument`.
+
+export const sectionTemplateDocSchema = z.object({ section: sectionSchema }).passthrough()
+
+export type ValidateSectionTemplateDocResult =
+  | { ok: true; doc: { section: EmailSection } }
+  | { ok: false; error: string }
+
+export function validateSectionTemplateDoc(raw: unknown): ValidateSectionTemplateDocResult {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, error: 'Document must be an object' }
+  }
+
+  const result = sectionTemplateDocSchema.safeParse(raw)
+  if (!result.success) {
+    return { ok: false, error: formatZodError(result.error) }
+  }
+
+  return { ok: true, doc: result.data as unknown as { section: EmailSection } }
 }
