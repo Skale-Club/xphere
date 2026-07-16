@@ -3,13 +3,20 @@
 import { useEffect, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import {
+  GripVertical, Layers, MoreHorizontal, PanelLeftClose, PanelLeftOpen,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { CollapsedRail, COLLAPSED_RAIL_WIDTH } from '@/components/layout/collapsed-rail'
 import type { SectionTemplate } from '../actions'
 import { BLOCK_TYPES } from './editor/registry'
 
 const STORAGE_KEY = 'email-editor:palette-collapsed'
+
+// Collapsed rail only has room for a handful of section chips before it gets
+// silly-tall; past this, show a "expand to see the rest" affordance instead.
+const MAX_COLLAPSED_SECTIONS = 6
 
 function PaletteChip({
   id, data, children,
@@ -33,6 +40,37 @@ function PaletteChip({
     >
       <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
       {children}
+    </button>
+  )
+}
+
+/** Icon-only draggable chip for the collapsed rail. Same dnd `id`/`data`
+ *  shape as `PaletteChip` so dragging from the collapsed rail onto the
+ *  canvas works identically to dragging from the expanded palette. */
+function PaletteIconChip({
+  id, data, icon, label,
+}: {
+  id: string
+  data: Record<string, unknown>
+  icon: React.ReactNode
+  label: string
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id, data })
+  return (
+    <button
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      title={label}
+      aria-label={label}
+      className={cn(
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground',
+        'hover:border-accent hover:bg-accent/40 hover:text-foreground cursor-grab active:cursor-grabbing transition-colors',
+        isDragging && 'opacity-40',
+      )}
+    >
+      {icon}
     </button>
   )
 }
@@ -79,13 +117,51 @@ export function BlockPalette({ sectionTemplates }: { sectionTemplates: SectionTe
       className={cn(
         'shrink-0 border-r border-border bg-card/40 flex flex-col overflow-hidden',
         'transition-[width] duration-200 ease-out',
-        collapsed ? 'w-9' : 'w-56',
+        collapsed ? COLLAPSED_RAIL_WIDTH : 'w-56',
       )}
     >
       {collapsed ? (
-        <div className="flex flex-col items-center py-2">
-          <ToggleButton collapsed={collapsed} onClick={toggle} />
-        </div>
+        // Collapsed but still fully functional: every block type + section
+        // template is a draggable icon chip, same dnd id/data as the
+        // expanded chips, so drag-from-collapsed-rail onto the canvas works
+        // identically (Phase 7 — this used to be an empty strip).
+        <CollapsedRail toggle={<ToggleButton collapsed={collapsed} onClick={toggle} />}>
+          {BLOCK_TYPES.map(({ type, label, icon }) => (
+            <PaletteIconChip
+              key={type}
+              id={`palette:${type}`}
+              data={{ type: 'palette', source: 'palette', blockType: type }}
+              icon={icon}
+              label={label}
+            />
+          ))}
+
+          {sectionTemplates.length > 0 && (
+            <>
+              <div className="my-1 h-px w-6 shrink-0 bg-border" />
+              {sectionTemplates.slice(0, MAX_COLLAPSED_SECTIONS).map((st) => (
+                <PaletteIconChip
+                  key={st.id}
+                  id={`section:${st.id}`}
+                  data={{ type: 'palette', source: 'section', sectionTemplateId: st.id }}
+                  icon={<Layers className="h-3.5 w-3.5" />}
+                  label={st.name}
+                />
+              ))}
+              {sectionTemplates.length > MAX_COLLAPSED_SECTIONS && (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  title={`${sectionTemplates.length - MAX_COLLAPSED_SECTIONS} more sections — expand to see all`}
+                  aria-label="Expand blocks panel to see all sections"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-dashed border-border text-muted-foreground hover:border-accent hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </>
+          )}
+        </CollapsedRail>
       ) : (
         <>
           <div className="h-10 px-3 border-b border-border shrink-0 flex items-center justify-between gap-2">
