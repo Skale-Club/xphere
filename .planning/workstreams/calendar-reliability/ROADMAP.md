@@ -56,13 +56,13 @@ Plans:
 **Depends on**: Phase 127
 **Requirements**: SCH-01, SCH-02, SCH-03, SCH-04
 
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 - [x] 128-01-PLAN.md — Pure watermark-window/dedup-key/stale-skip/watermark-guard functions + unit tests (SCH-01, SCH-02)
 - [x] 128-02-PLAN.md — Mandatory CRON_SECRET check on the calendar-tick endpoint + route auth test (SCH-03)
 - [x] 128-03-PLAN.md — Neutralize booking-confirmation.yaml + relocate Skleanings-only example workflows + regression test (SCH-04)
-- [ ] 128-04-PLAN.md — calendar_tick_watermark migration + real-DB dedup/watermark test (SCH-01, SCH-02, SCH-03)
+- [x] 128-04-PLAN.md — calendar_tick_watermark migration + real-DB dedup/watermark test (SCH-01, SCH-02, SCH-03)
 - [ ] 128-05-PLAN.md — Wire watermark-bounded scan + offset-derived dedup key into the live route (SCH-01, SCH-02, SCH-03)
 - [ ] 128-06-PLAN.md — Operator checkpoint: apply the watermark migration to production (SCH-01, SCH-02, SCH-03)
 
