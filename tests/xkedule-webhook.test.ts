@@ -84,7 +84,7 @@ function buildFakeClient(opts: {
   const bookingsInsertMock = vi.fn(() =>
     makeProxy(opts.bookingsInsert ?? { data: { id: BOOKING_ID }, error: null }),
   )
-  const bookingsUpdateMock = vi.fn(() =>
+  const bookingsUpdateMock = vi.fn((_payload: Record<string, unknown>) =>
     makeProxy(opts.bookingsUpdate ?? { data: null, error: null }),
   )
 
@@ -190,8 +190,8 @@ describe('POST /api/xkedule/webhook - mapStatus', () => {
     expect(bookingsInsertMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'no_show' }))
   })
 
-  it.each(['pending', 'awaiting_approval', 'confirmed', 'some_unrecognized_value'])(
-    "maps unrecognized/active status '%s' to 'confirmed' (unchanged fallback)",
+  it.each(['pending', 'awaiting_approval', 'confirmed'])(
+    "maps documented active status '%s' to 'confirmed' (unchanged fallback)",
     async (status) => {
       const { client, bookingsInsertMock } = buildFakeClient({})
       vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
@@ -201,6 +201,10 @@ describe('POST /api/xkedule/webhook - mapStatus', () => {
       expect(bookingsInsertMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'confirmed' }))
     },
   )
+
+  // 'some_unrecognized_value' is no longer coerced to 'confirmed' -- it is
+  // rejected by the unknown-status guard instead (Plan 129-04, SYNC-02/D-02).
+  // See the "unknown-status guard" describe block below for that coverage.
 })
 
 // ─── calendarEventFor ────────────────────────────────────────────────────────

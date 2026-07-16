@@ -15,7 +15,7 @@ import { fromZonedTime } from 'date-fns-tz'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { confirmBooking, cancelBooking, markNoShow, markShowed, emitCalendarEvent } from '@/lib/calendar/transition'
 import type { CalendarEvent } from '@/lib/calendar/events'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import type { BookingStatus } from '@/lib/calendar/booking-status'
@@ -50,8 +50,18 @@ const payloadSchema = z.object({
   }),
 })
 
+// Exhaustive set of Xkedule statuses this route knows how to handle.
+// A genuinely unrecognized value (typo, new provider status, malformed
+// payload) is logged and skipped BEFORE any DB access -- never silently
+// coerced to 'confirmed' (SYNC-02/D-02: no silent coercion).
+const KNOWN_XKEDULE_STATUSES = new Set([
+  'pending', 'awaiting_approval', 'confirmed', 'completed', 'cancelled', 'no_show',
+])
+
 // Xkedule status (pending|awaiting_approval|confirmed|completed|cancelled|no_show)
-// → native enum. Active/unrecognized states mirror as confirmed.
+// → native enum. pending/awaiting_approval intentionally mirror as confirmed
+// (there is no native "pending" state; unrecognized values never reach this
+// function -- they are rejected by the KNOWN_XKEDULE_STATUSES guard first).
 // 'completed' maps to 'showed' -- the DB's only attendance/completion
 // value (LIFE-02) -- so Xkedule-sourced bookings can reach showed-
 // triggered workflows the same way native/MCP-confirmed bookings can.
@@ -69,6 +79,24 @@ function calendarEventFor(event: string, status: BookingStatus): CalendarEvent {
   if (event === 'booking.created') return 'meeting.scheduled'
   if (event === 'booking.confirmed') return 'meeting.confirmed'
   return 'meeting.rescheduled'
+}
+
+// Dispatches an EXISTING mirrored booking's status transition through
+// Phase 127's canonical lifecycle service (SYNC-02, D-02) instead of a
+// raw bookings.status write. Idempotent no-op (no re-emitted event) if
+// the booking is already at the mapped status.
+async function runXkeduleTransition(
+  ctx: { supabase: ServiceClient },
+  nativeStatus: BookingStatus,
+  bookingId: string,
+  orgId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  switch (nativeStatus) {
+    case 'confirmed': return confirmBooking(ctx, bookingId, orgId)
+    case 'cancelled': return cancelBooking(ctx, bookingId, orgId)
+    case 'no_show': return markNoShow(ctx, bookingId, orgId)
+    case 'showed': return markShowed(ctx, bookingId, orgId)
+  }
 }
 
 // Lazily get-or-create a synthetic "Xkedule" event type for the org. bookings
@@ -178,6 +206,14 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const b = payload.booking
+
+    // Reject genuinely unrecognized statuses BEFORE any DB access beyond
+    // auth/parse -- never silently coerce to 'confirmed' (SYNC-02/D-02).
+    if (!KNOWN_XKEDULE_STATUSES.has(b.status)) {
+      console.warn('[xkedule/webhook] unrecognized status, skipping:', b.status)
+      return ok({ skipped: 'unknown_status' })
+    }
+
     const externalId = String(b.id)
     const occurredAt = payload.occurred_at
     const timeZone = b.timeZone || 'America/New_York'
@@ -222,12 +258,12 @@ export async function POST(request: Request): Promise<Response> {
       booker_timezone: timeZone,
       start_at: startAt,
       end_at: endAt,
-      status,
       notes: serviceNames ? `Xkedule: ${serviceNames}` : null,
       linked_contact_id: contactId,
       external_source: 'xkedule',
       external_id: externalId,
       external_updated_at: occurredAt,
+      // status intentionally excluded here -- see the existing/insert branches below.
     }
 
     let bookingId: string
@@ -238,10 +274,18 @@ export async function POST(request: Request): Promise<Response> {
         return ok({ skipped: 'update_failed' })
       }
       bookingId = existing.id
+
+      // 8. Route the STATUS transition through the canonical lifecycle service
+      // (SYNC-02, D-02) -- never a raw bookings.status write for an existing
+      // row. Idempotent no-op (no event) if already at the mapped status.
+      const tx = await runXkeduleTransition({ supabase }, status, bookingId, orgId)
+      if (!tx.ok) {
+        console.error('[xkedule/webhook] lifecycle transition failed:', tx.error)
+      }
     } else {
       const { data: inserted, error } = await supabase
         .from('bookings')
-        .insert({ ...mutable, org_id: orgId, event_type_id: eventTypeId })
+        .insert({ ...mutable, status, org_id: orgId, event_type_id: eventTypeId })
         .select('id')
         .single()
       if (error || !inserted) {
@@ -249,13 +293,13 @@ export async function POST(request: Request): Promise<Response> {
         return ok({ skipped: 'insert_failed' })
       }
       bookingId = inserted.id
-    }
 
-    // 8. Emit the calendar event → drives meeting.* workflows (fire-and-forget so we return 200 fast)
-    void emitCalendarEvent(
-      { supabase },
-      { event: calendarEventFor(payload.event, status), booking_id: bookingId, org_id: orgId },
-    ).catch((err) => console.error('[xkedule/webhook] emitCalendarEvent error:', err))
+      // 8. Emit the calendar event → drives meeting.* workflows (fire-and-forget so we return 200 fast)
+      void emitCalendarEvent(
+        { supabase },
+        { event: calendarEventFor(payload.event, status), booking_id: bookingId, org_id: orgId },
+      ).catch((err) => console.error('[xkedule/webhook] emitCalendarEvent error:', err))
+    }
 
     return ok()
   } catch (err) {
