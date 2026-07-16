@@ -30,7 +30,6 @@ import { captureApiError } from '@/lib/api-error'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const CRON_SECRET = process.env.CRON_SECRET
 
 function parseOffset(offset: string): number | null {
   // Supports "-5m", "-1h", "-24h", "-2d", and positive variants.
@@ -58,11 +57,12 @@ interface WorkflowTickRow {
 }
 
 export async function GET(request: Request) {
-  if (CRON_SECRET) {
-    const auth = request.headers.get('authorization') ?? ''
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return Response.json({ ok: false, error: 'CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
