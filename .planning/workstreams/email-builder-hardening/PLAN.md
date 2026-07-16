@@ -106,3 +106,39 @@ Marketing email without suppression/unsubscribe is a deliverability and legal li
 - Sanitization of *existing* stored documents: sanitize on read where rendered (canvas) and on next save — do NOT mass-rewrite jsonb in a migration.
 - Changing section-template doc shape must keep upgrade-on-read both ways (old `{ blocks }` rows keep working forever).
 - `sendTenantEmail` requires a connected tenant Resend integration; orgs without one currently "work" via the platform key through the executor — Phase 2 changes that behavior deliberately (surface a clear error instead).
+
+---
+
+## Phase 7 — Collapsed rails & palette UX (added 2026-07-15 from owner visual QA) — ✅ SHIPPED 2026-07-15
+
+> Status: all four sub-tasks implemented (Sonnet) + Opus-validated (APPROVE) + merged. Compiled CSS confirmed the `max-md:` gating. Browser-only acceptance (height pixel parity, drag-from-collapsed-chip, visual distinctness of rail buttons) carried into the pending Phase 0 authenticated QA pass. Non-blocking backlog: pre-existing `set-state-in-effect` lint in block-palette/inspector-panel; 16px vs 14px icon-size mismatch between block and section chips in the collapsed rail.
+
+**Owner report (pt-BR):** on `/settings/email-templates/[id]` three collapsed rails sit side by side (Settings sub-sidebar · Email Templates sub-sidebar · editor Blocks palette) and (a) collapsed rails render at a DIFFERENT height than their expanded panels; (b) the Blocks palette collapses to an empty strip — it must keep its elements usable; (c) the Email Templates collapsed rail shows two identical blue "+" buttons (template vs section indistinguishable) and lacks the full action set that the expanded panel's two tabs offer.
+
+**Root context:** three INDEPENDENT collapse implementations that drifted:
+- `src/components/layout/sub-sidebar.tsx` — `SubSidebarLayout` rail: `w-10`, `CollapsedRail` (toggle + `collapsedActions`); expanded swaps to `absolute inset-y-0` on mobile / `md:relative` desktop (`:178-180`).
+- `src/app/(dashboard)/email-templates/_components/block-palette.tsx` — own state (`email-editor:palette-collapsed`), collapsed `w-9`, renders ONLY the toggle.
+- `src/app/(dashboard)/email-templates/_components/editor/inspector-panel.tsx` — own state (`email-editor:inspector-collapsed`), collapsed `w-9`, toggle only.
+
+### 7.1 Height parity (root-cause first — do NOT fix blind)
+- [ ] Instrument in the browser (kitchen of ancestors: `offsetHeight`, `position`, `minHeight`, `overflowY` for every ancestor of each rail, expanded vs collapsed) and record which ancestor's height actually changes. Prime suspects: the `absolute inset-y-0` ↔ `relative` swap in sub-sidebar.tsx:178-180 (positioning asymmetry between states), and an unresolved `h-full` somewhere in the nested chain (settings `SubSidebarLayout` → email-templates `SubSidebarLayout` → editor page `flex flex-col h-full`).
+- [ ] Fix so expanded and collapsed occupy the identical vertical band on desktop AND mobile (likely: keep both states in-flow `relative` on md+, reserve `absolute` overlay strictly for the mobile-expanded case; add missing `min-h-0`/`h-full` links if the chain breaks).
+- [ ] Acceptance: with the editor open, toggling each of the 3 rails does not change its top/bottom pixel position; all three rails and the expanded panels share the same vertical extent.
+
+### 7.2 Blocks palette: functional when collapsed
+- [ ] Collapsed palette becomes an icon rail (not an empty strip): the 7 block-type chips render as icon-only draggable chips (same `palette:` dnd ids — drag from the collapsed rail onto the canvas must work), each with `title`/aria-label tooltip.
+- [ ] Section templates: icon-only chips (Layers icon, tooltip = name) below a divider, also draggable; if > ~6, show the first N + a "expand to see all" affordance.
+- [ ] Normalize rail width with the others (w-10) and reuse one shared CollapsedRail primitive if cheap (see 7.4).
+- [ ] Acceptance: with the palette collapsed you can still build an email end-to-end by dragging icon chips.
+
+### 7.3 Email Templates rail: complete, distinguishable actions
+- [ ] Replace the two identical "+" with distinct icon buttons mirroring the expanded tabs, in order: **New template** (Mail+), **New template folder** (FolderPlus), divider, **New section** (Layers+), **New section folder** (FolderPlus, section-colored) — tooltips on all; the section-folder button wires `secFolders.createFolder` (today the rail only wires the TEMPLATE folder action — `settings/email-templates/layout.tsx:69`).
+- [ ] Composite icons: lucide primary icon + small "+" badge (pattern already used elsewhere in the app? check; else 14px icon + absolute 8px Plus badge).
+- [ ] Acceptance: each button visually distinct, correct action per entity, tooltips accurate.
+
+### 7.4 Consolidation (keep it cheap)
+- [ ] Extract ONE shared collapsed-rail primitive (toggle at top, actions slot, w-10, identical padding/border) used by sub-sidebar's CollapsedRail, BlockPalette and InspectorPanel — visual consistency without a big refactor. Skip if it balloons; minimum bar is identical width/height/padding via shared constants.
+- [ ] Inspector stays content-free when collapsed (nothing useful to show) but matches geometry.
+
+**Execution:** Sonnet executor (worktree; remember: rmdir the node_modules junction BEFORE any worktree removal) → Opus validation → merge. Browser height verification (7.1 acceptance) requires an authenticated session — fold into the pending Phase 0 QA pass.
+**Estimate:** ~1 day executor + validation.
