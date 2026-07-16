@@ -9,10 +9,12 @@ vi.mock('@/lib/supabase/admin', () => ({ createServiceRoleClient: vi.fn() }))
 vi.mock('@/lib/calendar/booking-validation', () => ({ resolveAndValidateSlot: vi.fn() }))
 vi.mock('@/lib/calendar/transition', () => ({
   emitCalendarEvent: vi.fn(async () => ({ dispatched: 0, dispatch_id: null })),
+  cancelBooking: vi.fn(),
 }))
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
+import { cancelBooking } from '@/lib/calendar/transition'
 import { bookingsTools } from '@/lib/mcp/tools/bookings'
 import type { McpAuthContext } from '@/lib/mcp/auth'
 
@@ -102,5 +104,119 @@ describe('bookings_create MCP tool', () => {
     expect(insertedPayloads[0].end_at).toBe(resolvedEndAt.toISOString())
     expect(insertedPayloads[0].end_at).not.toBe(baseInput.end_at)
     expect(insertedPayloads[0].linked_contact_id).toBe(baseInput.contact_id)
+  })
+})
+
+// LIFE-03: bookings_cancel must delegate the guarded status write + event
+// emission to transition.ts::cancelBooking, matching every other cancellation
+// entry point (dashboard, public cancel-token link) instead of writing
+// status: 'cancelled' directly and firing nothing.
+describe('bookings_cancel MCP tool', () => {
+  const cancelTool = bookingsTools.find((t) => t.name === 'bookings_cancel')!
+  const BOOKING_ID = '00000000-0000-0000-0000-000000000333'
+
+  beforeEach(() => vi.clearAllMocks())
+
+  function buildCancelFakeAdmin(notesLookup: { notes: string | null } | null, order: string[]) {
+    const updatedPayloads: Record<string, unknown>[] = []
+    const admin = {
+      from: vi.fn((table: string) => {
+        if (table !== 'bookings') throw new Error(`unexpected table in this test: ${table}`)
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({ data: notesLookup })),
+              })),
+            })),
+          })),
+          update: vi.fn((payload: Record<string, unknown>) => {
+            updatedPayloads.push(payload)
+            order.push('notes_update')
+            return {
+              eq: vi.fn(() => ({
+                eq: vi.fn(async () => ({ error: null })),
+              })),
+            }
+          }),
+        }
+      }),
+    }
+    return { admin, updatedPayloads }
+  }
+
+  it('no reason: delegates straight to transition.ts::cancelBooking and returns cancelled on success', async () => {
+    vi.mocked(createServiceRoleClient).mockReturnValue({} as never)
+    vi.mocked(cancelBooking).mockResolvedValue({ ok: true })
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID }, { auth })
+
+    expect(result).toEqual({ cancelled: true })
+    expect(cancelBooking).toHaveBeenCalledTimes(1)
+    expect(cancelBooking).toHaveBeenCalledWith(
+      { supabase: {}, depth: 0 },
+      BOOKING_ID,
+      ORG_ID,
+    )
+  })
+
+  it('reason provided + booking exists: notes update happens BEFORE the transition call, both target booking_id', async () => {
+    const order: string[] = []
+    const { admin, updatedPayloads } = buildCancelFakeAdmin({ notes: 'existing note' }, order)
+    vi.mocked(createServiceRoleClient).mockReturnValue(admin as never)
+    vi.mocked(cancelBooking).mockImplementation(async () => {
+      order.push('cancel')
+      return { ok: true }
+    })
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID, reason: 'no longer needed' }, { auth })
+
+    expect(result).toEqual({ cancelled: true })
+    expect(updatedPayloads).toHaveLength(1)
+    expect(updatedPayloads[0].notes).toBe('existing note\n\n[Cancelled via MCP] no longer needed')
+    expect(order).toEqual(['notes_update', 'cancel'])
+    expect(cancelBooking).toHaveBeenCalledWith(
+      { supabase: admin, depth: 0 },
+      BOOKING_ID,
+      ORG_ID,
+    )
+  })
+
+  it('reason provided but booking does not exist: returns not_found and never calls cancelBooking', async () => {
+    const order: string[] = []
+    const { admin } = buildCancelFakeAdmin(null, order)
+    vi.mocked(createServiceRoleClient).mockReturnValue(admin as never)
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID, reason: 'no longer needed' }, { auth })
+
+    expect(result).toEqual({ error: 'not_found', status: 404 })
+    expect(cancelBooking).not.toHaveBeenCalled()
+  })
+
+  it('transition.ts::cancelBooking returns illegal_transition -> maps to 409', async () => {
+    vi.mocked(createServiceRoleClient).mockReturnValue({} as never)
+    vi.mocked(cancelBooking).mockResolvedValue({ ok: false, error: 'illegal_transition' })
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID }, { auth })
+
+    expect(result).toEqual({ error: 'illegal_transition', status: 409 })
+  })
+
+  it('transition.ts::cancelBooking returns booking_not_found -> maps to not_found/404', async () => {
+    vi.mocked(createServiceRoleClient).mockReturnValue({} as never)
+    vi.mocked(cancelBooking).mockResolvedValue({ ok: false, error: 'booking_not_found' })
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID }, { auth })
+
+    expect(result).toEqual({ error: 'not_found', status: 404 })
+  })
+
+  it('transition.ts::cancelBooking returns ok:true for the idempotent already-cancelled case -> returns cancelled', async () => {
+    vi.mocked(createServiceRoleClient).mockReturnValue({} as never)
+    vi.mocked(cancelBooking).mockResolvedValue({ ok: true })
+
+    const result = await cancelTool.handler({ booking_id: BOOKING_ID }, { auth })
+
+    expect(result).toEqual({ cancelled: true })
   })
 })
