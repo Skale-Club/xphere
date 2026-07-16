@@ -9,7 +9,7 @@
 
 - [x] **CAL-01**: A public or programmatic booking is accepted only when its event type is active, its time is valid and available, and its interval is conflict-free in the tenant calendar.
 - [x] **CAL-02**: The database prevents invalid booking intervals and overlapping active bookings for the same organizer, including bookings from different event types.
-- [ ] **CAL-03**: Public cancellation requires an explicit POST confirmation and cannot be triggered by a link preview or crawler.
+- [x] **CAL-03**: Public cancellation requires an explicit POST confirmation and cannot be triggered by a link preview or crawler.
 - [x] **CAL-04**: Calendar tables enforce least-privilege RLS policies; privileged service-role paths remain explicit.
 
 ### Lifecycle and Workflows
