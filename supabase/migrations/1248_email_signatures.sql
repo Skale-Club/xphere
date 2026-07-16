@@ -38,4 +38,4 @@ CREATE INDEX IF NOT EXISTS idx_email_signatures_org_updated
 
 CREATE TRIGGER trg_email_signatures_updated_at
   BEFORE UPDATE ON public.email_signatures
-  FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
