@@ -7794,6 +7794,15 @@ export interface Database {
         Args: { p_org_id: string; p_included_usd: number; p_period_end?: string | null }
         Returns: number
       }
+      transition_booking_status: {
+        Args: {
+          p_booking_id: string
+          p_org_id: string
+          p_new_status: string
+          p_allowed_from: string[]
+        }
+        Returns: Json
+      }
       get_ads_attribution: {
         Args: { p_from: string; p_platform?: string; p_to: string }
         Returns: {
