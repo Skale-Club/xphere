@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 129-01-PLAN.md
-last_updated: "2026-07-16T05:46:56.116Z"
+stopped_at: Completed 129-03-PLAN.md
+last_updated: "2026-07-16T05:59:35.168Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 32
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 129 (provider-synchronization-integrity) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -48,8 +48,9 @@ Last activity: 2026-07-16
 - [Phase 128-reliable-calendar-scheduling]: 128-05: Kept the meeting.ended status filter as ['confirmed','showed'] rather than adding 'completed' as the plan text specified — 'completed' is not a valid bookings.status value per the DB type union and booking-status.ts's LIFE-02 vocabulary note
 - [Phase 129-01]: Extended fetchBusyTimes's 5th parameter from a single calendarId to calendarIds: string[] (default ['primary']), backward-compatible for all pre-existing 4-arg call sites
 - [Phase 129-01]: Fixed database.ts's stale calendar_profiles types (missing sync_mode/default_location_type/conflict_calendar_ids since migrations 1141/1142) at the root instead of adding another local cast
+- [Phase 129-03]: Added migration 1253 (ALTER TYPE integration_provider ADD VALUE IF NOT EXISTS 'google_calendar') as a Rule 1/3 deviation -- production's enum never actually had this value despite database.ts claiming it did, silently breaking Google Calendar OAuth connect for every org; fixed in-flight since it blocked this task's plan-specified fixture inserts
 
 ## Session Continuity
 
-**Stopped At:** Completed 129-01-PLAN.md
+**Stopped At:** Completed 129-03-PLAN.md
 **Resume File:** None
