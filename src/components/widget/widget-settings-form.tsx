@@ -51,7 +51,15 @@ const widgetSettingsSchema = z.object({
   greetingEnabled: z.boolean().optional(),
   greetingMessage: z.string().trim().max(160, 'Greeting must be 160 characters or fewer.').optional().nullable(),
   greetingDelaySeconds: z.coerce.number().int().min(0).max(30).optional(),
+  urlMode: z.enum(['all', 'allowlist', 'blocklist']),
+  // Textarea value: one URL pattern per line. Normalized to an array on save.
+  urlRules: z.string().optional(),
 })
+
+/** Join a stored rules array (or string) into the textarea's newline form. */
+function rulesToText(rules: string[] | string | null | undefined): string {
+  return Array.isArray(rules) ? rules.join('\n') : rules ?? ''
+}
 
 type WidgetSettingsFormValues = z.infer<typeof widgetSettingsSchema>
 
@@ -105,6 +113,8 @@ export function WidgetSettingsForm({
       greetingEnabled: savedSettings.greetingEnabled ?? true,
       greetingMessage: savedSettings.greetingMessage ?? '',
       greetingDelaySeconds: savedSettings.greetingDelaySeconds ?? 3,
+      urlMode: savedSettings.urlMode ?? 'all',
+      urlRules: rulesToText(savedSettings.urlRules),
     },
   })
 
@@ -121,7 +131,7 @@ export function WidgetSettingsForm({
 
       if (result?.settings) {
         setSavedSettings(result.settings)
-        form.reset(result.settings)
+        form.reset({ ...result.settings, urlRules: rulesToText(result.settings.urlRules) })
       }
 
       toast.success('Widget settings saved.')
@@ -323,6 +333,69 @@ export function WidgetSettingsForm({
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* URL rules — authorize where the widget is allowed to run */}
+              <div className="space-y-4 rounded-[10px] border border-border bg-bg-secondary/40 p-4">
+                <FormField
+                  control={form.control}
+                  name="urlMode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Where the widget runs</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value ?? 'all'}
+                          onValueChange={field.onChange}
+                          disabled={isPending}
+                        >
+                          <SelectTrigger className="max-w-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Run on every page</SelectItem>
+                            <SelectItem value="allowlist">Only on allowed URLs</SelectItem>
+                            <SelectItem value="blocklist">Everywhere except blocked URLs</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormDescription>
+                        Restrict which pages may load the chat widget. Enforced both in the
+                        browser and on the server.
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch('urlMode') !== 'all' && (
+                  <FormField
+                    control={form.control}
+                    name="urlRules"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {form.watch('urlMode') === 'allowlist' ? 'Allowed URLs' : 'Blocked URLs'}
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            disabled={isPending}
+                            rows={5}
+                            className="font-mono text-[12.5px]"
+                            placeholder={'example.com\n*.example.com\nexample.com/checkout\nshop.example.com/app/*'}
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          One pattern per line. A bare domain matches any path; add a path such as{' '}
+                          <code>example.com/checkout</code> or a wildcard <code>example.com/app/*</code>.
+                          Use <code>*.example.com</code> to include subdomains, or <code>*/path</code> for any host.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
               <div className="flex flex-wrap gap-3">

@@ -1,11 +1,25 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
+import {
+  isRequestAllowed,
+  normalizeWidgetUrlMode,
+  normalizeWidgetUrlRules,
+} from '@/lib/widget/url-rules'
 
 export const runtime = 'nodejs'
 
 // S11 — rate-limit public widget config lookup: 30/min per IP (token enumeration prevention)
 const RL_LIMIT = 30
 const RL_WINDOW = 60
+
+// The widget fetches this endpoint cross-origin (script served from xphere.app,
+// host page on the customer's domain), so CORS is required for the response —
+// including the 403 that URL rules return — to be readable by the browser.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
 
 const DEFAULT_WIDGET_CONFIG = {
   displayName: 'AI Assistant',
@@ -20,6 +34,10 @@ function normalizeWidgetValue(value: string | null | undefined, fallback: string
   return trimmed.length > 0 ? trimmed : fallback
 }
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -27,7 +45,7 @@ export async function GET(
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   const rl = await rateLimit(`widget:config:${ip}`, RL_LIMIT, RL_WINDOW)
   if (!rl.allowed) {
-    return Response.json({ error: 'Too many requests' }, { status: 429 })
+    return Response.json({ error: 'Too many requests' }, { status: 429, headers: CORS_HEADERS })
   }
 
   const { token } = await params
@@ -35,12 +53,26 @@ export async function GET(
   const supabase = createServiceRoleClient()
   const { data: org, error } = await supabase
     .from('organizations')
-    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color, widget_greeting_enabled, widget_greeting_message, widget_greeting_delay_seconds')
+    .select('is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color, widget_greeting_enabled, widget_greeting_message, widget_greeting_delay_seconds, widget_url_mode, widget_url_rules')
     .eq('widget_token', token)
     .single()
 
   if (error || !org || !org.is_active) {
-    return Response.json({ error: 'Invalid or inactive token' }, { status: 401 })
+    return Response.json({ error: 'Invalid or inactive token' }, { status: 401, headers: CORS_HEADERS })
+  }
+
+  // URL authorization — is the widget allowed to run on the requesting page?
+  // Client-side gate: widget.js hides itself when this endpoint returns 403.
+  const mode = normalizeWidgetUrlMode(org.widget_url_mode)
+  const rules = normalizeWidgetUrlRules(org.widget_url_rules)
+  const clientUrl = new URL(request.url).searchParams.get('u')
+  const allowed = isRequestAllowed(mode, rules, {
+    origin: request.headers.get('origin'),
+    referer: request.headers.get('referer'),
+    clientUrl,
+  })
+  if (!allowed) {
+    return Response.json({ error: 'not_authorized_for_origin' }, { status: 403, headers: CORS_HEADERS })
   }
 
   const welcomeMessage = normalizeWidgetValue(org.widget_welcome_message, DEFAULT_WIDGET_CONFIG.welcomeMessage)
@@ -63,5 +95,5 @@ export async function GET(
     greetingEnabled: org.widget_greeting_enabled !== false,
     greetingMessage: normalizeWidgetValue(org.widget_greeting_message, welcomeMessage),
     greetingDelaySeconds,
-  })
+  }, { headers: CORS_HEADERS })
 }
