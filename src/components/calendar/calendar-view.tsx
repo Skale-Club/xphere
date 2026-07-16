@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useEffect, useCallback, useRef, useTransition } from 'react'
 import {
   format,
   startOfWeek,
@@ -34,7 +33,7 @@ import {
 import { cn } from '@/lib/utils'
 import { NewBookingDialog } from './new-booking-dialog'
 import { NewEventTypeDialog } from './new-event-type-dialog'
-import { cancelBooking } from '@/app/(dashboard)/calendar/_actions/bookings'
+import { cancelBooking, getBookingsForRange } from '@/app/(dashboard)/calendar/_actions/bookings'
 import { getGoogleCalendarEvents, type ExternalCalendarEvent } from '@/app/(dashboard)/calendar/_actions/google-events'
 import type { BookingRow } from '@/app/(dashboard)/calendar/_actions/bookings'
 import type { EventTypeRow } from '@/app/(dashboard)/calendar/_actions/event-types'
@@ -214,11 +213,11 @@ export function CalendarView({
   timezone = 'UTC',
   initialExternalEvents = [],
 }: CalendarViewProps) {
-  const router = useRouter()
   const [view, setView] = useState<View>('week')
   const [cursor, setCursor] = useState<Date>(() => new Date())
   const [now, setNow] = useState<Date>(() => new Date())
   const [externalEvents, setExternalEvents] = useState<ExternalCalendarEvent[]>(initialExternalEvents)
+  const [bookingsState, setBookingsState] = useState<BookingRow[]>(bookings)
   const [, startFetchTransition] = useTransition()
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -247,14 +246,24 @@ export function CalendarView({
     if (scrollRef.current) scrollRef.current.scrollTop = (8 - START_HOUR) * HOUR_HEIGHT - 8
   }, [view])
 
-  // Fetch Google Calendar events whenever cursor or view changes.
-  useEffect(() => {
+  const refetchRange = useCallback(() => {
     const { timeMin, timeMax } = rangeFor(view, cursor)
     startFetchTransition(async () => {
-      const events = await getGoogleCalendarEvents(timeMin, timeMax)
+      const [events, freshBookings] = await Promise.all([
+        getGoogleCalendarEvents(timeMin, timeMax),
+        getBookingsForRange({ from: timeMin, to: timeMax }),
+      ])
       setExternalEvents(events)
+      if (freshBookings.ok) setBookingsState(freshBookings.data)
     })
   }, [view, cursor])
+
+  // Fetch Google Calendar events + bookings whenever cursor or view
+  // changes (SYNC-03: bounds the calendar view's booking fetch to the
+  // visible range instead of relying on the unbounded initial load).
+  useEffect(() => {
+    refetchRange()
+  }, [refetchRange])
 
   const days = useMemo(() => {
     if (view === 'day') return [cursor]
@@ -268,7 +277,7 @@ export function CalendarView({
     return eachDayOfInterval({ start: ms, end: me })
   }, [view, cursor])
 
-  const confirmed = useMemo(() => bookings.filter((b) => b.status === 'confirmed'), [bookings])
+  const confirmed = useMemo(() => bookingsState.filter((b) => b.status === 'confirmed'), [bookingsState])
 
   function bookingsForDay(day: Date): BookingRow[] {
     return confirmed.filter((b) => isSameDay(toZonedTime(parseISO(b.start_at), timezone), day))
@@ -354,7 +363,7 @@ export function CalendarView({
       if (!res.ok) { toast.error(res.error); return }
       toast.success('Booking cancelled')
       setSelected(null)
-      router.refresh()
+      refetchRange()
     } finally {
       setCancelling(false)
     }
@@ -638,7 +647,7 @@ export function CalendarView({
         defaultStart={createStart}
         defaultEnd={createEnd}
         timezone={timezone}
-        onCreated={() => router.refresh()}
+        onCreated={() => refetchRange()}
         onCreateEventType={() => { setCreateOpen(false); setEtDialogOpen(true) }}
       />
 

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { startOfWeek, endOfWeek } from 'date-fns'
 import { getUser } from '@/lib/supabase/server'
-import { getBookings } from '../_actions/bookings'
+import { getBookingsForRange } from '../_actions/bookings'
 import { getEventTypes } from '../_actions/event-types'
 import { getSchedulingProfile } from '../_actions/calendar-profile'
 import { getUserAvailability } from '../_actions/availability'
@@ -18,7 +18,7 @@ export default async function SchedulingCalendarPage() {
 
   const [bookingsResult, eventTypesResult, profileResult, availabilityResult, externalEvents] =
     await Promise.all([
-      getBookings(),
+      getBookingsForRange({ from: weekStart.toISOString(), to: weekEnd.toISOString() }),
       getEventTypes(),
       getSchedulingProfile(),
       getUserAvailability(),
