@@ -338,8 +338,9 @@ export async function markNoShow(
 // 'meeting.completed' (src/lib/calendar/events.ts, src/lib/workflows/spec.ts,
 // and the skleanings-post-service-review.yaml seed already document/consume
 // this name). This is the transition src/lib/flows/engine.ts's
-// booking_mark_complete action node calls (Plan 127-06) instead of its old,
-// invalid `status: 'completed' as 'confirmed'` write.
+// booking_mark_complete action node calls (Plan 127-06) instead of its old
+// write of an invalid literal status value ("completed" — never a valid
+// DB status — cast away via `as 'confirmed'` to silence the compiler).
 export async function markShowed(
   ctx: TransitionContext,
   bookingId: string,
