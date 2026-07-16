@@ -18,6 +18,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
 import type { CalendarEvent } from '@/lib/calendar/events'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
+import type { BookingStatus } from '@/lib/calendar/booking-status'
 
 export const runtime = 'nodejs'
 
@@ -50,16 +51,21 @@ const payloadSchema = z.object({
 })
 
 // Xkedule status (pending|awaiting_approval|confirmed|completed|cancelled|no_show)
-// → native enum (confirmed|cancelled|no_show). Active states mirror as confirmed.
-function mapStatus(s: string): 'confirmed' | 'cancelled' | 'no_show' {
+// → native enum. Active/unrecognized states mirror as confirmed.
+// 'completed' maps to 'showed' -- the DB's only attendance/completion
+// value (LIFE-02) -- so Xkedule-sourced bookings can reach showed-
+// triggered workflows the same way native/MCP-confirmed bookings can.
+function mapStatus(s: string): BookingStatus {
   if (s === 'cancelled') return 'cancelled'
   if (s === 'no_show') return 'no_show'
+  if (s === 'completed') return 'showed'
   return 'confirmed'
 }
 
-function calendarEventFor(event: string, status: 'confirmed' | 'cancelled' | 'no_show'): CalendarEvent {
+function calendarEventFor(event: string, status: BookingStatus): CalendarEvent {
   if (event === 'booking.cancelled' || status === 'cancelled') return 'meeting.cancelled'
   if (status === 'no_show') return 'meeting.no_show'
+  if (status === 'showed') return 'meeting.completed'
   if (event === 'booking.created') return 'meeting.scheduled'
   if (event === 'booking.confirmed') return 'meeting.confirmed'
   return 'meeting.rescheduled'
