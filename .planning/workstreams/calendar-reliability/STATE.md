@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v3.4
 milestone_name: milestone
-current_plan: Not started
+current_plan: 1
 status: executing
-stopped_at: Completed 128-05-PLAN.md
-last_updated: "2026-07-16T05:36:54.527Z"
+stopped_at: Completed 129-01-PLAN.md
+last_updated: "2026-07-16T05:46:56.116Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 32
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 129
-Plan: 6 of 6
+Phase: 129 (provider-synchronization-integrity) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
 ## Progress
 
 **Phases Complete:** 0
-**Current Plan:** Not started
+**Current Plan:** 1
 
 ## Decisions
 
@@ -46,8 +46,10 @@ Last activity: 2026-07-16
 - [Phase 128-reliable-calendar-scheduling]: 128-04: Used migration number 1252 (not the plan's working-example 1251) since Phase 127 already claimed 1251_booking_lifecycle_transition.sql on this branch; test creates its own throwaway contrast-case booking, explicitly deleted after use so it never leaks into the same rolled-back transaction's later assertions
 - [Phase 128-reliable-calendar-scheduling]: 128-05: Added a route-layer transition-safety guard so a missing calendar_tick_watermark row/table scans an empty window and self-seeds from now, instead of falling back to computeDueWindow's 24h catch-up cap (prevents a double-dispatch burst if this code deploys before migration 1252 applies)
 - [Phase 128-reliable-calendar-scheduling]: 128-05: Kept the meeting.ended status filter as ['confirmed','showed'] rather than adding 'completed' as the plan text specified — 'completed' is not a valid bookings.status value per the DB type union and booking-status.ts's LIFE-02 vocabulary note
+- [Phase 129-01]: Extended fetchBusyTimes's 5th parameter from a single calendarId to calendarIds: string[] (default ['primary']), backward-compatible for all pre-existing 4-arg call sites
+- [Phase 129-01]: Fixed database.ts's stale calendar_profiles types (missing sync_mode/default_location_type/conflict_calendar_ids since migrations 1141/1142) at the root instead of adding another local cast
 
 ## Session Continuity
 
-**Stopped At:** Completed 128-05-PLAN.md
+**Stopped At:** Completed 129-01-PLAN.md
 **Resume File:** None
