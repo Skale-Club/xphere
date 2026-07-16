@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { resolveAndValidateSlot, type SlotValidationError } from '@/lib/calendar/booking-validation'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import type { McpToolDef } from '../tool-types'
 
@@ -109,7 +110,10 @@ export const bookingsTools: McpToolDef[] = [
     inputSchema: z.object({
       event_type_id: z.string().uuid(),
       start_at: z.string().datetime(),
-      end_at: z.string().datetime(),
+      // Deprecated: ignored. Server always derives end_at from
+      // event_types.duration_minutes (CAL-01). Kept optional so existing
+      // callers that still send it are not rejected by .strict().
+      end_at: z.string().datetime().optional(),
       booker_name: z.string().min(1),
       booker_email: z.string().email(),
       booker_phone: z.string().optional(),
@@ -119,14 +123,22 @@ export const bookingsTools: McpToolDef[] = [
     }).strict(),
     handler: async (input, { auth }) => {
       const supabase = db()
-      // Verify the event_type belongs to this org before allowing the booking.
-      const { data: et } = await supabase
-        .from('event_types')
-        .select('id')
-        .eq('id', input.event_type_id)
-        .eq('org_id', auth.orgId)
-        .maybeSingle()
-      if (!et) return { error: 'not_found', detail: 'event_type not found in this org', status: 404 }
+
+      const resolved = await resolveAndValidateSlot(supabase, {
+        eventTypeId: input.event_type_id,
+        startAtIso: input.start_at,
+        orgId: auth.orgId,
+      })
+      if (!resolved.ok) {
+        const statusByError: Record<SlotValidationError, number> = {
+          event_type_not_found: 404,
+          invalid_start_at: 422,
+          outside_availability: 409,
+          slot_taken: 409,
+        }
+        return { error: resolved.error, status: statusByError[resolved.error] }
+      }
+      const { eventType: et, startAt, endAt } = resolved.data
 
       // Resolve the contact link: honor an explicit contact_id, else match-or-create
       // by phone/email so the booking behaves like every other booking source.
@@ -142,13 +154,13 @@ export const bookingsTools: McpToolDef[] = [
         .from('bookings')
         .insert({
           org_id: auth.orgId,
-          event_type_id: input.event_type_id,
+          event_type_id: et.id,
           booker_name: input.booker_name,
           booker_email: input.booker_email,
           booker_phone: input.booker_phone ?? null,
           booker_timezone: input.booker_timezone ?? 'UTC',
-          start_at: input.start_at,
-          end_at: input.end_at,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
           notes: input.notes ?? null,
           status: 'confirmed',
           linked_contact_id: linkedContactId,
