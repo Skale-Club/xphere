@@ -16,7 +16,7 @@
 
 - [x] **LIFE-01**: Every booking status transition uses one canonical service with valid state guards, transactional persistence, and one matching calendar event.
 - [x] **LIFE-02**: The booking data model and all callers agree on supported states, including completion/showed semantics.
-- [ ] **LIFE-03**: Native booking, MCP, workflow actions, and Xkedule inbound updates trigger the same lifecycle contract without emitting events after failed writes.
+- [x] **LIFE-03**: Native booking, MCP, workflow actions, and Xkedule inbound updates trigger the same lifecycle contract without emitting events after failed writes.
 - [x] **LIFE-04**: Calendar workflow payloads expose documented meeting, event, and trigger-offset variables consistently.
 
 ### Scheduled Automation
