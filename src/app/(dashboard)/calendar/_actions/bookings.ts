@@ -540,10 +540,12 @@ export async function createBooking(
     return { ok: false, error: error?.message ?? 'create_failed' }
   }
 
-  // Create Google Calendar event (fire-and-forget, non-fatal)
+  // Create Google Calendar event (fire-and-forget, non-fatal). Persist the
+  // returned event id so future cancel/reschedule propagation has a durable
+  // link (SYNC-01) — previously the id was discarded entirely.
   try {
     const { createCalendarEvent } = await import('@/lib/calendar/google-calendar')
-    await createCalendarEvent(et.user_id, et.org_id, {
+    const googleEventId = await createCalendarEvent(et.user_id, et.org_id, {
       summary: `${et.title} with ${parsed.data.booker_name}`,
       description: parsed.data.notes,
       start: startAt.toISOString(),
@@ -553,6 +555,9 @@ export async function createBooking(
       location: et.location_value ?? undefined,
       timezone: hostTimezone,
     })
+    if (googleEventId) {
+      await supabase.from('bookings').update({ google_event_id: googleEventId }).eq('id', booking.id)
+    }
   } catch {
     // Non-fatal
   }
@@ -753,7 +758,7 @@ export async function createBookingInternal(
   if (email) {
     try {
       const { createCalendarEvent } = await import('@/lib/calendar/google-calendar')
-      await createCalendarEvent(et.user_id, et.org_id, {
+      const googleEventId = await createCalendarEvent(et.user_id, et.org_id, {
         summary: `${et.title} with ${parsed.data.booker_name}`,
         description: notes ?? undefined,
         start: startAt.toISOString(),
@@ -763,6 +768,9 @@ export async function createBookingInternal(
         location: et.location_value ?? undefined,
         timezone: hostTimezone,
       })
+      if (googleEventId) {
+        await supabase.from('bookings').update({ google_event_id: googleEventId }).eq('id', booking.id)
+      }
     } catch {
       /* non-fatal */
     }
