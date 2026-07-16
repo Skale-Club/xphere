@@ -4538,6 +4538,7 @@ export interface Database {
           location_data: Json
           meeting_url: string | null
           meeting_phone: string | null
+          google_event_id: string | null
           external_source: string | null
           external_id: string | null
           external_updated_at: string | null
@@ -4563,6 +4564,7 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          google_event_id?: string | null
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
@@ -4583,6 +4585,7 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          google_event_id?: string | null
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
