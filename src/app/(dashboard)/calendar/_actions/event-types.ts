@@ -26,6 +26,10 @@ const eventTypeSchema = z.object({
   location_value: z.string().max(500).optional(),
   active: z.boolean().default(true),
   booking_type: z.enum(['personal', 'round_robin']).default('personal'),
+  allowed_location_kinds: z
+    .array(z.enum(['google_meet', 'client_address', 'custom_address', 'phone_call', 'custom_phone', 'custom_link']))
+    .min(1)
+    .optional(),
 })
 
 export type EventTypeInput = z.infer<typeof eventTypeSchema>
@@ -104,10 +108,13 @@ export async function updateEventType(
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
+  const parsed = eventTypeSchema.partial().safeParse(input)
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'validation_error' }
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('event_types')
-    .update({ ...input, updated_at: new Date().toISOString() })
+    .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
     .select()
