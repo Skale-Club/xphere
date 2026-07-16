@@ -4,7 +4,7 @@ import * as React from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { CollapsedRail } from './collapsed-rail'
+import { CollapsedRail, COLLAPSED_RAIL_WIDTH } from './collapsed-rail'
 import { SubSidebarProvider, useSubSidebar } from './sub-sidebar-context'
 
 function clamp(value: number, min: number, max: number) {
@@ -202,7 +202,7 @@ function SubSidebarLayoutInner({
           hydrated &&
             !isResizing &&
             'transition-[width] duration-[250ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]',
-          !isExpanded && 'w-10 bg-bg-secondary/50',
+          !isExpanded && cn(COLLAPSED_RAIL_WIDTH, 'bg-bg-secondary/50'),
           // Expanded: mobile-only overlay positioning; solid bg on mobile,
           // translucent + in-flow (same as collapsed) from md up.
           isExpanded && 'max-md:absolute max-md:inset-y-0 max-md:left-0 bg-bg-secondary md:bg-bg-secondary/50',
@@ -215,22 +215,7 @@ function SubSidebarLayoutInner({
             <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">{nav}</div>
           </div>
         ) : (
-          <CollapsedRail
-            toggle={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="h-7 w-7 text-text-tertiary hover:text-text-primary"
-                onClick={expand}
-                aria-label="Expand sidebar"
-                title="Expand sidebar"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-              </Button>
-            }
-          >
-            {collapsedActions}
-          </CollapsedRail>
+          <CollapsedRail onToggle={expand} ariaLabelExpand="Expand sidebar" actions={collapsedActions} />
         )}
       </aside>
 

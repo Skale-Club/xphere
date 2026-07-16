@@ -62,7 +62,7 @@ export function InspectorPanel() {
     // rails' width/padding via the shared CollapsedRail primitive.
     return (
       <aside className={cn(COLLAPSED_RAIL_WIDTH, 'shrink-0 overflow-hidden border-l border-border bg-card/40 transition-[width] duration-200 ease-out')}>
-        <CollapsedRail toggle={<PanelToggleButton collapsed={collapsed} onClick={toggle} />} />
+        <CollapsedRail onToggle={toggle} ariaLabelExpand="Expand settings panel" />
       </aside>
     )
   }
