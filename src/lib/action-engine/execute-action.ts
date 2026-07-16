@@ -35,6 +35,13 @@ import { executeCreateTask, executeCreateNote } from '@/lib/action-engine/execut
 import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 import { executeContactAddTag } from '@/lib/action-engine/executors/contact-tag-actions'
 import { executeUpdateBookingStatus } from '@/lib/action-engine/executors/update-booking-status'
+import {
+  executeBookingConfirmAction,
+  executeBookingCancelAction,
+  executeBookingRescheduleAction,
+  executeBookingMarkNoShowAction,
+  executeBookingMarkCompleteAction,
+} from '@/lib/action-engine/executors/booking-lifecycle-actions'
 import { executeSendEmail } from '@/lib/action-engine/executors/send-email'
 import { executeSendEmailTemplate } from '@/lib/action-engine/executors/send-email-template'
 import { executeSendTenantEmail } from '@/lib/action-engine/executors/send-tenant-email'
@@ -169,6 +176,48 @@ async function _executeActionInner(
       throw new Error('update_booking_status requires ctx.organizationId and ctx.supabase')
     }
     return executeUpdateBookingStatus(params, ctx.organizationId, ctx.supabase)
+  }
+
+  // booking_confirm/booking_cancel/booking_reschedule/booking_mark_no_show/
+  // booking_mark_complete are not in the action_type DB enum -- handled
+  // before the switch (mirrors update_booking_status above). Phase 127
+  // LIFE-03: closes the wait-free dispatcher's "Unknown action type" gap for
+  // every booking_* action node in a workflow with no wait node (the common
+  // case), and every MCP/agent-tool-triggered flow, which always runs
+  // through this dispatcher regardless of wait nodes.
+  if ((actionType as string) === 'booking_confirm') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('booking_confirm requires ctx.organizationId and ctx.supabase')
+    }
+    return executeBookingConfirmAction(params, ctx.organizationId, ctx.supabase)
+  }
+
+  if ((actionType as string) === 'booking_cancel') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('booking_cancel requires ctx.organizationId and ctx.supabase')
+    }
+    return executeBookingCancelAction(params, ctx.organizationId, ctx.supabase)
+  }
+
+  if ((actionType as string) === 'booking_reschedule') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('booking_reschedule requires ctx.organizationId and ctx.supabase')
+    }
+    return executeBookingRescheduleAction(params, ctx.organizationId, ctx.supabase)
+  }
+
+  if ((actionType as string) === 'booking_mark_no_show') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('booking_mark_no_show requires ctx.organizationId and ctx.supabase')
+    }
+    return executeBookingMarkNoShowAction(params, ctx.organizationId, ctx.supabase)
+  }
+
+  if ((actionType as string) === 'booking_mark_complete') {
+    if (!ctx?.organizationId || !ctx?.supabase) {
+      throw new Error('booking_mark_complete requires ctx.organizationId and ctx.supabase')
+    }
+    return executeBookingMarkCompleteAction(params, ctx.organizationId, ctx.supabase)
   }
 
   // send_email_template is not in the action_type DB enum — handled before the
