@@ -5,6 +5,7 @@ import { NewTemplateButton } from '@/components/email-templates/new-template-but
 import { NewSectionTemplateButton } from '@/components/email-templates/new-section-template-button'
 import { NewFolderButton } from '@/components/workflows/new-folder-button'
 import { createFolder } from '@/app/(dashboard)/email-templates/_actions/folders'
+import { createFolder as createSectionFolder } from '@/app/(dashboard)/email-templates/_actions/section-template-folders'
 import { listTemplates, listSectionTemplates } from '@/app/(dashboard)/email-templates/actions'
 import type { Database } from '@/types/database'
 
@@ -63,10 +64,29 @@ export default async function EmailTemplatesLayout({ children }: { children: Rea
         />
       }
       collapsedActions={
+        // Four distinct actions mirroring the expanded panel's two tabs
+        // (Templates / Sections), each with its own toolbar: New template +
+        // New template folder, then New section + New section folder. Phase
+        // 7: this used to be two visually-identical bare-Plus buttons (New
+        // template vs New section were indistinguishable) plus a single
+        // folder button that only ever created TEMPLATE folders — the
+        // section-folder action had no rail affordance at all.
         <>
-          <NewTemplateButton label="New template" iconOnly className="h-7 w-7 p-0" />
-          <NewSectionTemplateButton label="New section" iconOnly className="h-7 w-7 p-0" />
-          <NewFolderButton iconOnly className="h-7 w-7 p-0" createFolder={createFolder} />
+          <NewTemplateButton label="New template" iconOnly iconVariant="mail" className="h-7 w-7 p-0" />
+          <NewFolderButton
+            label="New template folder"
+            iconOnly
+            className="h-7 w-7 p-0"
+            createFolder={createFolder}
+          />
+          <div className="my-0.5 h-px w-6 shrink-0 bg-border-subtle" aria-hidden="true" />
+          <NewSectionTemplateButton label="New section" iconOnly iconVariant="layers" className="h-7 w-7 p-0" />
+          <NewFolderButton
+            label="New section folder"
+            iconOnly
+            className="h-7 w-7 p-0 text-violet-400 hover:border-violet-400/60 hover:text-violet-300"
+            createFolder={createSectionFolder}
+          />
         </>
       }
     >

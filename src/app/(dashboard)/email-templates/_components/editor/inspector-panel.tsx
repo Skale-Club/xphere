@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { CollapsedRail, COLLAPSED_RAIL_WIDTH } from '@/components/layout/collapsed-rail'
 import { findBlockLocation } from '@/lib/email/editor-dnd'
 import { useEditor } from './context'
 import { BlockInspector } from './block-inspector'
@@ -56,9 +57,12 @@ export function InspectorPanel() {
     : null
 
   if (collapsed) {
+    // Nothing useful to show collapsed (no block/section selected → no
+    // controls to render as chips) — geometry-only, matches the other two
+    // rails' width/padding via the shared CollapsedRail primitive.
     return (
-      <aside className="flex w-9 shrink-0 flex-col items-center overflow-hidden border-l border-border bg-card/40 py-2 transition-[width] duration-200 ease-out">
-        <PanelToggleButton collapsed={collapsed} onClick={toggle} />
+      <aside className={cn(COLLAPSED_RAIL_WIDTH, 'shrink-0 overflow-hidden border-l border-border bg-card/40 transition-[width] duration-200 ease-out')}>
+        <CollapsedRail toggle={<PanelToggleButton collapsed={collapsed} onClick={toggle} />} />
       </aside>
     )
   }

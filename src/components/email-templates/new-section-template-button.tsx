@@ -2,10 +2,11 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Layers, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { createSectionTemplate } from '@/app/(dashboard)/email-templates/actions'
+import { IconWithPlusBadge } from './icon-plus-badge'
 
 interface Props {
   label?: string
@@ -13,6 +14,10 @@ interface Props {
   iconOnly?: boolean
   /** Optional folder to create the new section template inside. */
   folderId?: string | null
+  /** 'plus' (default): bare Plus icon. 'layers': Layers icon with a small
+   *  Plus badge — for icon-only rails where a bare Plus would be
+   *  indistinguishable from other "New X" actions next to it. */
+  iconVariant?: 'plus' | 'layers'
 }
 
 /**
@@ -20,7 +25,9 @@ interface Props {
  * templates (which use a name-first form page), sections are created inline and
  * renamed from the editor breadcrumb — less friction for a fragment.
  */
-export function NewSectionTemplateButton({ label = 'New section', className, iconOnly = false, folderId = null }: Props) {
+export function NewSectionTemplateButton({
+  label = 'New section', className, iconOnly = false, folderId = null, iconVariant = 'plus',
+}: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
 
@@ -42,7 +49,13 @@ export function NewSectionTemplateButton({ label = 'New section', className, ico
         })
       }
     >
-      {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+      {pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : iconVariant === 'layers' ? (
+        <IconWithPlusBadge icon={Layers} />
+      ) : (
+        <Plus className="h-3.5 w-3.5" />
+      )}
       {!iconOnly && label}
     </Button>
   )

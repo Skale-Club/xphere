@@ -4,6 +4,7 @@ import * as React from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { CollapsedRail } from './collapsed-rail'
 import { SubSidebarProvider, useSubSidebar } from './sub-sidebar-context'
 
 function clamp(value: number, min: number, max: number) {
@@ -149,6 +150,21 @@ function SubSidebarLayoutInner({
   )
 
   return (
+    // Height parity (Phase 7): this div's `h-full` is the top of the height
+    // chain for BOTH the collapsed rail and the expanded panel below — they
+    // must resolve against the SAME definite height, or they render at
+    // different heights depending on route nesting. The chain that makes
+    // `h-full` here definite (not content-driven/auto): dashboard layout's
+    // `h-dvh` row -> `main`'s `flex-1 min-h-0` -> `PageTransition`'s
+    // `h-full` -> (for a route that nests a second SubSidebarLayout, e.g.
+    // /settings/email-templates/[id]) the OUTER SubSidebarLayout's own
+    // content div below (`flex-1`, definite via flex-basis:0 distribution)
+    // -> this div's `h-full` -> the routed page's own `h-full`/`flex-1`
+    // wrapper. Every link is either an explicit height or a `flex-1`/`flex`
+    // item with `overflow-auto`/`min-h-0` (which zeroes the flexbox
+    // automatic minimum size) — breaking any link back to a bare
+    // content-driven block would make this `h-full` a no-op and the whole
+    // rail-height-parity guarantee below moot.
     <div className="relative flex h-full overflow-hidden">
       {/* Backdrop scrim: only on mobile while the panel is expanded. On small
           screens the expanded panel overlays the content (see `aside` below)
@@ -166,18 +182,30 @@ function SubSidebarLayoutInner({
       {/* Sidebar: full panel when expanded, slim rail when collapsed. The width
           transition is only enabled after hydration so it doesn't animate the
           initial state on page load, and suspended while actively dragging so
-          the edge tracks the pointer instead of easing behind it. On mobile the
-          expanded panel is absolutely positioned so it floats over the content;
-          from md up it returns to the normal flow and pushes the content. */}
+          the edge tracks the pointer instead of easing behind it.
+
+          Height parity: `relative` (in-flow) is UNCONDITIONAL and applies at
+          EVERY breakpoint for BOTH states — collapsed and expanded stretch
+          identically to the row's height via flex's default
+          `align-items: stretch`, so toggling never changes the aside's own
+          top/bottom position. Only the mobile (`max-md:`) expanded case adds
+          `absolute` — there it floats over the content as an overlay instead
+          of pushing it; from md up it stays in-flow and pushes the content,
+          same as collapsed. (Previously this relied on `md:relative`
+          overriding an unconditional `absolute` via Tailwind's generated
+          CSS order — correct, but not provably so at a glance. Scoping the
+          override to `max-md:` makes desktop identical by construction:
+          `absolute` is never emitted at md+ at all.) */}
       <aside
         className={cn(
-          'z-30 flex shrink-0 flex-col overflow-hidden border-r border-border-subtle md:relative md:z-20',
+          'relative z-30 flex shrink-0 flex-col overflow-hidden border-r border-border-subtle md:z-20',
           hydrated &&
             !isResizing &&
             'transition-[width] duration-[250ms] [transition-timing-function:cubic-bezier(0.2,0,0,1)]',
-          !isExpanded && 'relative w-10 bg-bg-secondary/50',
-          // Expanded: solid bg + overlay on mobile, translucent + in-flow on md+.
-          isExpanded && 'absolute inset-y-0 left-0 bg-bg-secondary md:bg-bg-secondary/50',
+          !isExpanded && 'w-10 bg-bg-secondary/50',
+          // Expanded: mobile-only overlay positioning; solid bg on mobile,
+          // translucent + in-flow (same as collapsed) from md up.
+          isExpanded && 'max-md:absolute max-md:inset-y-0 max-md:left-0 bg-bg-secondary md:bg-bg-secondary/50',
         )}
         style={isExpanded ? { width } : undefined}
       >
@@ -187,7 +215,22 @@ function SubSidebarLayoutInner({
             <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">{nav}</div>
           </div>
         ) : (
-          <CollapsedRail onExpand={expand} actions={collapsedActions} />
+          <CollapsedRail
+            toggle={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 text-text-tertiary hover:text-text-primary"
+                onClick={expand}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </Button>
+            }
+          >
+            {collapsedActions}
+          </CollapsedRail>
         )}
       </aside>
 
@@ -209,36 +252,6 @@ function SubSidebarLayoutInner({
 
       {/* Main content ----------------------------------------------------- */}
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">{children}</div>
-    </div>
-  )
-}
-
-// ─── Collapsed rail ───────────────────────────────────────────────────────────
-
-function CollapsedRail({
-  onExpand,
-  actions,
-}: {
-  onExpand: () => void
-  actions?: React.ReactNode
-}) {
-  return (
-    <div className="flex h-full w-10 flex-col items-center py-2">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="h-7 w-7 text-text-tertiary hover:text-text-primary"
-        onClick={onExpand}
-        aria-label="Expand sidebar"
-        title="Expand sidebar"
-      >
-        <PanelLeftOpen className="h-4 w-4" />
-      </Button>
-      {actions && (
-        <div className="mt-3 flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto border-t border-border-subtle pt-3">
-          {actions}
-        </div>
-      )}
     </div>
   )
 }
