@@ -39,19 +39,19 @@ describe('fetchBusyTimes', () => {
   })
 
   it('Test 1: defaults to primary calendar when no calendarIds passed', async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({ calendars: { primary: { busy: [{ start: 'a', end: 'b' }] } } }),
     }))
     vi.stubGlobal('fetch', fetchMock)
     const result = await fetchBusyTimes('user', 'org', 'min', 'max')
     expect(result).toEqual([{ start: 'a', end: 'b' }])
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)
     expect(body.items).toEqual([{ id: 'primary' }])
   })
 
   it('Test 2: merges busy intervals across multiple calendarIds in ONE request', async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({
         calendars: {
@@ -64,7 +64,7 @@ describe('fetchBusyTimes', () => {
     const result = await fetchBusyTimes('user', 'org', 'min', 'max', ['primary', 'cal2@group.calendar.google.com'])
     expect(result).toEqual([{ start: 'a1', end: 'a2' }, { start: 'b1', end: 'b2' }])
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)
     expect(body.items).toEqual([{ id: 'primary' }, { id: 'cal2@group.calendar.google.com' }])
   })
 

@@ -5003,6 +5003,9 @@ export interface Database {
           org_id: string
           slug: string
           timezone: string
+          sync_mode: string
+          default_location_type: string
+          conflict_calendar_ids: string[]
           created_at: string
           updated_at: string
         }
@@ -5011,12 +5014,18 @@ export interface Database {
           org_id: string
           slug: string
           timezone?: string
+          sync_mode?: string
+          default_location_type?: string
+          conflict_calendar_ids?: string[]
           created_at?: string
           updated_at?: string
         }
         Update: {
           slug?: string
           timezone?: string
+          sync_mode?: string
+          default_location_type?: string
+          conflict_calendar_ids?: string[]
           updated_at?: string
         }
         Relationships: [

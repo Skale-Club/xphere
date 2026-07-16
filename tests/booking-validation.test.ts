@@ -262,4 +262,33 @@ describe('resolveAndValidateSlot', () => {
       expect(result.data.eventType.id).toBe(EVENT_TYPE_ID)
     }
   })
+
+  it('Test 12: a configured conflict_calendar_ids on the profile is forwarded to fetchBusyTimes', async () => {
+    const { client } = buildFakeSupabase({
+      windows: { data: [{ start_time: '08:00:00', end_time: '12:00:00' }], error: null },
+      profile: { data: { timezone: 'UTC', conflict_calendar_ids: ['primary', 'team@group.calendar.google.com'] }, error: null },
+    })
+    await resolveAndValidateSlot(client as any, {
+      eventTypeId: EVENT_TYPE_ID,
+      startAtIso: `${FUTURE_DATE}T08:00:00.000Z`,
+    })
+    expect(fetchBusyTimes).toHaveBeenCalledWith(
+      USER_ID, ORG_ID, expect.any(String), expect.any(String),
+      ['primary', 'team@group.calendar.google.com'],
+    )
+  })
+
+  it("Test 13: an empty/missing conflict_calendar_ids falls back to ['primary']", async () => {
+    const { client } = buildFakeSupabase({
+      windows: { data: [{ start_time: '08:00:00', end_time: '12:00:00' }], error: null },
+    })
+    await resolveAndValidateSlot(client as any, {
+      eventTypeId: EVENT_TYPE_ID,
+      startAtIso: `${FUTURE_DATE}T08:00:00.000Z`,
+    })
+    expect(fetchBusyTimes).toHaveBeenCalledWith(
+      USER_ID, ORG_ID, expect.any(String), expect.any(String),
+      ['primary'],
+    )
+  })
 })

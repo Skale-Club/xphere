@@ -113,10 +113,13 @@ export async function resolveAndValidateSlot(
 
   const { data: profile } = await supabase
     .from('calendar_profiles')
-    .select('timezone')
+    .select('timezone, conflict_calendar_ids')
     .eq('user_id', et.user_id)
     .maybeSingle()
   const hostTimezone = profile?.timezone ?? 'UTC'
+  const conflictCalendarIds = profile?.conflict_calendar_ids?.length
+    ? profile.conflict_calendar_ids
+    : ['primary']
 
   const localStart = toZonedTime(startAt, hostTimezone)
   const dow = localStart.getDay()
@@ -176,6 +179,7 @@ export async function resolveAndValidateSlot(
     et.org_id,
     startAt.toISOString(),
     endAt.toISOString(),
+    conflictCalendarIds,
   ).catch(() => [])
   const busyConflict = busyTimes.some((b) =>
     overlapsRange(startAt, endAt, new Date(b.start), new Date(b.end)),

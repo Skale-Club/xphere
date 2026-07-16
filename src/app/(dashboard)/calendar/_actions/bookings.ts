@@ -268,11 +268,14 @@ export async function getAvailableSlots(params: {
   // Fetch calendar profile for timezone
   const { data: profile } = await supabase
     .from('calendar_profiles')
-    .select('timezone')
+    .select('timezone, conflict_calendar_ids')
     .eq('user_id', userId)
     .single()
 
   const timezone = profile?.timezone ?? 'UTC'
+  const conflictCalendarIds = profile?.conflict_calendar_ids?.length
+    ? profile.conflict_calendar_ids
+    : ['primary']
 
   // Map date string to day of week
   const [year, month, day] = params.date.split('-').map(Number)
@@ -318,6 +321,7 @@ export async function getAvailableSlots(params: {
     orgId,
     dayStartUtc.toISOString(),
     dayEndUtc.toISOString(),
+    conflictCalendarIds,
   ).catch(() => [])
 
   const slots = generateSlots({
@@ -357,11 +361,14 @@ export async function getDebugSlots(params: {
 
   const { data: profile } = await supabase
     .from('calendar_profiles')
-    .select('timezone')
+    .select('timezone, conflict_calendar_ids')
     .eq('user_id', userId)
     .single()
 
   const timezone = profile?.timezone ?? 'UTC'
+  const conflictCalendarIds = profile?.conflict_calendar_ids?.length
+    ? profile.conflict_calendar_ids
+    : ['primary']
 
   const [year, month, day] = params.date.split('-').map(Number)
   const dateObj = new Date(year, month - 1, day)
@@ -388,7 +395,7 @@ export async function getDebugSlots(params: {
     .lte('start_at', dayEndUtc.toISOString())
 
   const existingBookings = (existing ?? []).map((b) => ({ start: b.start_at, end: b.end_at }))
-  const busyTimes = await fetchBusyTimes(userId, orgId, dayStartUtc.toISOString(), dayEndUtc.toISOString()).catch(() => [])
+  const busyTimes = await fetchBusyTimes(userId, orgId, dayStartUtc.toISOString(), dayEndUtc.toISOString(), conflictCalendarIds).catch(() => [])
 
   const slots = generateSlotsWithReasons({
     date: params.date,
