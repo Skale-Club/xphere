@@ -3,10 +3,12 @@
 // Vercel Hobby-friendly: no Edge Runtime dependency, but still must respond fast.
 // MUST always return HTTP 200.
 
+import { after } from 'next/server'
 import { VapiToolCallMessageSchema, getToolArguments } from '@/types/vapi'
 import { resolveOrgForAssistant } from '@/lib/vapi/end-of-call'
 import { resolveTool } from '@/lib/action-engine/resolve-tool'
 import { executeAction } from '@/lib/action-engine/execute-action'
+import { logToolRun } from '@/lib/workflows/log-tool-run'
 import { decrypt } from '@/lib/crypto'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
@@ -17,6 +19,8 @@ export const runtime = 'nodejs'
 const obs = createLogger({ route: 'api/vapi/tools' })
 
 export async function POST(request: Request): Promise<Response> {
+  const startTime = Date.now()
+
   // Outer catch: prevents ANY uncaught error from returning non-200 to Vapi
   try {
     if (!verifyVapiSecret(request)) {
@@ -68,6 +72,8 @@ export async function POST(request: Request): Promise<Response> {
 
     // 5. Decrypt API key + build credentials
     let result: string
+    let status: 'success' | 'error' | 'timeout' = 'success'
+    let errorDetail: string | null = null
 
     try {
       const apiKey = await decrypt(toolConfig.integrations.encrypted_api_key)
@@ -82,24 +88,33 @@ export async function POST(request: Request): Promise<Response> {
         toolConfig: toolConfig.config,
         integrationProvider: toolConfig.integrations.provider,
       })
-    } catch {
+    } catch (err) {
       // GHL executor threw (error, timeout, or unsupported action type)
+      const isTimeout = err instanceof Error && err.name === 'AbortError'
+      status = isTimeout ? 'timeout' : 'error'
+      errorDetail = err instanceof Error ? err.message : String(err)
       result = toolConfig.fallback_message
     }
 
-    // 6. Per-call action history: NOT written here anymore. SEED-025 Phase F
-    // turned action_logs into a read-only historical table — logAction()
-    // (src/lib/action-engine/log-action.ts) is a no-op stub, so the
-    // organization_id/tool_config_id/execution_ms/etc. payload this route used
-    // to assemble was being thrown away on every tool call. There is also no
-    // replacement run-log: workflow_runs only records kind='flow' DAG
-    // executions (trigger_type/trigger_payload); resolveWorkflowAsTool
-    // (src/lib/workflows/resolve.ts), which is what resolveTool() above
-    // delegates to for kind='tool' workflows, calls executeAction() directly
-    // with no run row created in between. Net effect: live AI-call action
-    // timelines are not currently reconstructable from any DB table — only
-    // action_logs rows written before the Phase F cutover still exist, and
-    // call-detail-ai.tsx reads those as read-only legacy history.
+    const executionMs = Date.now() - startTime
+
+    // 6. Log execution async | does NOT block Vapi response
+    // workflow_runs (kind='tool') via logToolRun — feeds the call-detail
+    // timeline and the Workflow logs page (workflow_tool_logs view).
+    after(async () => {
+      await logToolRun({
+        orgId,
+        workflowId: toolConfig.workflow_id,
+        toolName: toolCall.name,
+        triggerType: 'vapi',
+        vapiCallId: call.id,
+        status,
+        executionMs,
+        requestPayload: getToolArguments(toolCall),
+        responsePayload: { result },
+        errorDetail,
+      }, supabase)
+    })
 
     // 7. Return to Vapi | always HTTP 200
     return Response.json({

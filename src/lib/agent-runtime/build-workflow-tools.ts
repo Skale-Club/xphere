@@ -205,6 +205,8 @@ export async function buildWorkflowTools(
           definition: capturedDefinition,
           input: toolArgs,
           context: { orgId, conversationId, channel, agentId },
+          toolName: capturedToolName,
+          triggerType: 'agent',
         })
 
         const resultStr =

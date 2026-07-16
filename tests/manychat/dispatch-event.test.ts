@@ -20,28 +20,28 @@ import { resolveRule } from '@/lib/manychat/resolve-rule'
 import { resolveToolById } from '@/lib/action-engine/resolve-tool-by-id'
 import { executeAction } from '@/lib/action-engine/execute-action'
 
-function buildDispatchSupabase(opts: { logId?: string | null; logError?: string | null } = {}) {
-  // action_logs.insert(...).select('id').single() returns {id}
+function buildDispatchSupabase(opts: { runId?: string | null; runError?: string | null } = {}) {
+  // workflow_runs.insert(...).select('id').single() returns {id} (logToolRun)
   const singleSpy = vi.fn().mockResolvedValue({
-    data: opts.logId !== undefined ? { id: opts.logId } : { id: 'log-default' },
-    error: opts.logError ? { message: opts.logError } : null,
+    data: opts.runId !== undefined ? { id: opts.runId } : { id: 'run-default' },
+    error: opts.runError ? { message: opts.runError } : null,
   })
   const selectSpy = vi.fn().mockReturnValue({ single: singleSpy })
-  const actionLogsInsertSpy = vi.fn().mockReturnValue({ select: selectSpy })
+  const runsInsertSpy = vi.fn().mockReturnValue({ select: selectSpy })
 
   // manychat_events.update(...).eq('id', eventId) → {data, error}
   const eventsUpdateEqSpy = vi.fn().mockResolvedValue({ data: null, error: null })
   const eventsUpdateSpy = vi.fn().mockReturnValue({ eq: eventsUpdateEqSpy })
 
   const fromMock = vi.fn((table: string) => {
-    if (table === 'action_logs') return { insert: actionLogsInsertSpy }
+    if (table === 'workflow_runs') return { insert: runsInsertSpy }
     if (table === 'manychat_events') return { update: eventsUpdateSpy }
     return {}
   })
 
   return {
     from: fromMock,
-    _actionLogsInsertSpy: actionLogsInsertSpy,
+    _runsInsertSpy: runsInsertSpy,
     _eventsUpdateSpy: eventsUpdateSpy,
     _eventsUpdateEqSpy: eventsUpdateEqSpy,
   }
@@ -49,6 +49,7 @@ function buildDispatchSupabase(opts: { logId?: string | null; logError?: string 
 
 const fakeTool = {
   id: 'tool-1',
+  workflow_id: 'wf-1',
   organization_id: 'org-1',
   integration_id: 'int-1',
   tool_name: 'create_contact',
@@ -102,7 +103,7 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(fakeTool)
     vi.mocked(executeAction).mockResolvedValue('ok')
-    const supabase = buildDispatchSupabase({ logId: 'log-1' })
+    const supabase = buildDispatchSupabase({ runId: 'run-1' })
     const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
     await dispatchManychatEvent(
       { eventId: 'evt-1', orgId: 'org-1', channelId: 'channel-1', eventType: 'flow_completed', payload: { x: 1 } },
@@ -136,7 +137,7 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(fakeTool)
     vi.mocked(executeAction).mockRejectedValue(new Error('boom'))
-    const supabase = buildDispatchSupabase({ logId: 'log-1' })
+    const supabase = buildDispatchSupabase({ runId: 'run-1' })
     const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
     await dispatchManychatEvent(
       { eventId: 'evt-1', orgId: 'org-1', channelId: 'channel-1', eventType: 'x', payload: {} },
@@ -153,7 +154,7 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(manychatTool)
     vi.mocked(executeAction).mockResolvedValue('Tag tag-vip added to subscriber sub-1.')
-    const supabase = buildDispatchSupabase({ logId: 'log-1' })
+    const supabase = buildDispatchSupabase({ runId: 'run-1' })
     const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
     await dispatchManychatEvent(
       {
@@ -175,17 +176,17 @@ describe('ROUTING-03: dispatchManychatEvent — match path', () => {
   })
 })
 
-describe('ROUTING-04: action_log_id linking', () => {
+describe('ROUTING-04: workflow_run_id linking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
   })
 
-  it('writes the new action_logs.id back to manychat_events.action_log_id (and status=matched)', async () => {
+  it('writes the new workflow_runs.id back to manychat_events.workflow_run_id (and status=matched)', async () => {
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(fakeTool)
     vi.mocked(executeAction).mockResolvedValue('done')
-    const supabase = buildDispatchSupabase({ logId: 'log-xyz' })
+    const supabase = buildDispatchSupabase({ runId: 'run-xyz' })
     const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
     await dispatchManychatEvent(
       { eventId: 'evt-1', orgId: 'org-1', channelId: 'channel-1', eventType: 'x', payload: {} },
@@ -195,26 +196,32 @@ describe('ROUTING-04: action_log_id linking', () => {
     expect(supabase._eventsUpdateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'matched',
-        action_log_id: 'log-xyz',
+        workflow_run_id: 'run-xyz',
         matched_rule_id: 'rule-1',
       })
     )
     expect(supabase._eventsUpdateEqSpy).toHaveBeenCalledWith('id', 'evt-1')
   })
 
-  it('uses synthetic vapi_call_id="manychat:{event_id}" in the action_logs insert', async () => {
+  it('records a kind=tool run with synthetic vapi_call_id="manychat:{event_id}"', async () => {
     vi.mocked(resolveRule).mockResolvedValue(fakeRule)
     vi.mocked(resolveToolById).mockResolvedValue(fakeTool)
     vi.mocked(executeAction).mockResolvedValue('done')
-    const supabase = buildDispatchSupabase({ logId: 'log-1' })
+    const supabase = buildDispatchSupabase({ runId: 'run-1' })
     const { dispatchManychatEvent } = await import('@/lib/manychat/dispatch-event')
     await dispatchManychatEvent(
       { eventId: 'evt-42', orgId: 'org-1', channelId: 'channel-1', eventType: 'x', payload: {} },
       // @ts-expect-error mock client
       supabase
     )
-    expect(supabase._actionLogsInsertSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ vapi_call_id: 'manychat:evt-42' })
+    expect(supabase._runsInsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'tool',
+        workflow_id: 'wf-1',
+        trigger_type: 'manychat',
+        vapi_call_id: 'manychat:evt-42',
+        status: 'succeeded',
+      })
     )
   })
 })

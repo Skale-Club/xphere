@@ -20,22 +20,17 @@ export async function CallDetailAi({ call, stacked = false }: Props) {
   const supabase = await createClient()
 
   // call.external_id already equals calls.vapi_call_id for AI rows (unified_calls
-  // view), so the action_logs query doesn't need to wait on the calls row —
-  // fetch both in parallel instead of sequentially. assistant_mappings is only
-  // queried when the row actually has an assistant_id.
+  // view), so the tool-log query doesn't need to wait on the calls row —
+  // fetch all in parallel instead of sequentially. workflow_tool_logs unions
+  // new workflow_runs (kind='tool') rows with the legacy action_logs history.
   const [{ data: vapiCall }, { data: actionLogs }, { data: assistantMapping }] = await Promise.all([
     supabase
       .from('calls')
       .select('transcript_turns, started_at, success_evaluation')
       .eq('id', call.id)
       .maybeSingle(),
-    // Legacy, read-only (SEED-025 Phase F stopped writing action_logs — see
-    // src/lib/action-engine/log-action.ts). Only pre-cutover calls have rows
-    // here; buildTimeline() below simply produces no 'tool' items when this
-    // comes back empty, so the transcript renders with just conversation
-    // turns for every call made since the cutover.
     supabase
-      .from('action_logs')
+      .from('workflow_tool_logs')
       .select('*')
       .eq('vapi_call_id', call.external_id)
       .order('created_at', { ascending: true }),

@@ -9,6 +9,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { executeAction, type ActionContext } from '@/lib/action-engine/execute-action'
+import { logToolRun } from '@/lib/workflows/log-tool-run'
 import { extractActionTypeFromDefinition } from '@/lib/workflows/derive-action-type'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
 import { runFlow, definitionHasWait } from '@/lib/flows/engine'
@@ -37,6 +38,10 @@ export interface ExecuteWorkflowToolParams {
     agentId?: string
   }
   timeoutMs?: number
+  /** Display name recorded on the kind='tool' run row (workflow_runs.tool_name). */
+  toolName?: string
+  /** Run-log trigger_type | defaults to 'agent' when context.agentId is set, else 'manual'. */
+  triggerType?: string
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -87,6 +92,10 @@ export async function executeWorkflowTool(
       supabase,
     }
 
+    const triggerType =
+      params.triggerType ?? (params.context.agentId ? 'agent' : 'manual')
+    const startMs = Date.now()
+
     try {
       const result = await executeAction(
         actionType,
@@ -94,11 +103,40 @@ export async function executeWorkflowTool(
         { apiKey: '', locationId: '' },
         ctx,
       )
+      await logToolRun({
+        orgId: params.context.orgId,
+        workflowId: params.workflowId,
+        toolName: params.toolName ?? null,
+        triggerType,
+        vapiCallId: params.context.conversationId
+          ? `chat:${params.context.conversationId}`
+          : null,
+        status: 'success',
+        executionMs: Date.now() - startMs,
+        requestPayload: merged,
+        responsePayload: { result },
+      }, supabase)
       return { ok: true, result }
     } catch (err) {
+      const isTimeout = err instanceof Error && err.name === 'AbortError'
+      const message = err instanceof Error ? err.message : String(err)
+      await logToolRun({
+        orgId: params.context.orgId,
+        workflowId: params.workflowId,
+        toolName: params.toolName ?? null,
+        triggerType,
+        vapiCallId: params.context.conversationId
+          ? `chat:${params.context.conversationId}`
+          : null,
+        status: isTimeout ? 'timeout' : 'error',
+        executionMs: Date.now() - startMs,
+        requestPayload: merged,
+        responsePayload: {},
+        errorDetail: message,
+      }, supabase)
       return {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
       }
     }
   }
