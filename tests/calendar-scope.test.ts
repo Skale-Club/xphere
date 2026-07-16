@@ -283,3 +283,82 @@ describe('buildMeetingScope', () => {
     expect(scope).toBeNull()
   })
 })
+
+// ─── Phase 130 Plan 02 (SYNC-03): verify-and-extend ────────────────────────
+// Phase 127-02 already shipped the event_types.title column fix and the
+// organizer-hydration logic exercised by every test above. This block adds
+// the one regression gap 127-02's own suite didn't assert directly: that the
+// event_types select statement itself never re-introduces the nonexistent
+// `name` column (the exact bug this fix corrects), and confirms the same
+// resolvable event type simultaneously carries a real user_id for the
+// organizer lookup.
+describe('buildMeetingScope — event_types select regression guard (SYNC-03)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(resolveMeetingLocation).mockReturnValue({
+      kind: 'video',
+      label: 'Video call',
+      address: null,
+      coordinates: null,
+      phone: null,
+      link: 'https://meet.example.com',
+    } as any)
+  })
+
+  it('selects event_types.title (never the nonexistent name column) and includes user_id for organizer resolution', async () => {
+    let capturedSelectArg: string | undefined
+    const client: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'bookings') return makeProxy({ data: bookingRow, error: null })
+        if (table === 'event_types') {
+          const proxy: any = {}
+          proxy.select = vi.fn((arg: string) => {
+            capturedSelectArg = arg
+            return proxy
+          })
+          proxy.eq = vi.fn(() => proxy)
+          proxy.single = vi.fn(() => Promise.resolve({ data: eventTypeRow, error: null }))
+          return proxy
+        }
+        if (table === 'contacts') return makeProxy({ data: contactRow, error: null })
+        return makeProxy({ data: null, error: null })
+      }),
+      auth: {
+        admin: {
+          getUserById: vi.fn(async () => ({ data: { user: null }, error: null })),
+        },
+      },
+    }
+
+    const scope = await buildMeetingScope(client, BOOKING_ID)
+
+    expect(scope).not.toBeNull()
+    expect(capturedSelectArg).toBeDefined()
+    // Regression guard: the pre-127-02 bug selected a bare `name` column
+    // that doesn't exist on event_types (only `title` does), which silently
+    // resolved eventType to `{ data: null }` on every call in production.
+    expect(capturedSelectArg).not.toMatch(/(^|[\s,])name([\s,]|$)/)
+    expect(capturedSelectArg).toContain('title')
+    expect(capturedSelectArg).toContain('user_id')
+  })
+
+  it('a fully-populated user_metadata (full_name AND email) still sources organizer.email from the top-level user.email, not user_metadata.email', async () => {
+    const getUserById = vi.fn(async () => ({
+      data: {
+        user: {
+          id: HOST_USER_ID,
+          email: 'top-level@example.com',
+          user_metadata: { full_name: 'Jane Host', email: 'metadata@example.com' },
+        },
+      },
+      error: null,
+    }))
+    const client = buildFakeSupabase({ getUserById })
+    const scope = await buildMeetingScope(client, BOOKING_ID)
+    expect(scope?.organizer).toEqual({
+      user_id: HOST_USER_ID,
+      name: 'Jane Host',
+      email: 'top-level@example.com',
+    })
+  })
+})
