@@ -18,8 +18,7 @@ import { buildMeetingScope } from '@/lib/calendar/scope'
 import { runFlow, definitionHasWait } from '@/lib/flows/engine'
 import type { FlowDefinition } from '@/lib/flows/schema'
 import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
-
-type BookingStatus = 'confirmed' | 'cancelled' | 'no_show' | 'showed'
+import type { BookingStatus } from '@/lib/calendar/booking-status'
 
 interface TransitionContext {
   supabase: SupabaseClient<Database>
@@ -198,155 +197,198 @@ export async function emitCalendarEvent(
   return { dispatched: matched.length, dispatch_id }
 }
 
+// ─── Transition core ────────────────────────────────────────────────────────
+//
+// State machine (LIFE-02): confirmed is the only non-terminal state. Every
+// real (non-idempotent) transition below originates FROM 'confirmed'.
+// cancelled/no_show/showed are terminal -- re-requesting the SAME status is
+// an idempotent no-op (closes the double-fire bug the old dashboard
+// cancelBooking had); requesting a DIFFERENT status from a terminal state is
+// illegal_transition, never a silent no-op that still emits (D-02).
+//
+// Every guarded function below requires an explicit orgId and verifies it
+// via the RPC (migration 1251) before mutating -- these functions are always
+// called with a SERVICE ROLE client (bypasses bookings' per-request RLS), so
+// the tenant boundary is re-checked server-side inside the RPC itself rather
+// than relied upon from RLS. This also closes a real pre-Phase-127 gap: the
+// old flows/engine.ts booking_* action handlers took a bare booking_id from
+// workflow config with NO org check at all.
+
+interface TransitionRpcResult {
+  transitioned: boolean
+  old_status: BookingStatus
+  new_status: BookingStatus
+}
+
+async function runStatusTransition(
+  ctx: TransitionContext,
+  bookingId: string,
+  orgId: string,
+  newStatus: BookingStatus,
+  allowedFrom: BookingStatus[],
+): Promise<{ ok: true; transitioned: boolean } | { ok: false; error: string }> {
+  const { data, error } = await ctx.supabase.rpc('transition_booking_status', {
+    p_booking_id: bookingId,
+    p_org_id: orgId,
+    p_new_status: newStatus,
+    p_allowed_from: allowedFrom,
+  })
+
+  if (error) {
+    const msg = error.message ?? ''
+    if (msg.includes('booking_not_found')) return { ok: false, error: 'booking_not_found' }
+    if (msg.includes('illegal_transition')) return { ok: false, error: 'illegal_transition' }
+    return { ok: false, error: msg || 'transition_failed' }
+  }
+
+  const result = data as unknown as TransitionRpcResult
+  return { ok: true, transitioned: result.transitioned }
+}
+
+// Note: in production, bookings are born with status 'confirmed' (see
+// executeBookingCreate and the public booking flow) -- there is no writer
+// that creates a booking in a state confirmBooking would legally transition
+// FROM. confirmBooking is therefore structurally idempotent-or-illegal
+// today: a real 'confirmed'->'confirmed' call always short-circuits at the
+// `!result.transitioned` branch below and never reaches the
+// emitCalendarEvent('meeting.confirmed', ...) call in production traffic.
+// This is intentional, not a dead branch to "fix" -- the guard stays in
+// place so a future writer that legitimately introduces a pre-confirmation
+// state (e.g. a 'pending' hold) has a safe transition to call into.
 export async function confirmBooking(
   ctx: TransitionContext,
   bookingId: string,
+  orgId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { data: booking, error } = await ctx.supabase
-    .from('bookings')
-    .select('id, org_id, status, location_kind, event_type_id, start_at, end_at')
-    .eq('id', bookingId)
-    .single()
+  const result = await runStatusTransition(ctx, bookingId, orgId, 'confirmed', ['confirmed'])
+  if (!result.ok) return result
+  if (!result.transitioned) return { ok: true } // idempotent, no re-emit
 
-  if (error || !booking) return { ok: false, error: error?.message ?? 'Booking not found' }
+  // Optional Google Meet link creation -- best-effort. Failure here does not
+  // roll back the already-committed status transition, nor block the
+  // meeting.confirmed emission below.
+  try {
+    const { data: booking } = await ctx.supabase
+      .from('bookings')
+      .select('location_kind, event_type_id, start_at, end_at, booker_email, meeting_url')
+      .eq('id', bookingId)
+      .maybeSingle()
 
-  // Idempotent: re-confirm is a no-op (no event re-fire).
-  if (booking.status === 'confirmed') return { ok: true }
-
-  const updatePayload: Record<string, unknown> = { status: 'confirmed' as BookingStatus }
-
-  // If the booking uses Google Meet and no meeting_url has been set yet,
-  // create a Meet link and store it on the booking row.
-  if (booking.location_kind === 'google_meet') {
-    try {
-      // Fetch event type title and booker email for the calendar event
+    if (booking?.location_kind === 'google_meet' && !booking.meeting_url) {
       const { data: et } = await ctx.supabase
         .from('event_types')
         .select('title')
         .eq('id', booking.event_type_id as string)
         .maybeSingle()
 
-      const { data: bk } = await ctx.supabase
-        .from('bookings')
-        .select('booker_email, meeting_url')
-        .eq('id', bookingId)
-        .maybeSingle()
-
-      if (!bk?.meeting_url) {
-        const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
-        const result = await createMeetingLink(booking.org_id as string, {
-          title: et?.title ?? 'Meeting',
-          startAt: booking.start_at as string,
-          endAt: booking.end_at as string,
-          attendeeEmail: bk?.booker_email ?? undefined,
-        })
-        if (result) {
-          updatePayload.meeting_url = result.meeting_url
-          updatePayload.location_data = { google_event_id: result.google_event_id }
-        }
+      const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
+      const meetResult = await createMeetingLink(orgId, {
+        title: et?.title ?? 'Meeting',
+        startAt: booking.start_at as string,
+        endAt: booking.end_at as string,
+        attendeeEmail: (booking.booker_email as string | null) ?? undefined,
+      })
+      if (meetResult) {
+        await ctx.supabase
+          .from('bookings')
+          .update({
+            meeting_url: meetResult.meeting_url,
+            location_data: { google_event_id: meetResult.google_event_id },
+          })
+          .eq('id', bookingId)
       }
-    } catch (meetErr) {
-      // Non-fatal | confirm proceeds without the Meet link
-      console.warn(
-        '[calendar/transition] Google Meet link creation failed:',
-        meetErr instanceof Error ? meetErr.message : meetErr,
-      )
     }
+  } catch (meetErr) {
+    console.warn(
+      '[calendar/transition] Google Meet link creation failed:',
+      meetErr instanceof Error ? meetErr.message : meetErr,
+    )
   }
 
-  await ctx.supabase
-    .from('bookings')
-    .update(updatePayload)
-    .eq('id', bookingId)
-
-  await emitCalendarEvent(ctx, {
-    event: 'meeting.confirmed',
-    booking_id: bookingId,
-    org_id: booking.org_id as string,
-  })
-
+  await emitCalendarEvent(ctx, { event: 'meeting.confirmed', booking_id: bookingId, org_id: orgId })
   return { ok: true }
 }
 
 export async function cancelBooking(
   ctx: TransitionContext,
   bookingId: string,
+  orgId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { data: booking, error } = await ctx.supabase
-    .from('bookings')
-    .select('id, org_id, status')
-    .eq('id', bookingId)
-    .single()
-
-  if (error || !booking) return { ok: false, error: error?.message ?? 'Booking not found' }
-  if (booking.status === 'cancelled') return { ok: true }
-
-  await ctx.supabase
-    .from('bookings')
-    .update({ status: 'cancelled' as BookingStatus })
-    .eq('id', bookingId)
-
-  await emitCalendarEvent(ctx, {
-    event: 'meeting.cancelled',
-    booking_id: bookingId,
-    org_id: booking.org_id as string,
-  })
-
+  const result = await runStatusTransition(ctx, bookingId, orgId, 'cancelled', ['confirmed'])
+  if (!result.ok) return result
+  if (!result.transitioned) return { ok: true }
+  await emitCalendarEvent(ctx, { event: 'meeting.cancelled', booking_id: bookingId, org_id: orgId })
   return { ok: true }
 }
 
 export async function markNoShow(
   ctx: TransitionContext,
   bookingId: string,
+  orgId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { data: booking, error } = await ctx.supabase
-    .from('bookings')
-    .select('id, org_id, status')
-    .eq('id', bookingId)
-    .single()
-
-  if (error || !booking) return { ok: false, error: error?.message ?? 'Booking not found' }
-  if (booking.status === 'no_show') return { ok: true }
-
-  await ctx.supabase
-    .from('bookings')
-    .update({ status: 'no_show' as BookingStatus })
-    .eq('id', bookingId)
-
-  await emitCalendarEvent(ctx, {
-    event: 'meeting.no_show',
-    booking_id: bookingId,
-    org_id: booking.org_id as string,
-  })
-
+  const result = await runStatusTransition(ctx, bookingId, orgId, 'no_show', ['confirmed'])
+  if (!result.ok) return result
+  if (!result.transitioned) return { ok: true }
+  await emitCalendarEvent(ctx, { event: 'meeting.no_show', booking_id: bookingId, org_id: orgId })
   return { ok: true }
 }
 
+// LIFE-02: the DB's only attendance/completion value is 'showed' -- there is
+// no 'completed' DB status. The workflow-facing event name stays
+// 'meeting.completed' (src/lib/calendar/events.ts, src/lib/workflows/spec.ts,
+// and the skleanings-post-service-review.yaml seed already document/consume
+// this name). This is the transition src/lib/flows/engine.ts's
+// booking_mark_complete action node calls (Plan 127-06) instead of its old,
+// invalid `status: 'completed' as 'confirmed'` write.
+export async function markShowed(
+  ctx: TransitionContext,
+  bookingId: string,
+  orgId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const result = await runStatusTransition(ctx, bookingId, orgId, 'showed', ['confirmed'])
+  if (!result.ok) return result
+  if (!result.transitioned) return { ok: true }
+  await emitCalendarEvent(ctx, { event: 'meeting.completed', booking_id: bookingId, org_id: orgId })
+  return { ok: true }
+}
+
+// Does not change status -- not routed through transition_booking_status.
+// Mirrors cancelBookingByToken's existing safe SELECT + guarded
+// UPDATE...WHERE status='confirmed' pattern (src/app/(dashboard)/calendar/
+// _actions/bookings.ts).
 export async function rescheduleBooking(
   ctx: TransitionContext,
   bookingId: string,
+  orgId: string,
   newStartAt: string,
   newEndAt: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const { data: booking, error } = await ctx.supabase
     .from('bookings')
-    .select('id, org_id, start_at, end_at')
+    .select('id, org_id, status, start_at')
     .eq('id', bookingId)
     .single()
 
-  if (error || !booking) return { ok: false, error: error?.message ?? 'Booking not found' }
+  if (error || !booking) return { ok: false, error: 'booking_not_found' }
+  if (booking.org_id !== orgId) return { ok: false, error: 'booking_not_found' }
+  if (booking.status !== 'confirmed') return { ok: false, error: 'illegal_transition' }
 
   const oldStart = booking.start_at as string
 
-  await ctx.supabase
+  const { data: updated, error: updateErr } = await ctx.supabase
     .from('bookings')
-    .update({ start_at: newStartAt, end_at: newEndAt })
+    .update({ start_at: newStartAt, end_at: newEndAt, updated_at: new Date().toISOString() })
     .eq('id', bookingId)
+    .eq('status', 'confirmed')
+    .select('id')
+    .single()
+
+  if (updateErr || !updated) return { ok: false, error: 'illegal_transition' }
 
   await emitCalendarEvent(ctx, {
     event: 'meeting.rescheduled',
     booking_id: bookingId,
-    org_id: booking.org_id as string,
+    org_id: orgId,
     rescheduled_from: oldStart,
     rescheduled_to: newStartAt,
   })
