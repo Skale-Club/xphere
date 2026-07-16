@@ -1,4 +1,4 @@
--- ─── migration 1248: email signatures (block-based HTML signature library) ────
+-- ─── migration 1258 (renumbered from 1248 — number taken by ai_calls_enrichment; already applied to prod): email signatures (block-based HTML signature library) ────
 -- A per-org library of named HTML email signatures, built with the same
 -- block document shape as email_templates (jsonb `document` → compiled
 -- `html_snapshot`). Used both internally (auto-appended to agent email
