@@ -232,7 +232,11 @@ export async function POST(request: Request): Promise<Response> {
 
     let bookingId: string
     if (existing) {
-      await supabase.from('bookings').update(mutable).eq('id', existing.id)
+      const { error: updateErr } = await supabase.from('bookings').update(mutable).eq('id', existing.id)
+      if (updateErr) {
+        console.error('[xkedule/webhook] booking update error:', updateErr)
+        return ok({ skipped: 'update_failed' })
+      }
       bookingId = existing.id
     } else {
       const { data: inserted, error } = await supabase
