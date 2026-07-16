@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 128-04-PLAN.md
-last_updated: "2026-07-16T04:58:51.232Z"
+stopped_at: Completed 128-05-PLAN.md
+last_updated: "2026-07-16T05:22:51.673Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 32
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 128 (reliable-calendar-scheduling) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -44,8 +44,10 @@ Last activity: 2026-07-16
 - [Phase 128-reliable-calendar-scheduling]: 128-02: Ported global-knowledge-notion's auth pattern verbatim (503 unset / 401 mismatch, read fresh in GET()) rather than the timingSafeEqual variant — plan's interfaces block specified the simpler pattern and RESEARCH.md flagged constant-time comparison as optional, non-required hardening
 - [Phase 128-reliable-calendar-scheduling]: 128-03: Removed tag_customer/create_opportunity nodes entirely from booking-confirmation.yaml rather than genericizing them; reworded a plan comment to avoid the literal substring 'Job Confirmed' tripping the plan's own regression test; removed the empty agendamento/ directory tree left behind by git mv
 - [Phase 128-reliable-calendar-scheduling]: 128-04: Used migration number 1252 (not the plan's working-example 1251) since Phase 127 already claimed 1251_booking_lifecycle_transition.sql on this branch; test creates its own throwaway contrast-case booking, explicitly deleted after use so it never leaks into the same rolled-back transaction's later assertions
+- [Phase 128-reliable-calendar-scheduling]: 128-05: Added a route-layer transition-safety guard so a missing calendar_tick_watermark row/table scans an empty window and self-seeds from now, instead of falling back to computeDueWindow's 24h catch-up cap (prevents a double-dispatch burst if this code deploys before migration 1252 applies)
+- [Phase 128-reliable-calendar-scheduling]: 128-05: Kept the meeting.ended status filter as ['confirmed','showed'] rather than adding 'completed' as the plan text specified — 'completed' is not a valid bookings.status value per the DB type union and booking-status.ts's LIFE-02 vocabulary note
 
 ## Session Continuity
 
-**Stopped At:** Completed 128-04-PLAN.md
+**Stopped At:** Completed 128-05-PLAN.md
 **Resume File:** None
