@@ -2136,6 +2136,9 @@ export interface Database {
           summary: string | null
           transcript: string | null
           transcript_turns: Json
+          recording_url: string | null
+          success_evaluation: string | null
+          structured_data: Json | null
           created_at: string
         }
         Insert: {
@@ -2154,6 +2157,9 @@ export interface Database {
           summary?: string | null
           transcript?: string | null
           transcript_turns?: Json
+          recording_url?: string | null
+          success_evaluation?: string | null
+          structured_data?: Json | null
           created_at?: string
         }
         Update: Record<string, never>

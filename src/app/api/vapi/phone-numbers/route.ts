@@ -4,54 +4,30 @@
 
 export const runtime = 'nodejs'
 
-import { createClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
+import { getVapiApiKey, listVapiPhoneNumbers, VapiApiError } from '@/lib/vapi/client'
 import { createLogger } from '@/lib/obs/logger'
 
 const obs = createLogger({ route: 'api/vapi/phone-numbers' })
 
 export async function GET(): Promise<Response> {
-  const supabase = await createClient()
-
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('encrypted_api_key')
-    .eq('provider', 'vapi')
-    .eq('is_active', true)
-    .single()
-
-  if (error || !integration) {
+  const apiKey = await getVapiApiKey()
+  if (!apiKey) {
     return Response.json(
       { error: 'Vapi integration not configured. Add it in Integrations.' },
       { status: 400 }
     )
   }
 
-  let vapiApiKey: string
   try {
-    vapiApiKey = await decrypt(integration.encrypted_api_key)
-  } catch {
-    return Response.json({ error: 'Failed to read Vapi credentials.' }, { status: 500 })
-  }
-
-  try {
-    const response = await fetch('https://api.vapi.ai/phone-number', {
-      headers: {
-        'Authorization': `Bearer ${vapiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
+    const numbers = await listVapiPhoneNumbers(apiKey)
+    return Response.json(numbers)
+  } catch (err) {
+    if (err instanceof VapiApiError) {
       return Response.json(
         { error: 'Failed to fetch phone numbers from Vapi' },
-        { status: response.status }
+        { status: err.status || 502 }
       )
     }
-
-    const data = await response.json()
-    return Response.json(data)
-  } catch (err) {
     obs.error('vapi_phone_numbers_error', { error: err })
     return Response.json({ error: 'Internal error' }, { status: 500 })
   }

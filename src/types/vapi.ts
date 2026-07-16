@@ -67,6 +67,9 @@ export const VapiEndOfCallMessageSchema = z.object({
       startedAt: z.string().optional(),
       endedAt: z.string().optional(),
       cost: z.number().optional(),
+      // Campaign calls carry campaign_contact_id here so either webhook route
+      // (/api/vapi/calls or /api/vapi/campaigns) can update campaign_contacts.
+      metadata: z.record(z.unknown()).optional(),
       customer: z.object({
         number: z.string().optional(),
         name: z.string().optional(),
@@ -75,11 +78,17 @@ export const VapiEndOfCallMessageSchema = z.object({
     artifact: z.object({
       transcript: z.string().optional(),
       messages: z.array(ArtifactMessageSchema).optional(),
+      // Mono + stereo recording URLs | Vapi sends whichever is enabled on the assistant.
+      recordingUrl: z.string().optional(),
+      stereoRecordingUrl: z.string().optional(),
     }).passthrough().optional(),
     analysis: z.object({
       summary: z.string().optional(),
-      successEvaluation: z.string().optional(),
-      structuredData: z.record(z.unknown()).optional(),
+      // Vapi sends either a string ('true'/'false'/custom rubric text) or a raw
+      // boolean depending on the assistant's success-evaluation rubric config.
+      // Normalized to string at persistence time (see persistCallRecord).
+      successEvaluation: z.union([z.string(), z.boolean()]).optional(),
+      structuredData: z.unknown().optional(),
     }).optional(),
   }),
 })

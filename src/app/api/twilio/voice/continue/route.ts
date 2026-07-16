@@ -15,8 +15,7 @@ import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
 import {
-  verifyTwilioSignature,
-  resolveWebhookUrl,
+  verifyTwilioSignatureMultiUrl,
   publicBaseUrl,
 } from '@/lib/twilio/webhook-signature'
 import {
@@ -71,12 +70,15 @@ export async function POST(request: Request): Promise<Response> {
       return twimlResponse(twimlReject())
     }
 
-    // Validate the Twilio signature against the org's auth token.
+    // Validate the Twilio signature against the org's auth token. Multi-URL
+    // candidate verification (same as /api/twilio/voice) — checking a single
+    // resolved URL could 403 the stage-advance callback mid-call in proxy
+    // configurations the initial voice webhook tolerated.
     const creds = await resolveTwilioCredentialsForOrg(orgId)
     const authToken = creds?.authToken ?? ''
-    const isValid = verifyTwilioSignature(
+    const isValid = verifyTwilioSignatureMultiUrl(
       authToken,
-      resolveWebhookUrl(request),
+      request,
       params,
       request.headers.get('x-twilio-signature'),
     )

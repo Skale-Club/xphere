@@ -1,0 +1,56 @@
+name: Campaign Tick
+
+# Advances stalled voice (Vapi) campaigns whose contact list is larger than
+# one batch. POST /api/campaigns/[id]/start only fires the first batch of up
+# to min(calls_per_minute, 10) contacts; the Vapi end-of-call webhook
+# (/api/vapi/campaigns) only updates contact status and never re-fires the
+# next batch. Without this tick, a campaign with more contacts than one
+# batch stalls in status='in_progress' until a human repeatedly hits
+# Pause -> Resume. See src/app/api/cron/campaign-tick/route.ts for the full
+# diagnosis and the per-tick safety rail (max 5 campaigns advanced per run).
+#
+# Cadence: every 5 minutes, matching this repo's other GitHub Actions ticks
+# (calendar-tick, twilio-sms-reconcile) rather than GitHub Actions' 1-minute
+# minimum, for schedule reliability (GH-hosted cron runs can drift several
+# minutes under load; a tighter interval wouldn't reliably deliver on time
+# anyway). Effect on pacing: calls_per_minute is used as-is for batch size,
+# but at a 5-minute cadence the *effective* call rate is roughly
+# calls_per_minute / 5 per minute — e.g. calls_per_minute=5 (the UI default)
+# yields about 1 call/min in steady state, not 5. If tighter pacing is later
+# required, drop the cron expression to '* * * * *' and re-verify GitHub
+# Actions' actual scheduling latency for this repo first.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: campaign-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Fire campaign-tick endpoint
+        run: |
+          # No --retry-all-errors here (unlike keepalive ticks): a timeout does
+          # not mean the server stopped processing, and re-firing an endpoint
+          # that dials people risks double batches. Contact claiming is atomic
+          # server-side, so a duplicate invocation is safe — but still not free.
+          # --retry 2 only covers transient connection failures (deploy blips).
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --connect-timeout 15 --max-time 120 \
+            --retry 2 --retry-delay 20 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/campaign-tick")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "Campaign tick failed with status $STATUS" >&2
+            exit 1
+          fi

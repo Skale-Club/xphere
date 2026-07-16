@@ -14,10 +14,7 @@
 //   * best-effort contact linkage by phone
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import {
-  verifyTwilioSignature,
-  resolveWebhookUrl,
-} from '@/lib/twilio/webhook-signature'
+import { verifyTwilioSignatureMultiUrl } from '@/lib/twilio/webhook-signature'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
 import { captureApiError } from '@/lib/api-error'
 
@@ -63,9 +60,12 @@ export async function POST(request: Request): Promise<Response> {
 
     const creds = await resolveTwilioCredentialsForOrg(callLog.org_id)
     if (creds) {
-      const isValid = verifyTwilioSignature(
+      // Multi-URL candidate verification (same as /api/twilio/voice) — a
+      // single resolved URL could 403 status callbacks in proxy configurations
+      // the initial voice webhook tolerated.
+      const isValid = verifyTwilioSignatureMultiUrl(
         creds.authToken,
-        resolveWebhookUrl(request),
+        request,
         params,
         request.headers.get('x-twilio-signature'),
       )

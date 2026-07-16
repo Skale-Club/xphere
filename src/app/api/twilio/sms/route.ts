@@ -16,7 +16,6 @@
 //   - The inbound message is persisted before the 200 response. Slower
 //     automation/agent reply work runs fire-and-forget after that critical write.
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import { resolveTwilioOrgByToNumber } from '@/lib/twilio/voice'
 import {
   continueTwilioSmsAutomation,
@@ -24,6 +23,7 @@ import {
   type TwilioSmsPayload,
 } from '@/lib/twilio/process-sms'
 import { captureApiError } from '@/lib/api-error'
+import { verifyTwilioSignatureMultiUrl } from '@/lib/twilio/webhook-signature'
 
 export const runtime = 'nodejs'
 
@@ -36,95 +36,6 @@ const TWIML_HEADERS = { 'Content-Type': 'text/xml; charset=utf-8' }
  */
 function ackTwiml(): Response {
   return new Response(EMPTY_TWIML, { status: 200, headers: TWIML_HEADERS })
-}
-
-/**
- * Build the Twilio signature canonical string:
- *   url + concat(sorted(key + value) for each POST param)
- *
- * Twilio docs: https://www.twilio.com/docs/usage/webhooks/webhooks-security
- *
- * We construct this from the request URL (must match what Twilio called | including
- * proto + host + path + query) and the form-encoded POST body parameters.
- */
-function buildSignatureBase(url: string, params: URLSearchParams): string {
-  // Sort keys alphabetically, then concatenate key+value for each
-  const sortedKeys = Array.from(new Set(Array.from(params.keys()))).sort()
-  let canonical = url
-  for (const key of sortedKeys) {
-    const values = params.getAll(key)
-    for (const v of values) {
-      canonical += key + v
-    }
-  }
-  return canonical
-}
-
-/**
- * HMAC-SHA1 the canonical string with the auth token, then base64-encode.
- * Compare with the provided header using timingSafeEqual to avoid timing attacks.
- *
- * Twilio sends the signature as a base64 string | NOT prefixed with "sha1=".
- */
-function verifyTwilioSignature(
-  authToken: string,
-  url: string,
-  params: URLSearchParams,
-  receivedSignature: string | null
-): boolean {
-  if (!receivedSignature || !authToken) return false
-
-  const canonical = buildSignatureBase(url, params)
-  const expected = createHmac('sha1', authToken).update(canonical, 'utf8').digest('base64')
-
-  let bufA: Buffer
-  let bufB: Buffer
-  try {
-    bufA = Buffer.from(expected, 'utf8')
-    bufB = Buffer.from(receivedSignature, 'utf8')
-  } catch {
-    return false
-  }
-  if (bufA.length !== bufB.length) return false
-
-  try {
-    return timingSafeEqual(bufA, bufB)
-  } catch {
-    return false
-  }
-}
-
-/**
- * Resolve the absolute URL Twilio used to call us. We prefer X-Forwarded-* headers
- * (Vercel/proxy environments) over the raw request URL | the latter may be
- * `http://...` internally even though Twilio called `https://xphere.app`.
- *
- * Production canonical origin is documented in CLAUDE.md as
- * https://xphere.app | but we read the host dynamically to keep
- * preview/staging working.
- */
-function resolveRequestUrlCandidates(request: Request): string[] {
-  const url = new URL(request.url)
-  const candidates: string[] = []
-
-  const addBase = (base: string | undefined | null) => {
-    if (!base) return
-    candidates.push(`${base.replace(/\/$/, '')}${url.pathname}${url.search}`)
-  }
-
-  addBase(process.env.TWILIO_WEBHOOK_BASE_URL)
-
-  const fwdProto = request.headers.get('x-forwarded-proto')
-  const fwdHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
-  if (fwdProto && fwdHost) {
-    candidates.push(`${fwdProto}://${fwdHost}${url.pathname}${url.search}`)
-  }
-  candidates.push(request.url)
-  addBase(process.env.XPHERE_PUBLIC_ORIGIN)
-  addBase(process.env.NEXT_PUBLIC_SITE_URL)
-  addBase('https://xphere.app')
-
-  return Array.from(new Set(candidates))
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -164,9 +75,7 @@ export async function POST(request: Request): Promise<Response> {
     // 3. Validate the signature against the org's auth_token
     const receivedSignature = request.headers.get('x-twilio-signature')
 
-    const isValid = resolveRequestUrlCandidates(request).some((requestUrl) =>
-      verifyTwilioSignature(authToken, requestUrl, params, receivedSignature)
-    )
+    const isValid = verifyTwilioSignatureMultiUrl(authToken, request, params, receivedSignature)
     if (!isValid) {
       console.warn('[twilio/sms] Invalid X-Twilio-Signature for org:', orgId)
       return new Response('Forbidden', { status: 403 })

@@ -10,6 +10,7 @@
 // Twilio Access Tokens (Voice SDK) are generated in `src/lib/twilio/access-token.ts`
 // so they can be Edge-runtime-safe (Web Crypto / HMAC).
 
+import * as Sentry from '@sentry/nextjs'
 import { decrypt } from '@/lib/crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
@@ -157,6 +158,14 @@ export async function resolveTwilioOrgByToNumber(
       '[twilio] Ambiguous number across tenants and no AccountSid to disambiguate:',
       toNumber,
     )
+    // e164 here is the ORG's own phone number (not caller PII), safe to log
+    // in full — this alert is about a data-integrity gap (two orgs claiming
+    // the same number) that silently drops inbound calls/SMS to that number.
+    Sentry.captureMessage('twilio_ambiguous_number_no_account_sid', {
+      level: 'warning',
+      tags: { event: 'twilio_ambiguous_number_no_account_sid' },
+      extra: { e164: toNumber, candidateCount: candidates.length },
+    })
     return null
   }
 
@@ -175,6 +184,11 @@ export async function resolveTwilioOrgByToNumber(
     '[twilio] No tenant matched AccountSid for ambiguous number:',
     toNumber,
   )
+  Sentry.captureMessage('twilio_ambiguous_number_no_account_sid_match', {
+    level: 'warning',
+    tags: { event: 'twilio_ambiguous_number_no_account_sid_match' },
+    extra: { e164: toNumber, candidateCount: candidates.length },
+  })
   return null
 }
 

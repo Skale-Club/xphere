@@ -3,6 +3,19 @@ import type { Database } from '@/types/database'
 
 export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call'
 
+export interface InsertNotificationOptions {
+  /**
+   * When true, await the web-push fan-out instead of firing it in the
+   * background. Default false preserves the original fire-and-forget
+   * behavior (correct for request/response handlers that shouldn't be
+   * blocked by push delivery). Callers running inside Next.js `after()` —
+   * where the runtime may tear down once the callback resolves — should pass
+   * true so the push fan-out isn't cut off mid-flight (e.g. incoming-call
+   * pushes to a backgrounded PWA).
+   */
+  waitForPush?: boolean
+}
+
 /**
  * Fan-out helper: inserts one notification row per target user.
  * Uses service-role key | bypasses RLS. Safe to call from webhook handlers.
@@ -11,12 +24,14 @@ export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed
  * @param type         - Notification type (NOTIF-04 D-02)
  * @param payload      - Event-specific data (conversation_id, call_log_id, action_log_id, etc.)
  * @param userIds      - Explicit target user IDs; if omitted, fans out to all org members
+ * @param options      - See InsertNotificationOptions
  */
 export async function insertNotification(
   orgId: string,
   type: NotificationType,
   payload: Record<string, unknown> = {},
   userIds?: string[],
+  options?: InsertNotificationOptions,
 ): Promise<void> {
   try {
     const supabase = createClient<Database>(
@@ -54,9 +69,16 @@ export async function insertNotification(
       return
     }
 
-    // Fan out push notifications asynchronously | do not await so callers aren't blocked
+    // Fan out push notifications. By default fire-and-forget so callers
+    // aren't blocked; `waitForPush` opts into awaiting it (see
+    // InsertNotificationOptions).
     if (inserted && inserted.length > 0) {
-      void sendPushNotifications(inserted as { id: string; user_id: string }[])
+      const rows = inserted as { id: string; user_id: string }[]
+      if (options?.waitForPush) {
+        await sendPushNotifications(rows)
+      } else {
+        void sendPushNotifications(rows)
+      }
     }
   } catch (err) {
     console.error('[notifications/insert] Unexpected error:', err)

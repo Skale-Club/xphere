@@ -14,6 +14,7 @@ import {
   PhoneForwarded,
   Server,
   Users,
+  Archive,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,7 @@ import type {
 import { saveRoutingChain, type RoutingChainState } from '@/app/(dashboard)/calls/routing-actions'
 import {
   createSharedDestination,
+  archiveCallDestination,
   type CallDestinationOption,
 } from '@/app/(dashboard)/calls/destination-actions'
 
@@ -82,6 +84,11 @@ function newStage(): CallRoutingStage {
   return { enabled: true, timeout_seconds: 25, targets: [newTarget()] }
 }
 
+// Mirrors ChainSchema.stages.max(10) in routing-actions.ts (server is the
+// source of truth; this only lets the UI stop the user before the server
+// round-trip fails with a generic toast).
+const MAX_STAGES = 10
+
 export function RoutingChainEditor({ initial, members, destinations }: Props) {
   const [isActive, setIsActive] = React.useState(initial.is_active)
   const [stages, setStages] = React.useState<CallRoutingStage[]>(initial.stages)
@@ -109,6 +116,22 @@ export function RoutingChainEditor({ initial, members, destinations }: Props) {
     updateTarget(newDest.si, newDest.ti, { destination_id: res.destination.id })
     setNewDest(null)
     toast.success(`Destination "${res.destination.name}" created.`)
+  }
+
+  const handleArchiveDestination = async (destination: CallDestinationOption) => {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(`Archive "${destination.name}"? It will no longer be selectable for new stages.`)
+    ) {
+      return
+    }
+    const res = await archiveCallDestination(destination.id)
+    if (res.error) {
+      toast.error(res.error)
+      return
+    }
+    setDestOptions((prev) => prev.filter((d) => d.id !== destination.id))
+    toast.success(`Destination "${destination.name}" archived.`)
   }
 
   const updateStage = (i: number, patch: Partial<CallRoutingStage>) =>
@@ -313,9 +336,28 @@ export function RoutingChainEditor({ initial, members, destinations }: Props) {
                             {destOptions
                               .filter((d) => d.kind === 'shared')
                               .map((d) => (
-                                <SelectItem key={d.id} value={d.id}>
-                                  {d.name} {d.number ? `· ${d.number}` : ''}
-                                </SelectItem>
+                                // Archive button is a SIBLING of SelectItem, not nested
+                                // inside it — Radix Select treats the whole Item subtree
+                                // as one click target, so a nested button would either be
+                                // unreachable or accidentally trigger selection.
+                                <div key={d.id} className="relative flex items-center">
+                                  <SelectItem value={d.id} className="flex-1 pr-8">
+                                    {d.name} {d.number ? `· ${d.number}` : ''}
+                                  </SelectItem>
+                                  <button
+                                    type="button"
+                                    aria-label={`Archive ${d.name}`}
+                                    className="absolute right-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-text-tertiary hover:bg-destructive/10 hover:text-destructive"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      e.preventDefault()
+                                      void handleArchiveDestination(d)
+                                    }}
+                                  >
+                                    <Archive className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               ))}
                             <SelectItem value="__new__">
                               <span className="flex items-center gap-2 text-accent">
@@ -420,10 +462,21 @@ export function RoutingChainEditor({ initial, members, destinations }: Props) {
         ))}
       </div>
 
-      <Button variant="outline" onClick={() => setStages((p) => [...p, newStage()])}>
-        <Plus className="mr-1.5 h-4 w-4" />
-        Add stage
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          disabled={stages.length >= MAX_STAGES}
+          onClick={() => setStages((p) => [...p, newStage()])}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Add stage
+        </Button>
+        {stages.length >= MAX_STAGES && (
+          <span className="text-[12px] text-text-tertiary">
+            Maximum of {MAX_STAGES} stages reached.
+          </span>
+        )}
+      </div>
 
       {/* Save */}
       <div className="flex justify-end border-t border-border-subtle pt-4">

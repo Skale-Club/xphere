@@ -3,16 +3,13 @@
 // Vercel Hobby-friendly: no Edge Runtime dependency, but still must respond fast.
 // MUST always return HTTP 200.
 
-import { after } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
 import { VapiToolCallMessageSchema, getToolArguments } from '@/types/vapi'
-import { resolveOrg } from '@/lib/action-engine/resolve-org'
+import { resolveOrgForAssistant } from '@/lib/vapi/end-of-call'
 import { resolveTool } from '@/lib/action-engine/resolve-tool'
 import { executeAction } from '@/lib/action-engine/execute-action'
-import { logAction } from '@/lib/action-engine/log-action'
 import { decrypt } from '@/lib/crypto'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
@@ -20,8 +17,6 @@ export const runtime = 'nodejs'
 const obs = createLogger({ route: 'api/vapi/tools' })
 
 export async function POST(request: Request): Promise<Response> {
-  const startTime = Date.now()
-
   // Outer catch: prevents ANY uncaught error from returning non-200 to Vapi
   try {
     if (!verifyVapiSecret(request)) {
@@ -50,14 +45,13 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // 2. Create service-role Supabase client (bypasses RLS | no user JWT in Vapi requests)
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    )
+    const supabase = createServiceRoleClient()
 
-    // 3. Resolve org from assistant ID
-    const orgId = await resolveOrg(call.assistantId, supabase)
+    // 3. Resolve org from assistant ID | assistant_mappings first (globally unique),
+    // falling back to twilio_phone_numbers (ordered for determinism) — same
+    // resolution used by the end-of-call webhooks so a call and its tool-calls
+    // never disagree on which org owns them.
+    const orgId = await resolveOrgForAssistant(call.assistantId, supabase)
     if (!orgId) {
       return Response.json({
         results: [{ toolCallId: toolCall.id, result: 'Service unavailable.' }]
@@ -74,8 +68,6 @@ export async function POST(request: Request): Promise<Response> {
 
     // 5. Decrypt API key + build credentials
     let result: string
-    let status: 'success' | 'error' | 'timeout' = 'success'
-    let errorDetail: string | null = null
 
     try {
       const apiKey = await decrypt(toolConfig.integrations.encrypted_api_key)
@@ -90,30 +82,24 @@ export async function POST(request: Request): Promise<Response> {
         toolConfig: toolConfig.config,
         integrationProvider: toolConfig.integrations.provider,
       })
-    } catch (err) {
+    } catch {
       // GHL executor threw (error, timeout, or unsupported action type)
-      const isTimeout = err instanceof Error && err.name === 'AbortError'
-      status = isTimeout ? 'timeout' : 'error'
-      errorDetail = err instanceof Error ? err.message : String(err)
       result = toolConfig.fallback_message
     }
 
-    const executionMs = Date.now() - startTime
-
-    // 6. Log execution async | does NOT block Vapi response
-    after(async () => {
-      await logAction({
-        organization_id: orgId,
-        tool_config_id: toolConfig.id,
-        vapi_call_id: call.id,
-        tool_name: toolCall.name,
-        status,
-        execution_ms: executionMs,
-        request_payload: getToolArguments(toolCall) as import('@/types/database').Json,
-        response_payload: { result },
-        error_detail: errorDetail,
-      }, supabase)
-    })
+    // 6. Per-call action history: NOT written here anymore. SEED-025 Phase F
+    // turned action_logs into a read-only historical table — logAction()
+    // (src/lib/action-engine/log-action.ts) is a no-op stub, so the
+    // organization_id/tool_config_id/execution_ms/etc. payload this route used
+    // to assemble was being thrown away on every tool call. There is also no
+    // replacement run-log: workflow_runs only records kind='flow' DAG
+    // executions (trigger_type/trigger_payload); resolveWorkflowAsTool
+    // (src/lib/workflows/resolve.ts), which is what resolveTool() above
+    // delegates to for kind='tool' workflows, calls executeAction() directly
+    // with no run row created in between. Net effect: live AI-call action
+    // timelines are not currently reconstructable from any DB table — only
+    // action_logs rows written before the Phase F cutover still exist, and
+    // call-detail-ai.tsx reads those as read-only legacy history.
 
     // 7. Return to Vapi | always HTTP 200
     return Response.json({

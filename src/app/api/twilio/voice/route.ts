@@ -37,8 +37,7 @@ import {
   twimlReject,
 } from '@/lib/calls/twiml-builder'
 import {
-  verifyTwilioSignature,
-  resolveWebhookUrl,
+  verifyTwilioSignatureMultiUrl,
   publicBaseUrl,
 } from '@/lib/twilio/webhook-signature'
 import { emitInboundPhoneEvent } from '@/lib/twilio/events'
@@ -132,14 +131,37 @@ export async function POST(request: Request): Promise<Response> {
         // dropping the bridge (call connects with no audio). Instead we look up
         // the call_logs row we inserted when placing the call, keyed by this
         // operator-leg CallSid — giving a clean, reliably-signable URL.
+        //
+        // Race: /api/twilio/outbound INSERTs that call_logs row only AFTER
+        // createOutboundCall's REST response resolves (the row is keyed by the
+        // CallSid Twilio returns, which doesn't exist until then). This webhook
+        // fires the instant Twilio starts ringing the operator leg, so it can
+        // arrive before that INSERT commits. The call_sid itself is already
+        // correct at that point (it came from the same Twilio response) — only
+        // our own row is briefly missing — so retry a few times instead of
+        // rejecting a bridge that's actually fine.
         const supabase = createServiceRoleClient()
-        const { data: row } = callSid
-          ? await supabase
+        let row:
+          | { org_id: string; to_number: string | null; phone_number_id: string | null }
+          | null = null
+        if (callSid) {
+          const isOutboundApiLeg = direction.includes('outbound-api')
+          const maxAttempts = isOutboundApiLeg ? 4 : 1
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const { data } = await supabase
               .from('call_logs')
               .select('org_id, to_number, phone_number_id')
               .eq('call_sid', callSid)
               .maybeSingle()
-          : { data: null }
+            if (data) {
+              row = data
+              break
+            }
+            if (attempt < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 300))
+            }
+          }
+        }
         if (row) {
           orgId = row.org_id
           phoneNumberId = row.phone_number_id ?? null
@@ -163,10 +185,12 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // Validate signature against the org's auth_token. We do this AFTER org
-    // resolution because the auth_token is keyed by integration.
+    // resolution because the auth_token is keyed by integration. Uses the
+    // multi-URL-candidate verifier (same one /api/twilio/sms relies on) —
+    // voice previously checked only a single resolved URL, which could 403
+    // in proxy configurations SMS tolerated fine.
     const receivedSignature = request.headers.get('x-twilio-signature')
-    const requestUrl = resolveWebhookUrl(request)
-    const isValid = verifyTwilioSignature(authToken, requestUrl, params, receivedSignature)
+    const isValid = verifyTwilioSignatureMultiUrl(authToken, request, params, receivedSignature)
     if (!isValid) {
       console.warn('[twilio/voice] Invalid X-Twilio-Signature for org:', orgId)
       return new Response('Forbidden', { status: 403 })

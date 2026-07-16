@@ -10,10 +10,7 @@
 
 import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import {
-  verifyTwilioSignature,
-  resolveWebhookUrl,
-} from '@/lib/twilio/webhook-signature'
+import { verifyTwilioSignatureMultiUrl } from '@/lib/twilio/webhook-signature'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
 import { uploadRecordingToHetzner } from '@/lib/calls/upload-recording'
 import { captureApiError } from '@/lib/api-error'
@@ -58,10 +55,12 @@ export async function POST(request: Request): Promise<Response> {
       return new Response('', { status: 200 })
     }
 
-    // Signature validation
-    const isValid = verifyTwilioSignature(
+    // Signature validation — multi-URL candidate verification (same as
+    // /api/twilio/voice) so proxy URL-resolution mismatches don't 403 the
+    // recording callback and silently drop the stored recording.
+    const isValid = verifyTwilioSignatureMultiUrl(
       creds.authToken,
-      resolveWebhookUrl(request),
+      request,
       params,
       request.headers.get('x-twilio-signature'),
     )

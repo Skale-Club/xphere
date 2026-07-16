@@ -1,67 +1,22 @@
 // src/app/api/vapi/campaigns/route.ts
 // Node.js Route Handler | receives Vapi end-of-call-report for outbound campaign calls.
-// Pattern mirrors /api/vapi/calls/route.ts | always returns 200, async DB write.
-// Register this URL on the Vapi assistant or phone number used for campaigns
-// as the server URL for end-of-call-report events.
+// Handles BOTH the campaign_contacts status update AND full call persistence into
+// `calls` (transcript, recording, cost, success evaluation). /api/vapi/calls/route.ts
+// does the same in the opposite order — see src/lib/vapi/end-of-call.ts for the
+// shared, idempotent logic both routes call. Register whichever URL you like as
+// the Vapi assistant/phone-number's server URL; either keeps the platform's call
+// data (calls table) and campaign progress (campaign_contacts) in sync.
 
 import { after } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
-import { mapEndedReasonToStatus } from '@/lib/campaigns/engine'
+import { VapiEndOfCallMessageSchema } from '@/types/vapi'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { persistCallRecord, updateCampaignContactFromReport, getCampaignContactId } from '@/lib/vapi/end-of-call'
 import { createLogger } from '@/lib/obs/logger'
 
 export const runtime = 'nodejs'
 
 const obs = createLogger({ route: 'api/vapi/campaigns' })
-
-async function updateContactStatus(
-  campaignContactId: string,
-  call: { id?: string; endedReason?: string }
-): Promise<void> {
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
-
-  const status = mapEndedReasonToStatus(call.endedReason)
-  const isTerminal = status !== 'calling' && status !== 'pending'
-
-  const { data: contact, error: updateErr } = await supabase
-    .from('campaign_contacts')
-    .update({
-      status,
-      vapi_call_id: call.id ?? null,
-      error_detail: status === 'failed' ? (call.endedReason ?? 'unknown') : null,
-      completed_at: isTerminal ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', campaignContactId)
-    .select('campaign_id')
-    .single()
-
-  if (updateErr) {
-    obs.error('vapi_campaigns_update_contact_failed', { error: updateErr.message, campaignContactId })
-    return
-  }
-  if (!contact?.campaign_id) return
-
-  // Check if all contacts are done | auto-complete campaign
-  const { count } = await supabase
-    .from('campaign_contacts')
-    .select('*', { count: 'exact', head: true })
-    .eq('campaign_id', contact.campaign_id)
-    .in('status', ['pending', 'calling'])
-
-  if (count === 0) {
-    await supabase
-      .from('campaigns')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', contact.campaign_id)
-      .eq('status', 'in_progress')
-  }
-}
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -77,29 +32,41 @@ export async function POST(request: Request): Promise<Response> {
       return new Response(null, { status: 200 })
     }
 
-    const payload = body as Record<string, unknown>
-
-    // Only handle end-of-call-report for outbound campaign calls
-    if (payload?.type !== 'end-of-call-report') {
+    const parsed = VapiEndOfCallMessageSchema.safeParse(body)
+    if (!parsed.success || parsed.data.message.type !== 'end-of-call-report') {
       return new Response(null, { status: 200 })
     }
 
-    const call = payload?.call as Record<string, unknown> | undefined
-    if (call?.type !== 'outboundPhoneCall') {
+    const message = parsed.data.message
+
+    // Only handle outbound campaign calls here.
+    if (message.call?.type !== 'outboundPhoneCall') {
       return new Response(null, { status: 200 })
     }
 
-    const metadata = call?.metadata as Record<string, unknown> | undefined
-    const campaignContactId = metadata?.campaign_contact_id as string | undefined
+    const campaignContactId = getCampaignContactId(message)
     if (!campaignContactId) {
       return new Response(null, { status: 200 })
     }
 
     after(async () => {
-      await updateContactStatus(campaignContactId, {
-        id: call?.id as string | undefined,
-        endedReason: (payload?.endedReason as string | undefined) ?? (call?.endedReason as string | undefined),
-      })
+      const supabase = createServiceRoleClient()
+      await updateCampaignContactFromReport(
+        {
+          campaignContactId,
+          vapiCallId: message.call?.id ?? null,
+          endedReason: message.endedReason ?? null,
+        },
+        supabase,
+      )
+
+      // Also persist the full call record | idempotent insert keyed on
+      // vapi_call_id, so this is safe even if /api/vapi/calls also received
+      // (and already persisted) the same report.
+      const result = await persistCallRecord(message, supabase)
+      if (!result.organizationId) {
+        obs.warn('vapi_no_assistant_mapping', { assistantId: message.call?.assistantId })
+      }
     })
 
     return new Response(null, { status: 200 })

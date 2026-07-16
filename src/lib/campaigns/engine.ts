@@ -52,11 +52,17 @@ export async function startCampaignBatch(
     return { fired: 0, errors: 0 }
   }
 
-  // Fetch pending contacts up to concurrency limit
+  // Voice campaigns require non-null vapi_assistant_id and vapi_phone_number_id
+  if (!campaign.vapi_assistant_id || !campaign.vapi_phone_number_id) {
+    log.error('campaign_missing_vapi_config', {})
+    return { fired: 0, errors: 0 }
+  }
+
+  // Fetch candidate pending contacts up to concurrency limit
   const batchSize = Math.min(campaign.calls_per_minute, 10) // hard cap at 10
-  const { data: contacts, error: contactsErr } = await supabase
+  const { data: candidates, error: contactsErr } = await supabase
     .from('campaign_contacts')
-    .select('id, phone, name, custom_data')
+    .select('id')
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
     .limit(batchSize)
@@ -65,15 +71,32 @@ export async function startCampaignBatch(
     log.error('campaign_contacts_fetch_failed', { error: contactsErr.message })
     return { fired: 0, errors: 0 }
   }
-  if (!contacts || contacts.length === 0) {
+  if (!candidates || candidates.length === 0) {
     // No more pending | check if campaign is complete
     await checkAndCompleteCampaign(campaignId, supabase)
     return { fired: 0, errors: 0 }
   }
 
-  // Voice campaigns require non-null vapi_assistant_id and vapi_phone_number_id
-  if (!campaign.vapi_assistant_id || !campaign.vapi_phone_number_id) {
-    log.error('campaign_missing_vapi_config', {})
+  // Atomically claim the candidates BEFORE dialing: the `status='pending'`
+  // guard on the UPDATE means concurrent batches (cron tick overlapping a
+  // manual Resume, or a retried tick) each claim a disjoint set — a contact
+  // can never be dialed twice. A claimed contact that crashes before dialing
+  // stays 'calling' with a null vapi_call_id (visible, reconcilable) instead
+  // of being silently re-dialed.
+  const { data: contacts, error: claimErr } = await supabase
+    .from('campaign_contacts')
+    .update({ status: 'calling', updated_at: new Date().toISOString() })
+    .in('id', candidates.map((c) => c.id))
+    .eq('status', 'pending')
+    .select('id, phone, name, custom_data')
+
+  if (claimErr) {
+    log.error('campaign_contacts_claim_failed', { error: claimErr.message })
+    return { fired: 0, errors: 0 }
+  }
+  if (!contacts || contacts.length === 0) {
+    // Another batch claimed these rows between our read and our claim.
+    log.info('campaign_batch_lost_claim_race', { candidates: candidates.length })
     return { fired: 0, errors: 0 }
   }
 
@@ -116,10 +139,11 @@ async function fireContactCall(
       customData: (contact.custom_data as Record<string, string>) ?? {},
     })
 
+    // Row was already claimed (status='calling') before dialing; just attach
+    // the call id and dial timestamp.
     const { error: updateErr } = await supabase
       .from('campaign_contacts')
       .update({
-        status: 'calling',
         vapi_call_id: vapiCallId,
         called_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

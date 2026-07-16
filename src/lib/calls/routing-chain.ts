@@ -12,10 +12,31 @@
 // user_id so the caller can fire a web-push to wake a backgrounded PWA. `cell`
 // and `forward` are raw PSTN numbers; `sip` resolves to a SIP URI.
 
+import * as Sentry from '@sentry/nextjs'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { twimlDialStage, type TwimlContext } from '@/lib/calls/twiml-builder'
 import { insertNotification } from '@/lib/notifications/insert'
+import { createLogger } from '@/lib/obs/logger'
 import type { CallRoutingStage } from '@/types/database'
+
+const log = createLogger({ route: 'calls/routing-chain' })
+
+/**
+ * Structured warn + one-shot Sentry alert for routing-chain resolution
+ * failures. `createLogger` only forwards ERROR-level logs to Sentry
+ * automatically (see src/lib/obs/logger.ts), so warn-level routing gaps —
+ * which are misconfiguration, not exceptions — are surfaced explicitly here
+ * rather than escalated to `error` (which would also duplicate into
+ * event_logs and misrepresent these as crashes).
+ */
+function warnRouting(event: string, fields: Record<string, unknown>): void {
+  log.warn(event, fields)
+  Sentry.captureMessage(event, {
+    level: 'warning',
+    tags: { event },
+    extra: fields,
+  })
+}
 
 /**
  * Wake the targeted users' PWAs via web-push for a ringing stage. Fire-and-watch
@@ -34,7 +55,11 @@ export async function fireIncomingCallPush(
   },
 ): Promise<void> {
   if (userIds.length === 0) return
-  await insertNotification(orgId, 'incoming_call', payload, userIds)
+  // Called from inside next/server `after()` in the voice webhooks, where the
+  // runtime may tear down as soon as the after() callback resolves — await
+  // the push fan-out instead of the default fire-and-forget so it isn't cut
+  // off mid-flight (PWA that "doesn't ring" intermittently).
+  await insertNotification(orgId, 'incoming_call', payload, userIds, { waitForPush: true })
 }
 
 export interface ResolvedStageNouns {
@@ -264,7 +289,20 @@ export async function renderChainStage(args: {
 
   for (let i = startIndex; i < stages.length; i++) {
     const nouns = await resolveStageNouns(orgId, stages[i])
-    if (!hasNouns(nouns)) continue
+    if (!hasNouns(nouns)) {
+      // Stage is enabled and has declared targets (getRoutingChainForOrg
+      // already filtered those out), but none of them resolved to a dialable
+      // noun — e.g. a `member` target whose call_settings row has neither a
+      // client identity nor a forward number. Silently `continue`-ing here
+      // means a fully-misconfigured stage rings nobody and nothing tells the
+      // org; surface it.
+      warnRouting('routing_chain_stage_empty', {
+        orgId,
+        stageIndex: i,
+        targetTypes: stages[i].targets.map((t) => t.type),
+      })
+      continue
+    }
 
     const base = ctx.baseUrl.replace(/\/$/, '')
     const actionUrl = `${base}/api/twilio/voice/continue?org=${encodeURIComponent(orgId)}&stage=${i + 1}`
@@ -275,6 +313,16 @@ export async function renderChainStage(args: {
     })
     return { twiml, pwaUserIds: nouns.pwaUserIds, timeoutSeconds }
   }
+
+  // No stage from startIndex onward resolved any dialable noun. Callers treat
+  // this as "nothing left to try" and fall back to a reject/voicemail message
+  // (or, from the very first stage, effectively bypass the chain entirely) —
+  // that fallback is silent to the org, so alert here once per attempt.
+  warnRouting('routing_chain_exhausted', {
+    orgId,
+    startIndex,
+    stageCount: stages.length,
+  })
 
   return null
 }

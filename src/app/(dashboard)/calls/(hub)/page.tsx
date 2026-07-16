@@ -12,7 +12,11 @@ import { getUnifiedCall, getUnifiedCalls, type UnifiedCallWithContact } from '..
 import { getRoutingChain } from '../routing-actions'
 import { listCallDestinations } from '../destination-actions'
 import { getCurrentCallSettings, getSipDomain } from '../settings-actions'
-import { listTwilioNumbers, listOrgMembersForSelect } from '@/app/(dashboard)/integrations/twilio/numbers-actions'
+import {
+  listTwilioNumbers,
+  listOrgMembersForSelect,
+  type TwilioPhoneNumberRow,
+} from '@/app/(dashboard)/integrations/twilio/numbers-actions'
 import { getTwilioIntegration } from '@/app/(dashboard)/integrations/twilio/actions'
 import { UnifiedCallTimeline } from '@/components/calls/unified-call-timeline'
 import { CallsOnboardingGate } from '@/components/calls/calls-onboarding-gate'
@@ -27,6 +31,7 @@ import { CallSettingsForm } from '@/components/calls/call-settings-form'
 import { VoiceSettingsDialogLazy } from '@/components/calls/voice-settings-dialog-lazy'
 import { isVoiceSettingsTab, type VoiceSettingsTab } from '@/components/calls/voice-settings-tabs'
 import { PhoneNumbersList } from '@/components/phone-numbers/phone-numbers-list'
+import { VapiNumbersSection } from '@/components/phone-numbers/vapi-numbers-section'
 import { RoutingChainEditorLazy } from '@/components/calls/routing-chain-editor-lazy'
 import { AssistantMappingsTable } from '@/components/assistants/assistant-mappings-table'
 import type { Database } from '@/types/database'
@@ -75,7 +80,19 @@ export default async function CallsPage({ searchParams }: PageProps) {
     can('calls.manage'),
   ])
 
-  const hasAnyNumber = numbers.length > 0
+  // An org can be Vapi-only (AI calls, zero Twilio numbers) and still have a
+  // call history — gate on either signal, not just the Twilio number count,
+  // or a Vapi-only org never sees its own timeline. result.total is the
+  // FILTERED count, so when there are no Twilio numbers and the current
+  // filters match nothing, check unfiltered existence before gating —
+  // otherwise a Vapi-only org loses the filter bar the moment a filter
+  // returns zero rows.
+  let hasAnyCallHistory = result.total > 0
+  if (numbers.length === 0 && !hasAnyCallHistory) {
+    const unfiltered = await getUnifiedCalls({ page: 1, pageSize: 1 })
+    hasAnyCallHistory = unfiltered.total > 0
+  }
+  const hasAnyNumber = numbers.length > 0 || hasAnyCallHistory
 
   // Only decrypt the Twilio credential blob when something actually needs it:
   // the onboarding gate or the Numbers settings tab.
@@ -112,7 +129,7 @@ export default async function CallsPage({ searchParams }: PageProps) {
       {callId && <CallDetail id={callId} rows={result.rows} />}
 
       {settingsTab && canManage && (
-        <VoiceSettings tab={settingsTab} twilioConnected={twilioConnected} />
+        <VoiceSettings tab={settingsTab} twilioConnected={twilioConnected} numbers={numbers} />
       )}
 
       {myPhoneOpen && <MyPhone />}
@@ -194,13 +211,15 @@ function initialsOf(name: string | null | undefined): string {
 async function VoiceSettings({
   tab,
   twilioConnected,
+  numbers,
 }: {
   tab: VoiceSettingsTab
   twilioConnected: boolean
+  numbers: TwilioPhoneNumberRow[]
 }) {
   return (
     <VoiceSettingsDialogLazy tab={tab}>
-      {tab === 'numbers' && <NumbersTab twilioConnected={twilioConnected} />}
+      {tab === 'numbers' && <NumbersTab twilioConnected={twilioConnected} numbers={numbers} />}
       {tab === 'routing' && <RoutingTab />}
       {tab === 'assistants' && <AssistantsTab />}
       {tab === 'general' && <GeneralTab />}
@@ -208,9 +227,19 @@ async function VoiceSettings({
   )
 }
 
-async function NumbersTab({ twilioConnected }: { twilioConnected: boolean }) {
-  const numbers = await listTwilioNumbers()
-  return <PhoneNumbersList initial={numbers} twilioConnected={twilioConnected} embedded />
+function NumbersTab({
+  twilioConnected,
+  numbers,
+}: {
+  twilioConnected: boolean
+  numbers: TwilioPhoneNumberRow[]
+}) {
+  return (
+    <>
+      <PhoneNumbersList initial={numbers} twilioConnected={twilioConnected} embedded />
+      <VapiNumbersSection twilioNumbers={numbers} />
+    </>
+  )
 }
 
 async function RoutingTab() {

@@ -4,6 +4,8 @@ import { Bot, Clock, Hash, DollarSign, Sparkles, MessageSquare } from 'lucide-re
 import { createClient } from '@/lib/supabase/server'
 import { buildTimeline } from '@/lib/calls/timeline'
 import { CallTranscript } from '@/components/calls/call-transcript'
+import { CallWaveformPlayerLazy } from '@/components/calls/call-waveform-player-lazy'
+import { Badge } from '@/components/ui/badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
 import type { ArtifactMessage } from '@/types/vapi'
 import type { UnifiedCallWithContact } from '@/app/(dashboard)/calls/actions'
@@ -19,18 +21,32 @@ export async function CallDetailAi({ call, stacked = false }: Props) {
 
   // call.external_id already equals calls.vapi_call_id for AI rows (unified_calls
   // view), so the action_logs query doesn't need to wait on the calls row —
-  // fetch both in parallel instead of sequentially.
-  const [{ data: vapiCall }, { data: actionLogs }] = await Promise.all([
+  // fetch both in parallel instead of sequentially. assistant_mappings is only
+  // queried when the row actually has an assistant_id.
+  const [{ data: vapiCall }, { data: actionLogs }, { data: assistantMapping }] = await Promise.all([
     supabase
       .from('calls')
-      .select('transcript_turns, started_at')
+      .select('transcript_turns, started_at, success_evaluation')
       .eq('id', call.id)
       .maybeSingle(),
+    // Legacy, read-only (SEED-025 Phase F stopped writing action_logs — see
+    // src/lib/action-engine/log-action.ts). Only pre-cutover calls have rows
+    // here; buildTimeline() below simply produces no 'tool' items when this
+    // comes back empty, so the transcript renders with just conversation
+    // turns for every call made since the cutover.
     supabase
       .from('action_logs')
       .select('*')
       .eq('vapi_call_id', call.external_id)
       .order('created_at', { ascending: true }),
+    // eq() against an empty string simply matches nothing when there's no
+    // assistant_id, so this stays a single unconditional query shape (keeps
+    // the Promise.all tuple typing simple) rather than branching per call.
+    supabase
+      .from('assistant_mappings')
+      .select('name')
+      .eq('vapi_assistant_id', call.assistant_id ?? '')
+      .maybeSingle(),
   ])
 
   const turns = vapiCall?.started_at
@@ -41,9 +57,19 @@ export async function CallDetailAi({ call, stacked = false }: Props) {
       )
     : []
 
+  const assistantName = assistantMapping?.name ?? null
+  const successEvaluation = vapiCall?.success_evaluation ?? null
+
   return (
     <div className={stacked ? 'flex flex-col gap-6' : 'grid gap-6 lg:grid-cols-3'}>
       <div className={stacked ? 'space-y-6' : 'lg:col-span-2 space-y-6'}>
+        {call.recording_url && (
+          <CallWaveformPlayerLazy
+            url={`/api/calls/${call.id}/recording`}
+            duration={call.recording_duration ?? call.duration_seconds ?? 0}
+          />
+        )}
+
         {call.notes && (
           <div className="rounded-[14px] border border-border bg-bg-secondary p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -81,11 +107,29 @@ export async function CallDetailAi({ call, stacked = false }: Props) {
             <MetaRow icon={DollarSign} label="Cost" value={`$${Number(call.cost).toFixed(4)}`} />
           )}
           {call.assistant_id && (
-            <MetaRow icon={Hash} label="Assistant" value={call.assistant_id} mono />
+            <MetaRow
+              icon={Hash}
+              label="Assistant"
+              value={assistantName ?? call.assistant_id}
+              mono={!assistantName}
+            />
           )}
           <MetaRow icon={Hash} label="Vapi ID" value={call.external_id} mono />
           {call.substatus && (
             <MetaRow icon={Hash} label="Ended reason" value={call.substatus} />
+          )}
+          {successEvaluation && (
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-bg-tertiary text-text-tertiary">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10.5px] uppercase tracking-wide text-text-tertiary">Outcome</div>
+                <Badge variant={isPositiveEvaluation(successEvaluation) ? 'success' : 'default'} className="mt-1">
+                  {successEvaluation}
+                </Badge>
+              </div>
+            </div>
           )}
           <MetaRow icon={Clock} label="Started" value={formatDateTime(call.started_at)} />
           <MetaRow icon={Clock} label="Ended" value={formatDateTime(call.ended_at)} />
@@ -161,4 +205,14 @@ function formatDuration(seconds: number | null): string {
 function formatDateTime(iso: string | null): string {
   if (!iso) return '-'
   return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// analysis.successEvaluation is free-form: Vapi's default rubric sends the
+// string 'true'/'false', but a custom rubric can send arbitrary text (already
+// normalized to a string by persistCallRecord in src/lib/vapi/end-of-call.ts).
+// Only the unambiguous positive values get the green badge; everything else
+// (including custom rubric text) falls back to the neutral badge rather than
+// guessing at a red/negative state.
+function isPositiveEvaluation(value: string): boolean {
+  return ['true', 'success', 'pass', 'passed', 'yes'].includes(value.trim().toLowerCase())
 }
