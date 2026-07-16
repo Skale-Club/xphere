@@ -23,6 +23,28 @@ export type LocationKind =
   | 'phone'        // legacy alias
   | 'in_person'    // legacy alias
 
+// SYNC-04: the subset of LocationKind values that are fully wired
+// end-to-end and safe to expose in the event-type admin form. Excludes
+// zoom/whereby (no backend integration) and store_location (larger lift
+// than this phase's effort budget — see 130-RESEARCH.md Open Question 2).
+export const REACHABLE_LOCATION_KINDS = [
+  'google_meet',
+  'client_address',
+  'custom_address',
+  'phone_call',
+  'custom_phone',
+  'custom_link',
+] as const
+
+export const REACHABLE_LOCATION_KIND_LABELS: Record<(typeof REACHABLE_LOCATION_KINDS)[number], string> = {
+  google_meet: 'Google Meet',
+  client_address: "Client's address (on file)",
+  custom_address: 'Custom address (booker provides)',
+  phone_call: 'Phone call',
+  custom_phone: 'Phone call (custom number)',
+  custom_link: 'Custom video link',
+}
+
 export interface ResolvedMeetingLocation {
   kind: LocationKind
   label: string                                       // "Google Meet", "Downtown Branch", "John's address"

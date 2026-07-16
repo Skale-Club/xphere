@@ -1,8 +1,16 @@
 # Operator
 
-## Current Milestone: none — planning next
+## Current Milestone: v3.4 Calendar Reliability & Workflow Integrity
 
-v3.3 shipped 2026-07-03 (see below). No milestone currently in progress; run `/gsd:new-milestone` to start the next one. v3.1's formal close-out and the `v32-universal-folders-email-templates` workstream's formal close-out are also still pending (see below).
+**Goal:** Make calendar booking, lifecycle events, scheduled automation, and provider synchronization reliable, tenant-safe, and internally consistent.
+
+**Target features:**
+- Trusted booking creation: server-authoritative availability checks, durable conflict protection, and safe public cancellation.
+- One canonical booking lifecycle that updates state and emits workflow events consistently from every caller.
+- Reliable, exactly-targeted calendar scheduling and tenant-neutral default workflow behavior.
+- Coherent Google/Xkedule/GHL integration boundaries, plus completion of calendar capabilities already exposed in the product.
+
+**Scope boundary:** Preserve tenant-created workflows and data. Client-specific defaults must not be auto-created for new organizations; existing tenant workflows are left untouched for an operator-managed migration.
 
 ## Previous: v3.3 Settings Nav Cleanup + Unified Templates ✅ Shipped 2026-07-03
 

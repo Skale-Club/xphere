@@ -3,6 +3,9 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { cancelBooking } from '@/lib/calendar/transition'
+import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
+import { resolveAndValidateSlot, type SlotValidationError } from '@/lib/calendar/booking-validation'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import type { McpToolDef } from '../tool-types'
 
@@ -54,7 +57,7 @@ async function matchOrCreateContact(
   return data.id
 }
 
-const BookingStatus = z.enum(['confirmed', 'cancelled', 'no_show'])
+const BookingStatus = z.enum(['confirmed', 'cancelled', 'no_show', 'showed'])
 
 export const bookingsTools: McpToolDef[] = [
   {
@@ -109,7 +112,10 @@ export const bookingsTools: McpToolDef[] = [
     inputSchema: z.object({
       event_type_id: z.string().uuid(),
       start_at: z.string().datetime(),
-      end_at: z.string().datetime(),
+      // Deprecated: ignored. Server always derives end_at from
+      // event_types.duration_minutes (CAL-01). Kept optional so existing
+      // callers that still send it are not rejected by .strict().
+      end_at: z.string().datetime().optional(),
       booker_name: z.string().min(1),
       booker_email: z.string().email(),
       booker_phone: z.string().optional(),
@@ -119,14 +125,22 @@ export const bookingsTools: McpToolDef[] = [
     }).strict(),
     handler: async (input, { auth }) => {
       const supabase = db()
-      // Verify the event_type belongs to this org before allowing the booking.
-      const { data: et } = await supabase
-        .from('event_types')
-        .select('id')
-        .eq('id', input.event_type_id)
-        .eq('org_id', auth.orgId)
-        .maybeSingle()
-      if (!et) return { error: 'not_found', detail: 'event_type not found in this org', status: 404 }
+
+      const resolved = await resolveAndValidateSlot(supabase, {
+        eventTypeId: input.event_type_id,
+        startAtIso: input.start_at,
+        orgId: auth.orgId,
+      })
+      if (!resolved.ok) {
+        const statusByError: Record<SlotValidationError, number> = {
+          event_type_not_found: 404,
+          invalid_start_at: 422,
+          outside_availability: 409,
+          slot_taken: 409,
+        }
+        return { error: resolved.error, status: statusByError[resolved.error] }
+      }
+      const { eventType: et, startAt, endAt } = resolved.data
 
       // Resolve the contact link: honor an explicit contact_id, else match-or-create
       // by phone/email so the booking behaves like every other booking source.
@@ -142,15 +156,15 @@ export const bookingsTools: McpToolDef[] = [
         .from('bookings')
         .insert({
           org_id: auth.orgId,
-          event_type_id: input.event_type_id,
+          event_type_id: et.id,
           booker_name: input.booker_name,
           booker_email: input.booker_email,
           booker_phone: input.booker_phone ?? null,
           booker_timezone: input.booker_timezone ?? 'UTC',
-          start_at: input.start_at,
-          end_at: input.end_at,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
           notes: input.notes ?? null,
-          status: 'confirmed',
+          status: BOOKING_STATUSES[0], // the shared status vocabulary's first entry is 'confirmed' -- every new booking starts confirmed
           linked_contact_id: linkedContactId,
         })
         .select()
@@ -183,9 +197,8 @@ export const bookingsTools: McpToolDef[] = [
     }).strict(),
     handler: async ({ booking_id, reason }, { auth }) => {
       const supabase = db()
-      const patch: Record<string, unknown> = { status: 'cancelled' }
+
       if (reason) {
-        // append reason to existing notes
         const { data: current } = await supabase
           .from('bookings')
           .select('notes')
@@ -194,16 +207,23 @@ export const bookingsTools: McpToolDef[] = [
           .maybeSingle()
         if (!current) return { error: 'not_found', status: 404 }
         const prev = (current.notes as string | null) ?? ''
-        patch.notes = prev
+        const notes = prev
           ? `${prev}\n\n[Cancelled via MCP] ${reason}`
           : `[Cancelled via MCP] ${reason}`
+        await supabase.from('bookings').update({ notes }).eq('id', booking_id).eq('org_id', auth.orgId)
       }
-      const { error } = await supabase
-        .from('bookings')
-        .update(patch)
-        .eq('id', booking_id)
-        .eq('org_id', auth.orgId)
-      if (error) return { error: 'update_failed', detail: error.message }
+
+      const result = await cancelBooking({ supabase, depth: 0 }, booking_id, auth.orgId)
+      if (!result.ok) {
+        // 'not_found' matches this file's existing convention (bookings_get,
+        // and the reason-branch's own early return above) for a missing/
+        // cross-org booking, rather than leaking the transition service's
+        // internal 'booking_not_found' error string.
+        if (result.error === 'booking_not_found') return { error: 'not_found', status: 404 }
+        if (result.error === 'illegal_transition') return { error: 'illegal_transition', status: 409 }
+        return { error: result.error ?? 'cancel_failed', status: 500 }
+      }
+
       return { cancelled: true }
     },
   },

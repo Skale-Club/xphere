@@ -49,6 +49,7 @@ import { composeContactName, splitContactName } from '@/lib/contacts/names'
 import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity, hasVerifications } from '@/lib/contacts/server'
 import { syncContactUpdateToGoogle } from '@/lib/google-contacts/sync'
 import { emitContactEvent } from '@/lib/contacts/events'
+import { mapContactBookingRow, type RawContactBookingRow } from '@/lib/contacts/booking-summary'
 
 /**
  * Phase 108 D-04: maps conversations.channel enum values to the corresponding
@@ -475,7 +476,7 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     // SEED-039: bookings for this contact (event_type joined for label)
     supabase
       .from('bookings')
-      .select('id, booker_name, start_at, end_at, status, event_types(title)')
+      .select('id, booker_name, start_at, end_at, status, event_types(name:title)')
       .eq('linked_contact_id', id)
       .order('start_at', { ascending: false })
       .limit(5),
@@ -523,18 +524,9 @@ export async function getContact(id: string): Promise<ContactDetail | null> {
     .filter((t): t is ContactTagEntity => Boolean(t))
   const tagIds = tagEntities.map((t) => t.id)
 
-  const bookingRows = (bookings ?? []).map((b) => {
-    const et = b.event_types as { name?: string | null } | { name?: string | null }[] | null
-    const eventName = Array.isArray(et) ? et[0]?.name ?? null : et?.name ?? null
-    return {
-      id: b.id,
-      booker_name: b.booker_name,
-      start_at: b.start_at,
-      end_at: b.end_at,
-      status: b.status,
-      event_type_name: eventName,
-    }
-  })
+  const bookingRows = (bookings ?? []).map((b) =>
+    mapContactBookingRow(b as unknown as RawContactBookingRow),
+  )
 
   const customFieldDefs = defsResult.ok
     ? defsResult.data.map((d) => ({ id: d.id, key: d.key, label: d.label, type: d.type as string }))

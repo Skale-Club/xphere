@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { CheckCircle2, XCircle } from 'lucide-react'
+import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { cancelBookingByToken } from '@/app/(dashboard)/calendar/_actions/bookings'
 
@@ -17,7 +18,8 @@ export default async function CancelBookingPage({ params, searchParams }: Props)
 
   const supabase = createServiceRoleClient()
 
-  // Fetch booking details before cancelling
+  // Read-only fetch. No mutation happens during GET render -- cancellation
+  // only happens via the POST form action below (CAL-03).
   const { data: booking } = await supabase
     .from('bookings')
     .select('id, booker_name, start_at, end_at, status, event_type_id, cancel_token')
@@ -26,7 +28,6 @@ export default async function CancelBookingPage({ params, searchParams }: Props)
 
   if (!booking || booking.cancel_token !== token) notFound()
 
-  // Fetch event type title
   const { data: et } = await supabase
     .from('event_types')
     .select('title')
@@ -34,51 +35,57 @@ export default async function CancelBookingPage({ params, searchParams }: Props)
     .maybeSingle()
 
   const alreadyCancelled = booking.status === 'cancelled'
-
-  let cancelled = alreadyCancelled
-  let errorMsg: string | null = null
-
-  if (!alreadyCancelled) {
-    const result = await cancelBookingByToken(id, token)
-    if (!result.ok) {
-      errorMsg = result.error
-    } else {
-      cancelled = true
-    }
-  }
-
   const startDate = format(parseISO(booking.start_at), 'EEEE, MMMM d, yyyy')
   const startTime = format(parseISO(booking.start_at), 'HH:mm')
+
+  async function confirmCancel() {
+    'use server'
+    const result = await cancelBookingByToken(id, token!)
+    if (result.ok) {
+      revalidatePath(`/book/cancel/${id}`)
+    }
+    // On failure (e.g. a concurrent cancel already landed), the next render
+    // simply re-reads booking.status fresh -- self-healing, no error branch
+    // needed.
+  }
 
   return (
     <div className="dark min-h-screen bg-[#08090A] flex items-start justify-center pt-16 px-4">
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-[#2A2A2F] bg-[#111113] p-8 text-center space-y-4">
-          {errorMsg ? (
-            <>
-              <div className="h-14 w-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto">
-                <XCircle className="h-8 w-8 text-red-400" />
-              </div>
-              <h1 className="text-xl font-semibold text-[#FAFAFA]">Could not cancel</h1>
-              <p className="text-sm text-[#A1A1AA]">{errorMsg}</p>
-            </>
-          ) : cancelled ? (
+          {alreadyCancelled ? (
             <>
               <div className="h-14 w-14 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="h-8 w-8 text-emerald-400" />
               </div>
-              <h1 className="text-xl font-semibold text-[#FAFAFA]">
-                {alreadyCancelled ? 'Already cancelled' : 'Booking cancelled'}
-              </h1>
+              <h1 className="text-xl font-semibold text-[#FAFAFA]">Already cancelled</h1>
               <div className="text-sm text-[#A1A1AA] space-y-1">
                 {et?.title && <p className="font-medium text-[#FAFAFA]">{et.title}</p>}
-                <p>
-                  {startDate} at {startTime}
-                </p>
-                <p>Hi {booking.booker_name}, your booking has been cancelled.</p>
+                <p>{startDate} at {startTime}</p>
+                <p>Hi {booking.booker_name}, this booking has already been cancelled.</p>
               </div>
             </>
-          ) : null}
+          ) : (
+            <>
+              <div className="h-14 w-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto">
+                <XCircle className="h-8 w-8 text-red-400" />
+              </div>
+              <h1 className="text-xl font-semibold text-[#FAFAFA]">Cancel this booking?</h1>
+              <div className="text-sm text-[#A1A1AA] space-y-1">
+                {et?.title && <p className="font-medium text-[#FAFAFA]">{et.title}</p>}
+                <p>{startDate} at {startTime}</p>
+                <p>Hi {booking.booker_name}, confirm below to cancel this booking.</p>
+              </div>
+              <form action={confirmCancel}>
+                <button
+                  type="submit"
+                  className="w-full rounded-lg bg-red-500/90 hover:bg-red-500 text-white text-sm font-medium py-2.5 transition-colors"
+                >
+                  Cancel booking
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         <a

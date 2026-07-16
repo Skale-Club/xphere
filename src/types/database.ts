@@ -4544,9 +4544,11 @@ export interface Database {
           location_data: Json
           meeting_url: string | null
           meeting_phone: string | null
+          google_event_id: string | null
           external_source: string | null
           external_id: string | null
           external_updated_at: string | null
+          organizer_user_id: string | null
         }
         Insert: {
           id?: string
@@ -4568,9 +4570,11 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          google_event_id?: string | null
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
+          organizer_user_id?: string | null
         }
         Update: {
           booker_name?: string
@@ -4587,9 +4591,11 @@ export interface Database {
           location_data?: Json
           meeting_url?: string | null
           meeting_phone?: string | null
+          google_event_id?: string | null
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
+          organizer_user_id?: string | null
         }
         Relationships: [
           {
@@ -4597,6 +4603,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bookings_organizer_user_id_fkey'
+            columns: ['organizer_user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
           {
@@ -4907,6 +4920,24 @@ export interface Database {
           }
         ]
       }
+      calendar_tick_watermark: {
+        Row: {
+          event_type: string
+          scanned_to: string
+          updated_at: string
+        }
+        Insert: {
+          event_type: string
+          scanned_to?: string
+          updated_at?: string
+        }
+        Update: {
+          event_type?: string
+          scanned_to?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_types: {
         Row: {
           id: string
@@ -4981,6 +5012,9 @@ export interface Database {
           org_id: string
           slug: string
           timezone: string
+          sync_mode: string
+          default_location_type: string
+          conflict_calendar_ids: string[]
           created_at: string
           updated_at: string
         }
@@ -4989,12 +5023,18 @@ export interface Database {
           org_id: string
           slug: string
           timezone?: string
+          sync_mode?: string
+          default_location_type?: string
+          conflict_calendar_ids?: string[]
           created_at?: string
           updated_at?: string
         }
         Update: {
           slug?: string
           timezone?: string
+          sync_mode?: string
+          default_location_type?: string
+          conflict_calendar_ids?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -7789,6 +7829,15 @@ export interface Database {
       reset_copilot_credits: {
         Args: { p_org_id: string; p_included_usd: number; p_period_end?: string | null }
         Returns: number
+      }
+      transition_booking_status: {
+        Args: {
+          p_booking_id: string
+          p_org_id: string
+          p_new_status: string
+          p_allowed_from: string[]
+        }
+        Returns: Json
       }
       get_ads_attribution: {
         Args: { p_from: string; p_platform?: string; p_to: string }

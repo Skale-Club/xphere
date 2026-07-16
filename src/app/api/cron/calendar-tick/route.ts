@@ -27,10 +27,17 @@ import {
 import { resumeRun } from '@/lib/flows/engine'
 import { findExpiredWaits, satisfyWait } from '@/lib/flows/wait'
 import { captureApiError } from '@/lib/api-error'
+import {
+  computeDueWindow,
+  computeStartsInTargetMinute,
+  computeEndedTargetMinute,
+  isStartsInCandidateStale,
+  shouldAdvanceWatermark,
+  type DueWindow,
+} from '@/lib/calendar/tick'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const CRON_SECRET = process.env.CRON_SECRET
 
 function parseOffset(offset: string): number | null {
   // Supports "-5m", "-1h", "-24h", "-2d", and positive variants.
@@ -58,11 +65,12 @@ interface WorkflowTickRow {
 }
 
 export async function GET(request: Request) {
-  if (CRON_SECRET) {
-    const auth = request.headers.get('authorization') ?? ''
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return Response.json({ ok: false, error: 'CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
@@ -77,7 +85,48 @@ export async function GET(request: Request) {
   const now = new Date()
   now.setSeconds(0, 0)
   const windowStart = now.toISOString()
-  const windowEnd = new Date(now.getTime() + 60_000).toISOString()
+
+  // ─── Watermark-bounded scan windows (SCH-01/SCH-02) ────────────────────────
+  // Read the durable scan cursor for each meeting-based event type so a late
+  // or skipped tick still catches bookings whose due-moment fell in the gap.
+  const { data: watermarkRows, error: watermarkErr } = await supabase
+    .from('calendar_tick_watermark')
+    .select('event_type, scanned_to')
+    .in('event_type', ['meeting.starts_in', 'meeting.ended'])
+
+  if (watermarkErr) {
+    console.warn(
+      '[calendar-tick] calendar_tick_watermark read failed — treating scans as empty this tick:',
+      watermarkErr.message,
+    )
+  }
+
+  const watermarkByType = new Map(
+    (watermarkRows ?? []).map((r) => [r.event_type as string, new Date(r.scanned_to as string)]),
+  )
+
+  // TRANSITION SAFETY: an absent watermark table/row (e.g. this code deploys
+  // before migration 1252 is applied, or a row was never seeded for this
+  // event_type) must NOT fall back to computeDueWindow's 24h catch-up cap —
+  // that could double-dispatch every booking in the last 24h on the very
+  // first tick after deploy. Scan nothing this tick and seed the watermark
+  // from `now` instead, so the next tick has a real starting point.
+  async function resolveWindow(eventType: 'meeting.starts_in' | 'meeting.ended'): Promise<DueWindow> {
+    const watermark = watermarkByType.get(eventType)
+    if (watermarkErr || !watermark) {
+      console.warn(
+        `[calendar-tick] no watermark for ${eventType} — scanning empty window and seeding from now`,
+      )
+      await supabase
+        .from('calendar_tick_watermark')
+        .upsert({ event_type: eventType, scanned_to: now.toISOString() }, { onConflict: 'event_type' })
+      return { scanStart: now, scanEnd: now }
+    }
+    return computeDueWindow(now, watermark)
+  }
+
+  const startsInWindow = await resolveWindow('meeting.starts_in')
+  const endedWindow = await resolveWindow('meeting.ended')
 
   // ─── meeting.starts_in: find active workflows with this event ─────────────
   const { data: startsInWorkflows, error: wfErr } = await supabase
@@ -94,28 +143,44 @@ export async function GET(request: Request) {
 
   let totalDispatched = 0
   let totalSkipped = 0
+  let totalStaleSkipped = 0
+  let startsInReleased = 0
 
   for (const wf of (startsInWorkflows ?? []) as WorkflowTickRow[]) {
     const offsetStr = (wf.trigger_config?.offset as string | undefined) ?? '-5m'
     const offsetMinutes = parseOffset(offsetStr)
     if (offsetMinutes == null) continue
 
-    // Bookings whose (start_at + offset) falls in this minute window.
-    // offset is negative for "before"; we add it to start_at to get the
-    // fire moment. Example: start_at=14:00, offset=-5m → fire at 13:55.
+    // Bookings whose (start_at + offset) due-moment falls in the
+    // watermark-bounded scan window (scanStart, scanEnd] — not a fixed
+    // one-minute wall-clock slice, so a delayed/skipped tick still catches
+    // due-moments from the gap. offset is negative for "before"; we shift
+    // the scan bounds by the offset to translate from due-moment space back
+    // to start_at space.
     const offsetMs = offsetMinutes * 60_000
-    const fireTargetStart = new Date(now.getTime() - offsetMs).toISOString()
-    const fireTargetEnd = new Date(now.getTime() - offsetMs + 60_000).toISOString()
+    const dbRangeStart = new Date(startsInWindow.scanStart.getTime() - offsetMs).toISOString()
+    const dbRangeEnd = new Date(startsInWindow.scanEnd.getTime() - offsetMs).toISOString()
 
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('id, org_id, status')
+      .select('id, org_id, status, start_at')
       .eq('org_id', wf.org_id)
       .eq('status', 'confirmed')
-      .gte('start_at', fireTargetStart)
-      .lt('start_at', fireTargetEnd)
+      .gt('start_at', dbRangeStart)
+      .lte('start_at', dbRangeEnd)
 
     for (const booking of bookings ?? []) {
+      const startAt = new Date(booking.start_at as string)
+      const targetMinute = computeStartsInTargetMinute(startAt, offsetMinutes)
+
+      if (isStartsInCandidateStale(startAt, now)) {
+        // SCH-01 pitfall guard: the meeting has already started — firing
+        // "starts in N minutes" content now would be actively wrong, not
+        // just late. Skip without claiming or dispatching.
+        totalStaleSkipped++
+        continue
+      }
+
       // Idempotency: try inserting the tick row; PK collision = already dispatched.
       const { error: insErr } = await supabase
         .from('scheduled_workflow_ticks')
@@ -123,7 +188,7 @@ export async function GET(request: Request) {
           workflow_id: wf.id,
           booking_id: booking.id as string,
           event_type: 'meeting.starts_in',
-          fired_minute: windowStart,
+          fired_minute: targetMinute.toISOString(),
         })
 
       if (insErr) {
@@ -151,10 +216,17 @@ export async function GET(request: Request) {
           .eq('workflow_id', wf.id)
           .eq('booking_id', booking.id as string)
           .eq('event_type', 'meeting.starts_in')
-          .eq('fired_minute', windowStart)
+          .eq('fired_minute', targetMinute.toISOString())
         totalSkipped++
+        startsInReleased++
       }
     }
+  }
+
+  if (shouldAdvanceWatermark(startsInReleased)) {
+    await supabase
+      .from('calendar_tick_watermark')
+      .upsert({ event_type: 'meeting.starts_in', scanned_to: now.toISOString() }, { onConflict: 'event_type' })
   }
 
   // ─── meeting.ended: bookings where end_at just passed ─────────────────────
@@ -166,23 +238,28 @@ export async function GET(request: Request) {
     .eq('health_blocked', false)
     .contains('trigger_config', { event: 'meeting.ended' })
 
+  let endedReleased = 0
+
   for (const wf of (endedWorkflows ?? []) as WorkflowTickRow[]) {
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('id, org_id')
+      .select('id, org_id, end_at')
       .eq('org_id', wf.org_id)
-      .in('status', ['confirmed', 'completed', 'showed'] as never)
-      .gte('end_at', windowStart)
-      .lt('end_at', windowEnd)
+      .in('status', ['confirmed', 'showed'])
+      .gt('end_at', endedWindow.scanStart.toISOString())
+      .lte('end_at', endedWindow.scanEnd.toISOString())
 
     for (const booking of bookings ?? []) {
+      const endAt = new Date(booking.end_at as string)
+      const targetMinute = computeEndedTargetMinute(endAt)
+
       const { error: insErr } = await supabase
         .from('scheduled_workflow_ticks')
         .insert({
           workflow_id: wf.id,
           booking_id: booking.id as string,
           event_type: 'meeting.ended',
-          fired_minute: windowStart,
+          fired_minute: targetMinute.toISOString(),
         })
 
       if (insErr) {
@@ -208,10 +285,17 @@ export async function GET(request: Request) {
           .eq('workflow_id', wf.id)
           .eq('booking_id', booking.id as string)
           .eq('event_type', 'meeting.ended')
-          .eq('fired_minute', windowStart)
+          .eq('fired_minute', targetMinute.toISOString())
         totalSkipped++
+        endedReleased++
       }
     }
+  }
+
+  if (shouldAdvanceWatermark(endedReleased)) {
+    await supabase
+      .from('calendar_tick_watermark')
+      .upsert({ event_type: 'meeting.ended', scanned_to: now.toISOString() }, { onConflict: 'event_type' })
   }
 
   // ─── Pipeline time-based events (SEED-036) ────────────────────────────────
@@ -245,9 +329,19 @@ export async function GET(request: Request) {
 
   return Response.json({
     ok: true,
+    now: now.toISOString(),
     window_start: windowStart,
+    starts_in_scan: {
+      scan_start: startsInWindow.scanStart.toISOString(),
+      scan_end: startsInWindow.scanEnd.toISOString(),
+    },
+    ended_scan: {
+      scan_start: endedWindow.scanStart.toISOString(),
+      scan_end: endedWindow.scanEnd.toISOString(),
+    },
     dispatched: totalDispatched,
     skipped_already_dispatched: totalSkipped,
+    stale_skipped: totalStaleSkipped,
     wait_timeouts_resumed: timedOutWaits,
   })
 }

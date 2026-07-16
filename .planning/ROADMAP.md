@@ -1,46 +1,63 @@
-# Roadmap: Xphere v3.1 Websites Lead Ingestion
+# Roadmap: Xphere v3.4 Calendar Reliability & Workflow Integrity
 
 ## Overview
 
-This milestone establishes Xphere as the secure receiving side of the optional sibling-product integration with Skale Club Websites. Xphere remains independently billable and derives organization identity exclusively from an organization-scoped API key.
+This milestone makes calendar behavior trustworthy from public booking through workflow automation and provider mirroring. It implements the audit findings in dependency order: integrity first, then lifecycle, scheduler, integrations, and finally product/read-model completion.
 
 ## Phases
 
-- [ ] **Phase 111: API Security and Contract** - Add scopes, shared API-key verification, integration validation, and the versioned lead envelope.
-- [ ] **Phase 112: Idempotent Lead Ingestion** - Add receipt persistence, contact upsert, idempotency, and organization isolation.
-- [ ] **Phase 113: Workflow Event and Documentation** - Emit workflow events, expose variables, add audit coverage, and publish the final API contract.
+- [ ] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04)
+- [ ] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04)
+- [ ] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04)
+- [ ] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02)
+- [ ] **Phase 130: Calendar Product Coherence** - Complete or remove exposed unfinished controls and correct scoped read models. (SYNC-03..04)
 
 ## Phase Details
 
-### Phase 111: API Security and Contract
-**Goal**: Establish a least-privilege and reusable public API authentication boundary before accepting lead data.
+### Phase 126: Booking Trust Boundary
+**Goal**: No client can create an invalid or conflicting booking, and public cancellation cannot mutate state on GET.
 **Depends on**: Nothing
-**Requirements**: XLI-01, XLI-02, XLI-03, XLI-04, XLI-05
+**Requirements**: CAL-01, CAL-02, CAL-03, CAL-04
 **Success Criteria**:
-1. `leads:write` appears in API-key management and can be granted independently.
-2. Public API routes use one shared verifier that returns the key ID, organization ID, and scopes.
-3. Contacts rejects a valid key without `contacts:write`.
-4. Integration validation reveals only the minimum connection metadata.
-5. Contract schemas and fixtures reject tenant-controlled organization IDs.
+1. Booking creation validates a server-derived slot and rejects overlap or malformed intervals.
+2. A database constraint prevents overlapping active appointments for an organizer.
+3. Cancellation requires a deliberate POST action with an unguessable token.
+4. Calendar database policies no longer allow anonymous broad reads/writes.
 
-### Phase 112: Idempotent Lead Ingestion
-**Goal**: Persist each Websites submission exactly once effectively while deduplicating CRM contacts independently.
-**Depends on**: Phase 111
-**Requirements**: XLI-06, XLI-07, XLI-08, XLI-09, XLI-10, XLI-11, XLI-12
+### Phase 127: Canonical Booking Lifecycle
+**Goal**: All booking writers use one tested state transition and event emission service.
+**Depends on**: Phase 126
+**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04
 **Success Criteria**:
-1. The migration creates `lead_ingestions` with RLS and a unique external-event constraint.
-2. Identical replay returns the original receipt and does not duplicate the contact.
-3. Conflicting replay returns 409.
-4. Two submissions from one phone or email create one contact and two receipts.
-5. Organization A cannot address or read organization B data.
+1. Confirm, cancel, no-show, showed, complete, and reschedule states have one valid contract.
+2. No caller emits a calendar event when its database update fails.
+3. Native, flow, MCP, and webhook paths produce consistent events.
+4. Workflow variables match the documented calendar trigger contract.
 
-### Phase 113: Workflow Event and Documentation
-**Goal**: Make accepted leads actionable through Xphere workflows and complete the operator-facing contract.
-**Depends on**: Phase 112
-**Requirements**: XLI-13, XLI-14, XLI-15, XLI-16, XLI-17
+### Phase 128: Reliable Calendar Scheduling
+**Goal**: Reminder workflows run at their configured offset exactly once despite cron delay.
+**Depends on**: Phase 127
+**Requirements**: SCH-01, SCH-02, SCH-03, SCH-04
 **Success Criteria**:
-1. `lead.captured` is registered in the workflow spec and variable catalog.
-2. Each unique receipt dispatches `lead.captured` once, including repeat inquiries.
-3. `contact.created` fires only when a contact is newly inserted.
-4. Workflow failures remain non-blocking and auditable.
-5. Public documentation describes per-organization setup, scopes, idempotency, and errors.
+1. Delayed ticks recover the whole missed window safely.
+2. Each due workflow/offset is selected and dispatched once.
+3. Tick routes fail closed without a configured secret.
+4. New tenant defaults contain no client-specific business automation.
+
+### Phase 129: Provider Synchronization Integrity
+**Goal**: Provider connections and statuses preserve tenant isolation and calendar lifecycle semantics.
+**Depends on**: Phase 127
+**Requirements**: SYNC-01, SYNC-02
+**Success Criteria**:
+1. Google busy checks use selected conflict calendars and native bookings retain external identifiers.
+2. Calendar provider ownership is explicit and protected from unauthorized credential replacement.
+3. Xkedule completion/cancellation and GHL-created appointments map to correct lifecycle behavior.
+
+### Phase 130: Calendar Product Coherence
+**Goal**: The UI exposes only capabilities that work and calendar data displays accurately at scale.
+**Depends on**: Phases 126, 127, 129
+**Requirements**: SYNC-03, SYNC-04
+**Success Criteria**:
+1. Scopes return event type and organizer information correctly, with bounded booking queries.
+2. All supported booking states appear consistently in calendar/list views and timezone presentation is coherent.
+3. Round-robin and structured locations function end-to-end or are hidden until implemented.

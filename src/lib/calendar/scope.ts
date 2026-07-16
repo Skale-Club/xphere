@@ -87,7 +87,7 @@ export async function buildMeetingScope(
     booking.event_type_id
       ? supabase
           .from('event_types')
-          .select('id, name, slug, location_type, location_value')
+          .select('id, title, slug, location_type, location_value, user_id')
           .eq('id', booking.event_type_id)
           .single()
       : Promise.resolve({ data: null }),
@@ -100,8 +100,26 @@ export async function buildMeetingScope(
       : Promise.resolve({ data: null }),
   ])
 
-  const eventType = (eventTypeRes as { data: { id?: string; name?: string; slug?: string; location_type?: string; location_value?: string } | null }).data
+  const eventType = (eventTypeRes as { data: { id?: string; title?: string; slug?: string; location_type?: string; location_value?: string; user_id?: string } | null }).data
   const contact = (contactRes as { data: { id?: string; name?: string | null; email?: string | null; phone?: string | null } | null }).data
+
+  let organizer: MeetingScope['organizer'] = { user_id: null, name: null, email: null }
+  if (eventType?.user_id) {
+    try {
+      const { data: userRes } = await supabase.auth.admin.getUserById(eventType.user_id)
+      const user = userRes?.user
+      if (user) {
+        const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+        const fullName =
+          (typeof meta.full_name === 'string' && meta.full_name) ||
+          (typeof meta.name === 'string' && meta.name) ||
+          null
+        organizer = { user_id: eventType.user_id, name: fullName, email: user.email ?? null }
+      }
+    } catch (err) {
+      console.warn('[calendar/scope] organizer lookup failed:', err instanceof Error ? err.message : err)
+    }
+  }
 
   // Hydrate the store location only when the booking explicitly uses it.
   let store: Awaited<ReturnType<typeof loadStore>> = null
@@ -142,7 +160,7 @@ export async function buildMeetingScope(
   const fullName = contact?.name ?? (booking.booker_name as string) ?? ''
   const firstName = fullName.split(' ')[0] ?? fullName
 
-  const gcalTitle = encodeURIComponent(eventType?.name ?? 'Appointment')
+  const gcalTitle = encodeURIComponent(eventType?.title ?? 'Appointment')
   const gcalStart = startDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   const gcalEnd = endDate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   const gcalLoc = encodeURIComponent(resolved.address ?? '')
@@ -152,7 +170,7 @@ export async function buildMeetingScope(
   return {
     id: booking.id as string,
     org_id: booking.org_id as string,
-    title: eventType?.name ?? 'Meeting',
+    title: eventType?.title ?? 'Meeting',
     starts_at: booking.start_at as string,
     ends_at: booking.end_at as string,
     starts_at_minus_24h: new Date(startMs - 24 * 60 * 60 * 1000).toISOString(),
@@ -165,11 +183,7 @@ export async function buildMeetingScope(
     duration_minutes: durationMinutes,
     status: booking.status as string,
     notes: (booking.notes as string | null) ?? null,
-    organizer: {
-      user_id: null,
-      name: null,
-      email: null,
-    },
+    organizer,
     attendee_contact: contact
       ? {
           id: contact.id ?? null,
@@ -187,7 +201,7 @@ export async function buildMeetingScope(
         },
     event_type: {
       id: eventType?.id ?? null,
-      name: eventType?.name ?? null,
+      name: eventType?.title ?? null,
       slug: eventType?.slug ?? null,
     },
     location: {

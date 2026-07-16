@@ -1,49 +1,62 @@
-# v3.1 Websites Lead Ingestion - Requirements
+# Requirements: Xphere v3.4 Calendar Reliability & Workflow Integrity
 
-## API Security
+**Defined:** 2026-07-15
+**Core Value:** The Action Engine must execute the correct tenant action reliably; calendar lifecycle events are part of that contract.
 
-- [ ] **XLI-01**: API keys support a least-privilege `leads:write` scope.
-- [ ] **XLI-02**: The existing contacts endpoint enforces its declared `contacts:write` scope.
-- [ ] **XLI-03**: Lead ingestion resolves `org_id` exclusively from the verified bearer key.
-- [ ] **XLI-04**: A validation endpoint returns only organization identity, granted scopes, and supported capabilities.
-- [ ] **XLI-05**: Invalid, revoked, or under-scoped keys return stable 401/403 responses without leaking organization data.
+## v3.4 Requirements
 
-## Lead Ingestion
+### Trusted Booking
 
-- [ ] **XLI-06**: `POST /api/v1/leads` accepts the versioned Websites lead envelope and rejects invalid or oversized payloads.
-- [ ] **XLI-07**: Every accepted submission creates one organization-scoped `lead_ingestions` receipt protected by RLS.
-- [ ] **XLI-08**: Replaying the same event and payload returns the existing receipt without creating another event.
-- [ ] **XLI-09**: Reusing an event ID with a different payload returns a 409 conflict.
-- [ ] **XLI-10**: Contact matching uses normalized phone, then normalized email, inside the authenticated organization.
-- [ ] **XLI-11**: A new contact enters lifecycle stage `lead`; an existing contact keeps its lifecycle stage and richer fields.
-- [ ] **XLI-12**: Multiple unique submissions by one person produce one contact and multiple receipts.
+- [ ] **CAL-01**: A public or programmatic booking is accepted only when its event type is active, its time is valid and available, and its interval is conflict-free in the tenant calendar.
+- [ ] **CAL-02**: The database prevents invalid booking intervals and overlapping active bookings for the same organizer, including bookings from different event types.
+- [ ] **CAL-03**: Public cancellation requires an explicit POST confirmation and cannot be triggered by a link preview or crawler.
+- [ ] **CAL-04**: Calendar tables enforce least-privilege RLS policies; privileged service-role paths remain explicit.
 
-## Workflow and Operations
+### Lifecycle and Workflows
 
-- [ ] **XLI-13**: Every unique receipt emits one `lead.captured` workflow event with lead, contact, source, answers, and attribution variables.
-- [ ] **XLI-14**: A newly created contact also emits the existing `contact.created` event; an existing contact does not.
-- [ ] **XLI-15**: Workflow dispatch failure does not fail or roll back an accepted lead receipt.
-- [ ] **XLI-16**: API key `last_used_at`, receipt metadata, and event dispatch audit are recorded without plaintext keys or lead PII in logs.
-- [ ] **XLI-17**: Public API documentation replaces the obsolete global-key/fire-and-forget Skaleclub example.
+- [ ] **LIFE-01**: Every booking status transition uses one canonical service with valid state guards, transactional persistence, and one matching calendar event.
+- [ ] **LIFE-02**: The booking data model and all callers agree on supported states, including completion/showed semantics.
+- [ ] **LIFE-03**: Native booking, MCP, workflow actions, and Xkedule inbound updates trigger the same lifecycle contract without emitting events after failed writes.
+- [ ] **LIFE-04**: Calendar workflow payloads expose documented meeting, event, and trigger-offset variables consistently.
+
+### Scheduled Automation
+
+- [ ] **SCH-01**: Calendar reminders tolerate delayed cron invocations without losing due bookings.
+- [ ] **SCH-02**: A scheduler dispatches only the workflow and offset that are due, once per booking/workflow/offset.
+- [ ] **SCH-03**: The calendar tick endpoint requires a configured secret and records durable scheduling progress.
+- [ ] **SCH-04**: Platform defaults are tenant-neutral and never install Skleanings-specific tagging, opportunities, or email content for every organization.
+
+### Provider and Product Coherence
+
+- [ ] **SYNC-01**: Google calendar configuration has an explicit organization ownership model, honors selected conflict calendars, and stores external event identifiers for lifecycle synchronization.
+- [ ] **SYNC-02**: Xkedule and GHL booking paths preserve provider status semantics and use the canonical lifecycle/event path.
+- [ ] **SYNC-03**: Calendar scope and read models return correct event-type and organizer data, use bounded queries, and display all supported states consistently.
+- [ ] **SYNC-04**: Round-robin and structured-location controls are either operational end-to-end or removed from customer-facing configuration.
+
+## Future Requirements
+
+- **CAL-F01**: Operator tooling to migrate or deactivate pre-existing client-specific seeded workflows after tenant review.
+- **CAL-F02**: Full bidirectional Google event edit/delete reconciliation and reconciliation jobs for missed provider webhooks.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Automatic mutation of existing tenant workflows | Could change live customer automations and requires an operator-approved migration. |
+| New scheduling providers | Reliability of existing native, Google, Xkedule, and GHL paths comes first. |
+| Replacing the workflow engine | The shared workflow runtime is retained; calendar must conform to it. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
-|---|---|---|
-| XLI-01 | Phase 111 | Complete |
-| XLI-02 | Phase 111 | Complete |
-| XLI-03 | Phase 111 | Complete |
-| XLI-04 | Phase 111 | Complete |
-| XLI-05 | Phase 111 | Complete |
-| XLI-06 | Phase 112 | Complete |
-| XLI-07 | Phase 112 | Complete |
-| XLI-08 | Phase 112 | Complete |
-| XLI-09 | Phase 112 | Complete |
-| XLI-10 | Phase 112 | Complete |
-| XLI-11 | Phase 112 | Complete |
-| XLI-12 | Phase 112 | Complete |
-| XLI-13 | Phase 113 | Complete |
-| XLI-14 | Phase 113 | Complete |
-| XLI-15 | Phase 113 | Complete |
-| XLI-16 | Phase 113 | Complete |
-| XLI-17 | Phase 113 | Complete |
+|-------------|-------|--------|
+| CAL-01..04 | Phase 126 | Pending |
+| LIFE-01..04 | Phase 127 | Pending |
+| SCH-01..04 | Phase 128 | Pending |
+| SYNC-01..02 | Phase 129 | Pending |
+| SYNC-03..04 | Phase 130 | Pending |
+
+**Coverage:** 15 v3.4 requirements, 15 mapped, 0 unmapped.
+
+---
+*Requirements defined: 2026-07-15*

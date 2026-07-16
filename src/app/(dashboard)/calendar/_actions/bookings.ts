@@ -9,6 +9,7 @@ import { addMinutes, startOfDay, endOfDay, addDays } from 'date-fns'
 import { fromZonedTime } from 'date-fns-tz'
 import { generateSlots, generateSlotsWithReasons, type DebugTimeSlot } from '@/lib/calendar/slots'
 import { fetchBusyTimes } from '@/lib/calendar/google-calendar'
+import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolveLiveContactId } from '@/lib/contacts/server'
 import {
@@ -17,8 +18,10 @@ import {
 } from '@/lib/calendar/emails'
 import type { TimeSlot } from '@/lib/calendar/slots'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
 import type { CalendarEventPayload } from '@/lib/calendar/events'
 import { getSiteOriginFromHeaders } from '@/lib/site-url'
+import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
 
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.
@@ -147,11 +150,75 @@ export type BookingRow = {
 
 // ─── Dashboard: list bookings ──────────────────────────────────────────────────
 
-export async function getBookings(params: {
+const LIST_LIMIT = 50
+
+export interface BookingListSections {
+  upcoming: BookingRow[]
+  past: BookingRow[]
+  cancelled: BookingRow[]
+}
+
+// SYNC-03: replaces the old getBookings(), which selected the entire
+// `bookings` table with no .limit()/.range() ever applied — an unbounded
+// query that grew linearly with total historical booking count. Each
+// section here is independently bounded via .limit(LIST_LIMIT), so the
+// flat list at /calendar/bookings can never load more than 150 rows
+// regardless of org history size. 'showed' is included in the `past`
+// filter server-side (not derived by client-side filtering afterward) —
+// this is also the fix for 'showed' bookings vanishing from the UI.
+export async function getBookingsForList(): Promise<ActionResult<BookingListSections>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const nowIso = new Date().toISOString()
+
+  const [upcomingRes, pastRes, cancelledRes] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('*')
+      .eq('status', 'confirmed')
+      .gte('start_at', nowIso)
+      .order('start_at', { ascending: true })
+      .limit(LIST_LIMIT),
+    supabase
+      .from('bookings')
+      .select('*')
+      .in('status', ['confirmed', 'no_show', 'showed'])
+      .lt('start_at', nowIso)
+      .order('start_at', { ascending: false })
+      .limit(LIST_LIMIT),
+    supabase
+      .from('bookings')
+      .select('*')
+      .eq('status', 'cancelled')
+      .order('start_at', { ascending: false })
+      .limit(LIST_LIMIT),
+  ])
+
+  const firstError = upcomingRes.error ?? pastRes.error ?? cancelledRes.error
+  if (firstError) return { ok: false, error: firstError.message }
+
+  return {
+    ok: true,
+    data: {
+      upcoming: upcomingRes.data ?? [],
+      past: pastRes.data ?? [],
+      cancelled: cancelledRes.data ?? [],
+    },
+  }
+}
+
+// SYNC-03: replaces the from/to params on the old getBookings() that the
+// calendar week/month view (/calendar/calendar) never actually passed,
+// even though it already computes a weekStart/weekEnd window for its
+// Google Calendar fetch. Date-bounded by design — callers MUST supply a
+// finite window; there is no "fetch everything" mode anymore.
+export async function getBookingsForRange(params: {
+  from: string
+  to: string
   status?: string
-  from?: string
-  to?: string
-} = {}): Promise<ActionResult<BookingRow[]>> {
+}): Promise<ActionResult<BookingRow[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
@@ -159,11 +226,13 @@ export async function getBookings(params: {
   let query = supabase
     .from('bookings')
     .select('*')
+    .gte('start_at', params.from)
+    .lte('start_at', params.to)
     .order('start_at', { ascending: true })
 
-  if (params.status) query = query.eq('status', params.status as 'confirmed' | 'cancelled' | 'no_show')
-  if (params.from) query = query.gte('start_at', params.from)
-  if (params.to) query = query.lte('start_at', params.to)
+  if (params.status) {
+    query = query.eq('status', params.status as 'confirmed' | 'cancelled' | 'no_show' | 'showed')
+  }
 
   const { data, error } = await query
   if (error) return { ok: false, error: error.message }
@@ -176,35 +245,15 @@ export async function cancelBooking(id: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('id', id)
+  const { data: orgId } = await (await createClient()).rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'not_authenticated' }
 
-  if (error) return { ok: false, error: error.message }
-  revalidatePath('/calendar/bookings')
-
-  // Fire-and-forget booker notification.
-  void sendCancellationEmailForBooking(id).catch(() => {})
-
-  // Fire-and-forget meeting.cancelled event dispatch.
   const svc = createServiceRoleClient()
-  const { data: cancelledBooking } = await svc
-    .from('bookings')
-    .select('org_id')
-    .eq('id', id)
-    .maybeSingle()
-  if (cancelledBooking) {
-    void emitCalendarEvent(
-      { supabase: svc, depth: 0 },
-      {
-        event: 'meeting.cancelled',
-        booking_id: id,
-        org_id: cancelledBooking.org_id,
-      } satisfies CalendarEventPayload,
-    ).catch(() => {})
-  }
+  const result = await transitionCancelBooking({ supabase: svc, depth: 0 }, id, orgId)
+  if (!result.ok) return { ok: false, error: result.error ?? 'cancel_failed' }
+
+  revalidatePath('/calendar/bookings')
+  void sendCancellationEmailForBooking(id).catch(() => {})
 
   return { ok: true, data: undefined }
 }
@@ -285,11 +334,14 @@ export async function getAvailableSlots(params: {
   // Fetch calendar profile for timezone
   const { data: profile } = await supabase
     .from('calendar_profiles')
-    .select('timezone')
+    .select('timezone, conflict_calendar_ids')
     .eq('user_id', userId)
     .single()
 
   const timezone = profile?.timezone ?? 'UTC'
+  const conflictCalendarIds = profile?.conflict_calendar_ids?.length
+    ? profile.conflict_calendar_ids
+    : ['primary']
 
   // Map date string to day of week
   const [year, month, day] = params.date.split('-').map(Number)
@@ -335,6 +387,7 @@ export async function getAvailableSlots(params: {
     orgId,
     dayStartUtc.toISOString(),
     dayEndUtc.toISOString(),
+    conflictCalendarIds,
   ).catch(() => [])
 
   const slots = generateSlots({
@@ -374,11 +427,14 @@ export async function getDebugSlots(params: {
 
   const { data: profile } = await supabase
     .from('calendar_profiles')
-    .select('timezone')
+    .select('timezone, conflict_calendar_ids')
     .eq('user_id', userId)
     .single()
 
   const timezone = profile?.timezone ?? 'UTC'
+  const conflictCalendarIds = profile?.conflict_calendar_ids?.length
+    ? profile.conflict_calendar_ids
+    : ['primary']
 
   const [year, month, day] = params.date.split('-').map(Number)
   const dateObj = new Date(year, month - 1, day)
@@ -405,7 +461,7 @@ export async function getDebugSlots(params: {
     .lte('start_at', dayEndUtc.toISOString())
 
   const existingBookings = (existing ?? []).map((b) => ({ start: b.start_at, end: b.end_at }))
-  const busyTimes = await fetchBusyTimes(userId, orgId, dayStartUtc.toISOString(), dayEndUtc.toISOString()).catch(() => [])
+  const busyTimes = await fetchBusyTimes(userId, orgId, dayStartUtc.toISOString(), dayEndUtc.toISOString(), conflictCalendarIds).catch(() => [])
 
   const slots = generateSlotsWithReasons({
     date: params.date,
@@ -454,38 +510,12 @@ export async function createBooking(
 
   const supabase = createServiceRoleClient()
 
-  // Fetch event type to get duration and org_id
-  const { data: et } = await supabase
-    .from('event_types')
-    .select('duration_minutes, org_id, user_id, title, location_type, location_value, allowed_location_kinds')
-    .eq('id', parsed.data.event_type_id)
-    .eq('active', true)
-    .single()
-
-  if (!et) return { ok: false, error: 'event_type_not_found' }
-
-  // Fetch timezone separately (no FK between event_types and scheduling_profiles)
-  const { data: hostProfile } = await supabase
-    .from('calendar_profiles')
-    .select('timezone')
-    .eq('user_id', et.user_id)
-    .maybeSingle()
-  const hostTimezone = hostProfile?.timezone ?? 'UTC'
-
-  const startAt = new Date(parsed.data.start_at)
-  const endAt = addMinutes(startAt, et.duration_minutes)
-
-  // Double-check slot is still available (race condition guard)
-  const { data: conflict } = await supabase
-    .from('bookings')
-    .select('id')
-    .eq('event_type_id', parsed.data.event_type_id)
-    .eq('status', 'confirmed')
-    .lt('start_at', endAt.toISOString())
-    .gt('end_at', startAt.toISOString())
-    .maybeSingle()
-
-  if (conflict) return { ok: false, error: 'slot_taken' }
+  const resolved = await resolveAndValidateSlot(supabase, {
+    eventTypeId: parsed.data.event_type_id,
+    startAtIso: parsed.data.start_at,
+  })
+  if (!resolved.ok) return { ok: false, error: resolved.error }
+  const { eventType: et, startAt, endAt, hostTimezone } = resolved.data
 
   // Create or link CRM contact
   let linkedContactId: string | null = null
@@ -560,7 +590,8 @@ export async function createBooking(
       end_at: endAt.toISOString(),
       notes: parsed.data.notes ?? null,
       linked_contact_id: liveContactId,
-      status: 'confirmed',
+      // The first entry in the shared status vocabulary (booking-status.ts) is 'confirmed' — every new booking starts confirmed (no 'pending' state exists in this system).
+      status: BOOKING_STATUSES[0],
       location_kind: effectiveLocationKind,
     })
     .select('id, cancel_token')
@@ -575,10 +606,12 @@ export async function createBooking(
     return { ok: false, error: error?.message ?? 'create_failed' }
   }
 
-  // Create Google Calendar event (fire-and-forget, non-fatal)
+  // Create Google Calendar event (fire-and-forget, non-fatal). Persist the
+  // returned event id so future cancel/reschedule propagation has a durable
+  // link (SYNC-01) — previously the id was discarded entirely.
   try {
     const { createCalendarEvent } = await import('@/lib/calendar/google-calendar')
-    await createCalendarEvent(et.user_id, et.org_id, {
+    const googleEventId = await createCalendarEvent(et.user_id, et.org_id, {
       summary: `${et.title} with ${parsed.data.booker_name}`,
       description: parsed.data.notes,
       start: startAt.toISOString(),
@@ -588,8 +621,48 @@ export async function createBooking(
       location: et.location_value ?? undefined,
       timezone: hostTimezone,
     })
+    if (googleEventId) {
+      await supabase.from('bookings').update({ google_event_id: googleEventId }).eq('id', booking.id)
+    }
   } catch {
     // Non-fatal
+  }
+
+  // Google Meet link generation (SYNC-04): when the booker's resolved
+  // location kind is google_meet, create a Meet-enabled Calendar event now
+  // — before the confirmation email fires — so meeting_url is already on
+  // the row when the email pipeline re-fetches it below. Mirrors the same
+  // logic that already exists (but is unreachable dead code) in
+  // transition.ts::confirmBooking. google_event_id is persisted onto the
+  // SAME dedicated bookings.google_event_id column Phase 129 introduces
+  // (not location_data) — this intentionally overwrites whatever plain
+  // Calendar event id 129's own createCalendarEvent block wrote a few
+  // lines above, since the Meet-enabled event is the more relevant one
+  // for a google_meet booking.
+  if (effectiveLocationKind === 'google_meet') {
+    try {
+      const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
+      const meetResult = await createMeetingLink(et.org_id, {
+        title: et.title,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        attendeeEmail: parsed.data.booker_email,
+      })
+      if (meetResult) {
+        await supabase
+          .from('bookings')
+          .update({
+            meeting_url: meetResult.meeting_url,
+            google_event_id: meetResult.google_event_id,
+          })
+          .eq('id', booking.id)
+      }
+    } catch (meetErr) {
+      console.warn(
+        '[calendar/bookings] Google Meet link creation failed:',
+        meetErr instanceof Error ? meetErr.message : meetErr,
+      )
+    }
   }
 
   // Booker confirmation email (fire-and-forget, helper never throws).
@@ -771,7 +844,8 @@ export async function createBookingInternal(
       end_at: endAt.toISOString(),
       notes,
       linked_contact_id: liveContactId,
-      status: 'confirmed',
+      // The first entry in the shared status vocabulary (booking-status.ts) is 'confirmed' — every new booking starts confirmed (no 'pending' state exists in this system).
+      status: BOOKING_STATUSES[0],
       location_kind: effectiveLocationKind,
     })
     .select('id, cancel_token')
@@ -783,11 +857,42 @@ export async function createBookingInternal(
     return { ok: false, error: error?.message ?? 'create_failed' }
   }
 
+  // Google Meet link generation (SYNC-04): applies regardless of whether a
+  // booker email was provided — it's about the location kind, not the
+  // notification path below (which is gated on `email`). google_event_id is
+  // persisted onto the SAME dedicated bookings.google_event_id column Phase
+  // 129 introduces (not location_data).
+  if (effectiveLocationKind === 'google_meet') {
+    try {
+      const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
+      const meetResult = await createMeetingLink(et.org_id, {
+        title: et.title,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        attendeeEmail: email ?? undefined,
+      })
+      if (meetResult) {
+        await supabase
+          .from('bookings')
+          .update({
+            meeting_url: meetResult.meeting_url,
+            google_event_id: meetResult.google_event_id,
+          })
+          .eq('id', booking.id)
+      }
+    } catch (meetErr) {
+      console.warn(
+        '[calendar/bookings] Google Meet link creation failed:',
+        meetErr instanceof Error ? meetErr.message : meetErr,
+      )
+    }
+  }
+
   // Side-effects only when we have a booker email (GCal attendee + email need it).
   if (email) {
     try {
       const { createCalendarEvent } = await import('@/lib/calendar/google-calendar')
-      await createCalendarEvent(et.user_id, et.org_id, {
+      const googleEventId = await createCalendarEvent(et.user_id, et.org_id, {
         summary: `${et.title} with ${parsed.data.booker_name}`,
         description: notes ?? undefined,
         start: startAt.toISOString(),
@@ -797,6 +902,9 @@ export async function createBookingInternal(
         location: et.location_value ?? undefined,
         timezone: hostTimezone,
       })
+      if (googleEventId) {
+        await supabase.from('bookings').update({ google_event_id: googleEventId }).eq('id', booking.id)
+      }
     } catch {
       /* non-fatal */
     }
@@ -848,29 +956,23 @@ export async function cancelBookingByToken(
 ): Promise<ActionResult<void>> {
   const supabase = createServiceRoleClient()
 
+  // Token verification happens here, read-only, BEFORE any mutation attempt
+  // -- an invalid token or already-cancelled booking never reaches the
+  // canonical transition service at all.
   const { data, error } = await supabase
     .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .select('id, org_id')
     .eq('id', bookingId)
     .eq('cancel_token', cancelToken)
     .eq('status', 'confirmed')
-    .select('id, org_id')
     .single()
 
   if (error || !data) return { ok: false, error: 'not_found_or_already_cancelled' }
 
-  // Fire-and-forget booker notification.
-  void sendCancellationEmailForBooking(bookingId).catch(() => {})
+  const result = await transitionCancelBooking({ supabase, depth: 0 }, bookingId, data.org_id)
+  if (!result.ok) return { ok: false, error: 'not_found_or_already_cancelled' }
 
-  // Fire-and-forget meeting.cancelled event dispatch.
-  void emitCalendarEvent(
-    { supabase, depth: 0 },
-    {
-      event: 'meeting.cancelled',
-      booking_id: bookingId,
-      org_id: data.org_id,
-    } satisfies CalendarEventPayload,
-  ).catch(() => {})
+  void sendCancellationEmailForBooking(bookingId).catch(() => {})
 
   return { ok: true, data: undefined }
 }

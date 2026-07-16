@@ -1,0 +1,26 @@
+-- =============================================================================
+-- Migration 1253: Add missing 'google_calendar' value to integration_provider
+-- Phase: 129-provider-synchronization-integrity (Plan 129-03, SYNC-01)
+-- =============================================================================
+--
+-- Discovered while writing tests/integrations-rls.test.ts (129-03): production's
+-- `integration_provider` enum never had 'google_calendar' added, even though
+-- src/types/database.ts's generated type already lists it and multiple call
+-- sites (src/app/api/google/calendar-callback/route.ts, src/lib/calendar/
+-- google-calendar.ts) write/query provider = 'google_calendar' against the
+-- `integrations` table. No migration file in the repo history ever added this
+-- enum label. Confirmed via direct production DB query: SELECT provider::text,
+-- count(*) FROM public.integrations GROUP BY provider::text — zero
+-- 'google_calendar' rows exist, and the OAuth callback route would raise
+-- `invalid input value for enum integration_provider: "google_calendar"` on
+-- every attempted connection.
+--
+-- This is a Rule 1 (bug) / Rule 3 (blocking) auto-fix: it directly blocked
+-- Task 1's fixture INSERTs (which use provider = 'google_calendar' per the
+-- plan's literal spec) and independently fixes a real production defect where
+-- the Google Calendar connect flow has been silently broken for every org.
+--
+-- ADD VALUE IF NOT EXISTS is idempotent and safe to apply to a live enum with
+-- no locking concerns beyond a brief catalog update.
+
+ALTER TYPE public.integration_provider ADD VALUE IF NOT EXISTS 'google_calendar';
