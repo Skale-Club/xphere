@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 127-04-PLAN.md
-last_updated: "2026-07-16T03:33:03.636Z"
+stopped_at: Completed 127-05-PLAN.md
+last_updated: "2026-07-16T03:44:26.477Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 32
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 127 (canonical-booking-lifecycle) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -37,8 +37,9 @@ Last activity: 2026-07-16
 - [Phase 127-02]: Fixed event_types.title column-select bug in buildMeetingScope (real column is title, not name) and populated meeting.organizer from the event type host via auth.admin.getUserById, keeping MeetingScope's field names unchanged so no workflow template migration is needed
 - [Phase 127-03]: Kept the two @/lib/calendar/transition imports as separate import statements per the plan's literal text, and reworded the BOOKING_STATUSES[0] comment to avoid doubling the plan's own acceptance-criteria grep count
 - [Phase 127-04]: Fixed the plan's own booking_not_found error-mapping bug: cancelBooking's booking_not_found now maps to {error:'not_found', status:404} matching the file's existing not_found convention, not the leaked internal 'booking_not_found' string
+- [Phase 127-05]: Covered mapStatus/calendarEventFor entirely through the exported POST handler (no helper exports); combined both tasks' 17 tests into one RED commit, verifying the correct subset flipped green after each task's own GREEN commit
 
 ## Session Continuity
 
-**Stopped At:** Completed 127-04-PLAN.md
+**Stopped At:** Completed 127-05-PLAN.md
 **Resume File:** None
