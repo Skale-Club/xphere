@@ -1,32 +1,27 @@
 import { redirect } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { CalendarCheck, Clock, User, Mail } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getUser } from '@/lib/supabase/server'
-import { getBookings, type BookingRow } from '../_actions/bookings'
+import { getBookingsForList, type BookingRow } from '../_actions/bookings'
 import { BookingActionsCell } from '@/components/calendar/booking-actions-cell'
+import { bookingStatusBadgeClass } from '@/lib/calendar/booking-status'
 import { cn } from '@/lib/utils'
 
 export default async function BookingsPage() {
   const user = await getUser()
   if (!user) redirect('/')
 
-  const result = await getBookings()
-  const bookings = result.ok ? result.data : []
+  const result = await getBookingsForList()
+  const { upcoming, past, cancelled } = result.ok
+    ? result.data
+    : { upcoming: [], past: [], cancelled: [] }
 
-  const now = new Date()
-  const upcoming = bookings.filter(
-    (b) => b.status === 'confirmed' && new Date(b.start_at) >= now,
-  )
-  const past = bookings.filter(
-    (b) => (b.status === 'confirmed' || b.status === 'no_show') && new Date(b.start_at) < now,
-  )
-  const cancelled = bookings.filter((b) => b.status === 'cancelled')
+  const total = upcoming.length + past.length + cancelled.length
 
   return (
     <div className="mx-auto w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {bookings.length === 0 ? (
+      {total === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-12 text-center">
           <CalendarCheck className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">No bookings yet.</p>
@@ -87,14 +82,9 @@ function BookingSection({
             </div>
             <Badge
               variant="secondary"
-              className={cn(
-                'text-[11px] shrink-0',
-                booking.status === 'confirmed' && 'bg-emerald-500/15 text-emerald-400',
-                booking.status === 'cancelled' && 'bg-zinc-500/15 text-zinc-400',
-                booking.status === 'no_show' && 'bg-amber-500/15 text-amber-400',
-              )}
+              className={cn('text-[11px] shrink-0', bookingStatusBadgeClass(booking.status))}
             >
-              {booking.status}
+              {booking.status.replace('_', ' ')}
             </Badge>
             {booking.status === 'confirmed' && (
               <BookingActionsCell bookingId={booking.id} />

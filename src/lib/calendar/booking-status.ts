@@ -32,3 +32,19 @@ export const BOOKING_STATUSES: readonly BookingStatus[] = [
 export function isBookingStatus(value: unknown): value is BookingStatus {
   return typeof value === 'string' && (BOOKING_STATUSES as readonly string[]).includes(value)
 }
+
+// Pure display-layer helper for booking status badges (SYNC-03). Reuses the
+// canonical BookingStatus union above instead of redeclaring a second,
+// possibly-drifting status type — see the file header note on why that
+// matters. Never throws on an unrecognized status; falls back to a neutral
+// class so a future/unknown status doesn't crash the bookings list.
+const BADGE_CLASSES: Record<BookingStatus, string> = {
+  confirmed: 'bg-emerald-500/15 text-emerald-400',
+  showed: 'bg-sky-500/15 text-sky-400',
+  no_show: 'bg-amber-500/15 text-amber-400',
+  cancelled: 'bg-zinc-500/15 text-zinc-400',
+}
+
+export function bookingStatusBadgeClass(status: string): string {
+  return isBookingStatus(status) ? BADGE_CLASSES[status] : 'bg-zinc-500/15 text-zinc-400'
+}
