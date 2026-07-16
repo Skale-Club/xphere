@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration 1247: Widget URL authorization rules
+-- Migration 1257 (renumbered from 1247 — number taken by prospect_rows view): Widget URL authorization rules
 -- Lets each org authorize where the embeddable chat widget is allowed to run,
 -- by URL (domain + path patterns). Enforced both client-side (widget.js gates
 -- rendering) and server-side (config + chat endpoints validate Origin/Referer).
