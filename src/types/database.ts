@@ -4541,6 +4541,7 @@ export interface Database {
           external_source: string | null
           external_id: string | null
           external_updated_at: string | null
+          organizer_user_id: string | null
         }
         Insert: {
           id?: string
@@ -4565,6 +4566,7 @@ export interface Database {
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
+          organizer_user_id?: string | null
         }
         Update: {
           booker_name?: string
@@ -4584,6 +4586,7 @@ export interface Database {
           external_source?: string | null
           external_id?: string | null
           external_updated_at?: string | null
+          organizer_user_id?: string | null
         }
         Relationships: [
           {
@@ -4591,6 +4594,13 @@ export interface Database {
             columns: ['org_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'bookings_organizer_user_id_fkey'
+            columns: ['organizer_user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
           {
