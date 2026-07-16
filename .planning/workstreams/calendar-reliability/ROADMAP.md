@@ -39,7 +39,7 @@ Plans:
 **Depends on**: Phase 126
 **Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04
 
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 - [x] 127-01-PLAN.md — Canonical transition_booking_status RPC (migration 1251) + rewritten transition.ts (org-scoped, adds markShowed) + lifecycle/vocabulary tests (LIFE-01, LIFE-02)
@@ -48,7 +48,7 @@ Plans:
 - [x] 127-04-PLAN.md — MCP bookings_cancel wiring to the canonical service (LIFE-01, LIFE-03)
 - [x] 127-05-PLAN.md — Xkedule webhook: completed→showed mapping + no-event-after-failed-write fix (LIFE-02, LIFE-03)
 - [x] 127-06-PLAN.md — Durable workflow engine (flows/engine.ts) booking_* action nodes wired to the canonical service (LIFE-01, LIFE-02, LIFE-03)
-- [ ] 127-07-PLAN.md — Wait-free engine (execute-action.ts) booking_* mirror + update_booking_status guard fix (LIFE-01, LIFE-03)
+- [x] 127-07-PLAN.md — Wait-free engine (execute-action.ts) booking_* mirror + update_booking_status guard fix (LIFE-01, LIFE-03)
 - [ ] 127-08-PLAN.md — Operator checkpoint: apply migration 1251 to production (LIFE-01)
 
 ### Phase 128: Reliable Calendar Scheduling

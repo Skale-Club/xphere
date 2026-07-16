@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 127-06-PLAN.md
-last_updated: "2026-07-16T04:00:09.534Z"
+stopped_at: Completed 127-07-PLAN.md
+last_updated: "2026-07-16T04:14:45.358Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 32
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 127 (canonical-booking-lifecycle) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -39,8 +39,9 @@ Last activity: 2026-07-16
 - [Phase 127-04]: Fixed the plan's own booking_not_found error-mapping bug: cancelBooking's booking_not_found now maps to {error:'not_found', status:404} matching the file's existing not_found convention, not the leaked internal 'booking_not_found' string
 - [Phase 127-05]: Covered mapStatus/calendarEventFor entirely through the exported POST handler (no helper exports); combined both tasks' 17 tests into one RED commit, verifying the correct subset flipped green after each task's own GREEN commit
 - [Phase 127-06]: Fixed the status-vocabulary scanner's false positive on flows/engine.ts's unrelated workflow_runs/workflow_run_steps status literals with a narrow NON_BOOKING_STATUS_LITERALS allowlist, instead of restructuring the scanner or FILES_TO_SCAN
+- [Phase 127-07]: Kept booking-lifecycle-actions.ts and flows/engine.ts's inline booking_* handlers as two separate thin adapters (JSON string vs Record<string, unknown> return conventions) rather than consolidating the two dispatch engines, per the phase's internal-unification-only boundary
 
 ## Session Continuity
 
-**Stopped At:** Completed 127-06-PLAN.md
+**Stopped At:** Completed 127-07-PLAN.md
 **Resume File:** None
