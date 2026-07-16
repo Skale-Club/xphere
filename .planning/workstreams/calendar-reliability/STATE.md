@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v3.4
 milestone_name: milestone
-current_plan: Not started
+current_plan: 1
 status: executing
-stopped_at: Completed 129-02-PLAN.md
-last_updated: "2026-07-16T06:47:10.686Z"
+stopped_at: Completed 130-01-PLAN.md
+last_updated: "2026-07-16T06:57:56.409Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 32
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 130
-Plan: 6 of 6
+Phase: 130 (calendar-product-coherence) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
 ## Progress
 
 **Phases Complete:** 0
-**Current Plan:** Not started
+**Current Plan:** 1
 
 ## Decisions
 
@@ -52,8 +52,9 @@ Last activity: 2026-07-16
 - [Phase 129-04]: Placed the KNOWN_XKEDULE_STATUSES guard before mapStatus/existing-row lookup so an unrecognized status touches zero DB tables beyond auth; fixed 127-05's now-obsolete unrecognized-status-falls-back-to-confirmed test since this plan makes that behavior incorrect by design
 - [Phase 129-05]: No code changes to src/lib/ghl/** or src/app/api/ghl/** -- confirmed via read + grep that no GHL surface writes to bookings today; added a static grep-based Vitest guardrail instead, closing SYNC-02's GHL half per the D-03 scope lock (no new providers/paths).
 - [Phase 129-02]: Used migration number 1254 (not the plan's placeholder <next>) since 1253_google_calendar_provider_enum.sql (129-03's deviation fix) was already the latest migration on this branch
+- [Phase 130-01]: Added bookingStatusBadgeClass() to the existing booking-status.ts (Phase 127's canonical BookingStatus module, imported by 6 files) instead of overwriting it with a second status type as the plan's literal Task 2 code specified
 
 ## Session Continuity
 
-**Stopped At:** Completed 129-02-PLAN.md
+**Stopped At:** Completed 130-01-PLAN.md
 **Resume File:** None

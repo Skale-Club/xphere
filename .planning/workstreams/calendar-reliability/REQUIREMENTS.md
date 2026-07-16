@@ -30,7 +30,7 @@
 
 - [x] **SYNC-01**: Google calendar configuration has an explicit organization ownership model, honors selected conflict calendars, and stores external event identifiers for lifecycle synchronization.
 - [x] **SYNC-02**: Xkedule and GHL booking paths preserve provider status semantics and use the canonical lifecycle/event path.
-- [ ] **SYNC-03**: Calendar scope and read models return correct event-type and organizer data, use bounded queries, and display all supported states consistently.
+- [x] **SYNC-03**: Calendar scope and read models return correct event-type and organizer data, use bounded queries, and display all supported states consistently.
 - [ ] **SYNC-04**: Round-robin and structured-location controls are either operational end-to-end or removed from customer-facing configuration.
 
 ## Future Requirements
