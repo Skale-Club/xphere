@@ -39,10 +39,10 @@ Plans:
 **Depends on**: Phase 126
 **Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04
 
-**Plans:** 8 plans
+**Plans:** 1/8 plans executed
 
 Plans:
-- [ ] 127-01-PLAN.md — Canonical transition_booking_status RPC (migration 1251) + rewritten transition.ts (org-scoped, adds markShowed) + lifecycle/vocabulary tests (LIFE-01, LIFE-02)
+- [x] 127-01-PLAN.md — Canonical transition_booking_status RPC (migration 1251) + rewritten transition.ts (org-scoped, adds markShowed) + lifecycle/vocabulary tests (LIFE-01, LIFE-02)
 - [ ] 127-02-PLAN.md — Fix buildMeetingScope's event_types.title column bug + populate meeting.organizer (LIFE-04)
 - [ ] 127-03-PLAN.md — Native dashboard/public writer wiring (cancelBooking, cancelBookingByToken) to the canonical service (LIFE-01, LIFE-03)
 - [ ] 127-04-PLAN.md — MCP bookings_cancel wiring to the canonical service (LIFE-01, LIFE-03)
