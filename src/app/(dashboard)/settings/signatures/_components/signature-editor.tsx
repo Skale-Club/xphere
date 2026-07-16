@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
+  Blocks,
   Code2,
   Copy,
   Download,
@@ -13,6 +14,7 @@ import {
   Save,
   Star,
   Trash2,
+  TriangleAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -63,27 +65,49 @@ function buildDocument(rawHtml: string): EmailDocument {
   }
 }
 
-/** Pull the raw HTML back out of a stored document's first html block. */
-function extractRawHtml(document: Record<string, unknown>): string {
+/**
+ * Decide what to show in the raw-HTML textarea for a stored signature.
+ *  - HTML-authored (single html block) → edit that block's content directly.
+ *  - Visually built (has non-html blocks) → show the compiled snapshot so the
+ *    textarea reflects the real signature, and flag it so we can warn that
+ *    saving here replaces the visual layout.
+ *  - Empty → seed with a starter template.
+ */
+function analyzeSignatureDoc(
+  document: Record<string, unknown>,
+  htmlSnapshot: string | null,
+): { html: string; builtVisually: boolean } {
   const sections = (document?.sections as EmailDocument['sections']) ?? []
+  let htmlBlock: string | null = null
+  let hasOtherBlocks = false
   for (const section of sections) {
     for (const col of section.columns ?? []) {
       for (const block of col) {
         if (block.blockType === 'html' && typeof block.content === 'string') {
-          return block.content
+          if (htmlBlock === null) htmlBlock = block.content
+        } else {
+          hasOtherBlocks = true
         }
       }
     }
   }
-  return ''
+  if (hasOtherBlocks) {
+    return { html: htmlSnapshot ?? htmlBlock ?? '', builtVisually: true }
+  }
+  if (htmlBlock !== null) return { html: htmlBlock, builtVisually: false }
+  return { html: STARTER_HTML, builtVisually: false }
 }
 
 export function SignatureEditor({ signature }: Props) {
   const router = useRouter()
 
-  const initialHtml = useMemo(() => extractRawHtml(signature.document) || STARTER_HTML, [signature.document])
+  const analysis = useMemo(
+    () => analyzeSignatureDoc(signature.document, signature.html_snapshot),
+    [signature.document, signature.html_snapshot],
+  )
   const [name, setName] = useState(signature.name)
-  const [rawHtml, setRawHtml] = useState(initialHtml)
+  const [rawHtml, setRawHtml] = useState(analysis.html)
+  const builtVisually = analysis.builtVisually
   const [isDefault, setIsDefault] = useState(signature.is_default)
   const [dirty, setDirty] = useState(false)
 
@@ -209,6 +233,14 @@ export function SignatureEditor({ signature }: Props) {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => router.push(`/settings/signatures/${signature.id}/build`)}
+            className="gap-1.5"
+          >
+            <Blocks className="h-3.5 w-3.5" /> Visual builder
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onToggleDefault}
             disabled={isDefaulting}
             className="gap-1.5"
@@ -222,6 +254,17 @@ export function SignatureEditor({ signature }: Props) {
           </Button>
         </div>
       </div>
+
+      {builtVisually && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            This signature was made in the <strong>visual builder</strong>. The HTML below is its compiled output —
+            saving here converts it to raw HTML and replaces the visual layout. Use the visual builder to keep editing
+            blocks.
+          </span>
+        </div>
+      )}
 
       {/* Editor + preview */}
       <div className="grid gap-5 lg:grid-cols-2">
