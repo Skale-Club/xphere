@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { cancelBooking } from '@/lib/calendar/transition'
 import { resolveAndValidateSlot, type SlotValidationError } from '@/lib/calendar/booking-validation'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import type { McpToolDef } from '../tool-types'
@@ -55,7 +56,7 @@ async function matchOrCreateContact(
   return data.id
 }
 
-const BookingStatus = z.enum(['confirmed', 'cancelled', 'no_show'])
+const BookingStatus = z.enum(['confirmed', 'cancelled', 'no_show', 'showed'])
 
 export const bookingsTools: McpToolDef[] = [
   {
@@ -195,9 +196,8 @@ export const bookingsTools: McpToolDef[] = [
     }).strict(),
     handler: async ({ booking_id, reason }, { auth }) => {
       const supabase = db()
-      const patch: Record<string, unknown> = { status: 'cancelled' }
+
       if (reason) {
-        // append reason to existing notes
         const { data: current } = await supabase
           .from('bookings')
           .select('notes')
@@ -206,16 +206,23 @@ export const bookingsTools: McpToolDef[] = [
           .maybeSingle()
         if (!current) return { error: 'not_found', status: 404 }
         const prev = (current.notes as string | null) ?? ''
-        patch.notes = prev
+        const notes = prev
           ? `${prev}\n\n[Cancelled via MCP] ${reason}`
           : `[Cancelled via MCP] ${reason}`
+        await supabase.from('bookings').update({ notes }).eq('id', booking_id).eq('org_id', auth.orgId)
       }
-      const { error } = await supabase
-        .from('bookings')
-        .update(patch)
-        .eq('id', booking_id)
-        .eq('org_id', auth.orgId)
-      if (error) return { error: 'update_failed', detail: error.message }
+
+      const result = await cancelBooking({ supabase, depth: 0 }, booking_id, auth.orgId)
+      if (!result.ok) {
+        // 'not_found' matches this file's existing convention (bookings_get,
+        // and the reason-branch's own early return above) for a missing/
+        // cross-org booking, rather than leaking the transition service's
+        // internal 'booking_not_found' error string.
+        if (result.error === 'booking_not_found') return { error: 'not_found', status: 404 }
+        if (result.error === 'illegal_transition') return { error: 'illegal_transition', status: 409 }
+        return { error: result.error ?? 'cancel_failed', status: 500 }
+      }
+
       return { cancelled: true }
     },
   },
