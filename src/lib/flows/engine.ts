@@ -12,7 +12,15 @@ import { executeAgentNode } from './execute-agent-node'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 import { assertPublicHttpUrl } from '@/lib/flows/url-guard'
-import { confirmBooking, cancelBooking, markNoShow, markShowed, rescheduleBooking } from '@/lib/calendar/transition'
+import {
+  confirmBooking,
+  cancelBooking,
+  markNoShow,
+  markShowed,
+  rescheduleBooking,
+  emitCalendarEvent,
+} from '@/lib/calendar/transition'
+import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
 
 const MAX_STEPS = 100
 
@@ -595,7 +603,7 @@ async function executeBookingCreate(
       start_at: startAt,
       end_at: endAt,
       notes,
-      status: 'confirmed',
+      status: BOOKING_STATUSES[0], // 'confirmed'
       // TODO Phase 110: wrap with resolveLiveContactId
       linked_contact_id: linkedContactId,
     })
@@ -605,6 +613,13 @@ async function executeBookingCreate(
   if (insertErr || !newBooking) {
     throw new Error(`booking_create: insert failed | ${insertErr?.message ?? 'unknown error'}`)
   }
+
+  await emitCalendarEvent(
+    { supabase: ctx.supabase, depth: 0 },
+    { event: 'meeting.scheduled', booking_id: newBooking.id, org_id: ctx.orgId },
+  ).catch((err) => {
+    console.error('[flows/engine] booking_create emitCalendarEvent error:', err)
+  })
 
   return {
     booking_id: newBooking.id,

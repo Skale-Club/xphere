@@ -18,11 +18,19 @@ vi.mock('@/lib/calendar/transition', () => ({
   markNoShow: vi.fn(),
   markShowed: vi.fn(),
   rescheduleBooking: vi.fn(),
+  emitCalendarEvent: vi.fn().mockResolvedValue({ dispatched: 0, dispatch_id: null }),
 }))
 
 import { runFlow } from '@/lib/flows/engine'
 import { executeAction } from '@/lib/action-engine/execute-action'
-import { confirmBooking, cancelBooking, markNoShow, markShowed, rescheduleBooking } from '@/lib/calendar/transition'
+import {
+  confirmBooking,
+  cancelBooking,
+  markNoShow,
+  markShowed,
+  rescheduleBooking,
+  emitCalendarEvent,
+} from '@/lib/calendar/transition'
 
 // ─── Supabase chain factory ───────────────────────────────────────────────────
 // Makes a chainable object that is also awaitable (resolves to terminalResult).
@@ -490,6 +498,78 @@ describe('runFlow — lib/flows/engine.ts', () => {
         })
         expect(result.status).toBe('failed')
         expect(result.error).toContain('illegal_transition')
+      })
+    })
+
+    describe('booking_create', () => {
+      const createConfig = {
+        event_type_id: 'et-1',
+        booker_name: 'Jane Doe',
+        booker_email: 'jane@example.com',
+        start_at: '2026-08-01T10:00:00Z',
+        end_at: '2026-08-01T11:00:00Z',
+      }
+
+      // booking_create's own insert() targets the 'bookings' table (unlike the
+      // five status-transition handlers, which never touch supabase directly
+      // anymore) -- give it its own chain distinct from the shared
+      // workflow_run_steps chain so .single() resolves independently.
+      function makeCreateSupabase(insertResult: { data: unknown; error: unknown }) {
+        const runChain = makeChain({ data: { id: 'run-1' }, error: null })
+        const bookingsChain = makeChain(insertResult)
+        const stepsChain = makeChain({ data: null, error: null })
+        return {
+          from: vi.fn().mockImplementation((table: string) => {
+            if (table === 'workflow_runs') return runChain
+            if (table === 'bookings') return bookingsChain
+            return stepsChain
+          }),
+        } as unknown as SupabaseClient<Database>
+      }
+
+      it('emits meeting.scheduled on successful insert, output shape unchanged', async () => {
+        const supabase = makeCreateSupabase({
+          data: {
+            id: 'booking-1',
+            status: 'confirmed',
+            start_at: createConfig.start_at,
+            end_at: createConfig.end_at,
+          },
+          error: null,
+        })
+        const result = await runFlow({
+          workflowId: 'wf-1',
+          versionId: null,
+          definition: flowFor('booking_create', createConfig),
+          orgId: 'org-1',
+          supabase,
+        })
+        expect(result.status).toBe('succeeded')
+        expect(vi.mocked(emitCalendarEvent)).toHaveBeenCalledWith(
+          expect.objectContaining({ supabase: expect.anything() }),
+          { event: 'meeting.scheduled', booking_id: 'booking-1', org_id: 'org-1' },
+        )
+        expect(lastStepOutput(supabase)).toEqual({
+          booking_id: 'booking-1',
+          status: 'confirmed',
+          start_at: createConfig.start_at,
+          end_at: createConfig.end_at,
+          ok: true,
+        })
+      })
+
+      it('does not emit when the insert fails, and still throws as before', async () => {
+        const supabase = makeCreateSupabase({ data: null, error: { message: 'db_error' } })
+        const result = await runFlow({
+          workflowId: 'wf-1',
+          versionId: null,
+          definition: flowFor('booking_create', createConfig),
+          orgId: 'org-1',
+          supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('insert failed')
+        expect(vi.mocked(emitCalendarEvent)).not.toHaveBeenCalled()
       })
     })
   })
