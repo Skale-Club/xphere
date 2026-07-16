@@ -26,6 +26,13 @@ interface NewFolderButtonProps {
   className?: string
   iconOnly?: boolean
   /**
+   * Accessible label + tooltip shown when `iconOnly` (e.g. "New section
+   * folder" vs "New template folder" on a rail with several folder-create
+   * buttons side by side). Defaults to 'Folder' so existing call sites keep
+   * their current tooltip.
+   */
+  label?: string
+  /**
    * Folder-create action. Defaults to the Workflows create action so existing
    * Workflows call sites need no props. Other entities (e.g. email templates,
    * Phase 117 / UFE-06) pass their own `createFolder` bound to the right
@@ -39,6 +46,7 @@ interface NewFolderButtonProps {
 export function NewFolderButton({
   className,
   iconOnly = false,
+  label = 'Folder',
   createFolder = createWorkflowFolder,
 }: NewFolderButtonProps) {
   const router = useRouter()
@@ -84,8 +92,8 @@ export function NewFolderButton({
           variant="outline"
           size="sm"
           className={className}
-          aria-label={iconOnly ? 'Folder' : undefined}
-          title={iconOnly ? 'Folder' : undefined}
+          aria-label={iconOnly ? label : undefined}
+          title={iconOnly ? label : undefined}
         >
           <FolderPlus className="h-3.5 w-3.5" />
           {!iconOnly && 'Folder'}
