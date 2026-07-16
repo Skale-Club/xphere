@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 129-04-PLAN.md
-last_updated: "2026-07-16T06:14:02.938Z"
+stopped_at: Completed 129-05-PLAN.md
+last_updated: "2026-07-16T06:22:32.814Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 32
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 129 (provider-synchronization-integrity) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -50,8 +50,9 @@ Last activity: 2026-07-16
 - [Phase 129-01]: Fixed database.ts's stale calendar_profiles types (missing sync_mode/default_location_type/conflict_calendar_ids since migrations 1141/1142) at the root instead of adding another local cast
 - [Phase 129-03]: Added migration 1253 (ALTER TYPE integration_provider ADD VALUE IF NOT EXISTS 'google_calendar') as a Rule 1/3 deviation -- production's enum never actually had this value despite database.ts claiming it did, silently breaking Google Calendar OAuth connect for every org; fixed in-flight since it blocked this task's plan-specified fixture inserts
 - [Phase 129-04]: Placed the KNOWN_XKEDULE_STATUSES guard before mapStatus/existing-row lookup so an unrecognized status touches zero DB tables beyond auth; fixed 127-05's now-obsolete unrecognized-status-falls-back-to-confirmed test since this plan makes that behavior incorrect by design
+- [Phase 129-05]: No code changes to src/lib/ghl/** or src/app/api/ghl/** -- confirmed via read + grep that no GHL surface writes to bookings today; added a static grep-based Vitest guardrail instead, closing SYNC-02's GHL half per the D-03 scope lock (no new providers/paths).
 
 ## Session Continuity
 
-**Stopped At:** Completed 129-04-PLAN.md
+**Stopped At:** Completed 129-05-PLAN.md
 **Resume File:** None
