@@ -107,6 +107,8 @@ interface ChatAreaProps {
       conversationId?: string
       /** Email channel: subject line for the outbound email. */
       subject?: string
+      /** Email channel: stored signature to append to the outbound body. */
+      signatureId?: string | null
       deliveryOverride?: 'evolution_manual_escape'
     },
   ) => Promise<void>

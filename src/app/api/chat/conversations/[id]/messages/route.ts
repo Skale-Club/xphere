@@ -124,6 +124,8 @@ const SendMessageSchema = z.object({
   media: z.array(MediaItemSchema).optional(),
   /** Email channel: subject line for the outbound email. */
   subject: z.string().optional(),
+  /** Email channel: append this stored signature to the outbound body. */
+  signature_id: z.string().uuid().nullable().optional(),
 })
 
 function sendError(
@@ -190,6 +192,7 @@ export async function POST(
     channel: parsed.data.channel,
     media,
     subject,
+    signatureId: parsed.data.signature_id ?? undefined,
     deliveryOverride: delivery_override,
     operatorName,
     role,

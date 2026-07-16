@@ -823,6 +823,7 @@ export function ChatLayout({
       channel?: string
       conversationId?: string
       subject?: string
+      signatureId?: string | null
       media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
       deliveryOverride?: 'evolution_manual_escape'
     },
@@ -859,6 +860,7 @@ export function ChatLayout({
           role: 'assistant',
           channel: opts?.channel,
           subject: opts?.subject,
+          signature_id: opts?.signatureId,
           media: opts?.media,
           delivery_override: opts?.deliveryOverride,
           operator_prefix: Boolean(selectedConv?.operatorNamePrefix),
