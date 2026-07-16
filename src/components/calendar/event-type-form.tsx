@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import type { EventTypeRow } from '@/app/(dashboard)/calendar/_actions/event-types'
+import { REACHABLE_LOCATION_KINDS, REACHABLE_LOCATION_KIND_LABELS } from '@/lib/calendar/location-resolver'
 
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120]
 
@@ -23,6 +24,9 @@ const schema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   location_type: z.enum(['video', 'phone', 'in_person']),
   location_value: z.string().max(500).optional(),
+  allowed_location_kinds: z
+    .array(z.enum(['google_meet', 'client_address', 'custom_address', 'phone_call', 'custom_phone', 'custom_link']))
+    .min(1, 'Select at least one meeting location'),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -55,6 +59,14 @@ export function EventTypeForm({ defaultValues, onSubmit, loading, submitLabel = 
       color: defaultValues?.color ?? '#6366F1',
       location_type: (defaultValues?.location_type as 'video' | 'phone' | 'in_person') ?? 'video',
       location_value: defaultValues?.location_value ?? '',
+      allowed_location_kinds:
+        (defaultValues?.allowed_location_kinds?.filter((k) =>
+          (REACHABLE_LOCATION_KINDS as readonly string[]).includes(k),
+        ) as FormValues['allowed_location_kinds'] | undefined)?.length
+          ? (defaultValues!.allowed_location_kinds!.filter((k) =>
+              (REACHABLE_LOCATION_KINDS as readonly string[]).includes(k),
+            ) as FormValues['allowed_location_kinds'])
+          : ['custom_link'],
     },
   })
 
@@ -126,6 +138,38 @@ export function EventTypeForm({ defaultValues, onSubmit, loading, submitLabel = 
             </FormItem>
           )} />
         )}
+
+        <FormField control={form.control} name="allowed_location_kinds" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Allowed meeting locations</FormLabel>
+            <FormDescription>
+              Bookers choose from these when scheduling. Select at least one.
+            </FormDescription>
+            <div className="flex flex-col gap-2">
+              {REACHABLE_LOCATION_KINDS.map((kind) => {
+                const checked = field.value?.includes(kind) ?? false
+                return (
+                  <label key={kind} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const current = field.value ?? []
+                        const next = e.target.checked
+                          ? [...current, kind]
+                          : current.filter((k) => k !== kind)
+                        field.onChange(next)
+                      }}
+                      className="accent-indigo-500"
+                    />
+                    {REACHABLE_LOCATION_KIND_LABELS[kind]}
+                  </label>
+                )
+              })}
+            </div>
+            <FormMessage />
+          </FormItem>
+        )} />
 
         <FormField control={form.control} name="color" render={({ field }) => (
           <FormItem>
