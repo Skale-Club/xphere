@@ -12,6 +12,7 @@ import { executeAgentNode } from './execute-agent-node'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { executeUpdateContact } from '@/lib/action-engine/executors/update-contact'
 import { assertPublicHttpUrl } from '@/lib/flows/url-guard'
+import { confirmBooking, cancelBooking, markNoShow, markShowed, rescheduleBooking } from '@/lib/calendar/transition'
 
 const MAX_STEPS = 100
 
@@ -44,8 +45,6 @@ export function definitionHasWait(definition: unknown): boolean {
   if (!parsed.success) return false
   return parsed.data.nodes.some((n) => n.data.kind === 'wait')
 }
-
-type BookingStatus = 'confirmed' | 'cancelled' | 'no_show' | 'pending' | 'completed'
 
 export async function runFlow(input: RunInput): Promise<RunResult> {
   const parsed = FlowDefinitionSchema.safeParse(input.definition)
@@ -498,28 +497,9 @@ async function executeBookingConfirm(
   const bookingId = String(config.booking_id ?? '')
   if (!bookingId) throw new Error('booking_confirm requires booking_id')
 
-  const { data: booking, error: fetchErr } = await ctx.supabase
-    .from('bookings')
-    .select('id, status')
-    .eq('id', bookingId)
-    .single()
+  const result = await confirmBooking({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId)
+  if (!result.ok) throw new Error(`booking_confirm: ${result.error}`)
 
-  if (fetchErr || !booking) throw new Error(`booking_confirm: booking not found (${bookingId})`)
-
-  const current = booking.status as BookingStatus
-  if (current !== 'pending' && current !== 'confirmed') {
-    throw new Error(`booking_confirm: cannot confirm a booking with status '${current}' (must be pending)`)
-  }
-  if (current === 'confirmed') {
-    return { booking_id: bookingId, status: 'confirmed', ok: true }
-  }
-
-  const { error: updateErr } = await ctx.supabase
-    .from('bookings')
-    .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-    .eq('id', bookingId)
-
-  if (updateErr) throw new Error(`booking_confirm: update failed | ${updateErr.message}`)
   return { booking_id: bookingId, status: 'confirmed', ok: true }
 }
 
@@ -530,26 +510,9 @@ async function executeBookingCancel(
   const bookingId = String(config.booking_id ?? '')
   if (!bookingId) throw new Error('booking_cancel requires booking_id')
 
-  const { data: booking, error: fetchErr } = await ctx.supabase
-    .from('bookings')
-    .select('id, status')
-    .eq('id', bookingId)
-    .single()
+  const result = await cancelBooking({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId)
+  if (!result.ok) throw new Error(`booking_cancel: ${result.error}`)
 
-  if (fetchErr || !booking) throw new Error(`booking_cancel: booking not found (${bookingId})`)
-
-  const current = booking.status as BookingStatus
-  const cancellableStatuses: BookingStatus[] = ['pending', 'confirmed']
-  if (!cancellableStatuses.includes(current)) {
-    throw new Error(`booking_cancel: cannot cancel a booking with status '${current}'`)
-  }
-
-  const { error: updateErr } = await ctx.supabase
-    .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('id', bookingId)
-
-  if (updateErr) throw new Error(`booking_cancel: update failed | ${updateErr.message}`)
   return { booking_id: bookingId, status: 'cancelled', ok: true }
 }
 
@@ -564,26 +527,9 @@ async function executeBookingReschedule(
   if (!startAt) throw new Error('booking_reschedule requires start_at')
   if (!endAt) throw new Error('booking_reschedule requires end_at')
 
-  const { data: booking, error: fetchErr } = await ctx.supabase
-    .from('bookings')
-    .select('id, status')
-    .eq('id', bookingId)
-    .single()
+  const result = await rescheduleBooking({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId, startAt, endAt)
+  if (!result.ok) throw new Error(`booking_reschedule: ${result.error}`)
 
-  if (fetchErr || !booking) throw new Error(`booking_reschedule: booking not found (${bookingId})`)
-
-  const current = booking.status as BookingStatus
-  const reschedulableStatuses: BookingStatus[] = ['pending', 'confirmed']
-  if (!reschedulableStatuses.includes(current)) {
-    throw new Error(`booking_reschedule: cannot reschedule a booking with status '${current}'`)
-  }
-
-  const { error: updateErr } = await ctx.supabase
-    .from('bookings')
-    .update({ start_at: startAt, end_at: endAt, updated_at: new Date().toISOString() })
-    .eq('id', bookingId)
-
-  if (updateErr) throw new Error(`booking_reschedule: update failed | ${updateErr.message}`)
   return { booking_id: bookingId, start_at: startAt, end_at: endAt, ok: true }
 }
 
@@ -594,25 +540,9 @@ async function executeBookingMarkNoShow(
   const bookingId = String(config.booking_id ?? '')
   if (!bookingId) throw new Error('booking_mark_no_show requires booking_id')
 
-  const { data: booking, error: fetchErr } = await ctx.supabase
-    .from('bookings')
-    .select('id, status')
-    .eq('id', bookingId)
-    .single()
+  const result = await markNoShow({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId)
+  if (!result.ok) throw new Error(`booking_mark_no_show: ${result.error}`)
 
-  if (fetchErr || !booking) throw new Error(`booking_mark_no_show: booking not found (${bookingId})`)
-
-  const current = booking.status as BookingStatus
-  if (current !== 'confirmed') {
-    throw new Error(`booking_mark_no_show: can only mark no_show from 'confirmed', got '${current}'`)
-  }
-
-  const { error: updateErr } = await ctx.supabase
-    .from('bookings')
-    .update({ status: 'no_show', updated_at: new Date().toISOString() })
-    .eq('id', bookingId)
-
-  if (updateErr) throw new Error(`booking_mark_no_show: update failed | ${updateErr.message}`)
   return { booking_id: bookingId, status: 'no_show', ok: true }
 }
 
@@ -623,26 +553,14 @@ async function executeBookingMarkComplete(
   const bookingId = String(config.booking_id ?? '')
   if (!bookingId) throw new Error('booking_mark_complete requires booking_id')
 
-  const { data: booking, error: fetchErr } = await ctx.supabase
-    .from('bookings')
-    .select('id, status')
-    .eq('id', bookingId)
-    .single()
+  const result = await markShowed({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId)
+  if (!result.ok) throw new Error(`booking_mark_complete: ${result.error}`)
 
-  if (fetchErr || !booking) throw new Error(`booking_mark_complete: booking not found (${bookingId})`)
-
-  const current = booking.status as BookingStatus
-  if (current !== 'confirmed') {
-    throw new Error(`booking_mark_complete: can only mark completed from 'confirmed', got '${current}'`)
-  }
-
-  const { error: updateErr } = await ctx.supabase
-    .from('bookings')
-    .update({ status: 'completed' as 'confirmed', updated_at: new Date().toISOString() })
-    .eq('id', bookingId)
-
-  if (updateErr) throw new Error(`booking_mark_complete: update failed | ${updateErr.message}`)
-  return { booking_id: bookingId, status: 'completed', ok: true }
+  // LIFE-02: the DB's only completion/attendance value is 'showed' -- the
+  // action TYPE stays named 'booking_mark_complete' (external workflow
+  // YAML contract, unchanged) but the true resulting status is 'showed',
+  // not the DB-invalid value this used to (incorrectly) report.
+  return { booking_id: bookingId, status: 'showed', ok: true }
 }
 
 async function executeBookingCreate(

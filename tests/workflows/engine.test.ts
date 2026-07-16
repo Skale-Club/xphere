@@ -12,9 +12,17 @@ vi.mock('@/lib/crypto', () => ({
 vi.mock('@/lib/notifications/insert', () => ({
   insertNotification: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@/lib/calendar/transition', () => ({
+  confirmBooking: vi.fn(),
+  cancelBooking: vi.fn(),
+  markNoShow: vi.fn(),
+  markShowed: vi.fn(),
+  rescheduleBooking: vi.fn(),
+}))
 
 import { runFlow } from '@/lib/flows/engine'
 import { executeAction } from '@/lib/action-engine/execute-action'
+import { confirmBooking, cancelBooking, markNoShow, markShowed, rescheduleBooking } from '@/lib/calendar/transition'
 
 // ─── Supabase chain factory ───────────────────────────────────────────────────
 // Makes a chainable object that is also awaitable (resolves to terminalResult).
@@ -335,5 +343,154 @@ describe('runFlow — lib/flows/engine.ts', () => {
     const result = await runFlow({ workflowId: 'wf-1', versionId: null, definition: def, orgId: 'org-1', supabase })
     expect(result.status).toBe('succeeded')
     expect(vi.mocked(executeAction)).toHaveBeenCalledTimes(3)
+  })
+
+  describe('booking_* action nodes', () => {
+    function flowFor(actionType: string, config: Record<string, unknown> = { booking_id: 'book-1' }) {
+      return makeFlow({
+        nodes: [trig(), act('a1', actionType, config), end()],
+        edges: [edge('trigger', 'a1'), edge('a1', 'end1')],
+      })
+    }
+
+    // The 'a1' node's own workflow_run_steps update call (status: 'succeeded')
+    // carries the handler's return value as `output` — makeSupabase() routes
+    // every non-workflow_runs table (including workflow_run_steps) to the same
+    // shared chain instance, so re-requesting it here reads the recorded calls.
+    // The trigger and end nodes also produce a 'succeeded' update, but with an
+    // empty output object (their executeFlowNode branches return {}), so the
+    // 'a1' booking action node is the only one with a non-empty output.
+    function lastStepOutput(supabase: SupabaseClient<Database>): Record<string, unknown> {
+      const stepsChain = supabase.from('workflow_run_steps') as unknown as {
+        update: ReturnType<typeof vi.fn>
+      }
+      const succeededCall = stepsChain.update.mock.calls.find((args: unknown[]) => {
+        const call = args[0] as { status?: string; output?: Record<string, unknown> }
+        return call.status === 'succeeded' && Object.keys(call.output ?? {}).length > 0
+      })
+      return ((succeededCall?.[0] as { output?: Record<string, unknown> } | undefined)?.output) ?? {}
+    }
+
+    const parallelActions: Array<{
+      actionType: string
+      fn: typeof confirmBooking
+      resultStatus: string
+    }> = [
+      { actionType: 'booking_confirm', fn: confirmBooking, resultStatus: 'confirmed' },
+      { actionType: 'booking_cancel', fn: cancelBooking, resultStatus: 'cancelled' },
+      { actionType: 'booking_mark_no_show', fn: markNoShow, resultStatus: 'no_show' },
+      { actionType: 'booking_mark_complete', fn: markShowed, resultStatus: 'showed' },
+    ]
+
+    describe.each(parallelActions)('$actionType', ({ actionType, fn, resultStatus }) => {
+      it('missing booking_id throws before calling the transition service', async () => {
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor(actionType, {}), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('requires booking_id')
+        expect(vi.mocked(fn)).not.toHaveBeenCalled()
+      })
+
+      it('delegates to the canonical transition service with ctx.orgId, returning the new status on ok:true', async () => {
+        vi.mocked(fn).mockResolvedValueOnce({ ok: true })
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor(actionType), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('succeeded')
+        expect(vi.mocked(fn)).toHaveBeenCalledWith(
+          expect.objectContaining({ supabase: expect.anything() }),
+          'book-1',
+          'org-1',
+        )
+        expect(lastStepOutput(supabase)).toEqual({ booking_id: 'book-1', status: resultStatus, ok: true })
+      })
+
+      it('throws illegal_transition when the transition service reports it', async () => {
+        vi.mocked(fn).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor(actionType), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('illegal_transition')
+      })
+
+      it('throws booking_not_found when the transition service reports it', async () => {
+        vi.mocked(fn).mockResolvedValueOnce({ ok: false, error: 'booking_not_found' })
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor(actionType), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('booking_not_found')
+      })
+    })
+
+    describe('booking_reschedule', () => {
+      it('missing start_at throws before calling rescheduleBooking', async () => {
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1',
+          versionId: null,
+          definition: flowFor('booking_reschedule', { booking_id: 'book-1', end_at: '2026-08-01T11:00:00Z' }),
+          orgId: 'org-1',
+          supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('requires start_at')
+        expect(vi.mocked(rescheduleBooking)).not.toHaveBeenCalled()
+      })
+
+      it('missing end_at throws before calling rescheduleBooking', async () => {
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1',
+          versionId: null,
+          definition: flowFor('booking_reschedule', { booking_id: 'book-1', start_at: '2026-08-01T10:00:00Z' }),
+          orgId: 'org-1',
+          supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('requires end_at')
+        expect(vi.mocked(rescheduleBooking)).not.toHaveBeenCalled()
+      })
+
+      it('delegates to rescheduleBooking with ctx.orgId, returning start_at/end_at on ok:true', async () => {
+        vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: true })
+        const supabase = makeSupabase()
+        const config = { booking_id: 'book-1', start_at: '2026-08-01T10:00:00Z', end_at: '2026-08-01T11:00:00Z' }
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_reschedule', config), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('succeeded')
+        expect(vi.mocked(rescheduleBooking)).toHaveBeenCalledWith(
+          expect.objectContaining({ supabase: expect.anything() }),
+          'book-1',
+          'org-1',
+          '2026-08-01T10:00:00Z',
+          '2026-08-01T11:00:00Z',
+        )
+        expect(lastStepOutput(supabase)).toEqual({
+          booking_id: 'book-1',
+          start_at: '2026-08-01T10:00:00Z',
+          end_at: '2026-08-01T11:00:00Z',
+          ok: true,
+        })
+      })
+
+      it('throws illegal_transition when rescheduleBooking reports it', async () => {
+        vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+        const supabase = makeSupabase()
+        const config = { booking_id: 'book-1', start_at: '2026-08-01T10:00:00Z', end_at: '2026-08-01T11:00:00Z' }
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_reschedule', config), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('illegal_transition')
+      })
+    })
   })
 })

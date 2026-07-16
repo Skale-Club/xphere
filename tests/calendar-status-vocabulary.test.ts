@@ -10,15 +10,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
 
-// NOTE: 'src/lib/flows/engine.ts' is intentionally NOT in this list yet.
-// As of this plan (127-01, wave 1) it still contains `status: 'completed'`
-// literals -- the file is only rewritten to delegate to the canonical
-// transition service in Plan 127-06 (wave 2). Scanning it here, before
-// 127-06 lands, would make this test permanently red within this same
-// plan's own wave. Plan 127-06 appends 'src/lib/flows/engine.ts' to this
-// array in its own task, once those literals are gone, and re-runs this
-// test as part of its own verification -- so the file gains coverage
-// exactly when it becomes safe to scan, never before.
 const FILES_TO_SCAN = [
   'src/lib/calendar/transition.ts',
   'src/app/(dashboard)/calendar/_actions/bookings.ts',
@@ -26,7 +17,20 @@ const FILES_TO_SCAN = [
   'src/lib/action-engine/executors/update-booking-status.ts',
   'src/lib/action-engine/executors/booking-lifecycle-actions.ts',
   'src/app/api/xkedule/webhook/route.ts',
+  'src/lib/flows/engine.ts',
 ]
+
+// src/lib/flows/engine.ts also writes `status: '...'` literals for two OTHER
+// status columns that share this same `status: 'literal'` shape but belong to
+// an entirely different domain: workflow_runs / workflow_run_steps / RunResult
+// ('running' | 'succeeded' | 'failed' | 'waiting'). The scanner below is a
+// plain-text regex with no table/column awareness, so it cannot tell those
+// apart from a bookings.status write on its own -- allowlisted here by
+// literal value (none of these four values collide with BOOKING_STATUSES) so
+// the guard keeps catching genuine bookings.status regressions without
+// false-positiving on a sibling status vocabulary that happens to live in the
+// same file.
+const NON_BOOKING_STATUS_LITERALS = ['running', 'succeeded', 'failed', 'waiting']
 
 describe('LIFE-02: booking status vocabulary consistency', () => {
   it('BOOKING_STATUSES matches the DB CHECK constraint (migration 1224)', () => {
@@ -46,6 +50,7 @@ describe('LIFE-02: booking status vocabulary consistency', () => {
       let match: RegExpExecArray | null
       while ((match = pattern.exec(content))) {
         const literal = match[1]
+        if (NON_BOOKING_STATUS_LITERALS.includes(literal)) continue
         if (!(BOOKING_STATUSES as readonly string[]).includes(literal)) {
           offenders.push(`${relPath}: status: '${literal}'`)
         }
