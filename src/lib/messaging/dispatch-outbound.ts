@@ -21,6 +21,7 @@ import { sendMetaMessage } from '@/lib/meta/send-message'
 import { sendGhlMessage, channelToGhlType } from '@/lib/ghl/send-message'
 import { sendSms } from '@/lib/twilio/send-sms'
 import { sendTenantEmail } from '@/lib/email/resend'
+import { fetchSignatureHtml, buildSignatureVars, appendSignature } from '@/lib/email/signature'
 import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
@@ -64,6 +65,13 @@ export interface DispatchOutboundParams {
   media?: OutboundMediaItem[]
   /** Email channel only: subject line. Defaults to 'New message'. */
   subject?: string
+  /**
+   * Email channel only: append this stored signature's HTML to the outbound
+   * body. The caller (dashboard composer) resolves which signature to use
+   * — the org default, an explicit pick, or none. Automation callers omit
+   * this, so automated sends are never touched. Any lookup miss is ignored.
+   */
+  signatureId?: string | null
   deliveryOverride?: 'evolution_manual_escape'
   /**
    * Already-resolved display name to prefix outbound content with (dashboard
@@ -103,6 +111,7 @@ export async function dispatchOutboundMessage(
     channel,
     media,
     subject,
+    signatureId,
     deliveryOverride,
     operatorName = null,
     role,
@@ -413,7 +422,18 @@ export async function dispatchOutboundMessage(
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-    const html = `<div style="white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">${safe}</div>`
+    let html = `<div style="white-space:pre-wrap;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;">${safe}</div>`
+
+    // Append the caller-selected signature (dashboard composer). Best-effort:
+    // any miss leaves the body untouched, so a signature never blocks a reply.
+    if (signatureId) {
+      const signatureHtml = await fetchSignatureHtml(supabase, orgId, signatureId)
+      if (signatureHtml) {
+        const vars = await buildSignatureVars(supabase, orgId, conversation.contact_id)
+        html = appendSignature(html, signatureHtml, vars)
+      }
+    }
+
     const res = await sendTenantEmail(orgId, to, emailSubject, html)
     if (res.error) {
       return fail('email_send_failed', res.error, 502)

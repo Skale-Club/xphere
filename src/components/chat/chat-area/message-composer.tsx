@@ -23,7 +23,12 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
+import {
+  listSignatureOptions,
+  type SignatureOption,
+} from '@/app/(dashboard)/settings/signatures/actions'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import {
@@ -77,6 +82,7 @@ interface MessageComposerProps {
       channel?: string
       conversationId?: string
       subject?: string
+      signatureId?: string | null
       deliveryOverride?: 'evolution_manual_escape'
       media?: Array<{ url: string; mime_type: string; size?: number; filename?: string }>
     },
@@ -178,6 +184,27 @@ export function MessageComposer({
   const [isSending, setIsSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const isEmail = (activeChannel ?? '') === 'email'
+  // Email signature picker. `NONE` is the sentinel for "no signature"; the org
+  // default (if any) is preselected the first time the email channel is used.
+  const NONE_SIGNATURE = '__none__'
+  const [signatures, setSignatures] = useState<SignatureOption[]>([])
+  const [signaturesLoaded, setSignaturesLoaded] = useState(false)
+  const [signatureId, setSignatureId] = useState<string>(NONE_SIGNATURE)
+  useEffect(() => {
+    if (!isEmail || signaturesLoaded) return
+    let cancelled = false
+    void listSignatureOptions().then((res) => {
+      if (cancelled) return
+      setSignaturesLoaded(true)
+      if (!res.ok) return
+      setSignatures(res.data)
+      const def = res.data.find((s) => s.is_default)
+      if (def) setSignatureId(def.id)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isEmail, signaturesLoaded])
   const [emojiOpen, setEmojiOpen] = useState(false)
   // Operator name prefix popover (gear icon on the channel/status row).
   const [prefixOpen, setPrefixOpen] = useState(false)
@@ -365,6 +392,7 @@ export function MessageComposer({
         channel: activeOption?.channel ?? activeChannel,
         conversationId: activeOption?.conversationId,
         subject: isEmail ? subject.trim() || undefined : undefined,
+        signatureId: isEmail && signatureId !== NONE_SIGNATURE ? signatureId : undefined,
         deliveryOverride,
         media,
       })
@@ -638,6 +666,27 @@ export function MessageComposer({
             placeholder="Email subject…"
             className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-tertiary"
           />
+          {signatures.length > 0 && (
+            <>
+              <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+                Signature
+              </span>
+              <Select value={signatureId} onValueChange={setSignatureId} disabled={isDisabled}>
+                <SelectTrigger className="h-7 w-[150px] border-border-subtle bg-bg-primary text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_SIGNATURE}>No signature</SelectItem>
+                  {signatures.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                      {s.is_default ? ' (default)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
       )}
 

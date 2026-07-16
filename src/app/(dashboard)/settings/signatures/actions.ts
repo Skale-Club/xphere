@@ -31,6 +31,31 @@ export async function listSignatures(): Promise<ActionResult<EmailSignatureRow[]
   return { ok: true, data: (data ?? []) as EmailSignatureRow[] }
 }
 
+// ─── listSignatureOptions ─────────────────────────────────────────────────────
+
+export interface SignatureOption {
+  id: string
+  name: string
+  is_default: boolean
+}
+
+/** Lightweight list (no document/html payload) for pickers — e.g. the email
+ *  composer's signature selector. Default first, then alphabetical. */
+export async function listSignatureOptions(): Promise<ActionResult<SignatureOption[]>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('email_signatures')
+    .select('id, name, is_default')
+    .order('is_default', { ascending: false })
+    .order('name', { ascending: true })
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: (data ?? []) as SignatureOption[] }
+}
+
 // ─── getSignature ─────────────────────────────────────────────────────────────
 
 export async function getSignature(id: string): Promise<ActionResult<EmailSignatureRow>> {
