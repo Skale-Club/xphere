@@ -63,13 +63,27 @@ vi.mock('@/lib/calendar/booking-validation', () => ({
   resolveAndValidateSlot: vi.fn(),
 }))
 
+// The canonical lifecycle transition service (Plan 127-01). Both native
+// cancellation paths in bookings.ts now delegate to this instead of writing
+// bookings.status directly (Plan 127-03) — mocked here so these tests
+// exercise bookings.ts's own delegation/mapping logic independently of
+// transition.ts's own coverage in tests/calendar/lifecycle.test.ts.
+vi.mock('@/lib/calendar/transition', () => ({
+  cancelBooking: vi.fn(),
+  emitCalendarEvent: vi.fn(async () => ({ dispatched: 0, dispatch_id: null })),
+}))
+
 // Imports come AFTER mock declarations.
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
+import { cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
 import {
   createBooking,
+  cancelBooking,
   cancelBookingByToken,
 } from '@/app/(dashboard)/calendar/_actions/bookings'
+import { revalidatePath } from 'next/cache'
 
 // ─── Test-data fixtures ─────────────────────────────────────────────────────
 
@@ -118,6 +132,7 @@ function buildFakeAdmin(responses: {
   eventTypes?: FakeResp                     // .select.eq.eq.single
   schedulingProfiles?: FakeResp             // .select.eq.maybeSingle
   bookingsConflict?: FakeResp               // .select(...).maybeSingle for conflict pre-check
+  bookingsTokenLookup?: FakeResp            // .select(...).eq.eq.eq('status','confirmed').single() — cancelBookingByToken's token-verification SELECT
   contactsExisting?: FakeResp               // .select.eq.eq.maybeSingle
   customFieldDefs?: FakeResp                // .select(...).eq...
   contactsInsert?: FakeResp                 // .insert.select.single
@@ -183,12 +198,15 @@ function buildFakeAdmin(responses: {
         proxy.then = (r: (v: FakeResp) => void) => Promise.resolve({ data: null, error: null }).then(r)
 
         proxy.select = vi.fn(() => {
-          // Order matters: pre-check first, then post-insert select-on-insert,
-          // then cancel-email-pipeline lookup.
+          // Order matters: pre-check/token-verification first, then
+          // post-insert select-on-insert, then cancel-email-pipeline lookup.
           const which = bookingsSelectIdx++
           if (which === 0) {
-            // conflict pre-check (.select('id').eq.eq.lt.gt.maybeSingle)
-            return makeProxy(responses.bookingsConflict)
+            // Either the createBookingInternal conflict pre-check
+            // (.select('id').eq.eq.lt.gt.maybeSingle) or cancelBookingByToken's
+            // token-verification SELECT (.select(...).eq.eq.eq.single) —
+            // whichever fixture the test supplies wins.
+            return makeProxy(responses.bookingsTokenLookup ?? responses.bookingsConflict)
           }
           if (which === 1) {
             // cancellation email pipeline lookup (.select(...).eq.maybeSingle)
@@ -314,9 +332,9 @@ describe('cancelBookingByToken', () => {
     vi.clearAllMocks()
   })
 
-  it('Test 4: success — update returns a row, returns ok:true', async () => {
+  it('Test 4: success — token-verification SELECT returns a row, delegates to transition.ts::cancelBooking, returns ok:true', async () => {
     const fake = buildFakeAdmin({
-      bookingsUpdate: { data: { id: BOOKING_ID }, error: null },
+      bookingsTokenLookup: { data: { id: BOOKING_ID, org_id: ORG_ID }, error: null },
       // For the cancellation email pipeline lookups (fire-and-forget — safe to stub)
       bookingsCancelLookup: {
         data: {
@@ -333,15 +351,21 @@ describe('cancelBookingByToken', () => {
       schedulingProfileCancelLookup: { data: { slug: 'jane' }, error: null },
     })
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(transitionCancelBooking).mockResolvedValue({ ok: true })
 
     const result = await cancelBookingByToken(BOOKING_ID, CANCEL_TOKEN)
 
     expect(result.ok).toBe(true)
+    expect(transitionCancelBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase: fake, depth: 0 }),
+      BOOKING_ID,
+      ORG_ID,
+    )
   })
 
-  it('Test 5: invalid token — update returns error, returns not_found_or_already_cancelled', async () => {
+  it('Test 5: invalid token — SELECT returns error, returns not_found_or_already_cancelled without calling transition.ts::cancelBooking', async () => {
     const fake = buildFakeAdmin({
-      bookingsUpdate: { data: null, error: { message: 'no rows' } },
+      bookingsTokenLookup: { data: null, error: { message: 'no rows' } },
     })
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
 
@@ -349,11 +373,12 @@ describe('cancelBookingByToken', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('not_found_or_already_cancelled')
+    expect(transitionCancelBooking).not.toHaveBeenCalled()
   })
 
-  it('Test 6: already cancelled — update returns null data + no error, returns not_found_or_already_cancelled', async () => {
+  it('Test 6: already cancelled — SELECT returns null data + no error, returns not_found_or_already_cancelled without calling transition.ts::cancelBooking', async () => {
     const fake = buildFakeAdmin({
-      bookingsUpdate: { data: null, error: null },
+      bookingsTokenLookup: { data: null, error: null },
     })
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
 
@@ -361,5 +386,87 @@ describe('cancelBookingByToken', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('not_found_or_already_cancelled')
+    expect(transitionCancelBooking).not.toHaveBeenCalled()
+  })
+
+  it('Test 7: token verifies but transition.ts::cancelBooking reports illegal_transition (race) — maps to not_found_or_already_cancelled, no internal error leaked', async () => {
+    const fake = buildFakeAdmin({
+      bookingsTokenLookup: { data: { id: BOOKING_ID, org_id: ORG_ID }, error: null },
+    })
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(transitionCancelBooking).mockResolvedValue({ ok: false, error: 'illegal_transition' })
+
+    const result = await cancelBookingByToken(BOOKING_ID, CANCEL_TOKEN)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('not_found_or_already_cancelled')
+  })
+})
+
+// ─── cancelBooking (dashboard) ──────────────────────────────────────────────
+
+describe('cancelBooking (dashboard)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function mockAuthenticatedOrgContext(orgId: string | null = ORG_ID) {
+    vi.mocked(getUser).mockResolvedValue({ id: USER_ID } as any)
+    vi.mocked(createClient).mockResolvedValue({
+      rpc: vi.fn(async () => ({ data: orgId, error: null })),
+    } as any)
+  }
+
+  it('Test 8: success — resolves org via get_current_org_id, delegates to transition.ts::cancelBooking, revalidates', async () => {
+    mockAuthenticatedOrgContext(ORG_ID)
+    const svcFake = buildFakeAdmin({})
+    vi.mocked(createServiceRoleClient).mockReturnValue(svcFake as any)
+    vi.mocked(transitionCancelBooking).mockResolvedValue({ ok: true })
+
+    const result = await cancelBooking(BOOKING_ID)
+
+    expect(result.ok).toBe(true)
+    expect(transitionCancelBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase: svcFake, depth: 0 }),
+      BOOKING_ID,
+      ORG_ID,
+    )
+    expect(revalidatePath).toHaveBeenCalledWith('/calendar/bookings')
+  })
+
+  it('Test 9: illegal_transition (e.g. already no_show) — surfaces the error, does not revalidate', async () => {
+    mockAuthenticatedOrgContext(ORG_ID)
+    const svcFake = buildFakeAdmin({})
+    vi.mocked(createServiceRoleClient).mockReturnValue(svcFake as any)
+    vi.mocked(transitionCancelBooking).mockResolvedValue({ ok: false, error: 'illegal_transition' })
+
+    const result = await cancelBooking(BOOKING_ID)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('illegal_transition')
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('Test 10: idempotent no-op (already cancelled) — transition.ts returns ok:true, dashboard still returns ok:true, called exactly once', async () => {
+    mockAuthenticatedOrgContext(ORG_ID)
+    const svcFake = buildFakeAdmin({})
+    vi.mocked(createServiceRoleClient).mockReturnValue(svcFake as any)
+    vi.mocked(transitionCancelBooking).mockResolvedValue({ ok: true })
+
+    const result = await cancelBooking(BOOKING_ID)
+
+    expect(result.ok).toBe(true)
+    expect(transitionCancelBooking).toHaveBeenCalledTimes(1)
+    expect(transitionCancelBooking).toHaveBeenCalledWith(expect.anything(), BOOKING_ID, ORG_ID)
+  })
+
+  it('Test 11: no authenticated user — returns not_authenticated without calling transition.ts::cancelBooking', async () => {
+    vi.mocked(getUser).mockResolvedValue(null as any)
+
+    const result = await cancelBooking(BOOKING_ID)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('not_authenticated')
+    expect(transitionCancelBooking).not.toHaveBeenCalled()
   })
 })

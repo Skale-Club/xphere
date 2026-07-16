@@ -17,7 +17,7 @@ import {
   sendBookingCancellation,
 } from '@/lib/calendar/emails'
 import type { TimeSlot } from '@/lib/calendar/slots'
-import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { emitCalendarEvent, cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
 import type { CalendarEventPayload } from '@/lib/calendar/events'
 import { getSiteOriginFromHeaders } from '@/lib/site-url'
 
@@ -177,35 +177,15 @@ export async function cancelBooking(id: string): Promise<ActionResult<void>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('id', id)
+  const { data: orgId } = await (await createClient()).rpc('get_current_org_id')
+  if (!orgId) return { ok: false, error: 'not_authenticated' }
 
-  if (error) return { ok: false, error: error.message }
-  revalidatePath('/calendar/bookings')
-
-  // Fire-and-forget booker notification.
-  void sendCancellationEmailForBooking(id).catch(() => {})
-
-  // Fire-and-forget meeting.cancelled event dispatch.
   const svc = createServiceRoleClient()
-  const { data: cancelledBooking } = await svc
-    .from('bookings')
-    .select('org_id')
-    .eq('id', id)
-    .maybeSingle()
-  if (cancelledBooking) {
-    void emitCalendarEvent(
-      { supabase: svc, depth: 0 },
-      {
-        event: 'meeting.cancelled',
-        booking_id: id,
-        org_id: cancelledBooking.org_id,
-      } satisfies CalendarEventPayload,
-    ).catch(() => {})
-  }
+  const result = await transitionCancelBooking({ supabase: svc, depth: 0 }, id, orgId)
+  if (!result.ok) return { ok: false, error: result.error ?? 'cancel_failed' }
+
+  revalidatePath('/calendar/bookings')
+  void sendCancellationEmailForBooking(id).catch(() => {})
 
   return { ok: true, data: undefined }
 }
@@ -823,29 +803,23 @@ export async function cancelBookingByToken(
 ): Promise<ActionResult<void>> {
   const supabase = createServiceRoleClient()
 
+  // Token verification happens here, read-only, BEFORE any mutation attempt
+  // -- an invalid token or already-cancelled booking never reaches the
+  // canonical transition service at all.
   const { data, error } = await supabase
     .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .select('id, org_id')
     .eq('id', bookingId)
     .eq('cancel_token', cancelToken)
     .eq('status', 'confirmed')
-    .select('id, org_id')
     .single()
 
   if (error || !data) return { ok: false, error: 'not_found_or_already_cancelled' }
 
-  // Fire-and-forget booker notification.
-  void sendCancellationEmailForBooking(bookingId).catch(() => {})
+  const result = await transitionCancelBooking({ supabase, depth: 0 }, bookingId, data.org_id)
+  if (!result.ok) return { ok: false, error: 'not_found_or_already_cancelled' }
 
-  // Fire-and-forget meeting.cancelled event dispatch.
-  void emitCalendarEvent(
-    { supabase, depth: 0 },
-    {
-      event: 'meeting.cancelled',
-      booking_id: bookingId,
-      org_id: data.org_id,
-    } satisfies CalendarEventPayload,
-  ).catch(() => {})
+  void sendCancellationEmailForBooking(bookingId).catch(() => {})
 
   return { ok: true, data: undefined }
 }
