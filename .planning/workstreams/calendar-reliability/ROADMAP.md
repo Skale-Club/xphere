@@ -59,7 +59,7 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
-- [ ] 128-01-PLAN.md — Pure watermark-window/dedup-key/stale-skip/watermark-guard functions + unit tests (SCH-01, SCH-02)
+- [x] 128-01-PLAN.md — Pure watermark-window/dedup-key/stale-skip/watermark-guard functions + unit tests (SCH-01, SCH-02)
 - [ ] 128-02-PLAN.md — Mandatory CRON_SECRET check on the calendar-tick endpoint + route auth test (SCH-03)
 - [ ] 128-03-PLAN.md — Neutralize booking-confirmation.yaml + relocate Skleanings-only example workflows + regression test (SCH-04)
 - [ ] 128-04-PLAN.md — calendar_tick_watermark migration + real-DB dedup/watermark test (SCH-01, SCH-02, SCH-03)
