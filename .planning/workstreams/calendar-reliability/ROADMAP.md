@@ -9,7 +9,7 @@ This milestone makes calendar behavior trustworthy from public booking through w
 - [x] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04) (completed 2026-07-16)
 - [x] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04) (completed 2026-07-16)
 - [x] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04) (completed 2026-07-16)
-- [ ] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02)
+- [x] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02) (completed 2026-07-16)
 - [ ] **Phase 130: Calendar Product Coherence** - Complete or remove exposed unfinished controls and correct scoped read models. (SYNC-03..04)
 
 ## Phase Details
@@ -71,7 +71,7 @@ Plans:
 **Depends on**: Phase 127
 **Requirements**: SYNC-01, SYNC-02
 
-**Plans:** 4/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 129-01-PLAN.md — Multi-calendar busy-time fetch honoring conflict_calendar_ids (SYNC-01)
@@ -79,7 +79,7 @@ Plans:
 - [x] 129-03-PLAN.md — Real-DB regression test proving integrations org-ownership for google_calendar (SYNC-01)
 - [x] 129-04-PLAN.md — Xkedule webhook: unknown-status guard + route existing-row transitions through the canonical lifecycle service (SYNC-02)
 - [x] 129-05-PLAN.md — Static test proving no GHL surface writes to bookings directly (SYNC-02)
-- [ ] 129-06-PLAN.md — Operator checkpoint: apply the google_event_id migration to production (SYNC-01)
+- [x] 129-06-PLAN.md — Operator checkpoint: apply the google_event_id migration to production (SYNC-01)
 
 ### Phase 130: Calendar Product Coherence
 **Goal**: The UI exposes only capabilities that work and calendar data displays accurately at scale.
