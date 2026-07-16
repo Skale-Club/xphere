@@ -37,6 +37,7 @@ vi.mock('@/lib/rate-limit', () => ({
 vi.mock('@/lib/calendar/google-calendar', () => ({
   fetchBusyTimes: vi.fn(async () => []),
   createCalendarEvent: vi.fn(async () => null),
+  createMeetingLink: vi.fn(async () => null),
 }))
 
 vi.mock('@/lib/calendar/emails', () => ({
@@ -77,6 +78,7 @@ vi.mock('@/lib/calendar/transition', () => ({
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
+import { createMeetingLink } from '@/lib/calendar/google-calendar'
 import { cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
 import {
   createBooking,
@@ -383,6 +385,74 @@ describe('createBooking', () => {
       .map((r: any, i: number) => ({ table: (fake.from as any).mock.calls[i][0], proxy: r.value }))
       .filter((x: any) => x.table === 'bookings')
     expect(bookingsCalls.some((x: any) => x.proxy.update.mock.calls.length > 0)).toBe(false)
+  })
+})
+
+// ─── createBooking — Google Meet location kind (SYNC-04) ──────────────────
+//
+// Test numbers continue from 13 (the highest already in use in this file,
+// added by Phase 129-02) rather than restarting at 7/8 as originally
+// sketched — 7 and 8 are already claimed by other describe blocks below.
+
+describe('createBooking — Google Meet location kind (SYNC-04)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('Test 14: location_kind resolves to google_meet — calls createMeetingLink with the right details', async () => {
+    const fake = buildFakeAdmin({
+      contactsExisting: { data: null, error: null },
+      customFieldDefs: { data: [], error: null },
+      contactsInsert: { data: { id: 'contact-uuid' }, error: null },
+      bookingsInsert: { data: { id: BOOKING_ID, cancel_token: CANCEL_TOKEN }, error: null },
+    })
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: { ...eventTypeRow, allowed_location_kinds: ['google_meet'] } as any,
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
+    vi.mocked(createMeetingLink).mockResolvedValue({
+      meeting_url: 'https://meet.google.com/abc-defg-hij',
+      google_event_id: 'gcal-evt-1',
+    })
+
+    const result = await createBooking(validBookingInput)
+
+    expect(result.ok).toBe(true)
+    expect(createMeetingLink).toHaveBeenCalledWith(
+      eventTypeRow.org_id,
+      expect.objectContaining({
+        title: eventTypeRow.title,
+        attendeeEmail: validBookingInput.booker_email,
+      }),
+    )
+  })
+
+  it('Test 15: a non-google_meet location kind never calls createMeetingLink', async () => {
+    const fake = buildFakeAdmin({
+      contactsExisting: { data: null, error: null },
+      customFieldDefs: { data: [], error: null },
+      contactsInsert: { data: { id: 'contact-uuid' }, error: null },
+      bookingsInsert: { data: { id: BOOKING_ID, cancel_token: CANCEL_TOKEN }, error: null },
+    })
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: eventTypeRow as any, // location_type: 'video', no allowed_location_kinds
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
+
+    const result = await createBooking(validBookingInput)
+
+    expect(result.ok).toBe(true)
+    expect(createMeetingLink).not.toHaveBeenCalled()
   })
 })
 
