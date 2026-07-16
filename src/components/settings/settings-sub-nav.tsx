@@ -17,6 +17,7 @@ import {
   Plug,
   Plug2,
   Settings2,
+  Signature,
   Tag,
   UserCog,
   UsersRound,
@@ -56,6 +57,7 @@ const SECTIONS: NavSection[] = [
     heading: 'Templates',
     items: [
       { href: '/settings/email-templates', label: 'Email', icon: Mail },
+      { href: '/settings/signatures', label: 'Signatures', icon: Signature },
       { href: '/settings/message-templates', label: 'Messages', icon: MessagesSquare },
       { href: '/settings/whatsapp-templates', label: 'WhatsApp', icon: MessageCircle },
     ],

@@ -4843,6 +4843,53 @@ export interface Database {
           }
         ]
       }
+      email_signatures: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          document: Json
+          html_snapshot: string | null
+          plain_text_snapshot: string | null
+          is_default: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          document?: Json
+          html_snapshot?: string | null
+          plain_text_snapshot?: string | null
+          is_default?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          document?: Json
+          html_snapshot?: string | null
+          plain_text_snapshot?: string | null
+          is_default?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'email_signatures_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       event_dispatches: {
         Row: {
           id: string
