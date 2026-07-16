@@ -99,15 +99,17 @@ export async function fetchBusyTimes(
   orgId: string,
   timeMin: string, // ISO 8601
   timeMax: string, // ISO 8601
-  calendarId = 'primary',
+  calendarIds: string[] = ['primary'],
 ): Promise<BusyInterval[]> {
   const tokens = await getCalendarTokens(userId, orgId)
   if (!tokens) return []
 
+  const ids = calendarIds.length > 0 ? calendarIds : ['primary']
+
   const body = {
     timeMin,
     timeMax,
-    items: [{ id: calendarId }],
+    items: ids.map((id) => ({ id })),
   }
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
@@ -129,7 +131,7 @@ export async function fetchBusyTimes(
     calendars?: Record<string, { busy?: BusyInterval[] }>
   }
 
-  return data.calendars?.[calendarId]?.busy ?? []
+  return ids.flatMap((id) => data.calendars?.[id]?.busy ?? [])
 }
 
 // Create a Google Calendar event with a Meet link for google_meet bookings.
