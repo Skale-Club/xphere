@@ -8,7 +8,7 @@ This milestone makes calendar behavior trustworthy from public booking through w
 
 - [x] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04) (completed 2026-07-16)
 - [x] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04) (completed 2026-07-16)
-- [ ] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04)
+- [x] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04) (completed 2026-07-16)
 - [ ] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02)
 - [ ] **Phase 130: Calendar Product Coherence** - Complete or remove exposed unfinished controls and correct scoped read models. (SYNC-03..04)
 
@@ -56,7 +56,7 @@ Plans:
 **Depends on**: Phase 127
 **Requirements**: SCH-01, SCH-02, SCH-03, SCH-04
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 128-01-PLAN.md — Pure watermark-window/dedup-key/stale-skip/watermark-guard functions + unit tests (SCH-01, SCH-02)
@@ -64,7 +64,7 @@ Plans:
 - [x] 128-03-PLAN.md — Neutralize booking-confirmation.yaml + relocate Skleanings-only example workflows + regression test (SCH-04)
 - [x] 128-04-PLAN.md — calendar_tick_watermark migration + real-DB dedup/watermark test (SCH-01, SCH-02, SCH-03)
 - [x] 128-05-PLAN.md — Wire watermark-bounded scan + offset-derived dedup key into the live route (SCH-01, SCH-02, SCH-03)
-- [ ] 128-06-PLAN.md — Operator checkpoint: apply the watermark migration to production (SCH-01, SCH-02, SCH-03)
+- [x] 128-06-PLAN.md — Operator checkpoint: apply the watermark migration to production (SCH-01, SCH-02, SCH-03)
 
 ### Phase 129: Provider Synchronization Integrity
 **Goal**: Provider connections and statuses preserve tenant isolation and calendar lifecycle semantics.
