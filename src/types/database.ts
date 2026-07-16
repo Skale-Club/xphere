@@ -4911,6 +4911,24 @@ export interface Database {
           }
         ]
       }
+      calendar_tick_watermark: {
+        Row: {
+          event_type: string
+          scanned_to: string
+          updated_at: string
+        }
+        Insert: {
+          event_type: string
+          scanned_to?: string
+          updated_at?: string
+        }
+        Update: {
+          event_type?: string
+          scanned_to?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_types: {
         Row: {
           id: string
