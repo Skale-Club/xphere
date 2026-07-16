@@ -628,6 +628,43 @@ export async function createBooking(
     // Non-fatal
   }
 
+  // Google Meet link generation (SYNC-04): when the booker's resolved
+  // location kind is google_meet, create a Meet-enabled Calendar event now
+  // — before the confirmation email fires — so meeting_url is already on
+  // the row when the email pipeline re-fetches it below. Mirrors the same
+  // logic that already exists (but is unreachable dead code) in
+  // transition.ts::confirmBooking. google_event_id is persisted onto the
+  // SAME dedicated bookings.google_event_id column Phase 129 introduces
+  // (not location_data) — this intentionally overwrites whatever plain
+  // Calendar event id 129's own createCalendarEvent block wrote a few
+  // lines above, since the Meet-enabled event is the more relevant one
+  // for a google_meet booking.
+  if (effectiveLocationKind === 'google_meet') {
+    try {
+      const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
+      const meetResult = await createMeetingLink(et.org_id, {
+        title: et.title,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        attendeeEmail: parsed.data.booker_email,
+      })
+      if (meetResult) {
+        await supabase
+          .from('bookings')
+          .update({
+            meeting_url: meetResult.meeting_url,
+            google_event_id: meetResult.google_event_id,
+          })
+          .eq('id', booking.id)
+      }
+    } catch (meetErr) {
+      console.warn(
+        '[calendar/bookings] Google Meet link creation failed:',
+        meetErr instanceof Error ? meetErr.message : meetErr,
+      )
+    }
+  }
+
   // Booker confirmation email (fire-and-forget, helper never throws).
   // We pass an inline `void` so the action returns immediately; the email
   // helper has its own try/catch that logs and swallows any failure.
@@ -818,6 +855,37 @@ export async function createBookingInternal(
     const code = (error as { code?: string } | null)?.code
     if (code === '23505') return { ok: false, error: 'slot_taken' }
     return { ok: false, error: error?.message ?? 'create_failed' }
+  }
+
+  // Google Meet link generation (SYNC-04): applies regardless of whether a
+  // booker email was provided — it's about the location kind, not the
+  // notification path below (which is gated on `email`). google_event_id is
+  // persisted onto the SAME dedicated bookings.google_event_id column Phase
+  // 129 introduces (not location_data).
+  if (effectiveLocationKind === 'google_meet') {
+    try {
+      const { createMeetingLink } = await import('@/lib/calendar/google-calendar')
+      const meetResult = await createMeetingLink(et.org_id, {
+        title: et.title,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        attendeeEmail: email ?? undefined,
+      })
+      if (meetResult) {
+        await supabase
+          .from('bookings')
+          .update({
+            meeting_url: meetResult.meeting_url,
+            google_event_id: meetResult.google_event_id,
+          })
+          .eq('id', booking.id)
+      }
+    } catch (meetErr) {
+      console.warn(
+        '[calendar/bookings] Google Meet link creation failed:',
+        meetErr instanceof Error ? meetErr.message : meetErr,
+      )
+    }
   }
 
   // Side-effects only when we have a booker email (GCal attendee + email need it).
