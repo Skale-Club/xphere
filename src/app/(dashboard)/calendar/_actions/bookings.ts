@@ -150,11 +150,75 @@ export type BookingRow = {
 
 // ─── Dashboard: list bookings ──────────────────────────────────────────────────
 
-export async function getBookings(params: {
+const LIST_LIMIT = 50
+
+export interface BookingListSections {
+  upcoming: BookingRow[]
+  past: BookingRow[]
+  cancelled: BookingRow[]
+}
+
+// SYNC-03: replaces the old getBookings(), which selected the entire
+// `bookings` table with no .limit()/.range() ever applied — an unbounded
+// query that grew linearly with total historical booking count. Each
+// section here is independently bounded via .limit(LIST_LIMIT), so the
+// flat list at /calendar/bookings can never load more than 150 rows
+// regardless of org history size. 'showed' is included in the `past`
+// filter server-side (not derived by client-side filtering afterward) —
+// this is also the fix for 'showed' bookings vanishing from the UI.
+export async function getBookingsForList(): Promise<ActionResult<BookingListSections>> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'not_authenticated' }
+
+  const supabase = await createClient()
+  const nowIso = new Date().toISOString()
+
+  const [upcomingRes, pastRes, cancelledRes] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('*')
+      .eq('status', 'confirmed')
+      .gte('start_at', nowIso)
+      .order('start_at', { ascending: true })
+      .limit(LIST_LIMIT),
+    supabase
+      .from('bookings')
+      .select('*')
+      .in('status', ['confirmed', 'no_show', 'showed'])
+      .lt('start_at', nowIso)
+      .order('start_at', { ascending: false })
+      .limit(LIST_LIMIT),
+    supabase
+      .from('bookings')
+      .select('*')
+      .eq('status', 'cancelled')
+      .order('start_at', { ascending: false })
+      .limit(LIST_LIMIT),
+  ])
+
+  const firstError = upcomingRes.error ?? pastRes.error ?? cancelledRes.error
+  if (firstError) return { ok: false, error: firstError.message }
+
+  return {
+    ok: true,
+    data: {
+      upcoming: upcomingRes.data ?? [],
+      past: pastRes.data ?? [],
+      cancelled: cancelledRes.data ?? [],
+    },
+  }
+}
+
+// SYNC-03: replaces the from/to params on the old getBookings() that the
+// calendar week/month view (/calendar/calendar) never actually passed,
+// even though it already computes a weekStart/weekEnd window for its
+// Google Calendar fetch. Date-bounded by design — callers MUST supply a
+// finite window; there is no "fetch everything" mode anymore.
+export async function getBookingsForRange(params: {
+  from: string
+  to: string
   status?: string
-  from?: string
-  to?: string
-} = {}): Promise<ActionResult<BookingRow[]>> {
+}): Promise<ActionResult<BookingRow[]>> {
   const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
@@ -162,11 +226,13 @@ export async function getBookings(params: {
   let query = supabase
     .from('bookings')
     .select('*')
+    .gte('start_at', params.from)
+    .lte('start_at', params.to)
     .order('start_at', { ascending: true })
 
-  if (params.status) query = query.eq('status', params.status as 'confirmed' | 'cancelled' | 'no_show')
-  if (params.from) query = query.gte('start_at', params.from)
-  if (params.to) query = query.lte('start_at', params.to)
+  if (params.status) {
+    query = query.eq('status', params.status as 'confirmed' | 'cancelled' | 'no_show' | 'showed')
+  }
 
   const { data, error } = await query
   if (error) return { ok: false, error: error.message }
