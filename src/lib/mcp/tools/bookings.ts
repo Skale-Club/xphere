@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
 import { cancelBooking } from '@/lib/calendar/transition'
+import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
 import { resolveAndValidateSlot, type SlotValidationError } from '@/lib/calendar/booking-validation'
 import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import type { McpToolDef } from '../tool-types'
@@ -163,7 +164,7 @@ export const bookingsTools: McpToolDef[] = [
           start_at: startAt.toISOString(),
           end_at: endAt.toISOString(),
           notes: input.notes ?? null,
-          status: 'confirmed',
+          status: BOOKING_STATUSES[0], // the shared status vocabulary's first entry is 'confirmed' -- every new booking starts confirmed
           linked_contact_id: linkedContactId,
         })
         .select()
