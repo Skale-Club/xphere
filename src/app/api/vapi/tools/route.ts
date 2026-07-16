@@ -10,7 +10,7 @@ import { VapiToolCallMessageSchema, getToolArguments } from '@/types/vapi'
 import { resolveOrg } from '@/lib/action-engine/resolve-org'
 import { resolveTool } from '@/lib/action-engine/resolve-tool'
 import { executeAction } from '@/lib/action-engine/execute-action'
-import { logAction } from '@/lib/action-engine/log-action'
+import { logToolRun } from '@/lib/workflows/log-tool-run'
 import { decrypt } from '@/lib/crypto'
 import { verifyVapiSecret } from '@/lib/vapi/verify-signature'
 import { createLogger } from '@/lib/obs/logger'
@@ -101,17 +101,20 @@ export async function POST(request: Request): Promise<Response> {
     const executionMs = Date.now() - startTime
 
     // 6. Log execution async | does NOT block Vapi response
+    // workflow_runs (kind='tool') via logToolRun — feeds the call-detail
+    // timeline and the Workflow logs page (workflow_tool_logs view).
     after(async () => {
-      await logAction({
-        organization_id: orgId,
-        tool_config_id: toolConfig.id,
-        vapi_call_id: call.id,
-        tool_name: toolCall.name,
+      await logToolRun({
+        orgId,
+        workflowId: toolConfig.workflow_id,
+        toolName: toolCall.name,
+        triggerType: 'vapi',
+        vapiCallId: call.id,
         status,
-        execution_ms: executionMs,
-        request_payload: getToolArguments(toolCall) as import('@/types/database').Json,
-        response_payload: { result },
-        error_detail: errorDetail,
+        executionMs,
+        requestPayload: getToolArguments(toolCall),
+        responsePayload: { result },
+        errorDetail,
       }, supabase)
     })
 

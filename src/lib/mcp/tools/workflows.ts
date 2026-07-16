@@ -102,6 +102,8 @@ export const workflowsTools: McpToolDef[] = [
           definition: version.definition,
           input: payload ?? {},
           context: { orgId: auth.orgId },
+          toolName: workflow.name,
+          triggerType: 'mcp',
         })
         return {
           status: result.ok ? 'succeeded' : 'failed',

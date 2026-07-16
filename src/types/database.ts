@@ -5651,6 +5651,8 @@ export interface Database {
           matched_rule_id: string | null
           status: 'matched' | 'unmatched' | 'error'
           action_log_id: string | null
+          // Migration 1249: run that handled the event (action_log_id is legacy-only)
+          workflow_run_id: string | null
           created_at: string
         }
         Insert: {
@@ -5662,6 +5664,7 @@ export interface Database {
           matched_rule_id?: string | null
           status: 'matched' | 'unmatched' | 'error'
           action_log_id?: string | null
+          workflow_run_id?: string | null
           created_at?: string
         }
         Update: {
@@ -5670,6 +5673,7 @@ export interface Database {
           // src/lib/manychat/dispatch-event.ts can flip status + link FKs after match.
           status?: 'matched' | 'unmatched' | 'error'
           action_log_id?: string | null
+          workflow_run_id?: string | null
           matched_rule_id?: string | null
         }
         Relationships: [
@@ -5699,6 +5703,13 @@ export interface Database {
             columns: ['action_log_id']
             isOneToOne: false
             referencedRelation: 'action_logs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'manychat_events_workflow_run_id_fkey'
+            columns: ['workflow_run_id']
+            isOneToOne: false
+            referencedRelation: 'workflow_runs'
             referencedColumns: ['id']
           }
         ]
@@ -6191,6 +6202,11 @@ export interface Database {
           error: string | null
           created_by: string | null
           created_at: string
+          // Migration 1249: run-log for kind='tool' workflow executions
+          kind: 'flow' | 'tool'
+          tool_name: string | null
+          vapi_call_id: string | null
+          execution_ms: number | null
         }
         Insert: {
           id?: string
@@ -6206,6 +6222,10 @@ export interface Database {
           error?: string | null
           created_by?: string | null
           created_at?: string
+          kind?: 'flow' | 'tool'
+          tool_name?: string | null
+          vapi_call_id?: string | null
+          execution_ms?: number | null
         }
         Update: {
           id?: string
@@ -6221,7 +6241,36 @@ export interface Database {
           error?: string | null
           created_by?: string | null
           created_at?: string
+          kind?: 'flow' | 'tool'
+          tool_name?: string | null
+          vapi_call_id?: string | null
+          execution_ms?: number | null
         }
+        Relationships: []
+      }
+      // Migration 1249: unified tool-execution log surface.
+      // workflow_runs (kind='tool') UNION legacy action_logs, projected into
+      // the legacy action_logs shape + workflow_id/source. security_invoker view.
+      workflow_tool_logs: {
+        Row: {
+          id: string
+          organization_id: string
+          tool_config_id: string | null
+          workflow_id: string | null
+          vapi_call_id: string
+          tool_name: string
+          status: 'success' | 'error' | 'timeout'
+          execution_ms: number
+          request_payload: Json
+          response_payload: Json
+          error_detail: string | null
+          agent_invocation_id: string | null
+          trace_id: string | null
+          created_at: string
+          source: 'run' | 'legacy'
+        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       workflow_authoring_runs: {

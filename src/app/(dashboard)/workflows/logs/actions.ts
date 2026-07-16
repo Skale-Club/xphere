@@ -3,16 +3,17 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 
-export type ActionLogRow = Database['public']['Tables']['action_logs']['Row']
-export type LogStatus = ActionLogRow['status']
+// Unified log surface: workflow_runs (kind='tool') UNION legacy action_logs,
+// projected into the legacy shape by the workflow_tool_logs view (migration 1249).
+export type ToolLogRow = Database['public']['Tables']['workflow_tool_logs']['Row']
+export type LogStatus = ToolLogRow['status']
 
-export type LogWithCall = ActionLogRow & {
+export type LogWithCall = ToolLogRow & {
   call: {
     id: string
     customer_name: string | null
     customer_number: string | null
   } | null
-  workflow_id: string | null
   workflow_name: string | null
 }
 
@@ -42,6 +43,9 @@ export type WorkflowLogOption = {
 
 type WorkflowLogLookup = WorkflowLogOption
 
+// Ids are interpolated into PostgREST .or() filter strings — only accept uuids.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 async function getWorkflowLookupById(
   workflowId: string,
   supabase: Awaited<ReturnType<typeof createClient>>
@@ -56,14 +60,43 @@ async function getWorkflowLookupById(
   return (data ?? null) as WorkflowLogLookup | null
 }
 
+// The per-tool detail page can be reached with either a workflow id or a
+// legacy tool_config id (e.g. from the agent tool-picker). Resolve both to the
+// full id set so run rows (workflow_id) AND legacy rows (tool_config_id) match.
+async function buildToolLogIdFilter(
+  idOrLegacyId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<string | null> {
+  if (!UUID_RE.test(idOrLegacyId)) return null
+
+  const { data } = await supabase
+    .from('workflows')
+    .select('id, legacy_tool_config_id')
+    .or(`id.eq.${idOrLegacyId},legacy_tool_config_id.eq.${idOrLegacyId}`)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  const ids = [
+    ...new Set([idOrLegacyId, data?.id, data?.legacy_tool_config_id].filter(Boolean)),
+  ] as string[]
+  const list = ids.join(',')
+  return `tool_config_id.in.(${list}),workflow_id.in.(${list})`
+}
+
 async function buildWorkflowMap(
-  logs: ActionLogRow[],
+  logs: ToolLogRow[],
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<{
   byId: Map<string, WorkflowLogLookup>
   byToolName: Map<string, WorkflowLogLookup>
 }> {
-  const toolConfigIds = [...new Set(logs.map((log) => log.tool_config_id).filter(Boolean))] as string[]
+  // Run rows carry workflow_id directly; legacy rows only have tool_config_id
+  // (which may itself be either a legacy tool_config id or a workflow id).
+  const toolConfigIds = [
+    ...new Set(
+      logs.flatMap((log) => [log.tool_config_id, log.workflow_id]).filter(Boolean)
+    ),
+  ] as string[]
   const toolNames = [...new Set(logs.map((log) => log.tool_name).filter(Boolean))]
 
   const [workflowIdsRes, workflowLegacyIdsRes, workflowNamesRes] = await Promise.all([
@@ -118,25 +151,35 @@ export async function getLogs({
   const offset = (page - 1) * pageSize
 
   let query = supabase
-    .from('action_logs')
+    .from('workflow_tool_logs')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + pageSize - 1)
 
   if (workflowId) {
+    if (!UUID_RE.test(workflowId)) return { logs: [], total: 0, pageCount: 0 }
     const workflow = await getWorkflowLookupById(workflowId, supabase)
     if (!workflow) return { logs: [], total: 0, pageCount: 0 }
 
+    // Run rows match on workflow_id; legacy rows logged tool_config_id as
+    // either the legacy tool_config id or the workflow id (transition compat).
     const logToolConfigIds = [workflow.legacy_tool_config_id, workflow.id].filter(Boolean) as string[]
-    if (logToolConfigIds.length > 0) {
-      query = query.in('tool_config_id', logToolConfigIds)
-    } else if (workflow.tool_name) {
-      query = query.eq('tool_name', workflow.tool_name)
-    } else {
-      return { logs: [], total: 0, pageCount: 0 }
-    }
+    query = query.or(
+      [
+        `workflow_id.eq.${workflow.id}`,
+        ...(logToolConfigIds.length > 0
+          ? [`tool_config_id.in.(${logToolConfigIds.join(',')})`]
+          : []),
+        // Only slug-safe tool names go into the or() filter string.
+        ...(workflow.tool_name && /^[A-Za-z0-9_-]+$/.test(workflow.tool_name)
+          ? [`tool_name.eq.${workflow.tool_name}`]
+          : []),
+      ].join(',')
+    )
   } else if (toolConfigId) {
-    query = query.eq('tool_config_id', toolConfigId)
+    const idFilter = await buildToolLogIdFilter(toolConfigId, supabase)
+    if (!idFilter) return { logs: [], total: 0, pageCount: 0 }
+    query = query.or(idFilter)
   }
 
   if (status && status !== 'all') query = query.eq('status', status)
@@ -153,8 +196,8 @@ export async function getLogs({
   const { data, count, error } = await query
   if (error) return { logs: [], total: 0, pageCount: 0 }
 
-  const logs = (data ?? []) as ActionLogRow[]
-  const callIds = [...new Set(logs.map((l) => l.vapi_call_id))]
+  const logs = (data ?? []) as ToolLogRow[]
+  const callIds = [...new Set(logs.map((l) => l.vapi_call_id).filter(Boolean))]
   const workflowMap = await buildWorkflowMap(logs, supabase)
 
   let callMap = new Map<string, { id: string; customer_name: string | null; customer_number: string | null }>()
@@ -175,6 +218,7 @@ export async function getLogs({
   return {
     logs: logs.map((log) => {
       const workflow =
+        (log.workflow_id ? workflowMap.byId.get(log.workflow_id) : undefined) ??
         (log.tool_config_id ? workflowMap.byId.get(log.tool_config_id) : undefined) ??
         workflowMap.byToolName.get(log.tool_name) ??
         null
@@ -182,7 +226,7 @@ export async function getLogs({
       return {
         ...log,
         call: callMap.get(log.vapi_call_id) ?? null,
-        workflow_id: workflow?.id ?? null,
+        workflow_id: workflow?.id ?? log.workflow_id,
         workflow_name: workflow?.name ?? null,
       }
     }),
@@ -213,20 +257,25 @@ export async function getLogStats(toolConfigId: string): Promise<{
 }> {
   const supabase = await createClient()
 
+  // The id may be a legacy tool_config id (legacy rows) or a workflow id
+  // (run rows + transition-era legacy rows) — resolve to the full id set.
+  const idFilter = await buildToolLogIdFilter(toolConfigId, supabase)
+  if (!idFilter) return { total: 0, successCount: 0, averageMs: null }
+
   const [totalRes, successRes, recentRes] = await Promise.all([
     supabase
-      .from('action_logs')
+      .from('workflow_tool_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('tool_config_id', toolConfigId),
+      .or(idFilter),
     supabase
-      .from('action_logs')
+      .from('workflow_tool_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('tool_config_id', toolConfigId)
+      .or(idFilter)
       .eq('status', 'success'),
     supabase
-      .from('action_logs')
+      .from('workflow_tool_logs')
       .select('execution_ms')
-      .eq('tool_config_id', toolConfigId)
+      .or(idFilter)
       .order('created_at', { ascending: false })
       .limit(AVG_SAMPLE_SIZE),
   ])

@@ -13,6 +13,11 @@ import { resolveWorkflowAsTool } from '@/lib/workflows/resolve'
 // Used by the webhook route to get both tool config and credentials in one DB call
 export type ToolConfigWithIntegration = {
   id: string
+  /**
+   * Real workflows.id backing this tool. `id` above may be the preserved
+   * legacy tool_config id (transition compat) — run logging must use this.
+   */
+  workflow_id: string
   organization_id: string
   integration_id: string
   tool_name: string

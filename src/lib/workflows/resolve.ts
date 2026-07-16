@@ -86,6 +86,7 @@ async function projectToToolConfig(
   // row during the transition.
   return {
     id: workflow.legacy_tool_config_id ?? workflow.id,
+    workflow_id: workflow.id,
     organization_id: workflow.org_id,
     integration_id: integration.id,
     tool_name: workflow.tool_name,

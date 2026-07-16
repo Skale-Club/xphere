@@ -7,15 +7,17 @@
 // v2.0 agent path (CHAN-04 | Phase 37): when rule.agent_id is non-null, routes
 //   through runAgent({ stream: false }) and replies via sendManychatMessage.
 // v1.x legacy path: resolves the bound tool_config, decrypts credentials, executes
-//   via the action engine, logs to action_logs, and updates manychat_events.
+//   via the action engine, records a workflow_runs row (kind='tool'), and
+//   updates manychat_events.
 //
 // Contract: NEVER throws. All failure modes write status='error' to the event row.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from '@/types/database'
+import type { Database } from '@/types/database'
 import { resolveRule } from './resolve-rule'
 import { resolveToolById } from '@/lib/action-engine/resolve-tool-by-id'
 import { executeAction } from '@/lib/action-engine/execute-action'
+import { logToolRun } from '@/lib/workflows/log-tool-run'
 import { decrypt } from '@/lib/crypto'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { sendManychatMessage } from './send-message'
@@ -175,28 +177,25 @@ async function dispatchLegacyPath(
     result = tool.fallback_message
   }
 
-  const { data: logRow } = await supabase
-    .from('action_logs')
-    .insert({
-      organization_id: input.orgId,
-      tool_config_id: tool.id,
-      vapi_call_id: `manychat:${input.eventId}`,
-      tool_name: tool.tool_name,
-      status,
-      execution_ms: Date.now() - startedAt,
-      request_payload: input.payload as Json,
-      response_payload: { result } as Json,
-      error_detail: errorDetail,
-    })
-    .select('id')
-    .single()
-
-  const actionLogId = logRow?.id ?? null
+  // workflow_runs (kind='tool') replaces the frozen action_logs write path;
+  // historical action_log_id rows stay readable via the workflow_tool_logs view.
+  const runId = await logToolRun({
+    orgId: input.orgId,
+    workflowId: tool.workflow_id,
+    toolName: tool.tool_name,
+    triggerType: 'manychat',
+    vapiCallId: `manychat:${input.eventId}`,
+    status,
+    executionMs: Date.now() - startedAt,
+    requestPayload: input.payload,
+    responsePayload: { result },
+    errorDetail,
+  }, supabase)
 
   await markEvent(supabase, input.eventId, {
     status: status === 'success' ? 'matched' : 'error',
     matched_rule_id: rule.id,
-    action_log_id: actionLogId,
+    workflow_run_id: runId,
   })
 }
 

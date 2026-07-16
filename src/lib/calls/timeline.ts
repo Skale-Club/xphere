@@ -1,11 +1,13 @@
 // src/lib/calls/timeline.ts
-// Pure utility: merges Vapi transcript turns and action_logs into a single chronological array.
-// Used server-side in the call detail page to build the timeline before render.
+// Pure utility: merges Vapi transcript turns and tool-execution logs into a
+// single chronological array. Used server-side in the call detail page.
+// Logs come from the workflow_tool_logs view (new workflow_runs kind='tool'
+// rows unioned with legacy action_logs history).
 
 import type { ArtifactMessage } from '@/types/vapi'
 import type { Database } from '@/types/database'
 
-type ActionLogRow = Database['public']['Tables']['action_logs']['Row']
+type ToolLogRow = Database['public']['Tables']['workflow_tool_logs']['Row']
 
 export type TurnItem = {
   kind: 'turn'
@@ -27,7 +29,7 @@ export type TranscriptItem = TurnItem | ToolItem
 
 export function buildTimeline(
   turns: ArtifactMessage[],
-  actionLogs: ActionLogRow[],
+  actionLogs: ToolLogRow[],
   callStartedAt: string
 ): TranscriptItem[] {
   const startMs = new Date(callStartedAt).getTime()
