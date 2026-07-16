@@ -24,12 +24,12 @@ This milestone makes calendar behavior trustworthy from public booking through w
 3. Cancellation requires a deliberate POST action with an unguessable token.
 4. Calendar database policies no longer allow anonymous broad reads/writes.
 
-**Plans:** 1/6 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 - [x] 126-01-PLAN.md — Shared resolveAndValidateSlot helper + createBooking wiring (CAL-01)
 - [ ] 126-02-PLAN.md — MCP bookings_create tool wiring to the shared helper (CAL-01)
-- [ ] 126-03-PLAN.md — Organizer overlap guard migration (1249) + real-DB test (CAL-02)
+- [x] 126-03-PLAN.md — Organizer overlap guard migration (1249) + real-DB test (CAL-02)
 - [ ] 126-04-PLAN.md — Calendar RLS least-privilege migration (1250) + real-DB test (CAL-04)
 - [ ] 126-05-PLAN.md — Public cancellation GET/POST split (CAL-03)
 - [ ] 126-06-PLAN.md — Operator checkpoint: apply migrations 1249+1250 to production (CAL-02, CAL-04)
