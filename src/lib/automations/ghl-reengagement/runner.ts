@@ -1,17 +1,23 @@
 // src/lib/automations/ghl-reengagement/runner.ts
 // Phase 32 (v1.9): GHL Lost-Lead Reengagement SMS Runner.
 // Pure orchestration: pre-flight → list → JS date guard → anti-loop bulk skip →
-// per-contact claim-first INSERT → sendSmsViaGhl → on success logAction(success);
-// on failure DELETE claim + logAction(error). Promise.allSettled for the batch.
+// per-contact claim-first INSERT → sendSmsViaGhl → on success log(ok);
+// on failure DELETE claim + log(failed). Promise.allSettled for the batch.
 // Env-agnostic: caller (Plan 04 route) parses env and injects RunnerConfig.
+//
+// Run-log destination: this automation isn't backed by a `workflows` row (it's
+// a bespoke batch job, not a single-action kind='tool' invocation an agent
+// resolves by name), so it can't use workflow_runs/logToolRun the way Vapi
+// tool-calls do. It logs through the general event_logs pipeline instead
+// (src/lib/logger) — same durable, queryable trail, surfaced at /admin/logs.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from '@/types/database'
+import type { Database } from '@/types/database'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import { listOpportunities, type GhlOpportunity } from '@/lib/ghl/list-opportunities'
 import { renderMessage } from './render-template'
 import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
-import { logAction } from '@/lib/action-engine/log-action'
+import { log } from '@/lib/logger'
 import { decrypt } from '@/lib/crypto'
 
 export interface RunnerConfig {
@@ -60,7 +66,7 @@ export async function runReengagement(
   supabase: SupabaseClient<Database>,
 ): Promise<RunnerResult> {
   const runStartedAtIso = cfg.runStartedAtIso ?? new Date().toISOString()
-  const vapiCallId = `cron:ghl-reengagement:${runStartedAtIso}`
+  const correlationId = `cron:ghl-reengagement:${runStartedAtIso}`
 
   // ---- 1. Pre-flight: load + assert the GHL integration row (D-32-04) ----
   const { data: integrationRow, error: integrationErr } = await supabase
@@ -195,20 +201,17 @@ export async function runReengagement(
         const result = await sendSmsViaGhl(smsParams, ghlCredentials)
         const elapsed = Date.now() - startMs
         sent++
-        await logAction(
-          {
-            organization_id: orgId,
-            tool_config_id: null,
-            vapi_call_id: vapiCallId,
-            tool_name: TOOL_NAME,
-            status: 'success',
-            execution_ms: elapsed,
-            request_payload: baseRequestPayload as Json,
-            response_payload: { result } as Json,
-            error_detail: null,
-          },
-          supabase,
-        )
+        void log({
+          event_type: 'ghl_reengagement.sms_sent',
+          source: 'ghl-reengagement',
+          severity: 'info',
+          status: 'ok',
+          org_id: orgId,
+          actor_type: 'system',
+          correlation_id: correlationId,
+          duration_ms: elapsed,
+          payload: { ...baseRequestPayload, tool_name: TOOL_NAME, result },
+        })
       } catch (err) {
         const elapsed = Date.now() - startMs
         const message = err instanceof Error ? err.message : String(err)
@@ -220,20 +223,18 @@ export async function runReengagement(
           .delete()
           .eq('org_id', orgId)
           .eq('ghl_contact_id', contactId)
-        await logAction(
-          {
-            organization_id: orgId,
-            tool_config_id: null,
-            vapi_call_id: vapiCallId,
-            tool_name: TOOL_NAME,
-            status: 'error',
-            execution_ms: elapsed,
-            request_payload: baseRequestPayload as Json,
-            response_payload: {} as Json,
-            error_detail: message,
-          },
-          supabase,
-        )
+        void log({
+          event_type: 'ghl_reengagement.sms_failed',
+          source: 'ghl-reengagement',
+          severity: 'error',
+          status: 'failed',
+          org_id: orgId,
+          actor_type: 'system',
+          correlation_id: correlationId,
+          duration_ms: elapsed,
+          error_message: message,
+          payload: { ...baseRequestPayload, tool_name: TOOL_NAME },
+        })
       }
     }),
   )

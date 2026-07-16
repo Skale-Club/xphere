@@ -18,8 +18,8 @@ vi.mock('@/lib/ghl/list-opportunities', () => ({
 vi.mock('@/lib/ghl/send-sms', () => ({
   sendSmsViaGhl: vi.fn(),
 }))
-vi.mock('@/lib/action-engine/log-action', () => ({
-  logAction: vi.fn().mockResolvedValue('log-id'),
+vi.mock('@/lib/logger', () => ({
+  log: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/lib/crypto', () => ({
   decrypt: vi.fn().mockResolvedValue('decrypted-ghl-key'),
@@ -28,7 +28,7 @@ vi.mock('@/lib/crypto', () => ({
 import { runReengagement, type RunnerConfig } from '@/lib/automations/ghl-reengagement/runner'
 import { listOpportunities } from '@/lib/ghl/list-opportunities'
 import { sendSmsViaGhl } from '@/lib/ghl/send-sms'
-import { logAction } from '@/lib/action-engine/log-action'
+import { log } from '@/lib/logger'
 
 // ---- Helpers ----
 const ORG_ID = 'org_skleanings'
@@ -249,23 +249,24 @@ describe('runReengagement (REENG-02, REENG-04, REENG-10, REENG-11, REENG-12)', (
     expect(result.skipped).toBeGreaterThanOrEqual(1)
   })
 
-  // ---- REENG-12: logAction per dispatch ----
-  it('calls logAction once per dispatch attempt with tool_name="ghl_reengagement_sms"', async () => {
+  // ---- REENG-12: log() per dispatch ----
+  it('calls log() once per dispatch attempt with event_type="ghl_reengagement.sms_sent" and a run-scoped correlation_id', async () => {
     vi.mocked(listOpportunities).mockResolvedValue(ALL_OLD_OPPS)
     vi.mocked(sendSmsViaGhl).mockResolvedValue('SMS sent via GHL. ID: msg_x')
 
     const { supabase } = buildMockSupabase()
     await runReengagement(baseCfg(), supabase)
 
-    expect(vi.mocked(logAction)).toHaveBeenCalledTimes(5)
-    for (const call of vi.mocked(logAction).mock.calls) {
-      const payload = call[0]
-      expect(payload.tool_name).toBe('ghl_reengagement_sms')
-      expect(payload.vapi_call_id).toMatch(/^cron:ghl-reengagement:\d{4}-\d{2}-\d{2}T/)
+    expect(vi.mocked(log)).toHaveBeenCalledTimes(5)
+    for (const call of vi.mocked(log).mock.calls) {
+      const entry = call[0]
+      expect(entry.event_type).toBe('ghl_reengagement.sms_sent')
+      expect(entry.source).toBe('ghl-reengagement')
+      expect(entry.correlation_id).toMatch(/^cron:ghl-reengagement:\d{4}-\d{2}-\d{2}T/)
     }
   })
 
-  it('logAction payload includes ghl_contact_id (opaque) and truncates body to 40 chars; phone NEVER logged (T-32-03 / D-32-11)', async () => {
+  it('log() payload includes ghl_contact_id (opaque) and truncates body to 40 chars; phone NEVER logged (T-32-03 / D-32-11)', async () => {
     vi.mocked(listOpportunities).mockResolvedValue([ALL_OLD_OPPS[0]])
     vi.mocked(sendSmsViaGhl).mockResolvedValue('SMS sent via GHL. ID: msg_x')
 
@@ -275,26 +276,26 @@ describe('runReengagement (REENG-02, REENG-04, REENG-10, REENG-11, REENG-12)', (
       supabase,
     )
 
-    expect(vi.mocked(logAction)).toHaveBeenCalledTimes(1)
-    const payload = vi.mocked(logAction).mock.calls[0][0]
-    const req = payload.request_payload as Record<string, unknown>
-    expect(req.ghl_contact_id).toBe('ct_001')
-    expect(typeof req.body).toBe('string')
-    expect((req.body as string).length).toBeLessThanOrEqual(40)
-    expect(req.phone).toBeUndefined()
-    expect(req.to).toBeUndefined()
+    expect(vi.mocked(log)).toHaveBeenCalledTimes(1)
+    const entry = vi.mocked(log).mock.calls[0][0]
+    const payload = entry.payload as Record<string, unknown>
+    expect(payload.ghl_contact_id).toBe('ct_001')
+    expect(typeof payload.body).toBe('string')
+    expect((payload.body as string).length).toBeLessThanOrEqual(40)
+    expect(payload.phone).toBeUndefined()
+    expect(payload.to).toBeUndefined()
   })
 
-  it('logAction on GHL failure: status="error" + error_detail populated', async () => {
+  it('log() on GHL failure: status="failed" + error_message populated', async () => {
     vi.mocked(listOpportunities).mockResolvedValue([ALL_OLD_OPPS[0]])
     vi.mocked(sendSmsViaGhl).mockRejectedValue(new Error('GHL API error 422: bad phone'))
 
     const { supabase } = buildMockSupabase()
     await runReengagement(baseCfg(), supabase)
 
-    const errorCalls = vi.mocked(logAction).mock.calls.filter(c => c[0].status === 'error')
+    const errorCalls = vi.mocked(log).mock.calls.filter(c => c[0].status === 'failed')
     expect(errorCalls.length).toBeGreaterThanOrEqual(1)
-    expect(errorCalls[0][0].error_detail).toContain('422')
+    expect(errorCalls[0][0].error_message).toContain('422')
   })
 
   // ---- REENG-03 defense-in-depth ----
