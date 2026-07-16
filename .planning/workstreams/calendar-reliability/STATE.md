@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 128-02-PLAN.md
-last_updated: "2026-07-16T04:39:17.886Z"
+stopped_at: Completed 128-03-PLAN.md
+last_updated: "2026-07-16T04:47:49.098Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 32
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 128 (reliable-calendar-scheduling) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -42,8 +42,9 @@ Last activity: 2026-07-16
 - [Phase 127-07]: Kept booking-lifecycle-actions.ts and flows/engine.ts's inline booking_* handlers as two separate thin adapters (JSON string vs Record<string, unknown> return conventions) rather than consolidating the two dispatch engines, per the phase's internal-unification-only boundary
 - [Phase 128-reliable-calendar-scheduling]: 128-01: Implemented the plan's interfaces block verbatim (no renaming) so Plan 128-05 can import computeDueWindow/isDue/etc. directly; isDue uses exclusive-lower/inclusive-upper (scanStart, scanEnd] semantics as the core SCH-01 correctness property
 - [Phase 128-reliable-calendar-scheduling]: 128-02: Ported global-knowledge-notion's auth pattern verbatim (503 unset / 401 mismatch, read fresh in GET()) rather than the timingSafeEqual variant — plan's interfaces block specified the simpler pattern and RESEARCH.md flagged constant-time comparison as optional, non-required hardening
+- [Phase 128-reliable-calendar-scheduling]: 128-03: Removed tag_customer/create_opportunity nodes entirely from booking-confirmation.yaml rather than genericizing them; reworded a plan comment to avoid the literal substring 'Job Confirmed' tripping the plan's own regression test; removed the empty agendamento/ directory tree left behind by git mv
 
 ## Session Continuity
 
-**Stopped At:** Completed 128-02-PLAN.md
+**Stopped At:** Completed 128-03-PLAN.md
 **Resume File:** None

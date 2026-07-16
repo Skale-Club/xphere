@@ -24,7 +24,7 @@
 - [x] **SCH-01**: Calendar reminders tolerate delayed cron invocations without losing due bookings.
 - [x] **SCH-02**: A scheduler dispatches only the workflow and offset that are due, once per booking/workflow/offset.
 - [x] **SCH-03**: The calendar tick endpoint requires a configured secret and records durable scheduling progress.
-- [ ] **SCH-04**: Platform defaults are tenant-neutral and never install Skleanings-specific tagging, opportunities, or email content for every organization.
+- [x] **SCH-04**: Platform defaults are tenant-neutral and never install Skleanings-specific tagging, opportunities, or email content for every organization.
 
 ### Provider and Product Coherence
 
