@@ -125,43 +125,45 @@ export function BlockPalette({ sectionTemplates }: { sectionTemplates: SectionTe
         // template is a draggable icon chip, same dnd id/data as the
         // expanded chips, so drag-from-collapsed-rail onto the canvas works
         // identically (Phase 7 — this used to be an empty strip).
-        <CollapsedRail toggle={<ToggleButton collapsed={collapsed} onClick={toggle} />}>
-          {BLOCK_TYPES.map(({ type, label, icon }) => (
-            <PaletteIconChip
-              key={type}
-              id={`palette:${type}`}
-              data={{ type: 'palette', source: 'palette', blockType: type }}
-              icon={icon}
-              label={label}
-            />
-          ))}
+        <CollapsedRail onToggle={toggle} ariaLabelExpand="Expand blocks panel" actions={
+          <>
+            {BLOCK_TYPES.map(({ type, label, icon }) => (
+              <PaletteIconChip
+                key={type}
+                id={`palette:${type}`}
+                data={{ type: 'palette', source: 'palette', blockType: type }}
+                icon={icon}
+                label={label}
+              />
+            ))}
 
-          {sectionTemplates.length > 0 && (
-            <>
-              <div className="my-1 h-px w-6 shrink-0 bg-border" />
-              {sectionTemplates.slice(0, MAX_COLLAPSED_SECTIONS).map((st) => (
-                <PaletteIconChip
-                  key={st.id}
-                  id={`section:${st.id}`}
-                  data={{ type: 'palette', source: 'section', sectionTemplateId: st.id }}
-                  icon={<Layers className="h-3.5 w-3.5" />}
-                  label={st.name}
-                />
-              ))}
-              {sectionTemplates.length > MAX_COLLAPSED_SECTIONS && (
-                <button
-                  type="button"
-                  onClick={toggle}
-                  title={`${sectionTemplates.length - MAX_COLLAPSED_SECTIONS} more sections — expand to see all`}
-                  aria-label="Expand blocks panel to see all sections"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-dashed border-border text-muted-foreground hover:border-accent hover:text-foreground"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </>
-          )}
-        </CollapsedRail>
+            {sectionTemplates.length > 0 && (
+              <>
+                <div className="my-1 h-px w-6 shrink-0 bg-border" />
+                {sectionTemplates.slice(0, MAX_COLLAPSED_SECTIONS).map((st) => (
+                  <PaletteIconChip
+                    key={st.id}
+                    id={`section:${st.id}`}
+                    data={{ type: 'palette', source: 'section', sectionTemplateId: st.id }}
+                    icon={<Layers className="h-4 w-4" />}
+                    label={st.name}
+                  />
+                ))}
+                {sectionTemplates.length > MAX_COLLAPSED_SECTIONS && (
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    title={`${sectionTemplates.length - MAX_COLLAPSED_SECTIONS} more sections — expand to see all`}
+                    aria-label="Expand blocks panel to see all sections"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-dashed border-border text-muted-foreground hover:border-accent hover:text-foreground"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                )}
+              </>
+            )}
+          </>
+        } />
       ) : (
         <>
           <div className="h-10 px-3 border-b border-border shrink-0 flex items-center justify-between gap-2">
