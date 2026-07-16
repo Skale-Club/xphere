@@ -9,6 +9,7 @@ import { addMinutes, startOfDay, endOfDay, addDays } from 'date-fns'
 import { fromZonedTime } from 'date-fns-tz'
 import { generateSlots, generateSlotsWithReasons, type DebugTimeSlot } from '@/lib/calendar/slots'
 import { fetchBusyTimes } from '@/lib/calendar/google-calendar'
+import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolveLiveContactId } from '@/lib/contacts/server'
 import {
@@ -454,38 +455,12 @@ export async function createBooking(
 
   const supabase = createServiceRoleClient()
 
-  // Fetch event type to get duration and org_id
-  const { data: et } = await supabase
-    .from('event_types')
-    .select('duration_minutes, org_id, user_id, title, location_type, location_value, allowed_location_kinds')
-    .eq('id', parsed.data.event_type_id)
-    .eq('active', true)
-    .single()
-
-  if (!et) return { ok: false, error: 'event_type_not_found' }
-
-  // Fetch timezone separately (no FK between event_types and scheduling_profiles)
-  const { data: hostProfile } = await supabase
-    .from('calendar_profiles')
-    .select('timezone')
-    .eq('user_id', et.user_id)
-    .maybeSingle()
-  const hostTimezone = hostProfile?.timezone ?? 'UTC'
-
-  const startAt = new Date(parsed.data.start_at)
-  const endAt = addMinutes(startAt, et.duration_minutes)
-
-  // Double-check slot is still available (race condition guard)
-  const { data: conflict } = await supabase
-    .from('bookings')
-    .select('id')
-    .eq('event_type_id', parsed.data.event_type_id)
-    .eq('status', 'confirmed')
-    .lt('start_at', endAt.toISOString())
-    .gt('end_at', startAt.toISOString())
-    .maybeSingle()
-
-  if (conflict) return { ok: false, error: 'slot_taken' }
+  const resolved = await resolveAndValidateSlot(supabase, {
+    eventTypeId: parsed.data.event_type_id,
+    startAtIso: parsed.data.start_at,
+  })
+  if (!resolved.ok) return { ok: false, error: resolved.error }
+  const { eventType: et, startAt, endAt, hostTimezone } = resolved.data
 
   // Create or link CRM contact
   let linkedContactId: string | null = null

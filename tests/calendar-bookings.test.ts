@@ -44,8 +44,28 @@ vi.mock('@/lib/calendar/emails', () => ({
   sendBookingCancellation: vi.fn(async () => {}),
 }))
 
+// resolveLiveContactId (called unconditionally on any linked contact) hits
+// createClient() from @/lib/supabase/server, which this file mocks as a bare
+// vi.fn() with no implementation — without this mock it throws "Cannot read
+// properties of undefined (reading 'from')" before createBooking can return.
+// Pass-through matches its documented default behavior (no merge → return
+// input unchanged).
+vi.mock('@/lib/contacts/server', () => ({
+  resolveLiveContactId: vi.fn(async (id: string) => id),
+}))
+
+// createBooking's active-check/end_at-derivation/availability/conflict logic
+// now lives in the shared resolveAndValidateSlot helper (Phase 126 Plan 01) —
+// mocked here so these tests exercise createBooking's own orchestration
+// (contact linking, insert, 23505 mapping, side effects) independently of
+// that helper's own unit coverage in tests/booking-validation.test.ts.
+vi.mock('@/lib/calendar/booking-validation', () => ({
+  resolveAndValidateSlot: vi.fn(),
+}))
+
 // Imports come AFTER mock declarations.
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
 import {
   createBooking,
   cancelBookingByToken,
@@ -206,9 +226,6 @@ describe('createBooking', () => {
 
   it('Test 1: success path — valid input + no conflict yields ok:true with id + cancel_token', async () => {
     const fake = buildFakeAdmin({
-      eventTypes: { data: eventTypeRow, error: null },
-      schedulingProfiles: { data: schedulingProfileRow, error: null },
-      bookingsConflict: { data: null, error: null }, // no conflict
       contactsExisting: { data: null, error: null }, // no existing contact
       customFieldDefs: { data: [], error: null }, // no required custom fields
       contactsInsert: { data: { id: 'contact-uuid' }, error: null },
@@ -218,6 +235,15 @@ describe('createBooking', () => {
       },
     })
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: eventTypeRow as any,
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
 
     const result = await createBooking(validBookingInput)
 
@@ -228,13 +254,10 @@ describe('createBooking', () => {
     }
   })
 
-  it('Test 2: race condition via SELECT — pre-check finds a conflict, returns slot_taken', async () => {
-    const fake = buildFakeAdmin({
-      eventTypes: { data: eventTypeRow, error: null },
-      schedulingProfiles: { data: schedulingProfileRow, error: null },
-      bookingsConflict: { data: { id: 'other-booking' }, error: null }, // CONFLICT
-    })
+  it('Test 2: resolveAndValidateSlot reports a conflict — returns slot_taken without inserting', async () => {
+    const fake = buildFakeAdmin({})
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({ ok: false, error: 'slot_taken' })
 
     const result = await createBooking(validBookingInput)
 
@@ -244,9 +267,6 @@ describe('createBooking', () => {
 
   it('Test 3: race condition via 23505 — insert errors with unique_violation, returns slot_taken', async () => {
     const fake = buildFakeAdmin({
-      eventTypes: { data: eventTypeRow, error: null },
-      schedulingProfiles: { data: schedulingProfileRow, error: null },
-      bookingsConflict: { data: null, error: null }, // pre-check passes
       contactsExisting: { data: null, error: null },
       customFieldDefs: { data: [], error: null },
       contactsInsert: { data: { id: 'contact-uuid' }, error: null },
@@ -256,11 +276,34 @@ describe('createBooking', () => {
       },
     })
     vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: eventTypeRow as any,
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
 
     const result = await createBooking(validBookingInput)
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('slot_taken')
+  })
+
+  it('Test 3b: resolveAndValidateSlot reports outside_availability — returns outside_availability without inserting', async () => {
+    const fake = buildFakeAdmin({})
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({ ok: false, error: 'outside_availability' })
+
+    const result = await createBooking(validBookingInput)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('outside_availability')
+    // resolveAndValidateSlot is mocked, so createBooking never even reaches
+    // a 'bookings' table query (contact linking + insert) on this path.
+    expect(fake.from).not.toHaveBeenCalledWith('bookings')
   })
 })
 
