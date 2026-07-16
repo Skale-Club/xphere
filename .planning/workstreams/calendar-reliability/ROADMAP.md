@@ -77,7 +77,7 @@ Plans:
 - [x] 129-01-PLAN.md — Multi-calendar busy-time fetch honoring conflict_calendar_ids (SYNC-01)
 - [ ] 129-02-PLAN.md — bookings.google_event_id migration + persistence at both native creation call sites (SYNC-01)
 - [x] 129-03-PLAN.md — Real-DB regression test proving integrations org-ownership for google_calendar (SYNC-01)
-- [ ] 129-04-PLAN.md — Xkedule webhook: unknown-status guard + route existing-row transitions through the canonical lifecycle service (SYNC-02)
+- [x] 129-04-PLAN.md — Xkedule webhook: unknown-status guard + route existing-row transitions through the canonical lifecycle service (SYNC-02)
 - [ ] 129-05-PLAN.md — Static test proving no GHL surface writes to bookings directly (SYNC-02)
 - [ ] 129-06-PLAN.md — Operator checkpoint: apply the google_event_id migration to production (SYNC-01)
 
