@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 130-02-PLAN.md
-last_updated: "2026-07-16T07:06:48.076Z"
+stopped_at: Completed 130-03-PLAN.md
+last_updated: "2026-07-16T07:16:27.813Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 130 (calendar-product-coherence) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -54,8 +54,9 @@ Last activity: 2026-07-16
 - [Phase 129-02]: Used migration number 1254 (not the plan's placeholder <next>) since 1253_google_calendar_provider_enum.sql (129-03's deviation fix) was already the latest migration on this branch
 - [Phase 130-01]: Added bookingStatusBadgeClass() to the existing booking-status.ts (Phase 127's canonical BookingStatus module, imported by 6 files) instead of overwriting it with a second status type as the plan's literal Task 2 code specified
 - [Phase 130-02]: Confirmed Phase 127-02's scope.ts organizer-hydration and event_types.title fixes were already correct on disk; made zero production changes, only extended tests/calendar-scope.test.ts with 2 new regression tests
+- [Phase 130-03]: Left new-event-type-dialog.tsx's removal-rationale comment referencing round-robin/round_robin intact (per the plan's own acceptance-criteria parenthetical); getSchedulingProfile/updateSchedulingPreferences/SchedulingProfile in calendar-profile.ts kept fully untouched since the Connections page still depends on sync_mode/conflict_calendar_ids from the same action file
 
 ## Session Continuity
 
-**Stopped At:** Completed 130-02-PLAN.md
+**Stopped At:** Completed 130-03-PLAN.md
 **Resume File:** None
