@@ -847,7 +847,9 @@ export function ContactInfoPanel({
                       ? 'bg-rose-500/15 text-rose-400'
                       : b.status === 'no_show'
                         ? 'bg-amber-500/15 text-amber-400'
-                        : 'bg-emerald-500/15 text-emerald-400'
+                        : b.status === 'showed'
+                          ? 'bg-sky-500/15 text-sky-400'
+                          : 'bg-emerald-500/15 text-emerald-400'
                   return (
                     <Link
                       key={b.id}
