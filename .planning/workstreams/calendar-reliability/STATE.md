@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 128-01-PLAN.md
-last_updated: "2026-07-16T04:32:21.719Z"
+stopped_at: Completed 128-02-PLAN.md
+last_updated: "2026-07-16T04:39:17.886Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 32
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 128 (reliable-calendar-scheduling) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -41,8 +41,9 @@ Last activity: 2026-07-16
 - [Phase 127-06]: Fixed the status-vocabulary scanner's false positive on flows/engine.ts's unrelated workflow_runs/workflow_run_steps status literals with a narrow NON_BOOKING_STATUS_LITERALS allowlist, instead of restructuring the scanner or FILES_TO_SCAN
 - [Phase 127-07]: Kept booking-lifecycle-actions.ts and flows/engine.ts's inline booking_* handlers as two separate thin adapters (JSON string vs Record<string, unknown> return conventions) rather than consolidating the two dispatch engines, per the phase's internal-unification-only boundary
 - [Phase 128-reliable-calendar-scheduling]: 128-01: Implemented the plan's interfaces block verbatim (no renaming) so Plan 128-05 can import computeDueWindow/isDue/etc. directly; isDue uses exclusive-lower/inclusive-upper (scanStart, scanEnd] semantics as the core SCH-01 correctness property
+- [Phase 128-reliable-calendar-scheduling]: 128-02: Ported global-knowledge-notion's auth pattern verbatim (503 unset / 401 mismatch, read fresh in GET()) rather than the timingSafeEqual variant — plan's interfaces block specified the simpler pattern and RESEARCH.md flagged constant-time comparison as optional, non-required hardening
 
 ## Session Continuity
 
-**Stopped At:** Completed 128-01-PLAN.md
+**Stopped At:** Completed 128-02-PLAN.md
 **Resume File:** None
