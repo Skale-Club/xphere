@@ -6,7 +6,7 @@ This milestone makes calendar behavior trustworthy from public booking through w
 
 ## Phases
 
-- [ ] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04)
+- [x] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04) (completed 2026-07-16)
 - [ ] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04)
 - [ ] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04)
 - [ ] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02)
@@ -24,7 +24,7 @@ This milestone makes calendar behavior trustworthy from public booking through w
 3. Cancellation requires a deliberate POST action with an unguessable token.
 4. Calendar database policies no longer allow anonymous broad reads/writes.
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 126-01-PLAN.md — Shared resolveAndValidateSlot helper + createBooking wiring (CAL-01)
@@ -32,7 +32,7 @@ Plans:
 - [x] 126-03-PLAN.md — Organizer overlap guard migration (1249) + real-DB test (CAL-02)
 - [x] 126-04-PLAN.md — Calendar RLS least-privilege migration (1250) + real-DB test (CAL-04)
 - [x] 126-05-PLAN.md — Public cancellation GET/POST split (CAL-03)
-- [ ] 126-06-PLAN.md — Operator checkpoint: apply migrations 1249+1250 to production (CAL-02, CAL-04)
+- [x] 126-06-PLAN.md — Operator checkpoint: apply migrations 1249+1250 to production (CAL-02, CAL-04)
 
 ### Phase 127: Canonical Booking Lifecycle
 **Goal**: All booking writers use one tested state transition and event emission service.
