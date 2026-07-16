@@ -17,9 +17,11 @@ import {
   sendBookingCancellation,
 } from '@/lib/calendar/emails'
 import type { TimeSlot } from '@/lib/calendar/slots'
-import { emitCalendarEvent, cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
+import { emitCalendarEvent } from '@/lib/calendar/transition'
+import { cancelBooking as transitionCancelBooking } from '@/lib/calendar/transition'
 import type { CalendarEventPayload } from '@/lib/calendar/events'
 import { getSiteOriginFromHeaders } from '@/lib/site-url'
+import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
 
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.
@@ -515,7 +517,8 @@ export async function createBooking(
       end_at: endAt.toISOString(),
       notes: parsed.data.notes ?? null,
       linked_contact_id: liveContactId,
-      status: 'confirmed',
+      // The first entry in the shared status vocabulary (booking-status.ts) is 'confirmed' — every new booking starts confirmed (no 'pending' state exists in this system).
+      status: BOOKING_STATUSES[0],
       location_kind: effectiveLocationKind,
     })
     .select('id, cancel_token')
@@ -726,7 +729,8 @@ export async function createBookingInternal(
       end_at: endAt.toISOString(),
       notes,
       linked_contact_id: liveContactId,
-      status: 'confirmed',
+      // The first entry in the shared status vocabulary (booking-status.ts) is 'confirmed' — every new booking starts confirmed (no 'pending' state exists in this system).
+      status: BOOKING_STATUSES[0],
       location_kind: effectiveLocationKind,
     })
     .select('id, cancel_token')
