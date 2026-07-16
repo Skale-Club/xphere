@@ -323,6 +323,67 @@ describe('createBooking', () => {
     // a 'bookings' table query (contact linking + insert) on this path.
     expect(fake.from).not.toHaveBeenCalledWith('bookings')
   })
+
+  it('Test 12: a Google Calendar event id returned by createCalendarEvent is persisted onto bookings.google_event_id', async () => {
+    const { createCalendarEvent } = await import('@/lib/calendar/google-calendar')
+    vi.mocked(createCalendarEvent).mockResolvedValueOnce('gcal-evt-123')
+
+    const fake = buildFakeAdmin({
+      contactsExisting: { data: null, error: null },
+      customFieldDefs: { data: [], error: null },
+      contactsInsert: { data: { id: 'contact-uuid' }, error: null },
+      bookingsInsert: { data: { id: BOOKING_ID, cancel_token: CANCEL_TOKEN }, error: null },
+      bookingsUpdate: { data: { id: BOOKING_ID }, error: null },
+    })
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: eventTypeRow as any,
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
+
+    const result = await createBooking(validBookingInput)
+    expect(result.ok).toBe(true)
+
+    // Every .from('bookings') call gets its own fresh proxy in this fake — find
+    // the one whose .update() was actually invoked and assert its payload.
+    const bookingsCalls = (fake.from as any).mock.results
+      .map((r: any, i: number) => ({ table: (fake.from as any).mock.calls[i][0], proxy: r.value }))
+      .filter((x: any) => x.table === 'bookings')
+    const updatedProxy = bookingsCalls.find((x: any) => x.proxy.update.mock.calls.length > 0)
+    expect(updatedProxy).toBeDefined()
+    expect(updatedProxy!.proxy.update).toHaveBeenCalledWith({ google_event_id: 'gcal-evt-123' })
+  })
+
+  it('Test 13: createCalendarEvent returning null does not attempt a google_event_id update', async () => {
+    const fake = buildFakeAdmin({
+      contactsExisting: { data: null, error: null },
+      customFieldDefs: { data: [], error: null },
+      contactsInsert: { data: { id: 'contact-uuid' }, error: null },
+      bookingsInsert: { data: { id: BOOKING_ID, cancel_token: CANCEL_TOKEN }, error: null },
+    })
+    vi.mocked(createServiceRoleClient).mockReturnValue(fake as any)
+    vi.mocked(resolveAndValidateSlot).mockResolvedValue({
+      ok: true,
+      data: {
+        eventType: eventTypeRow as any,
+        startAt: new Date(validBookingInput.start_at),
+        endAt: new Date('2099-06-15T14:30:00.000Z'),
+        hostTimezone: 'UTC',
+      },
+    })
+    // createCalendarEvent resolves null by the file's top-level vi.mock default — no override needed.
+    const result = await createBooking(validBookingInput)
+    expect(result.ok).toBe(true)
+    const bookingsCalls = (fake.from as any).mock.results
+      .map((r: any, i: number) => ({ table: (fake.from as any).mock.calls[i][0], proxy: r.value }))
+      .filter((x: any) => x.table === 'bookings')
+    expect(bookingsCalls.some((x: any) => x.proxy.update.mock.calls.length > 0)).toBe(false)
+  })
 })
 
 // ─── cancelBookingByToken ───────────────────────────────────────────────────
