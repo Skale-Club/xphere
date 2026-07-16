@@ -7,7 +7,7 @@ This milestone makes calendar behavior trustworthy from public booking through w
 ## Phases
 
 - [x] **Phase 126: Booking Trust Boundary** - Make availability, conflict validation, cancellation, and calendar RLS server-authoritative. (CAL-01..04) (completed 2026-07-16)
-- [ ] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04)
+- [x] **Phase 127: Canonical Booking Lifecycle** - Unify status transitions, workflow events, and payload contracts. (LIFE-01..04) (completed 2026-07-16)
 - [ ] **Phase 128: Reliable Calendar Scheduling** - Repair reminder timing, idempotency, cron security, and neutral defaults. (SCH-01..04)
 - [ ] **Phase 129: Provider Synchronization Integrity** - Align Google, Xkedule, and GHL with lifecycle and provider ownership semantics. (SYNC-01..02)
 - [ ] **Phase 130: Calendar Product Coherence** - Complete or remove exposed unfinished controls and correct scoped read models. (SYNC-03..04)
@@ -39,7 +39,7 @@ Plans:
 **Depends on**: Phase 126
 **Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 - [x] 127-01-PLAN.md — Canonical transition_booking_status RPC (migration 1251) + rewritten transition.ts (org-scoped, adds markShowed) + lifecycle/vocabulary tests (LIFE-01, LIFE-02)
@@ -49,7 +49,7 @@ Plans:
 - [x] 127-05-PLAN.md — Xkedule webhook: completed→showed mapping + no-event-after-failed-write fix (LIFE-02, LIFE-03)
 - [x] 127-06-PLAN.md — Durable workflow engine (flows/engine.ts) booking_* action nodes wired to the canonical service (LIFE-01, LIFE-02, LIFE-03)
 - [x] 127-07-PLAN.md — Wait-free engine (execute-action.ts) booking_* mirror + update_booking_status guard fix (LIFE-01, LIFE-03)
-- [ ] 127-08-PLAN.md — Operator checkpoint: apply migration 1251 to production (LIFE-01)
+- [x] 127-08-PLAN.md — Operator checkpoint: apply migration 1251 to production (LIFE-01)
 
 ### Phase 128: Reliable Calendar Scheduling
 **Goal**: Reminder workflows run at their configured offset exactly once despite cron delay.
