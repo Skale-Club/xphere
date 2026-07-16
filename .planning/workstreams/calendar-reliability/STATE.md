@@ -4,14 +4,14 @@ milestone: v3.4
 milestone_name: milestone
 current_plan: 1
 status: executing
-stopped_at: Completed 130-04-PLAN.md
-last_updated: "2026-07-16T07:24:51.437Z"
+stopped_at: Completed 130-05-PLAN.md
+last_updated: "2026-07-16T07:39:28.823Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 32
-  completed_plans: 30
+  completed_plans: 31
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 ## Current Position
 
 Phase: 130 (calendar-product-coherence) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-16
 
@@ -56,8 +56,9 @@ Last activity: 2026-07-16
 - [Phase 130-02]: Confirmed Phase 127-02's scope.ts organizer-hydration and event_types.title fixes were already correct on disk; made zero production changes, only extended tests/calendar-scope.test.ts with 2 new regression tests
 - [Phase 130-03]: Left new-event-type-dialog.tsx's removal-rationale comment referencing round-robin/round_robin intact (per the plan's own acceptance-criteria parenthetical); getSchedulingProfile/updateSchedulingPreferences/SchedulingProfile in calendar-profile.ts kept fully untouched since the Connections page still depends on sync_mode/conflict_calendar_ids from the same action file
 - [Phase 130-04]: Wrote the 6-kind location list as literal inline z.enum() arrays in both server and client schemas rather than importing the REACHABLE_LOCATION_KINDS as-const tuple directly into z.enum, per the plan's explicit guidance to avoid a TS mutable-tuple type mismatch; also closed updateEventType's pre-existing zero-validation gap with eventTypeSchema.partial().safeParse since the shared form now submits to both create and edit paths.
+- [Phase 130-05]: Wired createMeetingLink (previously-dead-code logic in transition.ts::confirmBooking) into createBooking/createBookingInternal for google_meet location kind; persisted meeting_url + google_event_id onto Phase 129's dedicated bookings.google_event_id column, never location_data. Renamed plan's proposed Test 7/8 labels to Test 14/15 to avoid colliding with pre-existing same-numbered tests elsewhere in the file.
 
 ## Session Continuity
 
-**Stopped At:** Completed 130-04-PLAN.md
+**Stopped At:** Completed 130-05-PLAN.md
 **Resume File:** None
