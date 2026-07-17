@@ -36,7 +36,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .claude/
-public/widget.js
 public/reviews-widget.js
 
 # supabase CLI cache

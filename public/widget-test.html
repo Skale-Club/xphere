@@ -66,6 +66,17 @@
     </ol>
   </div>
 
+  <div class="instructions">
+    <h2>Context Forwarding Checklist (Phase 133, CTX-03)</h2>
+    <ol>
+      <li>The script tag below has <code>data-context-endpoint</code> set — on first send, the widget fetches a token from that path SAME-ORIGIN (<code>credentials: 'same-origin'</code>), never prefixed with the widget's <code>apiBase</code></li>
+      <li>In DevTools Network tab: confirm a request to the context endpoint happens before/around the chat POST</li>
+      <li>The POST to <code>/api/chat/&lt;token&gt;</code> body includes <code>commerce_context</code> only when a token was successfully fetched/cached — if the endpoint 404s or is unreachable, the body has NO <code>commerce_context</code> and the chat still sends (fail-soft, never blocks)</li>
+      <li>In the console: <code>Opps.setContext('&lt;payload&gt;.&lt;sig&gt;')</code> replaces the cached token — the next chat POST forwards the new value</li>
+      <li>A <code>commerce</code> SSE event with <code>action: 'cart_created'</code> clears the cache, forcing a re-fetch from <code>data-context-endpoint</code> on the next send</li>
+    </ol>
+  </div>
+
   <p>
     Try the JS API from your own buttons:
     <button onclick="Opps.open()">Open chat</button>
@@ -82,6 +93,7 @@
   <script
     src="/widget.js"
     data-token="c06072f88f9a4e10b03681792fb1d172"
+    data-context-endpoint="/api/chat-context"
     async
   ></script>
 </body>

@@ -473,10 +473,11 @@ const ICON_COLLAPSE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height
 const _script = document.currentScript as HTMLScriptElement | null
 const _token = _script?.dataset.token ?? ''
 const _apiBase = _script?.src ? new URL(_script.src).origin : location.origin
+const _contextEndpoint = _script?.dataset.contextEndpoint ?? ''
 
 // --- Double-init guard and entry point ---
 if (_token && !document.getElementById('opps-root')) {
-  initWidget(_token, _apiBase)
+  initWidget(_token, _apiBase, _contextEndpoint)
 }
 
 // --- Session storage helpers (D-12, D-13, Pattern 5) ---
@@ -573,6 +574,7 @@ interface SSEEvent {
   sessionId?: string
   text?: string
   name?: string
+  action?: string
 }
 
 // --- SSE stream consumer (D-10, D-11, Pattern 4) ---
@@ -615,15 +617,21 @@ async function sendMessage(params: {
   token: string
   message: string
   sessionId: string | null
+  commerceContext: string | null
   onEvent: (evt: SSEEvent) => void
 }): Promise<void> {
-  const { apiBase, token, message, sessionId, onEvent } = params
+  const { apiBase, token, message, sessionId, commerceContext, onEvent } = params
   let res: Response
   try {
     res = await fetch(`${apiBase}/api/chat/${token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, pageUrl: location.href, ...(sessionId ? { sessionId } : {}) }),
+      body: JSON.stringify({
+        message,
+        pageUrl: location.href,
+        ...(sessionId ? { sessionId } : {}),
+        ...(commerceContext ? { commerce_context: commerceContext } : {}),
+      }),
     })
   } catch {
     onEvent({ event: 'error' })
@@ -643,11 +651,13 @@ function buildPanel(
   shadow: ShadowRoot,
   token: string,
   apiBase: string,
+  contextEndpoint: string,
   _bubble: HTMLButtonElement
 ): {
   panel: HTMLDivElement
   applyConfig: (config: WidgetConfig) => void
   submitMessage: (text: string) => Promise<void>
+  setContext: (token: string) => void
 } {
   const panel = document.createElement('div')
   panel.className = 'opps-panel'
@@ -735,6 +745,46 @@ function buildPanel(
   let sessionId: string | null = readSession(token)
   let hasMessages = false
 
+  // --- Commerce context cache (CTX-03) ---
+  // The widget only decodes the payload locally to read `exp` (unix seconds) —
+  // it never verifies the HMAC and never reads cus/email client-side. The
+  // server-side chat route is the trust boundary.
+  let cachedToken: string | null = null
+  let cachedExp = 0 // unix seconds
+
+  function b64urlToJson(b64: string): { exp?: number } | null {
+    try {
+      const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4))
+      return JSON.parse(atob(b64.replace(/-/g, '+').replace(/_/g, '/') + pad)) as { exp?: number }
+    } catch {
+      return null
+    }
+  }
+
+  function setContext(newToken: string): void {
+    const payload = b64urlToJson(newToken.split('.')[0] ?? '')
+    cachedToken = newToken
+    cachedExp = typeof payload?.exp === 'number' ? payload.exp : Math.floor(Date.now() / 1000) + 60
+  }
+
+  async function ensureContext(): Promise<string | null> {
+    if (!contextEndpoint) return null
+    const now = Math.floor(Date.now() / 1000)
+    if (cachedToken && cachedExp > now + 5) return cachedToken
+    try {
+      // SAME-ORIGIN against the host page (storefront) — never prefixed with
+      // apiBase. The storefront mints this token from its own httpOnly cookies.
+      const res = await fetch(contextEndpoint, { credentials: 'same-origin' })
+      if (!res.ok) return null
+      const { token: fetchedToken } = (await res.json()) as { token?: string }
+      if (!fetchedToken) return null
+      setContext(fetchedToken)
+      return cachedToken
+    } catch {
+      return null // never block chat
+    }
+  }
+
   // --- Helpers ---
   function appendMessage(text: string, role: 'user' | 'assistant' | 'error'): void {
     if (!hasMessages) {
@@ -783,12 +833,14 @@ function buildPanel(
     const typing = showTyping()
 
     let tokenBuffer = ''
+    const commerceContext = await ensureContext()
 
     await sendMessage({
       apiBase,
       token,
       message: text,
       sessionId,
+      commerceContext,
       onEvent: (evt) => {
         if (evt.event === 'session' && evt.sessionId) {
           if (!sessionId) {
@@ -797,6 +849,10 @@ function buildPanel(
           }
         } else if (evt.event === 'token' && evt.text) {
           tokenBuffer += evt.text
+        } else if (evt.event === 'commerce' && evt.action === 'cart_created') {
+          // Cart cookie changed server-side — force a re-fetch on the next send.
+          cachedToken = null
+          cachedExp = 0
         } else if (evt.event === 'done') {
           typing.remove()
           if (tokenBuffer) appendMessage(tokenBuffer, 'assistant')
@@ -876,11 +932,11 @@ function buildPanel(
     emptyHeading.textContent = config.welcomeMessage
   }
 
-  return { panel, applyConfig, submitMessage }
+  return { panel, applyConfig, submitMessage, setContext }
 }
 
 // --- initWidget (top-level orchestrator, per Pattern 3) ---
-function initWidget(token: string, apiBase: string): void {
+function initWidget(token: string, apiBase: string, contextEndpoint: string): void {
   // Shadow host (must be unstyled | no transform/filter or position:fixed breaks)
   const host = document.createElement('div')
   host.id = 'opps-root'
@@ -912,7 +968,7 @@ function initWidget(token: string, apiBase: string): void {
   }
 
   // Build panel
-  const { panel, applyConfig, submitMessage } = buildPanel(shadow, token, apiBase, bubble)
+  const { panel, applyConfig, submitMessage, setContext } = buildPanel(shadow, token, apiBase, contextEndpoint, bubble)
   shadow.appendChild(bubble)
   shadow.appendChild(panel)
 
@@ -1076,6 +1132,9 @@ function initWidget(token: string, apiBase: string): void {
         if (typeof text !== 'string' || !text.trim()) return
         openPanel()
         void submitMessage(text)
+      },
+      setContext: (contextToken: string) => {
+        if (typeof contextToken === 'string' && contextToken) setContext(contextToken)
       },
     }
   }
