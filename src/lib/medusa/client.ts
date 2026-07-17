@@ -4,11 +4,13 @@
 // the org's publishable API key, and aborts after 8s. See
 // .planning/research/INTEGRATION-CONTRACT.md §4.1.
 //
-// Note: this file does NOT export an agent/HMAC fetch — the privileged
-// /agent/* surface (Phase 135) uses a different signing scheme and owns its
-// own client.
+// Phase 135 adds `medusaAgentFetch` for the privileged, HMAC-signed
+// /agent/* surface (contract §4.2) — same R11 budget + 8s timeout, but signs
+// the request with the connection token instead of sending the publishable
+// key. See ./agent-sig.ts for the signing helper.
 
 import { rateLimit } from '@/lib/rate-limit'
+import { signAgentBody } from './agent-sig'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
@@ -58,6 +60,44 @@ export async function medusaStoreFetch<T>(
   const res = await fetch(url, {
     ...init,
     headers: { 'x-publishable-api-key': creds.publishableKey, ...(init?.headers ?? {}) },
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) throw new MedusaApiError(res.status, await res.text())
+  return res.json() as Promise<T>
+}
+
+/**
+ * Signed POST to the privileged /agent/* surface (contract §4.2). Enforces
+ * R11 (shared with medusaStoreFetch) BEFORE the network call, 8s timeout,
+ * throws MedusaApiError on non-2xx so callers can branch on `.status`
+ * (e.g. 409 wishlist_full).
+ *
+ * BYTE-AGREEMENT INVARIANT (SECURITY CRITICAL): stringify the body ONCE,
+ * sign THAT string, send THAT identical string as the fetch body — do NOT
+ * re-stringify. Sign with the exact `ts` string placed in the header.
+ */
+export async function medusaAgentFetch<T>(
+  creds: MedusaCredentials,
+  path: string,
+  orgId: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const rl = await rateLimit(`medusa:org:${orgId}`, 120, 60, { failMode: 'memory' }) // R11 — shared with medusaStoreFetch, BEFORE fetch
+  if (!rl.allowed) throw new MedusaRateLimitError()
+
+  const raw = JSON.stringify(body) // stringify ONCE
+  const ts = Math.floor(Date.now() / 1000).toString() // seconds, as a STRING
+  const sig = await signAgentBody(creds.connectionToken, ts, raw) // bare hex
+
+  const url = `${creds.baseUrl.replace(/\/$/, '')}${path}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Xphere-Timestamp': ts,
+      'X-Xphere-Signature': `v1=${sig}`, // the ONLY place the v1= scheme tag is applied
+    },
+    body: raw, // send the SAME string that was signed
     signal: AbortSignal.timeout(8000),
   })
   if (!res.ok) throw new MedusaApiError(res.status, await res.text())
