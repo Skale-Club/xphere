@@ -77,6 +77,19 @@ export const TRIGGERS: TriggerSpec[] = [
     description: 'A new contact row was inserted.',
     variables: ['contact.*', 'trigger.fired_at'],
   },
+
+  // ─── Commerce events (Phase 136). Pushed from the connected Medusa store via
+  // POST /api/v1/commerce/events and dispatched by emitCommerceEvent.
+  {
+    type: 'event:commerce.order.placed',
+    description: 'A Medusa order was placed and pushed from the connected store. Exposes order totals, line items, and the resolved contact.',
+    variables: ['order.*', 'contact.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:commerce.customer.created',
+    description: 'A new Medusa customer was created and pushed from the connected store.',
+    variables: ['customer.*', 'contact.*', 'trigger.fired_at'],
+  },
   {
     type: 'event:workflow.run.failed',
     description: 'A workflow run failed. Payload includes workflow.name and workflow.error.',
@@ -1022,6 +1035,12 @@ export const VARIABLE_NAMESPACES = {
     'Comment fields for event:comment.received. Includes platform, post_id, comment_id, ' +
     'text, author_id, author_name, author_username, is_reply, is_ad_comment, ' +
     'conversation_id, contact_id.',
+  order:
+    'Medusa order fields for event:commerce.order.placed. Exposes order_id, display_id, ' +
+    'email, currency_code, total, cart_id, items (major-unit money, never cents).',
+  customer:
+    'Medusa customer fields for event:commerce.customer.created. Exposes customer_id, ' +
+    'email, first_name, last_name.',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

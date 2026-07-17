@@ -18,6 +18,7 @@ vi.mock('@/lib/flows/engine', () => ({
 vi.mock('@/lib/flows/resume-waits', () => ({ resumeMatchingWaits: resumeMatchingWaitsMock }))
 
 import { emitCommerceEvent, type CommerceOrderData, type CommerceCustomerData } from '@/lib/commerce/events'
+import { TRIGGERS } from '@/lib/workflows/spec'
 
 type Row = Record<string, unknown>
 interface RecordedCall {
@@ -246,5 +247,19 @@ describe('emitCommerceEvent', () => {
     const spy = createSpyClient({ contactExisting: { id: 'contact-1' }, workflowsReject: true })
     const result = await emitCommerceEvent(spy.client as never, 'org-1', 'rcpt-1', 'order.placed', orderData())
     expect(result).toEqual({ dispatched: 0, dispatchId: null })
+  })
+})
+
+describe('workflow spec TRIGGERS', () => {
+  it('registers commerce.order.placed with order.*/contact.*/trigger.fired_at', () => {
+    const trigger = TRIGGERS.find((t) => t.type === 'event:commerce.order.placed')
+    expect(trigger).toBeDefined()
+    expect(trigger!.variables).toEqual(expect.arrayContaining(['order.*', 'contact.*', 'trigger.fired_at']))
+  })
+
+  it('registers commerce.customer.created with customer.*/contact.*/trigger.fired_at', () => {
+    const trigger = TRIGGERS.find((t) => t.type === 'event:commerce.customer.created')
+    expect(trigger).toBeDefined()
+    expect(trigger!.variables).toEqual(expect.arrayContaining(['customer.*', 'contact.*', 'trigger.fired_at']))
   })
 })
