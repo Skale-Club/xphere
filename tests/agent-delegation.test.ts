@@ -248,11 +248,13 @@ describe('requiresIdempotency — side-effecting action classification (IDEMP-02
     expect(requiresIdempotency('manychat_trigger_flow')).toBe(false)
   })
 
-  it('SIDE_EFFECTING_ACTIONS set contains exactly the 4 documented types', () => {
+  it('SIDE_EFFECTING_ACTIONS set contains exactly the 6 documented types (Phase 134 added the 2 Medusa cart writes)', () => {
     expect(SIDE_EFFECTING_ACTIONS.has('create_appointment')).toBe(true)
     expect(SIDE_EFFECTING_ACTIONS.has('send_sms')).toBe(true)
     expect(SIDE_EFFECTING_ACTIONS.has('create_contact')).toBe(true)
     expect(SIDE_EFFECTING_ACTIONS.has('custom_webhook')).toBe(true)
+    expect(SIDE_EFFECTING_ACTIONS.has('medusa_add_to_cart')).toBe(true)
+    expect(SIDE_EFFECTING_ACTIONS.has('medusa_update_cart_item')).toBe(true)
     expect(SIDE_EFFECTING_ACTIONS.has('get_availability')).toBe(false)
     expect(SIDE_EFFECTING_ACTIONS.has('knowledge_base')).toBe(false)
   })

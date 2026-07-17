@@ -180,3 +180,22 @@ export async function checkDailyCostCap(
 
   return 'Daily cost limit reached | service temporarily restricted'
 }
+
+// ---------------------------------------------------------------------------
+// CRT-02: Per-turn commerce write cap (max 3 side-effecting commerce writes
+// per turn — on top of R7/R8's time-windowed budgets and the 25-per-
+// conversation cap in context.ts's bumpConversationWriteCount). Pure — the
+// run-agent tool loop maintains the counter in-closure (declared once per
+// invocation, in BOTH the blocking and streaming loops) and calls this
+// BEFORE executeAction whenever the resolved tool is in
+// COMMERCE_WRITE_ACTIONS (idempotency.ts). No orgId/agentId is threaded
+// through here (a bare turn-local count carries no tenant context worth
+// logging); Phase 134's wiring plan may log guardrail_tripped at the call
+// site if desired.
+// ---------------------------------------------------------------------------
+
+export function checkCommerceWritesPerTurn(count: number, max = 3): string | null {
+  if (count <= max) return null
+
+  return "I've made a few cart changes this turn — send another message and I can keep going."
+}

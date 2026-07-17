@@ -24,6 +24,10 @@ export interface MedusaExecCtx {
   organizationId: string
   supabase: SupabaseClient<Database>
   conversationId?: string
+  // Streaming SSE emitter (contract §6 `commerce` events, Phase 134). Only
+  // run-agent's STREAMING call site passes this through; the blocking path
+  // omits it entirely, so executors must null-check (`ctx.emitStructured?.(...)`).
+  emitStructured?: (obj: Record<string, unknown>) => void
 }
 
 export class MedusaApiError extends Error {

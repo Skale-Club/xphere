@@ -144,3 +144,74 @@ export async function readCommerceContext(ctx: MedusaExecCtx): Promise<Record<st
   const { commerce } = await loadPinnedContext(ctx)
   return commerce
 }
+
+/**
+ * Cart-only re-pin after a write executor creates a cart with no prior
+ * pinned token (contract §3 — the ONE legitimate non-token re-pin). Same
+ * read-merge-write shape as writeCommerceContext, but touches ONLY
+ * `commerce.cart` — it does NOT reconstruct a full CommerceClaims and does
+ * NOT stamp `verified_at` (a self-created cart is not a verified-token
+ * claim; see 134-RESEARCH.md Pitfall 5). All other commerce keys
+ * (region_id/cus/email/wishlist_ref/write_count/...) survive unchanged.
+ */
+export async function pinCartId(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  conversationId: string,
+  orgId: string,
+  cartId: string,
+): Promise<void> {
+  const { data: row } = await supabase
+    .from('conversations')
+    .select('memory')
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  const memory = (row?.memory as Record<string, unknown> | null) ?? {}
+  const prev = (memory.commerce as Record<string, unknown> | undefined) ?? {}
+
+  await supabase
+    .from('conversations')
+    .update({ memory: { ...memory, commerce: { ...prev, cart: cartId } } })
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+}
+
+/**
+ * Per-conversation write budget (CRT-02's 25-writes-per-conversation cap,
+ * on top of R7/R8's time-windowed limits). Read-merge-write scoped by id +
+ * org_id, folded into the same `memory.commerce` object pinCartId touches —
+ * durable across turns/invocations, no Redis dependency. Returns
+ * `{ allowed: false, count }` WITHOUT writing once `write_count` reaches
+ * `cap`; callers MUST turn a denial into a clean tool-result string, never a
+ * throw. All other commerce keys survive unchanged on both the allow and
+ * deny paths.
+ */
+export async function bumpConversationWriteCount(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  conversationId: string,
+  orgId: string,
+  cap = 25,
+): Promise<{ allowed: boolean; count: number }> {
+  const { data: row } = await supabase
+    .from('conversations')
+    .select('memory')
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  const memory = (row?.memory as Record<string, unknown> | null) ?? {}
+  const prev = (memory.commerce as Record<string, unknown> | undefined) ?? {}
+  const count = typeof prev.write_count === 'number' ? prev.write_count : 0
+
+  if (count >= cap) return { allowed: false, count }
+
+  const nextCount = count + 1
+  await supabase
+    .from('conversations')
+    .update({ memory: { ...memory, commerce: { ...prev, write_count: nextCount } } })
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+
+  return { allowed: true, count: nextCount }
+}

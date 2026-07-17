@@ -25,7 +25,18 @@ export const SIDE_EFFECTING_ACTIONS = new Set([
   'send_sms',
   'create_contact',
   'custom_webhook',  // non-GET only | checked at call site via toolConfig
+  'medusa_add_to_cart',
+  'medusa_update_cart_item',
 ])
+
+// ---------------------------------------------------------------------------
+// CRT-02/134-RESEARCH: commerce write action types. Exported separately so
+// run-agent's tool loop can recognize a commerce write BEFORE dispatch (to
+// enforce the per-turn cap via checkCommerceWritesPerTurn in guardrails.ts)
+// without re-deriving the set from SIDE_EFFECTING_ACTIONS each time.
+// ---------------------------------------------------------------------------
+
+export const COMMERCE_WRITE_ACTIONS = new Set(['medusa_add_to_cart', 'medusa_update_cart_item'])
 
 export function requiresIdempotency(actionType: string, toolConfig?: unknown): boolean {
   if (!SIDE_EFFECTING_ACTIONS.has(actionType)) return false
