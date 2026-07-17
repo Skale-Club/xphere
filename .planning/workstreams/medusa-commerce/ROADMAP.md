@@ -29,7 +29,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 
 Plans:
 - [x] 131-01-PLAN.md — Wave 0 baseline repair + rateLimit failMode extension with bounded memory fallback (CHT-01)
-- [ ] 131-02-PLAN.md — custom_webhook SSRF guard via assertPublicHttpUrl (CHT-04)
+- [x] 131-02-PLAN.md — custom_webhook SSRF guard via assertPublicHttpUrl (CHT-04)
 - [x] 131-03-PLAN.md — Chat route R1–R5 matrix + message cap + maxDuration 60 + shared IP helper (CHT-02, CHT-03)
 
 ### Phase 132: Medusa Provider & Read Tools
