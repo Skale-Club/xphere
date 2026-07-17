@@ -82,9 +82,16 @@ describe('CTX-01: verifyCommerceContext', () => {
   it('bad sig: a tampered signature returns null', async () => {
     const token = mint(basePayload(), SECRET)
     const [payloadB64, sigB64] = token.split('.')
-    const lastChar = sigB64.at(-1)
-    const flipped = lastChar === 'A' ? 'B' : 'A'
-    const tampered = `${payloadB64}.${sigB64.slice(0, -1)}${flipped}`
+    // Tamper the FIRST sig char, not the last: the last base64url char of a
+    // 32-byte HMAC carries only 4 meaningful bits (the other 2 are discarded
+    // padding), so an 'A'↔'B' last-char flip decodes to identical bytes ~6% of
+    // the time and the "tampered" sig still verifies. The first char encodes the
+    // top 6 bits of byte 0 (all meaningful), so flipping it always changes the
+    // decoded signature — deterministically failing verification.
+    const firstChar = sigB64.at(0)
+    const flipped = firstChar === 'A' ? 'B' : 'A'
+    const tampered = `${payloadB64}.${flipped}${sigB64.slice(1)}`
+    expect(tampered).not.toBe(token)
     expect(await verifyCommerceContext(tampered, SECRET, ORG)).toBeNull()
   })
 
