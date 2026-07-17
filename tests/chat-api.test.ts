@@ -293,6 +293,92 @@ describe('POST /api/chat/[token]', () => {
       expect(createServiceRoleClient).toHaveBeenCalled()
       expect(mockRateLimit).toHaveBeenCalledWith('chat:org:org-1', 300, 60, { failMode: 'open' })
     })
+
+    it('R3 denied on resume: 429 rate_limited', async () => {
+      const existingCtx = {
+        orgId: 'org-1', sessionId: 'existing-sess', dbSessionId: 'db-existing',
+        messages: [], createdAt: new Date().toISOString(), lastActiveAt: new Date().toISOString(),
+      }
+      ;(getSession as ReturnType<typeof vi.fn>).mockResolvedValue(existingCtx)
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:sess:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', sessionId: 'existing-sess' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:sess:existing-sess', 10, 60, { failMode: 'memory' })
+    })
+
+    it('R4 denied on fresh create (no sessionId): 429, no DB row created', async () => {
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:newsess:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:newsess:203.0.113.9', 10, 3600, { failMode: 'memory' })
+      expect(ensureDbSession).not.toHaveBeenCalled()
+    })
+
+    it('R4 denied on bogus sessionId (bypass-closure): 429, no DB row created', async () => {
+      ;(getSession as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:newsess:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', sessionId: 'bogus-uuid' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(ensureDbSession).not.toHaveBeenCalled()
+    })
+
+    it('R4 denied on org-mismatch sessionId (also a create): 429, no DB row created', async () => {
+      const mismatchCtx = {
+        orgId: 'other-org', sessionId: 'mismatch-sess', dbSessionId: 'db-mismatch',
+        messages: [], createdAt: new Date().toISOString(), lastActiveAt: new Date().toISOString(),
+      }
+      ;(getSession as ReturnType<typeof vi.fn>).mockResolvedValue(mismatchCtx)
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:newsess:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', sessionId: 'mismatch-sess' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(ensureDbSession).not.toHaveBeenCalled()
+    })
+
+    it('happy fresh-create path: R1/R2/R4/R5 all checked, response streams', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:ip:203.0.113.9', 20, 60, { failMode: 'memory' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:ip:day:203.0.113.9', 200, 86400, { failMode: 'memory' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:newsess:203.0.113.9', 10, 3600, { failMode: 'memory' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:org:org-1', 300, 60, { failMode: 'open' })
+      expect(res.status).toBe(200)
+      const lines = await readSseLines(res)
+      expect(lines[0]).toMatchObject({ event: 'session' })
+    })
   })
 
   describe('message cap + duration (CHT-03)', () => {
