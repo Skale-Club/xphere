@@ -34,6 +34,12 @@ vi.mock('@/lib/action-engine/execute-action', () => ({
   executeAction: vi.fn(),
 }))
 
+// Mock @/lib/rate-limit — route-behavior tests assert rate-limit ordering/args
+// without exercising the real Redis/memory implementation (see 131-RESEARCH.md
+// Pitfall 1/2).
+const { mockRateLimit } = vi.hoisted(() => ({ mockRateLimit: vi.fn() }))
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: mockRateLimit }))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getSession, setSession } from '@/lib/chat/session'
 import { ensureDbSession, persistMessage } from '@/lib/chat/persist'
@@ -47,10 +53,10 @@ const mockSupabase = {
   single: vi.fn(),
 }
 
-function makeRequest(body: object, token = 'valid-token') {
+function makeRequest(body: object, token = 'valid-token', ip = '203.0.113.9') {
   return new Request(`http://localhost/api/chat/${token}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip },
     body: JSON.stringify(body),
   })
 }
@@ -78,6 +84,7 @@ describe('POST /api/chat/[token]', () => {
     ;(setSession as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     ;(persistMessage as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     ;(executeAction as ReturnType<typeof vi.fn>).mockResolvedValue('Action completed')
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: 0 })
     // Default mockRunAgent: returns a simple SSE stream with session + token + done
     mockRunAgent.mockReturnValue(makeDefaultStream())
   })
@@ -228,6 +235,91 @@ describe('POST /api/chat/[token]', () => {
         params: Promise.resolve({ token: 'valid-token' }),
       })
       expect(res.headers.get('Cache-Control')).toBe('no-cache')
+    })
+  })
+
+  describe('rate limits (CHT-02)', () => {
+    beforeEach(() => {
+      mockSupabase.single.mockResolvedValue({ data: { id: 'org-1', name: 'Org', is_active: true }, error: null })
+    })
+
+    it('R1 denied: 429 rate_limited with CORS, org lookup never happens', async () => {
+      mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: 0 })
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+      expect(createServiceRoleClient).not.toHaveBeenCalled()
+    })
+
+    it('R1 args: chat:ip:{ip} 20/60s memory', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:ip:203.0.113.9', 20, 60, { failMode: 'memory' })
+    })
+
+    it('R2 denied: 429 rate_limited', async () => {
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:ip:day:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:ip:day:203.0.113.9', 200, 86400, { failMode: 'memory' })
+    })
+
+    it('R5 denied: 429 rate_limited, org lookup already happened', async () => {
+      mockRateLimit.mockImplementation(async (key: string) =>
+        key.startsWith('chat:org:')
+          ? { allowed: false, remaining: 0, resetAt: 0 }
+          : { allowed: true, remaining: 99, resetAt: 0 }
+      )
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(429)
+      expect(await res.json()).toEqual({ error: 'rate_limited' })
+      expect(createServiceRoleClient).toHaveBeenCalled()
+      expect(mockRateLimit).toHaveBeenCalledWith('chat:org:org-1', 300, 60, { failMode: 'open' })
+    })
+  })
+
+  describe('message cap + duration (CHT-03)', () => {
+    beforeEach(() => {
+      mockSupabase.single.mockResolvedValue({ data: { id: 'org-1', name: 'Org', is_active: true }, error: null })
+    })
+
+    it('rejects a 4001-char message with 400 "message too long"', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'x'.repeat(4001) }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'message too long' })
+    })
+
+    it('accepts a 4000-char message', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'x'.repeat(4000) }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+    })
+
+    it('exports maxDuration = 60', async () => {
+      const route = await import('@/app/api/chat/[token]/route')
+      expect(route.maxDuration).toBe(60)
     })
   })
 })
