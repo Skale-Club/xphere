@@ -14,9 +14,12 @@ import { ensureDbSession, persistMessage } from '@/lib/chat/persist'
 import { runAgent } from '@/lib/agent-runtime'
 import { createLogger } from '@/lib/obs/logger'
 import { isRequestAllowed, normalizeWidgetUrlMode, normalizeWidgetUrlRules } from '@/lib/widget/url-rules'
+import { rateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-ip'
 
 export const runtime = 'nodejs'
-export const maxDuration = 10
+// 60s for tool round-trips (Phases 132+). NOTE: on self-hosted Coolify this is platform build-output metadata only — no runtime enforcement (Next 16 docs); the effective ceiling is the Traefik proxy timeout. Zero behavioral change today, required for platform portability.
+export const maxDuration = 60
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,13 +32,18 @@ export async function OPTIONS() {
 }
 
 const ChatRequestSchema = z.object({
-  message: z.string().min(1, 'message is required'),
+  message: z.string().min(1, 'message is required').max(4000, 'message too long'),
   sessionId: z.string().optional(),
   // Full page URL, sent by the widget so URL rules can be enforced at path level
   // (browsers strip the path from cross-origin Referer). The host is still
   // verified against the unspoofable Origin header before the path is trusted.
   pageUrl: z.string().optional(),
 })
+
+// Plain JSON, never a stream — the widget shows non-200s as an error bubble.
+function rateLimited(): Response {
+  return Response.json({ error: 'rate_limited' }, { status: 429, headers: CORS_HEADERS })
+}
 
 export async function POST(
   request: Request,
@@ -47,6 +55,19 @@ export async function POST(
   try {
     // 1. Await params (required in Next.js 15 App Router)
     const { token } = await params
+
+    // Rate limits R1/R2 (contract §7) — per-IP, before ANY body parse or DB work.
+    const ip = getClientIp(request)
+    const r1 = await rateLimit(`chat:ip:${ip}`, 20, 60, { failMode: 'memory' })
+    if (!r1.allowed) {
+      log.warn('chat_rate_limited', { rule: 'R1', ip })
+      return rateLimited()
+    }
+    const r2 = await rateLimit(`chat:ip:day:${ip}`, 200, 86400, { failMode: 'memory' })
+    if (!r2.allowed) {
+      log.warn('chat_rate_limited', { rule: 'R2', ip })
+      return rateLimited()
+    }
 
     // 2. Parse + validate request body
     let rawBody: unknown
@@ -72,6 +93,13 @@ export async function POST(
 
     if (orgError || !org || !org.is_active) {
       return Response.json({ error: 'Invalid or inactive token' }, { status: 401, headers: CORS_HEADERS })
+    }
+
+    // R5 — org LLM budget (fail-open: Redis down must not take every org's chat down).
+    const r5 = await rateLimit(`chat:org:${org.id}`, 300, 60, { failMode: 'open' })
+    if (!r5.allowed) {
+      log.warn('chat_rate_limited', { rule: 'R5', ip, orgId: org.id })
+      return rateLimited()
     }
 
     // 3b. Enforce URL authorization rules server-side. This is the real security
