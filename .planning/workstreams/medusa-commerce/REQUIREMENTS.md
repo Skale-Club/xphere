@@ -12,7 +12,7 @@ Contract reference for every requirement: `.planning/research/INTEGRATION-CONTRA
 - [x] **CHT-01**: `rate-limit.ts` gains `failMode: 'open'|'memory'|'closed'` (memory = per-instance token-bucket fallback; closed = deny when Redis down); existing call sites unchanged
 - [x] **CHT-02**: Chat route enforces R1 20/min/IP (before org lookup), R2 200/day/IP, R3 10/min/session, R4 10 new sessions/hour/IP, R5 300/min/org — 429 on breach
 - [x] **CHT-03**: `message` capped at 4,000 chars; chat route `maxDuration = 60`
-- [ ] **CHT-04**: Legacy `custom_webhook` executor guarded by `assertPublicHttpUrl` (SSRF)
+- [x] **CHT-04**: Legacy `custom_webhook` executor guarded by `assertPublicHttpUrl` (SSRF)
 
 ### Medusa Provider & Read Tools (MED)
 

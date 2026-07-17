@@ -4,15 +4,15 @@ created: 2026-07-17
 gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
-status: ready
-last_updated: "2026-07-17T14:09:05.000Z"
-last_activity: 2026-07-17 -- Completed 131-03 (chat route R1-R5 matrix + message cap + maxDuration 60 + shared IP helper; CHT-02, CHT-03)
+status: in_progress
+last_updated: "2026-07-17T14:20:00.000Z"
+last_activity: 2026-07-17 -- Phase 131 COMPLETE (verifier passed 8/8); starting Phase 132
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 14
 ---
 
 # Project State — workstream medusa-commerce
@@ -22,16 +22,16 @@ progress:
 See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREMENTS.md.
 
 **Core value:** Commerce tools act with visitor-level authority only — pinned identity, hard caps, no id parameters in tool schemas.
-**Current focus:** Phase 131 — Chat Route Hardening
+**Current focus:** Phase 132 — Medusa Provider & Read Tools
 
 ## Current Position
 
-Phase: 131 of 137 (Chat Route Hardening)
-Plan: 2 of 3 complete in current phase (131-01, 131-03) — 131-02 (CHT-04 SSRF guard) executing in a separate worktree
-Status: In progress
-Last activity: 2026-07-17 — Completed 131-03-PLAN.md (chat route R1-R5 matrix + message cap + maxDuration 60 + shared getClientIp helper; CHT-02, CHT-03 satisfied)
+Phase: 132 of 137 (Medusa Provider & Read Tools) — Phase 131 ✅ complete (verifier passed 8/8, all 3 plans merged)
+Plan: 0 of TBD in current phase (research in progress)
+Status: Phase 131 done; planning Phase 132
+Last activity: 2026-07-17 — Phase 131 verified passed; CHT-01..04 all satisfied, 43 tests green, build green
 
-Progress: [▓▓▓▓▓▓▓░░░] 67%
+Progress: [▓░░░░░░░░░] 14% (1/7 phases)
 
 ## Performance Metrics
 

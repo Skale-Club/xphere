@@ -6,7 +6,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 
 ## Phases
 
-- [ ] **Phase 131: Chat Route Hardening** - Rate-limit matrix + message cap + failMode extension on the public chat endpoint (pre-existing gap, standalone value)
+- [x] **Phase 131: Chat Route Hardening** - Rate-limit matrix + message cap + failMode extension on the public chat endpoint (pre-existing gap, standalone value) ✅ 2026-07-17
 - [ ] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools
 - [ ] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding
 - [ ] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch
