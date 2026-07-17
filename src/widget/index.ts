@@ -454,6 +454,86 @@ const WIDGET_CSS = `
 .opps-send:hover:not(:disabled) { opacity: 0.92; }
 .opps-send:active:not(:disabled) { opacity: 0.84; }
 .opps-send:disabled { background: #d4d4d8; cursor: default; }
+
+/* Product cards (contract §6 ui/product_cards) */
+.opps-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px 0 4px;
+  margin-top: 4px;
+  align-self: stretch;
+  max-width: 100%;
+}
+.opps-card {
+  flex: 0 0 auto;
+  width: 148px;
+  background: ${T.panelBg};
+  border: 1px solid ${T.borderColor};
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.opps-card-img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+  background: ${T.inputFieldBg};
+}
+.opps-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: ${T.textPrimary};
+  padding: 8px 10px 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.opps-card-price {
+  font-size: 12px;
+  font-weight: 400;
+  color: ${T.textSecondary};
+  padding: 2px 10px 0;
+}
+.opps-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  margin-top: auto;
+}
+.opps-card-view {
+  font-size: 11px;
+  font-weight: 500;
+  color: ${T.textPrimary};
+  text-decoration: none;
+  border: 1px solid ${T.borderColor};
+  border-radius: 6px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+.opps-card-view:hover { background: rgba(0,0,0,0.04); }
+.opps-card-add {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--opps-primary-color);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 150ms ease;
+}
+.opps-card-add:hover { opacity: 0.92; }
+.opps-card-add:active { opacity: 0.84; }
 `
 
 // --- SVG icon constants ---
@@ -578,6 +658,8 @@ interface SSEEvent {
   cartId?: string
   itemCount?: number
   sig?: string
+  component?: string
+  items?: unknown[]
 }
 
 // --- SSE stream consumer (D-10, D-11, Pattern 4) ---
@@ -804,6 +886,61 @@ function buildPanel(
     msgList.scrollTop = msgList.scrollHeight
   }
 
+  // Renders the contract §6 ui/product_cards payload — createElement +
+  // textContent + img.src + anchor ONLY, NEVER innerHTML (XSS surface on
+  // host stores; product titles/prices are untrusted store data). "Add to
+  // cart" routes through the existing agent send path (submitMessage), never
+  // a direct store/API call.
+  function renderCards(items: unknown[]): void {
+    const list = items.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
+    if (!list.length) return
+    const container = document.createElement('div')
+    container.className = 'opps-cards'
+    for (const it of list) {
+      const card = document.createElement('div')
+      card.className = 'opps-card'
+      if (typeof it.thumbnail === 'string' && it.thumbnail) {
+        const img = document.createElement('img')
+        img.className = 'opps-card-img'
+        img.src = it.thumbnail // attribute assignment, not markup
+        img.alt = ''
+        card.appendChild(img)
+      }
+      const title = document.createElement('div')
+      title.className = 'opps-card-title'
+      title.textContent = String(it.title ?? '') // textContent, never innerHTML
+      card.appendChild(title)
+      if (typeof it.price === 'string' && it.price) {
+        const price = document.createElement('div')
+        price.className = 'opps-card-price'
+        price.textContent = it.price
+        card.appendChild(price)
+      }
+      const actions = document.createElement('div')
+      actions.className = 'opps-card-actions'
+      if (typeof it.url === 'string' && it.url) {
+        const view = document.createElement('a')
+        view.className = 'opps-card-view'
+        view.href = it.url
+        view.target = '_top'
+        view.rel = 'noopener'
+        view.textContent = 'View'
+        actions.appendChild(view)
+      }
+      const t = String(it.title ?? '')
+      const add = document.createElement('button')
+      add.className = 'opps-card-add'
+      add.type = 'button'
+      add.textContent = 'Add to cart'
+      add.addEventListener('click', () => { void submitMessage(`Add "${t}" to my cart`) }) // existing agent path, never a direct API call
+      actions.appendChild(add)
+      card.appendChild(actions)
+      container.appendChild(card)
+    }
+    msgList.appendChild(container)
+    msgList.scrollTop = msgList.scrollHeight
+  }
+
   function showTyping(): HTMLDivElement {
     const typing = document.createElement('div')
     typing.className = 'opps-typing'
@@ -836,6 +973,7 @@ function buildPanel(
     const typing = showTyping()
 
     let tokenBuffer = ''
+    let pendingCards: unknown[] = []
     const commerceContext = await ensureContext()
 
     await sendMessage({
@@ -864,10 +1002,14 @@ function buildPanel(
             cachedToken = null
             cachedExp = 0
           }
+        } else if (evt.event === 'ui' && evt.component === 'product_cards' && Array.isArray(evt.items)) {
+          // Buffer only — never render mid-stream. Flushed after 'done' below.
+          pendingCards = evt.items.slice(0, 5)
         } else if (evt.event === 'done') {
           typing.remove()
           if (tokenBuffer) appendMessage(tokenBuffer, 'assistant')
           tokenBuffer = ''
+          if (pendingCards.length) { renderCards(pendingCards); pendingCards = [] }
           isStreaming = false
           setInputEnabled(true)
           input.focus()
@@ -890,6 +1032,7 @@ function buildPanel(
     if (isStreaming) {
       typing.remove()
       if (tokenBuffer) appendMessage(tokenBuffer, 'assistant')
+      if (pendingCards.length) { renderCards(pendingCards); pendingCards = [] }
       isStreaming = false
       setInputEnabled(true)
     }
