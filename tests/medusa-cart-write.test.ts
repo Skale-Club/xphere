@@ -472,5 +472,171 @@ describe('addToCartMedusa', () => {
   })
 })
 
-// Task 3 (medusa_update_cart_item) suite is appended below in its own commit,
-// per the phase plan's task ordering.
+// =============================================================================
+// Task 3: medusa_update_cart_item
+// =============================================================================
+
+describe('updateCartItemMedusa', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 9, resetAt: 0 })
+  })
+
+  it('no pinned cart -> friendly "no cart connected" string, no store call', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: {} } })
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'Sweatshirt', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(result.toLowerCase()).toContain('no cart')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('update fuzzy: matches by title substring, clamps quantity 50 -> 10', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch
+      .mockResolvedValueOnce({
+        cart: { id: 'cart_1', items: [{ id: 'li_1', title: 'Blue Sweatshirt', quantity: 1, variant: { title: 'M' } }] },
+      })
+      .mockResolvedValueOnce({
+        cart: {
+          id: 'cart_1',
+          currency_code: 'eur',
+          total: 350,
+          items: [{ id: 'li_1', title: 'Blue Sweatshirt', quantity: 10 }],
+        },
+      })
+    const emit = vi.fn()
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 50 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+      emitStructured: emit,
+    })
+
+    expect(result).toContain('€350.00')
+    const [, path, , init] = mockMedusaStoreFetch.mock.calls[1] as [unknown, string, unknown, RequestInit]
+    expect(path).toContain('/store/carts/cart_1/line-items/li_1')
+    expect(JSON.parse(init.body as string).quantity).toBe(10)
+    expect(emit).toHaveBeenCalledWith({ event: 'commerce', action: 'cart_updated', cartId: 'cart_1', itemCount: 1 })
+  })
+
+  it('delete on zero: DELETEs the line and reads itemCount from response.parent.items (NOT .cart)', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch
+      .mockResolvedValueOnce({
+        cart: { id: 'cart_1', items: [{ id: 'li_1', title: 'Blue Sweatshirt', quantity: 1, variant: { title: 'M' } }] },
+      })
+      .mockResolvedValueOnce({
+        deleted: true,
+        parent: { id: 'cart_1', currency_code: 'eur', total: 0, items: [] },
+      })
+    const emit = vi.fn()
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 0 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+      emitStructured: emit,
+    })
+
+    expect(result).toBeTruthy()
+    const [, path, , init] = mockMedusaStoreFetch.mock.calls[1] as [unknown, string, unknown, RequestInit]
+    expect(path).toBe('/store/carts/cart_1/line-items/li_1')
+    expect(init.method).toBe('DELETE')
+    expect(emit).toHaveBeenCalledWith({ event: 'commerce', action: 'cart_updated', cartId: 'cart_1', itemCount: 0 })
+  })
+
+  it('no match -> friendly string, no write call', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: { id: 'cart_1', items: [{ id: 'li_1', title: 'Blue Sweatshirt', quantity: 1 }] },
+    })
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'tote bag', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(result.toLowerCase()).toContain("couldn't find")
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(1) // only the GET, no write
+  })
+
+  it('multiple matches -> disambiguation string, no write call', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: {
+        id: 'cart_1',
+        items: [
+          { id: 'li_1', title: 'Blue Sweatshirt', quantity: 1 },
+          { id: 'li_2', title: 'Grey Sweatshirt', quantity: 1 },
+        ],
+      },
+    })
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(result).toMatch(/which one/i)
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('R7/R8 fail-closed enforced identically to add-to-cart', async () => {
+    mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: 0 })
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('per-conversation 25 cap: denies and issues NO store write', async () => {
+    const { supabase } = buildSupabase({
+      session_key: 'sess_1',
+      memory: { commerce: { cart: 'cart_1', write_count: 25 } },
+    })
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    const result = await updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('never throws — a store error resolves to a friendly string', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockRejectedValueOnce(new Error('boom'))
+    const { updateCartItemMedusa } = await import('@/lib/medusa/actions/update-cart-item')
+
+    await expect(
+      updateCartItemMedusa({ item_title_or_variant: 'sweatshirt', quantity: 1 }, CREDS, {
+        organizationId: 'org-1',
+        supabase,
+        conversationId: 'conv-1',
+      }),
+    ).resolves.toEqual(expect.any(String))
+  })
+})
