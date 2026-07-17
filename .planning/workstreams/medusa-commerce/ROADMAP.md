@@ -91,7 +91,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 135-01-PLAN.md — medusaAgentFetch signed transport + signAgentBody (byte-agreement vector) + 3 wishlist executors (owner from pinned cus/wishlist_ref, R6/R7/R8, never-throw) (WSL-01, WSL-02) [wave 1]
+- [x] 135-01-PLAN.md — medusaAgentFetch signed transport + signAgentBody (byte-agreement vector) + 3 wishlist executors (owner from pinned cus/wishlist_ref, R6/R7/R8, never-throw) (WSL-01, WSL-02) [wave 1] ✅ 2026-07-17
 - [ ] 135-02-PLAN.md — wiring: execute-action real dispatch + ACTION_DESCRIPTIONS + spec NODES (no owner params) + SIDE_EFFECTING_ACTIONS (WSL-01, WSL-02) [wave 2]
 
 ### Phase 136: Commerce Events Ingestion
