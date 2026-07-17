@@ -5,13 +5,13 @@ gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
 status: in_progress
-last_updated: "2026-07-17T18:11:55.000Z"
-last_activity: 2026-07-17 -- 134-01 landed (cart-sig sign helper + cross-repo vector, pinCartId cart-only re-pin, bumpConversationWriteCount 25-per-conversation cap, checkCommerceWritesPerTurn, SIDE_EFFECTING_ACTIONS/COMMERCE_WRITE_ACTIONS, MedusaExecCtx.emitStructured, both cart-write executors — wave 1 of Phase 134); tests/medusa-cart-write.test.ts 31/31 green, tests/agent-delegation.test.ts baseline-repaired; npm run build green
+last_updated: "2026-07-17T18:29:00.000Z"
+last_activity: 2026-07-17 -- 134-02 landed (execute-action.ts real dispatch of medusa_add_to_cart/medusa_update_cart_item, ActionContext.emitStructured, run-agent.ts streaming emitStructured:emit + per-turn commerce-write cap in both tool loops + ACTION_DESCRIPTIONS, workflows/spec.ts NODES for both write tools — wave 2 of Phase 134); tests/medusa-dispatch.test.ts + medusa-wiring.test.ts + medusa-spec.test.ts 27/27 green (108/108 across the full medusa+delegation test set); npm run build green
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
   percent: 43
 ---
 
@@ -22,21 +22,21 @@ progress:
 See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREMENTS.md.
 
 **Core value:** Commerce tools act with visitor-level authority only — pinned identity, hard caps, no id parameters in tool schemas.
-**Current focus:** Phase 134 — Cart Write Tools — IN PROGRESS (1 of 3 plans landed). Next: 134-02 (execute-action + run-agent wiring), depends on 134-01.
+**Current focus:** Phase 134 — Cart Write Tools — IN PROGRESS (2 of 3 plans landed). Next: 134-03 (widget commerce SSE re-dispatch), depends on 134-02.
 
 ## Current Position
 
-Phase: 134 of 137 (Cart Write Tools) — in progress, 1 of 3 plans landed
-Plan: 1 of 3 in Phase 134 — 134-01 (cart-sig signer + primitives + both cart-write executors) done; 134-02 (execute-action/run-agent wiring), 134-03 (widget commerce re-dispatch) remain
-Status: CRT-01, CRT-02, CRT-03, CRT-04 satisfied at the primitive/executor level (Wave 1) — signCartSig byte-matches stuscle's verifyCartSig (both cross-repo vectors locked), medusa_add_to_cart/medusa_update_cart_item are fully built and unit-tested but NOT yet reachable from the agent. Wave 2 must wire execute-action.ts's real dispatch + thread ActionContext.emitStructured from run-agent.ts + register both tools in ACTION_DESCRIPTIONS/spec.ts NODES before the tools go live.
-Last activity: 2026-07-17 — 134-01 landed: Task 1 added src/lib/medusa/cart-sig.ts (signCartSig, Web Crypto HMAC-SHA256 hex, ['sign'] key usage — the sign counterpart to context.ts's ['verify']-only hmacKey), context.ts's pinCartId (cart-only re-pin merge, no verified_at stamp) + bumpConversationWriteCount (25-per-conversation durable cap in memory.commerce.write_count), client.ts's MedusaExecCtx.emitStructured, idempotency.ts's SIDE_EFFECTING_ACTIONS+COMMERCE_WRITE_ACTIONS additions, and guardrails.ts's checkCommerceWritesPerTurn. Task 2 added add-to-cart.ts (addToCartMedusa): ordered no-cart bootstrap (create -> sign -> metadata POST awaited 2xx -> pinCartId -> emit cart_created -> add line item -> emit cart_updated, proven via vitest invocationCallOrder), qty clamp 1-10, <=50-item rollback, R7/R8 fail-closed, product_id->variant resolution. Task 3 added update-cart-item.ts (updateCartItemMedusa): fuzzy title/variant line match within the pinned cart only, qty-0 DELETE reading the response's .parent (not .cart, Pitfall 3 — fixed mid-task to make the '.parent' substring textually explicit rather than hidden behind a `{ parent }` destructure), clamp otherwise, same R7/R8+25-cap preamble. tests/medusa-cart-write.test.ts (new, 31 tests, includes the two committed cross-repo sig vectors) and tests/agent-delegation.test.ts (baseline-repaired SIDE_EFFECTING_ACTIONS assertion, 4->6 documented types) both green; npm run build (typecheck) green with zero errors on first attempt.
+Phase: 134 of 137 (Cart Write Tools) — in progress, 2 of 3 plans landed
+Plan: 2 of 3 in Phase 134 — 134-01 (cart-sig signer + primitives + both cart-write executors) and 134-02 (execute-action/run-agent wiring) done; 134-03 (widget commerce re-dispatch) remains
+Status: CRT-01, CRT-02, CRT-03 satisfied end-to-end at the agent-pipeline level (Wave 2) — medusa_add_to_cart/medusa_update_cart_item now dispatch through execute-action.ts to the Wave 1 executors, the streaming run-agent path threads emitStructured:emit through ActionContext, both tool loops enforce the 3-write-per-turn cap before executeAction, and both tools are LLM-selectable via ACTION_DESCRIPTIONS + workflows/spec.ts NODES. CRT-04 (widget re-dispatch of the commerce SSE events as a window CustomEvent) is the only remaining piece, owned by 134-03 (Wave 3).
+Last activity: 2026-07-17 — 134-02 landed: Task 1 added addToCartMedusa/updateCartItemMedusa imports + a real dispatch block in execute-action.ts's switch (replacing the "not available yet" stub for just these 2 cases; wishlist add/remove/list + get_order_status remain stubbed) and ActionContext.emitStructured?: (obj) => void, documented as streaming-only. Task 2 added COMMERCE_WRITE_ACTIONS/checkCommerceWritesPerTurn imports to run-agent.ts, a commerceWrites counter + per-turn cap check (placed after the idempotency cache-hit short-circuit, before executeAction) in BOTH the blocking and streaming tool loops, emitStructured: emit on the streaming ActionContext object literal only (blocking site untouched), and 2 new ACTION_DESCRIPTIONS entries. Task 3 added medusa_add_to_cart + medusa_update_cart_item NodeSpec entries to workflows/spec.ts (integration_required: ['medusa'], id-free params_schema). tests/medusa-dispatch.test.ts, tests/medusa-wiring.test.ts, and tests/medusa-spec.test.ts were extended with dispatch/source-assertion/NODES coverage for the new wiring — 108/108 green across the full medusa + agent-delegation test set; npm run build (typecheck) green with zero errors on first attempt; zero deviations from plan.
 
 Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (of 13 total across the workstream so far)
+- Total plans completed: 11 (of 13 total across the workstream so far)
 
 **By Phase:**
 
@@ -45,7 +45,7 @@ Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 | 131 | 2 | 24min | 12min |
 | 132 | 4 | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
 | 133 | 3/3 landed | ~48min (133-01: 20min, 133-02: 15min, 133-03: 13min) | ~16min |
-| 134 | 1/3 landed | ~20min (134-01) | ~20min |
+| 134 | 2/3 landed | ~32min (134-01: ~20min, 134-02: ~12min) | ~16min |
 
 ## Accumulated Context
 
@@ -77,6 +77,9 @@ Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 - 134-01: the 25-per-conversation write cap lives in `memory.commerce.write_count` (`bumpConversationWriteCount`), not Redis — durable across turns/invocations, resolving 134-RESEARCH.md's Open Q1 in favor of the DB-counter option (R7/R8's time-windowed budgets remain Redis-backed and fail-closed).
 - 134-01: `add-to-cart`'s no-cart bootstrap sequence (create -> sign -> metadata POST awaited 2xx -> `pinCartId` -> emit `cart_created` -> add line item -> emit `cart_updated`) is proven strictly ordered via vitest `invocationCallOrder` assertions across the mocked `medusaStoreFetch` and `emitStructured` spy — not just code-reading — protecting the load-bearing ordering invariant (134-RESEARCH.md Pitfall 2) against future refactors.
 - 134-01: `update-cart-item.ts`'s DELETE branch intentionally avoids destructuring the response as `{ parent }`; it names the whole response `deleteResponse` and reads `deleteResponse.parent.items` / `deleteResponse.parent` explicitly, so the `.parent`-vs-`.cart` distinction (Pitfall 3) stays textually visible in the source for future readers (and the plan's `grep -n "\.parent"` acceptance check).
+- 134-02: `ActionContext` (execute-action.ts's caller-facing type) is passed straight through to the medusa write executors as `MedusaExecCtx` with no adapter or cast — its required-field shape is a structural superset, and the streaming closure `emit: (obj: object) => void` is directly assignable to `emitStructured?: (obj: Record<string, unknown>) => void` by TS's contravariant function-parameter checking (`Record<string, unknown>` is a subtype of `object`).
+- 134-02: `emitStructured: emit` is set on the streaming `executeAction` context object literal ONLY — the blocking call site's context object has no `emitStructured` field at all (not even `undefined`), keeping Wave 1's "executors null-check `ctx.emitStructured?.()`" contract literally true, not just conventionally true. Verified by a source-assertion test that counts exactly one `emitStructured: emit` occurrence across the whole file.
+- 134-02: the per-turn commerce-write cap (`checkCommerceWritesPerTurn`) is checked inside each tool's `execute()` closure, gated by `COMMERCE_WRITE_ACTIONS.has(capturedActionType)`, placed AFTER the idempotency cache-hit early-return and BEFORE `executeAction` — a cached-response replay never increments `commerceWrites`; only a genuine dispatch attempt does. A breach returns a denial string (never throws) and logs `denied_reason: 'commerce_turn_cap'` in `toolCallsLog`, matching every other denial path in the loop.
 
 ### Blockers
 
@@ -90,5 +93,5 @@ Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 - Xkedule integration (`src/lib/xkedule/*`, migration 1200) is the template for the Medusa provider.
 
 ## Session Continuity
-**Stopped At:** Completed 134-01-PLAN.md (cart-sig sign helper + cross-repo vector, pinCartId, bumpConversationWriteCount, checkCommerceWritesPerTurn, SIDE_EFFECTING_ACTIONS/COMMERCE_WRITE_ACTIONS, MedusaExecCtx.emitStructured, medusa_add_to_cart + medusa_update_cart_item executors — Wave 1 of Phase 134). CRT-01..04 are satisfied at the primitive/executor level; the tools are not yet wired into the agent.
-**Resume File:** None — next up is executing 134-02-PLAN.md (execute-action real dispatch + ActionContext.emitStructured + run-agent emitStructured:emit streaming wiring + per-turn cap in both tool loops + ACTION_DESCRIPTIONS/spec.ts NODES registration), which depends on 134-01 (this plan, now landed). No blockers. Real cross-repo same-origin context-fetch verification (133-03's deferred Task 3) remains outstanding separately for whenever xphere + stuscle run together (contract §9 dev-wiring).
+**Stopped At:** Completed 134-02-PLAN.md (execute-action.ts real dispatch of both cart-write tools + ActionContext.emitStructured, run-agent.ts streaming emitStructured:emit + per-turn commerce-write cap in both tool loops + ACTION_DESCRIPTIONS, workflows/spec.ts NODES for both write tools — Wave 2 of Phase 134). CRT-01, CRT-02, CRT-03 are now satisfied end-to-end (agent-selectable, dispatched, capped, and emitting SSE on the streaming path); only CRT-04 (widget re-dispatch) remains.
+**Resume File:** None — next up is executing 134-03-PLAN.md (widget commerce SSE re-dispatch as `CustomEvent('xphere:commerce')` + `build:widget` commit + `widget-test.html` checklist, CRT-04), which depends on 134-02 (this plan, now landed) since it needs a real, reachable `emitStructured` emit path to consume. No blockers. Real cross-repo same-origin context-fetch verification (133-03's deferred Task 3) remains outstanding separately for whenever xphere + stuscle run together (contract §9 dev-wiring).
