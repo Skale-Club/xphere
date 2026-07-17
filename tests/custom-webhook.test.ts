@@ -1,4 +1,5 @@
-import { describe, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { executeWebhook } from '@/lib/custom-webhook/execute-webhook'
 
 describe('WEBHOOK-01: fireWebhook makes HTTP request to config.url', () => {
   it.todo('calls fetch with the URL from config.url field')
@@ -28,4 +29,59 @@ describe('WEBHOOK-04: fireWebhook returns single-line status + truncated body', 
 describe('WEBHOOK-05: fireWebhook times out after 10 seconds', () => {
   it.todo('throws "custom_webhook timed out after 10 seconds (url: {url})" when fetch is aborted')
   it.todo('does NOT swallow generic fetch errors — non-AbortError rethrown as-is')
+})
+
+describe('WEBHOOK-06: SSRF guard (CHT-04)', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('blocks cloud metadata address (169.254.169.254) without calling fetch', async () => {
+    const result = await executeWebhook({}, { url: 'http://169.254.169.254/latest/meta-data' })
+    expect(result).toMatch(/^Webhook blocked: /)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks loopback address (127.0.0.1) without calling fetch', async () => {
+    const result = await executeWebhook({}, { url: 'http://127.0.0.1/x' })
+    expect(result).toMatch(/^Webhook blocked: /)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks private RFC1918 address (10.0.0.1) without calling fetch', async () => {
+    const result = await executeWebhook({}, { url: 'http://10.0.0.1/x' })
+    expect(result).toMatch(/^Webhook blocked: /)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks localhost hostname without calling fetch', async () => {
+    const result = await executeWebhook({}, { url: 'http://localhost/x' })
+    expect(result).toMatch(/^Webhook blocked: /)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks non-http(s) scheme (ftp://) without calling fetch', async () => {
+    const result = await executeWebhook({}, { url: 'ftp://example.com/x' })
+    expect(result).toMatch(/^Webhook blocked: /)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('blocked result string contains no newline characters', async () => {
+    const result = await executeWebhook({}, { url: 'http://127.0.0.1/x' })
+    expect(result).not.toContain('\n')
+  })
+
+  it('allows a public IP URL and proceeds to fetch', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('ok', { status: 200 }))
+    const result = await executeWebhook({}, { url: 'http://8.8.8.8/hook' })
+    expect(result).toBe('Webhook 200: ok')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })
