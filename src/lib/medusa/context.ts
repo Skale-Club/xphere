@@ -17,6 +17,9 @@
 // Crypto globals only).
 
 import { z } from 'zod'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { loadPinnedContext } from './pinned-context'
+import type { MedusaExecCtx } from './client'
 
 const encoder = new TextEncoder()
 
@@ -83,4 +86,61 @@ export async function verifyCommerceContext(
   } catch {
     return null
   }
+}
+
+/**
+ * Merge verified claims into conversations.memory.commerce under the
+ * VERBATIM contract §3 claim names — `cart` (matches the shipped
+ * actions/get-cart.ts reader `commerce.cart`) and `cus` (the raw claim
+ * name, not a longer synonym). Read-merge-write so other `memory` keys
+ * survive; both the read and the update are scoped by conversation id +
+ * org_id. Returns
+ * `{ repinnedFrom }` when a different cart was previously pinned — a fresh
+ * VERIFIED token is the sole authority for re-pinning (never message text or
+ * model output).
+ */
+export async function writeCommerceContext(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  conversationId: string,
+  orgId: string,
+  claims: CommerceClaims,
+): Promise<{ repinnedFrom?: string } | null> {
+  const { data: row } = await supabase
+    .from('conversations')
+    .select('memory')
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  const memory = (row?.memory as Record<string, unknown> | null) ?? {}
+  const prev = (memory.commerce as Record<string, unknown> | undefined) ?? {}
+
+  const commerce = {
+    cart: claims.cart, // key actions/get-cart.ts reads (commerce.cart) — keep this exact key.
+    cus: claims.cus, // verbatim claim name — future readers (Ph135/137) read commerce.cus.
+    email: claims.email,
+    wishlist_ref: claims.wishlist_ref,
+    country_code: claims.country_code,
+    region_id: claims.region_id,
+    verified_at: new Date().toISOString(),
+  }
+
+  await supabase
+    .from('conversations')
+    .update({ memory: { ...memory, commerce } })
+    .eq('id', conversationId)
+    .eq('org_id', orgId)
+
+  const oldCart = typeof prev.cart === 'string' ? prev.cart : undefined
+  return oldCart && oldCart !== claims.cart ? { repinnedFrom: oldCart } : null
+}
+
+/**
+ * Thin wrapper around Phase 132's shipped loadPinnedContext — the canonical
+ * reader for the pinned commerce context. Does NOT fork a second, divergent
+ * query shape (see 133-RESEARCH.md Open Q3): it delegates entirely.
+ */
+export async function readCommerceContext(ctx: MedusaExecCtx): Promise<Record<string, unknown>> {
+  const { commerce } = await loadPinnedContext(ctx)
+  return commerce
 }
