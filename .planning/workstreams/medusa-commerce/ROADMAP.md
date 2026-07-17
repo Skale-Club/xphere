@@ -11,7 +11,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 - [x] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding ✅ 2026-07-17
 - [x] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch ✅ 2026-07-17
 - [x] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface ✅ 2026-07-17
-- [ ] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch
+- [x] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch (completed 2026-07-17)
 - [ ] **Phase 137: Product Cards & Order Status** - `ui`/`product_cards` SSE + widget renderer, order-status tool (logged-in only), CRM contact linking
 
 ## Phase Details
@@ -107,7 +107,7 @@ Plans:
 Plans:
 - [x] 136-01-PLAN.md — commerce:events scope + migration 1260 (UNIQUE + RLS) + database.ts types + commerceEventSchema (MAJOR units) + insertCommerceReceipt (23505 dedupe) (EVI-01, EVI-02) [wave 1]
 - [x] 136-02-PLAN.md — emitCommerceEvent (contact find-or-create, `cart`-key conversation annotation, type→commerce.<type> workflow dispatch + event_dispatches audit) + spec.ts TRIGGERS (EVI-03) [wave 1]
-- [ ] 136-03-PLAN.md — POST /api/v1/commerce/events route (clone leads: 64KB cap / verifyApiKey commerce:events / R12 / zod / Idempotency===event_id / dedupe → 201/200-dup/401/403/422) (EVI-01, EVI-02) [wave 2]
+- [x] 136-03-PLAN.md — POST /api/v1/commerce/events route (clone leads: 64KB cap / verifyApiKey commerce:events / R12 / zod / Idempotency===event_id / dedupe → 201/200-dup/401/403/422) (EVI-01, EVI-02) [wave 2]
 
 ### Phase 137: Product Cards & Order Status
 **Goal**: Product answers render as rich cards in the widget, and logged-in shoppers get order status; webchat conversations link to CRM contacts.

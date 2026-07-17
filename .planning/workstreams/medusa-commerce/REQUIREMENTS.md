@@ -41,9 +41,9 @@ Contract reference for every requirement: `.planning/research/INTEGRATION-CONTRA
 
 ### Events Ingestion (EVI)
 
-- [ ] **EVI-01**: `commerce:events` scope + `POST /api/v1/commerce/events` per contract §5 (64KB, Bearer, Idempotency-Key === event_id, zod; 201/200/401/403/422)
-- [ ] **EVI-02**: `commerce_event_receipts` migration (UNIQUE(org_id, event_id), RLS); duplicates → 200 no re-dispatch
-- [ ] **EVI-03**: `emitCommerceEvent` — contact find-or-create by email, conversation annotation via cart_id match, workflow dispatch `commerce.order.placed`/`commerce.customer.created` + `event_dispatches` audit + spec.ts TRIGGERS
+- [x] **EVI-01**: `commerce:events` scope + `POST /api/v1/commerce/events` per contract §5 (64KB, Bearer, Idempotency-Key === event_id, zod; 201/200/401/403/422)
+- [x] **EVI-02**: `commerce_event_receipts` migration (UNIQUE(org_id, event_id), RLS); duplicates → 200 no re-dispatch
+- [x] **EVI-03**: `emitCommerceEvent` — contact find-or-create by email, conversation annotation via cart_id match, workflow dispatch `commerce.order.placed`/`commerce.customer.created` + `event_dispatches` audit + spec.ts TRIGGERS
 
 ### Cards & Orders (UIX)
 
