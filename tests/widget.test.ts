@@ -281,3 +281,154 @@ describe('Widget — runtime config hydration and fallback (ADMIN-01)', () => {
     })
   })
 })
+
+describe('Widget — product cards renderer (UIX-01)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    clearLocalStorage()
+    fetchMock.mockReset()
+    document.getElementById('opps-root')?.remove()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.getElementById('opps-root')?.remove()
+  })
+
+  // Builds a Response whose body is a newline-delimited-JSON stream, mirroring
+  // the real chat route's SSE-style NDJSON framing consumed by consumeStream().
+  function ndjsonResponse(events: Record<string, unknown>[], status = 200): Response {
+    const text = events.map((e) => JSON.stringify(e)).join('\n') + '\n'
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(text))
+        controller.close()
+      },
+    })
+    return new Response(stream, { status, headers: { 'Content-Type': 'application/x-ndjson' } })
+  }
+
+  async function loadAndOpen(token: string): Promise<{
+    shadow: ShadowRoot
+    input: HTMLInputElement
+    sendBtn: HTMLButtonElement
+  }> {
+    fetchMock.mockResolvedValueOnce(jsonResponse(DEFAULT_WIDGET_CONFIG))
+    loadWidget(token, 'https://example.com/widget.js')
+    await flushAsyncWork()
+    const shadow = getShadowRoot()
+    const bubble = shadow.querySelector('.opps-bubble') as HTMLButtonElement
+    bubble.click()
+    const input = shadow.querySelector('.opps-input') as HTMLInputElement
+    const sendBtn = shadow.querySelector('.opps-send') as HTMLButtonElement
+    return { shadow, input, sendBtn }
+  }
+
+  function sendText(input: HTMLInputElement, sendBtn: HTMLButtonElement, text: string): void {
+    input.value = text
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    sendBtn.click()
+  }
+
+  it('renders a .opps-cards block with one card (title/price via textContent, View anchor, Add button) after ui + done', async () => {
+    const { shadow, input, sendBtn } = await loadAndOpen('cards-token')
+
+    fetchMock.mockResolvedValueOnce(
+      ndjsonResponse([
+        { event: 'session', sessionId: 's1' },
+        { event: 'token', text: 'Here you go' },
+        {
+          event: 'ui',
+          component: 'product_cards',
+          items: [
+            {
+              id: 'p1',
+              variantId: 'v1',
+              title: 'Sweatshirt',
+              thumbnail: 'https://img/1.png',
+              price: '€35.00',
+              handle: 'sweatshirt',
+              url: '/dk/products/sweatshirt',
+            },
+          ],
+        },
+        { event: 'done' },
+      ])
+    )
+    sendText(input, sendBtn, 'Show me a sweatshirt')
+    await flushAsyncWork()
+
+    const cardsContainer = shadow.querySelector('.opps-cards')
+    expect(cardsContainer).not.toBeNull()
+    const cards = shadow.querySelectorAll('.opps-card')
+    expect(cards.length).toBe(1)
+
+    expect(shadow.querySelector('.opps-card-title')?.textContent).toBe('Sweatshirt')
+    expect(shadow.querySelector('.opps-card-price')?.textContent).toBe('€35.00')
+
+    const view = shadow.querySelector('.opps-card-view') as HTMLAnchorElement
+    expect(view).not.toBeNull()
+    expect(view.getAttribute('href')).toBe('/dk/products/sweatshirt')
+    expect(view.getAttribute('target')).toBe('_top')
+    expect(view.getAttribute('rel')).toBe('noopener')
+
+    const addBtn = shadow.querySelector('.opps-card-add') as HTMLButtonElement
+    expect(addBtn).not.toBeNull()
+
+    fetchMock.mockResolvedValueOnce(ndjsonResponse([{ event: 'done' }]))
+    addBtn.click()
+    await flushAsyncWork()
+
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [string, RequestInit]
+    expect(lastCall[0]).toBe('https://example.com/api/chat/cards-token')
+    const sentBody = JSON.parse(String(lastCall[1].body)) as { message: string }
+    expect(sentBody.message).toContain('Add "Sweatshirt" to my cart')
+  })
+
+  it('renders a card with no url without a View anchor (graceful)', async () => {
+    const { shadow, input, sendBtn } = await loadAndOpen('nourl-token')
+
+    fetchMock.mockResolvedValueOnce(
+      ndjsonResponse([
+        {
+          event: 'ui',
+          component: 'product_cards',
+          items: [
+            { id: 'p2', variantId: 'v2', title: 'No URL Item', thumbnail: 'https://img/2.png', price: '€10.00', handle: 'no-url' },
+          ],
+        },
+        { event: 'done' },
+      ])
+    )
+    sendText(input, sendBtn, 'Show me something')
+    await flushAsyncWork()
+
+    expect(shadow.querySelector('.opps-cards')).not.toBeNull()
+    expect(shadow.querySelector('.opps-card-view')).toBeNull()
+  })
+
+  it('ignores unknown ui component types -- no .opps-cards rendered, no error thrown (old-bundle degradation)', async () => {
+    const { shadow, input, sendBtn } = await loadAndOpen('unknown-token')
+
+    fetchMock.mockResolvedValueOnce(
+      ndjsonResponse([
+        { event: 'ui', component: 'something_else', items: [{ id: 'x' }] },
+        { event: 'done' },
+      ])
+    )
+    expect(() => sendText(input, sendBtn, 'Hello')).not.toThrow()
+    await flushAsyncWork()
+
+    expect(shadow.querySelector('.opps-cards')).toBeNull()
+  })
+})
+
+describe('Widget — product-cards bundle assertion (UIX-01)', () => {
+  it('the built public/widget.js contains the opps-cards renderer', () => {
+    const WIDGET_PATH = resolve(process.cwd(), 'public', 'widget.js')
+    if (!existsSync(WIDGET_PATH)) throw new Error('public/widget.js not found — run npm run build:widget first')
+    const code = readFileSync(WIDGET_PATH, 'utf-8')
+    expect(code).toContain('opps-cards')
+  })
+})
