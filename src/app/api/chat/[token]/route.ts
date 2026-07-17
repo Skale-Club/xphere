@@ -83,6 +83,26 @@ export async function POST(
     }
     const { message, sessionId: incomingSessionId, pageUrl } = parsed.data
 
+    // R3/R4 (contract §7). getSession needs only the sessionId (org-independent
+    // Redis read) so session limits run before the org DB lookup.
+    // R4 gates ANY path that will create a session — including a bogus/expired
+    // incoming sessionId (Redis miss), which would otherwise bypass R4 entirely
+    // by minting a new session + chat_sessions row per request.
+    const existingSession = incomingSessionId ? await getSession(incomingSessionId) : null
+    if (incomingSessionId && existingSession) {
+      const r3 = await rateLimit(`chat:sess:${incomingSessionId}`, 10, 60, { failMode: 'memory' })
+      if (!r3.allowed) {
+        log.warn('chat_rate_limited', { rule: 'R3', ip, sessionId: incomingSessionId })
+        return rateLimited()
+      }
+    } else {
+      const r4 = await rateLimit(`chat:newsess:${ip}`, 10, 3600, { failMode: 'memory' })
+      if (!r4.allowed) {
+        log.warn('chat_rate_limited', { rule: 'R4', ip })
+        return rateLimited()
+      }
+    }
+
     // 3. Resolve org by widget token
     const supabase = createServiceRoleClient()
     const { data: org, error: orgError } = await supabase
@@ -118,41 +138,44 @@ export async function POST(
       return Response.json({ error: 'not_authorized_for_origin' }, { status: 403, headers: CORS_HEADERS })
     }
 
-    // 4. Get or create session
-    let ctx: ChatSessionContext
-    let sessionId: string
-
-    if (incomingSessionId) {
-      const existing = await getSession(incomingSessionId)
-      if (existing && existing.orgId === org.id) {
-        // Resume existing session
-        ctx = existing
-        sessionId = incomingSessionId
-      } else {
-        // Redis miss or org mismatch | treat as new session
-        sessionId = crypto.randomUUID()
-        const dbSessionId = await ensureDbSession({ orgId: org.id, sessionId, widgetToken: token })
-        ctx = {
-          orgId: org.id,
+    // 4. Get or create session. `existingSession` was already fetched above
+    // (org-independent) to gate R3/R4 — reused here rather than a second
+    // getSession round trip. The two byte-identical create blocks that used to
+    // live in each branch are deduplicated into createNewSession().
+    async function createNewSession(orgId: string): Promise<{ sessionId: string; ctx: ChatSessionContext }> {
+      const sessionId = crypto.randomUUID()
+      const dbSessionId = await ensureDbSession({ orgId, sessionId, widgetToken: token })
+      return {
+        sessionId,
+        ctx: {
+          orgId,
           sessionId,
           dbSessionId,
           messages: [],
           createdAt: new Date().toISOString(),
           lastActiveAt: new Date().toISOString(),
+        },
+      }
+    }
+
+    let ctx: ChatSessionContext
+    let sessionId: string
+
+    if (incomingSessionId && existingSession && existingSession.orgId === org.id) {
+      // Resume existing session
+      ctx = existingSession
+      sessionId = incomingSessionId
+    } else {
+      if (existingSession) {
+        // Session exists but belongs to another org — this request ALSO creates a
+        // session, so it must consume R4 (orchestrator ruling: ANY create path).
+        const r4b = await rateLimit(`chat:newsess:${ip}`, 10, 3600, { failMode: 'memory' })
+        if (!r4b.allowed) {
+          log.warn('chat_rate_limited', { rule: 'R4', ip, orgId: org.id })
+          return rateLimited()
         }
       }
-    } else {
-      // First message | create new session
-      sessionId = crypto.randomUUID()
-      const dbSessionId = await ensureDbSession({ orgId: org.id, sessionId, widgetToken: token })
-      ctx = {
-        orgId: org.id,
-        sessionId,
-        dbSessionId,
-        messages: [],
-        createdAt: new Date().toISOString(),
-        lastActiveAt: new Date().toISOString(),
-      }
+      ;({ ctx, sessionId } = await createNewSession(org.id))
     }
 
     // 5. Append user message to context and refresh Redis
