@@ -117,4 +117,11 @@ Plans:
   1. Search/get-product tools additionally emit `{event:'ui', component:'product_cards', items:[...]}` (≤5 items, url storefront-relative per contract §6); the widget buffers `ui` events and renders cards after the answer using createElement/textContent only — the "Add to cart" button routes through `Opps.sendMessage` (never a direct API call); rebuilt widget committed.
   2. `medusa_get_order_status` calls Stuscle `POST /agent/orders/status` with the PINNED customer_id only (guests get a friendly "log in on the store" answer; R9 5 lookups/day/session, fail-closed).
   3. When a verified context carries `email`, the chat route find-or-creates the contact and sets `conversations.contact_id` + `visitor_email`.
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 137-01-PLAN.md — Product cards emit: ui/product_cards SSE (≤5, country-fallback url) in search/get-product + resolveRegion (UIX-01) [wave 1]
+- [ ] 137-02-PLAN.md — get-order-status executor: pinned cus only, guest→login, R9 closed, display_id>last_order, §4.2 render (UIX-02) [wave 1]
+- [ ] 137-03-PLAN.md — Order-status wiring: execute-action stub→real + ACTION_DESCRIPTIONS + spec NODE (display_id-only) (UIX-02) [wave 2]
+- [ ] 137-04-PLAN.md — Chat-route CRM linking: verified email → shared findOrCreateContactByEmail + linkVerifiedContact (contact_id if null, throttled, fail-soft) (UIX-03) [wave 1]
+- [ ] 137-05-PLAN.md — Widget renderer: buffer ui, .opps-cards createElement/textContent, Add→sendMessage + build:widget commit (UIX-01) [wave 2]
