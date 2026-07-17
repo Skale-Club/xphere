@@ -27,6 +27,12 @@ export const SIDE_EFFECTING_ACTIONS = new Set([
   'custom_webhook',  // non-GET only | checked at call site via toolConfig
   'medusa_add_to_cart',
   'medusa_update_cart_item',
+  // Phase 135 (WSL-02): wishlist writes are side-effecting for idempotency
+  // purposes, but deliberately NOT in COMMERCE_WRITE_ACTIONS below -- they
+  // stay out of the cart-only 3/turn + 25/conversation guardrail caps. The
+  // wishlist read/list tool is intentionally absent from this set.
+  'medusa_wishlist_add',
+  'medusa_wishlist_remove',
 ])
 
 // ---------------------------------------------------------------------------

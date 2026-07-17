@@ -35,6 +35,21 @@ vi.mock('@/lib/medusa/actions/update-cart-item', () => ({
   updateCartItemMedusa: (...args: unknown[]) => mockUpdateCartItemMedusa(...args),
 }))
 
+const mockAddWishlistItem = vi.fn().mockResolvedValue('SENTINEL_WISHLIST_ADD')
+vi.mock('@/lib/medusa/actions/wishlist-add', () => ({
+  addWishlistItem: (...args: unknown[]) => mockAddWishlistItem(...args),
+}))
+
+const mockRemoveWishlistItem = vi.fn().mockResolvedValue('SENTINEL_WISHLIST_REMOVE')
+vi.mock('@/lib/medusa/actions/wishlist-remove', () => ({
+  removeWishlistItem: (...args: unknown[]) => mockRemoveWishlistItem(...args),
+}))
+
+const mockListWishlist = vi.fn().mockResolvedValue('SENTINEL_WISHLIST_LIST')
+vi.mock('@/lib/medusa/actions/wishlist-list', () => ({
+  listWishlist: (...args: unknown[]) => mockListWishlist(...args),
+}))
+
 const CREDS: GhlCredentials = { apiKey: '', locationId: '' }
 const MEDUSA_CREDS = { baseUrl: 'http://localhost:9000', connectionToken: 'tok', publishableKey: 'pk_test' }
 
@@ -152,6 +167,67 @@ describe('execute-action medusa dispatch', () => {
     expect(mockUpdateCartItemMedusa).not.toHaveBeenCalled()
   })
 
+  it('routes medusa_wishlist_add to addWishlistItem', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(MEDUSA_CREDS)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_wishlist_add' as unknown as Database['public']['Enums']['action_type'], { product_id: 'p1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    })
+    expect(result).toBe('SENTINEL_WISHLIST_ADD')
+    expect(mockAddWishlistItem).toHaveBeenCalledOnce()
+    expect(mockRemoveWishlistItem).not.toHaveBeenCalled()
+    expect(mockListWishlist).not.toHaveBeenCalled()
+  })
+
+  it('routes medusa_wishlist_remove to removeWishlistItem', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(MEDUSA_CREDS)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_wishlist_remove' as unknown as Database['public']['Enums']['action_type'], { product_id: 'p1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    })
+    expect(result).toBe('SENTINEL_WISHLIST_REMOVE')
+    expect(mockRemoveWishlistItem).toHaveBeenCalledOnce()
+    expect(mockAddWishlistItem).not.toHaveBeenCalled()
+    expect(mockListWishlist).not.toHaveBeenCalled()
+  })
+
+  it('routes medusa_wishlist_list to listWishlist', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(MEDUSA_CREDS)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_wishlist_list' as unknown as Database['public']['Enums']['action_type'], {}, CREDS, {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    })
+    expect(result).toBe('SENTINEL_WISHLIST_LIST')
+    expect(mockListWishlist).toHaveBeenCalledOnce()
+    expect(mockAddWishlistItem).not.toHaveBeenCalled()
+    expect(mockRemoveWishlistItem).not.toHaveBeenCalled()
+  })
+
+  it('medusa_wishlist_add never throws when ctx is missing -- returns a friendly string', async () => {
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_wishlist_add' as unknown as Database['public']['Enums']['action_type'], {}, CREDS, undefined)
+    expect(result).toBe('The store is not available right now.')
+    expect(mockAddWishlistItem).not.toHaveBeenCalled()
+  })
+
+  it('medusa_wishlist_list never throws when no store is connected -- returns a friendly string', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(null)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_wishlist_list' as unknown as Database['public']['Enums']['action_type'], {}, CREDS, {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    })
+    expect(result).toBe('No store is connected to this workspace yet.')
+    expect(mockListWishlist).not.toHaveBeenCalled()
+  })
+
   it('database.ts action_type Enums union includes all nine medusa_* values', () => {
     const src = readFileSync(join(process.cwd(), 'src/types/database.ts'), 'utf-8')
     const enumsMatch = src.match(/action_type:\s*'send_email'[^\n]*'send_zernio_dm'[^\n]*/g)
@@ -176,14 +252,27 @@ describe('execute-action medusa dispatch', () => {
     expect(enumsMatch?.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('execute-action.ts stubs the four not-yet-built medusa actions so the switch stays exhaustive', () => {
-    // Phase 134 Wave 2: medusa_add_to_cart / medusa_update_cart_item now
-    // dispatch to real executors (asserted above) -- only wishlist add/
-    // remove/list + get_order_status remain in the "not available yet" group.
+  it('execute-action.ts stubs only medusa_get_order_status so the switch stays exhaustive', () => {
+    // Phase 135 Wave 2: medusa_wishlist_add/remove/list now dispatch to real
+    // executors (asserted above) -- only get_order_status remains in the
+    // "not available yet" group (Phase 137).
     const src = readFileSync(join(process.cwd(), 'src/lib/action-engine/execute-action.ts'), 'utf-8')
     expect(src).toContain("case 'medusa_get_order_status':")
     expect(src).toContain('That commerce action is not available yet.')
     expect(src).toContain('addToCartMedusa')
     expect(src).toContain('updateCartItemMedusa')
+    expect(src).toContain('addWishlistItem')
+    expect(src).toContain('removeWishlistItem')
+    expect(src).toContain('listWishlist')
+  })
+
+  it('SIDE_EFFECTING_ACTIONS registers wishlist add/remove but not list; COMMERCE_WRITE_ACTIONS unchanged', async () => {
+    const { SIDE_EFFECTING_ACTIONS, COMMERCE_WRITE_ACTIONS } = await import('@/lib/agent-runtime/idempotency')
+    expect(SIDE_EFFECTING_ACTIONS.has('medusa_wishlist_add')).toBe(true)
+    expect(SIDE_EFFECTING_ACTIONS.has('medusa_wishlist_remove')).toBe(true)
+    expect(SIDE_EFFECTING_ACTIONS.has('medusa_wishlist_list')).toBe(false)
+    expect(COMMERCE_WRITE_ACTIONS.has('medusa_wishlist_add')).toBe(false)
+    expect(COMMERCE_WRITE_ACTIONS.has('medusa_wishlist_remove')).toBe(false)
+    expect(COMMERCE_WRITE_ACTIONS.size).toBe(2)
   })
 })

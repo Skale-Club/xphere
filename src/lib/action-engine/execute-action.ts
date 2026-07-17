@@ -57,6 +57,9 @@ import { getMedusaProduct } from '@/lib/medusa/actions/get-product'
 import { getMedusaCart } from '@/lib/medusa/actions/get-cart'
 import { addToCartMedusa } from '@/lib/medusa/actions/add-to-cart'
 import { updateCartItemMedusa } from '@/lib/medusa/actions/update-cart-item'
+import { addWishlistItem } from '@/lib/medusa/actions/wishlist-add'
+import { removeWishlistItem } from '@/lib/medusa/actions/wishlist-remove'
+import { listWishlist } from '@/lib/medusa/actions/wishlist-list'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -493,14 +496,25 @@ async function _executeActionInner(
       if (actionType === 'medusa_add_to_cart') return addToCartMedusa(params, medusaCreds, ctx)
       return updateCartItemMedusa(params, medusaCreds, ctx)
     }
-    // Not yet built (later phases: Wishlist Tools, Product Cards & Order
-    // Status). Not registered in ACTION_DESCRIPTIONS or workflows/spec.ts
-    // NODES, so the LLM can never select these -- this group exists solely
-    // to keep the exhaustive switch below compiling now that database.ts
-    // carries all nine medusa_* action types.
+    // Medusa wishlist tools (Phase 135, WSL-01/WSL-02): same never-throw
+    // friendly-string contract as the cart tools above. Owner identity comes
+    // exclusively from pinned conversation context inside the executors --
+    // `params` never carries an owner/customer/guest identifier.
     case 'medusa_wishlist_add':
     case 'medusa_wishlist_remove':
-    case 'medusa_wishlist_list':
+    case 'medusa_wishlist_list': {
+      if (!ctx?.organizationId || !ctx?.supabase) return 'The store is not available right now.'
+      const medusaCreds = await getMedusaCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!medusaCreds) return 'No store is connected to this workspace yet.'
+      if (actionType === 'medusa_wishlist_add') return addWishlistItem(params, medusaCreds, ctx)
+      if (actionType === 'medusa_wishlist_remove') return removeWishlistItem(params, medusaCreds, ctx)
+      return listWishlist(medusaCreds, ctx) // list takes (creds, ctx) -- NO params
+    }
+    // Not yet built (later phase: Product Cards & Order Status). Not
+    // registered in ACTION_DESCRIPTIONS or workflows/spec.ts NODES, so the
+    // LLM can never select this -- this case exists solely to keep the
+    // exhaustive switch below compiling now that database.ts carries all
+    // nine medusa_* action types.
     case 'medusa_get_order_status':
       return 'That commerce action is not available yet.'
     default: {
