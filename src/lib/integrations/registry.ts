@@ -389,6 +389,43 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     ],
   },
 
+  {
+    id: 'medusa',
+    name: 'Medusa (Stuscle)',
+    description: 'Connect your Medusa store so agents can search products and read carts with region-correct prices.',
+    category: 'crm',
+    logo: { letter: 'M', color: 'bg-neutral-900' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: false,
+    fields: [
+      {
+        key: 'location_id',
+        label: 'Server URL',
+        type: 'url',
+        required: true,
+        placeholder: 'http://localhost:9000',
+        hint: 'Your Medusa backend base URL (no trailing slash).',
+      },
+      {
+        key: 'publishable_key',
+        label: 'Publishable Key',
+        type: 'text',
+        required: true,
+        placeholder: 'pk_...',
+        hint: 'Store publishable API key (sent as x-publishable-api-key).',
+      },
+      {
+        key: 'api_key',
+        label: 'Connection Token',
+        type: 'password',
+        required: true,
+        placeholder: 'xph_...',
+        hint: 'A Xphere API key with scope commerce:events. Same token is set in Stuscle env.',
+      },
+    ],
+  },
+
   // ── Reviews ───────────────────────────────────────────────────────────────
   {
     id: 'google_reviews',
