@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-ip'
 import {
   isRequestAllowed,
   normalizeWidgetUrlMode,
@@ -42,7 +43,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ): Promise<Response> {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ip = getClientIp(request)
   const rl = await rateLimit(`widget:config:${ip}`, RL_LIMIT, RL_WINDOW)
   if (!rl.allowed) {
     return Response.json({ error: 'Too many requests' }, { status: 429, headers: CORS_HEADERS })
