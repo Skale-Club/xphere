@@ -358,6 +358,31 @@ export const NODES: NodeSpec[] = [
       { serviceIds: '5', bookingDate: '2026-06-20', startTime: '14:00', customerName: 'Maria', customerPhone: '+551199999999' },
     ],
   },
+  // ─── Action | commerce (Medusa)
+  {
+    type: 'medusa_search_products',
+    kind: 'action',
+    description: 'Search the connected Medusa store for products (region-correct prices).',
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: { query: { type: 'string' }, category: { type: 'string' } } },
+    examples: [{ query: 'sweatshirt' }],
+  },
+  {
+    type: 'medusa_get_product',
+    kind: 'action',
+    description: 'Get one store product by id or handle.',
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: { product_id: { type: 'string' }, handle: { type: 'string' } } },
+    examples: [{ handle: 'sweatshirt' }],
+  },
+  {
+    type: 'medusa_get_cart',
+    kind: 'action',
+    description: "Show the visitor's current cart. No parameters — the cart is pinned to the conversation.",
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: {} },
+    examples: [{}],
+  },
   // ─── Action | messaging
   {
     type: 'send_sms',
