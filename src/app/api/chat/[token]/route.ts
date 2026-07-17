@@ -18,6 +18,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
 import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
 import { verifyCommerceContext, writeCommerceContext } from '@/lib/medusa/context'
+import { linkVerifiedContact } from '@/lib/contacts/link-verified-contact'
 
 export const runtime = 'nodejs'
 // 60s for tool round-trips (Phases 132+). NOTE: on self-hosted Coolify this is platform build-output metadata only — no runtime enforcement (Next 16 docs); the effective ceiling is the Traefik proxy timeout. Zero behavioral change today, required for platform portability.
@@ -209,6 +210,9 @@ export async function POST(
           if (claims) {
             const repin = await writeCommerceContext(supabase, ctx.dbSessionId, org.id, claims)
             if (repin?.repinnedFrom) log.info('commerce_ctx_repinned', { orgId: org.id, from: repin.repinnedFrom, to: claims.cart })
+            // UIX-03: a verified email means we know the visitor — link the CRM contact.
+            // claims.email is `string | null`; linkVerifiedContact is throttled + fail-soft.
+            if (claims.email) await linkVerifiedContact(supabase, org.id, ctx.dbSessionId, claims.email)
           } else {
             log.warn('commerce_ctx_invalid', { orgId: org.id })
           }

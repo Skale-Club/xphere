@@ -11,7 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
-import { normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { findOrCreateContactByEmail } from '@/lib/contacts/find-or-create-by-email'
 import { emitContactEvent } from '@/lib/contacts/events'
 import { runFlowSync } from '@/lib/workflows/run-flow-sync'
 import { runFlow, definitionHasWait } from '@/lib/flows/engine'
@@ -65,56 +65,33 @@ export async function emitCommerceEvent(
     // Body `type` and the workflow trigger event are different namespaces — map explicitly.
     const WF_EVENT = WF_EVENT_MAP[type]
 
-    // 1. Find-or-create contact by email (replicates ingestLead's findContact+insert
-    // shape inline — do NOT edit or export from ingest.ts).
-    const email = normaliseEmail(data.email)
-    let contactId: string | null = null
-
-    if (email) {
-      const { data: existing } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('email_normalized', email)
-        .neq('identity_status', 'archived_duplicate')
-        .maybeSingle()
-
-      if (existing) {
-        contactId = existing.id
-      } else {
-        const insertPayload: Database['public']['Tables']['contacts']['Insert'] = {
-          org_id: orgId,
-          email,
-          source: 'api', // do NOT add a new enum value — 'api' is the closest existing value
-          lifecycle_stage: type === 'order.placed' ? 'customer' : 'lead',
-          source_type: 'medusa',
-          source_id:
-            type === 'order.placed'
-              ? (data as CommerceOrderData).order_id
-              : (data as CommerceCustomerData).customer_id,
-        }
-        if (type === 'customer.created') {
-          const customer = data as CommerceCustomerData
-          insertPayload.first_name = customer.first_name ?? null
-          insertPayload.last_name = customer.last_name ?? null
-          const name = [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim()
-          if (name) insertPayload.name = name
-        }
-
-        const { data: created, error } = await supabase
-          .from('contacts')
-          .insert(insertPayload)
-          .select('id')
-          .single()
-
-        if (!error && created) {
-          contactId = created.id
-          // A commerce-created contact is still a new contact — mirror the leads route.
-          void emitContactEvent(orgId, 'contact.created', created.id, { supabase }).catch((err) => {
-            console.error('[commerce/events] emitContactEvent error', err instanceof Error ? err.message : 'unknown error')
-          })
-        }
-      }
+    // 1. Find-or-create contact by email — delegates to the shared UIX-03
+    // helper (find-or-create-by-email.ts) so this stays the ONLY other
+    // consumer alongside the chat route's linkVerifiedContact; no inline
+    // upsert is forked here anymore.
+    const { contactId: cid, created: contactWasCreated } = await findOrCreateContactByEmail(supabase, orgId, data.email, {
+      lifecycleStage: type === 'order.placed' ? 'customer' : 'lead',
+      sourceType: 'medusa',
+      sourceId:
+        type === 'order.placed' ? (data as CommerceOrderData).order_id : (data as CommerceCustomerData).customer_id,
+      ...(type === 'customer.created'
+        ? {
+            firstName: (data as CommerceCustomerData).first_name ?? null,
+            lastName: (data as CommerceCustomerData).last_name ?? null,
+            name:
+              [(data as CommerceCustomerData).first_name, (data as CommerceCustomerData).last_name]
+                .filter(Boolean)
+                .join(' ')
+                .trim() || null,
+          }
+        : {}),
+    })
+    const contactId: string | null = cid
+    if (contactWasCreated && cid) {
+      // A commerce-created contact is still a new contact — mirror the leads route.
+      void emitContactEvent(orgId, 'contact.created', cid, { supabase }).catch((err) => {
+        console.error('[commerce/events] emitContactEvent error', err instanceof Error ? err.message : 'unknown error')
+      })
     }
 
     // 2. Query matching workflows.
