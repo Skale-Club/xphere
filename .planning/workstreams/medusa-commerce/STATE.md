@@ -5,14 +5,14 @@ gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
 status: in_progress
-last_updated: "2026-07-17T19:18:19.000Z"
-last_activity: 2026-07-17 -- 135-01 landed (medusaAgentFetch signed transport + signAgentBody bare-hex HMAC helper, byte-proven against stuscle's verify-hmac.ts with two committed cross-repo vectors; resolveWishlistOwner anti-IDOR resolution + addWishlistItem/removeWishlistItem/listWishlist executors calling the signed /agent/wishlists/{add,remove,list} surface; R7/R8 fail-closed on shared cart-write keys for add/remove, R6 memory for list; every failure path returns a friendly never-throw string — wave 1 of Phase 135, WSL-01/WSL-02). tests/medusa-agent-fetch.test.ts + tests/medusa-wishlist.test.ts 28/28 green; npm run build clean; no regressions in adjacent medusa test suites. Wave 2 (135-02, dispatcher/registry wiring) remains.
+last_updated: "2026-07-17T19:35:21.000Z"
+last_activity: 2026-07-17 -- 135-02 landed (wave 2 of Phase 135, dispatcher/registry wiring): execute-action.ts real-dispatches medusa_wishlist_add/remove/list to the Wave-1 executors behind the same never-throw guard as the cart-write block; medusa_get_order_status is now the ONLY case left in the "not available yet" stub group (reserved for Phase 137); SIDE_EFFECTING_ACTIONS += medusa_wishlist_add/medusa_wishlist_remove (list excluded, COMMERCE_WRITE_ACTIONS unchanged so wishlist writes stay out of the cart-only 3/turn+25/conversation caps); ACTION_DESCRIPTIONS + workflows/spec.ts NODES register all three tools (integration_required medusa, zero owner/customer/guest/cart/email params). CI=true npx vitest run tests/medusa-dispatch.test.ts tests/medusa-wiring.test.ts tests/medusa-spec.test.ts green (38/38); tests/medusa-agent-fetch.test.ts + tests/medusa-wishlist.test.ts still green (28/28, 135-01 unaffected); npm run build clean (exit 0, "Compiled successfully"). Phase 135 (Wishlist Tools) is now COMPLETE -- WSL-01/WSL-02 both satisfied end-to-end.
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 14
-  percent: 57
+  completed_plans: 15
+  percent: 71
 ---
 
 # Project State — workstream medusa-commerce
@@ -22,21 +22,21 @@ progress:
 See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREMENTS.md.
 
 **Core value:** Commerce tools act with visitor-level authority only — pinned identity, hard caps, no id parameters in tool schemas.
-**Current focus:** Phase 135 — Wishlist Tools — IN PROGRESS (1/2 plans landed: 135-01 transport + executors done; 135-02 dispatcher/registry wiring remaining).
+**Current focus:** Phase 135 — Wishlist Tools — COMPLETE. Next up: Phase 136 (Commerce Events Ingestion) — research/validation docs already landed, plan authoring next.
 
 ## Current Position
 
-Phase: 135 of 137 (Wishlist Tools) — IN PROGRESS, 1 of 2 plans landed
-Plan: 1 of 2 in Phase 135 — 135-01 (medusaAgentFetch signed transport + signAgentBody + 3 wishlist executors) done; 135-02 (execute-action/registry wiring) remaining
-Status: WSL-01 and WSL-02 are satisfied at the executor level — medusaAgentFetch signs-then-sends the identical body string (byte-proven against stuscle's verify-hmac.ts), resolveWishlistOwner returns owner exclusively from pinned cus/wishlist_ref (never from params), and all three executors (addWishlistItem/removeWishlistItem/listWishlist) never throw into the tool loop. NOT yet wired into execute-action.ts's dispatcher, ACTION_DESCRIPTIONS, workflows/spec.ts NODES, or SIDE_EFFECTING_ACTIONS — the three medusa_wishlist_* action types remain in the "not available yet" stub group until 135-02 lands.
-Last activity: 2026-07-17 — 135-01 landed (wave 1 of Phase 135): Task 1 added src/lib/medusa/agent-sig.ts (signAgentBody, bare-hex HMAC, same raw-UTF8-key convention as cart-sig.ts) and medusaAgentFetch in client.ts (R11 before fetch, stringify-once/sign-that/send-that, 8s timeout, MedusaApiError on non-2xx), locking two committed cross-repo signing vectors. Task 2 added wishlist-owner.ts (resolveWishlistOwner — cus wins over wishlist_ref, exactly one key or null) plus wishlist-add.ts/wishlist-remove.ts executors (R7/R8 fail-closed on the SAME com:write:/com:write:day: keys as cart writes, 409->full string, idempotent-safe wording, never-throw). Task 3 added wishlist-list.ts (R6 com:read: memory failMode, (creds,ctx) signature with no params arg — anti-IDOR structural guarantee, empty/no-owner states). CI=true npx vitest run tests/medusa-agent-fetch.test.ts tests/medusa-wishlist.test.ts green (28/28); npm run build clean (exit 0); spot-checked no regressions in tests/medusa-cart-write.test.ts/medusa-dispatch.test.ts/medusa-wiring.test.ts/medusa-context.test.ts (62/62 green) after the shared client.ts edit. Zero deviations from plan.
+Phase: 135 of 137 (Wishlist Tools) — COMPLETE, 2 of 2 plans landed
+Plan: 2 of 2 in Phase 135 — 135-01 (medusaAgentFetch signed transport + signAgentBody + 3 wishlist executors) done; 135-02 (execute-action/registry wiring) done
+Status: WSL-01 and WSL-02 are fully satisfied end-to-end. medusaAgentFetch signs-then-sends the identical body string (byte-proven against stuscle's verify-hmac.ts), resolveWishlistOwner returns owner exclusively from pinned cus/wishlist_ref (never from params), and all three executors (addWishlistItem/removeWishlistItem/listWishlist) never throw into the tool loop (135-01). Now wired into execute-action.ts's real dispatch, ACTION_DESCRIPTIONS, workflows/spec.ts NODES (integration_required medusa, zero owner params), and SIDE_EFFECTING_ACTIONS (add/remove only, list stays a read tool, COMMERCE_WRITE_ACTIONS unchanged) (135-02). medusa_get_order_status is now the ONLY remaining "not available yet" stub in execute-action.ts, reserved for Phase 137.
+Last activity: 2026-07-17 — 135-02 landed (wave 2 of Phase 135, final plan of the phase): Task 1 split the old 4-case wishlist/order-status stub group in execute-action.ts — medusa_wishlist_add/remove/list now dispatch to the Wave-1 executors behind the same never-throw guard as the cart-write block (ctx?.organizationId/ctx?.supabase check -> getMedusaCredentialsForOrg -> per-action-type branch); medusa_get_order_status is the sole remaining stub. idempotency.ts registered medusa_wishlist_add/medusa_wishlist_remove in SIDE_EFFECTING_ACTIONS (list excluded; COMMERCE_WRITE_ACTIONS untouched, still exactly the 2 cart writes). Task 2 added 3 ACTION_DESCRIPTIONS entries (run-agent.ts) and 3 NodeSpec entries (workflows/spec.ts, integration_required:['medusa']) — add/remove expose only product_id/variant_id, list exposes {}, no customer_id/guest_ref/cart_id/email anywhere. CI=true npx vitest run tests/medusa-dispatch.test.ts tests/medusa-wiring.test.ts tests/medusa-spec.test.ts green (38/38); tests/medusa-agent-fetch.test.ts + tests/medusa-wishlist.test.ts still green (28/28, 135-01 unaffected); npm run build clean (exit 0, "Compiled successfully"). One Rule-3 blocking deviation: reworded an idempotency.ts comment that had accidentally embedded the literal substring "medusa_wishlist_list", which broke the plan's own grep-based acceptance check for that string's absence from the file.
 
-Progress: [▓▓▓▓▓▓░░░░] 57% (4/7 phases)
+Progress: [▓▓▓▓▓▓▓░░░] 71% (5/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (of 15 total across the workstream so far — Phases 131-134 fully landed, Phase 135 1/2 landed; Phases 136-137 not yet planned)
+- Total plans completed: 15 (of 15 total across the workstream so far — Phases 131-135 fully landed; Phases 136-137 not yet planned)
 
 **By Phase:**
 
@@ -46,7 +46,7 @@ Progress: [▓▓▓▓▓▓░░░░] 57% (4/7 phases)
 | 132 | 4/4 landed | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
 | 133 | 3/3 landed | ~48min (133-01: 20min, 133-02: 15min, 133-03: 13min) | ~16min |
 | 134 | 3/3 landed | ~39min (134-01: ~20min, 134-02: ~12min, 134-03: ~7min) | ~13min |
-| 135 | 1/2 landed | 45min (135-01) | 45min |
+| 135 | 2/2 landed | 65min (135-01: 45min, 135-02: ~20min) | ~33min |
 
 ## Accumulated Context
 
@@ -89,6 +89,9 @@ Progress: [▓▓▓▓▓▓░░░░] 57% (4/7 phases)
 - 135-01: wishlist writes are deliberately NOT added to `COMMERCE_WRITE_ACTIONS`/`bumpConversationWriteCount` (the cart-only 3/turn + 25/conversation guardrail caps) — R7/R8 alone bound wishlist write volume for this wave, per 135-RESEARCH.md Open Q1's "follow CONTEXT" recommendation. `SIDE_EFFECTING_ACTIONS` registration and all dispatcher/registry wiring is Wave 2 (135-02), not this plan.
 - 135-01: `resolveWishlistOwner` prefers `cus` (customer_id) over `wishlist_ref` (guest_ref) when both are pinned — a verified customer identity outranks the guest cookie fallback; returns exactly one owner key or `null` (never both, never an `undefined` sibling), matching stuscle's `ownerSchema.refine(!!customer_id !== !!guest_ref)` XOR constraint.
 - 135-01: `listWishlist` takes `(creds, ctx)` with NO params argument at all (mirrors `getMedusaCart`) — the anti-IDOR guarantee is structural, not just conventional: a caller-supplied identifier has no channel into the call.
+- 135-02: `medusa_get_order_status` is now the ONLY case left in execute-action.ts's "not available yet" stub group (Phase 137) — the wishlist stub group from 132-04/135-01 has been fully replaced by real dispatch.
+- 135-02: `medusa_wishlist_add`/`medusa_wishlist_remove` are registered in `SIDE_EFFECTING_ACTIONS` for idempotency wrapping but deliberately NOT added to `COMMERCE_WRITE_ACTIONS` — that set stays exactly the 2 cart writes, so wishlist writes never count against the cart-only 3/turn + 25/conversation guardrail caps (per 135-01's decision, executed here).
+- 135-02: **Phase 135 (Wishlist Tools) is complete** — WSL-01 and WSL-02 both satisfied end-to-end (135-01's signed transport/owner-resolution/executors + 135-02's dispatcher/registry/idempotency wiring).
 
 ### Blockers
 
@@ -102,5 +105,5 @@ Progress: [▓▓▓▓▓▓░░░░] 57% (4/7 phases)
 - Xkedule integration (`src/lib/xkedule/*`, migration 1200) is the template for the Medusa provider.
 
 ## Session Continuity
-**Stopped At:** Completed 135-01-PLAN.md (medusaAgentFetch signed transport + signAgentBody bare-hex HMAC helper, byte-proven against stuscle's verify-hmac.ts; resolveWishlistOwner anti-IDOR resolution + addWishlistItem/removeWishlistItem/listWishlist executors; R7/R8 fail-closed for add/remove on shared cart-write keys, R6 memory for list; every failure path returns a friendly never-throw string — wave 1 of Phase 135, WSL-01/WSL-02 satisfied at the executor level).
-**Resume File:** None — next up is 135-02-PLAN.md (wave 2): wire the three executors into `execute-action.ts`'s real dispatch (out of the "not available yet" stub group), add `ACTION_DESCRIPTIONS` + `workflows/spec.ts` NODES entries (no owner params), and register `medusa_wishlist_add`/`medusa_wishlist_remove` in `SIDE_EFFECTING_ACTIONS`. No blockers. Real cross-repo same-origin context-fetch AND widget-to-storefront-bridge re-dispatch verification (133-03's and 134-03's deferred manual checkpoints) remain outstanding for whenever xphere + stuscle run together (contract §9 dev-wiring). The live signed `/agent/wishlists/*` round trip against a running Stuscle backend is likewise E2E-deferred (135-VALIDATION.md Manual-Only table) — 135-01's unit tests mock the transport. One pre-existing, unrelated bookkeeping item was logged (not fixed) to `134-cart-write-tools/deferred-items.md`: `131-02-PLAN.md`'s ROADMAP.md checkbox was never flipped despite its SUMMARY.md existing.
+**Stopped At:** Completed 135-02-PLAN.md (execute-action.ts real dispatch for medusa_wishlist_add/remove/list behind the cart-write block's never-throw guard, leaving medusa_get_order_status as the sole remaining stub for Phase 137; SIDE_EFFECTING_ACTIONS += medusa_wishlist_add/medusa_wishlist_remove with COMMERCE_WRITE_ACTIONS unchanged; ACTION_DESCRIPTIONS + workflows/spec.ts NODES registered for all three wishlist tools, zero owner/customer/guest/cart/email params — wave 2 (final) of Phase 135, WSL-01/WSL-02 fully satisfied end-to-end). **Phase 135 (Wishlist Tools) is COMPLETE.**
+**Resume File:** None — Phase 135 is done. Next up is Phase 136 (Commerce Events Ingestion): 136-RESEARCH.md and 136-VALIDATION.md already landed (docs(136) commit); plan authoring (`/gsd:plan-phase 136`) is the next step. No blockers. Real cross-repo same-origin context-fetch AND widget-to-storefront-bridge re-dispatch verification (133-03's and 134-03's deferred manual checkpoints) remain outstanding for whenever xphere + stuscle run together (contract §9 dev-wiring). The live signed `/agent/wishlists/*` round trip against a running Stuscle backend is likewise E2E-deferred (135-VALIDATION.md Manual-Only table) — both 135-01's and 135-02's unit tests mock the transport throughout. One pre-existing, unrelated bookkeeping item remains logged (not fixed) in `134-cart-write-tools/deferred-items.md`: `131-02-PLAN.md`'s ROADMAP.md checkbox was never flipped despite its SUMMARY.md existing.

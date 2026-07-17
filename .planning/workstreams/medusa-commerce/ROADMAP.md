@@ -10,7 +10,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 - [x] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools ✅ 2026-07-17
 - [x] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding ✅ 2026-07-17
 - [x] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch ✅ 2026-07-17
-- [ ] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface
+- [x] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface ✅ 2026-07-17
 - [ ] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch
 - [ ] **Phase 137: Product Cards & Order Status** - `ui`/`product_cards` SSE + widget renderer, order-status tool (logged-in only), CRM contact linking
 
@@ -92,7 +92,7 @@ Plans:
 
 Plans:
 - [x] 135-01-PLAN.md — medusaAgentFetch signed transport + signAgentBody (byte-agreement vector) + 3 wishlist executors (owner from pinned cus/wishlist_ref, R6/R7/R8, never-throw) (WSL-01, WSL-02) [wave 1] ✅ 2026-07-17
-- [ ] 135-02-PLAN.md — wiring: execute-action real dispatch + ACTION_DESCRIPTIONS + spec NODES (no owner params) + SIDE_EFFECTING_ACTIONS (WSL-01, WSL-02) [wave 2]
+- [x] 135-02-PLAN.md — wiring: execute-action real dispatch + ACTION_DESCRIPTIONS + spec NODES (no owner params) + SIDE_EFFECTING_ACTIONS (WSL-01, WSL-02) [wave 2] ✅ 2026-07-17
 
 ### Phase 136: Commerce Events Ingestion
 **Goal**: Orders and new customers from Medusa land in xphere idempotently, create/annotate contacts, and fire CRM workflows.

@@ -36,8 +36,8 @@ Contract reference for every requirement: `.planning/research/INTEGRATION-CONTRA
 
 ### Wishlist Tools (WSL)
 
-- [ ] **WSL-01**: `medusa_wishlist_add/remove/list` via signed `/agent/wishlists/*` per contract §4.2; owner from pinned context only (customer_id else wishlist_ref)
-- [ ] **WSL-02**: HMAC signing helper (ts + "." + rawBody) unit-tested; add/remove side-effecting (R7/R8), list read-budgeted (R6 30/min/session)
+- [x] **WSL-01**: `medusa_wishlist_add/remove/list` via signed `/agent/wishlists/*` per contract §4.2; owner from pinned context only (customer_id else wishlist_ref)
+- [x] **WSL-02**: HMAC signing helper (ts + "." + rawBody) unit-tested; add/remove side-effecting (R7/R8), list read-budgeted (R6 30/min/session)
 
 ### Events Ingestion (EVI)
 
