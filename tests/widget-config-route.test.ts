@@ -4,6 +4,10 @@ vi.mock('@/lib/supabase/admin', () => ({
   createServiceRoleClient: vi.fn(),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  rateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 99, resetAt: 0 }),
+}))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 const mockSupabase = {
@@ -46,9 +50,12 @@ describe('GET /api/widget/[token]/config', () => {
       primaryColor: '#0F172A',
       welcomeMessage: 'How can we help today?',
       avatarUrl: 'https://example.com/avatar.png',
+      greetingEnabled: true,
+      greetingMessage: 'How can we help today?',
+      greetingDelaySeconds: 3,
     })
     expect(mockSupabase.select).toHaveBeenCalledWith(
-      'is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url'
+      'is_active, widget_display_name, widget_primary_color, widget_welcome_message, widget_avatar_url, accent_color, widget_greeting_enabled, widget_greeting_message, widget_greeting_delay_seconds, widget_url_mode, widget_url_rules'
     )
   })
 
@@ -108,6 +115,9 @@ describe('GET /api/widget/[token]/config', () => {
       primaryColor: '#18181B',
       welcomeMessage: 'Hi! How can I help?',
       avatarUrl: null,
+      greetingEnabled: true,
+      greetingMessage: 'Hi! How can I help?',
+      greetingDelaySeconds: 3,
     })
   })
 })
