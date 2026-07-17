@@ -41,6 +41,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   resend: 'Resend',
   zernio: 'Zernio',
   xkedule: 'Xkedule',
+  medusa: 'Medusa',
 }
 
 const integrationSchema = z.object({
