@@ -101,8 +101,13 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `commerce:events` scope exists in `api-keys/scopes.ts`; `POST /api/v1/commerce/events` (clone of `/api/v1/leads` skeleton: 64KB cap, `verifyApiKey`, zod per contract §5, `Idempotency-Key === event_id`) returns 201/200-duplicate/401/403/422 exactly per contract.
   2. Migration adds `commerce_event_receipts` (UNIQUE(org_id, event_id), RLS org-scoped); duplicate events return 200 without re-dispatch.
-  3. `emitCommerceEvent` mirrors `emitLeadCaptured`: find-or-create contact by email, annotate the conversation whose `memory.commerce.cart_id` matches `data.cart_id` (`last_order_display_id`), dispatch workflows on `commerce.order.placed` / `commerce.customer.created` with `event_dispatches` audit; TRIGGERS registered in `workflows/spec.ts`.
-**Plans**: TBD
+  3. `emitCommerceEvent` mirrors `emitLeadCaptured`: find-or-create contact by email, annotate the conversation whose `memory.commerce.cart` matches `data.cart_id` (`last_order_display_id`), dispatch workflows on `commerce.order.placed` / `commerce.customer.created` with `event_dispatches` audit; TRIGGERS registered in `workflows/spec.ts`.
+**Plans**: 3 plans
+
+Plans:
+- [ ] 136-01-PLAN.md — commerce:events scope + migration 1260 (UNIQUE + RLS) + database.ts types + commerceEventSchema (MAJOR units) + insertCommerceReceipt (23505 dedupe) (EVI-01, EVI-02) [wave 1]
+- [ ] 136-02-PLAN.md — emitCommerceEvent (contact find-or-create, `cart`-key conversation annotation, type→commerce.<type> workflow dispatch + event_dispatches audit) + spec.ts TRIGGERS (EVI-03) [wave 1]
+- [ ] 136-03-PLAN.md — POST /api/v1/commerce/events route (clone leads: 64KB cap / verifyApiKey commerce:events / R12 / zod / Idempotency===event_id / dedupe → 201/200-dup/401/403/422) (EVI-01, EVI-02) [wave 2]
 
 ### Phase 137: Product Cards & Order Status
 **Goal**: Product answers render as rich cards in the widget, and logged-in shoppers get order status; webchat conversations link to CRM contacts.
