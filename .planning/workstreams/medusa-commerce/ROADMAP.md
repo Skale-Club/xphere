@@ -25,7 +25,12 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
   2. The chat route enforces R1 (20 msgs/min/IP, before org lookup), R2 (200/day/IP), R3 (10/min/session), R4 (10 new sessions/hour/IP), R5 (300/min/org) — over-limit requests get 429 with a friendly SSE-compatible error body.
   3. `ChatRequestSchema.message` is capped at 4,000 chars (400 on violation) and the route's `maxDuration` is 60.
   4. The legacy `custom_webhook` executor calls `assertPublicHttpUrl` before fetching (SSRF gap closed); unit tests cover the limiter failModes and the new caps.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 131-01-PLAN.md — Wave 0 baseline repair + rateLimit failMode extension with bounded memory fallback (CHT-01)
+- [ ] 131-02-PLAN.md — custom_webhook SSRF guard via assertPublicHttpUrl (CHT-04)
+- [ ] 131-03-PLAN.md — Chat route R1–R5 matrix + message cap + maxDuration 60 + shared IP helper (CHT-02, CHT-03)
 
 ### Phase 132: Medusa Provider & Read Tools
 **Goal**: An org can connect its Medusa store in Integrations, and agents with the tools attached answer product and cart questions with region-correct prices.
