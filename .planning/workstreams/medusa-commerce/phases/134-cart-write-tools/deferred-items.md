@@ -4,7 +4,15 @@ Out-of-scope discoveries logged during plan execution, per the executor's
 scope-boundary rule (only auto-fix issues directly caused by the current
 task's changes).
 
-## 1. Pre-existing flaky test: `tests/medusa-context.test.ts` "bad sig: a tampered signature returns null"
+> **Both items below were RESOLVED by the orchestrator (2026-07-17):**
+> - Item 1 (flaky test): fixed in commit `fix(test): deterministic bad-sig tamper` — the
+>   test now tampers the FIRST sig char (top 6 bits of byte 0, all meaningful) instead of
+>   the last; confirmed 5/5 stable. The Phase-134 verifier's 200k-run Monte-Carlo
+>   independently confirmed the root cause (last base64url char carries only 4 meaningful
+>   bits) before the fix.
+> - Item 2 (131-02 checkbox): flipped to `[x]` in commit `docs(131): flip 131-02 checkbox`.
+
+## 1. [RESOLVED] Pre-existing flaky test: `tests/medusa-context.test.ts` "bad sig: a tampered signature returns null"
 
 - **Found during:** 134-01, post-completion regression pass (running the
   broader test suite alongside `tests/medusa-cart-write.test.ts`)
