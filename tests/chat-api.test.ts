@@ -40,6 +40,19 @@ vi.mock('@/lib/action-engine/execute-action', () => ({
 const { mockRateLimit } = vi.hoisted(() => ({ mockRateLimit: vi.fn() }))
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: mockRateLimit }))
 
+// Mock the Phase 133 signed-context verify+pin modules — commerce-context
+// tests exercise route wiring/branching only, never real crypto/DB (133-02-PLAN.md).
+const { mockGetCreds, mockVerify, mockWrite } = vi.hoisted(() => ({
+  mockGetCreds: vi.fn(),
+  mockVerify: vi.fn(),
+  mockWrite: vi.fn(),
+}))
+vi.mock('@/lib/medusa/credentials', () => ({ getMedusaCredentialsForOrg: mockGetCreds }))
+vi.mock('@/lib/medusa/context', () => ({
+  verifyCommerceContext: mockVerify,
+  writeCommerceContext: mockWrite,
+}))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getSession, setSession } from '@/lib/chat/session'
 import { ensureDbSession, persistMessage } from '@/lib/chat/persist'
@@ -87,6 +100,11 @@ describe('POST /api/chat/[token]', () => {
     mockRateLimit.mockResolvedValue({ allowed: true, remaining: 99, resetAt: 0 })
     // Default mockRunAgent: returns a simple SSE stream with session + token + done
     mockRunAgent.mockReturnValue(makeDefaultStream())
+    // Commerce-context defaults (CTX-02): creds present, verify fails closed,
+    // write is a no-op — existing tests (no commerce_context) are unaffected.
+    mockGetCreds.mockResolvedValue({ connectionToken: 'xph_secret' })
+    mockVerify.mockResolvedValue(null)
+    mockWrite.mockResolvedValue(null)
   })
 
   it('returns 401 for invalid token', async () => {
@@ -406,6 +424,115 @@ describe('POST /api/chat/[token]', () => {
     it('exports maxDuration = 60', async () => {
       const route = await import('@/app/api/chat/[token]/route')
       expect(route.maxDuration).toBe(60)
+    })
+  })
+
+  describe('commerce context (CTX-02)', () => {
+    beforeEach(() => {
+      mockSupabase.single.mockResolvedValue({ data: { id: 'org-1', name: 'Org', is_active: true }, error: null })
+    })
+
+    it('absent → no creds lookup, no verify, chat still streams', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      expect(mockGetCreds).not.toHaveBeenCalled()
+      expect(mockVerify).not.toHaveBeenCalled()
+      const lines = await readSseLines(res)
+      expect(lines[lines.length - 1]).toMatchObject({ event: 'done' })
+    })
+
+    it('invalid token → warn + continue, write never called', async () => {
+      mockVerify.mockResolvedValue(null)
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'bad.token' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      expect(mockVerify).toHaveBeenCalledWith('bad.token', 'xph_secret', 'org-1')
+      expect(mockWrite).not.toHaveBeenCalled()
+      const lines = await readSseLines(res)
+      expect(lines[lines.length - 1]).toMatchObject({ event: 'done' })
+    })
+
+    it('valid token → writeCommerceContext pins claims before runAgent', async () => {
+      const claims = {
+        v: 1,
+        org: 'org-1',
+        cart: 'cart_1',
+        cus: null,
+        email: null,
+        wishlist_ref: null,
+        country_code: 'dk',
+        region_id: null,
+        iat: 1,
+        exp: 9999999999,
+      }
+      mockVerify.mockResolvedValue(claims)
+      mockWrite.mockResolvedValue(null)
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'good.token' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      const lines = await readSseLines(res)
+      expect(lines[lines.length - 1]).toMatchObject({ event: 'done' })
+      expect(mockWrite).toHaveBeenCalledWith(mockSupabase, 'db-sess-uuid', 'org-1', claims)
+    })
+
+    it('no creds for org → verify skipped, chat still streams', async () => {
+      mockGetCreds.mockResolvedValue(null)
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'good.token' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      expect(mockVerify).not.toHaveBeenCalled()
+      const lines = await readSseLines(res)
+      expect(lines[lines.length - 1]).toMatchObject({ event: 'done' })
+    })
+
+    it('writeCommerceContext throws → fail-soft, chat still streams 200', async () => {
+      const claims = {
+        v: 1,
+        org: 'org-1',
+        cart: 'cart_1',
+        cus: null,
+        email: null,
+        wishlist_ref: null,
+        country_code: 'dk',
+        region_id: null,
+        iat: 1,
+        exp: 9999999999,
+      }
+      mockVerify.mockResolvedValue(claims)
+      mockWrite.mockRejectedValue(new Error('db down'))
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'good.token' }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      const lines = await readSseLines(res)
+      expect(lines[lines.length - 1]).toMatchObject({ event: 'done' })
+    })
+
+    it('rejects a 2049-char commerce_context with 400', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'x'.repeat(2049) }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('accepts a 2048-char commerce_context', async () => {
+      const { POST } = await import('@/app/api/chat/[token]/route')
+      const res = await POST(makeRequest({ message: 'hi', commerce_context: 'x'.repeat(2048) }), {
+        params: Promise.resolve({ token: 'valid-token' }),
+      })
+      expect(res.status).toBe(200)
+      await readSseLines(res)
     })
   })
 })
