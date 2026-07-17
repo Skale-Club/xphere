@@ -7,12 +7,13 @@
 import { rateLimit } from '@/lib/rate-limit'
 import { medusaStoreFetch, MedusaRateLimitError, type MedusaCredentials, type MedusaExecCtx } from '../client'
 import { loadPinnedContext } from '../pinned-context'
-import { resolveRegionId } from '../regions'
+import { resolveRegion } from '../regions'
 import { formatMoney } from '../format'
 
 const PRODUCT_FIELDS = 'id,title,handle,thumbnail,description,*variants.calculated_price,*variants.options'
 
 interface StoreProductVariant {
+  id?: string
   calculated_price?: { calculated_amount?: number; currency_code?: string }
 }
 
@@ -20,8 +21,37 @@ interface StoreProduct {
   id: string
   title: string
   handle?: string
+  thumbnail?: string | null
   description?: string | null
   variants?: StoreProductVariant[]
+}
+
+// Contract §6 `ui`/`product_cards` card builder — mirrors search-products.ts's
+// buildCardItem exactly (kept as a sibling copy rather than a shared import so
+// each executor stays a self-contained, independently-testable file, matching
+// the existing PRODUCT_FIELDS/formatProduct duplication in this pair). `url`
+// is ONLY set when a country is known — never emit a broken `//products/...`
+// link (137 Pitfall 2).
+function buildCardItem(
+  p: StoreProduct,
+  countryCode: string | undefined,
+  storefrontUrl: string | undefined,
+): Record<string, unknown> {
+  const variant = p.variants?.[0]
+  const price = variant?.calculated_price
+  const item: Record<string, unknown> = {
+    id: p.id,
+    variantId: variant?.id,
+    title: p.title,
+    thumbnail: p.thumbnail ?? null,
+    price:
+      price?.calculated_amount != null && price.currency_code
+        ? formatMoney(price.calculated_amount, price.currency_code)
+        : undefined,
+    handle: p.handle,
+  }
+  if (countryCode && p.handle) item.url = `${storefrontUrl ?? ''}/${countryCode}/products/${p.handle}`
+  return item
 }
 
 function formatProduct(p: StoreProduct): string {
@@ -50,14 +80,14 @@ export async function getMedusaProduct(
     const handle = typeof params.handle === 'string' ? params.handle : undefined
     if (!productId && !handle) return 'Tell me the product name or link.'
 
-    const regionId =
-      typeof commerce.region_id === 'string'
-        ? commerce.region_id
-        : await resolveRegionId(
-            creds,
-            ctx.organizationId,
-            typeof commerce.country_code === 'string' ? commerce.country_code : undefined,
-          )
+    const pinnedCountry = typeof commerce.country_code === 'string' ? commerce.country_code : undefined
+    let regionId = typeof commerce.region_id === 'string' ? commerce.region_id : undefined
+    let countryCode = pinnedCountry
+    if (!regionId) {
+      const resolved = await resolveRegion(creds, ctx.organizationId, pinnedCountry)
+      regionId = resolved.id
+      countryCode = countryCode ?? resolved.countryCode
+    }
 
     if (productId) {
       const qs = new URLSearchParams()
@@ -69,6 +99,13 @@ export async function getMedusaProduct(
         ctx.organizationId,
       )
       if (!product) return "I couldn't find that product."
+      if (ctx.emitStructured) {
+        ctx.emitStructured({
+          event: 'ui',
+          component: 'product_cards',
+          items: [buildCardItem(product, countryCode, creds.storefrontUrl)],
+        })
+      }
       return formatProduct(product)
     }
 
@@ -82,6 +119,13 @@ export async function getMedusaProduct(
       ctx.organizationId,
     )
     if (!products || products.length === 0) return "I couldn't find that product."
+    if (ctx.emitStructured) {
+      ctx.emitStructured({
+        event: 'ui',
+        component: 'product_cards',
+        items: [buildCardItem(products[0], countryCode, creds.storefrontUrl)],
+      })
+    }
     return formatProduct(products[0])
   } catch (err) {
     if (err instanceof MedusaRateLimitError) {
