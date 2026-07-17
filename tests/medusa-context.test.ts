@@ -3,9 +3,12 @@
 // (JSONB pinning). See .planning/research/INTEGRATION-CONTRACT.md §3 and
 // .planning/workstreams/medusa-commerce/phases/133-signed-context-identity-pinning/133-01-PLAN.md.
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createHmac } from 'node:crypto'
-import { verifyCommerceContext, type CommerceClaims } from '@/lib/medusa/context'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { verifyCommerceContext, writeCommerceContext, readCommerceContext, type CommerceClaims } from '@/lib/medusa/context'
+import { loadPinnedContext } from '@/lib/medusa/pinned-context'
+import type { MedusaExecCtx } from '@/lib/medusa/client'
 
 // ---- node:crypto mint helper — stuscle-identical mint (contract §3) --------
 // token = base64url(payloadJson) + "." + base64url(HMAC_SHA256(secret, base64url(payloadJson)))
@@ -113,5 +116,106 @@ describe('CTX-01: verifyCommerceContext', () => {
     const payload = basePayload({ cart: null, cus: null, email: null, wishlist_ref: null, region_id: null })
     const token = mint(payload, SECRET)
     expect(await verifyCommerceContext(token, SECRET, ORG)).toEqual(payload)
+  })
+})
+
+// ---- CTX-02: writeCommerceContext / readCommerceContext pinning -----------
+// Supabase mock idiom copied from tests/medusa-credentials.test.ts:
+// chainable from().select().eq().eq().maybeSingle() / .update().eq().eq()
+function buildSupabase(row: { memory: Record<string, unknown> | null } | null) {
+  const maybeSingle = vi.fn().mockResolvedValue({ data: row, error: null })
+  const update = vi.fn().mockReturnThis()
+  const eq = vi.fn().mockReturnThis()
+  const select = vi.fn().mockReturnThis()
+  const chain = { select, eq, maybeSingle, update }
+  const from = vi.fn().mockReturnValue(chain)
+  return { supabase: { from } as unknown as SupabaseClient, from, eq, maybeSingle, update }
+}
+
+const PIN_CLAIMS: CommerceClaims = basePayload({
+  cart: 'cart_1',
+  cus: 'cus_9',
+  region_id: 'reg_1',
+  country_code: 'dk',
+  email: null,
+  wishlist_ref: null,
+})
+
+describe('CTX-02: writeCommerceContext pinning', () => {
+  it('merge preserves: keeps existing memory keys and pins the verbatim claim names', async () => {
+    const { supabase, update, eq } = buildSupabase({ memory: { existingKey: 1 } })
+
+    const result = await writeCommerceContext(supabase, 'conv-1', 'org-1', PIN_CLAIMS)
+
+    expect(result).toBeNull()
+    expect(update).toHaveBeenCalledTimes(1)
+    const updateArg = update.mock.calls[0][0] as { memory: Record<string, unknown> }
+    expect(updateArg.memory.existingKey).toBe(1)
+    const commerce = updateArg.memory.commerce as Record<string, unknown>
+    expect(commerce.cart).toBe('cart_1')
+    expect(commerce.cus).toBe('cus_9')
+    expect(commerce).not.toHaveProperty('cart_id')
+    expect(commerce).not.toHaveProperty('customer_id')
+    expect(typeof commerce.verified_at).toBe('string')
+    expect(new Date(commerce.verified_at as string).toString()).not.toBe('Invalid Date')
+    expect(eq).toHaveBeenCalledWith('id', 'conv-1')
+    expect(eq).toHaveBeenCalledWith('org_id', 'org-1')
+  })
+
+  it('repin: a different pinned cart is overwritten and repinnedFrom is reported', async () => {
+    const { supabase, update } = buildSupabase({ memory: { commerce: { cart: 'cart_OLD' } } })
+    const newClaims = basePayload({ cart: 'cart_NEW' })
+
+    const result = await writeCommerceContext(supabase, 'conv-1', 'org-1', newClaims)
+
+    expect(result).toEqual({ repinnedFrom: 'cart_OLD' })
+    const updateArg = update.mock.calls[0][0] as { memory: Record<string, unknown> }
+    expect((updateArg.memory.commerce as Record<string, unknown>).cart).toBe('cart_NEW')
+  })
+
+  it('repin: the same cart returns null (no repin reported)', async () => {
+    const { supabase } = buildSupabase({ memory: { commerce: { cart: 'cart_SAME' } } })
+    const sameClaims = basePayload({ cart: 'cart_SAME' })
+
+    const result = await writeCommerceContext(supabase, 'conv-1', 'org-1', sameClaims)
+
+    expect(result).toBeNull()
+  })
+
+  it('read-back: the pinned cart is reachable through the shipped loadPinnedContext reader', async () => {
+    const { supabase, update } = buildSupabase({ memory: { existingKey: 1 } })
+    await writeCommerceContext(supabase, 'conv-1', 'org-1', PIN_CLAIMS)
+    const writtenMemory = (update.mock.calls[0][0] as { memory: Record<string, unknown> }).memory
+
+    const freshMaybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: { session_key: null, memory: writtenMemory }, error: null })
+    const freshChain = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: freshMaybeSingle }
+    const freshSupabase = { from: vi.fn().mockReturnValue(freshChain) } as unknown as MedusaExecCtx['supabase']
+
+    const { commerce } = await loadPinnedContext({
+      organizationId: 'org-1',
+      conversationId: 'conv-1',
+      supabase: freshSupabase,
+    })
+
+    expect(commerce.cart).toBe('cart_1')
+  })
+
+  it('readCommerceContext delegates to loadPinnedContext (no divergent second reader)', async () => {
+    const freshMaybeSingle = vi.fn().mockResolvedValue({
+      data: { session_key: null, memory: { commerce: { cart: 'cart_1' } } },
+      error: null,
+    })
+    const freshChain = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: freshMaybeSingle }
+    const freshSupabase = { from: vi.fn().mockReturnValue(freshChain) } as unknown as MedusaExecCtx['supabase']
+
+    const commerce = await readCommerceContext({
+      organizationId: 'org-1',
+      conversationId: 'conv-1',
+      supabase: freshSupabase,
+    })
+
+    expect(commerce.cart).toBe('cart_1')
   })
 })
