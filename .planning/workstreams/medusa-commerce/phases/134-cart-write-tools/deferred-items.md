@@ -37,3 +37,11 @@ task's changes).
   character in the middle of the signature, not the last char), or tamper
   the underlying `Uint8Array` before re-encoding instead of string-editing
   the base64url text.
+
+## 2. ROADMAP.md checkbox/count drift: 131-02-PLAN.md and the workstream plan totals
+
+- **Found during:** 134-03, while updating `.planning/workstreams/medusa-commerce/ROADMAP.md` and `STATE.md`'s progress counters
+- **File:** `.planning/workstreams/medusa-commerce/ROADMAP.md` (Phase 131 plan list), `.planning/workstreams/medusa-commerce/STATE.md` (`progress.completed_plans` frontmatter)
+- **Symptom:** `131-02-PLAN.md` is checked `[ ]` (incomplete) in ROADMAP.md's Phase 131 plan list, but `131-02-SUMMARY.md` exists on disk (dated 2026-07-17) — the plan was actually completed, the checkbox was just never flipped. This left `STATE.md`'s `completed_plans` counter one behind the true on-disk count (11 instead of 12, pre-134-03) each time it was recalculated by hand.
+- **Action taken:** `STATE.md`'s `completed_plans` was corrected to the true on-disk SUMMARY.md count (13, all of 131/132/133/134's plans) as part of this plan's STATE.md update — a factual correction, not a scope expansion. The `131-02-PLAN.md` checkbox in ROADMAP.md itself was left unfixed (out of scope for 134-03, unrelated file section) — its stale `[ ]` should be flipped to `[x]` ✅ 2026-07-17 by whoever next touches Phase 131's ROADMAP.md section.
+- **Suggested fix:** flip `131-02-PLAN.md`'s checkbox to `[x]` with a completion date in ROADMAP.md's Phase 131 section.

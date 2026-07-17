@@ -9,7 +9,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 - [x] **Phase 131: Chat Route Hardening** - Rate-limit matrix + message cap + failMode extension on the public chat endpoint (pre-existing gap, standalone value) ✅ 2026-07-17
 - [x] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools ✅ 2026-07-17
 - [x] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding ✅ 2026-07-17
-- [ ] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch
+- [x] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch ✅ 2026-07-17
 - [ ] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface
 - [ ] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch
 - [ ] **Phase 137: Product Cards & Order Status** - `ui`/`product_cards` SSE + widget renderer, order-status tool (logged-in only), CRM contact linking
@@ -79,7 +79,7 @@ Plans:
 Plans:
 - [x] 134-01-PLAN.md — signCartSig + cart-only re-pin + write counter + guardrail/idempotency sets + 2 cart-write executors (clamps, no-cart create+sign+pin+emit ORDER, ≤50 rollback, R7/R8 closed, DELETE .parent); cross-repo sig vector locked (CRT-01, CRT-02, CRT-03, CRT-04) [wave 1] ✅ 2026-07-17
 - [x] 134-02-PLAN.md — wiring: execute-action real dispatch + ActionContext.emitStructured + run-agent emitStructured:emit (streaming) + per-turn cap in both loops + ACTION_DESCRIPTIONS + spec.ts NODES (CRT-01, CRT-02, CRT-03) [wave 2] ✅ 2026-07-17
-- [ ] 134-03-PLAN.md — widget commerce SSE re-dispatch as CustomEvent('xphere:commerce') + build:widget commit + widget-test.html checklist (CRT-04) [wave 3]
+- [x] 134-03-PLAN.md — widget commerce SSE re-dispatch as CustomEvent('xphere:commerce') + build:widget commit + widget-test.html checklist (CRT-04) [wave 3] ✅ 2026-07-17
 
 ### Phase 135: Wishlist Tools
 **Goal**: The agent saves/lists/removes wishlist items for the visitor via Stuscle's HMAC-guarded `/agent/*` surface.

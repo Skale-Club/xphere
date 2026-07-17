@@ -5,14 +5,14 @@ gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
 status: in_progress
-last_updated: "2026-07-17T18:29:00.000Z"
-last_activity: 2026-07-17 -- 134-02 landed (execute-action.ts real dispatch of medusa_add_to_cart/medusa_update_cart_item, ActionContext.emitStructured, run-agent.ts streaming emitStructured:emit + per-turn commerce-write cap in both tool loops + ACTION_DESCRIPTIONS, workflows/spec.ts NODES for both write tools — wave 2 of Phase 134); tests/medusa-dispatch.test.ts + medusa-wiring.test.ts + medusa-spec.test.ts 27/27 green (108/108 across the full medusa+delegation test set); npm run build green
+last_updated: "2026-07-17T18:39:02.000Z"
+last_activity: 2026-07-17 -- 134-03 landed (widget re-dispatches every commerce SSE event as window CustomEvent('xphere:commerce') with { action, cartId, itemCount, sig }, preserving the Phase 133 cart_created cache-clear; public/widget.js rebuilt + committed; tests/widget.test.ts bundle-content assertion added, 12/12 green — wave 3 of Phase 134, final plan). Phase 134 (Cart Write Tools) is now COMPLETE — CRT-01 through CRT-04 all satisfied end-to-end.
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 11
-  percent: 43
+  completed_plans: 13
+  percent: 57
 ---
 
 # Project State — workstream medusa-commerce
@@ -22,30 +22,30 @@ progress:
 See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREMENTS.md.
 
 **Core value:** Commerce tools act with visitor-level authority only — pinned identity, hard caps, no id parameters in tool schemas.
-**Current focus:** Phase 134 — Cart Write Tools — IN PROGRESS (2 of 3 plans landed). Next: 134-03 (widget commerce SSE re-dispatch), depends on 134-02.
+**Current focus:** Phase 134 — Cart Write Tools — COMPLETE (3/3 plans landed, CRT-01 through CRT-04 all satisfied). Next: Phase 135 (Wishlist Tools), not yet planned.
 
 ## Current Position
 
-Phase: 134 of 137 (Cart Write Tools) — in progress, 2 of 3 plans landed
-Plan: 2 of 3 in Phase 134 — 134-01 (cart-sig signer + primitives + both cart-write executors) and 134-02 (execute-action/run-agent wiring) done; 134-03 (widget commerce re-dispatch) remains
-Status: CRT-01, CRT-02, CRT-03 satisfied end-to-end at the agent-pipeline level (Wave 2) — medusa_add_to_cart/medusa_update_cart_item now dispatch through execute-action.ts to the Wave 1 executors, the streaming run-agent path threads emitStructured:emit through ActionContext, both tool loops enforce the 3-write-per-turn cap before executeAction, and both tools are LLM-selectable via ACTION_DESCRIPTIONS + workflows/spec.ts NODES. CRT-04 (widget re-dispatch of the commerce SSE events as a window CustomEvent) is the only remaining piece, owned by 134-03 (Wave 3).
-Last activity: 2026-07-17 — 134-02 landed: Task 1 added addToCartMedusa/updateCartItemMedusa imports + a real dispatch block in execute-action.ts's switch (replacing the "not available yet" stub for just these 2 cases; wishlist add/remove/list + get_order_status remain stubbed) and ActionContext.emitStructured?: (obj) => void, documented as streaming-only. Task 2 added COMMERCE_WRITE_ACTIONS/checkCommerceWritesPerTurn imports to run-agent.ts, a commerceWrites counter + per-turn cap check (placed after the idempotency cache-hit short-circuit, before executeAction) in BOTH the blocking and streaming tool loops, emitStructured: emit on the streaming ActionContext object literal only (blocking site untouched), and 2 new ACTION_DESCRIPTIONS entries. Task 3 added medusa_add_to_cart + medusa_update_cart_item NodeSpec entries to workflows/spec.ts (integration_required: ['medusa'], id-free params_schema). tests/medusa-dispatch.test.ts, tests/medusa-wiring.test.ts, and tests/medusa-spec.test.ts were extended with dispatch/source-assertion/NODES coverage for the new wiring — 108/108 green across the full medusa + agent-delegation test set; npm run build (typecheck) green with zero errors on first attempt; zero deviations from plan.
+Phase: 134 of 137 (Cart Write Tools) — COMPLETE, 3 of 3 plans landed
+Plan: 3 of 3 in Phase 134 — 134-01 (cart-sig signer + primitives + both cart-write executors), 134-02 (execute-action/run-agent wiring), and 134-03 (widget commerce re-dispatch) all done
+Status: All four Phase 134 requirements (CRT-01, CRT-02, CRT-03, CRT-04) are satisfied end-to-end, executor to browser. medusa_add_to_cart/medusa_update_cart_item dispatch through execute-action.ts to the Wave 1 executors, the streaming run-agent path threads emitStructured:emit through ActionContext, both tool loops enforce the 3-write-per-turn cap before executeAction, both tools are LLM-selectable via ACTION_DESCRIPTIONS + workflows/spec.ts NODES, and the widget now re-dispatches every commerce SSE event to the host page as window.CustomEvent('xphere:commerce') with the contract §6 detail shape, preserving the Phase 133 cart_created cache-clear. Phase 135 (Wishlist Tools) is next and has no plans written yet.
+Last activity: 2026-07-17 — 134-03 landed (final plan of Phase 134): Task 1 widened SSEEvent with cartId/itemCount/sig and changed the onEvent commerce branch to fire window.dispatchEvent(CustomEvent('xphere:commerce', { detail: { action, cartId, itemCount, sig } })) for every commerce event (not just cart_created), keeping the Phase 133 cache-clear as a nested additive check on cart_created only; public/widget-test.html gained a CRT-04 checklist with a console listener snippet, documented as deferred pending a live stuscle stack (133-03 precedent). Task 2 ran npm run build:widget to rebuild+commit public/widget.js with the re-dispatch, and added a bundle-content assertion to tests/widget.test.ts asserting the built file contains 'xphere:commerce' (suite grew 11->12, all green). CI=true npx vitest run tests/widget.test.ts green (12/12); npm run build (typecheck + widget bundles + Next.js production build + service-worker verify) green with zero errors; zero deviations from plan. Logged one pre-existing, unrelated ROADMAP.md/STATE.md bookkeeping drift (131-02's checkbox never flipped despite its SUMMARY.md existing) to deferred-items.md and corrected STATE.md's completed_plans counter to the true on-disk count (13) as a factual correction.
 
-Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
+Progress: [▓▓▓▓▓▓░░░░] 57% (4/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11 (of 13 total across the workstream so far)
+- Total plans completed: 13 (of 13 total across the workstream so far — Phases 131-134 all fully landed; Phases 135-137 not yet planned)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 131 | 2 | 24min | 12min |
-| 132 | 4 | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
+| 131 | 3/3 landed | 24min (131-01/131-03 measured; 131-02 metrics not captured in this file) | — |
+| 132 | 4/4 landed | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
 | 133 | 3/3 landed | ~48min (133-01: 20min, 133-02: 15min, 133-03: 13min) | ~16min |
-| 134 | 2/3 landed | ~32min (134-01: ~20min, 134-02: ~12min) | ~16min |
+| 134 | 3/3 landed | ~39min (134-01: ~20min, 134-02: ~12min, 134-03: ~7min) | ~13min |
 
 ## Accumulated Context
 
@@ -80,6 +80,9 @@ Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 - 134-02: `ActionContext` (execute-action.ts's caller-facing type) is passed straight through to the medusa write executors as `MedusaExecCtx` with no adapter or cast — its required-field shape is a structural superset, and the streaming closure `emit: (obj: object) => void` is directly assignable to `emitStructured?: (obj: Record<string, unknown>) => void` by TS's contravariant function-parameter checking (`Record<string, unknown>` is a subtype of `object`).
 - 134-02: `emitStructured: emit` is set on the streaming `executeAction` context object literal ONLY — the blocking call site's context object has no `emitStructured` field at all (not even `undefined`), keeping Wave 1's "executors null-check `ctx.emitStructured?.()`" contract literally true, not just conventionally true. Verified by a source-assertion test that counts exactly one `emitStructured: emit` occurrence across the whole file.
 - 134-02: the per-turn commerce-write cap (`checkCommerceWritesPerTurn`) is checked inside each tool's `execute()` closure, gated by `COMMERCE_WRITE_ACTIONS.has(capturedActionType)`, placed AFTER the idempotency cache-hit early-return and BEFORE `executeAction` — a cached-response replay never increments `commerceWrites`; only a genuine dispatch attempt does. A breach returns a denial string (never throws) and logs `denied_reason: 'commerce_turn_cap'` in `toolCallsLog`, matching every other denial path in the loop.
+- 134-03: the widget's `commerce`/`cart_created` branch (inert since 133-03) is now widened to fire the `xphere:commerce` `window.CustomEvent` for EVERY `commerce` event, with the `cart_created` cache-clear kept as an additive nested check, not a replacement — `cart_updated` frames (from `update-cart-item.ts`, 134-01) now reach the host page too, which the cache-clear-only version could not do.
+- 134-03: the bundle-content assertion (`tests/widget.test.ts` asserting `public/widget.js` contains the literal string `xphere:commerce`) is a deliberate live-stack-free proof of the SHIPPED artifact, not just the source — jsdom can't observe a real cross-window `dispatchEvent` call meaningfully in this harness, and a stale/un-rebuilt bundle is exactly the risk the plan's Pitfall 7 called out.
+- 134-03: **Phase 134 (Cart Write Tools) is complete** — CRT-01 through CRT-04 all satisfied end-to-end, executor to browser. Widget commerce re-dispatch closes the loop opened by Wave 1's `cart_created`/`cart_updated` SSE emission (134-01) and Wave 2's live wiring (134-02).
 
 ### Blockers
 
@@ -93,5 +96,5 @@ Progress: [▓▓▓▓░░░░░░] 43% (3/7 phases)
 - Xkedule integration (`src/lib/xkedule/*`, migration 1200) is the template for the Medusa provider.
 
 ## Session Continuity
-**Stopped At:** Completed 134-02-PLAN.md (execute-action.ts real dispatch of both cart-write tools + ActionContext.emitStructured, run-agent.ts streaming emitStructured:emit + per-turn commerce-write cap in both tool loops + ACTION_DESCRIPTIONS, workflows/spec.ts NODES for both write tools — Wave 2 of Phase 134). CRT-01, CRT-02, CRT-03 are now satisfied end-to-end (agent-selectable, dispatched, capped, and emitting SSE on the streaming path); only CRT-04 (widget re-dispatch) remains.
-**Resume File:** None — next up is executing 134-03-PLAN.md (widget commerce SSE re-dispatch as `CustomEvent('xphere:commerce')` + `build:widget` commit + `widget-test.html` checklist, CRT-04), which depends on 134-02 (this plan, now landed) since it needs a real, reachable `emitStructured` emit path to consume. No blockers. Real cross-repo same-origin context-fetch verification (133-03's deferred Task 3) remains outstanding separately for whenever xphere + stuscle run together (contract §9 dev-wiring).
+**Stopped At:** Completed 134-03-PLAN.md (widget re-dispatches every `commerce` SSE event as `window.CustomEvent('xphere:commerce')` with `{ action, cartId, itemCount, sig }`, preserving the Phase 133 `cart_created` cache-clear; `public/widget.js` rebuilt + committed; `tests/widget.test.ts` bundle-content assertion added, 12/12 green — final plan of Phase 134). **Phase 134 (Cart Write Tools) is COMPLETE** — CRT-01 through CRT-04 all satisfied end-to-end.
+**Resume File:** None — next up is planning Phase 135 (Wishlist Tools), which depends on Phase 134 (now landed) for the pinned-cart/customer-context pattern its owner-resolution logic reuses. No plans exist yet for 135-137; `/gsd:plan-phase 135` (or equivalent) is the next step. No blockers. Real cross-repo same-origin context-fetch AND widget-to-storefront-bridge re-dispatch verification (133-03's and 134-03's deferred manual checkpoints) remain outstanding for whenever xphere + stuscle run together (contract §9 dev-wiring). One pre-existing, unrelated bookkeeping item was logged (not fixed) to `134-cart-write-tools/deferred-items.md`: `131-02-PLAN.md`'s ROADMAP.md checkbox was never flipped despite its SUMMARY.md existing.
