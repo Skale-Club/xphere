@@ -16,6 +16,8 @@ import { createLogger } from '@/lib/obs/logger'
 import { isRequestAllowed, normalizeWidgetUrlMode, normalizeWidgetUrlRules } from '@/lib/widget/url-rules'
 import { rateLimit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/request-ip'
+import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
+import { verifyCommerceContext, writeCommerceContext } from '@/lib/medusa/context'
 
 export const runtime = 'nodejs'
 // 60s for tool round-trips (Phases 132+). NOTE: on self-hosted Coolify this is platform build-output metadata only — no runtime enforcement (Next 16 docs); the effective ceiling is the Traefik proxy timeout. Zero behavioral change today, required for platform portability.
@@ -38,6 +40,9 @@ const ChatRequestSchema = z.object({
   // (browsers strip the path from cross-origin Referer). The host is still
   // verified against the unspoofable Origin header before the path is trusted.
   pageUrl: z.string().optional(),
+  // Storefront-minted signed commerce-context token (contract §3, CTX-02).
+  // Verified + pinned below, before runAgent. Never trusted from message text.
+  commerce_context: z.string().max(2048).optional(),
 })
 
 // Plain JSON, never a stream — the widget shows non-200s as an error bubble.
@@ -81,7 +86,7 @@ export async function POST(
     if (!parsed.success) {
       return Response.json({ error: parsed.error.errors[0]?.message ?? 'Invalid request' }, { status: 400, headers: CORS_HEADERS })
     }
-    const { message, sessionId: incomingSessionId, pageUrl } = parsed.data
+    const { message, sessionId: incomingSessionId, pageUrl, commerce_context } = parsed.data
 
     // R3/R4 (contract §7). getSession needs only the sessionId (org-independent
     // Redis read) so session limits run before the org DB lookup.
@@ -191,6 +196,27 @@ export async function POST(
         log.error('persist_user_message_failed', { error: err, orgId: ctx.orgId })
       }
     })
+
+    // 6b. Verify + pin the storefront-minted commerce context (contract §3, anti-IDOR).
+    // Absent → skip entirely (orgs without a medusa integration pay nothing).
+    // ALL failures are fail-soft: warn + continue the chat with no pin. Runs
+    // BEFORE runAgent so a tool call in the first turn sees the pin.
+    if (commerce_context) {
+      try {
+        const creds = await getMedusaCredentialsForOrg(org.id, supabase)
+        if (creds) {
+          const claims = await verifyCommerceContext(commerce_context, creds.connectionToken, org.id)
+          if (claims) {
+            const repin = await writeCommerceContext(supabase, ctx.dbSessionId, org.id, claims)
+            if (repin?.repinnedFrom) log.info('commerce_ctx_repinned', { orgId: org.id, from: repin.repinnedFrom, to: claims.cart })
+          } else {
+            log.warn('commerce_ctx_invalid', { orgId: org.id })
+          }
+        }
+      } catch (err) {
+        log.warn('commerce_ctx_error', { orgId: org.id, error: err }) // never throw — the chat must continue
+      }
+    }
 
     // 7. Call agent runtime | resolves agent, runs LLM, persists assistant reply (D-35-06)
     const stream = runAgent({
