@@ -412,6 +412,30 @@ export const NODES: NodeSpec[] = [
     },
     examples: [{ item_title_or_variant: 'Sweatshirt', quantity: 2 }],
   },
+  {
+    type: 'medusa_wishlist_add',
+    kind: 'action',
+    description: "Save a product to the visitor's wishlist (owner bound to the conversation).",
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: { product_id: { type: 'string' }, variant_id: { type: 'string' } } },
+    examples: [{ product_id: 'prod_123' }],
+  },
+  {
+    type: 'medusa_wishlist_remove',
+    kind: 'action',
+    description: "Remove a product from the visitor's wishlist.",
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: { product_id: { type: 'string' }, variant_id: { type: 'string' } } },
+    examples: [{ product_id: 'prod_123' }],
+  },
+  {
+    type: 'medusa_wishlist_list',
+    kind: 'action',
+    description: "List the visitor's wishlist. No parameters — the wishlist is pinned to the conversation.",
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: {} },
+    examples: [{}],
+  },
   // ─── Action | messaging
   {
     type: 'send_sms',

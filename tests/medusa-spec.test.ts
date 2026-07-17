@@ -20,7 +20,8 @@ import { NODES, type NodeSpec } from '@/lib/workflows/spec'
 
 const MEDUSA_TYPES = ['medusa_search_products', 'medusa_get_product', 'medusa_get_cart']
 const MEDUSA_WRITE_TYPES = ['medusa_add_to_cart', 'medusa_update_cart_item']
-const FORBIDDEN_PARAM_KEYS = ['cart_id', 'customer_id', 'email', 'order_id']
+const MEDUSA_WISHLIST_TYPES = ['medusa_wishlist_add', 'medusa_wishlist_remove', 'medusa_wishlist_list']
+const FORBIDDEN_PARAM_KEYS = ['cart_id', 'customer_id', 'email', 'order_id', 'guest_ref']
 
 function filterByAvailableProviders(nodes: NodeSpec[], available: Set<string>): NodeSpec[] {
   // Mirrors getWorkflowSpec's predicate (src/lib/workflows/spec.ts):
@@ -121,6 +122,62 @@ describe('CRT-03: workflows/spec.ts medusa cart-write NODES', () => {
     }
     const shown = filterByAvailableProviders(NODES, new Set(['medusa']))
     for (const type of MEDUSA_WRITE_TYPES) {
+      expect(shown.some((n) => n.type === type)).toBe(true)
+    }
+  })
+})
+
+describe('WSL-01: workflows/spec.ts wishlist NODES', () => {
+  const wishlistNodes = NODES.filter((n) => MEDUSA_WISHLIST_TYPES.includes(n.type))
+  // add/remove carry only product_id/variant_id; list carries none — no
+  // customer_id/guest_ref/cart_id/email param anywhere (anti-IDOR, contract §3).
+  const ALLOWED_WISHLIST_PARAM_KEYS = new Set(['product_id', 'variant_id'])
+
+  it('Test 1: exactly 3 wishlist nodes exist, each kind=action with integration_required=[medusa]', () => {
+    expect(wishlistNodes).toHaveLength(3)
+    for (const type of MEDUSA_WISHLIST_TYPES) {
+      const node = wishlistNodes.find((n) => n.type === type)
+      expect(node, `expected NODES to contain a ${type} entry`).toBeDefined()
+      expect(node!.kind).toBe('action')
+      expect(node!.integration_required).toEqual(['medusa'])
+    }
+  })
+
+  it('Test 2: anti-IDOR — no wishlist node exposes cart_id/customer_id/email/order_id/guest_ref in params_schema', () => {
+    for (const node of wishlistNodes) {
+      const schemaJson = JSON.stringify(node.params_schema ?? {})
+      for (const forbidden of FORBIDDEN_PARAM_KEYS) {
+        expect(
+          schemaJson.includes(forbidden),
+          `${node.type}.params_schema unexpectedly contains "${forbidden}": ${schemaJson}`,
+        ).toBe(false)
+      }
+    }
+  })
+
+  it('Test 3: add/remove params_schema properties are a subset of {product_id, variant_id}; list has none', () => {
+    for (const type of ['medusa_wishlist_add', 'medusa_wishlist_remove']) {
+      const node = wishlistNodes.find((n) => n.type === type)!
+      const properties = (node.params_schema as { properties?: Record<string, unknown> } | undefined)?.properties ?? {}
+      for (const key of Object.keys(properties)) {
+        expect(
+          ALLOWED_WISHLIST_PARAM_KEYS.has(key),
+          `${node.type}.params_schema has unexpected param "${key}"`,
+        ).toBe(true)
+      }
+    }
+    const listNode = wishlistNodes.find((n) => n.type === 'medusa_wishlist_list')!
+    const listProperties = (listNode.params_schema as { properties?: Record<string, unknown> } | undefined)?.properties ?? {}
+    expect(Object.keys(listProperties)).toHaveLength(0)
+  })
+
+  it('Test 4: wishlist nodes are hidden when medusa is not a connected integration, shown when it is', () => {
+    const hidden = filterByAvailableProviders(NODES, new Set<string>())
+    for (const type of MEDUSA_WISHLIST_TYPES) {
+      expect(hidden.some((n) => n.type === type)).toBe(false)
+    }
+    const shown = filterByAvailableProviders(NODES, new Set(['medusa']))
+    for (const type of MEDUSA_WISHLIST_TYPES) {
       expect(shown.some((n) => n.type === type)).toBe(true)
     }
   })
