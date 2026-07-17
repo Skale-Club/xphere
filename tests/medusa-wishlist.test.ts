@@ -307,6 +307,79 @@ describe('removeWishlistItem', () => {
   })
 })
 
-// NOTE: listWishlist tests are added in Task 3 (see below this comment once
-// that task's RED phase lands) — kept as a separate describe block appended
-// to this same file, per 135-01-PLAN.md Task 3.
+// =============================================================================
+// listWishlist
+// =============================================================================
+
+describe('listWishlist', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 29, resetAt: 0 })
+  })
+
+  it('happy path: renders items, body is owner-only, path correct', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cus: 'cus_9' } } })
+    mockMedusaAgentFetch.mockResolvedValueOnce({
+      wishlist: {
+        id: 'wl_1',
+        items: [
+          { id: 'wi_1', product_id: 'p1', variant_id: null, product: { title: 'Sweatshirt', handle: 'sweatshirt', thumbnail: null } },
+          { id: 'wi_2', product_id: 'p2', variant_id: null, product: { title: 'Tote', handle: 'tote', thumbnail: null } },
+        ],
+      },
+    })
+    const { listWishlist } = await import('@/lib/medusa/actions/wishlist-list')
+
+    const result = await listWishlist(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+
+    expect(result).toContain('Sweatshirt')
+    expect(result).toContain('Tote')
+    const [, path, , body] = mockMedusaAgentFetch.mock.calls[0] as [unknown, string, unknown, Record<string, unknown>]
+    expect(path).toBe('/agent/wishlists/list')
+    expect(body).toEqual({ customer_id: 'cus_9' })
+  })
+
+  it('empty wishlist: returns "Your wishlist is empty."', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cus: 'cus_9' } } })
+    mockMedusaAgentFetch.mockResolvedValueOnce({ wishlist: { id: 'wl_1', items: [] } })
+    const { listWishlist } = await import('@/lib/medusa/actions/wishlist-list')
+
+    const result = await listWishlist(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+
+    expect(result).toBe('Your wishlist is empty.')
+  })
+
+  it('no owner: friendly "nothing saved yet" string, NO store call', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: {} } })
+    const { listWishlist } = await import('@/lib/medusa/actions/wishlist-list')
+
+    const result = await listWishlist(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+
+    expect(result).toMatch(/nothing.*saved|saved.*yet/i)
+    expect(mockMedusaAgentFetch).not.toHaveBeenCalled()
+  })
+
+  it('R6 memory: key contains com:read: and failMode memory; denies -> friendly string, no call', async () => {
+    mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: 0 })
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cus: 'cus_9' } } })
+    const { listWishlist } = await import('@/lib/medusa/actions/wishlist-list')
+
+    const result = await listWishlist(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaAgentFetch).not.toHaveBeenCalled()
+    const [key, , , opts] = mockRateLimit.mock.calls[0] as [string, number, number, { failMode: string }]
+    expect(key).toContain('com:read:')
+    expect(opts.failMode).toBe('memory')
+  })
+
+  it('never throws — a transport error resolves to a friendly string', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cus: 'cus_9' } } })
+    mockMedusaAgentFetch.mockRejectedValueOnce(new Error('boom'))
+    const { listWishlist } = await import('@/lib/medusa/actions/wishlist-list')
+
+    await expect(
+      listWishlist(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' }),
+    ).resolves.toEqual(expect.any(String))
+  })
+})
