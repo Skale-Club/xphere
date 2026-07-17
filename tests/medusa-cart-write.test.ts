@@ -177,5 +177,300 @@ describe('SIDE_EFFECTING_ACTIONS / COMMERCE_WRITE_ACTIONS (CRT-04)', () => {
   })
 })
 
-// Task 2 (medusa_add_to_cart) and Task 3 (medusa_update_cart_item) suites are
-// appended below in their own commits, per the phase plan's task ordering.
+// =============================================================================
+// Task 2: medusa_add_to_cart
+// =============================================================================
+
+describe('addToCartMedusa', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 9, resetAt: 0 })
+  })
+
+  it('happy path with a pinned cart: adds a line item, emits cart_updated once, MAJOR-unit total', async () => {
+    const { supabase } = buildSupabase({
+      session_key: 'sess_1',
+      memory: { commerce: { cart: 'cart_1', write_count: 0 } },
+    })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: {
+        id: 'cart_1',
+        currency_code: 'eur',
+        total: 35,
+        items: [{ id: 'li_1', title: 'Sweatshirt', quantity: 1, variant_id: 'variant_1', total: 35 }],
+      },
+    })
+    const emit = vi.fn()
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ variant_id: 'variant_1', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+      emitStructured: emit,
+    })
+
+    expect(result).toContain('€35.00')
+    expect(result).not.toContain('3,500.00')
+    expect(emit).toHaveBeenCalledTimes(1)
+    expect(emit).toHaveBeenCalledWith({ event: 'commerce', action: 'cart_updated', cartId: 'cart_1', itemCount: 1 })
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(1)
+    const [, path, , init] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string, unknown, RequestInit]
+    expect(path).toContain('/store/carts/cart_1/line-items')
+    expect(init.method).toBe('POST')
+  })
+
+  it('no pinned cart: create -> sign -> metadata -> pin -> emit cart_created -> add line -> emit cart_updated, IN ORDER', async () => {
+    const { supabase } = buildSupabase({
+      session_key: 'sess_1',
+      memory: { commerce: { region_id: 'reg_1' } },
+    })
+    mockMedusaStoreFetch
+      .mockResolvedValueOnce({ cart: { id: 'cart_NEW' } }) // 1: create
+      .mockResolvedValueOnce({ cart: { id: 'cart_NEW' } }) // 2: metadata write
+      .mockResolvedValueOnce({
+        cart: {
+          id: 'cart_NEW',
+          currency_code: 'eur',
+          total: 35,
+          items: [{ id: 'li_1', title: 'Sweatshirt', quantity: 1, variant_id: 'variant_1', total: 35 }],
+        },
+      }) // 3: add line item
+    const emit = vi.fn()
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+    const { signCartSig } = await import('@/lib/medusa/cart-sig')
+    const expectedSig = await signCartSig(CREDS.connectionToken, 'cart_NEW')
+
+    await addToCartMedusa({ variant_id: 'variant_1', quantity: 1 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+      emitStructured: emit,
+    })
+
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(3)
+    const calls = mockMedusaStoreFetch.mock.calls as Array<[unknown, string, unknown, RequestInit?]>
+    const [createCall, metadataCall, addLineCall] = calls
+    expect(createCall[1]).toBe('/store/carts')
+    expect(createCall[3]?.method).toBe('POST')
+    expect(metadataCall[1]).toBe('/store/carts/cart_NEW')
+    expect(JSON.parse((metadataCall[3]?.body as string) ?? '{}')).toEqual({ metadata: { xphere_sig: expectedSig } })
+    expect(addLineCall[1]).toContain('/store/carts/cart_NEW/line-items')
+
+    expect(emit).toHaveBeenCalledTimes(2)
+    expect(emit).toHaveBeenNthCalledWith(1, {
+      event: 'commerce',
+      action: 'cart_created',
+      cartId: 'cart_NEW',
+      itemCount: 0,
+      sig: expectedSig,
+    })
+    expect(emit).toHaveBeenNthCalledWith(2, {
+      event: 'commerce',
+      action: 'cart_updated',
+      cartId: 'cart_NEW',
+      itemCount: 1,
+    })
+
+    // ORDER IS LOAD-BEARING: cart_created strictly after the metadata POST
+    // resolves, strictly before the line-item add call (Pitfall 2).
+    const metadataOrder = mockMedusaStoreFetch.mock.invocationCallOrder[1]
+    const addLineOrder = mockMedusaStoreFetch.mock.invocationCallOrder[2]
+    const cartCreatedEmitOrder = emit.mock.invocationCallOrder[0]
+    expect(cartCreatedEmitOrder).toBeGreaterThan(metadataOrder)
+    expect(cartCreatedEmitOrder).toBeLessThan(addLineOrder)
+  })
+
+  it('quantity clamp: 99 -> line-item body quantity 10', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: {
+        id: 'cart_1',
+        currency_code: 'eur',
+        total: 350,
+        items: [{ id: 'li_1', title: 'x', quantity: 10, variant_id: 'variant_1' }],
+      },
+    })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    await addToCartMedusa({ variant_id: 'variant_1', quantity: 99 }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    const [, , , init] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string, unknown, RequestInit]
+    expect(JSON.parse(init.body as string).quantity).toBe(10)
+  })
+
+  it('quantity clamp: 0/missing -> 1', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: {
+        id: 'cart_1',
+        currency_code: 'eur',
+        total: 35,
+        items: [{ id: 'li_1', title: 'x', quantity: 1, variant_id: 'variant_1' }],
+      },
+    })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    await addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    const [, , , init] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string, unknown, RequestInit]
+    expect(JSON.parse(init.body as string).quantity).toBe(1)
+  })
+
+  it('R7 closed: denies and issues NO store write', async () => {
+    mockRateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: 0 })
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+    const [key, , , opts] = mockRateLimit.mock.calls[0] as [string, number, number, { failMode: string }]
+    expect(key).toContain('com:write:')
+    expect(opts.failMode).toBe('closed')
+  })
+
+  it('R8 closed: denies and issues NO store write', async () => {
+    mockRateLimit
+      .mockResolvedValueOnce({ allowed: true, remaining: 9, resetAt: 0 }) // R7 ok
+      .mockResolvedValueOnce({ allowed: false, remaining: 0, resetAt: 0 }) // R8 denies
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('per-conversation 25 cap: denies and issues NO store write', async () => {
+    const { supabase } = buildSupabase({
+      session_key: 'sess_1',
+      memory: { commerce: { cart: 'cart_1', write_count: 25 } },
+    })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(typeof result).toBe('string')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('51st item: rolls back the just-added line and does NOT emit cart_updated', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    const items = Array.from({ length: 50 }, (_, i) => ({
+      id: `li_${i}`,
+      title: `x${i}`,
+      quantity: 1,
+      variant_id: `variant_old_${i}`,
+    }))
+    items.push({ id: 'li_new', title: 'new', quantity: 1, variant_id: 'variant_1' })
+    mockMedusaStoreFetch
+      .mockResolvedValueOnce({ cart: { id: 'cart_1', currency_code: 'eur', total: 999, items } }) // add line item -> 51 items
+      .mockResolvedValueOnce({ deleted: true, parent: { id: 'cart_1', items: items.slice(0, 50) } }) // rollback DELETE
+    const emit = vi.fn()
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+      emitStructured: emit,
+    })
+
+    expect(result.toLowerCase()).toContain('full')
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(2)
+    const [, deletePath, , deleteInit] = mockMedusaStoreFetch.mock.calls[1] as [unknown, string, unknown, RequestInit]
+    expect(deletePath).toBe('/store/carts/cart_1/line-items/li_new')
+    expect(deleteInit.method).toBe('DELETE')
+    expect(emit).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'cart_updated' }))
+  })
+
+  it('product_id with a single variant auto-selects it', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch
+      .mockResolvedValueOnce({ product: { id: 'prod_1', title: 'Tote', variants: [{ id: 'variant_only', title: 'Default' }] } })
+      .mockResolvedValueOnce({
+        cart: {
+          id: 'cart_1',
+          currency_code: 'eur',
+          total: 20,
+          items: [{ id: 'li_1', title: 'Tote', quantity: 1, variant_id: 'variant_only' }],
+        },
+      })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ product_id: 'prod_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(result).toContain('€20.00')
+    const [, , , addInit] = mockMedusaStoreFetch.mock.calls[1] as [unknown, string, unknown, RequestInit]
+    expect(JSON.parse(addInit.body as string).variant_id).toBe('variant_only')
+  })
+
+  it('product_id with multiple variants asks the user to pick (no line-item write)', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      product: {
+        id: 'prod_1',
+        title: 'Tote',
+        variants: [
+          { id: 'v1', title: 'Small' },
+          { id: 'v2', title: 'Large' },
+        ],
+      },
+    })
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    const result = await addToCartMedusa({ product_id: 'prod_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+
+    expect(result).toMatch(/small/i)
+    expect(result).toMatch(/large/i)
+    expect(mockMedusaStoreFetch).toHaveBeenCalledTimes(1) // only the product fetch, no line-item POST
+  })
+
+  it('never throws — a store error resolves to a friendly string', async () => {
+    const { supabase } = buildSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockRejectedValueOnce(new Error('boom'))
+    const { addToCartMedusa } = await import('@/lib/medusa/actions/add-to-cart')
+
+    await expect(
+      addToCartMedusa({ variant_id: 'variant_1' }, CREDS, {
+        organizationId: 'org-1',
+        supabase,
+        conversationId: 'conv-1',
+      }),
+    ).resolves.toEqual(expect.any(String))
+  })
+})
+
+// Task 3 (medusa_update_cart_item) suite is appended below in its own commit,
+// per the phase plan's task ordering.
