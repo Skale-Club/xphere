@@ -51,6 +51,10 @@ import { getXkeduleCredentialsForOrg } from '@/lib/xkedule/credentials'
 import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
+import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
+import { searchMedusaProducts } from '@/lib/medusa/actions/search-products'
+import { getMedusaProduct } from '@/lib/medusa/actions/get-product'
+import { getMedusaCart } from '@/lib/medusa/actions/get-cart'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -450,6 +454,31 @@ async function _executeActionInner(
       if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
       return createXkeduleBooking(params, xkCreds)
     }
+    // Medusa read tools (MED-03/MED-04): unlike xkedule above, these never
+    // throw on missing ctx/creds -- they return friendly strings so a
+    // misconfigured store never surfaces a raw error into the LLM turn.
+    case 'medusa_search_products':
+    case 'medusa_get_product':
+    case 'medusa_get_cart': {
+      if (!ctx?.organizationId || !ctx?.supabase) return 'The store is not available right now.'
+      const medusaCreds = await getMedusaCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!medusaCreds) return 'No store is connected to this workspace yet.'
+      if (actionType === 'medusa_search_products') return searchMedusaProducts(params, medusaCreds, ctx)
+      if (actionType === 'medusa_get_product') return getMedusaProduct(params, medusaCreds, ctx)
+      return getMedusaCart(medusaCreds, ctx)
+    }
+    // Not yet built (later phases: Cart Write Tools, Wishlist Tools, Product
+    // Cards & Order Status). Not registered in ACTION_DESCRIPTIONS or
+    // workflows/spec.ts NODES, so the LLM can never select these -- this
+    // group exists solely to keep the exhaustive switch below compiling now
+    // that database.ts carries all nine medusa_* action types.
+    case 'medusa_add_to_cart':
+    case 'medusa_update_cart_item':
+    case 'medusa_wishlist_add':
+    case 'medusa_wishlist_remove':
+    case 'medusa_wishlist_list':
+    case 'medusa_get_order_status':
+      return 'That commerce action is not available yet.'
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType

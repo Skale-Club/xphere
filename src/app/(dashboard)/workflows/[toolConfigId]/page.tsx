@@ -65,6 +65,15 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   xkedule_check_availability: 'Xkedule: Check Availability',
   xkedule_create_booking: 'Xkedule: Create Booking',
   send_zernio_dm: 'Instagram/Facebook: Send DM',
+  medusa_search_products: 'Medusa: Search Products',
+  medusa_get_product: 'Medusa: Get Product',
+  medusa_get_cart: 'Medusa: Get Cart',
+  medusa_add_to_cart: 'Medusa: Add to Cart',
+  medusa_update_cart_item: 'Medusa: Update Cart Item',
+  medusa_wishlist_add: 'Medusa: Wishlist Add',
+  medusa_wishlist_remove: 'Medusa: Wishlist Remove',
+  medusa_wishlist_list: 'Medusa: Wishlist List',
+  medusa_get_order_status: 'Medusa: Get Order Status',
 }
 
 function buildPageUrl(
