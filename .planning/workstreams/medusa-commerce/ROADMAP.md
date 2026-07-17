@@ -105,8 +105,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 136-01-PLAN.md — commerce:events scope + migration 1260 (UNIQUE + RLS) + database.ts types + commerceEventSchema (MAJOR units) + insertCommerceReceipt (23505 dedupe) (EVI-01, EVI-02) [wave 1]
-- [ ] 136-02-PLAN.md — emitCommerceEvent (contact find-or-create, `cart`-key conversation annotation, type→commerce.<type> workflow dispatch + event_dispatches audit) + spec.ts TRIGGERS (EVI-03) [wave 1]
+- [x] 136-01-PLAN.md — commerce:events scope + migration 1260 (UNIQUE + RLS) + database.ts types + commerceEventSchema (MAJOR units) + insertCommerceReceipt (23505 dedupe) (EVI-01, EVI-02) [wave 1]
+- [x] 136-02-PLAN.md — emitCommerceEvent (contact find-or-create, `cart`-key conversation annotation, type→commerce.<type> workflow dispatch + event_dispatches audit) + spec.ts TRIGGERS (EVI-03) [wave 1]
 - [ ] 136-03-PLAN.md — POST /api/v1/commerce/events route (clone leads: 64KB cap / verifyApiKey commerce:events / R12 / zod / Idempotency===event_id / dedupe → 201/200-dup/401/403/422) (EVI-01, EVI-02) [wave 2]
 
 ### Phase 137: Product Cards & Order Status
