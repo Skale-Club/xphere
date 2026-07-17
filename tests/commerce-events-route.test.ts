@@ -116,4 +116,49 @@ describe('POST /api/v1/commerce/events', () => {
     expect(insertCommerceReceiptMock).not.toHaveBeenCalled()
     expect(emitCommerceEventMock).not.toHaveBeenCalled()
   })
+
+  it('401 on invalid/missing Bearer', async () => {
+    verifyApiKeyMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      error: 'Invalid or revoked API key',
+      code: 'invalid_api_key',
+    })
+
+    const response = await POST(request())
+    expect(response.status).toBe(401)
+    expect(insertCommerceReceiptMock).not.toHaveBeenCalled()
+    expect(emitCommerceEventMock).not.toHaveBeenCalled()
+  })
+
+  it('403 on a key missing the commerce:events scope', async () => {
+    verifyApiKeyMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'API key is missing the commerce:events scope',
+      code: 'insufficient_scope',
+    })
+
+    const response = await POST(request())
+    expect(response.status).toBe(403)
+    expect(insertCommerceReceiptMock).not.toHaveBeenCalled()
+    expect(emitCommerceEventMock).not.toHaveBeenCalled()
+  })
+
+  it('429 when R12 is exhausted', async () => {
+    rateLimitMock.mockResolvedValue({ allowed: false, remaining: 0, resetAt: 0 })
+
+    const response = await POST(request())
+    expect(response.status).toBe(429)
+    expect(insertCommerceReceiptMock).not.toHaveBeenCalled()
+    expect(emitCommerceEventMock).not.toHaveBeenCalled()
+  })
+
+  it('413 on an oversized content-length', async () => {
+    const response = await POST(request({ headers: { 'content-length': String(64 * 1024 + 1) } }))
+    expect(response.status).toBe(413)
+    expect(verifyApiKeyMock).not.toHaveBeenCalled()
+    expect(insertCommerceReceiptMock).not.toHaveBeenCalled()
+    expect(emitCommerceEventMock).not.toHaveBeenCalled()
+  })
 })
