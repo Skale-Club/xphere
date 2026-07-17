@@ -55,6 +55,8 @@ import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
 import { searchMedusaProducts } from '@/lib/medusa/actions/search-products'
 import { getMedusaProduct } from '@/lib/medusa/actions/get-product'
 import { getMedusaCart } from '@/lib/medusa/actions/get-cart'
+import { addToCartMedusa } from '@/lib/medusa/actions/add-to-cart'
+import { updateCartItemMedusa } from '@/lib/medusa/actions/update-cart-item'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -78,6 +80,15 @@ export interface ActionContext {
   contactId?: string
   /** Phase 1085 DND: conversation id to write DND-blocked timeline events into */
   conversationId?: string
+  /**
+   * Phase 134 CRT-03: SSE emitter for commerce write events (`cart_created`/
+   * `cart_updated`). Set ONLY on run-agent's STREAMING call site; the
+   * blocking call site omits it entirely, so executors must null-check
+   * (`ctx.emitStructured?.(...)`). Structurally compatible with
+   * MedusaExecCtx.emitStructured, so passing `ctx` straight through to the
+   * medusa write executors delivers it without a cast.
+   */
+  emitStructured?: (obj: Record<string, unknown>) => void
 }
 
 /** Insert a system timeline message into a conversation (best-effort, never throws). */
@@ -467,13 +478,26 @@ async function _executeActionInner(
       if (actionType === 'medusa_get_product') return getMedusaProduct(params, medusaCreds, ctx)
       return getMedusaCart(medusaCreds, ctx)
     }
-    // Not yet built (later phases: Cart Write Tools, Wishlist Tools, Product
-    // Cards & Order Status). Not registered in ACTION_DESCRIPTIONS or
-    // workflows/spec.ts NODES, so the LLM can never select these -- this
-    // group exists solely to keep the exhaustive switch below compiling now
-    // that database.ts carries all nine medusa_* action types.
+    // Medusa write tools (Phase 134, CRT-01/CRT-02/CRT-03): same never-throw
+    // friendly-string contract as the read tools above. `ctx` is passed
+    // straight through to the executors -- it structurally satisfies
+    // MedusaExecCtx (organizationId, supabase, conversationId,
+    // emitStructured), so the streaming path's emitStructured reaches the
+    // executor's `cart_created`/`cart_updated` emits, and the blocking path's
+    // absence of emitStructured is a no-op there (executors null-check).
     case 'medusa_add_to_cart':
-    case 'medusa_update_cart_item':
+    case 'medusa_update_cart_item': {
+      if (!ctx?.organizationId || !ctx?.supabase) return 'The store is not available right now.'
+      const medusaCreds = await getMedusaCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!medusaCreds) return 'No store is connected to this workspace yet.'
+      if (actionType === 'medusa_add_to_cart') return addToCartMedusa(params, medusaCreds, ctx)
+      return updateCartItemMedusa(params, medusaCreds, ctx)
+    }
+    // Not yet built (later phases: Wishlist Tools, Product Cards & Order
+    // Status). Not registered in ACTION_DESCRIPTIONS or workflows/spec.ts
+    // NODES, so the LLM can never select these -- this group exists solely
+    // to keep the exhaustive switch below compiling now that database.ts
+    // carries all nine medusa_* action types.
     case 'medusa_wishlist_add':
     case 'medusa_wishlist_remove':
     case 'medusa_wishlist_list':
