@@ -44,9 +44,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 132-01-PLAN.md — Migration 1259 + integration_provider enum + Medusa registry entry (MED-01, MED-02) [wave 1]
-- [ ] 132-02-PLAN.md — Medusa credentials + Store API client (R11 + 8s + x-publishable-api-key) (MED-02, MED-03) [wave 1]
-- [ ] 132-03-PLAN.md — run-agent conversationId wiring + ACTION_DESCRIPTIONS + spec.ts NODES (MED-04) [wave 1]
+- [x] 132-01-PLAN.md — Migration 1259 + integration_provider enum + Medusa registry entry (MED-01, MED-02) [wave 1]
+- [x] 132-02-PLAN.md — Medusa credentials + Store API client (R11 + 8s + x-publishable-api-key) (MED-02, MED-03) [wave 1]
+- [x] 132-03-PLAN.md — run-agent conversationId wiring + ACTION_DESCRIPTIONS + spec.ts NODES (MED-04) [wave 1]
 - [ ] 132-04-PLAN.md — Read executors (search / get-product / get-cart) + action_type enum + exhaustive dispatcher (MED-01, MED-03, MED-04) [wave 2]
 
 ### Phase 133: Signed Context & Identity Pinning
