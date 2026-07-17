@@ -12,7 +12,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 - [x] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch ✅ 2026-07-17
 - [x] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface ✅ 2026-07-17
 - [x] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch (completed 2026-07-17)
-- [ ] **Phase 137: Product Cards & Order Status** - `ui`/`product_cards` SSE + widget renderer, order-status tool (logged-in only), CRM contact linking
+- [x] **Phase 137: Product Cards & Order Status** - `ui`/`product_cards` SSE + widget renderer, order-status tool (logged-in only), CRM contact linking (completed 2026-07-17)
 
 ## Phase Details
 
@@ -122,6 +122,6 @@ Plans:
 Plans:
 - [x] 137-01-PLAN.md — Product cards emit: ui/product_cards SSE (≤5, country-fallback url) in search/get-product + resolveRegion (UIX-01) [wave 1]
 - [x] 137-02-PLAN.md — get-order-status executor: pinned cus only, guest→login, R9 closed, display_id>last_order, §4.2 render (UIX-02) [wave 1]
-- [ ] 137-03-PLAN.md — Order-status wiring: execute-action stub→real + ACTION_DESCRIPTIONS + spec NODE (display_id-only) (UIX-02) [wave 2]
+- [x] 137-03-PLAN.md — Order-status wiring: execute-action stub→real + ACTION_DESCRIPTIONS + spec NODE (display_id-only) (UIX-02) [wave 2]
 - [x] 137-04-PLAN.md — Chat-route CRM linking: verified email → shared findOrCreateContactByEmail + linkVerifiedContact (contact_id if null, throttled, fail-soft) (UIX-03) [wave 1]
-- [ ] 137-05-PLAN.md — Widget renderer: buffer ui, .opps-cards createElement/textContent, Add→sendMessage + build:widget commit (UIX-01) [wave 2]
+- [x] 137-05-PLAN.md — Widget renderer: buffer ui, .opps-cards createElement/textContent, Add→sendMessage + build:widget commit (UIX-01) [wave 2]
