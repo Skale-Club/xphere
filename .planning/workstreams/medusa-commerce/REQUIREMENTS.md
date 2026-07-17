@@ -47,9 +47,9 @@ Contract reference for every requirement: `.planning/research/INTEGRATION-CONTRA
 
 ### Cards & Orders (UIX)
 
-- [ ] **UIX-01**: Product tools emit `ui`/`product_cards` SSE (≤5 items per contract §6); widget renders cards safely (createElement/textContent), "Add to cart" routes via `Opps.sendMessage`
-- [ ] **UIX-02**: `medusa_get_order_status` → Stuscle `/agent/orders/status` with pinned customer_id only; guests told to log in; R9 5/day/session closed
-- [ ] **UIX-03**: Verified context with email → contact find-or-create + `conversations.contact_id` + `visitor_email`
+- [x] **UIX-01**: Product tools emit `ui`/`product_cards` SSE (≤5 items per contract §6); widget renders cards safely (createElement/textContent), "Add to cart" routes via `Opps.sendMessage`
+- [x] **UIX-02**: `medusa_get_order_status` → Stuscle `/agent/orders/status` with pinned customer_id only; guests told to log in; R9 5/day/session closed
+- [x] **UIX-03**: Verified context with email → contact find-or-create + `conversations.contact_id` + `visitor_email`
 
 ## v2 Requirements
 

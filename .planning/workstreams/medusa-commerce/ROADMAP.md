@@ -120,8 +120,8 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 137-01-PLAN.md — Product cards emit: ui/product_cards SSE (≤5, country-fallback url) in search/get-product + resolveRegion (UIX-01) [wave 1]
-- [ ] 137-02-PLAN.md — get-order-status executor: pinned cus only, guest→login, R9 closed, display_id>last_order, §4.2 render (UIX-02) [wave 1]
+- [x] 137-01-PLAN.md — Product cards emit: ui/product_cards SSE (≤5, country-fallback url) in search/get-product + resolveRegion (UIX-01) [wave 1]
+- [x] 137-02-PLAN.md — get-order-status executor: pinned cus only, guest→login, R9 closed, display_id>last_order, §4.2 render (UIX-02) [wave 1]
 - [ ] 137-03-PLAN.md — Order-status wiring: execute-action stub→real + ACTION_DESCRIPTIONS + spec NODE (display_id-only) (UIX-02) [wave 2]
-- [ ] 137-04-PLAN.md — Chat-route CRM linking: verified email → shared findOrCreateContactByEmail + linkVerifiedContact (contact_id if null, throttled, fail-soft) (UIX-03) [wave 1]
+- [x] 137-04-PLAN.md — Chat-route CRM linking: verified email → shared findOrCreateContactByEmail + linkVerifiedContact (contact_id if null, throttled, fail-soft) (UIX-03) [wave 1]
 - [ ] 137-05-PLAN.md — Widget renderer: buffer ui, .opps-cards createElement/textContent, Add→sendMessage + build:widget commit (UIX-01) [wave 2]
