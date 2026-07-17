@@ -188,6 +188,15 @@ describe('Widget — Shadow DOM isolation (WIDGET-03, D-01, D-02)', () => {
   })
 })
 
+describe('Widget — commerce re-dispatch bundle assertion (CRT-04)', () => {
+  it('the built public/widget.js contains the xphere:commerce re-dispatch', () => {
+    const WIDGET_PATH = resolve(process.cwd(), 'public', 'widget.js')
+    if (!existsSync(WIDGET_PATH)) throw new Error('public/widget.js not found — run npm run build:widget first')
+    const code = readFileSync(WIDGET_PATH, 'utf-8')
+    expect(code).toContain('xphere:commerce')
+  })
+})
+
 describe('Widget — runtime config hydration and fallback (ADMIN-01)', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
