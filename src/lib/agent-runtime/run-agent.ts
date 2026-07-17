@@ -33,6 +33,7 @@ import {
   checkLlmCallCount,
   checkTokenCap,
   checkDailyCostCap,
+  checkCommerceWritesPerTurn,
 } from './guardrails'
 import { anthropicApiModelId } from '@/lib/agents/models'
 import { resolveAgent } from './resolve-agent'
@@ -49,6 +50,7 @@ import {
   checkIdempotency,
   recordIdempotency,
   hashToolArgs,
+  COMMERCE_WRITE_ACTIONS,
 } from './idempotency'
 import type { AgentRunOptions, AgentRunResult } from './types'
 import type { Json } from '@/types/database'
@@ -227,6 +229,10 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
   medusa_get_product: 'Get details for one store product by id or handle. Returns product DATA only.',
   medusa_get_cart:
     "Show the visitor's current cart (items, quantities, total). Takes no arguments — the cart is bound to this chat.",
+  medusa_add_to_cart:
+    "Add a product to the visitor's cart (creates the cart if there is none). Quantity is clamped 1-10. No cart id parameter — the cart is bound to this chat.",
+  medusa_update_cart_item:
+    "Change the quantity of an item already in the visitor's cart, or remove it (quantity 0). Matches the item by name — no id parameters.",
 }
 
 // ---------------------------------------------------------------------------
@@ -655,6 +661,8 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
 
       // Phase 38 IDEMP-03: tool call index counter (incremented per tool call for idempotency key)
       let toolCallIndex = 0
+      // Phase 134 CRT-02: per-turn commerce-write counter (checkCommerceWritesPerTurn)
+      let commerceWrites = 0
 
       for (const row of agentToolRows ?? []) {
         const tc = (row as Record<string, unknown>)._legacy_tool_configs as {
@@ -766,6 +774,22 @@ async function runAgentBlocking(opts: AgentRunOptions): Promise<AgentRunResult> 
                   tool_call_index: currentToolCallIndex,
                 })
                 return cachedResponse
+              }
+            }
+
+            // Phase 134 CRT-02: per-turn commerce-write cap -- BEFORE
+            // executeAction, AFTER the idempotency cache-hit short-circuit
+            // above (a replay must not double-increment commerceWrites).
+            if (COMMERCE_WRITE_ACTIONS.has(capturedActionType)) {
+              const turnDenial = checkCommerceWritesPerTurn(++commerceWrites)
+              if (turnDenial) {
+                toolCallsLog.push({
+                  name: capturedToolName,
+                  args: JSON.parse(JSON.stringify(toolArgs)) as Json,
+                  denied: true,
+                  denied_reason: 'commerce_turn_cap',
+                })
+                return turnDenial
               }
             }
 
@@ -1178,6 +1202,8 @@ function runAgentStreaming(
 
           // Phase 38 IDEMP-03: tool call index counter
           let toolCallIndex = 0
+          // Phase 134 CRT-02: per-turn commerce-write counter (checkCommerceWritesPerTurn)
+          let commerceWrites = 0
 
           for (const row of agentToolRows ?? []) {
             const tc = (row as Record<string, unknown>)._legacy_tool_configs as { tool_name: string; action_type: string; config: Json } | null
@@ -1237,6 +1263,16 @@ function runAgentStreaming(
                     return cachedResponse
                   }
                 }
+                // Phase 134 CRT-02: per-turn commerce-write cap -- BEFORE
+                // executeAction, AFTER the idempotency cache-hit short-circuit
+                // above (a replay must not double-increment commerceWrites).
+                if (COMMERCE_WRITE_ACTIONS.has(capturedActionType)) {
+                  const turnDenial = checkCommerceWritesPerTurn(++commerceWrites)
+                  if (turnDenial) {
+                    toolCallsLog.push({ name: capturedToolName, args: JSON.parse(JSON.stringify(toolArgs)) as Json, denied: true, denied_reason: 'commerce_turn_cap' })
+                    return turnDenial
+                  }
+                }
                 let result = ''
                 try {
                   result = await executeAction(
@@ -1245,7 +1281,17 @@ function runAgentStreaming(
                     resolvedTool.actionType as Exclude<typeof resolvedTool.actionType, 'run_flow'>,
                     toolArgs,
                     { apiKey, locationId },
-                    { organizationId: orgId, supabase: serviceClient, toolConfig: resolvedTool.config, integrationProvider: resolvedTool.integrationProvider ?? undefined, delegationChain: currentChain, conversationId },
+                    {
+                      organizationId: orgId,
+                      supabase: serviceClient,
+                      toolConfig: resolvedTool.config,
+                      integrationProvider: resolvedTool.integrationProvider ?? undefined,
+                      delegationChain: currentChain,
+                      conversationId,
+                      // Phase 134 CRT-03: streaming-only SSE emitter. The
+                      // blocking call site above intentionally omits this field.
+                      emitStructured: emit,
+                    },
                   )
                   if (idempotencyNeededStream && idempotencyKeyStream && invocationId && invocationId !== 'insert-failed') {
                     await recordIdempotency({ organizationId: orgId, agentInvocationId: invocationId, idempotencyKey: idempotencyKeyStream, toolName: capturedToolName, requestHash: hashToolArgs(toolArgs), response: result })
