@@ -8,6 +8,7 @@
 // Result strings never contain newlines | Vapi's response parser breaks on \n.
 
 import type { Json } from '@/types/database'
+import { assertPublicHttpUrl } from '@/lib/flows/url-guard'
 
 interface WebhookConfig {
   url: string
@@ -72,6 +73,15 @@ export async function executeWebhook(
   rawConfig: Json
 ): Promise<string> {
   const cfg = parseConfig(rawConfig)
+
+  // SSRF guard (CHT-04): tool_config.config.url is org-authored — same threat
+  // model as the flow http_request node. Never throw: return the executor's
+  // normal single-line error string so the tool loop and the LLM can react.
+  try {
+    await assertPublicHttpUrl(cfg.url)
+  } catch (err) {
+    return `Webhook blocked: ${sanitize(err instanceof Error ? err.message : 'invalid url')}`
+  }
 
   const body = cfg.body !== undefined ? replacePlaceholders(cfg.body, params) : undefined
 
