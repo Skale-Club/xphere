@@ -2504,6 +2504,36 @@ export interface Database {
           }
         ]
       }
+      commerce_event_receipts: {
+        Row: {
+          id: string
+          org_id: string
+          event_id: string
+          type: string
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          event_id: string
+          type: string
+          payload: Json
+          created_at?: string
+        }
+        Update: {
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'commerce_event_receipts_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       conversations: {
         Row: {
           id: string

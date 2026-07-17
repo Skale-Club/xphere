@@ -28,6 +28,11 @@ export const API_KEY_SCOPES = [
     label: 'Opt-out — write',
     description: 'Mark contacts/accounts as opted out via POST /api/v1/optout',
   },
+  {
+    key: 'commerce:events',
+    label: 'Commerce — events',
+    description: 'Ingest e-commerce events via POST /api/v1/commerce/events',
+  },
 ] as const
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]['key']
