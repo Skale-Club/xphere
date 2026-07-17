@@ -8,7 +8,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 
 - [x] **Phase 131: Chat Route Hardening** - Rate-limit matrix + message cap + failMode extension on the public chat endpoint (pre-existing gap, standalone value) ✅ 2026-07-17
 - [x] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools ✅ 2026-07-17
-- [ ] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding
+- [x] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding ✅ 2026-07-17
 - [ ] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch
 - [ ] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface
 - [ ] **Phase 136: Commerce Events Ingestion** - `/api/v1/commerce/events` endpoint, `commerce:events` scope, receipts dedupe, workflow event dispatch
@@ -63,7 +63,7 @@ Plans:
 Plans:
 - [x] 133-01-PLAN.md — verifyCommerceContext (raw-utf8 HMAC key + exp + org) + writeCommerceContext pinning under contract claim names; cross-repo vector + read-back tests (CTX-01, CTX-02) [wave 1]
 - [x] 133-02-PLAN.md — chat route: accept commerce_context (<=2048) + fail-soft verify+pin before runAgent (CTX-02) [wave 2] ✅ 2026-07-17
-- [ ] 133-03-PLAN.md — widget data-context-endpoint same-origin fetch + conditional commerce_context POST + Opps.setContext + build:widget commit; tests/widget.test.ts baseline repair (CTX-03) [wave 3]
+- [x] 133-03-PLAN.md — widget data-context-endpoint same-origin fetch + conditional commerce_context POST + Opps.setContext + build:widget commit; tests/widget.test.ts baseline repair (CTX-03) [wave 3] ✅ 2026-07-17
 
 ### Phase 134: Cart Write Tools
 **Goal**: The agent builds the visitor's real cart — bounded, idempotent, and reflected live to the storefront.
