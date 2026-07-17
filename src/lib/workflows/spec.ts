@@ -383,6 +383,35 @@ export const NODES: NodeSpec[] = [
     params_schema: { type: 'object', properties: {} },
     examples: [{}],
   },
+  {
+    type: 'medusa_add_to_cart',
+    kind: 'action',
+    description: "Add a product to the visitor's cart (creates the cart if none). Quantity clamped 1-10.",
+    integration_required: ['medusa'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        product_id: { type: 'string' },
+        variant_id: { type: 'string' },
+        quantity: { type: 'number' },
+      },
+    },
+    examples: [{ product_id: 'prod_123', quantity: 1 }],
+  },
+  {
+    type: 'medusa_update_cart_item',
+    kind: 'action',
+    description: "Change an item's quantity in the visitor's cart, or remove it (quantity 0).",
+    integration_required: ['medusa'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        item_title_or_variant: { type: 'string' },
+        quantity: { type: 'number' },
+      },
+    },
+    examples: [{ item_title_or_variant: 'Sweatshirt', quantity: 2 }],
+  },
   // ─── Action | messaging
   {
     type: 'send_sms',
