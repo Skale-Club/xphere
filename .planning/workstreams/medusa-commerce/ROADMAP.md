@@ -74,7 +74,12 @@ Plans:
   2. Executor-level clamps hold: quantity 1–10/op, ≤50 line items, R7 (10 writes/min/session, fail-closed), R8 (60 writes/day/conversation, fail-closed), 3 side-effecting commerce calls/turn + 25/conversation in guardrails; both tools in `SIDE_EFFECTING_ACTIONS`.
   3. `ActionContext` gains `emitStructured?`; the streaming path passes the SSE emitter; successful writes emit `cart_updated` events; the widget re-dispatches `commerce` events as `CustomEvent('xphere:commerce')` on window (rebuilt widget committed).
   4. Unit tests cover clamps, no-cart→create+sign+pin flow, and cap enforcement.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 134-01-PLAN.md — signCartSig + cart-only re-pin + write counter + guardrail/idempotency sets + 2 cart-write executors (clamps, no-cart create+sign+pin+emit ORDER, ≤50 rollback, R7/R8 closed, DELETE .parent); cross-repo sig vector locked (CRT-01, CRT-02, CRT-03, CRT-04) [wave 1]
+- [ ] 134-02-PLAN.md — wiring: execute-action real dispatch + ActionContext.emitStructured + run-agent emitStructured:emit (streaming) + per-turn cap in both loops + ACTION_DESCRIPTIONS + spec.ts NODES (CRT-01, CRT-02, CRT-03) [wave 2]
+- [ ] 134-03-PLAN.md — widget commerce SSE re-dispatch as CustomEvent('xphere:commerce') + build:widget commit + widget-test.html checklist (CRT-04) [wave 3]
 
 ### Phase 135: Wishlist Tools
 **Goal**: The agent saves/lists/removes wishlist items for the visitor via Stuscle's HMAC-guarded `/agent/*` surface.
