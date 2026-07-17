@@ -2,7 +2,7 @@
 phase: 133
 slug: signed-context-identity-pinning
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-17
 ---
@@ -79,4 +79,4 @@ created: 2026-07-17
 - [ ] No <automated> requires a live stack
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** verified 2026-07-17 (checker: 0 blockers)
