@@ -77,7 +77,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 134-01-PLAN.md — signCartSig + cart-only re-pin + write counter + guardrail/idempotency sets + 2 cart-write executors (clamps, no-cart create+sign+pin+emit ORDER, ≤50 rollback, R7/R8 closed, DELETE .parent); cross-repo sig vector locked (CRT-01, CRT-02, CRT-03, CRT-04) [wave 1]
+- [x] 134-01-PLAN.md — signCartSig + cart-only re-pin + write counter + guardrail/idempotency sets + 2 cart-write executors (clamps, no-cart create+sign+pin+emit ORDER, ≤50 rollback, R7/R8 closed, DELETE .parent); cross-repo sig vector locked (CRT-01, CRT-02, CRT-03, CRT-04) [wave 1] ✅ 2026-07-17
 - [ ] 134-02-PLAN.md — wiring: execute-action real dispatch + ActionContext.emitStructured + run-agent emitStructured:emit (streaming) + per-turn cap in both loops + ACTION_DESCRIPTIONS + spec.ts NODES (CRT-01, CRT-02, CRT-03) [wave 2]
 - [ ] 134-03-PLAN.md — widget commerce SSE re-dispatch as CustomEvent('xphere:commerce') + build:widget commit + widget-test.html checklist (CRT-04) [wave 3]
 
