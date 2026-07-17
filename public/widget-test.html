@@ -77,6 +77,19 @@
     </ol>
   </div>
 
+  <div class="instructions">
+    <h2>Commerce Re-dispatch Checklist (Phase 134, CRT-04)</h2>
+    <ol>
+      <li>Every <code>commerce</code> SSE event the widget receives is re-dispatched to the host page as <code>window.CustomEvent('xphere:commerce')</code>, with <code>detail: { action, cartId, itemCount, sig }</code> matching contract §6 exactly — this is what the stuscle storefront bridge listens for (<code>cart_updated</code> → <code>refreshAgentCart</code>, <code>cart_created</code> → <code>adoptAgentCart</code>)</li>
+      <li>The Phase 133 cache-clear behavior on <code>cart_created</code> still fires (additive, not replaced) — the widget forces a context re-fetch on the next send</li>
+      <li>Paste this in the console before sending a cart-affecting message, to observe the re-dispatch live:
+        <pre style="background:#18181b;color:#e4e4e7;padding:12px 16px;border-radius:8px;font-size:12px;overflow-x:auto;">window.addEventListener('xphere:commerce', e =&gt; console.log('xphere:commerce', e.detail))</pre>
+      </li>
+      <li>Trigger a cart-write tool call (e.g. "add this to my cart") that results in a <code>cart_created</code> frame, then another that results in <code>cart_updated</code> — confirm both log with the correct <code>action</code>, <code>cartId</code>, <code>itemCount</code>, and <code>sig</code> keys</li>
+      <li><em>Deferred:</em> this checklist item requires a live stuscle storefront + agent stack wired end-to-end. Like the 133-03 context-forwarding checklist, verify manually once both stacks are running together; not required for the automated gate.</li>
+    </ol>
+  </div>
+
   <p>
     Try the JS API from your own buttons:
     <button onclick="Opps.open()">Open chat</button>

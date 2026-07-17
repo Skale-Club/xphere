@@ -575,6 +575,9 @@ interface SSEEvent {
   text?: string
   name?: string
   action?: string
+  cartId?: string
+  itemCount?: number
+  sig?: string
 }
 
 // --- SSE stream consumer (D-10, D-11, Pattern 4) ---
@@ -849,10 +852,18 @@ function buildPanel(
           }
         } else if (evt.event === 'token' && evt.text) {
           tokenBuffer += evt.text
-        } else if (evt.event === 'commerce' && evt.action === 'cart_created') {
-          // Cart cookie changed server-side — force a re-fetch on the next send.
-          cachedToken = null
-          cachedExp = 0
+        } else if (evt.event === 'commerce') {
+          // Re-dispatch to the host page so the (frozen) storefront commerce
+          // bridge can adopt/refresh the cart. Detail shape is contract §6 —
+          // exact keys, do not rename.
+          window.dispatchEvent(new CustomEvent('xphere:commerce', {
+            detail: { action: evt.action, cartId: evt.cartId, itemCount: evt.itemCount, sig: evt.sig },
+          }))
+          if (evt.action === 'cart_created') {
+            // Cart cookie changed server-side — force a re-fetch on the next send.
+            cachedToken = null
+            cachedExp = 0
+          }
         } else if (evt.event === 'done') {
           typing.remove()
           if (tokenBuffer) appendMessage(tokenBuffer, 'assistant')
