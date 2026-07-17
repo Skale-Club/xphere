@@ -116,3 +116,111 @@ describe('searchMedusaProducts', () => {
     expect(result.toLowerCase()).toContain('too long')
   })
 })
+
+describe('getMedusaProduct', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 29, resetAt: 0 })
+  })
+
+  it('answers by handle with a MAJOR-unit region-correct price', async () => {
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: { region_id: 'reg_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      products: [
+        {
+          title: 'Sweatshirt',
+          handle: 'sweatshirt',
+          variants: [{ calculated_price: { calculated_amount: 35, currency_code: 'eur' } }],
+        },
+      ],
+    })
+    const { getMedusaProduct } = await import('@/lib/medusa/actions/get-product')
+    const result = await getMedusaProduct({ handle: 'sweatshirt' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+    expect(result).toContain('Sweatshirt')
+    expect(result).toContain('€35.00')
+    const [, path] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string]
+    expect(path).toContain('handle=sweatshirt')
+  })
+
+  it('answers by product_id via /store/products/:id', async () => {
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: { region_id: 'reg_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      product: {
+        title: 'Tote Bag',
+        handle: 'tote-bag',
+        variants: [{ calculated_price: { calculated_amount: 20, currency_code: 'eur' } }],
+      },
+    })
+    const { getMedusaProduct } = await import('@/lib/medusa/actions/get-product')
+    const result = await getMedusaProduct({ product_id: 'prod_1' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+    expect(result).toContain('Tote Bag')
+    const [, path] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string]
+    expect(path).toContain('/store/products/prod_1')
+  })
+
+  it('returns a friendly "not found" string when no product matches', async () => {
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: { region_id: 'reg_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({ products: [] })
+    const { getMedusaProduct } = await import('@/lib/medusa/actions/get-product')
+    const result = await getMedusaProduct({ handle: 'missing' }, CREDS, {
+      organizationId: 'org-1',
+      supabase,
+      conversationId: 'conv-1',
+    })
+    expect(result.toLowerCase()).toContain("couldn't find")
+  })
+})
+
+describe('getMedusaCart', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRateLimit.mockResolvedValue({ allowed: true, remaining: 29, resetAt: 0 })
+  })
+
+  it('returns guidance when no cart is pinned, without calling the store', async () => {
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: {} } })
+    const { getMedusaCart } = await import('@/lib/medusa/actions/get-cart')
+    const result = await getMedusaCart(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+    expect(result.toLowerCase()).toContain('no cart')
+    expect(mockMedusaStoreFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns items + MAJOR-unit total for the pinned cart', async () => {
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: {
+        items: [{ title: 'Sweatshirt', quantity: 2, unit_price: 35 }],
+        total: 70,
+        currency_code: 'eur',
+      },
+    })
+    const { getMedusaCart } = await import('@/lib/medusa/actions/get-cart')
+    const result = await getMedusaCart(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+    expect(result).toContain('Sweatshirt')
+    expect(result).toContain('2')
+    expect(result).toContain('€70.00')
+  })
+
+  it('anti-IDOR: the cart id can ONLY come from pinned memory (no params argument exists)', async () => {
+    // getMedusaCart's signature is (creds, ctx) -- there is no params object,
+    // so an attacker-controlled cart_id has no channel into the call at all.
+    const supabase = makeSupabase({ session_key: 'sess_1', memory: { commerce: { cart: 'cart_1' } } })
+    mockMedusaStoreFetch.mockResolvedValueOnce({
+      cart: { items: [], total: 0, currency_code: 'eur' },
+    })
+    const { getMedusaCart } = await import('@/lib/medusa/actions/get-cart')
+    expect(getMedusaCart.length).toBe(2)
+    await getMedusaCart(CREDS, { organizationId: 'org-1', supabase, conversationId: 'conv-1' })
+    const [, path] = mockMedusaStoreFetch.mock.calls[0] as [unknown, string]
+    expect(path).toContain('cart_1')
+    expect(path).not.toContain('cart_EVIL')
+  })
+})
