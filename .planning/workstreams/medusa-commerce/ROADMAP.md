@@ -88,7 +88,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `medusa_wishlist_add/remove/list` call `POST {base}/agent/wishlists/{add,remove,list}` signed per contract §4.2 (`X-Xphere-Timestamp` + `X-Xphere-Signature: v1=hex(hmac(secret, ts + "." + rawBody))`), owner resolved ONLY from pinned context (customer_id, else wishlist_ref; neither → tool explains nothing is saved yet and how it works).
   2. add/remove are in `SIDE_EFFECTING_ACTIONS`, covered by R7/R8 write budgets; list is a read (R6); signing helper unit-tested against a reference vector.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 135-01-PLAN.md — medusaAgentFetch signed transport + signAgentBody (byte-agreement vector) + 3 wishlist executors (owner from pinned cus/wishlist_ref, R6/R7/R8, never-throw) (WSL-01, WSL-02) [wave 1]
+- [ ] 135-02-PLAN.md — wiring: execute-action real dispatch + ACTION_DESCRIPTIONS + spec NODES (no owner params) + SIDE_EFFECTING_ACTIONS (WSL-01, WSL-02) [wave 2]
 
 ### Phase 136: Commerce Events Ingestion
 **Goal**: Orders and new customers from Medusa land in xphere idempotently, create/annotate contacts, and fire CRM workflows.
