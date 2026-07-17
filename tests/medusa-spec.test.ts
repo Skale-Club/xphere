@@ -21,6 +21,7 @@ import { NODES, type NodeSpec } from '@/lib/workflows/spec'
 const MEDUSA_TYPES = ['medusa_search_products', 'medusa_get_product', 'medusa_get_cart']
 const MEDUSA_WRITE_TYPES = ['medusa_add_to_cart', 'medusa_update_cart_item']
 const MEDUSA_WISHLIST_TYPES = ['medusa_wishlist_add', 'medusa_wishlist_remove', 'medusa_wishlist_list']
+const MEDUSA_ORDER_STATUS_TYPES = ['medusa_get_order_status']
 const FORBIDDEN_PARAM_KEYS = ['cart_id', 'customer_id', 'email', 'order_id', 'guest_ref']
 
 function filterByAvailableProviders(nodes: NodeSpec[], available: Set<string>): NodeSpec[] {
@@ -178,6 +179,55 @@ describe('WSL-01: workflows/spec.ts wishlist NODES', () => {
     }
     const shown = filterByAvailableProviders(NODES, new Set(['medusa']))
     for (const type of MEDUSA_WISHLIST_TYPES) {
+      expect(shown.some((n) => n.type === type)).toBe(true)
+    }
+  })
+})
+
+describe('UIX-02: workflows/spec.ts medusa_get_order_status NODE', () => {
+  const orderStatusNodes = NODES.filter((n) => MEDUSA_ORDER_STATUS_TYPES.includes(n.type))
+  // display_id is the ONLY allowed param -- no customer_id/email/order_id
+  // (anti-IDOR; display_id alone is useless without the pinned cus).
+  const ALLOWED_ORDER_STATUS_PARAM_KEYS = new Set(['display_id'])
+
+  it('Test 1: exactly 1 medusa_get_order_status node exists, kind=action with integration_required=[medusa]', () => {
+    expect(orderStatusNodes).toHaveLength(1)
+    const node = orderStatusNodes.find((n) => n.type === 'medusa_get_order_status')
+    expect(node, 'expected NODES to contain a medusa_get_order_status entry').toBeDefined()
+    expect(node!.kind).toBe('action')
+    expect(node!.integration_required).toEqual(['medusa'])
+  })
+
+  it('Test 2: anti-IDOR — no order-status node exposes cart_id/customer_id/email/order_id/guest_ref in params_schema', () => {
+    for (const node of orderStatusNodes) {
+      const schemaJson = JSON.stringify(node.params_schema ?? {})
+      for (const forbidden of FORBIDDEN_PARAM_KEYS) {
+        expect(
+          schemaJson.includes(forbidden),
+          `${node.type}.params_schema unexpectedly contains "${forbidden}": ${schemaJson}`,
+        ).toBe(false)
+      }
+    }
+  })
+
+  it('Test 3: params_schema properties are a subset of {display_id}', () => {
+    const node = orderStatusNodes.find((n) => n.type === 'medusa_get_order_status')!
+    const properties = (node.params_schema as { properties?: Record<string, unknown> } | undefined)?.properties ?? {}
+    for (const key of Object.keys(properties)) {
+      expect(
+        ALLOWED_ORDER_STATUS_PARAM_KEYS.has(key),
+        `${node.type}.params_schema has unexpected param "${key}"`,
+      ).toBe(true)
+    }
+  })
+
+  it('Test 4: order-status node is hidden when medusa is not a connected integration, shown when it is', () => {
+    const hidden = filterByAvailableProviders(NODES, new Set<string>())
+    for (const type of MEDUSA_ORDER_STATUS_TYPES) {
+      expect(hidden.some((n) => n.type === type)).toBe(false)
+    }
+    const shown = filterByAvailableProviders(NODES, new Set(['medusa']))
+    for (const type of MEDUSA_ORDER_STATUS_TYPES) {
       expect(shown.some((n) => n.type === type)).toBe(true)
     }
   })

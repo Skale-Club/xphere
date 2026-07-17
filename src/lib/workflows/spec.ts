@@ -449,6 +449,14 @@ export const NODES: NodeSpec[] = [
     params_schema: { type: 'object', properties: {} },
     examples: [{}],
   },
+  {
+    type: 'medusa_get_order_status',
+    kind: 'action',
+    description: "Get the status of the visitor's order. Logged-in customers only — the customer is pinned to the conversation.",
+    integration_required: ['medusa'],
+    params_schema: { type: 'object', properties: { display_id: { type: 'number', description: 'Optional order number' } } },
+    examples: [{}],
+  },
   // ─── Action | messaging
   {
     type: 'send_sms',
