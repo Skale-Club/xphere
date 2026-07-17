@@ -216,10 +216,13 @@ describe('Widget — runtime config hydration and fallback (ADMIN-01)', () => {
     const host = document.getElementById('opps-root') as HTMLDivElement
     const shadow = getShadowRoot()
 
-    expect(fetchMock).toHaveBeenCalledWith('https://example.com/api/widget/config-token/config', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.com/api/widget/config-token/config?u=' + encodeURIComponent(location.href),
+      {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      }
+    )
     expect(host.style.getPropertyValue('--opps-primary-color')).toBe('#22C55E')
     expect(shadow.querySelector('.opps-bot-name')?.textContent).toBe('Skale Concierge')
     expect(shadow.querySelector('.opps-avatar')?.textContent).toBe('S')
@@ -265,7 +268,7 @@ describe('Widget — runtime config hydration and fallback (ADMIN-01)', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://example.com/api/chat/invalid-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Hello there' }),
+      body: JSON.stringify({ message: 'Hello there', pageUrl: location.href }),
     })
   })
 })
