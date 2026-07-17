@@ -58,7 +58,12 @@ Plans:
   2. The chat route accepts optional `commerce_context` (max 2048) and merges verified claims into `conversations.memory.commerce`; re-pinning happens only from a newly VERIFIED token, never from message text.
   3. The widget (src/widget/index.ts) reads `data-context-endpoint`, lazily fetches `{token}` from the host page (cache until exp), sends it as `commerce_context` on every POST, exposes `Opps.setContext(token)`; `npm run build:widget` output committed.
   4. Unit tests cover verify (valid/expired/bad sig/wrong org) and pinning rules.
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 133-01-PLAN.md — verifyCommerceContext (raw-utf8 HMAC key + exp + org) + writeCommerceContext pinning under contract claim names; cross-repo vector + read-back tests (CTX-01, CTX-02) [wave 1]
+- [ ] 133-02-PLAN.md — chat route: accept commerce_context (<=2048) + fail-soft verify+pin before runAgent (CTX-02) [wave 2]
+- [ ] 133-03-PLAN.md — widget data-context-endpoint same-origin fetch + conditional commerce_context POST + Opps.setContext + build:widget commit; tests/widget.test.ts baseline repair (CTX-03) [wave 3]
 
 ### Phase 134: Cart Write Tools
 **Goal**: The agent builds the visitor's real cart — bounded, idempotent, and reflected live to the storefront.
