@@ -60,6 +60,7 @@ import { updateCartItemMedusa } from '@/lib/medusa/actions/update-cart-item'
 import { addWishlistItem } from '@/lib/medusa/actions/wishlist-add'
 import { removeWishlistItem } from '@/lib/medusa/actions/wishlist-remove'
 import { listWishlist } from '@/lib/medusa/actions/wishlist-list'
+import { getOrderStatus } from '@/lib/medusa/actions/get-order-status'
 import type { GhlCredentials } from '@/lib/ghl/client'
 import type { Database, Json } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -510,13 +511,16 @@ async function _executeActionInner(
       if (actionType === 'medusa_wishlist_remove') return removeWishlistItem(params, medusaCreds, ctx)
       return listWishlist(medusaCreds, ctx) // list takes (creds, ctx) -- NO params
     }
-    // Not yet built (later phase: Product Cards & Order Status). Not
-    // registered in ACTION_DESCRIPTIONS or workflows/spec.ts NODES, so the
-    // LLM can never select this -- this case exists solely to keep the
-    // exhaustive switch below compiling now that database.ts carries all
-    // nine medusa_* action types.
-    case 'medusa_get_order_status':
-      return 'That commerce action is not available yet.'
+    // Medusa order status (Phase 137, UIX-02): a READ over the signed /agent/*
+    // surface, pinned-customer-only, R9-budgeted inside the executor. Same
+    // never-throw friendly-string contract as the read tools above. NOT in
+    // SIDE_EFFECTING_ACTIONS/COMMERCE_WRITE_ACTIONS -- R9 is its only budget.
+    case 'medusa_get_order_status': {
+      if (!ctx?.organizationId || !ctx?.supabase) return 'The store is not available right now.'
+      const medusaCreds = await getMedusaCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!medusaCreds) return 'No store is connected to this workspace yet.'
+      return getOrderStatus(params, medusaCreds, ctx)
+    }
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = actionType

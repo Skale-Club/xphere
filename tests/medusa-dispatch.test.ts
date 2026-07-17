@@ -50,6 +50,11 @@ vi.mock('@/lib/medusa/actions/wishlist-list', () => ({
   listWishlist: (...args: unknown[]) => mockListWishlist(...args),
 }))
 
+const mockGetOrderStatus = vi.fn().mockResolvedValue('SENTINEL_ORDER_STATUS')
+vi.mock('@/lib/medusa/actions/get-order-status', () => ({
+  getOrderStatus: (...args: unknown[]) => mockGetOrderStatus(...args),
+}))
+
 const CREDS: GhlCredentials = { apiKey: '', locationId: '' }
 const MEDUSA_CREDS = { baseUrl: 'http://localhost:9000', connectionToken: 'tok', publishableKey: 'pk_test' }
 
@@ -228,6 +233,33 @@ describe('execute-action medusa dispatch', () => {
     expect(mockListWishlist).not.toHaveBeenCalled()
   })
 
+  it('routes medusa_get_order_status to getOrderStatus', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(MEDUSA_CREDS)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const ctx = {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    }
+    const params = { display_id: 5 }
+    const result = await executeAction('medusa_get_order_status' as unknown as Database['public']['Enums']['action_type'], params, CREDS, ctx)
+    expect(result).toBe('SENTINEL_ORDER_STATUS')
+    expect(mockGetOrderStatus).toHaveBeenCalledOnce()
+    expect(mockGetOrderStatus).toHaveBeenCalledWith(params, MEDUSA_CREDS, ctx)
+  })
+
+  it('medusa_get_order_status never throws when no store is connected -- returns a friendly string', async () => {
+    mockGetMedusaCredentialsForOrg.mockResolvedValue(null)
+    const { executeAction } = await import('@/lib/action-engine/execute-action')
+    const result = await executeAction('medusa_get_order_status' as unknown as Database['public']['Enums']['action_type'], {}, CREDS, {
+      organizationId: 'org-1',
+      supabase: makeSupabase(),
+      conversationId: 'conv-1',
+    })
+    expect(result).toBe('No store is connected to this workspace yet.')
+    expect(mockGetOrderStatus).not.toHaveBeenCalled()
+  })
+
   it('database.ts action_type Enums union includes all nine medusa_* values', () => {
     const src = readFileSync(join(process.cwd(), 'src/types/database.ts'), 'utf-8')
     const enumsMatch = src.match(/action_type:\s*'send_email'[^\n]*'send_zernio_dm'[^\n]*/g)
@@ -252,13 +284,15 @@ describe('execute-action medusa dispatch', () => {
     expect(enumsMatch?.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('execute-action.ts stubs only medusa_get_order_status so the switch stays exhaustive', () => {
-    // Phase 135 Wave 2: medusa_wishlist_add/remove/list now dispatch to real
-    // executors (asserted above) -- only get_order_status remains in the
-    // "not available yet" group (Phase 137).
+  it('execute-action.ts dispatches all nine medusa_* action types to real executors -- no stubs remain', () => {
+    // Phase 137 Wave 2: medusa_get_order_status now dispatches to
+    // getOrderStatus (asserted above) -- the "not available yet" stub group
+    // introduced in 132-04 is now fully empty; the exhaustive switch stays
+    // exhaustive purely on real cases.
     const src = readFileSync(join(process.cwd(), 'src/lib/action-engine/execute-action.ts'), 'utf-8')
     expect(src).toContain("case 'medusa_get_order_status':")
-    expect(src).toContain('That commerce action is not available yet.')
+    expect(src).not.toContain('not available yet')
+    expect(src).toContain('getOrderStatus(params, medusaCreds, ctx)')
     expect(src).toContain('addToCartMedusa')
     expect(src).toContain('updateCartItemMedusa')
     expect(src).toContain('addWishlistItem')
