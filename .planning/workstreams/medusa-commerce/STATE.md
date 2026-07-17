@@ -5,13 +5,13 @@ gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
 status: in_progress
-last_updated: "2026-07-17T16:48:36.000Z"
-last_activity: 2026-07-17 -- 133-01 landed (verifyCommerceContext + writeCommerceContext + readCommerceContext, wave 1 of Phase 133); 12/12 medusa-context tests green, build green
+last_updated: "2026-07-17T16:57:26.000Z"
+last_activity: 2026-07-17 -- 133-02 landed (chat route commerce_context schema + fail-soft verify+pin block before runAgent, wave 2 of Phase 133); 29/29 chat-api tests green (22 existing + 7 new), 41/41 scoped gate (chat-api + medusa-context), build green
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 29
 ---
 
@@ -26,17 +26,17 @@ See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREM
 
 ## Current Position
 
-Phase: 133 of 137 (Signed Context & Identity Pinning) — in progress, 1 of 3 plans landed (wave 1)
-Plan: 1 of 3 in Phase 133 — 133-01 done (verify + pinning core); 133-02 (chat route wiring) and 133-03 (widget forwarding) remain
-Status: 133-01 done (CTX-01, CTX-02 satisfied); CTX-03 (widget) pending 133-03
-Last activity: 2026-07-17 — 133-01 landed verifyCommerceContext (raw-utf8 HMAC key, byte-verified cross-repo vector) + writeCommerceContext pinning (contract §3 claim names, read-merge-write) + readCommerceContext (thin wrapper over Phase 132's loadPinnedContext); 12/12 tests green (verify matrix + cross-repo vector + pinning merge/repin/read-back), npm run build green
+Phase: 133 of 137 (Signed Context & Identity Pinning) — in progress, 2 of 3 plans landed (waves 1-2)
+Plan: 2 of 3 in Phase 133 — 133-01 (verify + pinning core) and 133-02 (chat route wiring) done; 133-03 (widget forwarding) remains
+Status: CTX-01 and CTX-02 fully satisfied (verify/pin core + route wiring); CTX-03 (widget) pending 133-03
+Last activity: 2026-07-17 — 133-02 landed: ChatRequestSchema += commerce_context (<=2048), and a fail-soft verify+pin block (getMedusaCredentialsForOrg -> verifyCommerceContext -> writeCommerceContext) inserted after session settle, before runAgent, in src/app/api/chat/[token]/route.ts; absent token costs nothing, every failure path warns and the chat still streams 200; 29/29 chat-api tests green (22 existing + 7 new), 41/41 scoped gate (chat-api + medusa-context), npm run build green
 
 Progress: [▓▓▓░░░░░░░] 29% (2/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (of 10 total across the workstream so far)
+- Total plans completed: 8 (of 10 total across the workstream so far)
 
 **By Phase:**
 
@@ -44,7 +44,7 @@ Progress: [▓▓▓░░░░░░░] 29% (2/7 phases)
 |-------|-------|-------|----------|
 | 131 | 2 | 24min | 12min |
 | 132 | 4 | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
-| 133 | 1/3 landed | ~20min (133-01) | 20min |
+| 133 | 2/3 landed | ~35min (133-01: 20min, 133-02: 15min) | ~18min |
 
 ## Accumulated Context
 
@@ -67,6 +67,7 @@ Progress: [▓▓▓░░░░░░░] 29% (2/7 phases)
 - 133-01: pinned cart key is `cart` (matching Phase 132's shipped `get-cart.ts` reader, `commerce.cart`), NOT `cart_id` as CONTEXT.md's forward-looking wording suggested — 133-RESEARCH.md Open Q1 Option A, zero changes to already-merged Phase 132 executors. `cus` (not `customer_id`) is likewise the verbatim contract §3 claim name; future readers (Phase 135/137) must read `commerce.cus`.
 - 133-01: HMAC key for `verifyCommerceContext` is the raw UTF-8 bytes of the `xph_...` connection-token STRING (`TextEncoder().encode(connectionToken)`), NOT the hex-decoded 32-byte key that `src/lib/email/unsubscribe-token.ts`/`src/lib/crypto.ts` use for `ENCRYPTION_SECRET` — this is what agrees byte-for-byte with stuscle's `node:crypto createHmac('sha256', XPHERE_CONNECTION_TOKEN)` mint. Locked by a committed literal cross-repo test vector in `tests/medusa-context.test.ts`.
 - 133-01: `readCommerceContext` is a thin wrapper delegating to Phase 132's `loadPinnedContext` — no second, divergent reader of `conversations.memory.commerce` was introduced.
+- 133-02: the verify+pin block is inserted as step "6b" (between the existing persist-message step and the `runAgent` call) in `src/app/api/chat/[token]/route.ts`, wrapped in a single try/catch — every failure branch (no creds for the org, `verifyCommerceContext` returns null, `writeCommerceContext` throws) logs a warn (`commerce_ctx_invalid` / `commerce_ctx_error`) and falls through; nothing in the block can turn the chat's 200 SSE response into an error. The block is skipped entirely when `commerce_context` is absent, so orgs without a medusa integration incur zero extra DB/crypto cost.
 
 ### Blockers
 
@@ -80,5 +81,5 @@ Progress: [▓▓▓░░░░░░░] 29% (2/7 phases)
 - Xkedule integration (`src/lib/xkedule/*`, migration 1200) is the template for the Medusa provider.
 
 ## Session Continuity
-**Stopped At:** Completed 133-01-PLAN.md (verifyCommerceContext + writeCommerceContext + readCommerceContext; CTX-01, CTX-02 satisfied)
-**Resume File:** None — next up is 133-02-PLAN.md (chat route: accept `commerce_context` ≤2048 + fail-soft verify+pin before `runAgent`, wave 2, depends on 133-01).
+**Stopped At:** Completed 133-02-PLAN.md (chat route: `commerce_context` schema + fail-soft verify+pin block before `runAgent`; CTX-02 fully satisfied)
+**Resume File:** None — next up is 133-03-PLAN.md (widget: `data-context-endpoint` same-origin fetch + conditional `commerce_context` POST + `Opps.setContext` + `build:widget` commit; CTX-03, wave 3, depends on 133-02).
