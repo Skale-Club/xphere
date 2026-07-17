@@ -41,7 +41,13 @@ Plans:
   2. The Integrations UI lists Medusa (Server URL + Publishable Key + Connection Token fields); credentials round-trip encrypted through the `integrations` row.
   3. `medusa_search_products`, `medusa_get_product`, `medusa_get_cart` execute via `execute-action.ts` against the store API (`x-publishable-api-key`), 8s timeout, 120/min/org budget (R11), returning concise natural-language strings; `medusa_get_cart` reads the cart id ONLY from pinned conversation context (no id parameter in any tool schema).
   4. `run-agent.ts` passes `conversationId` into `executeAction` context at both call sites; `ACTION_DESCRIPTIONS` and `workflows/spec.ts` NODES registered with `integration_required: ['medusa']`.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 132-01-PLAN.md — Migration 1259 + integration_provider enum + Medusa registry entry (MED-01, MED-02) [wave 1]
+- [ ] 132-02-PLAN.md — Medusa credentials + Store API client (R11 + 8s + x-publishable-api-key) (MED-02, MED-03) [wave 1]
+- [ ] 132-03-PLAN.md — run-agent conversationId wiring + ACTION_DESCRIPTIONS + spec.ts NODES (MED-04) [wave 1]
+- [ ] 132-04-PLAN.md — Read executors (search / get-product / get-cart) + action_type enum + exhaustive dispatcher (MED-01, MED-03, MED-04) [wave 2]
 
 ### Phase 133: Signed Context & Identity Pinning
 **Goal**: The conversation is bound to the visitor's real cart/customer via the storefront-signed token — the IDOR barrier — and the widget forwards context.
