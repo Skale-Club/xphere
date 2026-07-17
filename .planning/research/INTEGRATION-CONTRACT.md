@@ -111,14 +111,16 @@ Errors: `400` invalid body (zod), `401` auth, `404` not found. Wishlist caps: �
   "data": {
     // order.placed:
     "order_id": "order_...", "display_id": 12, "email": "a@b.com",
-    "currency_code": "eur", "total": 12345,          // minor units
-    "cart_id": "cart_...",                            // links back to the originating conversation
-    "items": [{ "title": "...", "variant_id": "...", "quantity": 1, "unit_price": 3500 }],
+    "currency_code": "eur", "total": 123.45,         // MAJOR units (decimal), as Medusa v2 returns — NOT cents
+    "cart_id": "cart_...",                            // links back to the originating conversation (may be null for non-cart orders)
+    "items": [{ "title": "...", "variant_id": "...", "quantity": 1, "unit_price": 35.00 }],  // MAJOR units
     // customer.created:
     "customer_id": "cus_...", "first_name": "...", "last_name": "..."
   }
 }
 ```
+
+> **Money units (corrected v1.1):** Medusa v2 returns order `total` and `items.unit_price` in **major units** (e.g. `35` for €35.00 / `123.45` for €123.45), the same convention as the store product prices in §4.1 — *not* minor units/cents. The stuscle subscriber passes them through unconverted ("as Medusa returns them"); the xphere ingestion side (§ contract consumer, Phase 136) must treat them as major units and never divide by 100. `order.placed` / `customer.created` events emit only `{ id }` — the subscriber hydrates the full payload via `query.graph`, and resolves `cart_id` through the `order_cart` link entity filtered by `order_id`.
 
 - Responses: `201 {"receipt_id"}` accepted · `200 {"duplicate":true}` replay · `401/403` auth/scope · `422` invalid.
 - Xphere processing: dedupe insert into `commerce_event_receipts (UNIQUE(org_id, event_id))` → find-or-create contact by email → if `data.cart_id` matches a conversation's pinned cart, annotate `memory.commerce.last_order_display_id` → dispatch workflow events `commerce.order.placed` / `commerce.customer.created` (same pattern as `emitLeadCaptured`, audited in `event_dispatches`).
