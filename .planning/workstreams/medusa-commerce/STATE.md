@@ -5,14 +5,14 @@ gsd_state_version: 1.0
 milestone: medusa-commerce
 milestone_name: Medusa Commerce Agent Integration
 status: in_progress
-last_updated: "2026-07-17T14:20:00.000Z"
-last_activity: 2026-07-17 -- Phase 131 COMPLETE (verifier passed 8/8); starting Phase 132
+last_updated: "2026-07-17T15:51:00.000Z"
+last_activity: 2026-07-17 -- Phase 132 COMPLETE (4/4 plans landed, 55/55 medusa tests green, build green); ready for Phase 133
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 14
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 7
+  percent: 29
 ---
 
 # Project State — workstream medusa-commerce
@@ -22,27 +22,28 @@ progress:
 See: .planning/PROJECT.md (org-wide) and this workstream's ROADMAP.md / REQUIREMENTS.md.
 
 **Core value:** Commerce tools act with visitor-level authority only — pinned identity, hard caps, no id parameters in tool schemas.
-**Current focus:** Phase 132 — Medusa Provider & Read Tools
+**Current focus:** Phase 133 — Signed Context & Identity Pinning (Phase 132 complete)
 
 ## Current Position
 
-Phase: 132 of 137 (Medusa Provider & Read Tools) — Phase 131 ✅ complete (verifier passed 8/8, all 3 plans merged)
-Plan: 0 of TBD in current phase (research in progress)
-Status: Phase 131 done; planning Phase 132
-Last activity: 2026-07-17 — Phase 131 verified passed; CHT-01..04 all satisfied, 43 tests green, build green
+Phase: 132 of 137 (Medusa Provider & Read Tools) — ✅ complete, all 4 plans landed (01-03 wave 1, 04 wave 2)
+Plan: 4 of 4 in Phase 132 — Phase 132 done; ready to plan Phase 133
+Status: Phase 132 done (MED-01, MED-02, MED-03, MED-04 all satisfied)
+Last activity: 2026-07-17 — 132-04 landed the 3 read executors + widened action_type enum + exhaustive dispatcher; 55/55 medusa tests green (phase-gate quick set), npm run build green
 
-Progress: [▓░░░░░░░░░] 14% (1/7 phases)
+Progress: [▓▓▓░░░░░░░] 29% (2/7 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Total plans completed: 6 (of 7 total across the workstream so far)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 131 | 2 | 24min | 12min |
+| 132 | 4 | ~30min (132-04 only measured; 01-03 metrics not captured in this file) | — |
 
 ## Accumulated Context
 
@@ -58,6 +59,10 @@ Progress: [▓░░░░░░░░░] 14% (1/7 phases)
 - Anti-IDOR core rule (applies to EVERY commerce tool): tool input schemas contain NO cart_id/customer_id/email/order_id parameters — executors inject pinned ids from `conversations.memory.commerce` exclusively.
 - Commerce write limits are fail-CLOSED (R7/R8/R9); read/chat limits fail to in-process memory fallback. Existing rate-limit call sites keep fail-open.
 - Phase numbering 131–137 continues the global sequence (calendar-reliability workstream owns 126–130). Migration numbering: check latest `supabase/migrations/` at execution time (1258+ when planned).
+- 132-04: R6 (`com:read:{sessionId}`) keys on `session_key ?? conversationId`, resolved from the SAME `conversations` lookup that returns pinned `memory.commerce` — one round-trip per executor call, per 132-RESEARCH.md Open Q1's recommendation.
+- 132-04: `medusa_get_cart`'s anti-IDOR guarantee is structural — the executor's signature is `(creds, ctx)` with no `params` argument at all, so a caller-supplied cart id has no channel into the call (stronger than "the executor ignores it").
+- 132-04: the six not-yet-built `medusa_*` action types (add_to_cart, update_cart_item, wishlist_add/remove/list, get_order_status) share one grouped `execute-action.ts` switch case returning a placeholder string, keeping the exhaustive `default: never` switch compiling ahead of the phases that implement them; they are absent from `ACTION_DESCRIPTIONS`/`spec.ts` NODES so the LLM can never select them.
+- 132-04: widening `database.ts`'s `action_type` union also broke a second, previously-unnoticed exhaustive `Record<action_type, string>` (`ACTION_TYPE_LABELS` in the tool-config detail dashboard page) — fixed as an in-scope Rule 3 blocking issue. Future `action_type` enum widenings should grep for `Record<.*action_type.*, string>` in addition to the two `database.ts` unions.
 
 ### Blockers
 
@@ -71,5 +76,5 @@ Progress: [▓░░░░░░░░░] 14% (1/7 phases)
 - Xkedule integration (`src/lib/xkedule/*`, migration 1200) is the template for the Medusa provider.
 
 ## Session Continuity
-**Stopped At:** Completed 131-03-PLAN.md
-**Resume File:** .planning/workstreams/medusa-commerce/phases/131-chat-route-hardening/131-02-PLAN.md (CHT-04 SSRF guard — verify completion status; once landed, Phase 131 is fully complete and Phase 132 can begin)
+**Stopped At:** Completed 132-04-PLAN.md (Phase 132 fully complete: MED-01, MED-02, MED-03, MED-04 all satisfied)
+**Resume File:** None — Phase 133 (Signed Context & Identity Pinning) has no plans yet; run `/gsd:plan-phase 133` next.

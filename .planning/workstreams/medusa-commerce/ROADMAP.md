@@ -7,7 +7,7 @@ Seven phases give xphere agents commerce powers over a connected Medusa store (S
 ## Phases
 
 - [x] **Phase 131: Chat Route Hardening** - Rate-limit matrix + message cap + failMode extension on the public chat endpoint (pre-existing gap, standalone value) ✅ 2026-07-17
-- [ ] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools
+- [x] **Phase 132: Medusa Provider & Read Tools** - `medusa` integration provider, credentials/client, product search/detail + cart view tools ✅ 2026-07-17
 - [ ] **Phase 133: Signed Context & Identity Pinning** - Verify the storefront-minted context token, pin cart/customer to the conversation, widget context forwarding
 - [ ] **Phase 134: Cart Write Tools** - add-to-cart / update-cart-item with clamps, write caps, idempotency, SSE commerce events, widget re-dispatch
 - [ ] **Phase 135: Wishlist Tools** - wishlist add/remove/list via the Stuscle HMAC `/agent/*` surface
@@ -47,7 +47,7 @@ Plans:
 - [x] 132-01-PLAN.md — Migration 1259 + integration_provider enum + Medusa registry entry (MED-01, MED-02) [wave 1]
 - [x] 132-02-PLAN.md — Medusa credentials + Store API client (R11 + 8s + x-publishable-api-key) (MED-02, MED-03) [wave 1]
 - [x] 132-03-PLAN.md — run-agent conversationId wiring + ACTION_DESCRIPTIONS + spec.ts NODES (MED-04) [wave 1]
-- [ ] 132-04-PLAN.md — Read executors (search / get-product / get-cart) + action_type enum + exhaustive dispatcher (MED-01, MED-03, MED-04) [wave 2]
+- [x] 132-04-PLAN.md — Read executors (search / get-product / get-cart) + action_type enum + exhaustive dispatcher (MED-01, MED-03, MED-04) [wave 2] ✅ 2026-07-17
 
 ### Phase 133: Signed Context & Identity Pinning
 **Goal**: The conversation is bound to the visitor's real cart/customer via the storefront-signed token — the IDOR barrier — and the widget forwards context.
