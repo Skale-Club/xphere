@@ -29,6 +29,14 @@ export interface IntegrationField {
   placeholder?: string
   hint?: string
   required: boolean
+  /**
+   * MIR-08: optional client-side format check (e.g. Xkedule/Medusa's
+   * "Connection Token" must be a Xphere-issued `xph_...` key). Checked only
+   * when the field has a non-empty value — required-ness is handled
+   * separately.
+   */
+  pattern?: RegExp
+  patternError?: string
 }
 
 /**
@@ -385,6 +393,12 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
         required: true,
         placeholder: 'xph_...',
         hint: 'A Xphere API key (Settings → API Keys). Paste the SAME token into the Xkedule admin (Integrations → Xphere). It authenticates both directions of this org’s connection — no env vars.',
+        // MIR-08 (2026-07 audit): the save previously accepted any string —
+        // "credencial meio-validada" — so a typo'd/wrong-field paste silently
+        // half-worked (inbound OK, outbound dead). Reject it client-side
+        // before it's ever saved.
+        pattern: /^xph_.{8,}/,
+        patternError: 'Must be a Xphere API key starting with "xph_" (Settings → API Keys).',
       },
     ],
   },

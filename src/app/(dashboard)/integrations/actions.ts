@@ -348,6 +348,14 @@ export async function saveIntegrationCredentials(
     return { ok: false, error: 'Default From Email is required.' }
   }
 
+  // MIR-08 (2026-07 audit): the Xkedule connection token IS a Xphere API key
+  // (paste-the-same-token-both-ways design, src/lib/integrations/registry.ts)
+  // -- reject an obviously-wrong value server-side too, not just in the
+  // client panel (ApiKeyPanel), so a direct/programmatic call can't bypass it.
+  if (provider === 'xkedule' && apiKey && !/^xph_.{8,}/.test(apiKey)) {
+    return { ok: false, error: 'Connection Token must be a Xphere API key starting with "xph_".' }
+  }
+
   // Find an existing row for this provider/org
   const { data: existing } = await supabase
     .from('integrations')

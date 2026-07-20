@@ -56,7 +56,20 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
     if (field.key === 'api_key') return !!existing || apiKeyDirty
     return (fields[field.key] ?? '').trim().length > 0
   })
-  const canSave = requiredFieldsFilled && (definition.testable
+  // MIR-08: a field's pattern is only checked once it actually has a value
+  // to check — an unmodified saved key (still masked) or a blank optional
+  // field must not block Save.
+  const patternErrors = (definition.fields ?? []).reduce<Record<string, string>>((acc, field) => {
+    if (!field.pattern) return acc
+    const value = fields[field.key]
+    if (!value || !value.trim()) return acc
+    if (!field.pattern.test(value.trim())) {
+      acc[field.key] = field.patternError ?? `${field.label} format is invalid.`
+    }
+    return acc
+  }, {})
+  const patternsValid = Object.keys(patternErrors).length === 0
+  const canSave = requiredFieldsFilled && patternsValid && (definition.testable
     ? testState === 'pass' || (!!existing && !apiKeyDirty && hasChanges)
     : apiKeyDirty || !existing || hasChanges)
 
@@ -81,6 +94,10 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
   }
 
   async function handleSave() {
+    if (!patternsValid) {
+      toast.error(Object.values(patternErrors)[0] ?? 'Invalid field format.')
+      return
+    }
     setIsSaving(true)
     try {
       const res = await saveIntegrationCredentials(definition.id, fields)
@@ -184,9 +201,11 @@ export function ApiKeyPanel({ definition, existing, onClose }: CustomPanelProps)
                   </button>
                 )}
               </div>
-              {field.hint && (
+              {patternErrors[field.key] ? (
+                <p className="text-[11px] text-rose-400">{patternErrors[field.key]}</p>
+              ) : field.hint ? (
                 <p className="text-[11px] text-text-tertiary">{field.hint}</p>
-              )}
+              ) : null}
             </div>
           )
         })}
