@@ -371,6 +371,65 @@ export const NODES: NodeSpec[] = [
       { serviceIds: '5', bookingDate: '2026-06-20', startTime: '14:00', customerName: 'Maria', customerPhone: '+551199999999' },
     ],
   },
+  {
+    type: 'xkedule_cancel_booking',
+    kind: 'action',
+    description: 'Cancel an existing Xkedule booking by id. Idempotent — cancelling an already-cancelled booking just returns its current state.',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        bookingId: { type: 'number', description: 'The Xkedule booking id to cancel.' },
+      },
+      required: ['bookingId'],
+    },
+    examples: [{ bookingId: 1042 }],
+  },
+  {
+    type: 'xkedule_reschedule_booking',
+    kind: 'action',
+    description: 'Move an existing Xkedule booking to a new date/time (and optionally a different staff member). Xkedule re-validates the slot and rejects a cancelled/completed booking.',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        bookingId: { type: 'number', description: 'The Xkedule booking id to reschedule.' },
+        bookingDate: { type: 'string', description: 'YYYY-MM-DD' },
+        startTime: { type: 'string', description: 'HH:MM' },
+        staffMemberId: { type: 'number', description: 'Optional: reassign to a different staff member.' },
+      },
+      required: ['bookingId', 'bookingDate', 'startTime'],
+    },
+    examples: [{ bookingId: 1042, bookingDate: '2026-06-21', startTime: '15:00' }],
+  },
+  {
+    type: 'xkedule_quote',
+    kind: 'action',
+    description: 'Price a cart of Xkedule services WITHOUT creating a booking, so the agent can quote a real total before asking the customer to confirm.',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        serviceIds: { type: 'string', description: 'Comma-separated service ids (or a single id)' },
+      },
+      required: ['serviceIds'],
+    },
+    examples: [{ serviceIds: '5,7' }],
+  },
+  {
+    type: 'xkedule_lookup_customer',
+    kind: 'action',
+    description: 'Resolve a phone number to the matching Xkedule customer and their upcoming bookings, so the agent can recognize a returning caller.',
+    integration_required: ['xkedule'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        phone: { type: 'string', description: 'Customer phone number.' },
+      },
+      required: ['phone'],
+    },
+    examples: [{ phone: '+15551234567' }],
+  },
   // ─── Action | commerce (Medusa)
   {
     type: 'medusa_search_products',

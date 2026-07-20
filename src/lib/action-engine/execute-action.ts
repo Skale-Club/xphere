@@ -51,6 +51,10 @@ import { getXkeduleCredentialsForOrg } from '@/lib/xkedule/credentials'
 import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
+import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
+import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booking'
+import { getXkeduleQuote } from '@/lib/xkedule/actions/quote'
+import { lookupXkeduleCustomer } from '@/lib/xkedule/actions/lookup-customer'
 import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
 import { searchMedusaProducts } from '@/lib/medusa/actions/search-products'
 import { getMedusaProduct } from '@/lib/medusa/actions/get-product'
@@ -468,6 +472,40 @@ async function _executeActionInner(
       const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
       if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
       return createXkeduleBooking(params, xkCreds)
+    }
+    // AGT-07: cancel/reschedule/quote/customer-lookup tools, registered the
+    // same way as the three xkedule_* tools above.
+    case 'xkedule_cancel_booking': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_cancel_booking requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return cancelXkeduleBooking(params, xkCreds)
+    }
+    case 'xkedule_reschedule_booking': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_reschedule_booking requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return rescheduleXkeduleBooking(params, xkCreds)
+    }
+    case 'xkedule_quote': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_quote requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return getXkeduleQuote(params, xkCreds)
+    }
+    case 'xkedule_lookup_customer': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('xkedule_lookup_customer requires ctx.organizationId and ctx.supabase')
+      }
+      const xkCreds = await getXkeduleCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
+      return lookupXkeduleCustomer(params, xkCreds)
     }
     // Medusa read tools (MED-03/MED-04): unlike xkedule above, these never
     // throw on missing ctx/creds -- they return friendly strings so a
