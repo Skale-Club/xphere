@@ -39,6 +39,7 @@ export function WidgetPlayground({
   const [expanded, setExpanded] = useState(false)
   const [embedOpen, setEmbedOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedToken, setCopiedToken] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -68,22 +69,22 @@ export function WidgetPlayground({
 
   const snippet = `<script src="https://xphere.app/widget.js" data-token="${widgetToken}"></script>`
 
-  async function copySnippet() {
+  async function copyText(text: string, setFlag: (v: boolean) => void) {
     try {
-      await navigator.clipboard.writeText(snippet)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1600)
+      await navigator.clipboard.writeText(text)
+      setFlag(true)
+      setTimeout(() => setFlag(false), 1600)
     } catch {
       try {
         const ta = document.createElement('textarea')
-        ta.value = snippet
+        ta.value = text
         ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'
         document.body.appendChild(ta)
         ta.select()
         document.execCommand('copy')
         document.body.removeChild(ta)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1600)
+        setFlag(true)
+        setTimeout(() => setFlag(false), 1600)
       } catch {
         toast.error('Could not copy to clipboard.')
       }
@@ -231,16 +232,29 @@ export function WidgetPlayground({
                   <p className="text-[12px] text-text-tertiary">
                     Paste before <code className="rounded bg-bg-tertiary px-1 py-0.5 font-mono text-[11px]">&lt;/body&gt;</code>
                   </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void copySnippet()}
-                    className="h-7 gap-1 text-[11.5px]"
-                  >
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void copyText(widgetToken, setCopiedToken)}
+                      className="h-7 gap-1 text-[11.5px]"
+                      title="Copy just the widget token (ID)"
+                    >
+                      {copiedToken ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copiedToken ? 'Copied ID' : 'Copy ID'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void copyText(snippet, setCopied)}
+                      className="h-7 gap-1 text-[11.5px]"
+                    >
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                  </div>
                 </div>
                 <pre className="max-h-48 overflow-auto bg-zinc-950 p-4 font-mono text-[11px] leading-relaxed text-zinc-100">
                   <code>{snippet}</code>
