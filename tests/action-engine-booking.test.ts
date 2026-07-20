@@ -20,6 +20,16 @@ vi.mock('@/lib/calendar/transition', () => ({
   rescheduleBooking: vi.fn(),
 }))
 
+// AGT-08: executeBookingCancelAction/executeBookingRescheduleAction now also
+// propagate to Xkedule when the booking is mirrored from it. Mocked here so
+// this file's pre-existing tests exercise only the transition dispatch (as
+// before); dedicated propagation-call assertions live in the new "AGT-08"
+// describe block below.
+vi.mock('@/lib/xkedule/propagate', () => ({
+  propagateCancelToXkedule: vi.fn().mockResolvedValue(undefined),
+  propagateRescheduleToXkedule: vi.fn().mockResolvedValue(undefined),
+}))
+
 import {
   confirmBooking,
   cancelBooking,
@@ -27,6 +37,7 @@ import {
   markShowed,
   rescheduleBooking,
 } from '@/lib/calendar/transition'
+import { propagateCancelToXkedule, propagateRescheduleToXkedule } from '@/lib/xkedule/propagate'
 
 import {
   executeBookingConfirmAction,
@@ -236,6 +247,57 @@ describe('execute-action.ts booking_* dispatcher wiring', () => {
         credentials,
       ),
     ).rejects.toThrow('booking_reschedule requires ctx.organizationId and ctx.supabase')
+  })
+})
+
+// ---- AGT-08: native cancel/reschedule propagate to Xkedule when mirrored ----
+
+describe('AGT-08: booking-lifecycle-actions propagate to Xkedule', () => {
+  it('executeBookingCancelAction calls propagateCancelToXkedule AFTER a successful cancel, with the same orgId/bookingId/supabase', async () => {
+    vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: true })
+
+    await executeBookingCancelAction({ booking_id: 'b1' }, 'org-1', supabase)
+
+    expect(vi.mocked(propagateCancelToXkedule)).toHaveBeenCalledWith(supabase, 'org-1', 'b1')
+  })
+
+  it('executeBookingCancelAction does NOT call propagateCancelToXkedule when the cancel itself fails', async () => {
+    vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+
+    await expect(executeBookingCancelAction({ booking_id: 'b1' }, 'org-1', supabase)).rejects.toThrow()
+
+    expect(vi.mocked(propagateCancelToXkedule)).not.toHaveBeenCalled()
+  })
+
+  it('executeBookingRescheduleAction calls propagateRescheduleToXkedule AFTER a successful reschedule, with the new start_at', async () => {
+    vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: true })
+
+    await executeBookingRescheduleAction({ booking_id: 'b1', start_at: 's', end_at: 'e' }, 'org-1', supabase)
+
+    expect(vi.mocked(propagateRescheduleToXkedule)).toHaveBeenCalledWith(supabase, 'org-1', 'b1', 's')
+  })
+
+  it('executeBookingRescheduleAction does NOT call propagateRescheduleToXkedule when the reschedule itself fails', async () => {
+    vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+
+    await expect(
+      executeBookingRescheduleAction({ booking_id: 'b1', start_at: 's', end_at: 'e' }, 'org-1', supabase),
+    ).rejects.toThrow()
+
+    expect(vi.mocked(propagateRescheduleToXkedule)).not.toHaveBeenCalled()
+  })
+
+  it('executeBookingConfirmAction/executeBookingMarkNoShowAction/executeBookingMarkCompleteAction never touch propagation (AGT-08 is cancel/reschedule only)', async () => {
+    vi.mocked(confirmBooking).mockResolvedValueOnce({ ok: true })
+    vi.mocked(markNoShow).mockResolvedValueOnce({ ok: true })
+    vi.mocked(markShowed).mockResolvedValueOnce({ ok: true })
+
+    await executeBookingConfirmAction({ booking_id: 'b1' }, 'org-1', supabase)
+    await executeBookingMarkNoShowAction({ booking_id: 'b1' }, 'org-1', supabase)
+    await executeBookingMarkCompleteAction({ booking_id: 'b1' }, 'org-1', supabase)
+
+    expect(vi.mocked(propagateCancelToXkedule)).not.toHaveBeenCalled()
+    expect(vi.mocked(propagateRescheduleToXkedule)).not.toHaveBeenCalled()
   })
 })
 

@@ -21,6 +21,16 @@ vi.mock('@/lib/calendar/transition', () => ({
   emitCalendarEvent: vi.fn().mockResolvedValue({ dispatched: 0, dispatch_id: null }),
 }))
 
+// AGT-08: executeBookingCancel/executeBookingReschedule now also propagate
+// to Xkedule when the booking is mirrored from it. Mocked here so this
+// file's pre-existing tests exercise only the transition dispatch (as
+// before); dedicated propagation-call assertions are added inline in the
+// booking_cancel/booking_reschedule describe blocks below.
+vi.mock('@/lib/xkedule/propagate', () => ({
+  propagateCancelToXkedule: vi.fn().mockResolvedValue(undefined),
+  propagateRescheduleToXkedule: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { runFlow } from '@/lib/flows/engine'
 import { executeAction } from '@/lib/action-engine/execute-action'
 import {
@@ -31,6 +41,7 @@ import {
   rescheduleBooking,
   emitCalendarEvent,
 } from '@/lib/calendar/transition'
+import { propagateCancelToXkedule, propagateRescheduleToXkedule } from '@/lib/xkedule/propagate'
 
 // ─── Supabase chain factory ───────────────────────────────────────────────────
 // Makes a chainable object that is also awaitable (resolves to terminalResult).
@@ -437,6 +448,31 @@ describe('runFlow — lib/flows/engine.ts', () => {
       })
     })
 
+    describe('AGT-08: booking_cancel propagates to Xkedule when mirrored', () => {
+      it('calls propagateCancelToXkedule AFTER a successful cancel', async () => {
+        vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: true })
+        const supabase = makeSupabase()
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_cancel'), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('succeeded')
+        expect(vi.mocked(propagateCancelToXkedule)).toHaveBeenCalledWith(
+          expect.anything(),
+          'org-1',
+          'book-1',
+        )
+      })
+
+      it('does NOT call propagateCancelToXkedule when the cancel itself fails', async () => {
+        vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+        const supabase = makeSupabase()
+        await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_cancel'), orgId: 'org-1', supabase,
+        })
+        expect(vi.mocked(propagateCancelToXkedule)).not.toHaveBeenCalled()
+      })
+    })
+
     describe('booking_reschedule', () => {
       it('missing start_at throws before calling rescheduleBooking', async () => {
         const supabase = makeSupabase()
@@ -498,6 +534,32 @@ describe('runFlow — lib/flows/engine.ts', () => {
         })
         expect(result.status).toBe('failed')
         expect(result.error).toContain('illegal_transition')
+      })
+
+      it('AGT-08: calls propagateRescheduleToXkedule AFTER a successful reschedule, with the new start_at', async () => {
+        vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: true })
+        const supabase = makeSupabase()
+        const config = { booking_id: 'book-1', start_at: '2026-08-01T10:00:00Z', end_at: '2026-08-01T11:00:00Z' }
+        const result = await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_reschedule', config), orgId: 'org-1', supabase,
+        })
+        expect(result.status).toBe('succeeded')
+        expect(vi.mocked(propagateRescheduleToXkedule)).toHaveBeenCalledWith(
+          expect.anything(),
+          'org-1',
+          'book-1',
+          '2026-08-01T10:00:00Z',
+        )
+      })
+
+      it('AGT-08: does NOT call propagateRescheduleToXkedule when the reschedule itself fails', async () => {
+        vi.mocked(rescheduleBooking).mockResolvedValueOnce({ ok: false, error: 'illegal_transition' })
+        const supabase = makeSupabase()
+        const config = { booking_id: 'book-1', start_at: '2026-08-01T10:00:00Z', end_at: '2026-08-01T11:00:00Z' }
+        await runFlow({
+          workflowId: 'wf-1', versionId: null, definition: flowFor('booking_reschedule', config), orgId: 'org-1', supabase,
+        })
+        expect(vi.mocked(propagateRescheduleToXkedule)).not.toHaveBeenCalled()
       })
     })
 

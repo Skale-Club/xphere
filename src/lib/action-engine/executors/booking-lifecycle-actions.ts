@@ -17,6 +17,7 @@ import {
   markShowed,
   rescheduleBooking,
 } from '@/lib/calendar/transition'
+import { propagateCancelToXkedule, propagateRescheduleToXkedule } from '@/lib/xkedule/propagate'
 
 type TransitionFn = (
   ctx: { supabase: SupabaseClient<Database>; depth?: number },
@@ -54,7 +55,15 @@ export async function executeBookingCancelAction(
   orgId: string,
   supabase: SupabaseClient<Database>,
 ): Promise<string> {
-  return runBookingAction(cancelBooking, 'booking_cancel', 'cancelled', params, orgId, supabase)
+  const result = await runBookingAction(cancelBooking, 'booking_cancel', 'cancelled', params, orgId, supabase)
+  // AGT-08: this is a NATIVE Xphere action (agent tool call / no-wait
+  // workflow) -- propagate to the real Xkedule booking if this one is
+  // mirrored from it. Only reached once the cancel above already succeeded.
+  const bookingId = typeof params.booking_id === 'string' ? params.booking_id : ''
+  if (bookingId) {
+    await propagateCancelToXkedule(supabase, orgId, bookingId)
+  }
+  return result
 }
 
 export async function executeBookingMarkNoShowAction(
@@ -89,6 +98,11 @@ export async function executeBookingRescheduleAction(
 
   const result = await rescheduleBooking({ supabase, depth: 0 }, bookingId, orgId, startAt, endAt)
   if (!result.ok) throw new Error(`booking_reschedule: ${result.error}`)
+
+  // AGT-08: propagate to the real Xkedule booking if this one is mirrored
+  // from it (native Xphere action -- see propagate.ts for why the mirror
+  // -sync webhook route never calls this).
+  await propagateRescheduleToXkedule(supabase, orgId, bookingId, startAt)
 
   return JSON.stringify({ ok: true, booking_id: bookingId, start_at: startAt, end_at: endAt })
 }

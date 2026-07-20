@@ -21,6 +21,7 @@ import {
   emitCalendarEvent,
 } from '@/lib/calendar/transition'
 import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
+import { propagateCancelToXkedule, propagateRescheduleToXkedule } from '@/lib/xkedule/propagate'
 
 const MAX_STEPS = 100
 
@@ -521,6 +522,10 @@ async function executeBookingCancel(
   const result = await cancelBooking({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId)
   if (!result.ok) throw new Error(`booking_cancel: ${result.error}`)
 
+  // AGT-08: this is a NATIVE Xphere action (workflow node) -- propagate to
+  // the real Xkedule booking if this one is mirrored from it.
+  await propagateCancelToXkedule(ctx.supabase, ctx.orgId, bookingId)
+
   return { booking_id: bookingId, status: 'cancelled', ok: true }
 }
 
@@ -537,6 +542,11 @@ async function executeBookingReschedule(
 
   const result = await rescheduleBooking({ supabase: ctx.supabase, depth: 0 }, bookingId, ctx.orgId, startAt, endAt)
   if (!result.ok) throw new Error(`booking_reschedule: ${result.error}`)
+
+  // AGT-08: propagate to the real Xkedule booking if this one is mirrored
+  // from it (native Xphere action -- see propagate.ts for why the
+  // mirror-sync webhook route never calls this).
+  await propagateRescheduleToXkedule(ctx.supabase, ctx.orgId, bookingId, startAt)
 
   return { booking_id: bookingId, start_at: startAt, end_at: endAt, ok: true }
 }
