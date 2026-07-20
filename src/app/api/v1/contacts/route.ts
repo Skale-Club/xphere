@@ -11,7 +11,8 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { verifyApiKey } from '@/lib/api-keys/verify'
-import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { normaliseEmail } from '@/lib/contacts/zod-schemas'
+import { canonicalizeContactPhone } from '@/lib/phone-numbers/normalize'
 import { linkVisitorToContact } from '@/lib/analytics/identify'
 
 export const runtime = 'nodejs'
@@ -63,7 +64,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { name, email, phone, company, tags, source_label, custom_fields, visitor_id } = body
-  const phoneNorm = normalisePhone(phone)
+  // MIR-02: no country/timezone hint travels on this body today (Xkedule's
+  // contact-sync payload doesn't carry one) -- canonicalizeContactPhone still
+  // upgrades a `+`-prefixed caller-id-style number to real E.164 without a
+  // hint, and its matchCandidates reconcile a bare-digit legacy row either
+  // way. A bare national number with no hint falls back to the pre-existing
+  // loose form, unchanged from before this fix.
+  const { value: phoneNorm, matchCandidates: phoneCandidates } = canonicalizeContactPhone(phone)
   const emailNorm = normaliseEmail(email)
 
   if (!phoneNorm && !emailNorm && !name) {
@@ -77,15 +84,21 @@ export async function POST(request: Request): Promise<Response> {
   const orgId = auth.key.orgId
   let existingId: string | null = null
 
-  if (phoneNorm) {
+  if (phoneCandidates.length > 0) {
+    // .limit(1) instead of .maybeSingle(): MIR-02's multi-candidate match can
+    // hit two DISTINCT existing contacts (a legacy loose-form row and a
+    // separately-created E.164-form row for the same real number) --
+    // .maybeSingle() would error on more than one match. Deterministically
+    // prefer the oldest (first-created) contact.
     const { data } = await supabase
       .from('contacts')
       .select('id')
       .eq('org_id', orgId)
-      .eq('phone_e164', phoneNorm)
+      .in('phone_e164', phoneCandidates)
       .neq('identity_status', 'archived_duplicate')
-      .maybeSingle()
-    if (data) existingId = data.id
+      .order('created_at', { ascending: true })
+      .limit(1)
+    if (data && data.length > 0) existingId = data[0].id
   }
 
   if (!existingId && emailNorm) {
