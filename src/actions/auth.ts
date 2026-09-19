@@ -1,7 +1,6 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { mapSupabaseError, type AuthErrorCode } from '@/lib/auth/errors'
 
@@ -30,6 +29,18 @@ async function setActiveOrgCookie(
   })
 }
 
+/**
+ * These actions deliberately do NOT call `redirect()` on success.
+ *
+ * A `redirect()` inside a server action makes the Next router REJECT the
+ * action's promise on the client with a NEXT_REDIRECT error (see
+ * server-action-reducer: "the action promise will be rejected with a redirect").
+ * In the login dialog that rejection propagated through react-hook-form, which
+ * reset `isSubmitting` and re-enabled the "Sign in" button while /dashboard was
+ * still rendering — inviting a second submit and a second session. Returning
+ * `{ ok: true, hasSession: true }` lets the dialog keep its "Signing you in…"
+ * state up and drive the navigation itself.
+ */
 export type AuthActionResult =
   | { ok: true; hasSession: boolean }
   | { ok: false; errorCode: AuthErrorCode; errorMessage?: string }
@@ -62,7 +73,7 @@ export async function signInWithEmail(
 
   if (data.session) {
     await setActiveOrgCookie(supabase)
-    redirect('/dashboard')
+    return { ok: true, hasSession: true }
   }
 
   return { ok: true, hasSession: false }
@@ -90,7 +101,7 @@ export async function signUpWithEmail(
 
   if (data.session) {
     await setActiveOrgCookie(supabase)
-    redirect('/dashboard')
+    return { ok: true, hasSession: true }
   }
 
   return { ok: true, hasSession: false }

@@ -37,9 +37,11 @@ interface FreshOrgSignals {
 }
 
 /**
- * Detect whether the active org has ANY meaningful data yet. Sequential
- * (no Promise.all) | each call is a head:exact count, very cheap. Any
- * failure short-circuits to "not fresh" so the user sees the normal
+ * Detect whether the active org has ANY meaningful data yet. Each call is a
+ * head:exact count (cheap for Postgres) but every one is a cross-region
+ * round-trip from the app server, so they run in parallel — sequentially the
+ * eight of them added well over a second to the first dashboard paint after
+ * login. Any failure short-circuits to "not fresh" so the user sees the normal
  * dashboard rather than getting locked in the wizard.
  */
 async function detectFreshOrg(): Promise<FreshOrgSignals> {
@@ -54,23 +56,34 @@ async function detectFreshOrg(): Promise<FreshOrgSignals> {
   try {
     const supabase = await createClient()
 
-    const { count: conv } = await supabase.from('conversations').select('id', { count: 'exact', head: true })
-    const { count: contacts } = await supabase.from('contacts').select('id', { count: 'exact', head: true })
-    const { count: calls } = await supabase.from('call_logs').select('id', { count: 'exact', head: true })
-    const { count: deals } = await supabase.from('opportunities').select('id', { count: 'exact', head: true })
-    const { count: ints } = await supabase
-      .from('integrations')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-    const { count: evos } = await supabase
-      .from('evolution_instances')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-    const { count: agents } = await supabase.from('agents').select('id', { count: 'exact', head: true })
-    const { count: gbps } = await supabase
-      .from('google_business_profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
+    const [
+      { count: conv },
+      { count: contacts },
+      { count: calls },
+      { count: deals },
+      { count: ints },
+      { count: evos },
+      { count: agents },
+      { count: gbps },
+    ] = await Promise.all([
+      supabase.from('conversations').select('id', { count: 'exact', head: true }),
+      supabase.from('contacts').select('id', { count: 'exact', head: true }),
+      supabase.from('call_logs').select('id', { count: 'exact', head: true }),
+      supabase.from('opportunities').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('integrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true),
+      supabase
+        .from('evolution_instances')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true),
+      supabase.from('agents').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('google_business_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true),
+    ])
 
     const hasConversations = (conv ?? 0) > 0
     const hasContacts = (contacts ?? 0) > 0

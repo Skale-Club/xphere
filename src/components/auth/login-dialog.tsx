@@ -2,11 +2,11 @@
 
 import * as React from 'react'
 import { useEffect, useState } from 'react'
+import { useRouter, unstable_rethrow } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
-import { unstable_rethrow } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/client'
 import { getSiteOrigin } from '@/lib/site-url'
@@ -40,6 +40,8 @@ export interface LoginDialogProps {
   onOpenChange?: (open: boolean) => void
   initialMode?: AuthMode
   initialView?: AuthView
+  /** Pre-filled error, e.g. an OAuth failure carried back by /auth/callback. */
+  initialError?: string | null
 }
 
 const emailSchema = z.object({
@@ -98,8 +100,61 @@ function PasswordInput({
   )
 }
 
-function GoogleButton({ onError }: { onError: (msg: string) => void }) {
+/**
+ * How long a client-side navigation to the dashboard may take before we stop
+ * trusting it and force a real page load. Generous on purpose — this is a net
+ * for the case where the soft navigation never commits (stale router cache,
+ * a bounce back to "/"), not a timeout on a slow-but-working render. Without
+ * it a failed soft navigation would leave the locked overlay up forever, which
+ * is a worse failure than the one this whole change is fixing.
+ */
+const NAVIGATION_FALLBACK_MS = 10_000
+
+/** Navigate to the dashboard, falling back to a hard load if the SPA nav stalls. */
+function goToDashboard(router: ReturnType<typeof useRouter>) {
+  router.replace('/dashboard')
+  window.setTimeout(() => {
+    if (window.location.pathname !== '/dashboard') {
+      window.location.assign('/dashboard')
+    }
+  }, NAVIGATION_FALLBACK_MS)
+}
+
+/**
+ * Covers the whole dialog once a sign-in has succeeded and we are navigating.
+ *
+ * The dashboard layout renders server-side before the browser paints anything
+ * new, so without this the dialog sat there looking idle and clickable for the
+ * whole navigation — users read that as a failed login and signed in again,
+ * opening a second session. The overlay is deliberately not dismissible.
+ */
+function NavigatingOverlay({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#08090A]/92 backdrop-blur-[2px]"
+    >
+      <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+      <p className="text-[0.875rem] text-[#FAFAFA]">{label}</p>
+      <p className="text-[0.75rem] text-[#52525B]">Loading your workspace&hellip;</p>
+    </div>
+  )
+}
+
+function GoogleButton({
+  disabled,
+  onStart,
+  onError,
+}: {
+  disabled: boolean
+  onStart: () => void
+  onError: (msg: string) => void
+}) {
   async function handleClick() {
+    // signInWithOAuth does a full-page navigation to the provider. Lock the
+    // dialog first so the gap before the browser leaves can't take a 2nd click.
+    onStart()
     const supabase = createClient()
     const origin = getSiteOrigin()
     const { error } = await supabase.auth.signInWithOAuth({
@@ -113,6 +168,7 @@ function GoogleButton({ onError }: { onError: (msg: string) => void }) {
     <Button
       type="button"
       variant="outline"
+      disabled={disabled}
       className="w-full mb-4 h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
       onClick={handleClick}
     >
@@ -157,10 +213,14 @@ function AuthError({ message }: { message: string }) {
 
 function Step1Form({
   initialEmail,
+  busy,
+  onNavigating,
   onContinue,
   onError,
 }: {
   initialEmail: string
+  busy: boolean
+  onNavigating: () => void
   onContinue: (email: string) => void
   onError: (msg: string | null) => void
 }) {
@@ -170,7 +230,7 @@ function Step1Form({
     defaultValues: { email: initialEmail },
   })
 
-  const isSubmitting = form.formState.isSubmitting
+  const isSubmitting = form.formState.isSubmitting || busy
 
   function onSubmit(values: EmailValues) {
     onError(null)
@@ -179,7 +239,7 @@ function Step1Form({
 
   return (
     <>
-      <GoogleButton onError={(m) => onError(m)} />
+      <GoogleButton disabled={busy} onStart={onNavigating} onError={(m) => onError(m)} />
       <Divider />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
@@ -233,21 +293,26 @@ function Step1Form({
 
 function Step2SignInForm({
   email,
+  busy,
+  onNavigating,
   onBack,
   onForgot,
   onError,
 }: {
   email: string
+  busy: boolean
+  onNavigating: () => void
   onBack: () => void
   onForgot: () => void
   onError: (msg: string | null) => void
 }) {
+  const router = useRouter()
   const form = useForm<SignInPasswordValues>({
     resolver: zodResolver(passwordSchema),
     mode: 'onSubmit',
     defaultValues: { password: '' },
   })
-  const isSubmitting = form.formState.isSubmitting
+  const isSubmitting = form.formState.isSubmitting || busy
 
   async function handleSubmit(values: SignInPasswordValues) {
     onError(null)
@@ -255,7 +320,21 @@ function Step2SignInForm({
       const result = await signInWithEmail({ email, password: values.password })
       if (!result.ok) {
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
+        return
       }
+
+      if (result.hasSession) {
+        // The server action no longer redirects (a redirect rejects the action
+        // promise, which react-hook-form treats as "done" and re-enables this
+        // button mid-navigation). Lock the dialog and navigate from here; the
+        // overlay stays up until the dashboard replaces this page.
+        onNavigating()
+        goToDashboard(router)
+        return
+      }
+
+      // No session and no error means the account needs email confirmation.
+      onError('Confirm your email address before signing in.')
     } catch (err) {
       unstable_rethrow(err)
       onError('Unable to connect. Check your internet connection and try again.')
@@ -293,7 +372,8 @@ function Step2SignInForm({
           <button
             type="button"
             onClick={onForgot}
-            className="text-[0.8125rem] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+            disabled={isSubmitting}
+            className="text-[0.8125rem] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
           >
             Forgot password?
           </button>
@@ -338,18 +418,23 @@ function Step2SignInForm({
 /* -------------------------------------------------------------------------- */
 
 function SignUpForm({
+  busy,
+  onNavigating,
   onEmailSent,
   onError,
 }: {
+  busy: boolean
+  onNavigating: () => void
   onEmailSent: (email: string) => void
   onError: (msg: string | null) => void
 }) {
+  const router = useRouter()
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     mode: 'onSubmit',
     defaultValues: { email: '', password: '' },
   })
-  const isSubmitting = form.formState.isSubmitting
+  const isSubmitting = form.formState.isSubmitting || busy
 
   async function handleSubmit(values: SignUpValues) {
     onError(null)
@@ -365,9 +450,14 @@ function SignUpForm({
         return
       }
       trackEvent('sign_up', { method: 'email' })
-      if (!result.hasSession) {
-        onEmailSent(values.email)
+      if (result.hasSession) {
+        // Confirmations disabled → signed in immediately. Same lock-and-go path
+        // as sign-in so the button can't be pressed a second time.
+        onNavigating()
+        goToDashboard(router)
+        return
       }
+      onEmailSent(values.email)
     } catch (err) {
       unstable_rethrow(err)
       onError('Unable to connect. Check your internet connection and try again.')
@@ -376,7 +466,7 @@ function SignUpForm({
 
   return (
     <>
-      <GoogleButton onError={(m) => onError(m)} />
+      <GoogleButton disabled={busy} onStart={onNavigating} onError={(m) => onError(m)} />
       <Divider />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="space-y-4">
@@ -565,17 +655,24 @@ export function LoginDialog(props: LoginDialogProps) {
   const isControlled = props.open !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = isControlled ? (props.open as boolean) : internalOpen
-  const setOpen = (next: boolean) => {
-    if (!isControlled) setInternalOpen(next)
-    props.onOpenChange?.(next)
-  }
 
   const [view, setView] = useState<AuthView>(props.initialView ?? 'step1')
   const [mode, setMode] = useState<AuthMode>(props.initialMode ?? 'signin')
   const [email, setEmail] = useState('')
   const [emailSent, setEmailSent] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState<string | null>(null)
-  const [authError, setAuthError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(props.initialError ?? null)
+  // Once true this NEVER goes back to false: we are leaving this page. It is
+  // what stops the "did my login work?" second click.
+  const [navigating, setNavigating] = useState(false)
+
+  const setOpen = (next: boolean) => {
+    if (navigating) return // don't let the user dismiss a sign-in in flight
+    if (!isControlled) setInternalOpen(next)
+    props.onOpenChange?.(next)
+  }
+
+  const startNavigating = React.useCallback(() => setNavigating(true), [])
 
   useEffect(() => {
     if (open) {
@@ -583,6 +680,12 @@ export function LoginDialog(props: LoginDialogProps) {
       if (props.initialMode) setMode(props.initialMode)
     }
   }, [open, props.initialView, props.initialMode])
+
+  // Surface an error handed in from outside (e.g. ?auth_error= from the OAuth
+  // callback) whenever it changes.
+  useEffect(() => {
+    if (props.initialError) setAuthError(props.initialError)
+  }, [props.initialError])
 
   function switchMode(m: AuthMode) {
     setMode(m)
@@ -629,13 +732,27 @@ export function LoginDialog(props: LoginDialogProps) {
       {props.children !== undefined && !isControlled ? (
         <DialogTrigger asChild>{props.children}</DialogTrigger>
       ) : null}
-      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border-0 overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]">
+      <DialogContent
+        hideCloseButton={navigating}
+        onEscapeKeyDown={(e) => {
+          if (navigating) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          if (navigating) e.preventDefault()
+        }}
+        className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border-0 overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
+      >
         <DialogTitle className="sr-only">
           {mode === 'signin' ? 'Sign in' : 'Sign up'} to Xphere
         </DialogTitle>
         <DialogDescription className="sr-only">
           {mode === 'signin' ? 'Sign in to your workspace' : 'Create a new account'}
         </DialogDescription>
+        {navigating && (
+          <NavigatingOverlay
+            label={mode === 'signup' ? 'Account created' : 'Signing you in'}
+          />
+        )}
         <div className="p-6">
           <div className="mb-6 text-center">
             <h1 className="text-[1.25rem] font-semibold tracking-[-0.02em] text-[#FAFAFA]">
@@ -654,6 +771,8 @@ export function LoginDialog(props: LoginDialogProps) {
           {view === 'step1' && mode === 'signin' ? (
             <Step1Form
               initialEmail={email}
+              busy={navigating}
+              onNavigating={startNavigating}
               onContinue={(em) => {
                 setEmail(em)
                 setView('step2')
@@ -666,6 +785,8 @@ export function LoginDialog(props: LoginDialogProps) {
           {view === 'step2' && mode === 'signin' ? (
             <Step2SignInForm
               email={email}
+              busy={navigating}
+              onNavigating={startNavigating}
               onBack={() => setView('step1')}
               onForgot={() => setView('reset')}
               onError={setAuthError}
@@ -674,7 +795,12 @@ export function LoginDialog(props: LoginDialogProps) {
 
           {/* Sign up — single screen */}
           {view === 'step1' && mode === 'signup' && !emailSent ? (
-            <SignUpForm onEmailSent={setEmailSent} onError={setAuthError} />
+            <SignUpForm
+              busy={navigating}
+              onNavigating={startNavigating}
+              onEmailSent={setEmailSent}
+              onError={setAuthError}
+            />
           ) : null}
 
           {view === 'reset' ? (
@@ -709,7 +835,8 @@ export function LoginDialog(props: LoginDialogProps) {
               <button
                 type="button"
                 onClick={() => switchMode('signup')}
-                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                disabled={navigating}
+                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
               >
                 Sign up
               </button>
@@ -731,7 +858,8 @@ export function LoginDialog(props: LoginDialogProps) {
               <button
                 type="button"
                 onClick={() => switchMode('signin')}
-                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                disabled={navigating}
+                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
               >
                 Sign in
               </button>

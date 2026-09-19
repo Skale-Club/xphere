@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { cache } from 'react'
+
 import { createClient, getUser } from '@/lib/supabase/server'
 import {
   DEFAULT_ROLE_PERMISSIONS,
@@ -20,8 +22,15 @@ export interface RbacContext {
   isPlatformAdmin: boolean
 }
 
-/** Resolve the caller's user, active org, org role, and platform-admin status. */
-export async function getRbacContext(): Promise<RbacContext> {
+/**
+ * Resolve the caller's user, active org, org role, and platform-admin status.
+ *
+ * Cached per request (React `cache()`, same pattern as getUser) — the dashboard
+ * layout calls this directly AND via getMyPermissions(); without the cache
+ * each call re-ran the RPC + two queries, three cross-region round-trips on
+ * the critical path of every page render.
+ */
+export const getRbacContext = cache(async (): Promise<RbacContext> => {
   const user = await getUser()
   if (!user) return { userId: null, orgId: null, role: null, isPlatformAdmin: false }
 
@@ -59,7 +68,7 @@ export async function getRbacContext(): Promise<RbacContext> {
     role,
     isPlatformAdmin: isEnvAdmin || isTableAdmin,
   }
-}
+})
 
 /**
  * Lightweight "is the current user a platform admin?" check for hot paths that

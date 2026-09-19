@@ -3,12 +3,31 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRequestOrigin } from '@/lib/site-url'
 import {
+  AUTH_ERROR_PARAM,
+  classifyOAuthCallbackError,
+  type OAuthFailureCode,
+} from '@/lib/auth/errors'
+import {
   acceptInviteByToken,
   acceptPendingInvite,
   PENDING_INVITE_COOKIE,
 } from '@/lib/invites/accept'
 
 export const runtime = 'nodejs'
+
+/**
+ * Bounce back to the landing page WITH a reason attached.
+ *
+ * Never redirect to a bare `/` from a failure path: the user sees the marketing
+ * page, assumes the login silently failed, and signs in again — the duplicate
+ * sign-in this whole flow was reworked to stop.
+ */
+function failTo(origin: string, code: OAuthFailureCode, invite?: string | null) {
+  const url = new URL('/', origin)
+  url.searchParams.set(AUTH_ERROR_PARAM, code)
+  if (invite) url.searchParams.set('invite', invite)
+  return NextResponse.redirect(url.toString())
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -21,9 +40,26 @@ export async function GET(request: Request) {
 
   console.log('[auth/callback:start] origin=', origin, 'has_code=', Boolean(code), 'next=', next)
 
+  // Supabase appends these when the provider round-trip itself failed — most
+  // commonly `bad_oauth_state` / "OAuth state has expired" when the user leaves
+  // the Google consent screen open for a few minutes. There is no code to
+  // exchange; explain it rather than dropping them on the landing page.
+  const providerError = searchParams.get('error')
+  const providerErrorCode = searchParams.get('error_code')
+  const providerErrorDescription = searchParams.get('error_description')
+  if (providerError || providerErrorCode) {
+    const classified = classifyOAuthCallbackError(
+      providerError,
+      providerErrorCode,
+      providerErrorDescription,
+    )
+    console.warn('[auth/callback:provider-error]', classified, providerErrorDescription)
+    return failTo(origin, classified)
+  }
+
   if (!code) {
     console.warn('[auth/callback:missing-code]')
-    return NextResponse.redirect(`${origin}/`)
+    return failTo(origin, 'oauth_failed')
   }
 
   const supabase = await createClient()
@@ -41,7 +77,7 @@ export async function GET(request: Request) {
     const { data: { user: existing } } = await supabase.auth.getUser()
     if (!existing) {
       console.error('[auth/callback:exchange-failed]', sessionError?.message)
-      return NextResponse.redirect(`${origin}/`)
+      return failTo(origin, 'exchange_failed')
     }
     user = existing
     console.log('[auth/callback:reused-existing-session] user_id=', user.id)
@@ -55,7 +91,7 @@ export async function GET(request: Request) {
 
   if (!normalizedEmail) {
     console.warn('[auth/callback:no-email] user_id=', user.id)
-    return NextResponse.redirect(`${origin}/`)
+    return failTo(origin, 'exchange_failed')
   }
 
   let resolvedOrgId: string | null = null
@@ -151,9 +187,8 @@ export async function GET(request: Request) {
   // OAuth creates it unavoidably) but without an org_members row the user has
   // no access. Bounce to landing, preserving any invite outcome for context.
   if (!resolvedOrgId) {
-    const res = NextResponse.redirect(
-      `${origin}/${inviteOutcome ? `?invite=${inviteOutcome}` : ''}`,
-    )
+    console.warn('[auth/callback:no-org] user_id=', user.id)
+    const res = failTo(origin, 'no_org', inviteOutcome)
     if (clearPendingCookie) res.cookies.set(PENDING_INVITE_COOKIE, '', { path: '/', maxAge: 0 })
     return res
   }

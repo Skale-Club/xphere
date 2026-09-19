@@ -35,98 +35,89 @@ import { shouldBlockForBilling } from '@/lib/billing/guards'
 import { PLAN_CATALOG } from '@/lib/billing/catalog'
 import { BillingPaywall } from '@/components/billing/billing-paywall'
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const user = await getUser()
-  if (!user) redirect('/')
+/*
+ * PERFORMANCE CONTRACT FOR THIS LAYOUT
+ *
+ * The app server (Hetzner, EU) talks to Supabase in us-west-2, so every query
+ * is a ~150-250 ms round-trip. This layout blocks the first byte of EVERY
+ * dashboard page — including the very first paint after login. When its
+ * lookups ran one after another (~15 sequential awaits) the post-login render
+ * took 5-7 s during which the browser still showed the landing page, and users
+ * clicked "Sign in" again, creating duplicate sessions.
+ *
+ * Rule: only two things are allowed to be sequential here — `getUser()` (the
+ * auth gate) and `getActiveOrg()` (everything else keys off the org id). All
+ * remaining lookups go into the single `Promise.all` below. Add new lookups
+ * there, never as a bare `await` in the body.
+ */
 
-  // Resolve the active org from the DB (get_current_org_id) — the SAME source
-  // RLS uses to scope data. We intentionally do NOT read the vo_active_org
-  // cookie for display: it can drift from the DB (switching on another device,
-  // a half-completed refresh) and produce a split-brain where the topbar/theme
-  // show one org while the data belongs to another. Single source of truth.
-  const active = await getActiveOrg()
-  const activeOrgId: string | null = active?.id ?? null
-  const activeOrgName: string | null = active?.name ?? null
-
+async function loadBranding(activeOrgId: string | null) {
   // getOrgBranding already swallows errors internally, but keep a belt
   // here too in case the import-time client construction fails.
-  let branding
   try {
-    branding = await getOrgBranding(activeOrgId)
+    return await getOrgBranding(activeOrgId)
   } catch {
     const { DEFAULT_BRANDING } = await import('@/lib/branding')
-    branding = DEFAULT_BRANDING
+    return DEFAULT_BRANDING
   }
+}
 
-  // Fallback to platform favicon when the org has no custom logo set.
-  // Order: org logo → platform favicon → "X" placeholder (handled in Sidebar).
-  const platformFaviconUrl = await getFaviconUrl()
-  const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
-
-  const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
-  const rbacContext = await getRbacContext()
-  const isOrgAdmin = rbacContext.role === 'owner' || rbacContext.role === 'admin'
-  const isDemo = await isDemoSession()
-
-  // Billing enforcement (flag-gated; a no-op until BILLING_ENFORCEMENT_ENABLED).
-  // When on, resolve the org's entitlements to (a) gate nav by plan feature and
-  // (b) paywall the whole app once the trial/plan lapses. Platform admins bypass.
-  const entitlements = isBillingEnforced() ? await getEntitlements() : null
-  const entitledFeatures = entitlements ? [...entitlements.features] : null
-  const billingBlocked = entitlements
-    ? shouldBlockForBilling(entitlements.status, isPlatformAdmin)
-    : false
-  const paywallPlans = billingBlocked
-    ? Object.values(PLAN_CATALOG)
-        .filter((p) => p.purchasable)
-        .map((p) => ({ key: p.key, name: p.name, features: [...p.features] }))
-    : []
-
-  // Credit balance visibility (CRB-01..04): resolved independently of
-  // isBillingEnforced() so the indicator is visible today even with
-  // enforcement off — see CONTEXT.md Visibility Gating decision.
-  let copilotBalance: { includedUsd: number; topupUsd: number; totalUsd: number; includedAllowanceUsd: number } | null = null
-  let hasCreditsPlan = false
-  // Platform (system) admins aren't metered, so the credit indicator is
-  // meaningless for them — skip it entirely (keeps hasCreditsPlan false).
-  if (activeOrgId && !rbacContext.isPlatformAdmin) {
-    try {
-      const visibility = await resolveCreditsVisibility(activeOrgId)
-      copilotBalance = {
+/**
+ * Credit balance visibility (CRB-01..04): resolved independently of
+ * isBillingEnforced() so the indicator is visible today even with enforcement
+ * off — see CONTEXT.md Visibility Gating decision. Platform (system) admins
+ * aren't metered, so the credit indicator is meaningless for them — skip it
+ * entirely (keeps hasCreditsPlan false).
+ */
+async function loadCredits(activeOrgId: string | null): Promise<{
+  copilotBalance: { includedUsd: number; topupUsd: number; totalUsd: number; includedAllowanceUsd: number } | null
+  hasCreditsPlan: boolean
+}> {
+  const none = { copilotBalance: null, hasCreditsPlan: false }
+  if (!activeOrgId) return none
+  // getRbacContext is request-cached, so this shares the layout's own call.
+  const rbac = await getRbacContext()
+  if (rbac.isPlatformAdmin) return none
+  try {
+    const visibility = await resolveCreditsVisibility(activeOrgId)
+    return {
+      copilotBalance: {
         includedUsd: visibility.balance.includedUsd,
         topupUsd: visibility.balance.topupUsd,
         totalUsd: visibility.balance.totalUsd,
         includedAllowanceUsd: visibility.balance.includedAllowanceUsd,
-      }
-      hasCreditsPlan = visibility.hasCreditsPlan
-    } catch (err) {
-      console.error('[billing] resolveCreditsVisibility failed in dashboard layout:', err)
-      copilotBalance = null
-      hasCreditsPlan = false
+      },
+      hasCreditsPlan: visibility.hasCreditsPlan,
     }
+  } catch (err) {
+    console.error('[billing] resolveCreditsVisibility failed in dashboard layout:', err)
+    return none
   }
+}
 
-  // RBAC: which nav items this user may see. null = unrestricted (Owner /
-  // platform / unconfigured org). Fail open on error — RLS still guards data.
-  const navPermissions = await getMyPermissions().catch(() => null)
-
-  // Decide whether to mount the Twilio Voice SDK Device for this user.
-  // Only users in routing_mode='browser' incur the SDK bundle/connection.
-  let browserVoiceEnabled = false
-  // True when the org has at least one active twilio_phone_numbers row. The
-  // top bar uses this to hide the dial-pad button on orgs that haven't
-  // connected a number yet (matches the /calls onboarding gate behavior).
-  let hasPhoneNumber = false
-  // Server-computed seed for the sidebar's unread-chat badge — fails open to 0
-  // (matches /api/chat/unread-count's own fail-open behavior).
-  let initialUnreadCount = 0
+/**
+ * Voice + inbox seeds for the shell:
+ *  browserVoiceEnabled — mount the Twilio Voice SDK Device for users who are
+ *    EITHER on legacy routing_mode='browser' OR a browser/pwa target in the
+ *    org's active routing chain — both need a live Device to receive the
+ *    <Client> leg. A client identity is required to mint the token, so gate on
+ *    it either way. Only those users incur the SDK bundle/connection.
+ *  hasPhoneNumber — true when the org has at least one active
+ *    twilio_phone_numbers row. The top bar uses this to hide the dial-pad
+ *    button on orgs that haven't connected a number yet (matches the /calls
+ *    onboarding gate behavior).
+ *  initialUnreadCount — server-computed seed for the sidebar's unread-chat
+ *    badge; fails open to 0 (matches /api/chat/unread-count).
+ */
+async function loadVoiceAndInbox(userId: string, activeOrgId: string | null) {
+  const fallback = { browserVoiceEnabled: false, hasPhoneNumber: false, initialUnreadCount: 0 }
   try {
     const supabase = await createClient()
     const [{ data: settings }, { count: numberCount }, chainResult, { data: unreadCountRaw }] = await Promise.all([
       supabase
         .from('call_settings')
         .select('routing_mode, twilio_client_identity')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle(),
       supabase
         .from('twilio_phone_numbers')
@@ -143,11 +134,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
       supabase.rpc('inbox_unread_count'),
     ])
     const chain = chainResult.data
-    initialUnreadCount = typeof unreadCountRaw === 'number' ? unreadCountRaw : 0
-    // Mount the Voice SDK Device for users who are EITHER on legacy
-    // routing_mode='browser' OR a browser/pwa target in the org's active routing
-    // chain — both need a live Device to receive the <Client> leg. A client
-    // identity is required to mint the token, so gate on it either way.
     let isChainVoiceTarget = false
     if (chain?.is_active && Array.isArray(chain.stages)) {
       isChainVoiceTarget = chain.stages.some(
@@ -157,25 +143,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
           s.targets.some(
             (t) =>
               t.type === 'team' ||
-              ((t.type === 'browser' || t.type === 'pwa') && t.user_id === user.id),
+              ((t.type === 'browser' || t.type === 'pwa') && t.user_id === userId),
           ),
       )
     }
-    browserVoiceEnabled =
-      Boolean(settings?.twilio_client_identity) &&
-      (settings?.routing_mode === 'browser' || isChainVoiceTarget)
-    hasPhoneNumber = (numberCount ?? 0) > 0
+    return {
+      browserVoiceEnabled:
+        Boolean(settings?.twilio_client_identity) &&
+        (settings?.routing_mode === 'browser' || isChainVoiceTarget),
+      hasPhoneNumber: (numberCount ?? 0) > 0,
+      initialUnreadCount: typeof unreadCountRaw === 'number' ? unreadCountRaw : 0,
+    }
   } catch {
-    browserVoiceEnabled = false
-    hasPhoneNumber = false
-    initialUnreadCount = 0
+    return fallback
   }
+}
 
-  // Copilot visibility:
-  //  copilotEnabled  — org-level toggle (settings.copilot_enabled, default true)
-  //                    false → hide both launcher and panel entirely
-  //  hasCopilotProvider — at least one active AI key exists (org or platform)
-  //                       false → show panel but surface a setup notice inside
+/**
+ * Copilot visibility:
+ *  copilotEnabled  — org-level toggle (settings.copilot_enabled, default true)
+ *                    false → hide both launcher and panel entirely
+ *  hasCopilotProvider — at least one active AI key exists (org or platform)
+ *                       false → show panel but surface a setup notice inside
+ */
+async function loadCopilot(activeOrgId: string | null) {
   let copilotEnabled = true
   let hasCopilotProvider = false
   try {
@@ -206,20 +197,81 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .in('key', ['OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY'])
       hasCopilotProvider = (platformCount ?? 0) > 0
     }
+    return { copilotEnabled, hasCopilotProvider }
   } catch {
-    copilotEnabled = true   // fail open
-    hasCopilotProvider = false
+    return { copilotEnabled: true /* fail open */, hasCopilotProvider: false }
   }
+}
 
-  // Org timezone + currency → client context so client-side date/money
-  // formatting matches server rendering (org is the source of truth).
-  // Reuses the org id already resolved by getActiveOrg() above instead of
-  // re-invoking get_current_org_id().
-  const orgSettings = await getOrgSettings(activeOrgId)
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const user = await getUser()
+  if (!user) redirect('/')
 
-  // Preload the org-switcher dropdown list server-side so it opens instantly
-  // instead of lazy-fetching on first click.
-  const initialOrgs = await getUserOrgs()
+  // Resolve the active org from the DB (get_current_org_id) — the SAME source
+  // RLS uses to scope data. We intentionally do NOT read the vo_active_org
+  // cookie for display: it can drift from the DB (switching on another device,
+  // a half-completed refresh) and produce a split-brain where the topbar/theme
+  // show one org while the data belongs to another. Single source of truth.
+  const active = await getActiveOrg()
+  const activeOrgId: string | null = active?.id ?? null
+  const activeOrgName: string | null = active?.name ?? null
+
+  // Everything below depends only on `user` and `activeOrgId` — one parallel
+  // wave. See the performance contract at the top of this file.
+  const [
+    branding,
+    platformFaviconUrl,
+    rbacContext,
+    isDemo,
+    entitlements,
+    credits,
+    navPermissions,
+    voice,
+    copilot,
+    orgSettings,
+    initialOrgs,
+  ] = await Promise.all([
+    loadBranding(activeOrgId),
+    // Fallback to platform favicon when the org has no custom logo set.
+    // Order: org logo → platform favicon → "X" placeholder (handled in Sidebar).
+    getFaviconUrl(),
+    getRbacContext(),
+    isDemoSession(),
+    // Billing enforcement (flag-gated; a no-op until BILLING_ENFORCEMENT_ENABLED).
+    // When on, resolve the org's entitlements to (a) gate nav by plan feature and
+    // (b) paywall the whole app once the trial/plan lapses. Platform admins bypass.
+    isBillingEnforced() ? getEntitlements() : Promise.resolve(null),
+    loadCredits(activeOrgId),
+    // RBAC: which nav items this user may see. null = unrestricted (Owner /
+    // platform / unconfigured org). Fail open on error — RLS still guards data.
+    getMyPermissions().catch(() => null),
+    loadVoiceAndInbox(user.id, activeOrgId),
+    loadCopilot(activeOrgId),
+    // Org timezone + currency → client context so client-side date/money
+    // formatting matches server rendering (org is the source of truth).
+    getOrgSettings(activeOrgId),
+    // Preload the org-switcher dropdown list server-side so it opens instantly
+    // instead of lazy-fetching on first click.
+    getUserOrgs(),
+  ])
+
+  const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
+  const isPlatformAdmin = user.email === process.env.PLATFORM_ADMIN_EMAIL
+  const isOrgAdmin = rbacContext.role === 'owner' || rbacContext.role === 'admin'
+
+  const entitledFeatures = entitlements ? [...entitlements.features] : null
+  const billingBlocked = entitlements
+    ? shouldBlockForBilling(entitlements.status, isPlatformAdmin)
+    : false
+  const paywallPlans = billingBlocked
+    ? Object.values(PLAN_CATALOG)
+        .filter((p) => p.purchasable)
+        .map((p) => ({ key: p.key, name: p.name, features: [...p.features] }))
+    : []
+
+  const { copilotBalance, hasCreditsPlan } = credits
+  const { browserVoiceEnabled, hasPhoneNumber, initialUnreadCount } = voice
+  const { copilotEnabled, hasCopilotProvider } = copilot
 
   return (
     <BreadcrumbOverrideProvider>

@@ -22,6 +22,21 @@ vi.mock('@/lib/supabase/server', () => ({
   getUser: vi.fn(() => Promise.resolve(mockUser)),
 }))
 
+// inviteMember sends the invitation email fire-and-forget. Stub the transport
+// so the tests neither hit Resend nor depend on its env vars.
+vi.mock('@/lib/email/resend', () => ({
+  sendPlatformEmail: vi.fn(() => Promise.resolve()),
+}))
+
+/** Chainable stub for `.from('organizations').select().eq().single()`. */
+function organizationsStub(name = 'Test Org') {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: { name }, error: null }),
+  }
+}
+
 // Helper to mock requireAdmin path (admin user)
 function mockAdminContext() {
   mockSupabase.rpc.mockResolvedValue({ data: mockOrgId, error: null })
@@ -67,6 +82,10 @@ describe('Members server actions', () => {
         }
         if (table === 'org_invites') {
           return { insert: insertSpy }
+        }
+        // Looked up to name the org in the invitation email.
+        if (table === 'organizations') {
+          return organizationsStub('Acme Corp')
         }
         return {}
       })
@@ -161,7 +180,14 @@ describe('Members server actions', () => {
 
   describe('listMembers', () => {
     it('returns empty array for admin with no members', async () => {
-      mockSupabase.rpc.mockResolvedValue({ data: mockOrgId, error: null })
+      // Two different RPCs run here: get_current_org_id (via requireAdmin) and
+      // get_org_member_profiles (the listing itself). Dispatch by name — a
+      // blanket mockResolvedValue made the listing return the org id string.
+      mockSupabase.rpc.mockImplementation(async (fn: string) => {
+        if (fn === 'get_current_org_id') return { data: mockOrgId, error: null }
+        if (fn === 'get_org_member_profiles') return { data: [], error: null }
+        return { data: null, error: null }
+      })
       mockSupabase.from.mockImplementation((table: string) => {
         if (table === 'org_members') {
           return {
