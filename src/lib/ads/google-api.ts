@@ -1,9 +1,11 @@
-import { refreshAccessToken, type GoogleAdsTokens } from './google-oauth'
+import { refreshAccessToken, type GoogleAdsTokens, GOOGLE_ADS_API_BASE } from './google-oauth'
 import { getCachedAccessToken, setCachedAccessToken, clearCachedAccessToken } from './cache'
 import { resolveNonNativeGoogleRange } from './date-range'
 import { assertIsoDate, assertNumericId } from './validation'
 
-const GADS_BASE = 'https://googleads.googleapis.com/v20'
+// See GOOGLE_ADS_API_VERSION in google-oauth.ts — single source of truth,
+// shared with listAccessibleCustomers/getCustomerInfo there.
+const GADS_BASE = GOOGLE_ADS_API_BASE
 
 /** Cap on pages walked per search — a runaway loop guard, not a result cap. */
 const MAX_SEARCH_PAGES = 20

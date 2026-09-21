@@ -3,6 +3,18 @@
 // Tokens are stored as encrypted JSON: { access_token, refresh_token }
 // because Google access tokens expire in 1 hour and require refresh.
 
+// Google Ads REST API version. Single source of truth for every Google Ads
+// REST call in this repo (this file's listAccessibleCustomers/
+// getCustomerInfo below, plus src/lib/ads/google-api.ts's GADS_BASE) --
+// v20 and v21 were sunset and started returning 404 on every call
+// (listAccessibleCustomers, campaigns/reports, the offline conversion
+// upload, everything) with no other symptom. Google Ads REST versions are
+// typically supported for ~1 year; bump this one constant when the next one
+// approaches sunset instead of re-grepping the codebase for hardcoded
+// version strings.
+export const GOOGLE_ADS_API_VERSION = 'v25'
+export const GOOGLE_ADS_API_BASE = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`
+
 export const GOOGLE_ADS_CALLBACK_PATH = '/api/ads/google/callback'
 export const GOOGLE_ADS_CALLBACK_URI = `https://xphere.app${GOOGLE_ADS_CALLBACK_PATH}`
 export const GOOGLE_ADS_OAUTH_STATE_COOKIE = 'google_ads_oauth_state'
@@ -103,7 +115,7 @@ export type GoogleAdsCustomer = {
 
 export async function listAccessibleCustomers(accessToken: string): Promise<string[]> {
   const res = await fetch(
-    'https://googleads.googleapis.com/v20/customers:listAccessibleCustomers',
+    `${GOOGLE_ADS_API_BASE}/customers:listAccessibleCustomers`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -126,7 +138,7 @@ export async function getCustomerInfo(
   accessToken: string,
 ): Promise<GoogleAdsCustomer> {
   const res = await fetch(
-    `https://googleads.googleapis.com/v20/customers/${customerId}/googleAds:search`,
+    `${GOOGLE_ADS_API_BASE}/customers/${customerId}/googleAds:search`,
     {
       method: 'POST',
       headers: {
