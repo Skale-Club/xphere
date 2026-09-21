@@ -54,10 +54,16 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     if (!customerIds.length) return redirect(request, '/ads/google?error=no_ad_accounts')
 
-    // Fetch info for all customers (cap at 10 to avoid slow callbacks)
-    const customers = await Promise.all(
-      customerIds.slice(0, 10).map((id) => getCustomerInfo(id, tokens.access_token).catch(() => null)),
-    )
+    // Fetch info for every accessible customer, 10 at a time. An agency login
+    // reaches dozens of accounts; a hard cap silently dropped the one the org
+    // actually wanted whenever it wasn't among the first ten returned.
+    const customers: Array<Awaited<ReturnType<typeof getCustomerInfo>> | null> = []
+    for (let i = 0; i < customerIds.length; i += 10) {
+      const batch = customerIds.slice(i, i + 10)
+      customers.push(
+        ...(await Promise.all(batch.map((id) => getCustomerInfo(id, tokens.access_token).catch(() => null)))),
+      )
+    }
 
     const encryptedTokens = await encrypt(serializeTokens(tokens))
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
