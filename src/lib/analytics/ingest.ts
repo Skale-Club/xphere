@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { IngestPayload } from './types'
+import { extractClickIdFields } from './click-ids'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -63,7 +64,8 @@ export async function processIngest(
           // Meta click signals + client identifiers for CAPI user_data matching
           fbc: payload.fbc ?? null,
           fbp: payload.fbp ?? null,
-          fbclid: payload.fbclid ?? null,
+          // Google + Meta click ids (E1: gclid/gbraid/wbraid mirror fbclid)
+          ...extractClickIdFields(payload),
           client_ip_address: ip,
           client_user_agent: userAgent,
         },

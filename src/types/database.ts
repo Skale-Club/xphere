@@ -4792,6 +4792,8 @@ export interface Database {
           currency: string | null
           external_staff_id: number | null
           external_staff_name: string | null
+          /** Migration 1301: click/UTM attribution bundle, see PHASE-E-SPEC.md E3 */
+          attribution: Json | null
         }
         Insert: {
           id?: string
@@ -4822,6 +4824,7 @@ export interface Database {
           currency?: string | null
           external_staff_id?: number | null
           external_staff_name?: string | null
+          attribution?: Json | null
         }
         Update: {
           booker_name?: string
@@ -4847,6 +4850,7 @@ export interface Database {
           currency?: string | null
           external_staff_id?: number | null
           external_staff_name?: string | null
+          attribution?: Json | null
         }
         Relationships: [
           {
@@ -7715,6 +7719,10 @@ export interface Database {
           fbc: string | null
           fbp: string | null
           fbclid: string | null
+          /** Migration 1301: Google Ads click ids, mirroring fbclid */
+          gclid: string | null
+          gbraid: string | null
+          wbraid: string | null
           client_ip_address: string | null
           client_user_agent: string | null
           created_at: string
@@ -7747,6 +7755,9 @@ export interface Database {
           fbc?: string | null
           fbp?: string | null
           fbclid?: string | null
+          gclid?: string | null
+          gbraid?: string | null
+          wbraid?: string | null
           client_ip_address?: string | null
           client_user_agent?: string | null
           created_at?: string

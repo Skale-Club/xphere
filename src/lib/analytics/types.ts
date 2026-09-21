@@ -16,6 +16,13 @@ export interface IngestPayload {
   fbclid?: string
   fbc?: string
   fbp?: string
+  // Google click signals (captured by the browser script from the landing
+  // URL, persisted client-side per the 90-day/newest-wins rule in
+  // src/lib/analytics/click-id-script.ts). Sent once on session_start, like
+  // fbclid above — see PHASE-E-SPEC.md E1.
+  gclid?: string
+  gbraid?: string
+  wbraid?: string
   event_type?: string
   event_name?: string
   metadata?: Record<string, unknown>
