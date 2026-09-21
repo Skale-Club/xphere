@@ -286,6 +286,14 @@ Vale para todos os tenants do Xkedule, não só para o Bigode.
   - Backfill: 292 bookings + 40 contactos no Xphere. ~240 bookings antigas sem telefone/email (balcão) → sem contacto (invariante de identidade do Xphere, correto). 3 falharam por timeout/502 durante o deploy → re-run idempotente.
   - ⚠️ Descobertas: (1) o callback OAuth do Google Ads é chamado 2× (o 2.º dá invalid_grant e deixa `?error=` na URL mesmo com a ligação feita); (2) a app OAuth do Xphere aparece como "não verificada" → se o ecrã de consentimento estiver em modo **Testing**, os refresh tokens expiram em 7 dias.
   - (antigo) Pendente: ads_connection Google da org do Bigode (OAuth; falhou com invalid_grant antes da correção v25) com status `active` + health `ok` — sem isso o upload offline não dispara.
+- ✅ **Arrumação final (2026-09-21, noite)**:
+  - Xphere `2e497b62`: callback OAuth duplicado agora aterra em `?connected=true` (invalid_grant do 2.º pedido + org verificada há <2 min).
+  - App OAuth do Xphere já estava **In production** (tokens não expiram em 7 dias); "não verificada" = scope adwords sem verificação Google; limite vitalício 100 utilizadores (3 usados).
+  - 18/20 ligações Google de todas as orgs re-verificadas contra a API v25 e repostas a `health=ok`; 2 (conta 4948878797) perderam acesso de facto → mensagem corrigida.
+  - Xkedule `4eab4cdb`: botão WhatsApp sobe acima do banner e da barra "Continuar para a Marcação" (registo de alturas via ResizeObserver). Verificado em produção: sem sobreposição (105px com banner, 180px com carrinho).
+  - Backfill 2.ª passagem: 297/297 OK.
+  - Verificação ponta a ponta em produção: script Xphere só carrega após consentimento; `_gcl_aw` + `_xp_gclid` gravados; gclid chegou a `analytics_sessions`. Dados de teste apagados.
+  - Xkedule `.env.production` marcado como STALE (aponta ao projeto antigo).
 - 🚀 **2026-09-21: CAMPANHA ATIVADA** (campanha + 5 grupos + 5 RSAs enabled). Anúncios e recursos estavam "Under review" na altura.
 - A0 (histórico) Banner de consentimento minimalista no Xkedule em curso (branch `feat/consent-banner`, sem push). Commits separados para B2 (moeda) e B3 (`tel:`).
 
