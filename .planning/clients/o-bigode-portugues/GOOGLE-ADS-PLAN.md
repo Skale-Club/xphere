@@ -277,6 +277,15 @@ Vale para todos os tenants do Xkedule, não só para o Bigode.
   - Analytics setup id `6ca89f0e…`, script_token `62bfb785…` (script responde 200). Falta instalar no site (E2).
   - Correção: o callback OAuth do Google Ads limitava a 10 contas → agora lê todas (branch feat/google-ads-attribution).
   - Ligação Google Ads nativa: bloqueada no login Google (precisa do utilizador).
+- ✅ **Fase E em produção** (2026-09-21):
+  - Xkedule main `460ec2ed` (E2 script Xphere por tenant, E3 attribution na booking + webhook, script de backfill, CSP). Migração `20260921130000` aplicada à mão no DB ativo antes do push. Tenant 4 `xphere_analytics_token=62bfb785…`.
+  - Xphere main (5 commits rebaseados sobre `47ed8cbc` + docs): API Google Ads v20→**v25** (v20/v21 davam 404 → toda a integração Google Ads do Xphere estava quebrada), ads-tick deixou de marcar Google como "expirado" (confundia o access token de 1h), E1 gclid/gbraid/wbraid, E3 recepção de attribution + linkVisitorToContact, E4 upload offline em `showed`. Migração `1301` via `db push`.
+  - Google Ads: ação de conversão **"Cliente atendido"** (UPLOAD_CLICKS, Compra, secundária, 30 dias, default 15€) = `customers/7385502411/conversionActions/7785350099`, gravada em `organizations.settings.google_ads_offline_conversion_action` da org do Bigode.
+  - Backfill do histórico do tenant 4 → Xphere executado (ver resultado abaixo).
+  - ✅ ads_connection Google da org do Bigode: `7385502411` status `active`, health `ok`, **usable=true** (OAuth refeito após o deploy v25; as outras 6 contas acessíveis ficaram `available`/ocultas). Upload offline ARMADO.
+  - Backfill: 292 bookings + 40 contactos no Xphere. ~240 bookings antigas sem telefone/email (balcão) → sem contacto (invariante de identidade do Xphere, correto). 3 falharam por timeout/502 durante o deploy → re-run idempotente.
+  - ⚠️ Descobertas: (1) o callback OAuth do Google Ads é chamado 2× (o 2.º dá invalid_grant e deixa `?error=` na URL mesmo com a ligação feita); (2) a app OAuth do Xphere aparece como "não verificada" → se o ecrã de consentimento estiver em modo **Testing**, os refresh tokens expiram em 7 dias.
+  - (antigo) Pendente: ads_connection Google da org do Bigode (OAuth; falhou com invalid_grant antes da correção v25) com status `active` + health `ok` — sem isso o upload offline não dispara.
 - 🚀 **2026-09-21: CAMPANHA ATIVADA** (campanha + 5 grupos + 5 RSAs enabled). Anúncios e recursos estavam "Under review" na altura.
 - A0 (histórico) Banner de consentimento minimalista no Xkedule em curso (branch `feat/consent-banner`, sem push). Commits separados para B2 (moeda) e B3 (`tel:`).
 

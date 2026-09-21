@@ -110,6 +110,21 @@ export async function GET(request: NextRequest): Promise<Response> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : ''
     if (msg.includes('refresh_token')) return redirect(request, '/ads/google?error=no_refresh_token')
+    // The callback URL is requested twice in practice: the first request
+    // redeems the single-use code and saves the connection, the duplicate then
+    // gets `invalid_grant` for the already-spent code. When this org was
+    // verified moments ago, that duplicate is not a failure — land on success
+    // instead of an error banner over a working connection.
+    if (msg.includes('invalid_grant')) {
+      const since = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      const { data: fresh } = await supabase
+        .from('ads_connections')
+        .select('id')
+        .eq('platform', 'google')
+        .gte('last_verified_at', since)
+        .limit(1)
+      if (fresh?.length) return redirect(request, '/ads/google?connected=true')
+    }
     // Surface the real Google error so it can be diagnosed (admin-only screen).
     return redirect(request, `/ads/google?error=oauth_exchange&detail=${encodeURIComponent(msg.slice(0, 300))}`)
   }
