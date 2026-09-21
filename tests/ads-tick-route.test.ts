@@ -43,6 +43,7 @@ function fakeSupabase(rows: Row[]) {
     let mode: 'select' | 'update' = 'select'
     let payload: Record<string, unknown> | null = null
     const eqFilters: Array<[string, unknown]> = []
+    const neqFilters: Array<[string, unknown]> = []
     const inFilters: Array<[string, unknown[]]> = []
     let notNullCol: string | null = null
     const api = {
@@ -69,6 +70,10 @@ function fakeSupabase(rows: Row[]) {
         eqFilters.push([col, val])
         return api
       },
+      neq(col: string, val: unknown) {
+        neqFilters.push([col, val])
+        return api
+      },
       then(resolve: (v: { data: unknown; error: null }) => unknown) {
         if (mode === 'update') {
           supaState.updateCalls.push({ payload: payload as Record<string, unknown>, filters: eqFilters })
@@ -77,6 +82,7 @@ function fakeSupabase(rows: Row[]) {
         const matches = rows.filter(
           (r) =>
             eqFilters.every(([c, v]) => (r as unknown as Record<string, unknown>)[c] === v) &&
+            neqFilters.every(([c, v]) => (r as unknown as Record<string, unknown>)[c] !== v) &&
             inFilters.every(([c, vs]) => vs.includes((r as unknown as Record<string, unknown>)[c])) &&
             (notNullCol === null || (r as unknown as Record<string, unknown>)[notNullCol] != null),
         )
@@ -189,7 +195,7 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
       {
         id: 'conn-soon',
         org_id: 'org-1',
-        platform: 'google',
+        platform: 'meta',
         ad_account_id: 'act_soon',
         ad_account_name: 'Expiring Soon Co',
         token_expires_at: inDays(3),
@@ -210,6 +216,45 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
     expect(call.payload).toHaveProperty('connection_error')
     expect(call.payload).not.toHaveProperty('status')
     expect(call.payload).not.toHaveProperty('health')
+  })
+
+  it('a Google connection is excluded from the expiry watch entirely, even when its (access-token-only) token_expires_at has already lapsed', async () => {
+    const rows: Row[] = [
+      {
+        id: 'conn-google-expired',
+        org_id: 'org-1',
+        platform: 'google',
+        ad_account_id: 'act_google',
+        ad_account_name: 'Google Co',
+        // Looks "expired" by token_expires_at (the 1-hour access token), but
+        // Google connections are kept alive by the refresh token — this must
+        // never be flagged by this watch. See the .neq('platform','google')
+        // filter and its comment in route.ts.
+        token_expires_at: inDays(-1),
+        status: 'active',
+      },
+      {
+        id: 'conn-meta-expired',
+        org_id: 'org-1',
+        platform: 'meta',
+        ad_account_id: 'act_meta',
+        ad_account_name: 'Meta Co',
+        token_expires_at: inDays(-1),
+        status: 'active',
+      },
+    ]
+    supaState.client = fakeSupabase(rows)
+    const { GET } = await importRoute()
+
+    const res = await GET(makeRequest())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // Only the meta row is flagged — the google row never reaches the loop.
+    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 1 })
+    expect(markConnectionErrorMock).toHaveBeenCalledTimes(1)
+    expect(markConnectionErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: 'meta', adAccountId: 'act_meta' }),
+    )
   })
 
   it('a token nowhere near expiry triggers neither path', async () => {

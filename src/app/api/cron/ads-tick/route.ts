@@ -74,6 +74,19 @@ export async function GET(request: Request): Promise<Response> {
       .select('id, org_id, platform, ad_account_id, ad_account_name, token_expires_at, status')
       .in('status', ['active', 'available'])
       .not('token_expires_at', 'is', null)
+      // Google's token_expires_at holds the ~1-hour ACCESS-token expiry, not
+      // the connection's actual lifetime — the connection is kept alive by
+      // the (non-expiring, only revocable) refresh token, and google-api.ts's
+      // gadsRequest already refreshes proactively before every call. Without
+      // this filter, every Google connection got marked health='error'
+      // ("The access token expired…") roughly an hour after connecting, even
+      // though refreshing it worked fine. Meta's token_expires_at, by
+      // contrast, genuinely is the connection's expiry (a ~60-day user
+      // token with no refresh flow), so this watch still applies to it.
+      // Google credential health is judged by an actual refresh/API failure
+      // instead — see isAuthError/markConnectionError in connection-health.ts,
+      // wired in everywhere Google Ads is actually called.
+      .neq('platform', 'google')
     if (orgId) q = q.eq('org_id', orgId)
 
     const { data: connections, error } = await q
