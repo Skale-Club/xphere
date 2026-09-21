@@ -33,6 +33,9 @@ import {
 import { normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { canonicalizeContactPhone, countryForTimeZone } from '@/lib/phone-numbers/normalize'
 import type { BookingStatus } from '@/lib/calendar/booking-status'
+import { extractAttributionInput, parseAttribution } from '@/lib/xkedule/attribution'
+import { linkVisitorToContact } from '@/lib/analytics/identify'
+import { uploadBookingConversionIfEligible } from '@/lib/ads/google-offline-conversions'
 // Shared with the Action Engine's xkedule_create_booking emitter (Xkedule
 // booking-created platform gap fix) -- see src/lib/xkedule/mirror.ts's file
 // header for why these live there instead of here.
@@ -142,12 +145,24 @@ export async function POST(request: Request): Promise<Response> {
     const orgId = apiKey.org_id
 
     // 2. Parse
-    let payload: z.infer<typeof payloadSchema>
+    let rawBody: unknown
     try {
-      payload = payloadSchema.parse(await request.json())
+      rawBody = await request.json()
     } catch {
       return ok({ skipped: 'bad_payload' })
     }
+    let payload: z.infer<typeof payloadSchema>
+    try {
+      payload = payloadSchema.parse(rawBody)
+    } catch {
+      return ok({ skipped: 'bad_payload' })
+    }
+
+    // E3 (PHASE-E-SPEC.md): the fixed `attribution` contract. Read
+    // independently of payloadSchema (which never rejects it -- see
+    // extractAttributionInput's doc comment on envelope placement) and
+    // parsed tolerantly: malformed attribution never fails the webhook.
+    const attribution = parseAttribution(extractAttributionInput(rawBody))
 
     const b = payload.booking
 
@@ -205,6 +220,16 @@ export async function POST(request: Request): Promise<Response> {
       emailNorm,
     })
 
+    // E3: link the analytics visitor to the resolved contact so the CAPI
+    // sender and attribution reporting can find each other. Best-effort --
+    // linkVisitorToContact itself no-ops (returns false) if the visitor id
+    // doesn't belong to this org, so no separate org check is needed here.
+    if (contactId && attribution?.xphere_visitor_id) {
+      void linkVisitorToContact(orgId, attribution.xphere_visitor_id, contactId, { supabase }).catch((err) =>
+        console.error('[xkedule/webhook] linkVisitorToContact error:', err),
+      )
+    }
+
     // 7. MIR-06: price/currency/assigned-staff identity, carried on every
     // insert/update below. `staff` is the newer, richer field Xkedule now
     // sends; staffMemberId is the older id-only fallback still resolved for
@@ -235,6 +260,9 @@ export async function POST(request: Request): Promise<Response> {
       external_source: 'xkedule',
       external_id: externalId,
       external_updated_at: occurredAt,
+      // E3: raw attribution bundle, stored as-is (already schema-validated,
+      // tolerantly, above) for attribution reporting and as E4's input.
+      attribution: attribution ?? null,
       // status intentionally excluded here -- see the existing/insert branches below.
     }
 
@@ -316,6 +344,24 @@ export async function POST(request: Request): Promise<Response> {
         { supabase },
         { event: calendarEventForNewRow(payload.event, status), booking_id: bookingId, org_id: orgId },
       ).catch((err) => console.error('[xkedule/webhook] emitCalendarEvent error:', err))
+    }
+
+    // E4 (PHASE-E-SPEC.md): a booking that just resolved to 'showed' (native
+    // enum for Xkedule's `completed` status -- see mapStatus in
+    // lib/xkedule/mirror.ts) is the "cliente atendido" signal. Report it to
+    // Google Ads as an offline click conversion when the booking carries a
+    // click id and the org has this wired up. Fire-and-forget: the function
+    // itself never throws (logs to event_logs instead), and this must never
+    // delay or break the webhook's 200 response either way.
+    if (status === 'showed') {
+      void uploadBookingConversionIfEligible({
+        orgId,
+        bookingId,
+        bookingEndAt: endAt,
+        totalPrice: price,
+        currency,
+        attribution,
+      }).catch((err) => console.error('[xkedule/webhook] uploadBookingConversionIfEligible error:', err))
     }
 
     return ok()

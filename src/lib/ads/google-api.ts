@@ -477,6 +477,36 @@ export async function updateCampaignBudget(
   )
 }
 
+// ─── Offline conversion upload (E4) ────────────────────────────────────────────
+
+export type ClickConversionUploadResult = {
+  results?: Array<Record<string, unknown>>
+  partialFailureError?: { message?: string; details?: unknown }
+}
+
+/**
+ * customers/{id}:uploadClickConversions -- reports an offline (e.g. an
+ * appointment that was actually attended) conversion back to a Google Ads
+ * click, keyed by gclid/gbraid/wbraid. `body` is built by the pure
+ * buildUploadClickConversionsPayload() in google-offline-conversions.ts so
+ * this function stays a thin, easily-mocked transport call. partialFailure
+ * is always true in the payload we send, so a rejected conversion comes back
+ * as `partialFailureError` on an otherwise-200 response rather than an HTTP
+ * error -- callers must check for it.
+ */
+export async function uploadClickConversions(
+  customerId: string,
+  refreshToken: string,
+  body: { conversions: unknown[]; partialFailure: true },
+): Promise<ClickConversionUploadResult> {
+  const safeCustomerId = assertNumericId(customerId, 'customer_id')
+  return gadsRequest<ClickConversionUploadResult>(
+    `customers/${safeCustomerId}:uploadClickConversions`,
+    refreshToken,
+    { method: 'POST', body },
+  )
+}
+
 /**
  * Current name / status / budget for one campaign — the "before" half of an
  * audit record, captured before a mutation overwrites it.
