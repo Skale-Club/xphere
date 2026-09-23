@@ -1,18 +1,25 @@
 name: NFC agent rollout
 
-# Manual-dispatch ops workflow (never runs on push) for the keyword-activated
-# agents release (.planning/research/nfc-keychain-whatsapp-agent.md §12):
+# Ops workflow for the keyword-activated agents release
+# (.planning/research/nfc-keychain-whatsapp-agent.md §12). Never runs on an
+# ordinary push: it starts from the Actions tab (workflow_dispatch) or when
+# .github/rollout/nfc-agent.step changes on main — the file's content is the
+# step to run, so an integration that cannot dispatch workflows can still
+# request one through a reviewed commit.
 #
-#   plan     `supabase db push --dry-run` — lists pending migrations, writes nothing.
-#   migrate  `supabase db push` — applies them and records them in
-#            supabase_migrations.schema_migrations (the only sanctioned path,
-#            see CLAUDE.md → Database). Aborts on history drift instead of
-#            guessing.
-#   agent    scripts/setup-skaleclub-nfc-agent.ts — creates/updates the Skale
-#            Club "Chaveiros NFC" agent (idempotent). Needs migration 1302.
-#   agent-dry-run  same script with --dry-run (shows the persona it would use).
+# Steps:
+#   plan           `supabase db push --dry-run` — lists pending migrations, writes nothing.
+#   migrate        plan, then `supabase db push` ONLY if the pending set is
+#                  exactly {1302_agent_keyword_activation_and_human_takeover.sql}
+#                  (or empty). Anything else pending — someone else's
+#                  migration — stops the run for a human to look at.
+#   agent-dry-run  scripts/setup-skaleclub-nfc-agent.ts --dry-run (shows the persona).
+#   agent          the same script for real (idempotent). Needs migration 1302.
+#   all            migrate, then agent.
 #
-# Uses the same repo secrets as build-deploy.yml / the cron workflows.
+# `supabase db push` is the sanctioned migration path (CLAUDE.md → Database):
+# it records versions in supabase_migrations.schema_migrations and aborts on
+# history drift instead of guessing.
 
 on:
   workflow_dispatch:
@@ -22,7 +29,11 @@ on:
         required: true
         default: plan
         type: choice
-        options: [plan, migrate, agent-dry-run, agent]
+        options: [plan, migrate, agent-dry-run, agent, all]
+  push:
+    branches: [main]
+    paths:
+      - '.github/rollout/nfc-agent.step'
 
 concurrency:
   group: nfc-agent-rollout
@@ -34,10 +45,18 @@ permissions:
 jobs:
   rollout:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Resolve step
+        id: step
+        run: |
+          if [ -n "${{ inputs.step }}" ]; then STEP="${{ inputs.step }}"; else STEP="$(tr -d '[:space:]' < .github/rollout/nfc-agent.step)"; fi
+          case "$STEP" in plan|migrate|agent-dry-run|agent|all) ;; *) echo "::error::Unknown step '$STEP'"; exit 1;; esac
+          echo "Running step: $STEP"
+          echo "value=$STEP" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -46,32 +65,41 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        if: startsWith(inputs.step, 'agent')
+        if: contains(fromJSON('["agent-dry-run","agent","all"]'), steps.step.outputs.value)
         run: npm ci
 
-      - name: Migrations — plan (dry run)
-        if: inputs.step == 'plan'
+      - name: Migrations — plan and guard
+        if: contains(fromJSON('["plan","migrate","all"]'), steps.step.outputs.value)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -o pipefail
           if [ -z "$SUPABASE_DB_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
-          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL" --dry-run
+          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL" --dry-run 2>&1 | tee plan.txt
+          grep -oE '[0-9]+_[A-Za-z0-9_]+\.sql' plan.txt | sort -u > pending.txt || true
+          echo "Pending migrations:"; cat pending.txt
+          UNEXPECTED="$(grep -vx '1302_agent_keyword_activation_and_human_takeover.sql' pending.txt || true)"
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::Other migrations are pending besides 1302 — not applying anything automatically:"
+            echo "$UNEXPECTED"
+            exit 1
+          fi
 
       - name: Migrations — apply
-        if: inputs.step == 'migrate'
+        if: contains(fromJSON('["migrate","all"]'), steps.step.outputs.value)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+          if [ ! -s pending.txt ]; then echo "Nothing pending — 1302 already applied."; exit 0; fi
           npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL"
 
       - name: Skale Club NFC agent
-        if: startsWith(inputs.step, 'agent')
+        if: contains(fromJSON('["agent-dry-run","agent","all"]'), steps.step.outputs.value)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ "${{ inputs.step }}" = "agent-dry-run" ]; then
+          if [ "${{ steps.step.outputs.value }}" = "agent-dry-run" ]; then
             npx tsx scripts/setup-skaleclub-nfc-agent.ts --dry-run
           else
             npx tsx scripts/setup-skaleclub-nfc-agent.ts
