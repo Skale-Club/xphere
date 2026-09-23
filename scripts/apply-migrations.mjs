@@ -34,6 +34,9 @@ import { join } from 'node:path'
 
 const LEDGER = 'supabase_migrations.schema_migrations'
 
+// Plain code-point order — what the Supabase CLI uses for migration versions.
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+
 const args = process.argv.slice(2)
 const has = (flag) => args.includes(flag)
 const valueOf = (flag) => {
@@ -86,7 +89,7 @@ async function main() {
 
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
-    .sort()
+    .sort(byCodePoint)
 
   // O registo é chaveado pela versão, por isso dois ficheiros com o mesmo
   // prefixo não cabem lá os dois: o segundo cai no `on conflict do nothing` e
@@ -179,7 +182,7 @@ async function main() {
     // Um ficheiro mais antigo do que a última aplicada entrou fora de ordem —
     // dois branches a aterrar migrações ao mesmo tempo. Não é erro, mas o
     // runner antigo saltava-o em silêncio, que é a pior das respostas.
-    const latest = [...applied].sort().at(-1) ?? ''
+    const latest = [...applied].sort(byCodePoint).at(-1) ?? ''
     const outOfOrder = pending.filter((f) => versionOf(f) < latest)
 
     console.log(`\npendentes (${pending.length}):`)

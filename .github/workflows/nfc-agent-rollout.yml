@@ -9,10 +9,10 @@ name: NFC agent rollout
 #
 # Steps:
 #   plan           scripts/apply-migrations.mjs (simulation) — lists pending migrations, writes nothing.
-#   migrate        plan, then apply ONLY if the pending set is
-#                  exactly {1302_agent_keyword_activation_and_human_takeover.sql}
-#                  (or empty). Anything else pending — someone else's
-#                  migration — stops the run for a human to look at.
+#   migrate        plan, then apply ONLY if the pending set is exactly
+#                  {1302_agent_keyword_activation_and_human_takeover.sql} (or
+#                  empty). Anything else pending — someone else's migration —
+#                  stops the run for a human to look at.
 #   agent-dry-run  scripts/setup-skaleclub-nfc-agent.ts --dry-run (shows the persona).
 #   agent          the same script for real (idempotent). Needs migration 1302.
 #   all            migrate, then agent.
@@ -20,6 +20,7 @@ name: NFC agent rollout
 # The migration runner records versions in supabase_migrations.schema_migrations
 # exactly like `supabase db push` (CLAUDE.md → Database), so the two stay one
 # history; each file is applied in a transaction together with its ledger row.
+# Secrets reach the scripts only as env vars, never as command-line arguments.
 
 on:
   workflow_dispatch:
@@ -49,17 +50,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Resolve step
-        id: step
-        # Inputs reach the shell only through env vars, never by expression interpolation.
-        env:
-          STEP_INPUT: ${{ inputs.step }}
-        run: |
-          if [ -n "$STEP_INPUT" ]; then STEP="$STEP_INPUT"; else STEP="$(tr -d '[:space:]' < .github/rollout/nfc-agent.step)"; fi
-          case "$STEP" in plan|migrate|agent-dry-run|agent|all) ;; *) echo "::error::Unknown step '$STEP'"; exit 1;; esac
-          echo "Running step: $STEP"
-          echo "value=$STEP" >> "$GITHUB_OUTPUT"
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -70,43 +62,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # scripts/apply-migrations.mjs writes the same ledger `supabase db push`
-      # uses (supabase_migrations.schema_migrations) and reads the connection
-      # string only from the environment, so it never appears on a command line.
-      - name: Migrations — plan and guard
-        if: contains(fromJSON('["plan","migrate","all"]'), steps.step.outputs.value)
+      - name: Rollout
         env:
+          STEP_INPUT: ${{ inputs.step }}
           MIGRATION_DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          set -o pipefail
-          if [ -z "$MIGRATION_DATABASE_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
-          node scripts/apply-migrations.mjs 2>&1 | tee plan.txt
-          grep -oE '^  · [0-9]+_[A-Za-z0-9_]+\.sql' plan.txt | sed 's/^  · //' | sort -u > pending.txt || true
-          echo "Pending migrations:"; cat pending.txt
-          UNEXPECTED="$(grep -vx '1302_agent_keyword_activation_and_human_takeover.sql' pending.txt || true)"
-          if [ -n "$UNEXPECTED" ]; then
-            echo "::error::Other migrations are pending besides 1302 — not applying anything automatically:"
-            echo "$UNEXPECTED"
-            exit 1
-          fi
-
-      - name: Migrations — apply 1302 only
-        if: contains(fromJSON('["migrate","all"]'), steps.step.outputs.value)
-        env:
-          MIGRATION_DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          if [ ! -s pending.txt ]; then echo "Nothing pending — 1302 already applied."; exit 0; fi
-          node scripts/apply-migrations.mjs --only=1302_agent_keyword_activation_and_human_takeover.sql --apply
-
-      - name: Skale Club NFC agent
-        if: contains(fromJSON('["agent-dry-run","agent","all"]'), steps.step.outputs.value)
-        env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          STEP: ${{ steps.step.outputs.value }}
         run: |
-          if [ "$STEP" = "agent-dry-run" ]; then
+          set -euo pipefail
+          EXPECTED='1302_agent_keyword_activation_and_human_takeover.sql'
+
+          # Only a known step name is ever acted on.
+          RAW="${STEP_INPUT:-$(tr -d '[:space:]' < .github/rollout/nfc-agent.step)}"
+          case "$RAW" in
+            plan) STEP=plan ;;
+            migrate) STEP=migrate ;;
+            agent-dry-run) STEP=agent-dry-run ;;
+            agent) STEP=agent ;;
+            all) STEP=all ;;
+            *) echo "::error::Unknown step"; exit 1 ;;
+          esac
+          echo "Running step: $STEP"
+
+          if [ "$STEP" = plan ] || [ "$STEP" = migrate ] || [ "$STEP" = all ]; then
+            if [ -z "$MIGRATION_DATABASE_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+            node scripts/apply-migrations.mjs 2>&1 | tee plan.txt
+            grep -oE '^  · [0-9]+_[A-Za-z0-9_]+\.sql' plan.txt | sed 's/^  · //' | sort -u > pending.txt || true
+            echo "Pending migrations:"; cat pending.txt
+            if grep -vxq "$EXPECTED" pending.txt; then
+              echo "::error::Other migrations are pending besides 1302 — not applying anything automatically."
+              exit 1
+            fi
+            if [ "$STEP" != plan ]; then
+              if [ -s pending.txt ]; then
+                node scripts/apply-migrations.mjs "--only=$EXPECTED" --apply
+              else
+                echo "Nothing pending — 1302 already applied."
+              fi
+            fi
+          fi
+
+          if [ "$STEP" = agent-dry-run ]; then
             npx tsx scripts/setup-skaleclub-nfc-agent.ts --dry-run
-          else
+          elif [ "$STEP" = agent ] || [ "$STEP" = all ]; then
             npx tsx scripts/setup-skaleclub-nfc-agent.ts
           fi
