@@ -21,11 +21,21 @@
 // 'agent' from human-operator MCP replies) are NOT part of that contract, so we
 // keep only 'user' and 'assistant' and skip everything else.
 //
+// Human operator replies are persisted as 'assistant' too (the inbox renders
+// them on the business side), flagged metadata.sender_type='human'. Replaying
+// them as plain assistant turns would make the model believe it said them, so
+// they are prefixed with HUMAN_TURN_PREFIX. Agent replies carry their
+// customer-facing label (metadata.agent_label), which is stripped so the model
+// does not start writing the label itself.
+//
 // History is best-effort: any query error yields [] so the reply path never
 // breaks — matching how runAgent treats KB lookup failures as non-fatal.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { stripMessageLabel } from './conversation-routing'
+
+export const HUMAN_TURN_PREFIX = '[Mensagem de um atendente humano da equipe] '
 
 type HistoryTurn = { role: 'user' | 'assistant'; content: string }
 
@@ -47,7 +57,7 @@ export async function loadHistoryWindow(params: {
     // enough turns to fill the window.
     const { data, error } = await supabase
       .from('conversation_messages')
-      .select('role, content, created_at')
+      .select('role, content, metadata, created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .limit(limit + 5)
@@ -64,6 +74,16 @@ export async function loadHistoryWindow(params: {
       const content = (row as { content: string | null }).content
       if (role !== 'user' && role !== 'assistant') continue
       if (typeof content !== 'string' || content.length === 0) continue
+      if (role === 'assistant') {
+        const meta = ((row as { metadata?: unknown }).metadata ?? {}) as Record<string, unknown>
+        if (meta.sender_type === 'human') {
+          turns.push({ role, content: `${HUMAN_TURN_PREFIX}${content}` })
+          continue
+        }
+        const label = typeof meta.agent_label === 'string' ? meta.agent_label : null
+        turns.push({ role, content: stripMessageLabel(content, label) })
+        continue
+      }
       turns.push({ role, content })
     }
 

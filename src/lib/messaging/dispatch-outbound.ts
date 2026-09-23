@@ -26,6 +26,8 @@ import { sendWhatsappMessage } from '@/lib/evolution/send-message'
 import { sendCloudText } from '@/lib/whatsapp/cloud/send-text'
 import { getActiveCloudAccount } from '@/lib/whatsapp/cloud/resolve-account'
 import { sendZernioDm } from '@/lib/zernio/send-dm'
+import { HUMAN_SENDER_METADATA } from '@/lib/agent-runtime/inbound-agent'
+import { markHumanTakeover } from '@/lib/agent-runtime/human-takeover'
 import { sendZernioCommentReply } from '@/lib/zernio/send-comment-reply'
 import { isZernioChannel } from '@/lib/zernio/channel'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
@@ -178,8 +180,10 @@ export async function dispatchOutboundMessage(
     return 'document'
   })()) : 'text'
 
-  // Compose metadata
-  const msgMetadata: Record<string, unknown> = {}
+  // Compose metadata. Every message through here is sent by a person (inbox
+  // composer or an operator's MCP tool), which is what lets the agent runtime
+  // tell human turns from bot turns.
+  const msgMetadata: Record<string, unknown> = { ...HUMAN_SENDER_METADATA }
   if (operatorName) msgMetadata.sender_name = operatorName
   if (media?.length) msgMetadata.media = media
 
@@ -617,6 +621,13 @@ export async function dispatchOutboundMessage(
     .update({ last_message: lastMessageDisplay, last_message_at: msg.created_at, updated_at: new Date().toISOString() })
     .eq('id', conversation.id)
     .eq('org_id', orgId)
+
+  // A person replied: the bot steps back (see human-takeover.ts). Limited to the
+  // channels whose inbound pipelines route through resolveInboundAgent, which is
+  // what lets the timed pause lapse; elsewhere a timed pause would never lift.
+  if (conversation.channel === 'whatsapp' || isZernioChannel(conversation.channel)) {
+    await markHumanTakeover({ supabase, conversationId: conversation.id })
+  }
 
   return { ok: true, message: msg }
 }

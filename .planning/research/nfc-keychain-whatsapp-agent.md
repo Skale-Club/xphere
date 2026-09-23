@@ -300,15 +300,54 @@ Qualquer outro caso → handoff com resumo dessas respostas.
 4. **Teste:** bateria com as perguntas da seção 6 (incluindo as de risco) antes de ligar em
    produção; depois, revisar conversas reais semanalmente e ajustar.
 
-## 10. Decisões em aberto
+## 10. Decisões tomadas (2026-09-23)
 
-1. Qual número/provedor de WhatsApp o Skale Club usa no Xphere (Meta Cloud, Evolution, Z-API)?
-   Isso define o trabalho de detectar resposta humana pelo celular.
-2. Retomada do robô depois do humano: só manual, ou automática após X horas?
-3. Texto do rótulo do robô (ex.: `🤖 Assistente Skale Club:`), em toda mensagem ou só na primeira?
-4. Idiomas: PT e EN? Espanhol?
-5. Onde avisar no handoff: Telegram (qual grupo), push no app, ou os dois?
-6. Formas de pagamento, prazo médio, frete, tamanho/cores: querem que o robô saiba responder
-   (e aí precisamos dos dados), ou tudo isso fica com humano?
-7. A org Skale Club já tem agente padrão no WhatsApp respondendo tudo hoje? Se sim, como ele
-   convive com o agente NFC (o NFC por keyword, o geral desligado?).
+1. **Provedor:** o código cobre todos. Zernio (o canal mais ativo no código) e Meta Cloud
+   (coexistência) detectam resposta humana pelo celular. Evolution/Z-API/W-API: só o inbox.
+2. **Retomada:** resposta humana pausa o robô por 24h após a última mensagem humana e
+   encerra o engajamento. Handoff e toggle manual pausam sem prazo.
+3. **Rótulo:** `🤖 <nome do robô atual> (assistente virtual)` em toda mensagem do robô.
+   O nome vem do agente de WhatsApp que já existe na org (script de setup).
+4. **Idiomas:** responde no idioma da pessoa (PT/EN/ES).
+5. **Alerta de handoff:** notificação in-app + push (`handoff_requested`) e Telegram se a org
+   tiver bot configurado.
+6. **Pagamento, frete, tamanho, cores, prazo:** ficam com humano (o robô faz handoff).
+7. **Agente geral:** o agente padrão do canal continua como está; o agente NFC entra só por
+   palavra-chave e tem prioridade sobre o padrão no tema dele.
+
+## 11. Implementação (branch `claude/nfc-keychain-system-s0rpen`)
+
+Plataforma (genérico, qualquer org):
+- `supabase/migrations/1302_agent_keyword_activation_and_human_takeover.sql`:
+  `agents.activation_keywords`, `agents.message_label`, `conversations.engaged_agent_id/
+  engaged_at/bot_paused_until/bot_paused_reason`, notificação `handoff_requested`.
+- `src/lib/agent-runtime/conversation-routing.ts`: regras puras (palavra-chave, pausa,
+  engajamento, rótulo).
+- `src/lib/agent-runtime/inbound-agent.ts`: `resolveInboundAgent`, usado pelos pipelines
+  WhatsApp unificado, Evolution e Zernio.
+- `src/lib/agent-runtime/human-takeover.ts`: pausa por resposta humana e handoff com alerta.
+- Inbox/MCP marcam mensagens humanas (`metadata.sender_type='human'`) e pausam o robô
+  (WhatsApp/Zernio). Ecos do app (Meta Cloud; Zernio com agente engajado) também.
+- Histórico: mensagens humanas chegam ao modelo marcadas; rótulo do robô removido.
+- Configurações do agente: campos "Activation keywords" e "Reply label".
+- Correção: ecos do app do WhatsApp Business (Meta Cloud) agora vão para a conversa do
+  destinatário, não para a última conversa do número.
+
+Conteúdo (Skale Club):
+- `scripts/skaleclub-nfc-agent/system-prompt.md`: prompt completo (produto, preço, tabela de
+  totais, processo, roteiro, handoff, guardrails).
+- `scripts/setup-skaleclub-nfc-agent.ts`: cria/atualiza o agente `chaveiros-nfc`
+  (idempotente, `kb_scope=[]`, só WhatsApp, palavras-chave, rótulo).
+
+## 12. Para ligar em produção
+
+1. `npx supabase db push` (aplica a 1302). O código tolera a migration ausente: sem ela,
+   tudo segue como hoje.
+2. `npx tsx --env-file=.env.local scripts/setup-skaleclub-nfc-agent.ts` (use `--dry-run`
+   antes para ver o nome do robô escolhido).
+3. Deploy (merge na `main`).
+4. Links de WhatsApp da campanha/landing: o texto pré-preenchido deve conter "chaveiro" ou
+   "NFC" (ex.: `Oi! Quero saber mais sobre os chaveiros NFC.`). A mensagem automática da
+   campanha também deve citar "chaveiros NFC": a resposta do lead a ela já ativa o agente.
+5. Quando o preço mudar em `skaleclub/shared/nfc-pricing.ts`, atualizar a tabela do prompt
+   e rodar o script de novo.

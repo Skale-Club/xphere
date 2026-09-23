@@ -23,6 +23,13 @@ vi.mock('@/lib/agent-runtime/run-agent', () => ({
     status: 'success',
   }),
 }))
+// Agent routing has its own unit tests (tests/agent-conversation-routing.test.ts).
+const resolveInboundAgentMock = vi.fn().mockResolvedValue(null)
+vi.mock('@/lib/agent-runtime/inbound-agent', () => ({
+  resolveInboundAgent: (...args: unknown[]) => resolveInboundAgentMock(...args),
+  agentSenderMetadata: (route: { agentId: string }) => ({ source: 'agent', agent_id: route.agentId }),
+}))
+
 vi.mock('@/lib/evolution/send-message', () => ({
   sendWhatsappMessage: vi.fn().mockResolvedValue({ ok: true, messageIds: ['evo-out-1'] }),
 }))
@@ -279,6 +286,12 @@ describe('Evolution process-event — messages.upsert', () => {
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(createServiceRoleClient).mockReturnValue(db as any)
+    resolveInboundAgentMock.mockResolvedValueOnce({
+      agentId: 'agent-wa-1',
+      agentName: 'Ana',
+      label: null,
+      decision: { kind: 'default', agentId: 'agent-wa-1' },
+    })
 
     const { processEvolutionEvent } = await import('@/lib/evolution/process-event')
     await processEvolutionEvent(makeUpsertPayload())
@@ -298,6 +311,7 @@ describe('Evolution process-event — messages.upsert', () => {
         to: '+5511999998888',
         text: 'Hi back from the agent!',
         instanceName: 'my-org-whatsapp',
+        metadata: expect.objectContaining({ source: 'agent', agent_id: 'agent-wa-1' }),
       }),
     )
   })

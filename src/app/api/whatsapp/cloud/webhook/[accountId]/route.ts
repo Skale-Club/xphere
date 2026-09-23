@@ -32,6 +32,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getCloudAccountById } from '@/lib/whatsapp/cloud/resolve-account'
 import { processWhatsAppMessage } from '@/lib/whatsapp/process-message'
+import { HUMAN_SENDER_METADATA } from '@/lib/agent-runtime/inbound-agent'
+import { markHumanTakeover } from '@/lib/agent-runtime/human-takeover'
 import {
   normalizeMetaMessages,
   metaCloudResolvedProvider,
@@ -298,14 +300,28 @@ async function handleEchoes(
     const text = msg.text?.body ?? msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption ?? ''
     if (!text) continue
 
-    const { data: convo } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('org_id', account.orgId)
-      .contains('channel_metadata', { phone_number_id: account.phoneNumberId })
-      .order('last_message_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Match the conversation by the echo's recipient. Falling back to "latest
+    // conversation on this number" only when Meta omits `to` — that fallback
+    // can attach the echo to the wrong customer.
+    const recipient = msg.to ? (msg.to.startsWith('+') ? msg.to : `+${msg.to}`) : null
+    const { data: convo } = recipient
+      ? await supabase
+          .from('conversations')
+          .select('id')
+          .eq('org_id', account.orgId)
+          .eq('channel', 'whatsapp')
+          .eq('visitor_phone', recipient)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : await supabase
+          .from('conversations')
+          .select('id')
+          .eq('org_id', account.orgId)
+          .contains('channel_metadata', { phone_number_id: account.phoneNumberId })
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
     if (!convo) continue
 
     const { data: dup } = await supabase
@@ -328,8 +344,11 @@ async function handleEchoes(
           provider: 'meta_cloud',
           source: 'mobile_app_echo',
           wamid: msg.id,
+          ...HUMAN_SENDER_METADATA,
         },
       })
+      // Someone on the team answered from the phone: the bot steps back.
+      await markHumanTakeover({ supabase, conversationId: convo.id })
     } catch (err) {
       console.error('[meta/webhook] echo persist error:', err)
     }

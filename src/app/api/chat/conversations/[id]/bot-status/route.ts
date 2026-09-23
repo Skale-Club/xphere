@@ -40,5 +40,15 @@ export async function PATCH(
     return Response.json({ error: 'Failed to update bot_status' }, { status: 500 })
   }
 
+  // Manual toggles are open-ended (see inbox/actions.ts toggleBotStatus).
+  await supabase
+    .from('conversations')
+    .update(
+      parsed.data.bot_status === 'paused'
+        ? { bot_paused_until: null, bot_paused_reason: 'manual', engaged_agent_id: null, engaged_at: null }
+        : { bot_paused_until: null, bot_paused_reason: null },
+    )
+    .eq('id', id)
+
   return Response.json({ ok: true, bot_status: parsed.data.bot_status })
 }

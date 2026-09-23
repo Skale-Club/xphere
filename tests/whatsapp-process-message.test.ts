@@ -37,6 +37,14 @@ const runAgentMock = vi.fn().mockResolvedValue({
 vi.mock('@/lib/agent-runtime/run-agent', () => ({ runAgent: (...args: unknown[]) => runAgentMock(...args) }))
 vi.mock('@/lib/agent-runtime/load-history', () => ({ loadHistoryWindow: vi.fn().mockResolvedValue([]) }))
 
+// Agent routing (pause gate, keyword agents, channel default) has its own unit
+// tests (tests/agent-conversation-routing.test.ts); here it is a seam.
+const resolveInboundAgentMock = vi.fn().mockResolvedValue(null)
+vi.mock('@/lib/agent-runtime/inbound-agent', () => ({
+  resolveInboundAgent: (...args: unknown[]) => resolveInboundAgentMock(...args),
+  agentSenderMetadata: (route: { agentId: string }) => ({ source: 'agent', agent_id: route.agentId }),
+}))
+
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type {
   NormalizedWhatsAppMessage,
@@ -240,6 +248,9 @@ describe('processWhatsAppMessage', () => {
     await processWhatsAppMessage(makeMsg({ messageId: 'wamid-3' }), provider, makeAdapter([]))
 
     expect(db.insertMessageSpy).toHaveBeenCalled()
+    expect(resolveInboundAgentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1', conversationId: 'conv-paused', channel: 'whatsapp' }),
+    )
     expect(runAgentMock).not.toHaveBeenCalled()
     expect(routeWhatsAppReplyMock).not.toHaveBeenCalled()
   })
@@ -251,6 +262,12 @@ describe('processWhatsAppMessage', () => {
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(createServiceRoleClient).mockReturnValue(db as any)
+    resolveInboundAgentMock.mockResolvedValueOnce({
+      agentId: 'agent-1',
+      agentName: 'Ana',
+      label: null,
+      decision: { kind: 'default', agentId: 'agent-1' },
+    })
     const { processWhatsAppMessage } = await import('@/lib/whatsapp/process-message')
 
     await processWhatsAppMessage(makeMsg({ messageId: 'wamid-4' }), provider, makeAdapter([]))
@@ -259,7 +276,34 @@ describe('processWhatsAppMessage', () => {
       expect.objectContaining({ orgId: 'org-1', agentId: 'agent-1', channel: 'whatsapp' }),
     )
     expect(routeWhatsAppReplyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: 'org-1', to: '+5511999998888', text: 'Agent reply' }),
+      expect.objectContaining({
+        orgId: 'org-1',
+        to: '+5511999998888',
+        text: 'Agent reply',
+        metadata: expect.objectContaining({ source: 'agent', agent_id: 'agent-1' }),
+      }),
+    )
+  })
+
+  it('keyword agent with a label: the reply goes out labelled', async () => {
+    const db = buildMockSupabase({
+      existingConversation: { id: 'conv-existing', bot_status: 'active', contact_id: 'contact-1' },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(createServiceRoleClient).mockReturnValue(db as any)
+    resolveInboundAgentMock.mockResolvedValueOnce({
+      agentId: 'agent-nfc',
+      agentName: 'Chaveiros NFC',
+      label: '🤖 Ana (assistente virtual)',
+      decision: { kind: 'keyword', agentId: 'agent-nfc', keyword: 'chaveiro', source: 'inbound' },
+    })
+    const { processWhatsAppMessage } = await import('@/lib/whatsapp/process-message')
+
+    await processWhatsAppMessage(makeMsg({ messageId: 'wamid-kw' }), provider, makeAdapter([]))
+
+    expect(runAgentMock).toHaveBeenCalledWith(expect.objectContaining({ agentId: 'agent-nfc' }))
+    expect(routeWhatsAppReplyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '🤖 Ana (assistente virtual)\nAgent reply' }),
     )
   })
 

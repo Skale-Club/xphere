@@ -159,6 +159,18 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
           typeof payload.timeout_seconds === 'number' ? payload.timeout_seconds : undefined,
       }
     }
+    case 'handoff_requested': {
+      const name = (payload.contact_name as string | undefined) ?? 'A contact'
+      const reason = (payload.reason as string | undefined) ?? ''
+      return {
+        title: `${name} needs a human`,
+        body: reason.length > 80 ? reason.slice(0, 80) + '…' : reason || 'The assistant handed this conversation over',
+        url: payload.conversation_id
+          ? `/inbox?conversation=${payload.conversation_id}`
+          : '/inbox',
+        tag: `handoff-${payload.conversation_id ?? 'inbox'}`,
+      }
+    }
     case 'flow_failed': {
       const flowName = (payload.flow_name as string | undefined) ?? 'A workflow'
       return {

@@ -20,6 +20,8 @@ export interface SendWhatsAppMessageInput {
   splitIntoChunks?: boolean
   /** When persisting to conversation_messages, which role to use. */
   role?: 'assistant' | 'user'
+  /** Extra metadata merged into each persisted chunk (e.g. agent attribution). */
+  metadata?: Record<string, unknown>
 }
 
 export interface SendWhatsAppMessageResult {
@@ -373,6 +375,7 @@ export async function sendWhatsAppMessage(
             provider: provider.provider,
             to: input.to,
             provider_id: provider.id,
+            ...(input.metadata ?? {}),
           },
         })
       } catch (err) {

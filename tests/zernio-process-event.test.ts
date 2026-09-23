@@ -40,6 +40,19 @@ vi.mock('@/lib/zernio/send-comment-reply', () => ({
   sendZernioCommentReply: sendZernioCommentReplyMock,
 }))
 
+// Agent routing has its own unit tests (tests/agent-conversation-routing.test.ts).
+// Default here: route to the channel default when the test's db has one.
+const resolveInboundAgentMock = vi.fn()
+vi.mock('@/lib/agent-runtime/inbound-agent', () => ({
+  resolveInboundAgent: (...args: unknown[]) => resolveInboundAgentMock(...args),
+  agentSenderMetadata: (route: { agentId: string }) => ({ source: 'agent', agent_id: route.agentId }),
+  HUMAN_SENDER_METADATA: { sender_type: 'human' },
+}))
+const markHumanTakeoverMock = vi.fn().mockResolvedValue(undefined)
+vi.mock('@/lib/agent-runtime/human-takeover', () => ({
+  markHumanTakeover: (...args: unknown[]) => markHumanTakeoverMock(...args),
+}))
+
 vi.mock('@/lib/integrations/get-provider-key', () => ({
   getProviderKey: getProviderKeyMock,
 }))
@@ -60,7 +73,12 @@ function makeSupabase({
   duplicateEvent = false,
   agentDefault = null as { agent_id: string } | null,
   phoneHit = null as { id: string } | null,
-  existingConversation = null as { id: string; contact_id: string | null; last_message_at: string | null } | null,
+  existingConversation = null as {
+    id: string
+    contact_id: string | null
+    last_message_at: string | null
+    engaged_agent_id?: string | null
+  } | null,
   duplicateMessage = false,
 } = {}) {
   const eventInsert = vi.fn().mockResolvedValue({
@@ -81,7 +99,14 @@ function makeSupabase({
   const conversationUpdate = vi.fn(() => ({
     eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   }))
-  const messageInsert = vi.fn().mockResolvedValue({ data: null, error: null })
+  // Awaitable directly (echo/inbound inserts) or chained .select().single()
+  // (the agent reply row stored before sending).
+  const messageInsert = vi.fn(() =>
+    Object.assign(Promise.resolve({ data: null, error: null }), {
+      select: () => chainSingle({ id: 'pending-reply-1' }),
+    }),
+  )
+  const messageUpdate = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: null, error: null }) }))
   const messageMaybeSingle = vi.fn().mockResolvedValue({
     data: duplicateMessage ? { id: 'msg-dup' } : null,
     error: null,
@@ -106,9 +131,12 @@ function makeSupabase({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         contains: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: messageMaybeSingle,
         insert: messageInsert,
+        update: messageUpdate,
       }
     }
     if (table === 'agent_channel_defaults') {
@@ -126,7 +154,7 @@ function makeSupabase({
     }
   })
 
-  return { from, rpc, eventInsert, contactInsert, contactUpdate, conversationUpdate, messageInsert }
+  return { from, rpc, eventInsert, contactInsert, contactUpdate, conversationUpdate, messageInsert, messageUpdate }
 }
 
 const messagePayload = {
@@ -173,6 +201,18 @@ describe('processZernioEvent', () => {
     getProviderKeyMock.mockResolvedValue('ze_key')
     storeMediaFromUrlMock.mockResolvedValue(null)
     storeContactAvatarFromUrlMock.mockResolvedValue(null)
+    // Emulates the channel-default branch of the real resolver against the test db.
+    resolveInboundAgentMock.mockImplementation(
+      async ({ supabase }: { supabase: ReturnType<typeof makeSupabase> }) => {
+        const chain = supabase.from('agent_channel_defaults') as unknown as {
+          select: () => { eq: () => { maybeSingle: () => Promise<{ data: { agent_id: string } | null }> } }
+        }
+        const { data } = await chain.select().eq().maybeSingle()
+        return data
+          ? { agentId: data.agent_id, agentName: 'Ana', label: null, decision: { kind: 'default', agentId: data.agent_id } }
+          : null
+      },
+    )
   })
 
   it('maps message.received into contact identity + zernio conversation metadata', async () => {
@@ -433,6 +473,18 @@ describe('processZernioEvent', () => {
       }),
     )
     expect(sendZernioDmMock).toHaveBeenCalledWith('conv-1', 'acct-1', 'Resposta do agente', 'ze_key')
+    // The reply is stored before sending (so its echo is recognised as the bot's)
+    // and stamped with the Zernio id afterwards.
+    expect(db.messageInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Resposta do agente',
+        metadata: expect.objectContaining({ source: 'agent', agent_id: 'agent-1' }),
+      }),
+    )
+    expect(db.messageUpdate).toHaveBeenCalledWith({
+      metadata: expect.objectContaining({ zernio_message_id: 'out-1' }),
+    })
   })
 
   it('maps comment.received into a comment thread and can reply through comments API', async () => {
@@ -545,5 +597,70 @@ describe('processZernioEvent', () => {
         last_message_at: '2026-06-05T17:13:00.000Z',
       }),
     )
+  })
+
+  const outgoingEcho = (text: string) =>
+    ({
+      ...messagePayload,
+      id: `evt-echo-${text.length}`,
+      account: { id: 'acct-wa-1', platform: 'whatsapp', username: '+1 508-801-8190' },
+      conversation: { ...messagePayload.conversation, id: 'zconv-wa-1', participantId: '+14439261289' },
+      message: {
+        ...messagePayload.message,
+        id: 'zmsg-echo-1',
+        conversationId: 'zconv-wa-1',
+        platform: 'whatsapp',
+        platformMessageId: 'wamid.echo.1',
+        direction: 'outgoing',
+        text,
+        sender: { id: 'operator-1', name: 'Operator' },
+      },
+    }) as const
+
+  it('an echo while a keyword agent holds the conversation is a human taking over', async () => {
+    const db = makeSupabase({
+      existingConversation: {
+        id: 'xphere-conv-1',
+        contact_id: 'contact-1',
+        last_message_at: '2026-06-05T17:00:00.000Z',
+        engaged_agent_id: 'agent-nfc',
+      },
+    })
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(outgoingEcho('Oi! Aqui é o Vanildo, sigo com você.'), 'org-1')
+
+    expect(db.messageInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        metadata: expect.objectContaining({ source: 'zernio_echo', sender_type: 'human' }),
+      }),
+    )
+    expect(markHumanTakeoverMock).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'xphere-conv-1' }),
+    )
+  })
+
+  it('an echo with no agent engaged (e.g. a campaign opener) does not pause the bot', async () => {
+    const db = makeSupabase({
+      existingConversation: {
+        id: 'xphere-conv-1',
+        contact_id: 'contact-1',
+        last_message_at: '2026-06-05T17:00:00.000Z',
+        engaged_agent_id: null,
+      },
+    })
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(outgoingEcho('Oi! Quer saber dos nossos chaveiros NFC?'), 'org-1')
+
+    expect(db.messageInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.not.objectContaining({ sender_type: 'human' }),
+      }),
+    )
+    expect(markHumanTakeoverMock).not.toHaveBeenCalled()
   })
 })

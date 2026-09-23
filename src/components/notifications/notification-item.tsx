@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { PhoneMissed, AlertTriangle, Phone, Bell, type LucideIcon } from 'lucide-react'
+import { PhoneMissed, AlertTriangle, Phone, Bell, Hand, type LucideIcon } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
@@ -52,6 +52,7 @@ function getNavigationTarget(notification: NotificationRow): string {
   switch (notification.type) {
     case 'new_conversation':
     case 'new_message':
+    case 'handoff_requested':
       return `/inbox?conversation=${payload.conversation_id ?? ''}`
     case 'missed_call':
       return `/calls?highlight=${payload.call_log_id ?? ''}`
@@ -154,6 +155,17 @@ function describe(notification: NotificationRow): NotificationContent {
         reason: 'Incoming call',
         channelLabel: 'Voice',
         live: 'Ringing now',
+      }
+    }
+
+    case 'handoff_requested': {
+      const channel = resolveChannel(str(p.channel))
+      return {
+        tile: <IconTile icon={Hand} tone="warning" />,
+        title: str(p.contact_name) ?? 'Human needed',
+        detail: str(p.reason) ?? 'The assistant handed this conversation to a human',
+        reason: 'Handoff requested',
+        channelLabel: channel ? CHANNEL_LABEL[channel] : undefined,
       }
     }
 

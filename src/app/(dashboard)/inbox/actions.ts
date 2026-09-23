@@ -40,7 +40,18 @@ export async function toggleBotStatus(
       .eq('channel', agentChannel)
       .maybeSingle()
 
-    if (!defaultAgent?.agent_id) {
+    // A keyword-activated agent on this channel also counts as "an agent to
+    // resume" (errors — e.g. the 1302 columns missing — just mean none).
+    const { data: channelAgents } = defaultAgent?.agent_id
+      ? { data: null }
+      : await supabase
+          .from('agents')
+          .select('activation_keywords')
+          .eq('is_active', true)
+          .contains('allowed_channels', [agentChannel])
+    const hasKeywordAgent = (channelAgents ?? []).some((a) => (a.activation_keywords?.length ?? 0) > 0)
+
+    if (!defaultAgent?.agent_id && !hasKeywordAgent) {
       return { error: `No AI agent is configured for ${channel}. Configure an agent before resuming the bot.` }
     }
   }
@@ -51,6 +62,18 @@ export async function toggleBotStatus(
     .eq('id', conversationId)
 
   if (error) return { error: 'Failed to update bot status' }
+
+  // A manual toggle is open-ended in both directions: turning off never lapses
+  // on its own, turning on clears any pending human-reply pause. Separate
+  // best-effort update so a database without migration 1302 still toggles.
+  await supabase
+    .from('conversations')
+    .update(
+      newStatus === 'paused'
+        ? { bot_paused_until: null, bot_paused_reason: 'manual', engaged_agent_id: null, engaged_at: null }
+        : { bot_paused_until: null, bot_paused_reason: null },
+    )
+    .eq('id', conversationId)
 
   // System message in the conversation feed so admins can see who toggled what.
   // Best-effort | failures are silent (don't block the toggle). Wrapped in

@@ -126,7 +126,7 @@ export interface InboundEmailRouteRow {
   created_at: string
 }
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
@@ -1569,6 +1569,8 @@ export interface Database {
           max_tokens: number | null
           group_id: string | null
           position: number
+          activation_keywords: string[]
+          message_label: string | null
         }
         Insert: {
           id?: string
@@ -1593,6 +1595,8 @@ export interface Database {
           max_tokens?: number | null
           group_id?: string | null
           position?: number
+          activation_keywords?: string[]
+          message_label?: string | null
         }
         Update: {
           name?: string
@@ -1613,6 +1617,8 @@ export interface Database {
           max_tokens?: number | null
           group_id?: string | null
           position?: number
+          activation_keywords?: string[]
+          message_label?: string | null
         }
         Relationships: [
           {
@@ -2707,6 +2713,10 @@ export interface Database {
           channel_metadata: Json
           last_inbound_at: string | null
           bot_status: string
+          engaged_agent_id: string | null
+          engaged_at: string | null
+          bot_paused_until: string | null
+          bot_paused_reason: string | null
           assigned_user_id: string | null
           agent_id: string | null
           contact_id: string | null
@@ -2738,6 +2748,10 @@ export interface Database {
           channel_metadata?: Json
           last_inbound_at?: string | null
           bot_status?: string
+          engaged_agent_id?: string | null
+          engaged_at?: string | null
+          bot_paused_until?: string | null
+          bot_paused_reason?: string | null
           assigned_user_id?: string | null
           agent_id?: string | null
           contact_id?: string | null
@@ -2763,6 +2777,10 @@ export interface Database {
           channel_metadata?: Json
           last_inbound_at?: string | null
           bot_status?: string
+          engaged_agent_id?: string | null
+          engaged_at?: string | null
+          bot_paused_until?: string | null
+          bot_paused_reason?: string | null
           assigned_user_id?: string | null
           agent_id?: string | null
           contact_id?: string | null

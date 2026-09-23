@@ -13,6 +13,7 @@
 import { dynamicTool, jsonSchema } from 'ai'
 import type { Json, Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { requestHumanHandoff } from './human-takeover'
 
 // ---------------------------------------------------------------------------
 // Safe math expression evaluator (recursive descent | NO eval, NO Function)
@@ -442,24 +443,12 @@ export function buildBuiltinTools(params: {
         result = 'Handoff is not available in this context (no active conversation).'
       } else {
         try {
-          await serviceClient
-            .from('conversations')
-            .update({ bot_status: 'paused', updated_at: new Date().toISOString() })
-            .eq('id', conversationId)
-          // Best-effort system timeline note (never blocks the handoff).
-          try {
-            await serviceClient.from('conversation_messages').insert({
-              conversation_id: conversationId,
-              org_id: orgId,
-              role: 'system',
-              content: reason
-                ? `🙋 Handoff to a human requested: ${reason}`
-                : '🙋 Handoff to a human requested.',
-              metadata: { type: 'handoff', reason: reason || null },
-            })
-          } catch {
-            // timeline note is non-critical
-          }
+          await requestHumanHandoff({
+            supabase: serviceClient,
+            orgId,
+            conversationId,
+            reason,
+          })
           result =
             'Conversation handed off to a human. The assistant is now paused for this conversation.'
         } catch (err) {
