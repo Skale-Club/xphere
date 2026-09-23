@@ -29,27 +29,13 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
+import { NFC_ACTIVATION_KEYWORDS } from './skaleclub-nfc-agent/keywords'
 
 const SKALE_CLUB_ORG_ID = 'b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5'
 const AGENT_SLUG = 'chaveiros-nfc'
 const AGENT_NAME = 'Chaveiros NFC'
 const FALLBACK_PERSONA = 'Assistente Skale Club'
 
-export const NFC_ACTIVATION_KEYWORDS = [
-  'chaveiro',
-  'chaveiros',
-  'chaveirinho',
-  'chaveirinhos',
-  'keychain',
-  'keychains',
-  'key chain',
-  'key chains',
-  'keyring',
-  'keyrings',
-  'llavero',
-  'llaveros',
-  'nfc',
-]
 
 // Seeded default names ("Main Agent", "Assistant") make poor personas.
 function isGenericAgentName(name: string): boolean {

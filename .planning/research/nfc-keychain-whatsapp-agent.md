@@ -346,8 +346,17 @@ Conteúdo (Skale Club):
 2. `npx tsx --env-file=.env.local scripts/setup-skaleclub-nfc-agent.ts` (use `--dry-run`
    antes para ver o nome do robô escolhido).
 3. Deploy (merge na `main`).
-4. Links de WhatsApp da campanha/landing: o texto pré-preenchido deve conter "chaveiro" ou
-   "NFC" (ex.: `Oi! Quero saber mais sobre os chaveiros NFC.`). A mensagem automática da
-   campanha também deve citar "chaveiros NFC": a resposta do lead a ela já ativa o agente.
+4. Botão de WhatsApp nas páginas NFC do skaleclub (hero + fechamento da landing e da página
+   de pedido), mensagem pré-preenchida por idioma, escolhida pelo idioma da página e sem
+   passar pelo tradutor automático:
+   - EN (`/nfc-keychains`, `/nfc-order`): `Hi! I'd like to know more about the NFC keychains.`
+     → palavra-chave `keychains`
+   - PT (`/br/nfc-keychains`, `/br/nfc-order`): `Oi! Quero saber mais sobre os chaveiros NFC.`
+     → palavra-chave `chaveiros`
+   Número: `+1 508-801-8190` (constante `NFC_WHATSAPP_NUMBER` em
+   `skaleclub/shared/nfc-whatsapp.ts`). Testes nos dois repos garantem que as duas mensagens
+   ativam o agente. Para publicar: rodar `seed-nfc-keychains-landing`, `seed-nfc-order-page` e
+   os dois seeds de tradução do skaleclub. A mensagem automática da campanha também deve citar
+   "chaveiros NFC" (PT) ou "NFC keychains" (EN): a resposta do lead a ela já ativa o agente.
 5. Quando o preço mudar em `skaleclub/shared/nfc-pricing.ts`, atualizar a tabela do prompt
    e rodar o script de novo.
