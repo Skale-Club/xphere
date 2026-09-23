@@ -1,0 +1,78 @@
+name: NFC agent rollout
+
+# Manual-dispatch ops workflow (never runs on push) for the keyword-activated
+# agents release (.planning/research/nfc-keychain-whatsapp-agent.md §12):
+#
+#   plan     `supabase db push --dry-run` — lists pending migrations, writes nothing.
+#   migrate  `supabase db push` — applies them and records them in
+#            supabase_migrations.schema_migrations (the only sanctioned path,
+#            see CLAUDE.md → Database). Aborts on history drift instead of
+#            guessing.
+#   agent    scripts/setup-skaleclub-nfc-agent.ts — creates/updates the Skale
+#            Club "Chaveiros NFC" agent (idempotent). Needs migration 1302.
+#   agent-dry-run  same script with --dry-run (shows the persona it would use).
+#
+# Uses the same repo secrets as build-deploy.yml / the cron workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'What to run'
+        required: true
+        default: plan
+        type: choice
+        options: [plan, migrate, agent-dry-run, agent]
+
+concurrency:
+  group: nfc-agent-rollout
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: startsWith(inputs.step, 'agent')
+        run: npm ci
+
+      - name: Migrations — plan (dry run)
+        if: inputs.step == 'plan'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL" --dry-run
+
+      - name: Migrations — apply
+        if: inputs.step == 'migrate'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Skale Club NFC agent
+        if: startsWith(inputs.step, 'agent')
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ "${{ inputs.step }}" = "agent-dry-run" ]; then
+            npx tsx scripts/setup-skaleclub-nfc-agent.ts --dry-run
+          else
+            npx tsx scripts/setup-skaleclub-nfc-agent.ts
+          fi

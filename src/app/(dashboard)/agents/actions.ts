@@ -395,6 +395,21 @@ export async function updateAgentSettings(
     return { error: error.message }
   }
 
+  // Keyword activation + reply label (migration 1302), saved separately so the
+  // rest of the settings still save on a database that predates the columns.
+  if (input.activation_keywords !== undefined || input.message_label !== undefined) {
+    const { error: activationError } = await supabase
+      .from('agents')
+      .update({
+        ...(input.activation_keywords !== undefined
+          ? { activation_keywords: input.activation_keywords }
+          : {}),
+        ...(input.message_label !== undefined ? { message_label: input.message_label || null } : {}),
+      })
+      .eq('id', id)
+    if (activationError) return { error: activationError.message }
+  }
+
   revalidatePath('/agents')
   revalidatePath(`/agents/${id}`)
 }

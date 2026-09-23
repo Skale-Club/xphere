@@ -23,6 +23,8 @@ export interface RouteReplyInput {
   text: string
   /** Persist as 'assistant' (agent) or 'user' (human handoff). Default assistant. */
   role?: 'assistant' | 'user'
+  /** Extra metadata merged into the persisted message (e.g. agent attribution). */
+  metadata?: Record<string, unknown>
 }
 
 export interface RouteReplyResult {
@@ -76,6 +78,7 @@ export async function routeWhatsAppReply(input: RouteReplyInput): Promise<RouteR
           source: 'cloud_api',
           wamid: res.wamid,
           to: input.to,
+          ...(input.metadata ?? {}),
         },
       })
     } catch (err) {
@@ -91,5 +94,6 @@ export async function routeWhatsAppReply(input: RouteReplyInput): Promise<RouteR
     text: input.text,
     conversationId: input.conversationId,
     role: input.role,
+    metadata: input.metadata,
   })
 }

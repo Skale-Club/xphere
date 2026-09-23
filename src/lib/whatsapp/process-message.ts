@@ -7,6 +7,8 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound, emitProspectReplyEvent } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
+import { resolveInboundAgent, agentSenderMetadata } from '@/lib/agent-runtime/inbound-agent'
+import { applyMessageLabel } from '@/lib/agent-runtime/conversation-routing'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { routeWhatsAppReply } from './route-reply'
@@ -289,19 +291,17 @@ export async function processWhatsAppMessage(
       },
     )
 
-    // --- 5. Bot gate ---------------------------------------------------------
-    const botStatus = existing?.bot_status ?? 'active'
-    if (botStatus !== 'active') return
-
-    // --- 6. Resolve channel agent -------------------------------------------
-    const { data: defaultRow } = await supabase
-      .from('agent_channel_defaults')
-      .select('agent_id')
-      .eq('organization_id', orgId)
-      .eq('channel', 'whatsapp')
-      .maybeSingle()
-
-    if (!defaultRow?.agent_id) return
+    // --- 5+6. Bot gate + agent routing --------------------------------------
+    // Pause (incl. a lapsed human-reply pause), keyword-activated agents and
+    // their engagement, then the channel default. See inbound-agent.ts.
+    const route = await resolveInboundAgent({
+      supabase,
+      orgId,
+      conversationId,
+      channel: 'whatsapp',
+      text: msg.text,
+    })
+    if (!route) return
 
     // --- 7. Run agent + send reply ------------------------------------------
     try {
@@ -313,7 +313,7 @@ export async function processWhatsAppMessage(
       })
       const result = await runAgent({
         orgId,
-        agentId: defaultRow.agent_id,
+        agentId: route.agentId,
         channel: 'whatsapp',
         userMessage,
         conversationId,
@@ -327,7 +327,8 @@ export async function processWhatsAppMessage(
         orgId,
         conversationId,
         to: fromPhone,
-        text: result.text,
+        text: applyMessageLabel(result.text, route.label),
+        metadata: agentSenderMetadata(route),
       })
     } catch (err) {
       console.error('[whatsapp/process] runAgent/send error:', err)

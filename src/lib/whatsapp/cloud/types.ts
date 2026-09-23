@@ -108,4 +108,6 @@ export interface MetaInboundMessage {
   context?: { from?: string; id?: string }
   /** Present on Coexistence echoes (smb_message_echoes events). */
   echo?: { from_app?: boolean }
+  /** Coexistence echoes: the customer the business sent the message to (digits, no '+'). */
+  to?: string
 }

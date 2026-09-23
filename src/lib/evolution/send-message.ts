@@ -22,6 +22,7 @@ export interface SendWhatsappMessageInput {
   instanceName?: string            // optional | picks first active if omitted
   delayMs?: number
   splitIntoChunks?: boolean        // defaults true | uses 1600-char WhatsApp adapter
+  metadata?: Record<string, unknown> // merged into each persisted chunk (e.g. agent attribution)
 }
 
 export interface SendWhatsappMessageResult {
@@ -85,6 +86,7 @@ export async function sendWhatsappMessage(
           to: input.to,
           evolution_message_id: res.data?.key?.id ?? null,
           evolution_instance_id: instance.id,
+          ...(input.metadata ?? {}),
         },
       })
     }

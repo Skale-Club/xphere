@@ -5,7 +5,8 @@
 //   1. Deduplicate by Zernio webhook event id
 //   2. Resolve/create contact via contact_channel_identities(provider='zernio')
 //   3. normalizeInbound() -> find-or-create conversation + insert message
-//   4. If bot_status='active': runAgent() -> reply via Zernio
+//   4. If resolveInboundAgent picks an agent (not paused; keyword agent, its
+//      engagement, or the channel default): runAgent() -> reply via Zernio
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
@@ -21,6 +22,9 @@ import { emitCommentEvent } from './events'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
+import { resolveInboundAgent, agentSenderMetadata, HUMAN_SENDER_METADATA } from '@/lib/agent-runtime/inbound-agent'
+import { applyMessageLabel } from '@/lib/agent-runtime/conversation-routing'
+import { markHumanTakeover } from '@/lib/agent-runtime/human-takeover'
 import type {
   ZernioCommentReceivedPayload,
   ZernioWebhookMessage,
@@ -601,11 +605,9 @@ async function processMessageReceived(
     orgId,
     channel,
     conversationId: norm.conversationId,
-    existingBotStatus: norm.existing?.bot_status ?? null,
     userMessage: messageText,
-    reply: async (text, apiKey) => {
-      await sendZernioDm(zernioConversationId, zernioAccountId, text, apiKey)
-    },
+    reply: (text, apiKey) => sendZernioDm(zernioConversationId, zernioAccountId, text, apiKey),
+    recordDm: { zernioConversationId, accountId: zernioAccountId, platform },
   })
 }
 
@@ -713,6 +715,22 @@ async function processOutgoingMessage(
   )
   if (dup) return
 
+  // Our own agent reply whose id was not stamped yet — not a new message.
+  if (
+    await claimPendingAgentReply(supabase, conversationId as string, messageText, {
+      zernioMessageId,
+      zernioPlatformMessageId,
+    })
+  ) {
+    return
+  }
+
+  // Zernio does not say whether an echo came from the WhatsApp app or from an
+  // automation, so it only counts as a human taking over while an agent is
+  // actively holding the conversation. Automated openers sent before that (a
+  // campaign message) stay plain echoes — and can engage the agent on reply.
+  const humanTookOver = await isAgentEngaged(supabase, conversationId as string)
+
   const media = await buildZernioMedia({
     supabase,
     orgId,
@@ -743,6 +761,7 @@ async function processOutgoingMessage(
         platform,
         attachments: msg.attachments,
         media,
+        ...(humanTookOver ? HUMAN_SENDER_METADATA : {}),
       },
     } as never)
 
@@ -750,6 +769,8 @@ async function processOutgoingMessage(
     console.error('[zernio/process] insert outgoing message failed:', msgError.message)
     return
   }
+
+  if (humanTookOver) await markHumanTakeover({ supabase, conversationId: conversationId as string })
 
   const shouldBumpPreview =
     !existingRow?.last_message_at ||
@@ -906,7 +927,6 @@ async function processCommentReceived(
     orgId,
     channel,
     conversationId: norm.conversationId,
-    existingBotStatus: norm.existing?.bot_status ?? null,
     userMessage: comment.text,
     reply: async (text, apiKey) => {
       await sendZernioCommentReply({
@@ -939,20 +959,23 @@ async function maybeRunAgentAndReply({
   orgId,
   channel,
   conversationId,
-  existingBotStatus,
   userMessage,
   reply,
+  recordDm,
 }: {
   supabase: ReturnType<typeof createServiceRoleClient>
   orgId: string
   channel: string
   conversationId: string
-  existingBotStatus: string | null
   userMessage: string
-  reply: (text: string, apiKey: string) => Promise<void>
+  reply: (text: string, apiKey: string) => Promise<{ messageId?: string } | void>
+  /**
+   * DM replies only: store the agent's reply ourselves, before sending, so its
+   * message.sent echo is recognised as the bot's (claimPendingAgentReply) and
+   * not mistaken for a human replying from the WhatsApp app.
+   */
+  recordDm?: { zernioConversationId: string; accountId: string; platform: string }
 }): Promise<void> {
-  const botStatus = existingBotStatus ?? 'active'
-  if (botStatus !== 'active') return
   if (!userMessage) return
 
   // Map the Zernio platform channel (e.g. zernio_instagram) to the agent channel
@@ -960,14 +983,14 @@ async function maybeRunAgentAndReply({
   const agentChannel = conversationChannelToAgentChannel(channel)
   if (!agentChannel) return
 
-  const { data: defaultRow } = await supabase
-    .from('agent_channel_defaults')
-    .select('agent_id')
-    .eq('organization_id', orgId)
-    .eq('channel', agentChannel)
-    .maybeSingle()
-
-  if (!defaultRow?.agent_id) return
+  const route = await resolveInboundAgent({
+    supabase,
+    orgId,
+    conversationId,
+    channel: agentChannel,
+    text: userMessage,
+  })
+  if (!route) return
 
   try {
     const apiKey = await getProviderKey('zernio', orgId, supabase)
@@ -983,7 +1006,7 @@ async function maybeRunAgentAndReply({
     })
     const result = await runAgent({
       orgId,
-      agentId: defaultRow.agent_id,
+      agentId: route.agentId,
       channel: agentChannel,
       userMessage,
       conversationId,
@@ -993,10 +1016,120 @@ async function maybeRunAgentAndReply({
 
     if (!result.text) return
 
-    await reply(result.text, apiKey)
+    const text = applyMessageLabel(result.text, route.label)
+    let pendingId: string | null = null
+    if (recordDm) {
+      const { data: pending } = await supabase
+        .from('conversation_messages')
+        .insert({
+          org_id: orgId,
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: text,
+          message_type: 'text',
+          channel,
+          metadata: {
+            direction: 'outgoing',
+            delivery_status: 'sent',
+            zernio_conversation_id: recordDm.zernioConversationId,
+            account_id: recordDm.accountId,
+            platform: recordDm.platform,
+            ...agentSenderMetadata(route),
+          },
+        } as never)
+        .select('id')
+        .single()
+      pendingId = (pending as { id: string } | null)?.id ?? null
+    }
+
+    let sent: { messageId?: string } | void
+    try {
+      sent = await reply(text, apiKey)
+    } catch (err) {
+      if (pendingId) await supabase.from('conversation_messages').delete().eq('id', pendingId)
+      throw err
+    }
+
+    if (pendingId) {
+      const messageId = sent?.messageId
+      if (messageId) {
+        const { data: row } = await supabase
+          .from('conversation_messages')
+          .select('metadata')
+          .eq('id', pendingId)
+          .maybeSingle()
+        const metadata = ((row as { metadata: Record<string, unknown> | null } | null)?.metadata ?? {})
+        // The echo may already have claimed the row and stamped the id.
+        if (!metadata.zernio_message_id) {
+          await supabase
+            .from('conversation_messages')
+            .update({ metadata: { ...metadata, zernio_message_id: messageId } } as never)
+            .eq('id', pendingId)
+        }
+      }
+      const nowIso = new Date().toISOString()
+      await supabase
+        .from('conversations')
+        .update({ last_message: text, last_message_at: nowIso, updated_at: nowIso } as never)
+        .eq('id', conversationId)
+    }
   } catch (err) {
     console.error('[zernio/process] runAgent/send error:', err)
   }
+}
+
+// Echo of an agent reply that maybeRunAgentAndReply stored before sending but
+// has not stamped with its Zernio id yet (the echo won the race). Matches by
+// content within a short window; stamps the ids so later status events find it.
+async function claimPendingAgentReply(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  conversationId: string,
+  content: string,
+  ids: { zernioMessageId?: string; zernioPlatformMessageId?: string },
+): Promise<boolean> {
+  if (!content) return false
+  const since = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+  const { data } = await supabase
+    .from('conversation_messages')
+    .select('id, metadata')
+    .eq('conversation_id', conversationId)
+    .eq('role', 'assistant')
+    .eq('content', content)
+    .contains('metadata', { source: 'agent' } as never)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const row = data as { id: string; metadata: Record<string, unknown> | null } | null
+  if (!row) return false
+  const metadata = row.metadata ?? {}
+  if (metadata.zernio_message_id && metadata.zernio_message_id !== ids.zernioMessageId) return false
+  await supabase
+    .from('conversation_messages')
+    .update({
+      metadata: {
+        ...metadata,
+        ...(ids.zernioMessageId ? { zernio_message_id: ids.zernioMessageId } : {}),
+        ...(ids.zernioPlatformMessageId ? { zernio_platform_message_id: ids.zernioPlatformMessageId } : {}),
+      },
+    } as never)
+    .eq('id', row.id)
+  return true
+}
+
+// Whether a keyword agent currently holds the conversation. Tolerates the
+// pre-1302 schema (column missing → false).
+async function isAgentEngaged(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  conversationId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('engaged_agent_id')
+    .eq('id', conversationId)
+    .maybeSingle()
+  if (error) return false
+  return Boolean((data as { engaged_agent_id: string | null } | null)?.engaged_agent_id)
 }
 
 // ── Template status tracking ──────────────────────────────────────────────────

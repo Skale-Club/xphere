@@ -8,9 +8,10 @@
 //   3. Upsert conversation by (org_id, channel='whatsapp', visitor_phone=from).
 //   4. Lookup or create contact by phone.
 //   5. Insert inbound user message (idempotent by Evolution message id).
-//   6. If bot_status='active' AND an agent is configured for channel='whatsapp',
-//      invoke runAgent({channel:'whatsapp', stream:false}) and dispatch reply
-//      via lib/evolution/send-message.ts.
+//   6. If the bot is not paused and resolveInboundAgent picks an agent (keyword
+//      agent, its live engagement, or the channel default), invoke
+//      runAgent({channel:'whatsapp', stream:false}) and dispatch reply via
+//      lib/evolution/send-message.ts.
 //
 // Pipeline for connection.update:
 //   - Update evolution_instances.status + phone_number.
@@ -19,6 +20,8 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
 import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
+import { resolveInboundAgent, agentSenderMetadata } from '@/lib/agent-runtime/inbound-agent'
+import { applyMessageLabel } from '@/lib/agent-runtime/conversation-routing'
 import { findByPhone, findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { sendWhatsappMessage } from './send-message'
@@ -316,22 +319,18 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
 
     const conversationId = norm.conversationId
 
-    // --- 3. Bot status gate -----------------------------------------------
-    const botStatus = norm.existing?.bot_status ?? 'active'
-    if (botStatus !== 'active') continue
-
     // Cannot auto-reply to media-only messages without text
     if (!messageText) continue
 
-    // --- 4. Resolve channel agent ----------------------------------------
-    const { data: defaultRow } = await supabase
-      .from('agent_channel_defaults')
-      .select('agent_id')
-      .eq('organization_id', orgId)
-      .eq('channel', 'whatsapp')
-      .maybeSingle()
-
-    if (!defaultRow?.agent_id) continue
+    // --- 3+4. Bot gate + agent routing (keyword agents, engagement, default)
+    const route = await resolveInboundAgent({
+      supabase,
+      orgId,
+      conversationId,
+      channel: 'whatsapp',
+      text: messageText,
+    })
+    if (!route) continue
 
     // --- 5. Invoke agent + send reply ------------------------------------
     try {
@@ -342,7 +341,7 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
       })
       const result = await runAgent({
         orgId,
-        agentId: defaultRow.agent_id,
+        agentId: route.agentId,
         channel: 'whatsapp',
         userMessage: messageText,
         conversationId,
@@ -355,9 +354,10 @@ async function handleMessagesUpsert(payload: EvolutionWebhookPayload): Promise<v
       await sendWhatsappMessage({
         orgId,
         to: fromPhone,
-        text: result.text,
+        text: applyMessageLabel(result.text, route.label),
         conversationId,
         instanceName: instance.instance_name,
+        metadata: agentSenderMetadata(route),
       })
     } catch (err) {
       console.error('[evolution/webhook] runAgent/send error:', err)

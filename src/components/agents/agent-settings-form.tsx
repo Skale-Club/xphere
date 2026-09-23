@@ -77,6 +77,8 @@ export function AgentSettingsForm({
     group_id: initialValues?.group_id ?? null,
     allowed_channels: initialValues?.allowed_channels ?? ['web_widget'],
     channel_overrides: initialValues?.channel_overrides ?? {},
+    activation_keywords: initialValues?.activation_keywords ?? '',
+    message_label: initialValues?.message_label ?? '',
   }
 
   const form = useForm<AgentSettingsInput>({
@@ -225,6 +227,55 @@ export function AgentSettingsForm({
                     <FormControl>
                       <Textarea rows={2} {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="activation_keywords"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Activation keywords</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        rows={2}
+                        placeholder="chaveiro, chaveiros, keychain, nfc"
+                        value={Array.isArray(field.value) ? field.value.join(', ') : (field.value ?? '')}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Leave empty for an always-on agent. With keywords, the agent only takes a
+                      conversation when a message contains one of them (comma-separated, accents and
+                      case ignored), then keeps it until a human replies, it hands off, or 72h pass.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="message_label"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reply label</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="🤖 Assistente virtual"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional line added above every reply this agent sends, so customers can tell
+                      the bot from a person.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

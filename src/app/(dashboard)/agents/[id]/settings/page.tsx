@@ -29,6 +29,8 @@ export default async function AgentSettingsPage({ params }: Props) {
     allowed_channels: (agent.allowed_channels ?? []) as AgentChannel[],
     channel_overrides: (agent.channel_overrides ??
       {}) as AgentSettingsInput['channel_overrides'],
+    activation_keywords: (agent.activation_keywords ?? []).join(', '),
+    message_label: agent.message_label ?? '',
   }
 
   return (

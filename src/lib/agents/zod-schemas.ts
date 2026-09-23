@@ -32,6 +32,23 @@ export const channelOverrideSchema = z
     return out
   })
 
+export const activationKeywordsSchema = z
+  .union([z.string(), z.array(z.string())])
+  .transform((value) => {
+    const parts = Array.isArray(value) ? value : value.split(/[,\n]/)
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const part of parts) {
+      const keyword = part.trim()
+      if (!keyword || seen.has(keyword.toLowerCase())) continue
+      seen.add(keyword.toLowerCase())
+      out.push(keyword)
+    }
+    return out
+  })
+  .refine((list) => list.length <= 50, 'At most 50 keywords')
+  .refine((list) => list.every((k) => k.length <= 60), 'Keywords must be 60 characters or fewer')
+
 /**
  * Full agent CRUD form payload. Maps to Database['public']['Tables']['agents']['Insert']
  * (with temperature + max_tokens added in Plan 01) plus a tool_ids list for the picker.
@@ -58,6 +75,14 @@ export const agentSchema = z.object({
     .min(1, 'At least one channel is required'),
   channel_overrides: z.record(z.enum(AGENT_CHANNELS), channelOverrideSchema),
   tool_ids: z.array(z.string().uuid()),
+  /**
+   * Migration 1302. Non-empty → the agent only takes a conversation when a
+   * message contains one of these terms. Accepts the settings form's
+   * comma/newline-separated text or an array; always outputs a clean array.
+   */
+  activation_keywords: activationKeywordsSchema.optional(),
+  /** Migration 1302. Line prepended to every outbound reply ("🤖 Ana (assistente virtual)"). */
+  message_label: z.string().trim().max(120).nullable().optional(),
 })
 
 export type AgentFormInput = z.input<typeof agentSchema>

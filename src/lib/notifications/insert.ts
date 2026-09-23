@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call'
+export type NotificationType =
+  | 'new_conversation'
+  | 'missed_call'
+  | 'flow_failed'
+  | 'new_message'
+  | 'incoming_call'
+  | 'handoff_requested'
 
 export interface InsertNotificationOptions {
   /**
