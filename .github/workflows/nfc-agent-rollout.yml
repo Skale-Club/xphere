@@ -52,8 +52,11 @@ jobs:
 
       - name: Resolve step
         id: step
+        # Inputs reach the shell only through env vars, never by expression interpolation.
+        env:
+          STEP_INPUT: ${{ inputs.step }}
         run: |
-          if [ -n "${{ inputs.step }}" ]; then STEP="${{ inputs.step }}"; else STEP="$(tr -d '[:space:]' < .github/rollout/nfc-agent.step)"; fi
+          if [ -n "$STEP_INPUT" ]; then STEP="$STEP_INPUT"; else STEP="$(tr -d '[:space:]' < .github/rollout/nfc-agent.step)"; fi
           case "$STEP" in plan|migrate|agent-dry-run|agent|all) ;; *) echo "::error::Unknown step '$STEP'"; exit 1;; esac
           echo "Running step: $STEP"
           echo "value=$STEP" >> "$GITHUB_OUTPUT"
@@ -75,7 +78,7 @@ jobs:
         run: |
           set -o pipefail
           if [ -z "$SUPABASE_DB_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
-          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL" --dry-run 2>&1 | tee plan.txt
+          npx --yes supabase@2.117.0 db push --db-url "$SUPABASE_DB_URL" --dry-run 2>&1 | tee plan.txt
           grep -oE '[0-9]+_[A-Za-z0-9_]+\.sql' plan.txt | sort -u > pending.txt || true
           echo "Pending migrations:"; cat pending.txt
           UNEXPECTED="$(grep -vx '1302_agent_keyword_activation_and_human_takeover.sql' pending.txt || true)"
@@ -91,15 +94,16 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           if [ ! -s pending.txt ]; then echo "Nothing pending — 1302 already applied."; exit 0; fi
-          npx --yes supabase@latest db push --db-url "$SUPABASE_DB_URL"
+          npx --yes supabase@2.117.0 db push --db-url "$SUPABASE_DB_URL"
 
       - name: Skale Club NFC agent
         if: contains(fromJSON('["agent-dry-run","agent","all"]'), steps.step.outputs.value)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STEP: ${{ steps.step.outputs.value }}
         run: |
-          if [ "${{ steps.step.outputs.value }}" = "agent-dry-run" ]; then
+          if [ "$STEP" = "agent-dry-run" ]; then
             npx tsx scripts/setup-skaleclub-nfc-agent.ts --dry-run
           else
             npx tsx scripts/setup-skaleclub-nfc-agent.ts
