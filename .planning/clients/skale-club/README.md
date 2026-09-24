@@ -62,10 +62,13 @@ o sistema volta a "ligar a qualquer hora", de propósito, para que um erro de
 configuração não pare a discagem da plataforma inteira.
 
 **Parar tudo agora:** ponha as campanhas em `paused`. O workflow continua
-enfileirando, e as linhas ficam esperando até alguém retomar.
+enfileirando, e as linhas ficam esperando até alguém retomar. O enfileiramento
+só religa uma campanha que estava `completed` — quer dizer, que tinha secado
+sozinha. `paused`, `draft` e `scheduled` são decisão de alguém e ele não desfaz.
 
 **Não ligar para alguém específico:** ligue o do-not-disturb no contato
-(canal *calls*). O enfileiramento respeita.
+(canal *calls*). O enfileiramento respeita — e, quando o workflow só conhece o
+telefone, ele procura o contato dono daquele número antes de decidir.
 
 ## Quem atende o telefone
 
@@ -117,3 +120,13 @@ garantia de carro virando contato no CRM.
 - **O formulário não pede consentimento explícito de ligação.** A promessa está
   na página e o campo se chama "Qual é o seu WhatsApp?"; vale uma linha no
   último passo dizendo que vamos ligar para confirmar.
+- **A Skale Club e a Cuts & Culture usam a mesma chave da Vapi** — as duas
+  linhas de `integrations` guardam o mesmo segredo, e os assistentes das duas
+  convivem na mesma conta. A regra "nunca empurre configuração para a Cuts &
+  Culture" é sustentada só pelo código (`assistant_mappings.entry_agent_id`
+  nula lá) e pela cerca `STRICT=1 tests/manual/vapi-push-diff.test.ts`, não por
+  isolamento de credencial. Separar exigiria uma segunda conta Vapi.
+- **Nenhuma ligação desta org jamais fechou o ciclo.** Existe uma única linha em
+  `calls`, de 01/08/2026, parada em `ringing`: o relatório de fim de chamada
+  nunca chegou nem uma vez aqui. A primeira ligação de verdade é o que vai
+  provar `campaign_contacts` andando de `calling` para `completed`.

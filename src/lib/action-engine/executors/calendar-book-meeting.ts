@@ -40,15 +40,52 @@ export interface ExecuteCalendarBookMeetingParams {
   voiceBooking?: VoiceBookingContext
 }
 
-/** Only used when the caller passes date + time instead of an ISO instant. */
-function isoFromParts(date: string, time: string, timezone: string): string | null {
+/**
+ * How far `timeZone`'s wall clock sits from UTC's at a given instant, in ms.
+ *
+ * formatToParts rather than toLocaleString + Date parsing: the latter round
+ * trips through a localised string that only parses correctly because the
+ * server's own zone happens to cancel out, and it is at the mercy of whatever
+ * format the runtime's en-US locale produces.
+ */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant)
+  const at = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+  const wallAsUtc = Date.UTC(at('year'), at('month') - 1, at('day'), at('hour'), at('minute'), at('second'))
+  return wallAsUtc - instant.getTime()
+}
+
+/**
+ * Only used when the caller passes date + time instead of an ISO instant.
+ * Exported for tests: getting this wrong books somebody an hour out, and that
+ * is not visible from the outside until they turn up to an empty call.
+ */
+export function isoFromParts(date: string, time: string, timezone: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null
-  // Resolve the wall-clock time in the host's zone by measuring that zone's
-  // offset at that instant, rather than trusting the server's own zone.
-  const naive = new Date(`${date}T${time}:00Z`)
-  const asZoned = new Date(naive.toLocaleString('en-US', { timeZone: timezone }))
-  const asUtc = new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' }))
-  return new Date(naive.getTime() + (asUtc.getTime() - asZoned.getTime())).toISOString()
+  const wall = Date.parse(`${date}T${time}:00Z`)
+  if (Number.isNaN(wall)) return null
+
+  // Two passes. The first measures the zone's offset at the wall-clock time
+  // read as if it were UTC, which is off by the offset itself; the second
+  // measures it at the instant that guess produced — the instant actually
+  // being booked. Without the second pass a booking near a DST boundary is
+  // filed an hour out, because the offset was sampled on the wrong side of it.
+  //
+  // This replaced a toLocaleString round trip that was correct only when the
+  // server's own zone happened to cancel out. Under TZ=UTC — which is what the
+  // container runs — 03:00 on 1 Nov 2026 in New York came back as 02:00.
+  const firstGuess = wall - zoneOffsetMs(new Date(wall), timezone)
+  const instant = wall - zoneOffsetMs(new Date(firstGuess), timezone)
+  return new Date(instant).toISOString()
 }
 
 export async function executeCalendarBookMeeting(

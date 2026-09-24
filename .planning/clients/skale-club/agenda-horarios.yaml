@@ -31,7 +31,15 @@ nodes:
     limit: 4
     # What the assistant says if the lookup fails. Without it the tool
     # answers with an empty string and the robot goes silent on the call.
-    fallback_message: "Não consegui ver a agenda agora. Vou anotar e alguém do time confirma o horário com você."
+    #
+    # Both languages, because the receptionist is bilingual and a caller who
+    # has been speaking English all call should not suddenly be answered in
+    # Portuguese at the one moment something went wrong. The instruction tells
+    # the assistant which half to say; it never reads both out loud.
+    fallback_message: >-
+      Say this in the language the caller has been using, and nothing else.
+      PT: "Não consegui ver a agenda agora. Vou anotar e alguém do time confirma o horário com você."
+      EN: "I can't see the calendar right now. I'll make a note and someone from the team will confirm a time with you."
 
 edges:
   - from: trigger

@@ -60,8 +60,12 @@ nodes:
     # The gate: on a phone call, check the transcript before writing anything.
     require_voice_confirmation: true
     # Said out loud if the booking throws. It must not sound like a
-    # confirmation: nothing was written.
-    fallback_message: "Não consegui marcar agora. Nada ficou agendado — vou passar para o time confirmar com você."
+    # confirmation: nothing was written. Both languages — see agenda-horarios.
+    fallback_message: >-
+      Say this in the language the caller has been using, and nothing else.
+      Whichever you say, it must not sound like the meeting was booked, because it was not.
+      PT: "Não consegui marcar agora. Nada ficou agendado — vou passar para o time confirmar com você."
+      EN: "I couldn't book that just now — nothing has been scheduled. I'll pass this to the team to confirm with you."
 
 edges:
   - from: trigger
