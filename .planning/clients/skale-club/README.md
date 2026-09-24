@@ -25,6 +25,8 @@ que ainda não está pronto.
 
 | Peça | Id |
 |---|---|
+| Assistente Vapi — Recepção | `80dd9b79-fd39-457c-834a-7b0dd217fee4` (o que atende `+1 312 878-0637`) |
+| Agente (prompt) — Recepção | slug `voz-recepcao`, bilíngue, com `save_caller_message` |
 | Assistente Vapi — PT | `d8b13b3b-980d-4269-a64f-393343a01ad1` |
 | Assistente Vapi — EN | `efcd8778-7497-49c8-9082-fe2e59ca0081` |
 | Agente (prompt) — PT | slug `voz-callback-nfc-pt` |
@@ -63,15 +65,37 @@ enfileirando, e as linhas ficam esperando até alguém retomar.
 **Não ligar para alguém específico:** ligue o do-not-disturb no contato
 (canal *calls*). O enfileiramento respeita.
 
+## Quem atende o telefone
+
+`+1 312 878-0637` é atendido pela recepção bilíngue: responde no idioma de quem
+ligou, conhece o catálogo, pode dizer os preços **publicados** dos produtos e
+nada além disso, trata qualquer número de chaveiro como estimativa, e registra
+a ligação com `save_caller_message` — o que abre tarefa, e-mail e Telegram pela
+automação que já existia.
+
+Ela **não** agenda: não enxerga agenda nenhuma, então pedido de reunião vira
+recado.
+
+**Antes de mudar o roteiro dela, ensaie:**
+
+```bash
+VOICE_REHEARSAL_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 VOICE_REHEARSAL_ASSISTANT_ID=80dd9b79-fd39-457c-834a-7b0dd217fee4 npx vitest run --config vitest.manual.config.ts tests/manual/reception-rehearsal.test.ts
+```
+
+Seis chamadores passam pelo prompt vivo nos dois idiomas, sem discar nada. Na
+primeira rodada ele pegou quatro problemas reais, incluindo um robocall de
+garantia de carro virando contato no CRM.
+
 ## O que ainda não está pronto
 
-- **O número que atende continua sendo o legado.** Quem ligar de volta para o
-  `+1 312 878-0637` cai no assistente antigo `Skale Club | Receptionist | EN`
-  (gpt-4o-mini, sem ferramentas, não sabe o que é um chaveiro). A recepção
-  bilíngue da agência — que é o inbound de verdade, com chaveiro como um assunto
-  entre outros — ainda não foi feita.
-- **A base de conhecimento da org está vazia** (só `dummy` e `test`). Sem ela a
-  recepção não tem o que responder sobre a agência.
+- **Agendar reunião.** O especialista que deveria cuidar disso ainda não existe,
+  e antes dele falta a agenda: a org não tem perfil de calendário, tipo de
+  evento nem disponibilidade no Xphere (`booking_enabled: false` no site), o
+  GoHighLevel responde *"Location is not active"*, e a agenda nativa do Xphere
+  não tem ações de workflow — só Xkedule e GHL têm.
+- **A base de conhecimento da org está vazia** (só `dummy` e `test`). Hoje tudo
+  que a recepção sabe está no próprio prompt, o que é aceitável para um
+  catálogo pequeno e pára de escalar quando ele crescer.
 - **A linha de data do prompt usa o fuso da organização** (`America/New_York`)
   mesmo no robô PT, porque é a org que define o fuso. Não afeta a confirmação
   de pedido, que não agenda nada.
