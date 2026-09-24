@@ -35,6 +35,26 @@ const FALLBACK = '+15087402109'
  */
 const STATE_FILE = 'scripts/.skleanings-number-state.json'
 
+/** Strip line breaks before logging text that came from an API: a value with a newline in it can forge a log line. */
+const oneLine = (v: unknown) => String(v ?? '').replace(/[\r\n]+/g, ' ')
+
+/** A Twilio account sid, and nothing else, may be spliced into a Twilio URL. */
+function assertTwilioAccountSid(sid: unknown): string {
+  if (typeof sid !== 'string' || !/^AC[0-9a-f]{32}$/i.test(sid)) throw new Error('Twilio credential has no valid account sid')
+  return sid
+}
+
+/** Only https webhooks on hosts we own or Twilio owns may be written back to the number. */
+function assertWebhookUrl(u: unknown): string {
+  try {
+    const parsed = new URL(String(u))
+    if (parsed.protocol === 'https:' && /(^|\.)(twilio\.com|xphere\.app)$/.test(parsed.hostname)) return parsed.toString()
+  } catch {
+    /* fall through */
+  }
+  throw new Error(`refusing to set a webhook outside twilio.com / xphere.app: ${oneLine(u).slice(0, 80)}`)
+}
+
 /** Twilio's own record for the number — its sid and current webhooks, looked up by E.164. */
 async function twilioNumber(accountSid: string, basicAuth: string) {
   const res = await fetch(
@@ -71,18 +91,19 @@ async function main() {
     .eq('is_active', true)
     .maybeSingle()
   const blob = JSON.parse(await decrypt(twilioIntegration!.encrypted_api_key!)) as Record<string, string>
-  const twilioAuth = Buffer.from(`${blob.account_sid}:${blob.auth_token}`).toString('base64')
+  const accountSid = assertTwilioAccountSid(blob.account_sid)
+  const twilioAuth = Buffer.from(`${accountSid}:${blob.auth_token}`).toString('base64')
 
-  const tw = await twilioNumber(blob.account_sid, twilioAuth)
-  const numberUrl = `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${tw.sid}.json`
-  console.log(`twilio : ${tw.phone_number} "${tw.friendly_name}"`)
-  console.log(`         voice_url now: ${tw.voice_url}`)
+  const tw = await twilioNumber(accountSid, twilioAuth)
+  const numberUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers/${encodeURIComponent(tw.sid)}.json`
+  console.log(`twilio : ${oneLine(tw.phone_number)} "${oneLine(tw.friendly_name)}"`)
+  console.log(`         voice_url now: ${oneLine(tw.voice_url)}`)
 
   const existing = (await (
     await fetch('https://api.vapi.ai/phone-number?limit=50', { headers: { Authorization: `Bearer ${vapiKey}` } })
   ).json()) as { id: string; number?: string; assistantId?: string }[]
   const alreadyOnVapi = existing.find((n) => n.number === NUMBER)
-  console.log(`vapi   : ${alreadyOnVapi ? `already imported (${alreadyOnVapi.id})` : 'not imported'}`)
+  console.log(`vapi   : ${alreadyOnVapi ? 'already imported (' + oneLine(alreadyOnVapi.id) + ')' : 'not imported'}`)
 
   if (revert) {
     if (alreadyOnVapi) {
@@ -93,13 +114,17 @@ async function main() {
       console.log(`removed from Vapi -> ${del.status}`)
     }
     if (!existsSync(STATE_FILE)) throw new Error(`no ${STATE_FILE} — --apply never ran here, nothing to restore`)
-    const saved = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as { voiceUrl: string; smsUrl: string }
+    const saved = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as { voiceUrl: unknown; smsUrl: unknown }
+    // The state file is ours, but it is still a file: only webhooks on hosts
+    // we or Twilio own go back onto the number.
+    const voiceUrl = assertWebhookUrl(saved.voiceUrl)
+    const smsUrl = assertWebhookUrl(saved.smsUrl)
     const put = await fetch(numberUrl, {
       method: 'POST',
       headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ VoiceUrl: saved.voiceUrl, VoiceMethod: 'POST', SmsUrl: saved.smsUrl, SmsMethod: 'POST' }),
+      body: new URLSearchParams({ VoiceUrl: voiceUrl, VoiceMethod: 'POST', SmsUrl: smsUrl, SmsMethod: 'POST' }),
     })
-    console.log(`twilio webhooks restored -> ${put.status} (voice ${saved.voiceUrl})`)
+    console.log(`twilio webhooks restored -> ${put.status} (voice ${oneLine(voiceUrl)})`)
     await sb.from('twilio_phone_numbers').update({ vapi_phone_number_id: null, vapi_assistant_id: null, provider: 'twilio' }).eq('organization_id', ORG_ID).eq('e164', NUMBER)
     console.log('reverted.')
     return
@@ -199,8 +224,8 @@ async function main() {
   console.log(`sms webhook returned to xphere -> ${smsBack.status}`)
 
   const after = await twilioNumber(blob.account_sid, twilioAuth)
-  console.log(`\ntwilio voice_url now: ${after.voice_url}`)
-  console.log(`twilio sms_url   now: ${after.sms_url}`)
+  console.log(`\ntwilio voice_url now: ${oneLine(after.voice_url)}`)
+  console.log(`twilio sms_url   now: ${oneLine(after.sms_url)}`)
   console.log(`done — ${NUMBER} answers with the robot, falling back to ${FALLBACK}.`)
 }
 

@@ -30,6 +30,22 @@ const findings: Finding[] = []
 const add = (severity: Severity, area: string, org: string, what: string, detail?: string) =>
   findings.push({ severity, area, org, what, detail })
 
+/** Strip line breaks before printing text that came from the database or an API: a newline in a name can forge a report line. */
+const oneLine = (v: unknown) => String(v ?? '').replace(/[\r\n]+/g, ' ')
+
+/** Case-insensitive whole-word search that builds no regex from data. */
+function mentionsWord(haystack: string, word: string): boolean {
+  const h = haystack.toLowerCase()
+  const w = word.toLowerCase()
+  const isWordChar = (c: string | undefined) => c !== undefined && /[a-z0-9]/.test(c)
+  let i = h.indexOf(w)
+  while (i !== -1) {
+    if (!isWordChar(h[i - 1]) && !isWordChar(h[i + w.length])) return true
+    i = h.indexOf(w, i + 1)
+  }
+  return false
+}
+
 /** Orgs created by test suites; not tenants. Their names carry a fixture prefix and a timestamp. */
 const isTestOrg = (name: string) =>
   /^(metrics|contacts|test|rls|p36|pipe|opp-move|ZZ )/i.test(name) || /-\d{13}-[a-z0-9]{5}$/.test(name)
@@ -238,7 +254,7 @@ async function main() {
         if (O.includes(brand) || brand.includes(O)) continue
         // 'Xkedule' legitimately appears as action_type xkedule_*; only flag prose.
         const prose = text.replace(/"action_type":"[^"]*"/g, '').replace(/xkedule_[a-z_]+/g, '')
-        if (new RegExp(`\\b${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(prose)) {
+        if (mentionsWord(prose, brand)) {
           add('CRITICAL', 'tenancy', O, `active workflow "${w.name}" carries another company's brand: ${brand}`, 'customers of this org are messaged in someone else\'s name')
         }
       }
@@ -374,7 +390,8 @@ async function main() {
       console.log(`\n── ${f.severity} ${'─'.repeat(70 - f.severity.length)}`)
       last = f.severity
     }
-    console.log(`[${f.area}] ${f.org}\n   ${f.what}${f.detail ? `\n   ↳ ${f.detail}` : ''}`)
+    const detail = f.detail ? '\n   ↳ ' + oneLine(f.detail) : ''
+    console.log(`[${f.area}] ${oneLine(f.org)}\n   ${oneLine(f.what)}${detail}`)
   }
 }
 
