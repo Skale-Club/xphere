@@ -15,6 +15,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage } from './send'
 import { sendCloudText } from './cloud/send-text'
 import { getActiveCloudAccount } from './cloud/resolve-account'
+import { toWhatsAppMarkup } from '@/lib/agent-runtime/adapters/whatsapp'
 
 export interface RouteReplyInput {
   orgId: string
@@ -48,6 +49,8 @@ export async function routeWhatsAppReply(input: RouteReplyInput): Promise<RouteR
     | undefined
 
   if (provider === 'meta_cloud') {
+    // Agent text is model markdown; WhatsApp shows **x** literally. Humans' text goes as typed.
+    if ((input.role ?? 'assistant') === 'assistant') input = { ...input, text: toWhatsAppMarkup(input.text) }
     const account = await getActiveCloudAccount(input.orgId)
     if (!account) {
       return {

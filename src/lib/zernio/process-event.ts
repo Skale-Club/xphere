@@ -16,6 +16,7 @@ import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
 import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { storeContactAvatarFromUrl } from '@/lib/contacts/store-avatar'
 import { sendZernioDm } from './send-dm'
+import { toWhatsAppMarkup } from '@/lib/agent-runtime/adapters/whatsapp'
 import { sendZernioCommentReply } from './send-comment-reply'
 import { zernioChannel } from './channel'
 import { emitCommentEvent } from './events'
@@ -1016,7 +1017,9 @@ async function maybeRunAgentAndReply({
 
     if (!result.text) return
 
-    const text = applyMessageLabel(result.text, route.label)
+    // WhatsApp shows **x** literally; send its own markup instead.
+    const body = agentChannel === 'whatsapp' ? toWhatsAppMarkup(result.text) : result.text
+    const text = applyMessageLabel(body, route.label)
     let pendingId: string | null = null
     if (recordDm) {
       const { data: pending } = await supabase
