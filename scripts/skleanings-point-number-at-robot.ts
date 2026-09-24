@@ -166,13 +166,29 @@ async function main() {
     console.log('registered twilio_phone_numbers row')
   }
 
+  // Vapi's import takes the SMS webhook as well as the voice one, and Vapi does
+  // not handle this platform's SMS — so an inbound reply would vanish. The
+  // Twilio number is the identity (it carries the A2P registration and the
+  // local presence); Vapi is only the voice engine behind it. Give messaging
+  // back.
+  const smsBack = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ SmsUrl: 'https://xphere.app/api/twilio/sms', SmsMethod: 'POST' }),
+    },
+  )
+  console.log(`sms webhook returned to xphere -> ${smsBack.status}`)
+
   const after = (await (
     await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
       { headers: { Authorization: `Basic ${twilioAuth}` } },
     )
-  ).json()) as { voice_url?: string }
+  ).json()) as { voice_url?: string; sms_url?: string }
   console.log(`\ntwilio voice_url now: ${after.voice_url}`)
+  console.log(`twilio sms_url   now: ${after.sms_url}`)
   console.log(`done — ${NUMBER} answers with the robot, falling back to ${FALLBACK}.`)
 }
 
