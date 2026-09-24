@@ -124,12 +124,18 @@ async function main() {
   const { data: orgs } = await sb.from('organizations').select('id, name')
   const orgName = Object.fromEntries((orgs ?? []).map((o) => [o.id, o.name]))
 
+  // --org=<uuid> scopes the run to one tenant, so each execution touches a
+  // single organization's rows.
+  const onlyOrg = process.argv.find((a) => a.startsWith('--org='))?.split('=')[1]
+
   const { data: workflows } = await sb
     .from('workflows')
     .select('id, name, org_id, is_active')
     .like('name', `${NAME_PREFIX}%`)
 
-  const targets = (workflows ?? []).filter((w) => w.org_id !== OWNER_ORG && w.is_active)
+  const targets = (workflows ?? []).filter(
+    (w) => w.org_id !== OWNER_ORG && w.is_active && (!onlyOrg || w.org_id === onlyOrg),
+  )
 
   const byOrg: Record<string, number> = {}
   for (const w of targets) byOrg[orgName[w.org_id] ?? w.org_id] = (byOrg[orgName[w.org_id] ?? w.org_id] ?? 0) + 1
@@ -141,7 +147,9 @@ async function main() {
     return
   }
 
-  writeFileSync(RECORD, JSON.stringify(targets.map((w) => ({ id: w.id, name: w.name })), null, 1), 'utf8')
+  const previous = existsSync(RECORD) ? (JSON.parse(readFileSync(RECORD, 'utf8')) as { id: string; name: string }[]) : []
+  const merged = [...previous, ...targets.filter((t) => !previous.some((p) => p.id === t.id)).map((w) => ({ id: w.id, name: w.name }))]
+  writeFileSync(RECORD, JSON.stringify(merged, null, 1), 'utf8')
 
   let done = 0
   for (const w of targets) {
