@@ -46,3 +46,4 @@ supabase/.temp/
 public/sw.js
 public/workbox-*.js
 public/serwist-*.js
+scripts/.disabled-cross-tenant-workflows.json
