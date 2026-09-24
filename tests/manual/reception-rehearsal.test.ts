@@ -2,9 +2,10 @@
 //
 // Reads the LIVE assistant — prompt, model, tools, exactly as Vapi holds it —
 // and runs a set of callers past it through the same model, in both languages.
-// Nothing is dialled and no tool is executed: a tool call is recorded and
-// answered with a plausible result, so the conversation continues the way it
-// would on a real call.
+// Nothing is dialled. Read-only tools ARE executed, against the real ingress in
+// production, so the assistant sees the same answer a caller would produce;
+// writes are simulated, with book_meeting replaying the spoken-consent gate
+// rather than putting a meeting in anybody's calendar. See answerTool().
 //
 // This exists because the expensive way to discover that a receptionist quotes
 // a price it should not, or offers a meeting time it cannot keep, is a
@@ -24,6 +25,7 @@
 import { it, expect } from 'vitest'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
+import { assistantServerSecret } from '@/lib/vapi/sync-assistant-config'
 
 const ORG_ID = process.env.VOICE_REHEARSAL_ORG_ID
 const ASSISTANT_ID = process.env.VOICE_REHEARSAL_ASSISTANT_ID
@@ -99,9 +101,14 @@ const SCENARIOS: Scenario[] = [
       'john at bellapizza dot com.',
       "Yes, that's right.",
     ],
-    // It must look before it offers, and read back before it books.
-    mustCall: ['check_meeting_times'],
-    mustNotSay: [/\byou're booked\b|\ball set for\b/i],
+    // The booking subagent, end to end: look at the calendar, then actually
+    // book. Until the harness answered tools honestly this scenario passed
+    // without ever booking — the stub made it impossible, so a green run
+    // proved nothing about the one path the whole feature exists for.
+    //
+    // book_meeting appears twice on a good run: refused the first time by the
+    // spoken-consent gate, accepted after the read-back.
+    mustCall: ['check_meeting_times', 'book_meeting'],
   },
   {
     name: 'EN — robocall / wrong number',
@@ -115,6 +122,71 @@ interface ChatMessage {
   content: string | null
   tool_calls?: { id: string; type: 'function'; function: { name: string; arguments: string } }[]
   tool_call_id?: string
+}
+
+/**
+ * What a tool call gets back.
+ *
+ * This used to answer every tool with the same string — "Saved. The team will
+ * see this message." — whatever was called. So when the assistant asked
+ * check_meeting_times for open slots, it was handed a save confirmation, drew
+ * the only sensible conclusion ("I can't see the calendar"), and improvised.
+ * The booking scenarios passed WITHOUT EVER BOOKING, because the harness made
+ * booking impossible. A green rehearsal meant nothing for the one path that
+ * matters most.
+ *
+ * Read-only tools now go to the real ingress in production, so the assistant
+ * sees the real answer. Writes are simulated, but honestly: book_meeting
+ * replays the spoken-consent gate — refuse first with a read-back, accept on
+ * the second call — so the rehearsal exercises the confirmation flow without
+ * putting a meeting in anybody's calendar.
+ */
+const TOOLS_URL = process.env.REHEARSAL_TOOLS_URL ?? 'https://xphere.app/api/vapi/tools'
+const bookingAttempts = new Map<string, number>()
+
+async function answerTool(name: string, rawArgs: string, secret: string): Promise<string> {
+  if (name === 'book_meeting') {
+    const seen = (bookingAttempts.get(name) ?? 0) + 1
+    bookingAttempts.set(name, seen)
+    let args: Record<string, unknown> = {}
+    try {
+      args = JSON.parse(rawArgs || '{}')
+    } catch {
+      /* the model's problem, and the executor would say so too */
+    }
+    if (seen === 1) {
+      return (
+        'NOT BOOKED YET. Read the details back to the caller and get a clear yes first: ' +
+        `${args.name ?? 'the caller'}, ${args.date ?? '(no date)'} at ${args.time ?? '(no time)'}, ` +
+        `invite to ${args.email ?? '(no email)'}. Then call book_meeting again with confirmed: true ` +
+        'and confirmationToken: rehearsal-token, details unchanged.'
+      )
+    }
+    if (!args.confirmed) {
+      return 'NOT BOOKED. The caller has not agreed yet. Read the details back and wait for a yes.'
+    }
+    return `Booked: Conversa inicial, ${args.date} at ${args.time} (America/New_York). A confirmation with the video link is on its way to ${args.email}.`
+  }
+
+  if (name === 'check_meeting_times') {
+    const res = await fetch(TOOLS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-vapi-secret': secret },
+      body: JSON.stringify({
+        message: {
+          type: 'tool-calls',
+          call: { id: `rehearsal-${Date.now()}`, assistantId: ASSISTANT_ID },
+          toolCallList: [
+            { id: 'rehearsal-tool-call', type: 'function', function: { name, arguments: rawArgs || '{}' } },
+          ],
+        },
+      }),
+    })
+    const body = (await res.json()) as { results?: { result: string }[] }
+    return body.results?.[0]?.result ?? 'The calendar did not answer.'
+  }
+
+  return 'Saved. The team will see this message.'
 }
 
 async function platformOpenRouterKey(supabase: ReturnType<typeof createServiceRoleClient>): Promise<string> {
@@ -147,12 +219,20 @@ it.skipIf(!ORG_ID || !ASSISTANT_ID)(
       })
     ).json()) as {
       name?: string
+      server?: unknown
       model?: {
         model?: string
         messages?: { role: string; content: string }[]
-        tools?: { function?: { name?: string; description?: string; parameters?: unknown } }[]
+        tools?: { server?: unknown; function?: { name?: string; description?: string; parameters?: unknown } }[]
       }
     }
+
+    // The secret the read-only tools are called with, so the rehearsal sees the
+    // same answers a real call would.
+    const secret =
+      assistantServerSecret(assistant.server) ??
+      (assistant.model?.tools ?? []).map((t) => assistantServerSecret(t.server)).find(Boolean)
+    expect(secret, 'no webhook secret on this assistant').toBeTruthy()
 
     const systemPrompt = assistant.model?.messages?.find((m) => m.role === 'system')?.content ?? ''
     const model = assistant.model?.model ?? 'openai/gpt-5.1'
@@ -175,6 +255,9 @@ it.skipIf(!ORG_ID || !ASSISTANT_ID)(
       const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }]
       const spoken: string[] = []
       const called: string[] = []
+      // Each caller arrives with a clean slate, so the consent gate starts
+      // closed for every one of them.
+      bookingAttempts.clear()
 
       for (const turn of scenario.turns) {
         messages.push({ role: 'user', content: turn })
@@ -204,12 +287,8 @@ it.skipIf(!ORG_ID || !ASSISTANT_ID)(
           if (reply.tool_calls?.length) {
             for (const call of reply.tool_calls) {
               called.push(call.function.name)
-              // Answer the way the real tool would, so the call continues.
-              messages.push({
-                role: 'tool',
-                tool_call_id: call.id,
-                content: 'Saved. The team will see this message.',
-              })
+              const answer = await answerTool(call.function.name, call.function.arguments, secret as string)
+              messages.push({ role: 'tool', tool_call_id: call.id, content: answer })
             }
             continue
           }
