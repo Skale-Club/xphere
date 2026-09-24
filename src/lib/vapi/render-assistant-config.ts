@@ -129,7 +129,11 @@ const DEFAULT_REQUEST_START = 'One moment.'
  * is touched, so the tenant still hears its own name.
  */
 export function spokenName(name: string): string {
-  return name.replace(/\s*&\s*/g, ' and ').replace(/\s{2,}/g, ' ').trim()
+  // `\s*&\s*` backtracks super-linearly on a long run of whitespace, and the
+  // input is a tenant-supplied business name. The surrounding spaces do not
+  // need matching anyway: the collapse below already tidies "Cuts  and
+  // Culture" back to one space.
+  return name.replace(/&/g, ' and ').replace(/\s{2,}/g, ' ').trim()
 }
 
 /**

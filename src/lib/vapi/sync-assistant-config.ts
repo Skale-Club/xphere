@@ -266,7 +266,10 @@ async function resolveTranscriberKeyterms(
     const [catalog, info] = await Promise.all([getXkeduleCatalog(credentials), fetchBusinessInfoCached(credentials)])
     const terms = new Set<string>()
     const add = (value: unknown) => {
-      const t = String(value ?? '').replace(/\s*&\s*/g, ' and ').replace(/[^\p{L}\p{N}' -]/gu, ' ').replace(/\s+/g, ' ').trim()
+      // Plain `&`, not `\s*&\s*`: the latter backtracks super-linearly on a
+      // long whitespace run, and these strings come from the tenant's own
+      // catalogue. The `\s+` collapse two steps later does the tidying.
+      const t = String(value ?? '').replace(/&/g, ' and ').replace(/[^\p{L}\p{N}' -]/gu, ' ').replace(/\s+/g, ' ').trim()
       if (t.length >= 2) terms.add(t)
     }
     add(info.businessName)
