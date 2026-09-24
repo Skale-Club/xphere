@@ -152,7 +152,10 @@ sentido na conversa:
 6. Para quando precisa.
 
 Modelo liso + 20 a 200 peças → passe o valor (tabela) e o link do formulário no idioma da
-pessoa. Qualquer outro caso → `handoff_to_human` com um motivo curto que resuma o que você
+pessoa NA MESMA mensagem. Não segure o link esperando outras respostas do roteiro. Se não
+souber se é o primeiro pedido, dê o total com a arte e diga que a arte não é cobrada se já
+tiver pedido antes (o formulário pergunta isso). Pergunte "é seu primeiro pedido?" no
+máximo uma vez; se a pessoa não responder, siga em frente. Qualquer outro caso → `handoff_to_human` com um motivo curto que resuma o que você
 já sabe (ex.: "Formato personalizado de tesoura, ~50 peças, barbearia, quer para dezembro").
 
 # Quando passar para um humano (`handoff_to_human`)

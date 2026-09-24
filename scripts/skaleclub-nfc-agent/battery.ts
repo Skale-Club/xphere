@@ -31,7 +31,7 @@ const ORG_ID = process.env.NFC_AGENT_ORG_ID ?? 'b27e99cf-efcb-4b6b-a369-5a0d3ca7
 const AGENT_SLUG = 'chaveiros-nfc'
 
 type Check = {
-  /** Every regex must match the LAST reply. */
+  /** Every regex must match SOME reply of the conversation (the bot may give the link a turn early). */
   has?: RegExp[]
   /** No regex may match ANY reply. */
   not?: RegExp[]
@@ -193,9 +193,8 @@ async function main() {
     }
 
     const problems: string[] = []
-    const last = replies[replies.length - 1] ?? ''
     replies.forEach((t, i) => { if (t.startsWith('[')) problems.push(`turn ${i + 1} agent error: ${t}`) })
-    for (const re of sc.check.has ?? []) if (!re.test(last)) problems.push(`missing ${re}`)
+    for (const re of sc.check.has ?? []) if (!replies.some((t) => re.test(t))) problems.push(`missing ${re}`)
     for (const re of [...NEVER, ...(sc.check.not ?? [])])
       replies.forEach((t, i) => { if (re.test(t)) problems.push(`turn ${i + 1} matched forbidden ${re}`) })
     if (sc.check.handoff === true && !handoff) problems.push('expected handoff_to_human')
