@@ -40,6 +40,9 @@ interface VapiAssistant {
   name?: string
 }
 
+/** The <Select> value that means "no binding — use the org's voice default". */
+const ORG_DEFAULT_AGENT = '__org_default__'
+
 const assistantMappingSchema = z.object({
   vapi_assistant_id: z.string().min(1, 'Vapi assistant is required.'),
   name: z
@@ -47,13 +50,21 @@ const assistantMappingSchema = z.object({
     .trim()
     .min(1, 'Assistant name is required.')
     .max(100, 'Assistant name must be 100 characters or fewer.'),
+  entry_agent_id: z.string(),
 })
 
 type AssistantMappingFormValues = z.infer<typeof assistantMappingSchema>
 
+export interface BindableAgent {
+  id: string
+  name: string
+  is_active?: boolean
+}
+
 interface AssistantMappingFormProps {
   mode: 'create' | 'edit'
   mapping?: AssistantMapping
+  agents: BindableAgent[]
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -62,6 +73,7 @@ interface AssistantMappingFormProps {
 export function AssistantMappingForm({
   mode,
   mapping,
+  agents,
   open,
   onOpenChange,
   onSuccess,
@@ -76,6 +88,7 @@ export function AssistantMappingForm({
     defaultValues: {
       vapi_assistant_id: mapping?.vapi_assistant_id ?? '',
       name: mapping?.name ?? '',
+      entry_agent_id: mapping?.entry_agent_id ?? ORG_DEFAULT_AGENT,
     },
   })
 
@@ -85,6 +98,7 @@ export function AssistantMappingForm({
       form.reset({
         vapi_assistant_id: mapping?.vapi_assistant_id ?? '',
         name: mapping?.name ?? '',
+        entry_agent_id: mapping?.entry_agent_id ?? ORG_DEFAULT_AGENT,
       })
     }
   }, [open, mapping, form])
@@ -129,16 +143,20 @@ export function AssistantMappingForm({
     setIsSubmitting(true)
     try {
       let result: { error?: string } | undefined
+      const entryAgentId =
+        values.entry_agent_id === ORG_DEFAULT_AGENT ? null : values.entry_agent_id
 
       if (mode === 'create') {
         result = await createAssistantMapping({
           vapi_assistant_id: values.vapi_assistant_id,
           name: values.name || undefined,
+          entry_agent_id: entryAgentId,
         })
       } else if (mode === 'edit' && mapping) {
         result = await updateAssistantMapping(mapping.id, {
           vapi_assistant_id: values.vapi_assistant_id,
           name: values.name || undefined,
+          entry_agent_id: entryAgentId,
         })
       }
 
@@ -226,6 +244,41 @@ export function AssistantMappingForm({
                   </FormControl>
                   <FormDescription>
                     This links the assistant for call routing. The name above is what people see in the platform.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="entry_agent_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Agent</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Organization voice default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ORG_DEFAULT_AGENT}>
+                          Organization voice default
+                        </SelectItem>
+                        {agents
+                          .filter((a) => a.is_active !== false || a.id === mapping?.entry_agent_id)
+                          .map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name}
+                              {a.is_active === false ? ' (inactive)' : ''}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormDescription>
+                    Whose prompt this assistant speaks when you push its config. Pick an
+                    agent to give this assistant its own voice — a second language, or an
+                    outbound persona beside the one that answers the phone.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

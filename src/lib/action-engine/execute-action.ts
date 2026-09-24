@@ -496,6 +496,31 @@ async function _executeActionInner(
       if (!result.ok) throw new Error(result.error ?? 'send_telegram_notification failed')
       return `Telegram sent. Message IDs: ${result.messageIds.join(', ')}`
     }
+    case 'campaign_enroll_call': {
+      if (!ctx?.organizationId) {
+        throw new Error('campaign_enroll_call requires ctx.organizationId')
+      }
+      const { executeCampaignEnrollCall } = await import('./executors/campaign-enroll-call')
+      const onDuplicate = params.on_duplicate === 'requeue' ? 'requeue' : 'skip'
+      const result = await executeCampaignEnrollCall({
+        orgId: ctx.organizationId,
+        campaignId: typeof params.campaign_id === 'string' ? params.campaign_id : undefined,
+        campaignName: typeof params.campaign_name === 'string' ? params.campaign_name : undefined,
+        phone: String(params.phone ?? ''),
+        name: typeof params.name === 'string' ? params.name : null,
+        contactId: typeof params.contact_id === 'string' ? params.contact_id : null,
+        variables:
+          params.variables && typeof params.variables === 'object' && !Array.isArray(params.variables)
+            ? (params.variables as Record<string, unknown>)
+            : undefined,
+        onDuplicate,
+      })
+      // A skip is an outcome, not a failure: someone on do-not-disturb, or
+      // already in the queue, is exactly what the guards are for. Only a real
+      // misconfiguration throws.
+      if (!result.ok) throw new Error(result.error ?? 'campaign_enroll_call failed')
+      return `Callback ${result.status}${result.campaignContactId ? ` (${result.campaignContactId})` : ''}.`
+    }
     case 'pipeline_move_opportunity':
       return executePipelineMoveOpportunity(params as unknown as Parameters<typeof executePipelineMoveOpportunity>[0], ctx)
     case 'pipeline_update_opportunity':

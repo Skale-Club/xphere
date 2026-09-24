@@ -314,3 +314,53 @@ describe('spokenName: the opening line is read aloud', () => {
     expect(spokenName("Maria's Cleaning Co.")).toBe("Maria's Cleaning Co.")
   })
 })
+
+describe('D: a tenant that takes no appointments', () => {
+  // Both appended blocks are written for a business that books people in: the
+  // on_premises location rule forbids collecting a customer address, and the
+  // hours block points at a `business_info` tool. An assistant that confirms
+  // product orders has to read a shipping address back and has no such tool,
+  // so for it the blocks are worse than absent.
+  const base = {
+    systemPrompt: 'You call customers back to confirm their keychain order.',
+    workflows: [],
+    serviceLocationMode: 'on_premises',
+  }
+
+  it('appends both blocks by default, exactly as before the flag existed', async () => {
+    const { renderAssistantConfig } = await import('../src/lib/vapi/render-assistant-config')
+    const withFlag = renderAssistantConfig({ ...base, appointments: true })
+    const withoutFlag = renderAssistantConfig(base)
+    expect(withFlag.systemPrompt).toBe(withoutFlag.systemPrompt)
+    expect(withoutFlag.systemPrompt).toContain('## Service location')
+    expect(withoutFlag.systemPrompt).toContain('## Opening hours')
+  })
+
+  it('appends neither block when the tenant takes no appointments', async () => {
+    const { renderAssistantConfig } = await import('../src/lib/vapi/render-assistant-config')
+    const rendered = renderAssistantConfig({ ...base, appointments: false })
+    expect(rendered.systemPrompt).not.toContain('## Service location')
+    expect(rendered.systemPrompt).not.toContain('## Opening hours')
+    expect(rendered.systemPrompt).not.toContain('business_info')
+  })
+
+  it('still substitutes a block the prompt asks for by name', async () => {
+    const { renderAssistantConfig, SERVICE_LOCATION_TOKEN, BUSINESS_HOURS_TOKEN } = await import(
+      '../src/lib/vapi/render-assistant-config'
+    )
+    const rendered = renderAssistantConfig({
+      ...base,
+      systemPrompt: `Intro\n\n${SERVICE_LOCATION_TOKEN}\n\n${BUSINESS_HOURS_TOKEN}`,
+      appointments: false,
+    })
+    expect(rendered.systemPrompt).not.toContain(SERVICE_LOCATION_TOKEN)
+    expect(rendered.systemPrompt).not.toContain(BUSINESS_HOURS_TOKEN)
+  })
+
+  it('always keeps the clock line — a robot with no date is broken anywhere', async () => {
+    const { renderAssistantConfig } = await import('../src/lib/vapi/render-assistant-config')
+    const rendered = renderAssistantConfig({ ...base, appointments: false, timeZone: 'America/Sao_Paulo' })
+    expect(rendered.systemPrompt).toContain('Today is')
+    expect(rendered.systemPrompt).toContain('America/Sao_Paulo')
+  })
+})

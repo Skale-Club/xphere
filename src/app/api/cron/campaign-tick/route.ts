@@ -95,6 +95,7 @@ export async function GET(request: Request) {
 
   let advanced = 0
   let skippedNoKey = 0
+  let skippedDialWindow = 0
   let firedTotal = 0
   let errorsTotal = 0
 
@@ -109,6 +110,10 @@ export async function GET(request: Request) {
     try {
       const result = await startCampaignBatch(campaign.id, supabase, vapiApiKey)
       advanced++
+      // "Nothing fired" has two very different causes. Counting them apart is
+      // the difference between "outside business hours, as configured" and
+      // "the dialler is broken and nobody noticed".
+      if (result.skippedDialWindow) skippedDialWindow++
       firedTotal += result.fired
       errorsTotal += result.errors
     } catch (err) {
@@ -122,6 +127,7 @@ export async function GET(request: Request) {
     campaignsConsidered: campaigns?.length ?? 0,
     campaignsAdvanced: advanced,
     skippedNoVapiKey: skippedNoKey,
+    skippedDialWindow,
     fired: firedTotal,
     errors: errorsTotal,
   })
@@ -131,6 +137,7 @@ export async function GET(request: Request) {
     campaigns_considered: campaigns?.length ?? 0,
     campaigns_advanced: advanced,
     skipped_no_vapi_key: skippedNoKey,
+    skipped_dial_window: skippedDialWindow,
     fired: firedTotal,
     errors: errorsTotal,
   })

@@ -89,6 +89,11 @@ export const SIDE_EFFECTING_ACTIONS = new Set([
   'xkedule_create_booking',
   'xkedule_cancel_booking',
   'xkedule_reschedule_booking',
+  // Phase 141: queueing a phone callback. UNIQUE (campaign_id, phone) already
+  // makes a redelivery a no-op at the database level, but the consequence of
+  // getting this wrong is a stranger's phone ringing twice, so it is guarded
+  // like every other write rather than trusted to a constraint.
+  'campaign_enroll_call',
 ])
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,102 @@
+# Skale Club — NFC keychain order callback.
+#
+# One client's playbook, so it lives here and NOT in supabase/seeds/workflows/,
+# which is the platform's own defaults. Import it into the Skale Club org
+# (b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5) from the Workflows module.
+#
+# What happens: someone submits /nfc-order on skale.club, the site hands the
+# lead to POST /api/v1/leads, that emits lead.captured, and this flow puts the
+# person in the queue of the voice campaign for their language. The engine
+# dials them inside that campaign's business hours — this flow never dials.
+#
+# Requires, in the org, before importing:
+#   - two calls campaigns named exactly "NFC callback — PT" and
+#     "NFC callback — EN", each with its assistant, the +1 312 878-0637 caller
+#     id, and a dial_window (PT: America/Sao_Paulo, EN: America/New_York)
+#   - the skaleclub site shipping answers.lang (shared/lead-language.ts)
+#
+# The variables below become campaign_contacts.custom_data and reach the
+# assistant as {{company_name}}, {{quoted_total}} and so on. Keep them flat
+# strings: they are interpolated into the prompt on every turn.
+
+name: Skale Club — Chaveiros NFC — callback do pedido
+description: |
+  Quando um pedido de chaveiros NFC chega pelo site, coloca a pessoa na fila
+  de ligação do idioma dela (PT ou EN) com os dados do pedido — empresa,
+  quantidade, tipo, total cotado e endereço — para o robô confirmar por
+  telefone antes da produção começar.
+trigger:
+  type: event
+  event: lead.captured
+
+nodes:
+  - id: is_nfc_order
+    kind: condition
+    expression: "lead.source.form == 'nfc-keychain-order'"
+
+  - id: is_portuguese
+    kind: condition
+    expression: "lead.answers.lang == 'pt-BR'"
+
+  - id: queue_pt
+    kind: campaign_enroll_call
+    integration: vapi
+    campaign_name: "NFC callback — PT"
+    phone: "{{contact.phone}}"
+    name: "{{contact.name}}"
+    contact_id: "{{contact.id}}"
+    on_duplicate: requeue
+    variables:
+      lang: "{{lead.answers.lang}}"
+      company_name: "{{lead.answers.nomeEmpresa}}"
+      keychain_type: "{{lead.answers.nfcTypeLabel}}"
+      quantity: "{{lead.answers.nfcQuantity}}"
+      unit_price: "{{lead.answers.nfcUnitPrice}}"
+      art_fee: "{{lead.answers.nfcArtFee}}"
+      quoted_total: "{{lead.answers.nfcTotal}}"
+      # "yes" for a keychain style priced by hand (relief, custom shape): the
+      # robot must say the team will send the price, never read a number.
+      quote_on_request: "{{lead.answers.nfcQuoteOnRequest}}"
+      first_order: "{{lead.answers.nfcDeclaredReturning}}"
+      shipping_address: "{{lead.answers.enderecoEnvio}}"
+      use_case: "{{lead.answers.objetivoChaveiro}}"
+      notes: "{{lead.answers.observacoes}}"
+      order_ref: "{{lead.receipt_id}}"
+
+  - id: queue_en
+    kind: campaign_enroll_call
+    integration: vapi
+    campaign_name: "NFC callback — EN"
+    phone: "{{contact.phone}}"
+    name: "{{contact.name}}"
+    contact_id: "{{contact.id}}"
+    on_duplicate: requeue
+    variables:
+      lang: "{{lead.answers.lang}}"
+      company_name: "{{lead.answers.nomeEmpresa}}"
+      keychain_type: "{{lead.answers.nfcTypeLabel}}"
+      quantity: "{{lead.answers.nfcQuantity}}"
+      unit_price: "{{lead.answers.nfcUnitPrice}}"
+      art_fee: "{{lead.answers.nfcArtFee}}"
+      quoted_total: "{{lead.answers.nfcTotal}}"
+      # "yes" for a keychain style priced by hand (relief, custom shape): the
+      # robot must say the team will send the price, never read a number.
+      quote_on_request: "{{lead.answers.nfcQuoteOnRequest}}"
+      first_order: "{{lead.answers.nfcDeclaredReturning}}"
+      shipping_address: "{{lead.answers.enderecoEnvio}}"
+      use_case: "{{lead.answers.objetivoChaveiro}}"
+      notes: "{{lead.answers.observacoes}}"
+      order_ref: "{{lead.receipt_id}}"
+
+edges:
+  - from: trigger
+    to: is_nfc_order
+  - from: is_nfc_order
+    to: is_portuguese
+    handle: "true"
+  - from: is_portuguese
+    to: queue_pt
+    handle: "true"
+  - from: is_portuguese
+    to: queue_en
+    handle: "false"

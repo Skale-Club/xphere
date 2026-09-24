@@ -110,6 +110,7 @@ const EXPECTED_SIDE_EFFECTING = [
   'xkedule_create_booking',
   'xkedule_cancel_booking',
   'xkedule_reschedule_booking',
+  'campaign_enroll_call',
 ]
 
 // ---------------------------------------------------------------------------

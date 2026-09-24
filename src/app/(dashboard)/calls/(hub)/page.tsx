@@ -317,10 +317,19 @@ async function AssistantsTab() {
   }
 
   type AssistantMapping = Database['public']['Tables']['assistant_mappings']['Row']
-  const { data } = await supabase
-    .from('assistant_mappings')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const [{ data }, { data: agents }] = await Promise.all([
+    supabase.from('assistant_mappings').select('*').order('created_at', { ascending: false }),
+    // Offered as the prompt source for a mapping: an org with more than one
+    // voice persona (a reception assistant and an outbound one, or one per
+    // language) binds each assistant to its own agent here. Inactive agents
+    // are included: one can still be the bound source of a live assistant's
+    // prompt, and the table has to be able to name it rather than showing an
+    // assistant whose agent reads "Unknown".
+    supabase
+      .from('agents')
+      .select('id, name, is_active')
+      .order('name', { ascending: true }),
+  ])
 
   return (
     <div className="space-y-3">
@@ -329,7 +338,10 @@ async function AssistantsTab() {
         voice. Looking for Xphere Agents? Those live in the{' '}
         <Link href="/agents" className="text-accent hover:underline">Agents module</Link>.
       </p>
-      <AssistantMappingsTable mappings={(data ?? []) as AssistantMapping[]} />
+      <AssistantMappingsTable
+        mappings={(data ?? []) as AssistantMapping[]}
+        agents={agents ?? []}
+      />
     </div>
   )
 }
