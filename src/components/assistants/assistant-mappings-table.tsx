@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AssistantMappingForm } from "./assistant-mapping-form";
+import { AssistantMappingForm, type BindableAgent } from "./assistant-mapping-form";
 import {
   toggleAssistantMappingStatus,
   deleteAssistantMapping,
@@ -59,13 +59,16 @@ function getVapiAssistantUrl(assistantId: string) {
 
 interface AssistantMappingsTableProps {
   mappings: AssistantMapping[];
+  agents: BindableAgent[];
 }
 
 export function AssistantMappingsTable({
   mappings: initialMappings,
+  agents,
 }: AssistantMappingsTableProps) {
   const router = useRouter();
   const [optimisticMappings, setOptimisticMappings] = useState(initialMappings);
+  const agentNameById = new Map(agents.map((a) => [a.id, a.name]));
   const [syncing, setSyncing] = useState(false);
   const [editMapping, setEditMapping] = useState<AssistantMapping | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AssistantMapping | null>(
@@ -117,7 +120,16 @@ export function AssistantMappingsTable({
     if ("error" in result && result.error) {
       toast.error(`Push to Vapi failed for "${name}": ${result.error}`);
     } else {
-      toast.success(`Pushed the latest mesh configuration to "${name}" on Vapi.`);
+      // Naming the prompt's source out loud is the cheapest guard against
+      // pushing the wrong persona onto a live number.
+      const boundAgentId = optimisticMappings.find((m) => m.id === id)?.entry_agent_id;
+      const source =
+        "agentSource" in result && result.agentSource === "mapping"
+          ? ` Prompt from "${(boundAgentId && agentNameById.get(boundAgentId)) || "the bound agent"}".`
+          : " Prompt from the org's voice default agent.";
+      toast.success(
+        `Pushed the latest mesh configuration to "${name}" on Vapi.${source}`,
+      );
     }
   }
 
@@ -181,10 +193,11 @@ export function AssistantMappingsTable({
             {/* Header */}
             <div
               className="hidden items-center gap-3 px-4 py-2.5 border-b border-border-subtle bg-bg-secondary text-[11px] font-medium uppercase tracking-wide text-text-tertiary md:grid"
-              style={{ gridTemplateColumns: "2fr 2fr 140px 100px 48px" }}
+              style={{ gridTemplateColumns: "1.5fr 1.7fr 1.2fr 130px 90px 48px" }}
             >
               <div>Assistant Name</div>
               <div>Vapi Assistant ID</div>
+              <div>Agent</div>
               <div>Status</div>
               <div className="text-right">Added</div>
               <div />
@@ -269,6 +282,12 @@ export function AssistantMappingsTable({
                         </DropdownMenu>
                       </div>
 
+                      <div className="mt-1 text-[11.5px] text-text-tertiary">
+                        {m.entry_agent_id
+                          ? `Agent: ${agentNameById.get(m.entry_agent_id) ?? "Unknown agent"}`
+                          : "Agent: org voice default"}
+                      </div>
+
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <Switch
@@ -302,7 +321,7 @@ export function AssistantMappingsTable({
                         "transition-all duration-200 ease-out hover:bg-bg-tertiary/40",
                       )}
                       style={{
-                        gridTemplateColumns: "2fr 2fr 140px 100px 48px",
+                        gridTemplateColumns: "1.5fr 1.7fr 1.2fr 130px 90px 48px",
                       }}
                     >
                       {/* Name */}
@@ -327,6 +346,17 @@ export function AssistantMappingsTable({
                           Open
                           <ExternalLink className="h-3 w-3" />
                         </a>
+                      </div>
+
+                      {/* Agent — whose prompt this assistant speaks on a push */}
+                      <div className="min-w-0 truncate text-[12px]">
+                        {m.entry_agent_id ? (
+                          <span className="text-text-secondary">
+                            {agentNameById.get(m.entry_agent_id) ?? "Unknown agent"}
+                          </span>
+                        ) : (
+                          <span className="text-text-tertiary">Org voice default</span>
+                        )}
                       </div>
 
                       {/* Status */}
@@ -420,6 +450,7 @@ export function AssistantMappingsTable({
         <AssistantMappingForm
           mode="edit"
           mapping={editMapping}
+          agents={agents}
           open={!!editMapping}
           onOpenChange={(open) => {
             if (!open) setEditMapping(null);

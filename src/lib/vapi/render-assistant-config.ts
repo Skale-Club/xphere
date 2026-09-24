@@ -72,6 +72,20 @@ export interface AssistantConfigSource {
    * and no hours in the prompt at all).
    */
   businessHours?: BusinessHours
+  /**
+   * Whether this tenant takes appointments. Default true, which is what every
+   * prompt rendered before this flag existed.
+   *
+   * The service-location and opening-hours blocks are APPENDED when the prompt
+   * declares no token for them, and both are written for a business that books
+   * people in: the on_premises location rule says never to collect a customer
+   * address, and the hours block points at a `business_info` tool. On an
+   * assistant that confirms product orders — which must read a shipping
+   * address back and has no such tool — both are worse than absent. False
+   * stops the appending; an explicit token in the prompt is still substituted,
+   * so a tenant that wants one of the blocks can still ask for it by name.
+   */
+  appointments?: boolean
 }
 
 /** One weekday's hours, in the shape the renderer speaks — never Xkedule's own field names. */
@@ -235,19 +249,26 @@ export function renderSystemPrompt(
   template: string,
   serviceLocationMode: unknown,
   timeZone?: string,
-  businessHours?: BusinessHours
+  businessHours?: BusinessHours,
+  appointments: boolean = true
 ): string {
   const locationBlock = renderServiceLocationBlock(serviceLocationMode)
   const hoursBlock = renderBusinessHoursBlock(businessHours)
 
   const withLocation = template.includes(SERVICE_LOCATION_TOKEN)
     ? template.replaceAll(SERVICE_LOCATION_TOKEN, locationBlock)
-    : `${template}${template.endsWith('\n') ? '\n' : '\n\n'}## Service location\n${locationBlock}\n`
+    : appointments
+      ? `${template}${template.endsWith('\n') ? '\n' : '\n\n'}## Service location\n${locationBlock}\n`
+      : template
 
   const withHours = withLocation.includes(BUSINESS_HOURS_TOKEN)
     ? withLocation.replaceAll(BUSINESS_HOURS_TOKEN, hoursBlock)
-    : `${withLocation}${withLocation.endsWith('\n') ? '\n' : '\n\n'}## Opening hours\n${hoursBlock}\n`
+    : appointments
+      ? `${withLocation}${withLocation.endsWith('\n') ? '\n' : '\n\n'}## Opening hours\n${hoursBlock}\n`
+      : withLocation
 
+  // The clock line is never optional: a robot that does not know today's date
+  // is broken in every business.
   return `${withHours}${withHours.endsWith('\n') ? '\n' : '\n\n'}${todayLineForVapi(timeZone)}\n`
 }
 
@@ -299,7 +320,8 @@ export function renderAssistantConfig(source: AssistantConfigSource): RenderedAs
       source.systemPrompt,
       source.serviceLocationMode,
       source.timeZone,
-      source.businessHours
+      source.businessHours,
+      source.appointments ?? true
     ),
     functions: source.workflows.map(renderFunction),
     toolMessages: source.workflows.map((w) => {

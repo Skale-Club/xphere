@@ -671,6 +671,57 @@ export const NODES: NodeSpec[] = [
     ],
   },
 
+  // ─── Action | outbound voice
+  {
+    type: 'campaign_enroll_call',
+    kind: 'action',
+    description:
+      'Queue a phone callback: put someone in the queue of an existing voice campaign. ' +
+      'This never dials — the campaign engine places the call inside that campaign\'s ' +
+      'business-hours window, at its own pace. Honours do-not-disturb and skips someone ' +
+      'already in the queue.',
+    integration_required: ['vapi'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        campaign_name: {
+          type: 'string',
+          description: 'Name of an existing calls campaign in this organization, exactly as it appears in Outbound.',
+        },
+        campaign_id: { type: 'string', description: 'The campaign id. Takes precedence over campaign_name.' },
+        phone: { type: 'string', description: 'E.164 number to call, e.g. {{contact.phone}}' },
+        name: { type: 'string', description: 'Who to greet, e.g. {{contact.name}}' },
+        contact_id: { type: 'string', description: 'contacts.id, so do-not-disturb is honoured. {{contact.id}}' },
+        variables: {
+          type: 'object',
+          description:
+            'Facts the robot should have on the call — order total, quantity, address. Flat string map; ' +
+            'each key is readable in the assistant prompt as {{key}}.',
+        },
+        on_duplicate: {
+          type: 'string',
+          enum: ['skip', 'requeue'],
+          description: 'What to do when this number is already in that campaign. Default skip.',
+        },
+      },
+      required: ['phone'],
+    },
+    examples: [
+      {
+        campaign_name: 'NFC callback — PT',
+        phone: '{{contact.phone}}',
+        name: '{{contact.name}}',
+        contact_id: '{{contact.id}}',
+        on_duplicate: 'requeue',
+        variables: {
+          company_name: '{{lead.answers.nomeEmpresa}}',
+          quantity: '{{lead.answers.nfcQuantity}}',
+          quoted_total: '{{lead.answers.nfcTotal}}',
+        },
+      },
+    ],
+  },
+
   // ─── Action | Xphere
   {
     type: 'create_contact',

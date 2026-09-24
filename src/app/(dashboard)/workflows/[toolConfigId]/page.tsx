@@ -50,6 +50,7 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   send_whatsapp_mention_all: 'WhatsApp: Group Mention-All',
   send_whatsapp_template: 'WhatsApp: Send Template (Official)',
   send_telegram_notification: 'Telegram: Notification',
+  campaign_enroll_call: 'Queue a phone callback',
   pipeline_move_opportunity: 'Pipeline: Move Opportunity',
   pipeline_update_opportunity: 'Pipeline: Update Opportunity',
   pipeline_mark_won: 'Pipeline: Mark Won',

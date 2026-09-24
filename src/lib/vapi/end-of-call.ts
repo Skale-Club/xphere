@@ -284,12 +284,87 @@ export interface CampaignContactUpdateInput {
   endedReason: string | null
 }
 
+/** `{"no_answer_max": 2, "backoff_minutes": [30, 240]}` — absent means no retries. */
+const DEFAULT_BACKOFF_MINUTES = [30, 240]
+
+/**
+ * Decides whether a no-answer gets another try, and when.
+ *
+ * Returns null — the pre-1301 behaviour — whenever the campaign has no retry
+ * policy, the contact has used up its attempts, or the call reached voicemail.
+ * Voicemail is deliberately excluded: the outcome mapping folds it into
+ * `no_answer`, but re-dialling someone whose voicemail you just filled is
+ * worse than useless.
+ *
+ * `campaign_contacts.retry_count` carries a CHECK (retry_count <= 2) from
+ * migration 005, so the policy's own maximum is clamped to it — a policy
+ * asking for more would otherwise fail the UPDATE and lose the result.
+ */
+async function planRetry(
+  campaignContactId: string,
+  endedReason: string | null,
+  supabase: SupabaseClient<Database>,
+): Promise<{ nextAttemptAt: string; retryCount: number } | null> {
+  if (endedReason === 'voicemail') return null
+
+  const { data: contact } = await supabase
+    .from('campaign_contacts')
+    .select('retry_count, campaign_id')
+    .eq('id', campaignContactId)
+    .maybeSingle()
+  if (!contact?.campaign_id) return null
+
+  const { data: campaign } = await supabase
+    .from('campaigns')
+    .select('retry_policy')
+    .eq('id', contact.campaign_id)
+    .maybeSingle()
+
+  const policy = (campaign?.retry_policy ?? {}) as { no_answer_max?: unknown; backoff_minutes?: unknown }
+  const configuredMax = typeof policy.no_answer_max === 'number' ? policy.no_answer_max : 0
+  const max = Math.min(Math.max(Math.floor(configuredMax), 0), 2)
+  if (max === 0) return null
+
+  const used = contact.retry_count ?? 0
+  if (used >= max) return null
+
+  const backoff = Array.isArray(policy.backoff_minutes)
+    ? policy.backoff_minutes.filter((m): m is number => typeof m === 'number' && m > 0)
+    : []
+  const minutes = (backoff.length ? backoff : DEFAULT_BACKOFF_MINUTES)[Math.min(used, backoff.length ? backoff.length - 1 : DEFAULT_BACKOFF_MINUTES.length - 1)]
+
+  return {
+    // The dialling window still applies on top of this: a 22:00 no-answer
+    // with a 30-minute backoff becomes due at 22:30 and is simply not dialled
+    // until the window reopens.
+    nextAttemptAt: new Date(Date.now() + minutes * 60_000).toISOString(),
+    retryCount: used + 1,
+  }
+}
+
 export async function updateCampaignContactFromReport(
   input: CampaignContactUpdateInput,
   supabase: SupabaseClient<Database>,
 ): Promise<void> {
   const { campaignContactId, vapiCallId, endedReason } = input
-  const status = mapEndedReasonToStatus(endedReason)
+  let status = mapEndedReasonToStatus(endedReason)
+
+  // Nobody picked up. Whether that is the end of it depends on the campaign's
+  // own retry policy, which defaults to {} -- no retries, exactly the
+  // behaviour every campaign had before migration 1301. Re-dialling has
+  // consent implications (the reason the campaign-tick route called it out of
+  // scope), so it stays something an operator turns on per campaign.
+  let nextAttemptAt: string | null = null
+  let retryCount: number | null = null
+  if (status === 'no_answer') {
+    const retry = await planRetry(campaignContactId, endedReason, supabase)
+    if (retry) {
+      status = 'pending'
+      nextAttemptAt = retry.nextAttemptAt
+      retryCount = retry.retryCount
+    }
+  }
+
   const isTerminal = status !== 'calling' && status !== 'pending'
 
   const { data: contact, error: updateErr } = await supabase
@@ -300,6 +375,7 @@ export async function updateCampaignContactFromReport(
       error_detail: status === 'failed' ? (endedReason ?? 'unknown') : null,
       completed_at: isTerminal ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
+      ...(retryCount !== null ? { retry_count: retryCount, next_attempt_at: nextAttemptAt } : {}),
     })
     .eq('id', campaignContactId)
     .select('campaign_id')
