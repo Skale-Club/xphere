@@ -58,6 +58,7 @@ type AssistantMappingFormValues = z.infer<typeof assistantMappingSchema>
 export interface BindableAgent {
   id: string
   name: string
+  is_active?: boolean
 }
 
 interface AssistantMappingFormProps {
@@ -263,11 +264,14 @@ export function AssistantMappingForm({
                         <SelectItem value={ORG_DEFAULT_AGENT}>
                           Organization voice default
                         </SelectItem>
-                        {agents.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
+                        {agents
+                          .filter((a) => a.is_active !== false || a.id === mapping?.entry_agent_id)
+                          .map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name}
+                              {a.is_active === false ? ' (inactive)' : ''}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </FormControl>

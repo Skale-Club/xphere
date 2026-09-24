@@ -14,10 +14,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 interface RetryScenario {
   retryPolicy: Record<string, unknown>
   retryCount: number
+  isEvergreen: boolean
+  pendingOrCalling: number
 }
 
 let scenario: RetryScenario
 let contactUpdate: Record<string, unknown> | null = null
+let campaignUpdate: Record<string, unknown> | null = null
 
 function fakeClient() {
   const from = (table: string) => {
@@ -29,11 +32,15 @@ function fakeClient() {
         if (table === 'campaign_contacts') {
           return Promise.resolve({ data: { retry_count: scenario.retryCount, campaign_id: 'camp-1' }, error: null })
         }
-        return Promise.resolve({ data: { retry_policy: scenario.retryPolicy }, error: null })
+        return Promise.resolve({
+          data: { retry_policy: scenario.retryPolicy, is_evergreen: scenario.isEvergreen },
+          error: null,
+        })
       },
       single: () => Promise.resolve({ data: { campaign_id: 'camp-1' }, error: null }),
       update: (payload: Record<string, unknown>) => {
         if (table === 'campaign_contacts') contactUpdate = payload
+        if (table === 'campaigns') campaignUpdate = payload
         const updateChain: Record<string, unknown> = {
           eq: () => updateChain,
           select: () => updateChain,
@@ -45,7 +52,7 @@ function fakeClient() {
         return updateChain
       },
       then: (resolve: (value: unknown) => unknown) =>
-        Promise.resolve({ data: [], error: null, count: 1 }).then(resolve),
+        Promise.resolve({ data: [], error: null, count: scenario.pendingOrCalling }).then(resolve),
     }
     return chain
   }
@@ -67,7 +74,26 @@ const report = (endedReason: string) => ({
 
 beforeEach(() => {
   contactUpdate = null
-  scenario = { retryPolicy: {}, retryCount: 0 }
+  campaignUpdate = null
+  scenario = { retryPolicy: {}, retryCount: 0, isEvergreen: false, pendingOrCalling: 1 }
+})
+
+describe('auto-completing the campaign when its queue empties', () => {
+  it('completes an ordinary campaign', async () => {
+    scenario.pendingOrCalling = 0
+    await updateCampaignContactFromReport(report('customer-ended-call'), fakeClient())
+    expect(campaignUpdate).toMatchObject({ status: 'completed' })
+  })
+
+  it('leaves an evergreen campaign open — an empty queue is not the end of it', async () => {
+    // A standing callback queue that completes itself stops being selected by
+    // the cron tick, and every order that arrives afterwards sits in it unseen
+    // until something wakes it up again.
+    scenario.pendingOrCalling = 0
+    scenario.isEvergreen = true
+    await updateCampaignContactFromReport(report('customer-ended-call'), fakeClient())
+    expect(campaignUpdate).toBeNull()
+  })
 })
 
 describe('no-answer with no retry policy — every campaign before 1301', () => {

@@ -328,10 +328,15 @@ async function planRetry(
   const used = contact.retry_count ?? 0
   if (used >= max) return null
 
-  const backoff = Array.isArray(policy.backoff_minutes)
+  const configured = Array.isArray(policy.backoff_minutes)
     ? policy.backoff_minutes.filter((m): m is number => typeof m === 'number' && m > 0)
     : []
-  const minutes = (backoff.length ? backoff : DEFAULT_BACKOFF_MINUTES)[Math.min(used, backoff.length ? backoff.length - 1 : DEFAULT_BACKOFF_MINUTES.length - 1)]
+  // One entry per attempt; a policy with fewer entries than attempts reuses its
+  // last one. DEFAULT_BACKOFF_MINUTES is non-empty, so `minutes` is always a
+  // number -- the fallback exists for a policy that sets a maximum and forgets
+  // the delays.
+  const backoff = configured.length > 0 ? configured : DEFAULT_BACKOFF_MINUTES
+  const minutes = backoff[Math.min(used, backoff.length - 1)]
 
   return {
     // The dialling window still applies on top of this: a 22:00 no-answer
@@ -375,7 +380,12 @@ export async function updateCampaignContactFromReport(
       error_detail: status === 'failed' ? (endedReason ?? 'unknown') : null,
       completed_at: isTerminal ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
-      ...(retryCount !== null ? { retry_count: retryCount, next_attempt_at: nextAttemptAt } : {}),
+      // A row going back into the queue must not carry the attempt that just
+      // failed: a pending row holding a finished call's id reads as "dialled"
+      // in the Outbound view and in any reconciliation.
+      ...(retryCount !== null
+        ? { retry_count: retryCount, next_attempt_at: nextAttemptAt, vapi_call_id: null, called_at: null }
+        : {}),
     })
     .eq('id', campaignContactId)
     .select('campaign_id')
@@ -387,7 +397,20 @@ export async function updateCampaignContactFromReport(
   }
   if (!contact?.campaign_id) return
 
-  // Check if all contacts are done | auto-complete campaign
+  // Check if all contacts are done | auto-complete campaign.
+  //
+  // An evergreen campaign is a standing queue a workflow enrols into (see
+  // campaign_enroll_call): an empty queue means nobody ordered in the last few
+  // minutes, not that the campaign is over. Completing it would make the cron
+  // tick stop selecting it, and the enrol action would have to wake it every
+  // single time. Same guard as startCampaignBatch's own copy.
+  const { data: campaignRow } = await supabase
+    .from('campaigns')
+    .select('is_evergreen')
+    .eq('id', contact.campaign_id)
+    .maybeSingle()
+  if (campaignRow?.is_evergreen) return
+
   const { count } = await supabase
     .from('campaign_contacts')
     .select('*', { count: 'exact', head: true })
