@@ -49,18 +49,36 @@ interface VoicePersona {
   description: string
   promptFile: string
   assistantName: string
-  campaignName: string
+  /** Bind to an assistant that already exists instead of creating one. */
+  existingAssistantId?: string
+  /** Outbound personas get a standing queue; the one that ANSWERS does not. */
+  campaignName?: string
   /** IANA zone the campaign's business hours are quoted in. */
-  timezone: string
+  timezone?: string
   language: string
   firstMessage: string
   idleMessages: string[]
   keyterms: string[]
+  analysisOutcomes: string[]
   analysisScope: string
   analysisRubric: string
   fallbackMessage: string
   persona: string
+  /** Workflow tool_names this agent may call during a call. */
+  tools?: string[]
+  /** Channels the agent serves. Voice only, unless stated. */
+  allowedChannels?: string[]
 }
+
+const CALLBACK_OUTCOMES = [
+  'confirmed',
+  'corrected',
+  'declined',
+  'callback_requested',
+  'message_taken',
+  'abandoned',
+  'failed',
+]
 
 const PERSONAS: VoicePersona[] = [
   {
@@ -78,6 +96,7 @@ const PERSONAS: VoicePersona[] = [
     firstMessage: 'Oi! Aqui é a {{business_name}}, sobre o pedido de chaveiros que você fez agora há pouco.',
     idleMessages: ['Estou aqui quando você quiser continuar.'],
     keyterms: ['chaveiro', 'chaveiros', 'NFC', 'logo', 'arte', 'frete', 'pedido', 'entrega', 'Skale Club'],
+    analysisOutcomes: CALLBACK_OUTCOMES,
     analysisScope: 'this keychain order: quantity, style, artwork, price and where it ships',
     analysisRubric:
       'The call passes only if the assistant confirmed this order and nothing else: it read the order back, never ' +
@@ -100,12 +119,56 @@ const PERSONAS: VoicePersona[] = [
     firstMessage: 'Hi! This is {{business_name}}, calling about the keychain order you just placed.',
     idleMessages: ["Take your time — I'm here when you're ready."],
     keyterms: ['keychain', 'keychains', 'NFC', 'logo', 'artwork', 'shipping', 'order', 'Skale Club'],
+    analysisOutcomes: CALLBACK_OUTCOMES,
     analysisScope: 'this keychain order: quantity, style, artwork, price and where it ships',
     analysisRubric:
       'The call passes only if the assistant confirmed this order and nothing else: it read the order back, never ' +
       'invented a price, a lead time or a delivery date, never revealed anything about another customer, and either ' +
       'got a yes-or-no on the details or handed the customer to the team. Answer Pass or Fail.',
     fallbackMessage: 'Let me have someone from the team follow up with you on WhatsApp.',
+  },
+  {
+    // The one that ANSWERS. It has no campaign: nobody enrols into a phone
+    // that rings on its own.
+    slug: 'voz-recepcao',
+    name: 'Voz — Recepção Skale Club',
+    description:
+      'Atende o telefone da Skale Club em geral: descobre quem ligou e o que quer, responde o básico ' +
+      'sobre produtos e serviços, registra no CRM e encaminha para a equipe. Chaveiro NFC é um assunto ' +
+      'entre outros, e tudo sobre ele é estimativa.',
+    promptFile: 'reception.md',
+    assistantName: 'Skale Club | Receptionist | EN',
+    existingAssistantId: '80dd9b79-fd39-457c-834a-7b0dd217fee4',
+    // Deepgram nova-3 multilingual: whoever calls is answered in their own
+    // language without anyone choosing one beforehand.
+    language: 'multi',
+    persona: 'Sky',
+    firstMessage:
+      'Thanks for calling {{business_name}}, this is Sky — how can I help? Se preferir português, é só falar.',
+    idleMessages: ['Still here whenever you are ready. / Estou aqui quando você quiser.'],
+    keyterms: [
+      'Skale Club', 'Xkedule', 'Xtimator', 'Xphere', 'Xareable', 'Xsites', 'Xcraper', 'XmartMenu',
+      'chaveiro', 'chaveiros', 'keychain', 'NFC', 'website', 'site', 'anúncios', 'ads', 'automação',
+      'automation', 'orçamento', 'quote',
+    ],
+    analysisOutcomes: [
+      'message_taken',
+      'question_answered',
+      'sent_to_order_page',
+      'existing_customer_issue',
+      'wrong_number',
+      'abandoned',
+      'failed',
+    ],
+    analysisScope:
+      "what Skale Club sells and who is calling: products, services, keychains, and taking a message",
+    analysisRubric:
+      'The call passes only if the assistant stayed on what Skale Club does, quoted no price beyond the ' +
+      'published product list, promised no date, deadline or result, treated anything about keychains as ' +
+      'an estimate, never offered a meeting time, revealed nothing about another customer, and took the ' +
+      "caller's name and reason before ending. Answer Pass or Fail.",
+    fallbackMessage: "Let me take your details and have someone from the team follow up.",
+    tools: ['save_caller_message'],
   },
 ]
 
@@ -238,7 +301,12 @@ async function main() {
     console.log(`\n── ${persona.name}`)
 
     // 1. The Vapi assistant.
-    let assistant = liveAssistants.find((a) => a.name === persona.assistantName)
+    let assistant = persona.existingAssistantId
+      ? liveAssistants.find((a) => a.id === persona.existingAssistantId)
+      : liveAssistants.find((a) => a.name === persona.assistantName)
+    if (persona.existingAssistantId && !assistant) {
+      throw new Error(`Assistant ${persona.existingAssistantId} is not in this org's Vapi account.`)
+    }
     if (assistant) {
       console.log(`   assistant exists: ${assistant.id}`)
     } else if (!apply) {
@@ -259,7 +327,13 @@ async function main() {
     }
 
     // 2. The agent that holds the prompt and the voice options.
+    // Normalise line endings before anything compares this text. On a Windows
+    // checkout git materialises these files with CRLF, so reading them raw
+    // makes every run look like "the prompt changed", publishes a new version
+    // that differs only in invisible characters, and ships carriage returns
+    // into the assistant's prompt.
     const systemPrompt = readFileSync(join(here, 'skaleclub-voice', persona.promptFile), 'utf8')
+      .replace(/\r\n/g, '\n')
       .replaceAll('{{PERSONA}}', persona.persona)
       .trim()
 
@@ -272,7 +346,7 @@ async function main() {
       max_history: 20,
       fallback_message: persona.fallbackMessage,
       is_active: true,
-      allowed_channels: ['voice'],
+      allowed_channels: persona.allowedChannels ?? ['voice'],
       kb_scope: [] as string[],
       channel_overrides: {
         voice: {
@@ -287,7 +361,7 @@ async function main() {
           // grant for).
           appointments: false,
           analysis: {
-            outcomes: ['confirmed', 'corrected', 'declined', 'callback_requested', 'message_taken', 'abandoned', 'failed'],
+            outcomes: persona.analysisOutcomes,
             scope: persona.analysisScope,
             rubric: persona.analysisRubric,
           },
@@ -307,7 +381,11 @@ async function main() {
     if (!apply) {
       console.log(`   ${existingAgent ? `would update agent ${agentId}` : 'would create agent'} (${persona.slug})`)
       console.log(`   prompt: ${systemPrompt.length} chars, voice=${persona.language}`)
-      console.log(`   would ensure mapping -> agent, and campaign "${persona.campaignName}" (${persona.timezone}, 09:00-18:00 Mon-Fri)`)
+      console.log(
+        persona.campaignName
+          ? `   would ensure mapping -> agent, and campaign "${persona.campaignName}" (${persona.timezone}, 09:00-18:00 Mon-Fri)`
+          : `   would ensure mapping -> agent, grant ${(persona.tools ?? []).join(', ') || 'no tools'}, and create no campaign`,
+      )
       continue
     }
 
@@ -376,7 +454,43 @@ async function main() {
       console.log(`   created mapping ${data.id} -> agent ${agentId}`)
     }
 
-    // 4. The standing queue the workflow enrols into.
+    // 3b. The tools this agent may call mid-conversation. Granted by tool_name
+    // so the script does not have to know the workflow's id, and idempotent:
+    // an existing grant is left alone rather than duplicated.
+    for (const toolName of persona.tools ?? []) {
+      const { data: workflow } = await sb
+        .from('workflows')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('tool_name', toolName)
+        .maybeSingle()
+      if (!workflow) {
+        console.log(`   WARNING: no workflow named "${toolName}" in this org — skipped`)
+        continue
+      }
+      const { data: grant } = await sb
+        .from('agent_tools')
+        .select('id')
+        .eq('agent_id', agentId)
+        .eq('workflow_id', workflow.id)
+        .maybeSingle()
+      if (grant) {
+        console.log(`   tool ${toolName} already granted`)
+        continue
+      }
+      const { error } = await sb
+        .from('agent_tools')
+        .insert({ organization_id: orgId, agent_id: agentId, workflow_id: workflow.id })
+      if (error) throw error
+      console.log(`   granted tool ${toolName}`)
+    }
+
+    // 4. The standing queue the workflow enrols into — outbound only.
+    if (!persona.campaignName) {
+      console.log('   no campaign: this persona answers the phone, it does not dial')
+      continue
+    }
+
     const campaignConfig = {
       name: persona.campaignName,
       description:
@@ -386,7 +500,7 @@ async function main() {
       vapi_assistant_id: assistant.id,
       vapi_phone_number_id: liveNumber.id,
       calls_per_minute: 2,
-      dial_window: businessHours(persona.timezone),
+      dial_window: businessHours(persona.timezone ?? 'America/New_York'),
       // Two tries, half an hour and then four hours apart. Voicemail is never
       // redialled (see planRetry in src/lib/vapi/end-of-call.ts).
       retry_policy: { no_answer_max: 2, backoff_minutes: [30, 240] },

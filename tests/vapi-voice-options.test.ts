@@ -169,3 +169,24 @@ describe('resolveVoiceOptions with a tenant that is not a barbershop', () => {
     expect(partial.appointments).toBe(true)
   })
 })
+
+describe('the summary plan an operator wrote', () => {
+  const summaryPlan = {
+    messages: [{ role: 'system', content: 'Summarise this call as a phone message: Caller / Wants / Urgency.' }],
+  }
+
+  it('survives the push', () => {
+    // It is what a human reads when they open the call, and it is usually the
+    // one thing on the assistant somebody shaped by hand. The push owns the
+    // structured fields and the rubric; it does not own this.
+    const plan = buildAnalysisPlan(NO_OVERRIDES, summaryPlan)
+    expect(plan.summaryPlan).toEqual(summaryPlan)
+    expect(plan.structuredDataPlan.schema.properties.outcome.enum).toEqual(DEFAULT_ANALYSIS_OUTCOMES)
+  })
+
+  it('is simply absent when the assistant never had one', () => {
+    expect(buildAnalysisPlan(NO_OVERRIDES)).not.toHaveProperty('summaryPlan')
+    expect(buildAnalysisPlan(NO_OVERRIDES, undefined)).not.toHaveProperty('summaryPlan')
+    expect(buildAnalysisPlan(NO_OVERRIDES, 'not an object')).not.toHaveProperty('summaryPlan')
+  })
+})

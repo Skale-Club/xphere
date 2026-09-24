@@ -209,8 +209,21 @@ export function buildTranscriber(options: VoiceOptions, keyterms: string[]) {
  * platform-owned; only the outcome vocabulary, the scope and the rubric are
  * the tenant's.
  */
-export function buildAnalysisPlan(options: VoiceOptions) {
+export function buildAnalysisPlan(
+  options: VoiceOptions,
+  /**
+   * The assistant's existing summary plan, read off the live assistant. It is
+   * what a human sees when they open the call, and it is often the one piece
+   * an operator has written by hand — a phone-message format, a shape their
+   * team reads every day. The push governs the structured fields and the
+   * pass/fail rubric; it does not get to overwrite that.
+   */
+  existingSummaryPlan?: unknown,
+) {
   return {
+    ...(existingSummaryPlan && typeof existingSummaryPlan === 'object'
+      ? { summaryPlan: existingSummaryPlan }
+      : {}),
     structuredDataPlan: {
       enabled: true,
       schema: {
