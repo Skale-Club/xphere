@@ -49,6 +49,37 @@ import {
 /** Where the assistant-level messages (status updates, end-of-call report) go. */
 export const CALLS_SERVER_URL = 'https://xphere.app/api/vapi/calls'
 
+/** Where a tool call goes. Only used to route a tool that has no server of its own. */
+export const TOOLS_SERVER_URL = 'https://xphere.app/api/vapi/tools'
+
+/**
+ * The webhook secret an assistant already carries at assistant level, wherever
+ * Vapi happens to keep it — the field is `secret` on some blocks and an
+ * `x-vapi-secret` header on others, and both are in use across this account.
+ */
+export function assistantServerSecret(server: unknown): string | undefined {
+  if (!server || typeof server !== 'object') return undefined
+  const block = server as Record<string, unknown>
+  if (typeof block.secret === 'string' && block.secret) return block.secret
+  const headers = (block.headers ?? {}) as Record<string, unknown>
+  const header = headers['x-vapi-secret']
+  return typeof header === 'string' && header ? header : undefined
+}
+
+/**
+ * Routing for a tool on an assistant that has never carried one.
+ *
+ * Before this, the only source of per-tool routing was another tool: an
+ * assistant with no tools at all was refused the moment its agent was granted
+ * its first workflow, even though it already had an assistant-level server
+ * block holding the very secret the tool needs. Only the secret is reused —
+ * the URL is the tools endpoint, never whatever the reports go to.
+ */
+export function toolServerFromAssistantSecret(secret: string | undefined): Record<string, unknown> | undefined {
+  if (!secret) return undefined
+  return { url: TOOLS_SERVER_URL, secret, timeoutSeconds: 30 }
+}
+
 /**
  * Turn-taking, provisioned rather than left to Vapi's defaults: the default
  * endpointing cut the caller off mid-sentence ("I wanna book a-") after a 0.4s
@@ -500,8 +531,11 @@ export async function pushAssistantConfig(
       distinctServers.size === 1 ? (JSON.parse([...distinctServers][0]) as Record<string, unknown>) : undefined
     const assistantLevelServer = current.server && typeof current.server === 'object'
 
+    const assistantSecret = assistantServerSecret(current.server)
+    const inheritedServer = sharedServer ?? toolServerFromAssistantSecret(assistantSecret)
+
     const tools = rendered.functions.map((fn) => {
-      const server = serverByTool[fn.name] ?? sharedServer
+      const server = serverByTool[fn.name] ?? inheritedServer
       return {
         type: 'function',
         function: {
@@ -558,7 +592,8 @@ export async function pushAssistantConfig(
     // the same secret the tools carry, so a new tenant's assistant gets it
     // from the push rather than from a dashboard setting nobody can see.
     // Only set when the shared secret is known; never invented.
-    const sharedSecret = typeof sharedServer?.secret === 'string' ? sharedServer.secret : undefined
+    const sharedSecret =
+      typeof sharedServer?.secret === 'string' ? sharedServer.secret : assistantSecret
     const assistantServer = sharedSecret
       ? {
           // serverMessages is deliberately NOT set: Vapi's default list already
