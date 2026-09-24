@@ -249,10 +249,19 @@ async function resolveTranscriberKeyterms(
   organizationId: string,
   fallback: string[]
 ): Promise<string[]> {
-  // Booking vocabulary, unioned into a scheduling tenant's own catalogue. An
-  // org with no scheduling integration is not a barbershop and gets `fallback`
-  // -- its own keyterms, or none -- instead of someone else's haircut words.
-  const generic = ['haircut', 'trim', 'beard trim', 'line up', 'buzz cut', 'skin fade', 'fade', 'appointment', 'book', 'reschedule', 'cancel', 'barber']
+  // Booking vocabulary, unioned into a scheduling tenant's own catalogue.
+  //
+  // These words are a BARBERSHOP's, and for a long time every scheduling tenant
+  // got them: a cleaning company's transcriber was primed for "beard trim" and
+  // "skin fade". The catalogue supplies the trade's real nouns, so a tenant that
+  // has said what its callers say — channel_overrides.voice.keyterms, which
+  // arrives here as `fallback` — uses that instead. A tenant that has not said
+  // anything keeps the old list, which is what Cuts & Culture relies on and why
+  // its push stays byte-identical.
+  const generic =
+    fallback.length > 0
+      ? fallback
+      : ['haircut', 'trim', 'beard trim', 'line up', 'buzz cut', 'skin fade', 'fade', 'appointment', 'book', 'reschedule', 'cancel', 'barber']
 
   let credentials: Awaited<ReturnType<typeof getXkeduleCredentialsForOrgCached>> | null = null
   try {

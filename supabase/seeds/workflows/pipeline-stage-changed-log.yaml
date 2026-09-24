@@ -2,10 +2,10 @@
 # stages, append an audit note to its activity feed. Useful as a starter
 # template that orgs can copy and customize.
 
-name: Stage alterado — Registrar nota
+name: Stage changed — log a note
 description: |
-  Platform-default. Quando uma oportunidade muda de stage (sem ser won/lost),
-  adiciona uma nota automática ao histórico da oportunidade com o novo stage.
+  Platform-default. When an opportunity moves to a different stage (other than
+  won or lost), appends a note to its history recording the new stage.
 trigger:
   type: event
   event: opportunity.stage_changed
@@ -14,7 +14,7 @@ nodes:
   - id: log_change
     kind: pipeline_add_note
     opportunity_id: "{{opportunity.id}}"
-    content: "Stage alterado para {{stage.to.name}} (automação)."
+    content: "Stage changed to {{stage.to.name}} (automation)."
 
 edges:
   - from: trigger

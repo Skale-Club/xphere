@@ -2,10 +2,10 @@
 # Sends an SMS reminder 24 hours before any confirmed meeting.
 # Triggers via SEED-027 tick scheduler matching meeting.starts_in with offset -24h.
 
-name: Lembrete pré-reunião — 24 horas
+name: Pre-meeting reminder — 24 hours
 description: |
-  Platform-default. Envia um SMS de lembrete ao participante 24 horas antes
-  do início da reunião confirmada.
+  Platform-default. Sends the attendee an SMS reminder 24 hours before a
+  confirmed meeting starts.
 trigger:
   type: event
   event: meeting.starts_in
@@ -17,7 +17,7 @@ nodes:
     kind: send_sms
     integration: twilio
     to: "{{meeting.attendee_contact.phone}}"
-    body: "Olá {{meeting.attendee_contact.name}}, lembrando que você tem um agendamento amanhã: {{meeting.event_type.name}} às {{meeting.starts_at}}. Detalhes: {{meeting.link}}"
+    body: "Hi {{meeting.attendee_contact.name}}, a reminder that you have a booking tomorrow: {{meeting.event_type.name}} at {{meeting.starts_at}}. Details: {{meeting.link}}"
 
 edges:
   - from: trigger
