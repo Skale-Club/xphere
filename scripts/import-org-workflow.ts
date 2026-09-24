@@ -131,7 +131,7 @@ async function main() {
     })
     .select('id')
     .single()
-  if (vErr) throw vErr
+  if (vErr || !version) throw vErr ?? new Error('workflow_versions insert returned no row')
 
   const { error: upErr } = await supabase
     .from('workflows')

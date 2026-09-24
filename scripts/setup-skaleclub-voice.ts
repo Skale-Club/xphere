@@ -340,7 +340,7 @@ async function main() {
         .order('version', { ascending: false })
         .limit(1)
         .single()
-      if (vErr || version.system_prompt !== systemPrompt) {
+      if (vErr || !version || version.system_prompt !== systemPrompt) {
         throw new Error('Prompt version row not created — check the migration 045 trigger')
       }
       const { error } = await sb.from('agents').update({ active_prompt_version_id: version.id }).eq('id', agentId)
