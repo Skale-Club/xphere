@@ -19,12 +19,12 @@
 # assistant as {{company_name}}, {{quoted_total}} and so on. Keep them flat
 # strings: they are interpolated into the prompt on every turn.
 
-name: Skale Club — Chaveiros NFC — callback do pedido
+name: Skale Club — NFC keychain order callback
 description: |
-  Quando um pedido de chaveiros NFC chega pelo site, coloca a pessoa na fila
-  de ligação do idioma dela (PT ou EN) com os dados do pedido — empresa,
-  quantidade, tipo, total cotado e endereço — para o robô confirmar por
-  telefone antes da produção começar.
+  When an NFC keychain order arrives from the website, queues the customer for a
+  callback in their own language (PT or EN) along with the order details —
+  company, quantity, style, quoted total and shipping address — so the robot can
+  confirm it by phone before production starts.
 trigger:
   type: event
   event: lead.captured

@@ -1,4 +1,4 @@
-# Skale Club — marcar a conversa inicial
+# Skale Club — book the intro call
 #
 # The write half. On a phone call this one is gated: the caller has to have
 # heard the day, the time and their own name read back, and agreed, before the
@@ -11,10 +11,10 @@
 # After importing, set require_voice_confirmation on this workflow's tool
 # config so the gate applies (see the setup script).
 
-name: Agenda — marcar conversa inicial
+name: Calendar — book the intro call
 description: |
-  Marca a Conversa inicial de 30 minutos por vídeo na agenda do Xphere.
-  Numa ligação, só depois de ler os detalhes de volta e ouvir um sim.
+  Books the 30-minute intro video call on the Xphere calendar. On a phone call,
+  only after the details have been read back and the caller has agreed.
 trigger:
   type: tool_call
   config:
@@ -60,7 +60,7 @@ nodes:
     # The gate: on a phone call, check the transcript before writing anything.
     require_voice_confirmation: true
     # Said out loud if the booking throws. It must not sound like a
-    # confirmation: nothing was written. Both languages — see agenda-horarios.
+    # confirmation: nothing was written. Both languages — see calendar-open-times.
     fallback_message: >-
       Say this in the language the caller has been using, and nothing else.
       Whichever you say, it must not sound like the meeting was booked, because it was not.

@@ -1,4 +1,4 @@
-# Skale Club — "quando dá para conversar?"
+# Skale Club — "when could we talk?"
 #
 # Tool the booking specialist calls to see what is open. Read-only: it never
 # holds a slot, so two callers asking at the same time both hear the truth and
@@ -6,13 +6,13 @@
 #
 # Import with:
 #   npx tsx --env-file=.env.local scripts/import-org-workflow.ts <org-id> \
-#     .planning/clients/skale-club/agenda-horarios.yaml --apply
+#     .planning/clients/skale-club/calendar-open-times.yaml --apply
 
-name: Agenda — horários livres
+name: Calendar — open times
 description: |
-  Diz quais horários estão livres para a Conversa inicial num dia. Lê a agenda
-  do Xphere — a mesma que a página pública mostra —, então o que já está
-  marcado não aparece.
+  Says which times are free for the intro call on a given day. Reads the Xphere
+  calendar — the same one the public page shows — so anything already booked
+  does not appear.
 trigger:
   type: tool_call
   config:

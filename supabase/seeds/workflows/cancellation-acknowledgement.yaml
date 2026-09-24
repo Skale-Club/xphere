@@ -1,10 +1,10 @@
 # Platform-default workflow — ships to every org.
 # Acknowledges a booking cancellation via SMS immediately after the event fires.
 
-name: Confirmação de cancelamento
+name: Cancellation acknowledgement
 description: |
-  Platform-default. Envia uma confirmação de cancelamento por SMS ao
-  participante assim que o agendamento é cancelado.
+  Platform-default. Sends the attendee an SMS confirming their booking was
+  cancelled, as soon as the cancellation happens.
 trigger:
   type: event
   event: meeting.cancelled
@@ -14,7 +14,7 @@ nodes:
     kind: send_sms
     integration: twilio
     to: "{{meeting.attendee_contact.phone}}"
-    body: "Olá {{meeting.attendee_contact.name}}, seu agendamento de {{meeting.event_type.name}} foi cancelado com sucesso. Para reagendar, acesse: {{meeting.event_type.booking_url}}"
+    body: "Hi {{meeting.attendee_contact.name}}, your {{meeting.event_type.name}} booking has been cancelled. To book another time: {{meeting.event_type.booking_url}}"
 
 edges:
   - from: trigger

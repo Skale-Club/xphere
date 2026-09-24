@@ -96,11 +96,11 @@ const CALLBACK_OUTCOMES = [
 
 const PERSONAS: VoicePersona[] = [
   {
-    slug: 'voz-callback-nfc-pt',
-    name: 'Voz — Confirmação de pedido NFC (PT)',
+    slug: 'voice-nfc-callback-pt',
+    name: 'Voice — NFC order confirmation (PT)',
     description:
-      'Liga para quem pediu chaveiros NFC no site e confirma o pedido antes da produção começar. ' +
-      'Só confirma: não vende, não negocia preço e não agenda.',
+      'Calls someone who ordered NFC keychains on the site and confirms the order before production starts. ' +
+      'Confirmation only: no selling, no price negotiation, no booking.',
     promptFile: 'callback-pt.md',
     assistantName: 'Skale Club | NFC Callback | PT',
     campaignName: 'NFC callback — PT',
@@ -119,7 +119,7 @@ const PERSONAS: VoicePersona[] = [
     fallbackMessage: 'Vou pedir para alguém da equipe falar com você pelo WhatsApp.',
   },
   {
-    slug: 'voz-callback-nfc-en',
+    slug: 'voice-nfc-callback-en',
     name: 'Voice — NFC order confirmation (EN)',
     description:
       'Calls someone who ordered NFC keychains on the site and confirms the order before production starts. ' +
@@ -144,11 +144,11 @@ const PERSONAS: VoicePersona[] = [
   {
     // Delegated to, never bound to an assistant of its own: the caller stays
     // on the same line and hears the same voice.
-    slug: 'voz-agendamento',
-    name: 'Voz — Agendamento',
+    slug: 'voice-scheduling',
+    name: 'Voice — scheduling specialist',
     description:
-      'Marca a Conversa inicial de 30 minutos por vídeo na agenda do Xphere. Recebe a ligação da ' +
-      'recepção quando a pessoa quer falar com alguém do time.',
+      'Books the 30-minute intro video call on the Xphere calendar. Reception hands the call over ' +
+      'when the caller wants to speak to someone on the team.',
     promptFile: 'booking.md',
     assistantName: '(delegated)',
     specialistOnly: true,
@@ -166,12 +166,12 @@ const PERSONAS: VoicePersona[] = [
   {
     // The one that ANSWERS. It has no campaign: nobody enrols into a phone
     // that rings on its own.
-    slug: 'voz-recepcao',
-    name: 'Voz — Recepção Skale Club',
+    slug: 'voice-reception',
+    name: 'Voice — Skale Club reception',
     description:
-      'Atende o telefone da Skale Club em geral: descobre quem ligou e o que quer, responde o básico ' +
-      'sobre produtos e serviços, registra no CRM e encaminha para a equipe. Chaveiro NFC é um assunto ' +
-      'entre outros, e tudo sobre ele é estimativa.',
+      'Answers the Skale Club phone line in general: works out who is calling and what they want, covers ' +
+      'the basics on products and services, logs the call to the CRM and hands off to the team. NFC keychains ' +
+      'are one subject among many, and everything about them is an estimate.',
     promptFile: 'reception.md',
     assistantName: 'Skale Club | Receptionist | PT-EN',
     existingAssistantId: '80dd9b79-fd39-457c-834a-7b0dd217fee4',
@@ -206,7 +206,7 @@ const PERSONAS: VoicePersona[] = [
     fallbackMessage: "Let me take your details and have someone from the team follow up.",
     tools: ['save_caller_message'],
     partner: {
-      slug: 'voz-agendamento',
+      slug: 'voice-scheduling',
       invocationDescription:
         'Hand over when the caller wants to meet, talk to someone on the team, or asks about times. ' +
         'It sees the calendar and can put the intro call on it; you cannot.',

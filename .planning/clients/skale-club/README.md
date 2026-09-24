@@ -1,132 +1,143 @@
-# Skale Club — voz
+# Skale Club — voice
 
-O que existe hoje na org `b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5`, como operar e o
-que ainda não está pronto.
+What exists today in org `b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5`, how to operate
+it, and what is still not ready.
 
-## O caminho de um pedido de chaveiro
+## The path of a keychain order
 
-1. A pessoa preenche `/nfc-order` (ou `/br/nfc-order`) em skale.club.
-2. O site congela a cotação no lead, dispara o alerta no Telegram e enfileira o
-   lead para o Xphere (`POST /api/v1/leads`, outbox durável no repo `skaleclub`).
-   Desde `feat(nfc): hand Xphere the whole order…` o envelope carrega também o
-   snapshot de preço, o `countryCode`, o nome do arquivo do logo e um campo
-   `lang` derivado (`/br` → `pt-BR`; senão país do telefone → DDI → `en`).
-3. O Xphere emite `lead.captured`, o que aciona o workflow
-   **Chaveiros NFC — callback do pedido** (`nfc-order-callback.yaml`).
-4. O workflow checa que o formulário é o `nfc-keychain-order`, escolhe a fila
-   pelo `lang` e chama `campaign_enroll_call` — que **só enfileira**.
-5. O motor de campanhas (`/api/cron/campaign-tick`, rodando no skale-cron) liga
-   dentro do horário da campanha, com os dados do pedido no prompt.
-6. O relatório de fim de chamada volta por `/api/vapi/calls`, fecha a linha em
-   `campaign_contacts` e grava transcrição, gravação e a avaliação da ligação
-   em `calls`.
+1. Somebody fills in `/nfc-order` (or `/br/nfc-order`) on skale.club.
+2. The site freezes the quote onto the lead, fires the Telegram alert and queues
+   the lead for Xphere (`POST /api/v1/leads`, durable outbox in the `skaleclub`
+   repo). Since `feat(nfc): hand Xphere the whole order…` the envelope also
+   carries the price snapshot, the `countryCode`, the logo file name and a
+   derived `lang` field (`/br` → `pt-BR`; otherwise phone country → dial code →
+   `en`).
+3. Xphere emits `lead.captured`, which triggers the **Skale Club — NFC keychain
+   order callback** workflow (`nfc-order-callback.yaml`).
+4. The workflow checks the form is `nfc-keychain-order`, picks the queue by
+   `lang` and calls `campaign_enroll_call` — which **only enqueues**.
+5. The campaign engine (`/api/cron/campaign-tick`, running on skale-cron) dials
+   inside the campaign's window, with the order details in the prompt.
+6. The end-of-call report comes back through `/api/vapi/calls`, closes the
+   `campaign_contacts` row and writes the transcript, recording and call
+   evaluation to `calls`.
 
-## As peças
+## The pieces
 
-| Peça | Id |
+| Piece | Id |
 |---|---|
-| Assistente Vapi — Recepção | `80dd9b79-fd39-457c-834a-7b0dd217fee4` (o que atende `+1 312 878-0637`) |
-| Agente (prompt) — Recepção | slug `voz-recepcao`, bilíngue, com `save_caller_message` |
-| Agente (prompt) — Agendamento | slug `voz-agendamento`, delegado pela recepção, com `check_meeting_times` e `book_meeting` |
-| Tipo de evento | `conversa-inicial` — 30 min, vídeo, seg–sex 09:00–17:00 (Nova York) |
-| Assistente Vapi — PT | `d8b13b3b-980d-4269-a64f-393343a01ad1` |
-| Assistente Vapi — EN | `efcd8778-7497-49c8-9082-fe2e59ca0081` |
-| Agente (prompt) — PT | slug `voz-callback-nfc-pt` |
-| Agente (prompt) — EN | slug `voz-callback-nfc-en` |
-| Campanha — PT | `NFC callback — PT`, fuso `America/Sao_Paulo` |
-| Campanha — EN | `NFC callback — EN`, fuso `America/New_York` |
-| Caller id | `+1 312 878-0637` (o mesmo número que atende) |
-| Workflow | `Skale Club — Chaveiros NFC — callback do pedido` |
+| Vapi assistant — reception | `80dd9b79-fd39-457c-834a-7b0dd217fee4` (the one answering `+1 312 878-0637`) |
+| Agent (prompt) — reception | slug `voice-reception`, bilingual, with `save_caller_message` |
+| Agent (prompt) — scheduling | slug `voice-scheduling`, delegated to by reception, with `check_meeting_times` and `book_meeting` |
+| Event type | `conversa-inicial` — 30 min, video, Mon–Fri 09:00–17:00 (New York) |
+| Vapi assistant — PT | `d8b13b3b-980d-4269-a64f-393343a01ad1` |
+| Vapi assistant — EN | `efcd8778-7497-49c8-9082-fe2e59ca0081` |
+| Agent (prompt) — PT | slug `voice-nfc-callback-pt` |
+| Agent (prompt) — EN | slug `voice-nfc-callback-en` |
+| Campaign — PT | `NFC callback — PT`, timezone `America/Sao_Paulo` |
+| Campaign — EN | `NFC callback — EN`, timezone `America/New_York` |
+| Caller id | `+1 312 878-0637` (the same number that answers) |
+| Workflow | `Skale Club — NFC keychain order callback` |
 
-Ambas as campanhas são **perenes**: ficam abertas esperando pedidos em vez de
-se encerrarem quando a fila esvazia. Horário: 09:00–18:00, segunda a sexta, no
-fuso de cada uma. Retry: duas tentativas, meia hora e depois quatro horas; caixa
-postal nunca é rediscada.
+Both campaigns are **evergreen**: they stay open waiting for orders instead of
+completing themselves when the queue empties. Window: 09:00–18:00, Monday to
+Friday, in each one's own timezone. Retry: two attempts, half an hour and then
+four hours; voicemail is never redialled.
 
-## Operação
+## Operating it
 
-**Mudar o que o robô fala:** edite `scripts/skaleclub-voice/callback-{pt,en}.md`,
-rode `npx tsx --env-file=.env.local scripts/setup-skaleclub-voice.ts --apply`
-(publica uma nova versão do prompt) e depois empurre para a Vapi em
+**Change what the robot says:** edit `scripts/skaleclub-voice/callback-{pt,en}.md`,
+run `npx tsx --env-file=.env.local scripts/setup-skaleclub-voice.ts --apply`
+(which publishes a new prompt version), then push to Vapi from
 `Calls → Voice settings → Assistants → Push Config to Vapi`.
 
-**Antes de empurrar qualquer coisa**, rode o diff:
+**Before pushing anything**, run the diff:
 
 ```bash
-STRICT=1 VAPI_PUSH_TEST_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 VAPI_PUSH_TEST_ASSISTANT_ID=<assistente> npx vitest run --config vitest.manual.config.ts tests/manual/vapi-push-diff.test.ts
+STRICT=1 VAPI_PUSH_TEST_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 VAPI_PUSH_TEST_ASSISTANT_ID=<assistant> npx vitest run --config vitest.manual.config.ts tests/manual/vapi-push-diff.test.ts
 ```
 
-**Mudar horário, ritmo ou retry:** são colunas da campanha (`dial_window`,
-`calls_per_minute`, `retry_policy`). Uma `dial_window` inválida não trava nada —
-o sistema volta a "ligar a qualquer hora", de propósito, para que um erro de
-configuração não pare a discagem da plataforma inteira.
+**Change the window, the pacing or the retry:** they are campaign columns
+(`dial_window`, `calls_per_minute`, `retry_policy`). An invalid `dial_window`
+blocks nothing — the system deliberately falls back to "dial at any hour", so a
+configuration mistake cannot stop dialling across the whole platform.
 
-**Parar tudo agora:** ponha as campanhas em `paused`. O workflow continua
-enfileirando, e as linhas ficam esperando até alguém retomar. O enfileiramento
-só religa uma campanha que estava `completed` — quer dizer, que tinha secado
-sozinha. `paused`, `draft` e `scheduled` são decisão de alguém e ele não desfaz.
+**Stop everything now:** put the campaigns in `paused`. The workflow keeps
+enqueuing and the rows wait until somebody resumes. Enrolment only wakes a
+campaign that was `completed` — that is, one that ran dry on its own. `paused`,
+`draft` and `scheduled` are somebody's decision and it does not undo them.
 
-**Não ligar para alguém específico:** ligue o do-not-disturb no contato
-(canal *calls*). O enfileiramento respeita — e, quando o workflow só conhece o
-telefone, ele procura o contato dono daquele número antes de decidir.
+**Do not call one particular person:** turn on do-not-disturb for the contact
+(channel *calls*). Enrolment honours it — and when the workflow only knows the
+phone number, it looks up the contact that owns that number before deciding.
 
-## Quem atende o telefone
+## Who answers the phone
 
-`+1 312 878-0637` é atendido pela recepção bilíngue: responde no idioma de quem
-ligou, conhece o catálogo, pode dizer os preços **publicados** dos produtos e
-nada além disso, trata qualquer número de chaveiro como estimativa, e registra
-a ligação com `save_caller_message` — o que abre tarefa, e-mail e Telegram pela
-automação que já existia.
+`+1 312 878-0637` is answered by the bilingual receptionist: it replies in the
+caller's language, knows the catalogue, may quote the **published** product
+prices and nothing beyond them, treats any keychain figure as an estimate, and
+logs the call with `save_caller_message` — which opens a task, an email and a
+Telegram message through the automation that already existed.
 
-**Ela agenda.** Quando a pessoa quer falar com o time, a recepção passa a
-ligação para o **especialista de agendamento** (agente `voz-agendamento`, ligado
-por delegação — o chamador continua na mesma linha e com a mesma voz). Ele
-consulta a agenda de verdade, oferece dois horários, pega o e-mail, lê tudo de
-volta e só então marca.
+**It books.** When the caller wants to speak to the team, reception hands the
+call to the **scheduling specialist** (agent `voice-scheduling`, wired by
+delegation — the caller stays on the same line, with the same voice). It reads
+the real calendar, offers two times, takes the email, reads everything back and
+only then books.
 
-O único compromisso que ele marca é a **Conversa inicial**: 30 minutos, por
-vídeo, seg–sex 09:00–17:00 no fuso de Nova York. Página pública da mesma agenda:
+The only thing it books is the **intro call**: 30 minutes, by video, Mon–Fri
+09:00–17:00 New York time. Public page for the same calendar:
 <https://xphere.app/book/vanildo/conversa-inicial>.
 
-Numa ligação ele **não consegue** marcar sem ler os detalhes de volta e ouvir um
-sim — a checagem lê a transcrição da chamada, então o robô não tem como se
-autoconvencer. Sem e-mail também não marca: é para onde vai o convite e o link
-do vídeo.
+On a phone call it **cannot** book without reading the details back and hearing
+a yes — the check reads the call transcript, so the robot cannot talk itself
+into it. It will not book without an email either: that is where the invite and
+the video link go.
 
-**Antes de mudar o roteiro dela, ensaie:**
+**Before changing its script, rehearse:**
 
 ```bash
 VOICE_REHEARSAL_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 VOICE_REHEARSAL_ASSISTANT_ID=80dd9b79-fd39-457c-834a-7b0dd217fee4 npx vitest run --config vitest.manual.config.ts tests/manual/reception-rehearsal.test.ts
 ```
 
-Seis chamadores passam pelo prompt vivo nos dois idiomas, sem discar nada. Na
-primeira rodada ele pegou quatro problemas reais, incluindo um robocall de
-garantia de carro virando contato no CRM.
+Seven callers go past the live prompt in both languages, dialling nothing. Its
+first run caught four real problems, including a car-warranty robocall becoming
+a CRM contact. Read-only tools hit the real ingress, so what the assistant sees
+is what a caller would produce.
 
-## O que ainda não está pronto
+**And rehearse the two that call people**, which is the riskier half:
 
-- **O GoHighLevel da org está morto** — responde *"Location is not active"*.
-  Nada depende dele hoje (a agenda é a nativa do Xphere), mas a integração
-  continua marcada como ativa e vai enganar quem olhar.
-- **O site ainda não oferece agendamento** (`booking_enabled: false` no
-  `xphere_settings`), então quem entra pelo formulário não vê a mesma agenda
-  que o robô usa.
-- **A base de conhecimento da org está vazia** (só `dummy` e `test`). Hoje tudo
-  que a recepção sabe está no próprio prompt, o que é aceitável para um
-  catálogo pequeno e pára de escalar quando ele crescer.
-- **A linha de data do prompt usa o fuso da organização** (`America/New_York`)
-  mesmo no robô PT, porque é a org que define o fuso. Não afeta a confirmação
-  de pedido, que não agenda nada.
-- **O formulário não pede consentimento explícito de ligação.** A promessa está
-  na página e o campo se chama "Qual é o seu WhatsApp?"; vale uma linha no
-  último passo dizendo que vamos ligar para confirmar.
-- **A Skale Club e a Cuts & Culture usam a mesma chave da Vapi** — as duas
-  linhas de `integrations` guardam o mesmo segredo, e os assistentes das duas
-  convivem na mesma conta. A regra "nunca empurre configuração para a Cuts &
-  Culture" é sustentada só pelo código (`assistant_mappings.entry_agent_id`
-  nula lá) e pela cerca `STRICT=1 tests/manual/vapi-push-diff.test.ts`, não por
-  isolamento de credencial. Separar exigiria uma segunda conta Vapi.
-- **Nenhuma ligação desta org jamais fechou o ciclo.** Existe uma única linha em
-  `calls`, de 01/08/2026, parada em `ringing`: o relatório de fim de chamada
-  nunca chegou nem uma vez aqui. A primeira ligação de verdade é o que vai
-  provar `campaign_contacts` andando de `calling` para `completed`.
+```bash
+VOICE_REHEARSAL_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 npx vitest run --config vitest.manual.config.ts tests/manual/callback-rehearsal.test.ts
+```
+
+## What is still not ready
+
+- **The site does not offer booking yet** (`booking_enabled: false` in
+  `xphere_settings`), so somebody arriving through the form does not see the
+  same calendar the robot uses.
+- **The org's knowledge base is empty** (only `dummy` and `test`). Everything
+  reception knows lives in the prompt itself, which is fine for a small
+  catalogue and stops scaling once it grows.
+- **The prompt's date line uses the organisation's timezone**
+  (`America/New_York`) even on the PT robot, because the org is what sets it.
+  It does not affect order confirmation, which books nothing.
+- **The form does not ask for explicit call consent.** The promise is on the
+  page and the field is called "Qual é o seu WhatsApp?"; a line in the last step
+  saying we will call to confirm would be worth adding.
+- **Skale Club and Cuts & Culture share one Vapi key** — both `integrations`
+  rows hold the same secret, and both orgs' assistants live in the same account.
+  The rule "never push config to Cuts & Culture" is held up only by the code
+  (`assistant_mappings.entry_agent_id` is null there) and by the
+  `STRICT=1 tests/manual/vapi-push-diff.test.ts` fence, not by credential
+  isolation. Separating them would need a second Vapi account.
+- **No call in this org has ever closed the loop.** There is a single `calls`
+  row, from 2026-08-01, stuck at `ringing`: the end-of-call report has never
+  arrived here, not once. The receiving half is proved
+  (`tests/manual/end-of-call-loop.test.ts`), and Vapi's own delivery is
+  evidenced by Cuts & Culture running on the same `serverMessages` default —
+  but the first real call is what settles it.
+
+> GoHighLevel used to be listed here as broken. It is **legacy** — the product
+> does not use it any more; everything lives in Xphere. The `integrations` row
+> still says active, which is stale data, not a connection.

@@ -1,11 +1,11 @@
 # Platform-default workflow — ships to every org with Telegram connected.
 # When an opportunity is marked won, notify the configured Telegram chat(s).
 
-name: Deal ganho — Notificar Telegram
+name: Deal won — notify Telegram
 description: |
-  Platform-default. Quando uma oportunidade é movida para um stage com
-  is_won=true, envia notificação no Telegram com nome do contato, valor e
-  título da oportunidade.
+  Platform-default. When an opportunity moves to a stage with is_won=true,
+  sends a Telegram notification with the contact name, the value and the
+  opportunity title.
 trigger:
   type: event
   event: opportunity.won
@@ -14,10 +14,12 @@ nodes:
   - id: notify
     kind: send_telegram_notification
     integration: telegram
+    # No currency symbol: this ships to every org, and hardcoding one bills
+    # every tenant in somebody else's money. The value is rendered as stored.
     text: |
-      🏆 <b>Deal Ganho!</b>
+      🏆 <b>Deal won</b>
       👤 {{contact.name}}
-      💰 R$ {{opportunity.value}}
+      💰 {{opportunity.value}}
       📋 {{opportunity.title}}
     parse_mode: HTML
 
