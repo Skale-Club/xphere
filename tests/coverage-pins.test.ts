@@ -76,6 +76,7 @@ describe('coverage-pins: Action Engine action-type derivation', () => {
 // ---------------------------------------------------------------------------
 
 const DELIBERATE_READS = new Set([
+  'calendar_list_slots',
   'get_availability',
   'knowledge_base',
   'google_contacts_find',
@@ -111,6 +112,7 @@ const EXPECTED_SIDE_EFFECTING = [
   'xkedule_cancel_booking',
   'xkedule_reschedule_booking',
   'campaign_enroll_call',
+  'calendar_book_meeting',
 ]
 
 // ---------------------------------------------------------------------------

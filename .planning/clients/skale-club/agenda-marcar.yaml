@@ -1,0 +1,65 @@
+# Skale Club — marcar a conversa inicial
+#
+# The write half. On a phone call this one is gated: the caller has to have
+# heard the day, the time and their own name read back, and agreed, before the
+# booking happens. That gate is enforced in the executor from the call
+# transcript — a `confirmed: true` the model asserts on its own does nothing.
+#
+# The email is not optional. It is where the invite and the video link go, and
+# a meeting nobody can join is worse than no meeting.
+#
+# After importing, set require_voice_confirmation on this workflow's tool
+# config so the gate applies (see the setup script).
+
+name: Agenda — marcar conversa inicial
+description: |
+  Marca a Conversa inicial de 30 minutos por vídeo na agenda do Xphere.
+  Numa ligação, só depois de ler os detalhes de volta e ouvir um sim.
+trigger:
+  type: tool_call
+  config:
+    tool_name: book_meeting
+    input_schema:
+      date:
+        type: string
+        description: "YYYY-MM-DD in the host's timezone, from the times check_meeting_times listed."
+        required: true
+      time:
+        type: string
+        description: 'HH:MM, 24-hour, exactly one of the times that were offered.'
+        required: true
+      name:
+        type: string
+        description: 'Who the meeting is with.'
+        required: true
+      email:
+        type: string
+        description: 'Where the invite and the video link go. Read it back before booking.'
+        required: true
+      notes:
+        type: string
+        description: "What they want to talk about, in their own words."
+      confirmed:
+        type: boolean
+        description: 'True only after the caller heard the read-back and agreed.'
+      confirmationToken:
+        type: string
+        description: 'Copy the token from the previous unconfirmed response, with the details unchanged.'
+
+nodes:
+  - id: book
+    kind: calendar_book_meeting
+    event_type: conversa-inicial
+    date: "{{input.date}}"
+    time: "{{input.time}}"
+    name: "{{input.name}}"
+    email: "{{input.email}}"
+    notes: "{{input.notes}}"
+    confirmed: "{{input.confirmed}}"
+    confirmationToken: "{{input.confirmationToken}}"
+    # The gate: on a phone call, check the transcript before writing anything.
+    require_voice_confirmation: true
+
+edges:
+  - from: trigger
+    to: book

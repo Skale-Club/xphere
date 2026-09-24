@@ -1,0 +1,35 @@
+# Skale Club — "quando dá para conversar?"
+#
+# Tool the booking specialist calls to see what is open. Read-only: it never
+# holds a slot, so two callers asking at the same time both hear the truth and
+# whoever books first gets it.
+#
+# Import with:
+#   npx tsx --env-file=.env.local scripts/import-org-workflow.ts <org-id> \
+#     .planning/clients/skale-club/agenda-horarios.yaml --apply
+
+name: Agenda — horários livres
+description: |
+  Diz quais horários estão livres para a Conversa inicial num dia. Lê a agenda
+  do Xphere — a mesma que a página pública mostra —, então o que já está
+  marcado não aparece.
+trigger:
+  type: tool_call
+  config:
+    tool_name: check_meeting_times
+    input_schema:
+      date:
+        type: string
+        description: "The day to check, as YYYY-MM-DD in the host's timezone. Resolve 'next Tuesday' to a full date first."
+        required: true
+
+nodes:
+  - id: slots
+    kind: calendar_list_slots
+    event_type: conversa-inicial
+    date: "{{input.date}}"
+    limit: 4
+
+edges:
+  - from: trigger
+    to: slots

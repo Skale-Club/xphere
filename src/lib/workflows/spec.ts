@@ -671,6 +671,75 @@ export const NODES: NodeSpec[] = [
     ],
   },
 
+  // ─── Action | this platform's own calendar (/book)
+  {
+    type: 'calendar_list_slots',
+    kind: 'action',
+    description:
+      "Free times on this organization's own booking calendar, for one event type on one date. " +
+      'Answers in a sentence an assistant can read aloud, in the host timezone. Needs no integration.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        event_type: {
+          type: 'string',
+          description: "The event type's slug (e.g. 'conversa-inicial') or its id.",
+        },
+        date: { type: 'string', description: 'YYYY-MM-DD. Resolve "next Tuesday" to a full date first.' },
+        limit: { type: 'number', description: 'How many times to offer. Default 4, max 8.' },
+      },
+      required: ['event_type', 'date'],
+    },
+    examples: [{ event_type: 'conversa-inicial', date: '2026-10-01' }],
+  },
+  {
+    type: 'calendar_book_meeting',
+    kind: 'action',
+    description:
+      "Book one slot on this organization's own calendar. Revalidates the slot, links or creates the " +
+      'contact, and sends the confirmation with the video link. On a phone call the caller must have ' +
+      'heard the details read back and agreed first. Needs no integration.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        event_type: { type: 'string', description: "The event type's slug or id." },
+        date: { type: 'string', description: 'YYYY-MM-DD, host timezone.' },
+        time: { type: 'string', description: 'HH:MM, 24h, host timezone.' },
+        start_at: { type: 'string', description: 'ISO 8601 instant, instead of date + time.' },
+        name: { type: 'string', description: 'Who the meeting is with.' },
+        email: {
+          type: 'string',
+          description: 'Where the invite and the video link go. Required — read it back before booking.',
+        },
+        phone: { type: 'string' },
+        notes: { type: 'string', description: 'What they want to talk about, in their own words.' },
+        confirmed: { type: 'boolean', description: 'Voice only: true after the caller agreed to the read-back.' },
+        confirmationToken: {
+          type: 'string',
+          description: 'Voice only: copy the token from the previous unconfirmed response, unchanged.',
+        },
+        require_voice_confirmation: {
+          type: 'boolean',
+          description:
+            'Set on the workflow node, not by the model: when true, a booking made during a phone call ' +
+            'is checked against the call transcript — the caller must have heard the day, the time and ' +
+            'their name read back, and agreed.',
+        },
+      },
+      required: ['event_type', 'name', 'email'],
+    },
+    examples: [
+      {
+        event_type: 'conversa-inicial',
+        date: '2026-10-01',
+        time: '14:00',
+        name: '{{input.name}}',
+        email: '{{input.email}}',
+        notes: '{{input.reason}}',
+      },
+    ],
+  },
+
   // ─── Action | outbound voice
   {
     type: 'campaign_enroll_call',

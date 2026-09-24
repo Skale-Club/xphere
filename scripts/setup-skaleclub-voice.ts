@@ -68,6 +68,20 @@ interface VoicePersona {
   tools?: string[]
   /** Channels the agent serves. Voice only, unless stated. */
   allowedChannels?: string[]
+  /**
+   * A specialist this persona may hand the call to. The push carries the
+   * partner's granted tools onto the same assistant, so the caller hears one
+   * voice while the work belongs to whichever agent owns it.
+   */
+  partner?: {
+    slug: string
+    /** What the orchestrator reads to decide when to hand over. */
+    invocationDescription: string
+    /** tool_names the partner is allowed to use on this edge. */
+    workflowGrants: string[]
+  }
+  /** This persona exists to be delegated to; it is not bound to an assistant. */
+  specialistOnly?: boolean
 }
 
 const CALLBACK_OUTCOMES = [
@@ -128,6 +142,28 @@ const PERSONAS: VoicePersona[] = [
     fallbackMessage: 'Let me have someone from the team follow up with you on WhatsApp.',
   },
   {
+    // Delegated to, never bound to an assistant of its own: the caller stays
+    // on the same line and hears the same voice.
+    slug: 'voz-agendamento',
+    name: 'Voz — Agendamento',
+    description:
+      'Marca a Conversa inicial de 30 minutos por vídeo na agenda do Xphere. Recebe a ligação da ' +
+      'recepção quando a pessoa quer falar com alguém do time.',
+    promptFile: 'booking.md',
+    assistantName: '(delegated)',
+    specialistOnly: true,
+    language: 'multi',
+    persona: 'Sky',
+    firstMessage: '(unused — this agent never answers a call itself)',
+    idleMessages: [],
+    keyterms: [],
+    analysisOutcomes: ['booked', 'message_taken', 'abandoned', 'failed'],
+    analysisScope: 'booking the intro call',
+    analysisRubric: 'Unused: this agent never owns an assistant.',
+    fallbackMessage: 'Vou deixar isso registrado para o time marcar com você.',
+    tools: ['check_meeting_times', 'book_meeting'],
+  },
+  {
     // The one that ANSWERS. It has no campaign: nobody enrols into a phone
     // that rings on its own.
     slug: 'voz-recepcao',
@@ -169,6 +205,13 @@ const PERSONAS: VoicePersona[] = [
       "caller's name and reason before ending. Answer Pass or Fail.",
     fallbackMessage: "Let me take your details and have someone from the team follow up.",
     tools: ['save_caller_message'],
+    partner: {
+      slug: 'voz-agendamento',
+      invocationDescription:
+        'Hand over when the caller wants to meet, talk to someone on the team, or asks about times. ' +
+        'It sees the calendar and can put the intro call on it; you cannot.',
+      workflowGrants: ['check_meeting_times', 'book_meeting'],
+    },
   },
 ]
 
@@ -300,14 +343,20 @@ async function main() {
   for (const persona of PERSONAS) {
     console.log(`\n── ${persona.name}`)
 
-    // 1. The Vapi assistant.
-    let assistant = persona.existingAssistantId
+    // 1. The Vapi assistant — unless this persona only ever gets delegated to,
+    // in which case there is no assistant and no mapping: it lives inside
+    // whoever hands the call over.
+    let assistant = persona.specialistOnly
+      ? undefined
+      : persona.existingAssistantId
       ? liveAssistants.find((a) => a.id === persona.existingAssistantId)
       : liveAssistants.find((a) => a.name === persona.assistantName)
-    if (persona.existingAssistantId && !assistant) {
+    if (!persona.specialistOnly && persona.existingAssistantId && !assistant) {
       throw new Error(`Assistant ${persona.existingAssistantId} is not in this org's Vapi account.`)
     }
-    if (assistant) {
+    if (persona.specialistOnly) {
+      console.log('   no assistant of its own: delegated to')
+    } else if (assistant) {
       console.log(`   assistant exists: ${assistant.id}`)
     } else if (!apply) {
       console.log(`   would create assistant "${persona.assistantName}"`)
@@ -428,33 +477,7 @@ async function main() {
       console.log('   prompt unchanged')
     }
 
-    // 3. Bind the assistant to that agent.
-    if (!assistant) throw new Error('assistant missing after create')
-    const mapping = (existingMappings ?? []).find((m) => m.vapi_assistant_id === assistant!.id)
-    if (mapping) {
-      const { error } = await sb
-        .from('assistant_mappings')
-        .update({ name: persona.assistantName, entry_agent_id: agentId, is_active: true })
-        .eq('id', mapping.id)
-      if (error) throw error
-      console.log(`   mapping ${mapping.id} -> agent ${agentId}`)
-    } else {
-      const { data, error } = await sb
-        .from('assistant_mappings')
-        .insert({
-          organization_id: orgId,
-          vapi_assistant_id: assistant.id,
-          name: persona.assistantName,
-          entry_agent_id: agentId,
-          is_active: true,
-        })
-        .select('id')
-        .single()
-      if (error) throw error
-      console.log(`   created mapping ${data.id} -> agent ${agentId}`)
-    }
-
-    // 3b. The tools this agent may call mid-conversation. Granted by tool_name
+    // 2b. The tools this agent may call mid-conversation. Granted by tool_name
     // so the script does not have to know the workflow's id, and idempotent:
     // an existing grant is left alone rather than duplicated.
     for (const toolName of persona.tools ?? []) {
@@ -483,6 +506,36 @@ async function main() {
         .insert({ organization_id: orgId, agent_id: agentId, workflow_id: workflow.id })
       if (error) throw error
       console.log(`   granted tool ${toolName}`)
+    }
+
+    // 3. Bind the assistant to that agent.
+    if (persona.specialistOnly) {
+      console.log('   no assistant: this persona is delegated to, never dialled or answered directly')
+      continue
+    }
+    if (!assistant) throw new Error('assistant missing after create')
+    const mapping = (existingMappings ?? []).find((m) => m.vapi_assistant_id === assistant!.id)
+    if (mapping) {
+      const { error } = await sb
+        .from('assistant_mappings')
+        .update({ name: persona.assistantName, entry_agent_id: agentId, is_active: true })
+        .eq('id', mapping.id)
+      if (error) throw error
+      console.log(`   mapping ${mapping.id} -> agent ${agentId}`)
+    } else {
+      const { data, error } = await sb
+        .from('assistant_mappings')
+        .insert({
+          organization_id: orgId,
+          vapi_assistant_id: assistant.id,
+          name: persona.assistantName,
+          entry_agent_id: agentId,
+          is_active: true,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      console.log(`   created mapping ${data.id} -> agent ${agentId}`)
     }
 
     // 4. The standing queue the workflow enrols into — outbound only.
@@ -528,6 +581,93 @@ async function main() {
         .single()
       if (error) throw error
       console.log(`   created campaign ${data.id}`)
+    }
+  }
+
+  // 5. Delegation edges, once every agent exists. The push carries a partner's
+  // granted tools onto the orchestrator's assistant, so the caller hears one
+  // voice while the work belongs to whichever agent owns it.
+  for (const persona of PERSONAS) {
+    if (!persona.partner) continue
+    const { data: agents } = await sb
+      .from('agents')
+      .select('id, slug')
+      .eq('organization_id', orgId)
+      .in('slug', [persona.slug, persona.partner.slug])
+    const orchestrator = (agents ?? []).find((a) => a.slug === persona.slug)
+    const partner = (agents ?? []).find((a) => a.slug === persona.partner!.slug)
+    if (!orchestrator || !partner) {
+      console.log(`
+WARNING: cannot wire ${persona.slug} -> ${persona.partner.slug}: agent missing`)
+      continue
+    }
+
+    console.log(`
+-- ${persona.slug} -> ${persona.partner.slug}`)
+    if (!apply) {
+      console.log(`   would grant ${persona.partner.workflowGrants.join(', ')} across the edge`)
+      continue
+    }
+
+    const { data: existingEdge } = await sb
+      .from('agent_partners')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('agent_id', orchestrator.id)
+      .eq('partner_agent_id', partner.id)
+      .maybeSingle()
+
+    let edgeId = existingEdge?.id ?? null
+    if (edgeId) {
+      const { error } = await sb
+        .from('agent_partners')
+        .update({ invocation_description: persona.partner.invocationDescription })
+        .eq('id', edgeId)
+      if (error) throw error
+      console.log(`   edge ${edgeId} updated`)
+    } else {
+      const { data, error } = await sb
+        .from('agent_partners')
+        .insert({
+          organization_id: orgId,
+          agent_id: orchestrator.id,
+          partner_agent_id: partner.id,
+          invocation_description: persona.partner.invocationDescription,
+          allowed_channels: ['voice'],
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      edgeId = data.id
+      console.log(`   created edge ${edgeId}`)
+    }
+
+    for (const toolName of persona.partner.workflowGrants) {
+      const { data: workflow } = await sb
+        .from('workflows')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('tool_name', toolName)
+        .maybeSingle()
+      if (!workflow) {
+        console.log(`   WARNING: no workflow named "${toolName}" -- grant skipped`)
+        continue
+      }
+      const { data: grant } = await sb
+        .from('agent_partner_workflow_grants')
+        .select('partner_edge_id')
+        .eq('partner_edge_id', edgeId)
+        .eq('workflow_id', workflow.id)
+        .maybeSingle()
+      if (grant) {
+        console.log(`   grant ${toolName} already on the edge`)
+        continue
+      }
+      const { error } = await sb
+        .from('agent_partner_workflow_grants')
+        .insert({ organization_id: orgId, partner_edge_id: edgeId, workflow_id: workflow.id })
+      if (error) throw error
+      console.log(`   granted ${toolName} across the edge`)
     }
   }
 

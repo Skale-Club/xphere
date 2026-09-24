@@ -75,6 +75,12 @@ async function main() {
     ...(definition.trigger?.config ?? {}),
     ...(isEvent ? { event: definition.trigger!.event } : {}),
   }
+  // A tool workflow is found by name, and the name lives in its own column —
+  // leaving it in trigger_config only produces a workflow that validates,
+  // imports, and can never be called by an agent.
+  const toolName =
+    kind === 'tool' && typeof triggerConfig.tool_name === 'string' ? triggerConfig.tool_name : null
+
   const flowDefinition = yamlToFlow(definition, { slug })
 
   const { data: existing } = await supabase
@@ -102,6 +108,7 @@ async function main() {
         description: definition.description ?? null,
         is_active: true,
         kind,
+        tool_name: toolName,
         trigger_type: triggerType as 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url',
         trigger_config: triggerConfig,
       })
@@ -140,6 +147,7 @@ async function main() {
       name: definition.name ?? slug,
       description: definition.description ?? null,
       is_active: true,
+      tool_name: toolName,
       trigger_type: triggerType as 'tool_call' | 'event' | 'schedule' | 'manual' | 'webhook_url',
       trigger_config: triggerConfig,
     })
