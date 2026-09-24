@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { decrypt } from '@/lib/crypto'
-import { getWorkflowInputSchema } from '@/lib/workflows/derive-input-schema'
+import { getWorkflowInputSchema, type InputSchemaMap } from '@/lib/workflows/derive-input-schema'
 import { applyServiceLocationMode } from '@/lib/agent-runtime/service-location-schema'
 import { renderPromptTemplate, resolveTenantFacts } from '@/lib/org-templates/prompt-template'
 import { getXkeduleCredentialsForOrgCached } from '@/lib/xkedule/credentials'
@@ -204,6 +204,21 @@ function existingToolMessagesOf(current: VapiAssistantGetResponse): Record<strin
   return byName
 }
 
+/**
+ * A tool's parameters, from wherever this org's workflow happens to keep them.
+ *
+ * `getWorkflowInputSchema` reads a definition; a workflow imported from YAML
+ * keeps its `input_schema` in the row's `trigger_config` instead, because
+ * yamlToFlow() renders nodes and edges and drops the trigger's own config on
+ * the way. Both shapes exist in production, so both are read — the definition
+ * first, since a flow edited in the builder is the more specific answer.
+ */
+function resolveToolInputSchema(definition: unknown, triggerConfig: unknown): InputSchemaMap {
+  const fromDefinition = getWorkflowInputSchema(definition)
+  if (Object.keys(fromDefinition).length > 0) return fromDefinition
+  return getWorkflowInputSchema({ trigger_config: triggerConfig })
+}
+
 const WEEKDAY_KEYS: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 /**
@@ -251,7 +266,10 @@ async function resolveTranscriberKeyterms(
     const [catalog, info] = await Promise.all([getXkeduleCatalog(credentials), fetchBusinessInfoCached(credentials)])
     const terms = new Set<string>()
     const add = (value: unknown) => {
-      const t = String(value ?? '').replace(/\s*&\s*/g, ' and ').replace(/[^\p{L}\p{N}' -]/gu, ' ').replace(/\s+/g, ' ').trim()
+      // Plain `&`, not `\s*&\s*`: the latter backtracks super-linearly on a
+      // long whitespace run, and these strings come from the tenant's own
+      // catalogue. The `\s+` collapse two steps later does the tidying.
+      const t = String(value ?? '').replace(/&/g, ' and ').replace(/[^\p{L}\p{N}' -]/gu, ' ').replace(/\s+/g, ' ').trim()
       if (t.length >= 2) terms.add(t)
     }
     add(info.businessName)
@@ -437,7 +455,7 @@ export async function pushAssistantConfig(
   if (workflowIds.size > 0) {
     const { data: workflowRows } = await supabase
       .from('workflows')
-      .select('id, tool_name, name, description, current_version_id')
+      .select('id, tool_name, name, description, current_version_id, trigger_config')
       .in('id', Array.from(workflowIds))
 
     const versionIds = (workflowRows ?? [])
@@ -464,8 +482,15 @@ export async function pushAssistantConfig(
         toolName: w.tool_name,
         description: w.description ?? `Execute the workflow: ${w.name}`,
         inputSchema: applyServiceLocationMode(
-          getWorkflowInputSchema(
-            w.current_version_id ? definitionById.get(w.current_version_id) ?? null : null
+          // The schema lives on the workflow ROW for a tool authored from
+          // YAML, and inside the version's definition for one built in the
+          // flow editor. Reading only the definition gives a function with no
+          // parameters at all: the assistant calls it with an empty object and
+          // the workflow has nothing to work from — a tool that looks wired
+          // and does nothing.
+          resolveToolInputSchema(
+            w.current_version_id ? definitionById.get(w.current_version_id) ?? null : null,
+            w.trigger_config
           ),
           org?.service_location_mode
         ),

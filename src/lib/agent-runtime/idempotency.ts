@@ -94,6 +94,10 @@ export const SIDE_EFFECTING_ACTIONS = new Set([
   // getting this wrong is a stranger's phone ringing twice, so it is guarded
   // like every other write rather than trusted to a constraint.
   'campaign_enroll_call',
+  // Phase 141: booking on the platform's own calendar. createBooking()
+  // revalidates the slot and would reject a double, but a retry that lands
+  // after a cancellation would book it twice for real.
+  'calendar_book_meeting',
 ])
 
 // ---------------------------------------------------------------------------

@@ -364,3 +364,24 @@ describe('D: a tenant that takes no appointments', () => {
     expect(rendered.systemPrompt).toContain('America/Sao_Paulo')
   })
 })
+
+describe('E: spokenName and the ampersand', () => {
+  it('reads "&" as "and" however it is spaced', async () => {
+    const { spokenName } = await import('../src/lib/vapi/render-assistant-config')
+    expect(spokenName('Cuts & Culture Barbershop')).toBe('Cuts and Culture Barbershop')
+    expect(spokenName('Cuts&Culture')).toBe('Cuts and Culture')
+    expect(spokenName('Cuts   &   Culture')).toBe('Cuts and Culture')
+    expect(spokenName('  Cuts & Culture  ')).toBe('Cuts and Culture')
+  })
+
+  it('does not backtrack on a long whitespace run', async () => {
+    // `\s*&\s*` is super-linear here, and the input is a tenant-supplied
+    // business name. Plain `&` plus the existing collapse gives the same
+    // answer in linear time.
+    const { spokenName } = await import('../src/lib/vapi/render-assistant-config')
+    const pathological = `${'  '.repeat(5000)}A & B`
+    const started = Date.now()
+    expect(spokenName(pathological)).toBe('A and B')
+    expect(Date.now() - started).toBeLessThan(250)
+  })
+})

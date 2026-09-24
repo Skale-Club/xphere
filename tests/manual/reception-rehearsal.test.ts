@@ -10,6 +10,12 @@
 // a price it should not, or offers a meeting time it cannot keep, is a
 // customer hearing it.
 //
+// The model is not deterministic: two runs of the same scenario differ in
+// wording, and occasionally in whether a tool is called at all. Write the
+// expectations as rules a good receptionist always follows, never as one
+// transcript — and read a single failure as "look at what it said", not
+// "the prompt is broken".
+//
 //   VOICE_REHEARSAL_ORG_ID=… VOICE_REHEARSAL_ASSISTANT_ID=… \
 //     npx vitest run --config vitest.manual.config.ts tests/manual/reception-rehearsal.test.ts
 //
@@ -44,7 +50,7 @@ const SCENARIOS: Scenario[] = [
   {
     name: 'EN — asks the published price of a product',
     turns: ['Hi, how much is Xkedule?'],
-    mustSay: [/89|eighty[- ]nine|oitenta e nove/i],
+    mustSay: [/\b89\b|eighty[- ]nine|oitenta e nove/i],
   },
   {
     name: 'PT — quer 200 chaveiros e um preço fechado',
@@ -55,7 +61,7 @@ const SCENARIOS: Scenario[] = [
     // Everything about keychains is an estimate — nothing said on a call is final.
     mustSay: [/estimativa|estimado|depende|n[ãa]o posso garantir/i],
     // A total for 200 pieces would be a number nobody can stand behind.
-    mustNotSay: [/\$\s?\d{3,}/, /(mil|dois mil|1\.?\d{3})\s*(d[óo]lares|reais)/i],
+    mustNotSay: [/\$\s?\d{3,}/, /\b(mil|dois mil|1\.?\d{3})\s*(d[óo]lares|reais)/i],
   },
   {
     name: 'EN — asks for a meeting at a specific time',
@@ -63,19 +69,39 @@ const SCENARIOS: Scenario[] = [
       'Can I book a meeting with someone tomorrow at 3pm?',
       "Sure — I'm John, from Bella Pizza. We want help with Google Ads.",
     ],
-    // A meeting request is a lead. If it ends the call without being written
-    // down, nobody ever knows it happened.
-    mustCall: ['save_caller_message'],
-    // Repeating back the time the caller themselves proposed is fine — saying
-    // it is theirs is not. It cannot see anybody's calendar.
-    mustNotSay: [/\b(booked|scheduled you|i have you down|confirmed for|available at)\b/i],
-    mustSay: [/team|someone|get back|reach out/i],
+    // It can book now — so it must LOOK before it answers. The failure mode
+    // this guards is agreeing to the time the caller proposed without ever
+    // checking whether it is open.
+    mustCall: ['check_meeting_times'],
+    mustNotCall: ['book_meeting'], // no email yet, and no read-back
+    mustNotSay: [/\b(you're booked|i have you down|all set for)\b/i],
   },
   {
     name: 'PT — cliente com problema',
     turns: ['Meu site que vocês fizeram saiu do ar hoje de manhã.', 'Tá, meu nome é Marcos, da Pizzaria Bella.'],
     mustCall: ['save_caller_message'],
-    mustNotSay: [/reinicie|limpe o cache|DNS|hospedagem|propaga[çc][ãa]o/i],
+    // Asking what they see on screen is the job — it is what the team needs.
+    // Telling them to go do something, or naming a cause, is not: this
+    // receptionist cannot see the site and would be guessing out loud.
+    mustNotSay: [
+      /\b(reinicie|reinicia|limpe|limpa) (o |a )?(cache|roteador|servidor)/i,
+      /\b(tente|tenta) (de novo|novamente|abrir em)/i,
+      /\b(o problema|a causa) (é|deve ser|foi)/i,
+      /\bdeve ser (o|a|um|uma) (DNS|hospedagem|servidor|certificado)/i,
+    ],
+  },
+  {
+    name: 'EN — books the intro call',
+    turns: [
+      'Hi, can I talk to someone about running ads for my restaurant?',
+      "I'm John from Bella Pizza. Next Tuesday works.",
+      'The morning one is good.',
+      'john at bellapizza dot com.',
+      "Yes, that's right.",
+    ],
+    // It must look before it offers, and read back before it books.
+    mustCall: ['check_meeting_times'],
+    mustNotSay: [/\byou're booked\b|\ball set for\b/i],
   },
   {
     name: 'EN — robocall / wrong number',
