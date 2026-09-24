@@ -64,8 +64,14 @@ function toStringMap(variables: Record<string, unknown> | undefined): Record<str
   return out
 }
 
-/** E.164-ish: a leading + and 8-15 digits. The dialler gets nothing else. */
-function normalisePhone(raw: string): string | null {
+/**
+ * E.164-ish: a leading + and 8-15 digits. The dialler gets nothing else.
+ *
+ * Takes `unknown` on purpose — the value arrives from a workflow's params,
+ * which are JSON, so the declared type is a promise the runtime does not keep.
+ */
+function normalisePhone(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
   const trimmed = raw.trim().replace(/[\s()-]/g, '')
   if (!/^\+\d{8,15}$/.test(trimmed)) return null
   return trimmed
@@ -86,7 +92,7 @@ export async function executeCampaignEnrollCall(
 
   if (isDemoOrg(orgId)) return miss('skipped_demo_org')
 
-  const e164 = typeof phone === 'string' ? normalisePhone(phone) : null
+  const e164 = normalisePhone(phone)
   if (!e164) return miss('skipped_no_phone', 'phone must be E.164, e.g. +5511987654321')
 
   if (!campaignId && !campaignName?.trim()) {
