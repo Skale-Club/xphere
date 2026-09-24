@@ -117,13 +117,22 @@ describe('formatWhatsapp', () => {
     expect(chunks[0]).toEqual({ type: 'text', text: 'Hello there' })
   })
 
-  it('strips markdown from output', () => {
-    const chunks = formatWhatsapp('**Bold** and *italic* text')
+  it('converts markdown to WhatsApp markup', () => {
+    const chunks = formatWhatsapp('## Price\n**Bold**, __under__ and ~~old~~ text')
     const first = chunks[0]
-    expect(first.type).toBe('text')
     if (first.type !== 'text') throw new Error('expected text chunk')
-    expect(first.text).not.toContain('**')
-    expect(first.text).not.toContain('*italic*')
+    expect(first.text).toBe('Price\n*Bold*, _under_ and ~old~ text')
+  })
+
+  it('keeps URLs (bare and markdown links)', () => {
+    const chunks = formatWhatsapp(
+      'Order here: https://skale.club/br/nfc-order and [the page](https://skale.club/nfc-keychains)',
+    )
+    const first = chunks[0]
+    if (first.type !== 'text') throw new Error('expected text chunk')
+    expect(first.text).toBe(
+      'Order here: https://skale.club/br/nfc-order and the page: https://skale.club/nfc-keychains',
+    )
   })
 
   it('splits 3000-char text into chunks of ≤1600 chars (Success Criterion 5)', () => {
