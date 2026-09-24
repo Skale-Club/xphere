@@ -173,7 +173,7 @@ const PERSONAS: VoicePersona[] = [
       'sobre produtos e serviços, registra no CRM e encaminha para a equipe. Chaveiro NFC é um assunto ' +
       'entre outros, e tudo sobre ele é estimativa.',
     promptFile: 'reception.md',
-    assistantName: 'Skale Club | Receptionist | EN',
+    assistantName: 'Skale Club | Receptionist | PT-EN',
     existingAssistantId: '80dd9b79-fd39-457c-834a-7b0dd217fee4',
     // Deepgram nova-3 multilingual: whoever calls is answered in their own
     // language without anyone choosing one beforehand.

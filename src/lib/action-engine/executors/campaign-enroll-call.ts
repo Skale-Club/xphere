@@ -82,8 +82,17 @@ export async function executeCampaignEnrollCall(
 ): Promise<ExecuteCampaignEnrollCallResult> {
   const { orgId, campaignId, campaignName, phone, name, contactId, variables } = params
   const onDuplicate = params.onDuplicate ?? 'skip'
+  // A policy outcome is a success: the platform decided not to dial and that
+  // decision is the correct result. A bad phone number is NOT one of those —
+  // it is a data error, and reporting it as ok:true is how an unreachable
+  // customer disappears from a green workflow run.
+  const POLICY_OUTCOMES: CampaignEnrollCallStatus[] = [
+    'skipped_dnd',
+    'skipped_duplicate',
+    'skipped_demo_org',
+  ]
   const miss = (status: CampaignEnrollCallStatus, error?: string): ExecuteCampaignEnrollCallResult => ({
-    ok: status !== 'failed',
+    ok: POLICY_OUTCOMES.includes(status),
     error,
     status,
     campaignId: null,
@@ -107,26 +116,57 @@ export async function executeCampaignEnrollCall(
   // The first do-not-disturb check on the voice path. Until now only send_sms
   // honoured it, so a contact who asked not to be contacted could still be
   // dialled by a campaign.
-  const dnd = await checkDnd(contactId ?? null, 'calls', supabase)
+  //
+  // DND lives on a contact, but what gets dialled is a phone number, and the
+  // two arrive as separate parameters. A caller that passes only the number —
+  // which is every workflow that enrols from a form submission — would slip
+  // past a DND flag set on the very person it is about to ring. So when no
+  // contact was named, find the one that owns this number first.
+  let dndContactId = contactId ?? null
+  if (!dndContactId) {
+    // NB: contacts is scoped by `org_id`; campaign_contacts by
+    // `organization_id`. The two tables really do differ.
+    const { data: byPhone } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('phone', e164)
+      .limit(1)
+      .maybeSingle()
+    dndContactId = byPhone?.id ?? null
+  }
+  const dnd = await checkDnd(dndContactId, 'calls', supabase)
   if (dnd.blocked) return miss('skipped_dnd')
 
   // Resolve, never create. Creating a campaign here would mean choosing an
   // assistant and a caller-id number on the tenant's behalf, and a typo in
   // campaign_name would silently produce an un-dialable campaign nobody is
   // looking at. A missing campaign is a failure the workflow run should show.
+  //
+  // Two rows are fetched on purpose. Campaign names are not unique, so
+  // .maybeSingle() on a duplicated name answers with PGRST116 — "JSON object
+  // requested, multiple rows returned" — which tells whoever reads the run
+  // nothing about what to do. Ask for two and say the real thing.
   const query = supabase
     .from('campaigns')
     .select('id, status, started_at, vapi_assistant_id, vapi_phone_number_id')
     .eq('organization_id', orgId)
     .eq('channel', 'calls')
-  const { data: campaign, error: campaignErr } = campaignId
-    ? await query.eq('id', campaignId).maybeSingle()
-    : await query.eq('name', campaignName!.trim()).maybeSingle()
+  const { data: matches, error: campaignErr } = campaignId
+    ? await query.eq('id', campaignId).limit(2)
+    : await query.eq('name', campaignName!.trim()).limit(2)
 
   if (campaignErr) return miss('failed', campaignErr.message)
-  if (!campaign) {
+  if (!matches || matches.length === 0) {
     return miss('failed', `No calls campaign named "${campaignName ?? campaignId}" in this organization.`)
   }
+  if (matches.length > 1) {
+    return miss(
+      'failed',
+      `More than one calls campaign is named "${campaignName}". Enrol by campaign_id, or rename one of them.`,
+    )
+  }
+  const campaign = matches[0]
   if (!campaign.vapi_assistant_id || !campaign.vapi_phone_number_id) {
     // startCampaignBatch would log and no-op, which looks like nothing
     // happened at all. Say it here instead.
@@ -185,7 +225,14 @@ export async function executeCampaignEnrollCall(
       .maybeSingle()
 
     if (requeueErr) return miss('failed', requeueErr.message)
-    campaignContactId = requeued?.id ?? null
+    if (!requeued?.id) {
+      // The insert hit the unique constraint, so the row existed a moment ago;
+      // the update matched nothing, so it is gone now. Nothing is queued.
+      // Reporting 'requeued' with a null id here would claim a callback that
+      // no dialler will ever pick up.
+      return miss('failed', 'The existing queue entry vanished mid-enrolment. Nothing was queued; try again.')
+    }
+    campaignContactId = requeued.id
     status = 'requeued'
   }
 
@@ -196,7 +243,14 @@ export async function executeCampaignEnrollCall(
   // land in between, find zero pending rows, and complete the campaign again —
   // with this enrolment inside it, invisible until someone notices the phone
   // never rang.
-  if (campaign.status !== 'in_progress') {
+  //
+  // ONLY from 'completed'. Every other status is somebody's decision, and the
+  // one that matters is 'paused': an operator pauses a campaign precisely to
+  // stop it dialling, and the runbook tells them to. Waking it here because a
+  // new order arrived would undo that from behind — the phone starts ringing
+  // again and nobody touched the campaign. 'draft' and 'scheduled' are the
+  // same story: a campaign nobody has launched yet must not launch itself.
+  if (campaign.status === 'completed') {
     const { error: armErr } = await supabase
       .from('campaigns')
       .update({
@@ -206,6 +260,9 @@ export async function executeCampaignEnrollCall(
         updated_at: nowIso,
       })
       .eq('id', campaign.id)
+      // Re-check the status in the WHERE clause: if somebody paused the
+      // campaign between the SELECT above and this UPDATE, their pause wins.
+      .eq('status', 'completed')
     if (armErr) return { ok: false, error: armErr.message, status: 'failed', campaignId: campaign.id, campaignContactId }
   }
 
