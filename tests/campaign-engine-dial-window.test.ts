@@ -125,7 +125,7 @@ describe('startCampaignBatch and the dialling window', () => {
     expect(writes.some((w) => w.table === 'campaigns' && w.payload.status === 'completed')).toBe(true)
   })
 
-  it('dials any time when no window is configured — every campaign before 1301', async () => {
+  it('dials any time when no window is configured — every campaign before 1303', async () => {
     vi.setSystemTime(new Date('2026-09-25T04:00:00Z'))
     scenario.campaign.dial_window = {}
     const result = await startCampaignBatch('camp-pt', fakeClient(), 'key')

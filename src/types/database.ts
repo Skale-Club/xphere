@@ -632,7 +632,7 @@ export interface Database {
           address_country: string | null
           timezone: string
           settings: Json
-          /** Migration 1301: window a new campaign seeds its dial_window from. */
+          /** Migration 1303: window a new campaign seeds its dial_window from. */
           default_dial_window: Json
           trial_ends_at: string | null
           plan_override: string | null
@@ -4597,7 +4597,7 @@ export interface Database {
           // migration 1100: WhatsApp Cloud template
           whatsapp_template_id: string | null
           whatsapp_variable_mapping: Json | null
-          // migration 1301: dialling window, redial policy, standing queue
+          // migration 1303: dialling window, redial policy, standing queue
           dial_window: Json
           retry_policy: Json
           is_evergreen: boolean
@@ -4748,7 +4748,7 @@ export interface Database {
           called_at: string | null
           completed_at: string | null
           retry_count: number
-          // migration 1301: earliest this pending row may be dialled (NULL = now)
+          // migration 1303: earliest this pending row may be dialled (NULL = now)
           next_attempt_at: string | null
           created_at: string
           updated_at: string

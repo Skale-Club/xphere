@@ -3,7 +3,7 @@
 // The default is deliberately "no". The campaign-tick route says why in its
 // own header — re-dialling automatically has consent implications — so the
 // behaviour is off until a campaign carries a retry_policy, and every campaign
-// that existed before migration 1301 carries `{}`.
+// that existed before migration 1303 carries `{}`.
 //
 // Voicemail is excluded on purpose: mapEndedReasonToStatus folds it into
 // no_answer, but calling back someone whose voicemail you just filled is worse
@@ -96,7 +96,7 @@ describe('auto-completing the campaign when its queue empties', () => {
   })
 })
 
-describe('no-answer with no retry policy — every campaign before 1301', () => {
+describe('no-answer with no retry policy — every campaign before 1303', () => {
   it('leaves the contact as no_answer', async () => {
     await updateCampaignContactFromReport(report('customer-did-not-answer'), fakeClient())
     expect(contactUpdate).toMatchObject({ status: 'no_answer' })

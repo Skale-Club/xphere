@@ -92,7 +92,7 @@ export async function startCampaignBatch(
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
     // A contact queued for a retry is pending but not yet due. NULL is every
-    // row written before migration 1301, and means due now.
+    // row written before migration 1303, and means due now.
     .or(`next_attempt_at.is.null,next_attempt_at.lte.${new Date().toISOString()}`)
     .limit(batchSize)
 

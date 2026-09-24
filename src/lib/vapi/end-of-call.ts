@@ -290,7 +290,7 @@ const DEFAULT_BACKOFF_MINUTES = [30, 240]
 /**
  * Decides whether a no-answer gets another try, and when.
  *
- * Returns null — the pre-1301 behaviour — whenever the campaign has no retry
+ * Returns null — the pre-1303 behaviour — whenever the campaign has no retry
  * policy, the contact has used up its attempts, or the call reached voicemail.
  * Voicemail is deliberately excluded: the outcome mapping folds it into
  * `no_answer`, but re-dialling someone whose voicemail you just filled is
@@ -356,7 +356,7 @@ export async function updateCampaignContactFromReport(
 
   // Nobody picked up. Whether that is the end of it depends on the campaign's
   // own retry policy, which defaults to {} -- no retries, exactly the
-  // behaviour every campaign had before migration 1301. Re-dialling has
+  // behaviour every campaign had before migration 1303. Re-dialling has
   // consent implications (the reason the campaign-tick route called it out of
   // scope), so it stays something an operator turns on per campaign.
   let nextAttemptAt: string | null = null

@@ -1,4 +1,4 @@
--- Migration 1301: a dialling window, a redial policy, and the action that
+-- Migration 1303: a dialling window, a redial policy, and the action that
 -- queues a callback.
 --
 -- Everything here is additive, and every default reproduces today's behaviour
@@ -42,13 +42,13 @@ CREATE INDEX IF NOT EXISTS idx_campaign_contacts_pending_due
   WHERE status = 'pending';
 
 COMMENT ON COLUMN public.campaigns.dial_window IS
-  'Business-hours window this campaign may dial in. {} means no restriction (behaviour before 1301). '
+  'Business-hours window this campaign may dial in. {} means no restriction (behaviour before 1303). '
   '{"timezone":"America/Sao_Paulo","days":{"monday":[["09:00","18:00"]],"sunday":[]},"blackout_dates":["2026-12-25"]}. '
   'A day with no entry is closed. Shape validated in src/lib/campaigns/dial-window.ts, which fails OPEN on a '
   'malformed value so a typo cannot silently stop every campaign.';
 
 COMMENT ON COLUMN public.campaigns.retry_policy IS
-  'Redial policy for a contact nobody answered. {} means no retries (behaviour before 1301). '
+  'Redial policy for a contact nobody answered. {} means no retries (behaviour before 1303). '
   '{"no_answer_max":2,"backoff_minutes":[30,240]}. no_answer_max is additionally clamped by '
   'campaign_contacts.retry_count CHECK (retry_count <= 2) from migration 005. Voicemail is never retried.';
 
@@ -60,5 +60,5 @@ COMMENT ON COLUMN public.organizations.default_dial_window IS
   'Window a newly created campaign starts from. Purely a seed for the campaign-level column; the engine never reads it.';
 
 COMMENT ON COLUMN public.campaign_contacts.next_attempt_at IS
-  'Earliest this pending contact may be dialled. NULL = due now, which is every row written before 1301. '
+  'Earliest this pending contact may be dialled. NULL = due now, which is every row written before 1303. '
   'Set when a no-answer is queued for a retry.';
