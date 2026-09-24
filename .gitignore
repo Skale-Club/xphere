@@ -48,3 +48,4 @@ public/workbox-*.js
 public/serwist-*.js
 scripts/.disabled-cross-tenant-workflows.json
 scripts/.disabled-sms-without-sender.json
+scripts/.skleanings-number-state.json

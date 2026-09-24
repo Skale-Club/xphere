@@ -18,19 +18,36 @@
 //   npx tsx --env-file=.env.local scripts/skleanings-point-number-at-robot.ts --apply
 //   npx tsx --env-file=.env.local scripts/skleanings-point-number-at-robot.ts --revert
 
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 
 const ORG_ID = '24552ef3-de77-4fba-a2c3-148cd58d8750'
 const NUMBER = '+15088127211'
-const PHONE_SID = 'PN2847c357527504dcae0b87e3adc754c8'
 const ASSISTANT_ID = '7dc23636-a684-48f7-a82f-37062c5b5d00'
 /** Where a call goes when Vapi cannot take it. */
 const FALLBACK = '+15087402109'
-/** The Studio Flow this number answered into before Vapi took the webhook. */
-const ORIGINAL_STUDIO_FLOW_SID = 'FWb9feb9eb67bca9013f43a401b6947460'
-const studioFlowUrl = (accountSid: string) =>
-  `https://webhooks.twilio.com/v1/Accounts/${accountSid}/Flows/${ORIGINAL_STUDIO_FLOW_SID}`
+/**
+ * The Twilio voice webhook as it was before --apply rewrote it, so --revert can
+ * put it back. Written by --apply, read by --revert; never a constant in the
+ * repo — Twilio resource ids look like secrets to a scanner, and the value
+ * belongs to the account, not to the code.
+ */
+const STATE_FILE = 'scripts/.skleanings-number-state.json'
+
+/** Twilio's own record for the number — its sid and current webhooks, looked up by E.164. */
+async function twilioNumber(accountSid: string, basicAuth: string) {
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(NUMBER)}`,
+    { headers: { Authorization: `Basic ${basicAuth}` } },
+  )
+  const body = (await res.json()) as {
+    incoming_phone_numbers?: { sid: string; phone_number: string; friendly_name: string; voice_url: string; sms_url: string }[]
+  }
+  const row = body.incoming_phone_numbers?.[0]
+  if (!row) throw new Error(`${NUMBER} is not in Twilio account ${accountSid.slice(0, 6)}…`)
+  return row
+}
 
 async function main() {
   const apply = process.argv.includes('--apply')
@@ -56,14 +73,10 @@ async function main() {
   const blob = JSON.parse(await decrypt(twilioIntegration!.encrypted_api_key!)) as Record<string, string>
   const twilioAuth = Buffer.from(`${blob.account_sid}:${blob.auth_token}`).toString('base64')
 
-  const twilioNumber = (await (
-    await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
-      { headers: { Authorization: `Basic ${twilioAuth}` } },
-    )
-  ).json()) as { phone_number?: string; friendly_name?: string; voice_url?: string }
-  console.log(`twilio : ${twilioNumber.phone_number} "${twilioNumber.friendly_name}"`)
-  console.log(`         voice_url now: ${twilioNumber.voice_url}`)
+  const tw = await twilioNumber(blob.account_sid, twilioAuth)
+  const numberUrl = `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${tw.sid}.json`
+  console.log(`twilio : ${tw.phone_number} "${tw.friendly_name}"`)
+  console.log(`         voice_url now: ${tw.voice_url}`)
 
   const existing = (await (
     await fetch('https://api.vapi.ai/phone-number?limit=50', { headers: { Authorization: `Bearer ${vapiKey}` } })
@@ -79,15 +92,14 @@ async function main() {
       })
       console.log(`removed from Vapi -> ${del.status}`)
     }
-    const put = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ VoiceUrl: studioFlowUrl(blob.account_sid), VoiceMethod: 'POST' }),
-      },
-    )
-    console.log(`twilio voice_url restored -> ${put.status}`)
+    if (!existsSync(STATE_FILE)) throw new Error(`no ${STATE_FILE} — --apply never ran here, nothing to restore`)
+    const saved = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as { voiceUrl: string; smsUrl: string }
+    const put = await fetch(numberUrl, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ VoiceUrl: saved.voiceUrl, VoiceMethod: 'POST', SmsUrl: saved.smsUrl, SmsMethod: 'POST' }),
+    })
+    console.log(`twilio webhooks restored -> ${put.status} (voice ${saved.voiceUrl})`)
     await sb.from('twilio_phone_numbers').update({ vapi_phone_number_id: null, vapi_assistant_id: null, provider: 'twilio' }).eq('organization_id', ORG_ID).eq('e164', NUMBER)
     console.log('reverted.')
     return
@@ -100,6 +112,14 @@ async function main() {
     console.log(`\nThis REWRITES the Twilio voice webhook away from the Studio Flow.`)
     console.log('DRY RUN — pass --apply.')
     return
+  }
+
+  // Remember what Twilio had BEFORE anything is rewritten, so --revert has a
+  // target. Only on the first apply — a re-run must not overwrite the original
+  // with the Vapi URLs it is about to set.
+  if (!existsSync(STATE_FILE)) {
+    writeFileSync(STATE_FILE, JSON.stringify({ voiceUrl: tw.voice_url, smsUrl: tw.sms_url, savedAt: new Date().toISOString() }, null, 1), 'utf8')
+    console.log(`saved previous webhooks to ${STATE_FILE}`)
   }
 
   let vapiPhoneId = alreadyOnVapi?.id
@@ -153,7 +173,7 @@ async function main() {
     await sb.from('twilio_phone_numbers').insert({
       organization_id: ORG_ID,
       e164: NUMBER,
-      phone_sid: PHONE_SID,
+      phone_sid: tw.sid,
       friendly_name: 'Skleanings | Cleaning',
       capability_voice: true,
       capability_sms: true,
@@ -171,22 +191,14 @@ async function main() {
   // Twilio number is the identity (it carries the A2P registration and the
   // local presence); Vapi is only the voice engine behind it. Give messaging
   // back.
-  const smsBack = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ SmsUrl: 'https://xphere.app/api/twilio/sms', SmsMethod: 'POST' }),
-    },
-  )
+  const smsBack = await fetch(numberUrl, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${twilioAuth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ SmsUrl: 'https://xphere.app/api/twilio/sms', SmsMethod: 'POST' }),
+  })
   console.log(`sms webhook returned to xphere -> ${smsBack.status}`)
 
-  const after = (await (
-    await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${blob.account_sid}/IncomingPhoneNumbers/${PHONE_SID}.json`,
-      { headers: { Authorization: `Basic ${twilioAuth}` } },
-    )
-  ).json()) as { voice_url?: string; sms_url?: string }
+  const after = await twilioNumber(blob.account_sid, twilioAuth)
   console.log(`\ntwilio voice_url now: ${after.voice_url}`)
   console.log(`twilio sms_url   now: ${after.sms_url}`)
   console.log(`done — ${NUMBER} answers with the robot, falling back to ${FALLBACK}.`)
