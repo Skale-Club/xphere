@@ -59,6 +59,9 @@ nodes:
     confirmationToken: "{{input.confirmationToken}}"
     # The gate: on a phone call, check the transcript before writing anything.
     require_voice_confirmation: true
+    # Said out loud if the booking throws. It must not sound like a
+    # confirmation: nothing was written.
+    fallback_message: "Não consegui marcar agora. Nada ficou agendado — vou passar para o time confirmar com você."
 
 edges:
   - from: trigger

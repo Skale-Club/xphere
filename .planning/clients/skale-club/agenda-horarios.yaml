@@ -29,6 +29,9 @@ nodes:
     event_type: conversa-inicial
     date: "{{input.date}}"
     limit: 4
+    # What the assistant says if the lookup fails. Without it the tool
+    # answers with an empty string and the robot goes silent on the call.
+    fallback_message: "Não consegui ver a agenda agora. Vou anotar e alguém do time confirma o horário com você."
 
 edges:
   - from: trigger
