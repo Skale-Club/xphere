@@ -27,6 +27,8 @@ que ainda não está pronto.
 |---|---|
 | Assistente Vapi — Recepção | `80dd9b79-fd39-457c-834a-7b0dd217fee4` (o que atende `+1 312 878-0637`) |
 | Agente (prompt) — Recepção | slug `voz-recepcao`, bilíngue, com `save_caller_message` |
+| Agente (prompt) — Agendamento | slug `voz-agendamento`, delegado pela recepção, com `check_meeting_times` e `book_meeting` |
+| Tipo de evento | `conversa-inicial` — 30 min, vídeo, seg–sex 09:00–17:00 (Nova York) |
 | Assistente Vapi — PT | `d8b13b3b-980d-4269-a64f-393343a01ad1` |
 | Assistente Vapi — EN | `efcd8778-7497-49c8-9082-fe2e59ca0081` |
 | Agente (prompt) — PT | slug `voz-callback-nfc-pt` |
@@ -73,8 +75,20 @@ nada além disso, trata qualquer número de chaveiro como estimativa, e registra
 a ligação com `save_caller_message` — o que abre tarefa, e-mail e Telegram pela
 automação que já existia.
 
-Ela **não** agenda: não enxerga agenda nenhuma, então pedido de reunião vira
-recado.
+**Ela agenda.** Quando a pessoa quer falar com o time, a recepção passa a
+ligação para o **especialista de agendamento** (agente `voz-agendamento`, ligado
+por delegação — o chamador continua na mesma linha e com a mesma voz). Ele
+consulta a agenda de verdade, oferece dois horários, pega o e-mail, lê tudo de
+volta e só então marca.
+
+O único compromisso que ele marca é a **Conversa inicial**: 30 minutos, por
+vídeo, seg–sex 09:00–17:00 no fuso de Nova York. Página pública da mesma agenda:
+<https://xphere.app/book/vanildo/conversa-inicial>.
+
+Numa ligação ele **não consegue** marcar sem ler os detalhes de volta e ouvir um
+sim — a checagem lê a transcrição da chamada, então o robô não tem como se
+autoconvencer. Sem e-mail também não marca: é para onde vai o convite e o link
+do vídeo.
 
 **Antes de mudar o roteiro dela, ensaie:**
 
@@ -88,11 +102,12 @@ garantia de carro virando contato no CRM.
 
 ## O que ainda não está pronto
 
-- **Agendar reunião.** O especialista que deveria cuidar disso ainda não existe,
-  e antes dele falta a agenda: a org não tem perfil de calendário, tipo de
-  evento nem disponibilidade no Xphere (`booking_enabled: false` no site), o
-  GoHighLevel responde *"Location is not active"*, e a agenda nativa do Xphere
-  não tem ações de workflow — só Xkedule e GHL têm.
+- **O GoHighLevel da org está morto** — responde *"Location is not active"*.
+  Nada depende dele hoje (a agenda é a nativa do Xphere), mas a integração
+  continua marcada como ativa e vai enganar quem olhar.
+- **O site ainda não oferece agendamento** (`booking_enabled: false` no
+  `xphere_settings`), então quem entra pelo formulário não vê a mesma agenda
+  que o robô usa.
 - **A base de conhecimento da org está vazia** (só `dummy` e `test`). Hoje tudo
   que a recepção sabe está no próprio prompt, o que é aceitável para um
   catálogo pequeno e pára de escalar quando ele crescer.
