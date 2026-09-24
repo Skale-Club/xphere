@@ -181,6 +181,17 @@ function existingToolServersOf(current: VapiAssistantGetResponse): Record<string
  * by tool name, so a push preserves them instead of flattening every tool to
  * the generic fallback.
  */
+/**
+ * The summary plan the assistant already carries, if any. Same reasoning as
+ * existingToolMessagesOf(): this module has no way to know what a tenant's
+ * team reads off a call, and replacing a hand-written phone-message format
+ * with the provider's default is a regression every time.
+ */
+function existingSummaryPlan(current: VapiAssistantGetResponse): unknown {
+  const plan = (current as { analysisPlan?: { summaryPlan?: unknown } }).analysisPlan
+  return plan?.summaryPlan
+}
+
 function existingToolMessagesOf(current: VapiAssistantGetResponse): Record<string, VapiToolMessage[]> {
   const tools = (current.model?.tools ?? []) as VapiExistingTool[]
   const byName: Record<string, VapiToolMessage[]> = {}
@@ -644,7 +655,7 @@ export async function pushAssistantConfig(
       transcriber: buildTranscriber(voiceOptions, keyterms),
       backgroundSpeechDenoisingPlan: DEFAULT_DENOISING_PLAN,
       messagePlan: buildMessagePlan(voiceOptions),
-      analysisPlan: buildAnalysisPlan(voiceOptions),
+      analysisPlan: buildAnalysisPlan(voiceOptions, existingSummaryPlan(current)),
       ...assistantServer,
     }
 
