@@ -158,6 +158,8 @@ src/
   components/layout/   AppSidebar, OrgSwitcher
   components/ui/       shadcn primitives
   lib/action-engine/   Action dispatch engine (webhook → action routing)
+  lib/ads/commands/    Ads Command Engine — the ONLY path that writes to Google/Meta Ads
+  lib/ads/providers/   Google/Meta adapters (snapshot, plan, validate, execute, verify, rollback)
   lib/campaigns/       outbound campaign engine
   lib/ghl/             GoHighLevel API
   lib/knowledge/       embeddings + semantic search
@@ -169,6 +171,7 @@ supabase/
   functions/           Deno edge functions
 docs/
   api/public-api.md    Full public API reference for integrators
+  ads/control-plane.md Ads Command Engine: ledger, policies, commands, MCP flow
 tests/                 Vitest tests
 ```
 
@@ -229,3 +232,6 @@ When you need to author a workflow (manually, via Copilot, or from a Claude Code
 - `src/lib/crypto.ts` - do not change the encryption format
 - `supabase/migrations/` - never edit old migrations; add new ones
 - `src/app/api/vapi/` - keep webhook handlers fast and Node.js-compatible
+- Ad-platform writes - never call Google Ads `:mutate` or Meta Graph `POST` from a
+  route, tool or workflow; submit a command to `src/lib/ads/commands/engine.ts`
+  (see `docs/ads/control-plane.md`) so it gets policy, ledger and read-back

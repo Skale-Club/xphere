@@ -1,281 +1,340 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
-// Everything below the route boundary is stubbed so the test exercises the
-// route's own decisions: permission gate, budget ceiling, currency conversion,
-// and whether an audit record is written.
+// The legacy /api/ads/{google,meta}/campaigns routes are now thin wrappers over
+// the Ads Command Engine (submitChange): they resolve the dashboard actor, map
+// their old request shape onto a typed command, and hand the HTTP status back
+// to engineResponse. Everything below the route boundary — policy, provider
+// calls, the ledger — belongs to the engine's own tests; this file only
+// protects the route's own decisions: the auth/permission gate, request
+// validation, command mapping (including the legacy field names), and that
+// engineResponse's status mapping is wired in correctly.
 
-const canMock = vi.fn()
-const getUserMock = vi.fn()
-const recordMutationMock = vi.fn()
-const updateStatusMock = vi.fn()
-const updateBudgetMock = vi.fn()
-const getCampaignMock = vi.fn()
-const getAccountInfoMock = vi.fn()
-const invalidateMock = vi.fn()
+const dashboardActorMock = vi.fn()
+const submitChangeMock = vi.fn()
+const rpcMock = vi.fn()
 
-const connectionRow = { encrypted_access_token: 'encrypted' }
-let connectionResult: { data: typeof connectionRow | null } = { data: connectionRow }
+vi.mock('@/lib/ads/commands/actors', () => ({
+  dashboardActor: () => dashboardActorMock(),
+}))
 
-vi.mock('@/lib/rbac/server', () => ({ can: (key: string) => canMock(key) }))
+vi.mock('@/lib/ads/commands/engine', () => ({
+  submitChange: (...args: unknown[]) => submitChangeMock(...args),
+}))
 
 vi.mock('@/lib/supabase/server', () => ({
-  getUser: () => getUserMock(),
-  createClient: async () => ({
-    rpc: async () => ({ data: 'org-1' }),
-    from: () => {
-      const builder: Record<string, unknown> = {}
-      for (const m of ['select', 'eq']) builder[m] = vi.fn(() => builder)
-      builder.maybeSingle = async () => connectionResult
-      return builder
-    },
-  }),
+  createClient: async () => ({ rpc: (...args: unknown[]) => rpcMock(...args) }),
 }))
 
-vi.mock('@/lib/crypto', () => ({ decrypt: async () => 'plaintext-token' }))
+const ACTOR = { type: 'user' as const, id: 'user-1', label: 'user:user-1', canManage: true, canApprove: true }
 
-vi.mock('@/lib/ads/journey-db', () => ({
-  recordMutationExecution: (args: unknown) => recordMutationMock(args),
-}))
-
-vi.mock('@/lib/ads/cache', () => ({
-  invalidateAccountReports: (...args: unknown[]) => invalidateMock(...args),
-  cachedReport: async (_k: unknown, f: () => unknown) => f(),
-  ADS_CACHE_TTL_SECONDS: 120,
-  ADS_CACHE_TTL_HISTORICAL_SECONDS: 900,
-}))
-
-vi.mock('@/lib/ads/connection-health', () => ({
-  withConnectionHealth: async (_p: unknown, op: () => Promise<unknown>) => op(),
-}))
-
-vi.mock('@/lib/api-error', () => ({ captureApiError: vi.fn() }))
-
-vi.mock('@/lib/ads/meta-api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/ads/meta-api')>('@/lib/ads/meta-api')
+function succeeded(overrides: Record<string, unknown> = {}) {
   return {
-    ...actual,
-    updateCampaignStatus: (...a: unknown[]) => updateStatusMock(...a),
-    updateCampaignDailyBudget: (...a: unknown[]) => updateBudgetMock(...a),
-    getCampaign: (...a: unknown[]) => getCampaignMock(...a),
-    getAdAccountInfo: (...a: unknown[]) => getAccountInfoMock(...a),
+    ok: true,
+    change: {
+      id: 'change-1',
+      status: 'succeeded',
+      approval_required: false,
+      ...overrides,
+    },
   }
-})
-
-import { POST } from '@/app/api/ads/meta/campaigns/route'
-
-function request(body: unknown): Request {
-  return new Request('https://xphere.app/api/ads/meta/campaigns', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-}
-
-const VALID_STATUS_BODY = {
-  action: 'set_status',
-  campaign_id: '120200000000000',
-  ad_account_id: 'act_123456789',
-  status: 'PAUSED',
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  connectionResult = { data: connectionRow }
-  getUserMock.mockResolvedValue({ id: 'user-1' })
-  canMock.mockResolvedValue(true)
-  updateStatusMock.mockResolvedValue({ success: true })
-  updateBudgetMock.mockResolvedValue({ success: true })
-  getCampaignMock.mockResolvedValue({
-    id: '120200000000000',
-    name: 'Prospecting BR',
-    status: 'ACTIVE',
-    effective_status: 'ACTIVE',
-    daily_budget: '5000',
-  })
-  getAccountInfoMock.mockResolvedValue({ id: 'act_123456789', name: 'Acme BR', currency: 'BRL', account_status: 1 })
-  delete process.env.ADS_MAX_DAILY_BUDGET
+  dashboardActorMock.mockResolvedValue(ACTOR)
+  rpcMock.mockResolvedValue({ data: 'org-1' })
+  submitChangeMock.mockResolvedValue(succeeded())
 })
 
-describe('Meta campaign mutations — access control', () => {
+function jsonRequest(url: string, body: unknown): Request {
+  return new Request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+// ─── Google route ─────────────────────────────────────────────────────────────
+
+describe('POST /api/ads/google/campaigns — access control', () => {
   it('rejects an unauthenticated caller', async () => {
-    getUserMock.mockResolvedValue(null)
-    const res = await POST(request(VALID_STATUS_BODY) as never)
+    dashboardActorMock.mockResolvedValue(null)
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_status',
+        customer_id: '1234567890',
+        campaign_id: '111',
+        status: 'PAUSED',
+      }) as never,
+    )
     expect(res.status).toBe(401)
-    expect(updateStatusMock).not.toHaveBeenCalled()
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 
   it('rejects a signed-in user without ads.manage', async () => {
-    // Reading performance and moving money are different privileges; before
-    // this gate any org member could pause a campaign.
-    canMock.mockResolvedValue(false)
-    const res = await POST(request(VALID_STATUS_BODY) as never)
+    dashboardActorMock.mockResolvedValue({ ...ACTOR, canManage: false })
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_status',
+        customer_id: '1234567890',
+        campaign_id: '111',
+        status: 'PAUSED',
+      }) as never,
+    )
     expect(res.status).toBe(403)
-    expect(updateStatusMock).not.toHaveBeenCalled()
-  })
-
-  it('checks the ads.manage permission specifically', async () => {
-    await POST(request(VALID_STATUS_BODY) as never)
-    expect(canMock).toHaveBeenCalledWith('ads.manage')
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 })
 
-describe('Meta campaign mutations — input validation', () => {
-  it('rejects a malformed ad account id', async () => {
-    const res = await POST(request({ ...VALID_STATUS_BODY, ad_account_id: '123456789' }) as never)
+describe('POST /api/ads/google/campaigns — validation and mapping', () => {
+  it('rejects a malformed customer id', async () => {
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_status',
+        customer_id: '123-456',
+        campaign_id: '111',
+        status: 'PAUSED',
+      }) as never,
+    )
     expect(res.status).toBe(400)
-    expect(updateStatusMock).not.toHaveBeenCalled()
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-numeric campaign id', async () => {
-    const res = await POST(request({ ...VALID_STATUS_BODY, campaign_id: "1' OR '1'='1" }) as never)
+  it('rejects a budget request with neither daily_budget nor daily_budget_usd', async () => {
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_budget',
+        customer_id: '1234567890',
+        campaign_id: '111',
+      }) as never,
+    )
     expect(res.status).toBe(400)
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a budget request with neither budget field', async () => {
-    const res = await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-    }) as never)
-    expect(res.status).toBe(400)
-    expect(updateBudgetMock).not.toHaveBeenCalled()
-  })
-
-  it('404s when the org has no active connection for the account', async () => {
-    connectionResult = { data: null }
-    const res = await POST(request(VALID_STATUS_BODY) as never)
-    expect(res.status).toBe(404)
-  })
-})
-
-describe('Meta campaign mutations — budget ceiling', () => {
-  it('refuses a budget above the ceiling', async () => {
-    // An extra zero should fail loudly, not become tomorrow's spend.
-    const res = await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 250_000,
-    }) as never)
-
-    expect(res.status).toBe(422)
-    expect(updateBudgetMock).not.toHaveBeenCalled()
-  })
-
-  it('honours a deployment-specific ceiling', async () => {
-    process.env.ADS_MAX_DAILY_BUDGET = '100'
-    const res = await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 500,
-    }) as never)
-
-    expect(res.status).toBe(422)
-    expect(updateBudgetMock).not.toHaveBeenCalled()
-  })
-
-  it('allows a budget within the ceiling', async () => {
-    const res = await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 80,
-    }) as never)
-
-    expect(res.status).toBe(200)
-    expect(updateBudgetMock).toHaveBeenCalled()
-  })
-})
-
-describe('Meta campaign mutations — currency handling', () => {
-  it('converts major units using the account currency', async () => {
-    await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 80,
-    }) as never)
-
-    // BRL has 100 minor units per major unit.
-    expect(updateBudgetMock).toHaveBeenCalledWith('120200000000000', 8000, 'plaintext-token')
-  })
-
-  it('passes legacy cents through unchanged', async () => {
-    await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget_cents: 7500,
-    }) as never)
-
-    expect(updateBudgetMock).toHaveBeenCalledWith('120200000000000', 7500, 'plaintext-token')
-  })
-
-  it('does not label a BRL budget with a dollar sign', async () => {
-    await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 80,
-    }) as never)
-
-    const audit = recordMutationMock.mock.calls[0][0]
-    expect(audit.afterValue).toContain('R$')
-    expect(audit.afterValue).not.toMatch(/^\$/)
-  })
-})
-
-describe('Meta campaign mutations — audit trail', () => {
-  it('records a pause with the before and after status', async () => {
-    // recordMutationExecution existed but was never called: pauses and budget
-    // changes made from the dashboard left no trace whatsoever.
-    await POST(request(VALID_STATUS_BODY) as never)
-
-    expect(recordMutationMock).toHaveBeenCalledTimes(1)
-    const audit = recordMutationMock.mock.calls[0][0]
-    expect(audit).toMatchObject({
+  it('maps set_status onto a google.campaign.set_status command with the resolved org', async () => {
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_status',
+        customer_id: '1234567890',
+        campaign_id: '111',
+        status: 'ENABLED',
+      }) as never,
+    )
+    expect(submitChangeMock).toHaveBeenCalledWith({
       orgId: 'org-1',
-      platform: 'meta',
-      toolName: 'pause_campaign',
-      campaignId: '120200000000000',
-      campaignName: 'Prospecting BR',
-      beforeValue: 'ACTIVE',
-      afterValue: 'PAUSED',
-      executedByAi: false,
-      actorId: 'user-1',
+      actor: ACTOR,
+      command: {
+        platform: 'google',
+        ad_account_id: '1234567890',
+        type: 'google.campaign.set_status',
+        campaign_id: '111',
+        status: 'ENABLED',
+      },
     })
   })
 
-  it('records an enable as its own action', async () => {
-    await POST(request({ ...VALID_STATUS_BODY, status: 'ACTIVE' }) as never)
-    expect(recordMutationMock.mock.calls[0][0].toolName).toBe('enable_campaign')
+  it('maps the legacy daily_budget_usd field onto daily_budget (major units, never actually USD-specific)', async () => {
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_budget',
+        customer_id: '1234567890',
+        campaign_id: '111',
+        daily_budget_usd: 75,
+      }) as never,
+    )
+    expect(submitChangeMock).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      actor: ACTOR,
+      command: {
+        platform: 'google',
+        ad_account_id: '1234567890',
+        type: 'google.campaign.set_daily_budget',
+        campaign_id: '111',
+        daily_budget: 75,
+      },
+    })
   })
 
-  it('records the previous budget alongside the new one', async () => {
-    await POST(request({
-      action: 'set_daily_budget',
-      campaign_id: '120200000000000',
-      ad_account_id: 'act_123456789',
-      daily_budget: 80,
-    }) as never)
+  it('400s when there is no active org to resolve', async () => {
+    rpcMock.mockResolvedValue({ data: null })
+    const { POST } = await import('@/app/api/ads/google/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/google/campaigns', {
+        action: 'set_status',
+        customer_id: '1234567890',
+        campaign_id: '111',
+        status: 'PAUSED',
+      }) as never,
+    )
+    expect(res.status).toBe(400)
+  })
+})
 
-    const audit = recordMutationMock.mock.calls[0][0]
-    expect(audit.toolName).toBe('set_daily_budget')
-    // Previous daily_budget was 5000 minor units = R$50.
-    expect(audit.beforeValue).toContain('50')
-    expect(audit.afterValue).toContain('80')
+// ─── Meta route ───────────────────────────────────────────────────────────────
+
+describe('POST /api/ads/meta/campaigns — access control', () => {
+  it('rejects an unauthenticated caller', async () => {
+    dashboardActorMock.mockResolvedValue(null)
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_status',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+        status: 'PAUSED',
+      }) as never,
+    )
+    expect(res.status).toBe(401)
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 
-  it('does not write an audit record when the mutation is rejected', async () => {
-    canMock.mockResolvedValue(false)
-    await POST(request(VALID_STATUS_BODY) as never)
-    expect(recordMutationMock).not.toHaveBeenCalled()
+  it('rejects a signed-in user without ads.manage', async () => {
+    dashboardActorMock.mockResolvedValue({ ...ACTOR, canManage: false })
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_status',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+        status: 'PAUSED',
+      }) as never,
+    )
+    expect(res.status).toBe(403)
+    expect(submitChangeMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/ads/meta/campaigns — validation and mapping', () => {
+  it('rejects a malformed ad account id', async () => {
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_status',
+        campaign_id: '120200000000000',
+        ad_account_id: '123456789',
+        status: 'PAUSED',
+      }) as never,
+    )
+    expect(res.status).toBe(400)
+    expect(submitChangeMock).not.toHaveBeenCalled()
   })
 
-  it('busts the report cache so the operator sees their own change', async () => {
-    await POST(request(VALID_STATUS_BODY) as never)
-    expect(invalidateMock).toHaveBeenCalledWith('org-1', 'meta', 'act_123456789')
+  it('rejects a budget request with neither daily_budget nor daily_budget_cents', async () => {
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_daily_budget',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+      }) as never,
+    )
+    expect(res.status).toBe(400)
+    expect(submitChangeMock).not.toHaveBeenCalled()
+  })
+
+  it('maps set_status onto a meta.campaign.set_status command', async () => {
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_status',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+        status: 'ACTIVE',
+      }) as never,
+    )
+    expect(submitChangeMock).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      actor: ACTOR,
+      command: {
+        platform: 'meta',
+        ad_account_id: 'act_123456789',
+        type: 'meta.campaign.set_status',
+        campaign_id: '120200000000000',
+        status: 'ACTIVE',
+      },
+    })
+  })
+
+  it('converts legacy daily_budget_cents (7500 -> 75.00 major units)', async () => {
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_daily_budget',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+        daily_budget_cents: 7500,
+      }) as never,
+    )
+    expect(submitChangeMock).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      actor: ACTOR,
+      command: {
+        platform: 'meta',
+        ad_account_id: 'act_123456789',
+        type: 'meta.campaign.set_daily_budget',
+        campaign_id: '120200000000000',
+        daily_budget: 75,
+      },
+    })
+  })
+
+  it('passes an explicit daily_budget through unchanged (already major units)', async () => {
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    await POST(
+      jsonRequest('https://xphere.app/api/ads/meta/campaigns', {
+        action: 'set_daily_budget',
+        campaign_id: '120200000000000',
+        ad_account_id: 'act_123456789',
+        daily_budget: 80,
+      }) as never,
+    )
+    expect(submitChangeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ command: expect.objectContaining({ daily_budget: 80 }) }),
+    )
+  })
+})
+
+// ─── engineResponse status mapping, exercised through the route ────────────────
+
+describe('engineResponse status mapping via the Meta route', () => {
+  const body = { action: 'set_status', campaign_id: '120200000000000', ad_account_id: 'act_123456789', status: 'PAUSED' as const }
+
+  it('maps a policy_blocked failure to 422', async () => {
+    submitChangeMock.mockResolvedValue({ ok: false, code: 'policy_blocked', message: 'blocked', violations: [] })
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(jsonRequest('https://xphere.app/api/ads/meta/campaigns', body) as never)
+    expect(res.status).toBe(422)
+  })
+
+  it('maps an awaiting_approval change to 202', async () => {
+    submitChangeMock.mockResolvedValue({
+      ok: true,
+      duplicate: false,
+      confirmationToken: undefined,
+      change: { id: 'c1', status: 'awaiting_approval', approval_required: true },
+    })
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(jsonRequest('https://xphere.app/api/ads/meta/campaigns', body) as never)
+    expect(res.status).toBe(202)
+    const json = await res.json()
+    expect(json.pending_approval).toBe(true)
+  })
+
+  it('maps a succeeded change to 200', async () => {
+    submitChangeMock.mockResolvedValue(succeeded())
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(jsonRequest('https://xphere.app/api/ads/meta/campaigns', body) as never)
+    expect(res.status).toBe(200)
+  })
+
+  it('maps a no_connection failure to 404', async () => {
+    submitChangeMock.mockResolvedValue({ ok: false, code: 'no_connection', message: 'not connected' })
+    const { POST } = await import('@/app/api/ads/meta/campaigns/route')
+    const res = await POST(jsonRequest('https://xphere.app/api/ads/meta/campaigns', body) as never)
+    expect(res.status).toBe(404)
   })
 })

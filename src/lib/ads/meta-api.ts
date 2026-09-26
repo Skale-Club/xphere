@@ -3,7 +3,14 @@ import { META_ADS_GRAPH_VERSION } from './meta-oauth'
 const GRAPH_BASE = `https://graph.facebook.com/${META_ADS_GRAPH_VERSION}`
 
 type MetaErrorPayload = {
-  error?: { message?: string; type?: string; code?: number; error_subcode?: number }
+  error?: {
+    message?: string
+    type?: string
+    code?: number
+    error_subcode?: number
+    error_user_title?: string
+    error_user_msg?: string
+  }
 }
 
 export class MetaAdsError extends Error {
@@ -11,6 +18,10 @@ export class MetaAdsError extends Error {
     message: string,
     public readonly code?: number,
     public readonly subcode?: number,
+    /** HTTP status of the failed call, when there was one. */
+    public readonly httpStatus?: number,
+    /** Meta's user-facing explanation (error_user_msg), often more precise than message. */
+    public readonly userMessage?: string,
   ) {
     super(message)
     this.name = 'MetaAdsError'
@@ -47,13 +58,15 @@ async function graphRequest<T>(
     let msg = `Meta API error ${res.status}`
     let code: number | undefined
     let subcode: number | undefined
+    let userMessage: string | undefined
     try {
       const body = (await res.json()) as MetaErrorPayload
       msg = body.error?.message ?? msg
       code = body.error?.code
       subcode = body.error?.error_subcode
+      userMessage = body.error?.error_user_msg
     } catch { /* ignore parse error */ }
-    throw new MetaAdsError(msg, code, subcode)
+    throw new MetaAdsError(msg, code, subcode, res.status, userMessage)
   }
   return res.json() as Promise<T>
 }
@@ -190,28 +203,6 @@ export async function getCampaign(
   }
 }
 
-export async function updateCampaignStatus(
-  campaignId: string,
-  status: 'ACTIVE' | 'PAUSED',
-  accessToken: string,
-): Promise<{ success: boolean }> {
-  return graphRequest<{ success: boolean }>(campaignId, accessToken, {
-    method: 'POST',
-    body: { status },
-  })
-}
-
-export async function updateCampaignDailyBudget(
-  campaignId: string,
-  dailyBudgetCents: number,
-  accessToken: string,
-): Promise<{ success: boolean }> {
-  return graphRequest<{ success: boolean }>(campaignId, accessToken, {
-    method: 'POST',
-    body: { daily_budget: String(dailyBudgetCents) },
-  })
-}
-
 // ─── Ad Sets ──────────────────────────────────────────────────────────────────
 
 export async function listAdSets(
@@ -227,6 +218,34 @@ export async function listAdSets(
   // scoped to it (the account /adsets edge ignores a campaign_id param).
   const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
   return graphRequestAll<MetaAdSet>(`${node}?${params.toString()}`, accessToken)
+}
+
+export type MetaAdSetDetailed = MetaAdSet & {
+  bid_strategy?: string
+  bid_amount?: string | number
+  optimization_goal?: string
+  billing_event?: string
+  start_time?: string
+  end_time?: string
+  targeting?: Record<string, unknown>
+}
+
+/**
+ * Ad sets with the fields an operator (or the AI) needs before proposing an
+ * edit: bidding, optimization, schedule and the full targeting spec.
+ */
+export async function listAdSetsDetailed(
+  adAccountId: string,
+  accessToken: string,
+  campaignId?: string,
+): Promise<MetaAdSetDetailed[]> {
+  const params = new URLSearchParams({
+    fields:
+      'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,bid_strategy,bid_amount,optimization_goal,billing_event,start_time,end_time,targeting,created_time,updated_time',
+    limit: '100',
+  })
+  const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
+  return graphRequestAll<MetaAdSetDetailed>(`${node}?${params.toString()}`, accessToken)
 }
 
 export type MetaAd = {
@@ -310,4 +329,29 @@ export async function getAdAccountInfo(
     `${adAccountId}?fields=id,name,currency,account_status`,
     accessToken,
   )
+}
+
+// ─── Generic object read / update (command engine) ────────────────────────────
+
+/** Read one Graph object. Unlike getCampaign this throws, so callers can tell "not found" from "failed". */
+export async function getObject<T>(objectId: string, fields: string, accessToken: string): Promise<T> {
+  return graphRequest<T>(`${objectId}?fields=${encodeURIComponent(fields)}`, accessToken)
+}
+
+/**
+ * POST /{object-id} with the given fields. With `validateOnly`, Meta runs the
+ * full validation (budget minimums, CBO/ABO conflicts, targeting rules) and
+ * writes nothing — used at preview time so a doomed change is rejected before
+ * anyone approves it.
+ */
+export async function updateObject(
+  objectId: string,
+  fields: Record<string, unknown>,
+  accessToken: string,
+  opts: { validateOnly?: boolean } = {},
+): Promise<{ success?: boolean }> {
+  return graphRequest<{ success?: boolean }>(objectId, accessToken, {
+    method: 'POST',
+    body: opts.validateOnly ? { ...fields, execution_options: ['validate_only'] } : fields,
+  })
 }

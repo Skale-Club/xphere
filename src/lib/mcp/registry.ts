@@ -24,6 +24,7 @@ import { workflowsTools } from './tools/workflows'
 import { agentsTools } from './tools/agents'
 import { bookingsTools } from './tools/bookings'
 import { adsTools } from './tools/ads'
+import { adsControlTools } from './tools/ads-control'
 import { organizationsTools } from './tools/organizations'
 import { prospectsTools } from './tools/prospects'
 import { prospectSendMessageTools } from './tools/prospect-send-message'
@@ -52,6 +53,7 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...agentsTools,
   ...bookingsTools,
   ...adsTools,
+  ...adsControlTools,
   ...organizationsTools,
   ...prospectsTools,
   ...prospectSendMessageTools,

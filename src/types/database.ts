@@ -7975,6 +7975,275 @@ export interface Database {
         }
         Relationships: []
       }
+      ads_account_policies: {
+        Row: {
+          ad_account_id: string | null
+          ai_mode: string | null
+          allow_bidding_changes: boolean | null
+          allow_bulk: boolean | null
+          allow_enable: boolean | null
+          approval_ttl_minutes: number | null
+          created_at: string
+          id: string
+          max_budget_increase_pct: number | null
+          max_daily_budget: number | null
+          org_id: string
+          platform: string | null
+          protected_campaign_ids: string[]
+          require_approval_min_risk: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ai_mode?: string | null
+          allow_bidding_changes?: boolean | null
+          allow_bulk?: boolean | null
+          allow_enable?: boolean | null
+          approval_ttl_minutes?: number | null
+          created_at?: string
+          id?: string
+          max_budget_increase_pct?: number | null
+          max_daily_budget?: number | null
+          org_id: string
+          platform?: string | null
+          protected_campaign_ids?: string[]
+          require_approval_min_risk?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          ai_mode?: string | null
+          allow_bidding_changes?: boolean | null
+          allow_bulk?: boolean | null
+          allow_enable?: boolean | null
+          approval_ttl_minutes?: number | null
+          created_at?: string
+          id?: string
+          max_budget_increase_pct?: number | null
+          max_daily_budget?: number | null
+          org_id?: string
+          platform?: string | null
+          protected_campaign_ids?: string[]
+          require_approval_min_risk?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_account_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_change_events: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          actor_type: string
+          change_request_id: string
+          created_at: string
+          detail: Json
+          event_type: string
+          from_status: string | null
+          id: string
+          org_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type: string
+          change_request_id: string
+          created_at?: string
+          detail?: Json
+          event_type: string
+          from_status?: string | null
+          id?: string
+          org_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type?: string
+          change_request_id?: string
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          org_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_change_events_change_request_id_fkey"
+            columns: ["change_request_id"]
+            isOneToOne: false
+            referencedRelation: "ads_change_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_change_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_change_requests: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          actor_type: string
+          ad_account_id: string
+          approval_expires_at: string | null
+          approval_required: boolean
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_label: string | null
+          attempt_count: number
+          batch_id: string | null
+          before_hash: string | null
+          before_state: Json | null
+          campaign_id: string | null
+          command_type: string
+          completed_at: string | null
+          confirmation_hash: string | null
+          created_at: string
+          diff: Json
+          error_code: string | null
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          idempotency_key: string
+          intended_state: Json | null
+          next_attempt_at: string | null
+          org_id: string
+          payload: Json
+          platform: string
+          policy_verdict: Json
+          provider_ref: string | null
+          provider_result: Json | null
+          resource_id: string | null
+          resource_name: string | null
+          resource_type: string
+          risk_level: number
+          rollback_of: string | null
+          status: string
+          updated_at: string
+          verification: Json | null
+          warnings: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type: string
+          ad_account_id: string
+          approval_expires_at?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_label?: string | null
+          attempt_count?: number
+          batch_id?: string | null
+          before_hash?: string | null
+          before_state?: Json | null
+          campaign_id?: string | null
+          command_type: string
+          completed_at?: string | null
+          confirmation_hash?: string | null
+          created_at?: string
+          diff?: Json
+          error_code?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          idempotency_key: string
+          intended_state?: Json | null
+          next_attempt_at?: string | null
+          org_id: string
+          payload: Json
+          platform: string
+          policy_verdict?: Json
+          provider_ref?: string | null
+          provider_result?: Json | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type: string
+          risk_level: number
+          rollback_of?: string | null
+          status?: string
+          updated_at?: string
+          verification?: Json | null
+          warnings?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type?: string
+          ad_account_id?: string
+          approval_expires_at?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_label?: string | null
+          attempt_count?: number
+          batch_id?: string | null
+          before_hash?: string | null
+          before_state?: Json | null
+          campaign_id?: string | null
+          command_type?: string
+          completed_at?: string | null
+          confirmation_hash?: string | null
+          created_at?: string
+          diff?: Json
+          error_code?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          idempotency_key?: string
+          intended_state?: Json | null
+          next_attempt_at?: string | null
+          org_id?: string
+          payload?: Json
+          platform?: string
+          policy_verdict?: Json
+          provider_ref?: string | null
+          provider_result?: Json | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type?: string
+          risk_level?: number
+          rollback_of?: string | null
+          status?: string
+          updated_at?: string
+          verification?: Json | null
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_change_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_change_requests_rollback_of_fkey"
+            columns: ["rollback_of"]
+            isOneToOne: false
+            referencedRelation: "ads_change_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ads_connections: {
         Row: {
           ad_account_id: string
@@ -8049,6 +8318,7 @@ export interface Database {
           before_value: string | null
           campaign_id: string | null
           campaign_name: string | null
+          change_request_id: string | null
           created_at: string
           description: string | null
           executed_at: string
@@ -8067,6 +8337,7 @@ export interface Database {
           before_value?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
+          change_request_id?: string | null
           created_at?: string
           description?: string | null
           executed_at?: string
@@ -8085,6 +8356,7 @@ export interface Database {
           before_value?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
+          change_request_id?: string | null
           created_at?: string
           description?: string | null
           executed_at?: string

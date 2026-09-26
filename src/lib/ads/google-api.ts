@@ -14,6 +14,10 @@ export class GoogleAdsError extends Error {
   constructor(
     message: string,
     public readonly code?: string,
+    /** HTTP status of the failed call, when there was one. */
+    public readonly httpStatus?: number,
+    /** Google's per-operation error code, e.g. "criterionError: KEYWORD_HAS_INVALID_CHARS". */
+    public readonly detailCode?: string,
   ) {
     super(message)
     this.name = 'GoogleAdsError'
@@ -85,16 +89,29 @@ async function gadsRequest<T>(
 
     let msg = `Google Ads API error ${res.status}`
     let code: string | undefined
+    let detailCode: string | undefined
     try {
       const body = (await res.json()) as {
-        error?: { message?: string; status?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string> }> }> }
+        error?: {
+          message?: string
+          status?: string
+          details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }>
+        }
       }
       msg = body.error?.message ?? msg
       code = body.error?.status
+      // The top-level message is usually just "Request contains an invalid
+      // argument." — the actionable reason lives in the first GoogleAdsFailure.
+      const first = body.error?.details?.flatMap((d) => d.errors ?? [])[0]
+      if (first) {
+        const [kind, value] = Object.entries(first.errorCode ?? {})[0] ?? []
+        if (kind) detailCode = `${kind}: ${value}`
+        if (first.message) msg = `${first.message}${detailCode ? ` (${detailCode})` : ''}`
+      }
     } catch { /* ignore */ }
     if (res.status === 401) code ??= 'UNAUTHENTICATED'
     if (res.status === 403) code ??= 'PERMISSION_DENIED'
-    throw new GoogleAdsError(msg, code)
+    throw new GoogleAdsError(msg, code, res.status, detailCode)
   }
 
   return res.json() as Promise<T>
@@ -421,57 +438,44 @@ export async function listAdGroups(
 
 // ─── Mutations ─────────────────────────────────────────────────────────────────
 
-export async function updateCampaignStatus(
-  customerId: string,
-  campaignId: string,
-  status: 'ENABLED' | 'PAUSED',
-  refreshToken: string,
-): Promise<void> {
-  const safeCustomerId = assertNumericId(customerId, 'customer_id')
-  const safeCampaignId = assertNumericId(campaignId, 'campaign_id')
-  await gadsRequest(
-    `customers/${safeCustomerId}/campaigns:mutate`,
-    refreshToken,
-    {
-      method: 'POST',
-      body: {
-        operations: [
-          {
-            update: {
-              resourceName: `customers/${safeCustomerId}/campaigns/${safeCampaignId}`,
-              status,
-            },
-            updateMask: 'status',
-          },
-        ],
-      },
-    },
-  )
+/** Google Ads services the command engine writes through. */
+export type GAdsMutateService =
+  | 'campaigns'
+  | 'campaignBudgets'
+  | 'adGroups'
+  | 'adGroupAds'
+  | 'adGroupCriteria'
+  | 'campaignCriteria'
+
+export type GAdsMutateResponse = {
+  results?: Array<{ resourceName?: string }>
+  partialFailureError?: { message?: string; details?: unknown }
 }
 
-export async function updateCampaignBudget(
+/**
+ * Generic `customers/{id}/{service}:mutate`. `validateOnly` asks Google to run
+ * every check without writing — the engine calls it at preview time so a bad
+ * keyword or an out-of-range bid is rejected before anyone approves it.
+ * Operations are atomic by default (partialFailure false): either all apply or
+ * none, which is what a single reviewed diff should mean.
+ */
+export async function mutateResources(
   customerId: string,
-  budgetId: string,
-  amountMicros: number,
   refreshToken: string,
-): Promise<void> {
+  service: GAdsMutateService,
+  operations: unknown[],
+  opts: { validateOnly?: boolean; partialFailure?: boolean } = {},
+): Promise<GAdsMutateResponse> {
   const safeCustomerId = assertNumericId(customerId, 'customer_id')
-  const safeBudgetId = assertNumericId(budgetId, 'budget_id')
-  await gadsRequest(
-    `customers/${safeCustomerId}/campaignBudgets:mutate`,
+  return gadsRequest<GAdsMutateResponse>(
+    `customers/${safeCustomerId}/${service}:mutate`,
     refreshToken,
     {
       method: 'POST',
       body: {
-        operations: [
-          {
-            update: {
-              resourceName: `customers/${safeCustomerId}/campaignBudgets/${safeBudgetId}`,
-              amountMicros: String(amountMicros),
-            },
-            updateMask: 'amount_micros',
-          },
-        ],
+        operations,
+        ...(opts.validateOnly ? { validateOnly: true } : {}),
+        ...(opts.partialFailure ? { partialFailure: true } : {}),
       },
     },
   )
@@ -505,38 +509,4 @@ export async function uploadClickConversions(
     refreshToken,
     { method: 'POST', body },
   )
-}
-
-/**
- * Current name / status / budget for one campaign — the "before" half of an
- * audit record, captured before a mutation overwrites it.
- */
-export async function getCampaignSnapshot(
-  customerId: string,
-  campaignId: string,
-  refreshToken: string,
-): Promise<{ name: string; status: string; budgetAmountMicros: string; currency: string } | null> {
-  type Row = {
-    campaign: { id: string; name: string; status: string }
-    campaignBudget?: { amountMicros?: string }
-    customer?: { currencyCode?: string }
-  }
-  const safeCampaignId = assertNumericId(campaignId, 'campaign_id')
-  const rows = await gaqlSearch<Row>(
-    customerId,
-    refreshToken,
-    `SELECT campaign.id, campaign.name, campaign.status,
-            campaign_budget.amount_micros, customer.currency_code
-     FROM campaign
-     WHERE campaign.id = ${safeCampaignId}
-     LIMIT 1`,
-  )
-  const row = rows[0]
-  if (!row) return null
-  return {
-    name: row.campaign.name,
-    status: row.campaign.status,
-    budgetAmountMicros: row.campaignBudget?.amountMicros ?? '0',
-    currency: row.customer?.currencyCode ?? 'USD',
-  }
 }
