@@ -53,6 +53,7 @@ import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import { emitXkeduleBookingCreatedEvents } from '@/lib/action-engine/executors/xkedule-booking-events'
+import { executeAdsProposeChange } from './executors/ads-propose-change'
 import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
 import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booking'
 import { getXkeduleQuote } from '@/lib/xkedule/actions/quote'
@@ -257,6 +258,15 @@ async function _executeActionInner(
       throw new Error('contact_add_tag requires ctx.organizationId and ctx.supabase')
     }
     return executeContactAddTag(params, ctx)
+  }
+
+  // Ads Control Plane: propose (never apply) an ad change for human approval.
+  // Not in the action_type DB enum — same pattern as contact_create.
+  if ((actionType as string) === 'ads_propose_change') {
+    if (!ctx?.organizationId) {
+      throw new Error('ads_propose_change requires ctx.organizationId')
+    }
+    return executeAdsProposeChange(params, { organizationId: ctx.organizationId })
   }
 
   // Native CRM contact create/update | not in the action_type DB enum either.

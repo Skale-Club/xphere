@@ -36,6 +36,20 @@ export function mcpActor(auth: McpAuthContext): AdsActor {
   }
 }
 
+/**
+ * A workflow run. Like the AI it is a machine actor: the policy always
+ * requires a human approval for its changes.
+ */
+export function workflowActor(label: string): AdsActor {
+  return {
+    type: 'workflow',
+    id: null,
+    label: `workflow:${label}`,
+    canManage: false,
+    canApprove: false,
+  }
+}
+
 /** The in-app Copilot, acting for the signed-in user. */
 export function copilotActor(userId: string | null): AdsActor {
   return {

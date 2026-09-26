@@ -484,6 +484,50 @@ export async function mutateResources(
   )
 }
 
+export type GAdsBatchMutateOperationResult = {
+  campaignBudgetResult?: { resourceName?: string }
+  campaignResult?: { resourceName?: string }
+  campaignCriterionResult?: { resourceName?: string }
+  adGroupResult?: { resourceName?: string }
+  adGroupAdResult?: { resourceName?: string }
+}
+
+export type GAdsBatchMutateResponse = {
+  mutateOperationResponses?: GAdsBatchMutateOperationResult[]
+  partialFailureError?: { message?: string; details?: unknown }
+}
+
+/**
+ * `customers/{id}/googleAds:mutate` — a single atomic request spanning
+ * multiple services (budget + campaign + criteria), keyed by temporary
+ * negative resource ids so a later operation in the same batch can reference
+ * one created earlier (e.g. the campaign referencing the new budget). Used to
+ * create a Search campaign (budget + campaign + location/language criteria)
+ * in one round trip: either everything applies or nothing does. Unlike
+ * mutateResources (single-service :mutate, operations are bare `{create}` /
+ * `{update}` / `{remove}`), each entry here is wrapped by its service's
+ * operation key, e.g. `{ campaignOperation: { create: {...} } }`.
+ */
+export async function googleAdsMutate(
+  customerId: string,
+  refreshToken: string,
+  mutateOperations: unknown[],
+  opts: { validateOnly?: boolean } = {},
+): Promise<GAdsBatchMutateResponse> {
+  const safeCustomerId = assertNumericId(customerId, 'customer_id')
+  return gadsRequest<GAdsBatchMutateResponse>(
+    `customers/${safeCustomerId}/googleAds:mutate`,
+    refreshToken,
+    {
+      method: 'POST',
+      body: {
+        mutateOperations,
+        ...(opts.validateOnly ? { validateOnly: true } : {}),
+      },
+    },
+  )
+}
+
 // ─── Offline conversion upload (E4) ────────────────────────────────────────────
 
 export type ClickConversionUploadResult = {

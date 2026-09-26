@@ -1,0 +1,22 @@
+# Canonical example — a workflow PROPOSES an ad change; it never applies one.
+# The change is validated and waits in Ads -> Changes for a human with ads.approve.
+# Only risk <= 2 commands are accepted from workflows (see docs/ads/control-plane.md).
+
+name: pause-brand-on-schedule
+description: Proposes pausing the brand campaign every night; a human approves in Ads -> Changes.
+trigger:
+  type: schedule
+  config:
+    cron: "0 23 * * *"
+nodes:
+  - id: propose_pause
+    kind: ads_propose_change
+    command:
+      platform: google
+      ad_account_id: "1234567890"
+      type: google.campaign.set_status
+      campaign_id: "111"
+      status: PAUSED
+edges:
+  - from: trigger
+    to: propose_pause
