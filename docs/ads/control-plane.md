@@ -103,6 +103,15 @@ Money is always in **major units of the account currency** (50 = R$50). Risk:
 | `google.campaign.set_target_cpa` / `set_target_roas` (TARGET_* or MAXIMIZE_* strategies; portfolio → error) | 3 | | |
 | `google.conversion_action.set_primary` | 3 | | |
 | `google.campaign.set_conversion_goal_biddable` | 3 | | |
+| `google.campaign.create_search` (budget + campaign + locations/languages in one atomic `googleAds:mutate`) | 4 | `meta.campaign.create` (objective, special ad categories, optional CBO budget) | 4 |
+| `google.ad_group.create` | 4 | `meta.ad.create` (existing creative, same account) | 4 |
+| `google.ad.create_responsive_search` (3–15 headlines, 2–4 descriptions) | 4 | | |
+
+**Creates are always PAUSED.** Nothing starts spending until a separate
+`set_status` command activates it (which the `allow_enable` policy governs),
+and creates have no automatic rollback — pause or remove the new object.
+Meta ad-set-budget campaigns are created with
+`is_adset_budget_sharing_enabled=false` (required by Graph v26).
 
 Each adapter lists the commands it implements (`capabilities()` from an
 explicit `IMPLEMENTED` set); a catalog entry without an implementation is
@@ -164,9 +173,11 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   serves every client org the token's user belongs to.
 - **Copilot** — `propose_ads_change` (preview only; the operator approves in
   Ads → Changes) and `list_ads_changes`.
-- **Workflows** — no ads action exists yet. When one is added it must submit
-  commands with a `workflow` actor, which the policy treats like the AI
-  (always needs confirmation).
+- **Workflows** — action `ads_propose_change` (`src/lib/action-engine/executors/ads-propose-change.ts`)
+  previews a command as a `workflow` actor; it never applies one — the change
+  waits in Ads → Changes for an `ads.approve` holder. Only risk ≤ 2 commands
+  are accepted; a change already at the target value returns `{skipped:true}`.
+  Example: `.planning/workflows/examples/ads-nightly-pause-proposal.yaml`.
 
 ## Operations
 
@@ -184,5 +195,3 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   negative lists, audience segments, device bid modifiers.
 - Meta: creating creatives from assets, lookalike creation, Advantage+
   shopping specifics, dynamic creative.
-- Workflows: an allowlisted "submit ads command" action (runs as a `workflow`
-  actor, always needs confirmation).

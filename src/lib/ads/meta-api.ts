@@ -357,6 +357,25 @@ export async function updateObject(
 }
 
 /**
+ * POST /{edge-path} — create a new object on an edge (e.g. `act_123/campaigns`,
+ * `act_123/ads`). With `validateOnly`, Meta runs full validation and creates
+ * nothing — used at preview time, same as `updateObject`'s validate-only mode.
+ * The response is `{ id }` for these edges (unlike `/copies`, which returns a
+ * `copied_*_id` field instead).
+ */
+export async function createObject(
+  edgePath: string,
+  body: Record<string, unknown>,
+  accessToken: string,
+  opts: { validateOnly?: boolean } = {},
+): Promise<{ id: string }> {
+  return graphRequest<{ id: string }>(edgePath, accessToken, {
+    method: 'POST',
+    body: opts.validateOnly ? { ...body, execution_options: ['validate_only'] } : body,
+  })
+}
+
+/**
  * POST /{object-id}/copies — Meta's campaign/ad-set/ad duplication endpoint.
  * Copies are always requested with `status_option: 'PAUSED'` by the caller
  * (see meta-adapter.ts's buildCopyBody); this function just forwards whatever

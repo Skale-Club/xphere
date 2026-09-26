@@ -9,7 +9,7 @@ import { isAuthError } from '../connection-health'
 import { COMMAND_CATALOG, type AdsCommand } from '../commands/catalog'
 import type { DiffEntry, PlanResult, PolicyFacts, ResourceSnapshot } from '../commands/types'
 import { minorUnitsPerMajor, toMetaMinorUnits } from '../currency'
-import { copyObject, getAdAccountInfo, getObject, listCustomAudiences, MetaAdsError, updateObject } from '../meta-api'
+import { copyObject, createObject, getAdAccountInfo, getObject, listAds, listCampaigns, listCustomAudiences, MetaAdsError, updateObject } from '../meta-api'
 import { AdsValidationError } from '../validation'
 import { compareFields, diffField, diffMoney, effective } from './diff'
 import type { AdapterContext, AdsProviderAdapter, Capability, ErrorClass, ExecuteResult, VerifyResult } from './types'
@@ -313,6 +313,48 @@ async function snapshotMeta(ctx: AdapterContext, cmd: MetaCommand): Promise<Reso
       return { resourceType: 'ad', resourceId: node.id, resourceName: node.name, campaignId: node.campaign_id ?? null, currency, fields: { name: node.name } }
     }
 
+    case 'meta.campaign.create': {
+      const [campaigns, currency] = await Promise.all([listCampaigns(cmd.ad_account_id, ctx.credential), currencyOf(ctx)])
+      // "Non-deleted" only — an archived campaign with the same name still
+      // collides in Ads Manager, and matching on it too avoids a confusing
+      // duplicate-looking pair; DELETED is Meta's true tombstone state.
+      const existing = campaigns.find((c) => c.status !== 'DELETED' && c.name === cmd.name)
+      return {
+        resourceType: 'campaign',
+        resourceId: null,
+        resourceName: cmd.name,
+        campaignId: null,
+        currency,
+        fields: { already_exists: Boolean(existing), existing_campaign_id: existing?.id ?? null },
+      }
+    }
+
+    case 'meta.ad.create': {
+      const [adset, currency] = await Promise.all([readNode<MetaAdSetNode>(cmd.adset_id, ADSET_FIELDS, ctx), currencyOf(ctx)])
+      if (!adset || !sameAccount(adset.account_id, ctx.adAccountId)) return null
+      const [creative, ads] = await Promise.all([
+        readNode<{ id: string; name?: string; account_id?: string }>(cmd.creative_id, 'id,name,account_id', ctx),
+        listAds(ctx.adAccountId, ctx.credential, cmd.adset_id),
+      ])
+      const existing = ads.find((a) => a.status !== 'DELETED' && a.name === cmd.name)
+      return {
+        resourceType: 'ad',
+        resourceId: null,
+        resourceName: cmd.name,
+        campaignId: adset.campaign_id ?? adset.campaign?.id ?? null,
+        currency,
+        fields: {
+          adset_status: adset.status,
+          adset_name: adset.name,
+          target_creative_exists: Boolean(creative),
+          target_creative_same_account: sameAccount(creative?.account_id, ctx.adAccountId),
+          target_creative_name: creative?.name ?? null,
+          already_exists: Boolean(existing),
+          existing_ad_id: existing?.id ?? null,
+        },
+      }
+    }
+
     default:
       return null
   }
@@ -570,6 +612,72 @@ function planMeta(cmd: MetaCommand, before: ResourceSnapshot): PlanResult {
       return done({ source_name: f.name, rename_suffix: cmd.rename_suffix ?? null, new_name: newName, target_adset_id: cmd.target_adset_id ?? null }, diff, {})
     }
 
+    case 'meta.campaign.create': {
+      if (f.already_exists) {
+        return {
+          ok: false,
+          code: 'already_exists',
+          message: `A campaign named "${cmd.name}" already exists in this account (${f.existing_campaign_id}). Use meta.campaign.rename or pick a different name.`,
+        }
+      }
+      // Bid strategy on the campaign object only applies when the campaign
+      // itself carries the budget (Advantage campaign budget / CBO) — same
+      // rule enforced for an existing campaign in meta.campaign.set_bid_strategy.
+      if (cmd.bid_strategy !== undefined && cmd.daily_budget === undefined) {
+        return {
+          ok: false,
+          code: 'bid_strategy_requires_budget',
+          message: 'bid_strategy only applies with a campaign budget; set daily_budget or omit bid_strategy (ad sets can carry their own budget and bid strategy instead).',
+        }
+      }
+      const intended: Record<string, unknown> = {
+        name: cmd.name,
+        objective: cmd.objective,
+        status: 'PAUSED',
+        special_ad_categories: cmd.special_ad_categories,
+      }
+      const diff: DiffEntry[] = [
+        diffField('name', 'Name', null, cmd.name),
+        diffField('objective', 'Objective', null, cmd.objective),
+        diffField('status', 'Status', null, 'PAUSED'),
+        diffField('special_ad_categories', 'Special ad categories', null, cmd.special_ad_categories.length ? cmd.special_ad_categories : '(none)'),
+      ]
+      let budgetAfter: number | null = null
+      if (cmd.daily_budget !== undefined) {
+        budgetAfter = toMetaMinorUnits(cmd.daily_budget, before.currency) / minorUnitsPerMajor(before.currency)
+        intended.daily_budget = budgetAfter
+        diff.push(diffMoney('daily_budget', 'Daily budget', null, budgetAfter, before.currency))
+      }
+      if (cmd.bid_strategy !== undefined) {
+        intended.bid_strategy = cmd.bid_strategy
+        diff.push(diffField('bid_strategy', 'Bid strategy', null, cmd.bid_strategy))
+      }
+      return done(intended, diff, budgetAfter !== null ? { budgetAfter } : {})
+    }
+
+    case 'meta.ad.create': {
+      if (f.already_exists) {
+        return {
+          ok: false,
+          code: 'already_exists',
+          message: `An ad named "${cmd.name}" already exists in this ad set (${f.existing_ad_id}). Use meta.ad.rename or pick a different name.`,
+        }
+      }
+      if (f.adset_status === 'DELETED' || f.adset_status === 'ARCHIVED') {
+        return { ok: false, code: 'resource_archived', message: `The ad set is ${f.adset_status} in Meta and cannot receive new ads.` }
+      }
+      if (!f.target_creative_exists) return { ok: false, code: 'creative_not_found', message: 'That creative was not found.' }
+      if (!f.target_creative_same_account) return { ok: false, code: 'cross_account_creative', message: 'That creative belongs to a different ad account.' }
+      const intended = { name: cmd.name, adset_id: cmd.adset_id, creative_id: cmd.creative_id, status: 'PAUSED' }
+      const diff = [
+        diffField('name', 'Name', null, cmd.name),
+        diffField('adset_id', 'Ad set', null, (f.adset_name as string | null) ?? cmd.adset_id),
+        diffField('creative_id', 'Creative', null, (f.target_creative_name as string | null) ?? cmd.creative_id),
+        diffField('status', 'Status', null, 'PAUSED'),
+      ]
+      return done(intended, diff)
+    }
+
     default:
       // The switch above is exhaustive for every MetaCommand type today, so
       // this never actually runs — it exists so a future catalog.ts addition
@@ -625,7 +733,49 @@ function buildUpdate(cmd: MetaCommand, before: ResourceSnapshot): { id: string; 
       // to buildCopyBody() / copyObject() instead. This branch only exists so
       // the switch stays exhaustive if that routing is ever bypassed.
       throw new AdsValidationError(`${cmd.type} does not use buildUpdate; it is a duplicate command`)
+    case 'meta.campaign.create':
+    case 'meta.ad.create':
+      // Creates never reach buildUpdate — execute()/validate() route them to
+      // buildCreateBody() / createObject() instead (a POST to a collection
+      // edge, not an update of an existing object id).
+      throw new AdsValidationError(`${cmd.type} does not use buildUpdate; it is a create command`)
   }
+}
+
+/**
+ * POST body for a create edge (`act_x/campaigns`, `act_x/ads`). Everything is
+ * created PAUSED — nothing this adapter creates starts spending on its own.
+ */
+function buildCreateBody(cmd: MetaCommand, before: ResourceSnapshot): { edgePath: string; body: Record<string, unknown> } {
+  switch (cmd.type) {
+    case 'meta.campaign.create': {
+      const body: Record<string, unknown> = {
+        name: cmd.name,
+        objective: cmd.objective,
+        status: 'PAUSED',
+        special_ad_categories: cmd.special_ad_categories,
+      }
+      if (cmd.daily_budget !== undefined) body.daily_budget = String(toMetaMinorUnits(cmd.daily_budget, before.currency))
+      // Graph v26 rejects a campaign without a campaign budget (code 100 /
+      // 4834011) unless it states whether its ad sets may share budget. They
+      // may not: each ad set's budget is its own ceiling, which is what the
+      // per-change budget policy reasons about.
+      else body.is_adset_budget_sharing_enabled = false
+      if (cmd.bid_strategy !== undefined) body.bid_strategy = cmd.bid_strategy
+      return { edgePath: `${cmd.ad_account_id}/campaigns`, body }
+    }
+    case 'meta.ad.create':
+      return {
+        edgePath: `${cmd.ad_account_id}/ads`,
+        body: { name: cmd.name, adset_id: cmd.adset_id, creative: { creative_id: cmd.creative_id }, status: 'PAUSED' },
+      }
+    default:
+      throw new AdsValidationError(`${cmd.type} is not a create command`)
+  }
+}
+
+function isCreateCommand(cmd: MetaCommand): cmd is Extract<MetaCommand, { type: 'meta.campaign.create' | 'meta.ad.create' }> {
+  return cmd.type === 'meta.campaign.create' || cmd.type === 'meta.ad.create'
 }
 
 /**
@@ -704,6 +854,29 @@ async function verifyDuplicate(ctx: AdapterContext, cmd: MetaCommand, intended: 
   return { ok: mismatches.length === 0, mismatches, observed: { id: node.id, status: node.status, same_account: sameAccount(node.account_id, ctx.adAccountId) } }
 }
 
+/**
+ * Re-read a freshly created campaign/ad and confirm it exists, is PAUSED, has
+ * the requested name, and belongs to the same account. Like verifyDuplicate,
+ * `command` names no existing object for a create — `providerRef` is the only
+ * way to find what to re-read.
+ */
+async function verifyCreate(ctx: AdapterContext, cmd: MetaCommand, providerRef: string | null): Promise<VerifyResult> {
+  if (!providerRef) return { ok: false, mismatches: [{ field: 'id', expected: 'a new object id', actual: null }], observed: null }
+  const fields = cmd.type === 'meta.ad.create' ? AD_FIELDS : CAMPAIGN_FIELDS
+  const node = await readNode<{ id: string; name: string; status: string; account_id?: string }>(providerRef, fields, ctx)
+  if (!node) return { ok: false, mismatches: [{ field: '*', expected: { name: (cmd as { name?: string }).name }, actual: null }], observed: null }
+  const mismatches: Array<{ field: string; expected: unknown; actual: unknown }> = []
+  if (node.status !== 'PAUSED') mismatches.push({ field: 'status', expected: 'PAUSED', actual: node.status })
+  if (!sameAccount(node.account_id, ctx.adAccountId)) mismatches.push({ field: 'account_id', expected: ctx.adAccountId, actual: node.account_id })
+  const expectedName = isCreateCommand(cmd) ? cmd.name : null
+  if (expectedName !== null && node.name !== expectedName) mismatches.push({ field: 'name', expected: expectedName, actual: node.name })
+  return {
+    ok: mismatches.length === 0,
+    mismatches,
+    observed: { id: node.id, name: node.name, status: node.status, same_account: sameAccount(node.account_id, ctx.adAccountId) },
+  }
+}
+
 // Rate limiting and transient platform faults (Graph API error reference).
 const META_TRANSIENT_CODES = new Set([1, 2, 4, 17, 32, 341, 613, 80000, 80003, 80004, 80014])
 
@@ -734,6 +907,8 @@ const IMPLEMENTED_META_COMMANDS = new Set<AdsCommand['type']>([
   'meta.ad.rename',
   'meta.ad.set_creative',
   'meta.ad.duplicate',
+  'meta.campaign.create',
+  'meta.ad.create',
 ])
 
 export const metaAdapter: AdsProviderAdapter = {
@@ -761,6 +936,11 @@ export const metaAdapter: AdsProviderAdapter = {
       await validateDuplicateTargets(ctx, command)
       return
     }
+    if (isCreateCommand(command)) {
+      const { edgePath, body } = buildCreateBody(command, before)
+      await createObject(edgePath, body, ctx.credential, { validateOnly: true })
+      return
+    }
     const { id, fields } = buildUpdate(command, before)
     await updateObject(id, fields, ctx.credential, { validateOnly: true })
   },
@@ -774,6 +954,12 @@ export const metaAdapter: AdsProviderAdapter = {
       if (!providerRef) throw new MetaAdsError('Meta did not return an id for the duplicated object')
       return { providerRef, raw: res }
     }
+    if (isCreateCommand(command)) {
+      const { edgePath, body } = buildCreateBody(command, before)
+      const res = await createObject(edgePath, body, ctx.credential)
+      if (!res.id) throw new MetaAdsError('Meta did not return an id for the created object')
+      return { providerRef: res.id, raw: res }
+    }
     const { id, fields } = buildUpdate(command, before)
     const res = await updateObject(id, fields, ctx.credential)
     if (res.success === false) throw new MetaAdsError('Meta reported the update as unsuccessful')
@@ -783,6 +969,7 @@ export const metaAdapter: AdsProviderAdapter = {
   async verify(ctx, command, intended, providerRef): Promise<VerifyResult> {
     if (!isMeta(command)) throw new AdsValidationError('Not a Meta Ads command')
     if (isDuplicateCommand(command)) return verifyDuplicate(ctx, command, intended, providerRef ?? null)
+    if (isCreateCommand(command)) return verifyCreate(ctx, command, providerRef ?? null)
     const snap = await snapshotMeta(ctx, command)
     if (!snap) return { ok: false, mismatches: [{ field: '*', expected: intended, actual: null }], observed: null }
     const mismatches = compareFields(intended, snap.fields)
@@ -895,6 +1082,12 @@ export const metaAdapter: AdsProviderAdapter = {
         // does not do automatically (deletion is destructive and out of scope
         // for a rollback). An operator who wants the copy gone removes it by
         // hand in Ads Manager or Xphere.
+        return null
+
+      case 'meta.campaign.create':
+      case 'meta.ad.create':
+        // Same reasoning as duplicates above: a create's only "undo" is
+        // deleting the new object, which this adapter never does automatically.
         return null
 
       default:

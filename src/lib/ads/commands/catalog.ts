@@ -141,6 +141,39 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     biddable: z.boolean(),
   }),
 
+  // Structural (risk 4). Everything is created PAUSED — nothing starts
+  // spending until someone explicitly activates it with a set_status command.
+  google('google.campaign.create_search', {
+    name: Name(),
+    daily_budget: Money(),
+    bidding: z.enum(['MAXIMIZE_CONVERSIONS', 'MAXIMIZE_CLICKS', 'MANUAL_CPC']),
+    /** Only with MAXIMIZE_CONVERSIONS. */
+    target_cpa: Money().optional(),
+    /** Also show on Google search partners. */
+    search_partners: z.boolean().default(false),
+    start_date_time: GoogleDateTime().optional(),
+    end_date_time: GoogleDateTime().optional(),
+    /** Geo target constant ids (see ads_google_suggest_locations). At least one. */
+    location_ids: z.array(GId()).min(1).max(50),
+    /** Language constant ids, e.g. 1014 Portuguese, 1000 English. */
+    language_ids: z.array(GId()).max(20).default([]),
+  }),
+  google('google.ad_group.create', {
+    campaign_id: GId(),
+    name: Name(),
+    cpc_bid: Money().optional(),
+  }),
+  google('google.ad.create_responsive_search', {
+    ad_group_id: GId(),
+    final_url: Url(),
+    /** 3–15 headlines, max 30 characters each. */
+    headlines: z.array(z.string().trim().min(1).max(30)).min(3).max(15),
+    /** 2–4 descriptions, max 90 characters each. */
+    descriptions: z.array(z.string().trim().min(1).max(90)).min(2).max(4),
+    path1: z.string().trim().max(15).optional(),
+    path2: z.string().trim().max(15).optional(),
+  }),
+
   // ─── Meta Ads ───────────────────────────────────────────────────────────────
   meta('meta.campaign.set_status', { campaign_id: MId(), status: MetaStatus() }),
   meta('meta.campaign.set_daily_budget', { campaign_id: MId(), daily_budget: Money() }),
@@ -197,6 +230,23 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     /** Copy into another campaign (same account). Defaults to the original campaign. */
     target_campaign_id: MId().optional(),
     rename_suffix: z.string().max(60).optional(),
+  }),
+  meta('meta.campaign.create', {
+    name: Name(),
+    objective: z.enum([
+      'OUTCOME_LEADS', 'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
+    ]),
+    /** Required by Meta; [] when none applies. */
+    special_ad_categories: z.array(z.enum(['HOUSING', 'EMPLOYMENT', 'CREDIT', 'ISSUES_ELECTIONS_POLITICS', 'FINANCIAL_PRODUCTS_SERVICES'])).default([]),
+    /** Set to use an Advantage campaign budget (CBO); omit for ad set budgets. */
+    daily_budget: Money().optional(),
+    bid_strategy: MetaBidStrategy().optional(),
+  }),
+  meta('meta.ad.create', {
+    adset_id: MId(),
+    name: Name(),
+    /** An existing creative of the same ad account (see ads_meta_list_creatives). */
+    creative_id: MId(),
   }),
   meta('meta.ad.duplicate', {
     ad_id: MId(),
@@ -261,6 +311,11 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'meta.campaign.duplicate': { platform: 'meta', resourceType: 'campaign', risk: 4, label: 'Duplicate campaign (paused)' },
   'meta.adset.duplicate': { platform: 'meta', resourceType: 'adset', risk: 4, label: 'Duplicate ad set (paused)' },
   'meta.ad.duplicate': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Duplicate ad (paused)' },
+  'google.campaign.create_search': { platform: 'google', resourceType: 'campaign', risk: 4, label: 'Create Search campaign (paused)' },
+  'google.ad_group.create': { platform: 'google', resourceType: 'ad_group', risk: 4, label: 'Create ad group (paused)' },
+  'google.ad.create_responsive_search': { platform: 'google', resourceType: 'ad', risk: 4, label: 'Create responsive search ad (paused)' },
+  'meta.campaign.create': { platform: 'meta', resourceType: 'campaign', risk: 4, label: 'Create campaign (paused)' },
+  'meta.ad.create': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad from creative (paused)' },
 }
 
 /**
@@ -295,6 +350,15 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
     const end = cmd.end_hour * 60 + MINUTES[cmd.end_minute]
     if (end <= start) return 'The ad schedule must end after it starts (same day)'
   }
+  if (cmd.type === 'google.campaign.create_search') {
+    if (cmd.target_cpa !== undefined && cmd.bidding !== 'MAXIMIZE_CONVERSIONS') return 'target_cpa only applies to MAXIMIZE_CONVERSIONS'
+    if (cmd.start_date_time && cmd.end_date_time && cmd.start_date_time >= cmd.end_date_time) return 'end_date_time must be after start_date_time'
+  }
+  if (cmd.type === 'google.ad.create_responsive_search') {
+    if (new Set(cmd.headlines.map((h) => h.toLowerCase())).size !== cmd.headlines.length) return 'Headlines must be unique'
+    if (new Set(cmd.descriptions.map((d) => d.toLowerCase())).size !== cmd.descriptions.length) return 'Descriptions must be unique'
+    if (cmd.path2 && !cmd.path1) return 'path2 requires path1'
+  }
   if (cmd.type === 'meta.adset.set_bid_strategy') {
     if ((cmd.bid_strategy === 'LOWEST_COST_WITH_BID_CAP' || cmd.bid_strategy === 'COST_CAP') && cmd.bid_amount === undefined) {
       return `${cmd.bid_strategy} requires bid_amount`
@@ -324,12 +388,15 @@ export function parseCommand(input: unknown): { ok: true; command: AdsCommand } 
 /** The id of the resource a command targets, for history rows (most specific id wins). */
 export function targetResourceId(cmd: AdsCommand): string | null {
   const c = cmd as Record<string, unknown>
+  // Creates have no id until the platform assigns one (checked first: a create
+  // carries its parent's id, e.g. meta.ad.create has adset_id).
+  if (cmd.type.includes('.create')) return null
   if (typeof c.criterion_id === 'string') return c.criterion_id
   if (typeof c.ad_id === 'string') return typeof c.ad_group_id === 'string' ? `${c.ad_group_id}~${c.ad_id}` : c.ad_id
   if (typeof c.conversion_action_id === 'string') return c.conversion_action_id
   if (typeof c.adset_id === 'string') return c.adset_id
   // Creates have no id until the platform assigns one.
-  if (cmd.type === 'google.keyword.add' || cmd.type === 'google.negative_keyword.add' || cmd.type.includes('.add_')) return null
+  if (cmd.type === 'google.keyword.add' || cmd.type === 'google.negative_keyword.add' || cmd.type.includes('.add_') || cmd.type.includes('.create')) return null
   if (typeof c.ad_group_id === 'string') return c.ad_group_id
   if (typeof c.campaign_id === 'string') return c.campaign_id
   return null

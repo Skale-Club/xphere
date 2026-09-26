@@ -808,6 +808,57 @@ export const NODES: NodeSpec[] = [
     },
   },
   {
+    type: 'ads_propose_change',
+    kind: 'action',
+    description:
+      'Propose a change to a connected Google Ads or Meta Ads account (pause/enable, daily budget, name, dates, ' +
+      'keywords, negative keywords, targeting — risk ≤ 2 only). Nothing is applied: the change is validated and ' +
+      'waits in Ads → Changes for a human with ads.approve. Returns change_id. A change already at the target ' +
+      'value returns {skipped:true} instead of failing, so re-running on the same condition is safe. Budget ' +
+      'values are in major units of the account currency.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        command: {
+          type: 'object',
+          description:
+            'Typed Ads command: {platform, ad_account_id, type, ...fields}. Types allowed from workflows: ' +
+            'google.campaign.set_status, google.campaign.set_daily_budget, google.campaign.rename, ' +
+            'google.campaign.set_dates, google.campaign.set_tracking, google.ad_group.set_status, google.ad.set_status, ' +
+            'google.keyword.add, google.keyword.set_status, google.negative_keyword.add, google.negative_keyword.remove, ' +
+            'google.campaign.add_location, google.campaign.add_ad_schedule, meta.campaign.set_status, ' +
+            'meta.campaign.set_daily_budget, meta.adset.set_status, meta.adset.set_daily_budget, meta.adset.set_end_time, ' +
+            'meta.adset.update_targeting, meta.ad.set_status (full list: docs/ads/control-plane.md, risk ≤ 2).',
+        },
+        idempotency_key: {
+          type: 'string',
+          description: 'Optional stable key (≥ 8 chars) so a retried run never proposes the same change twice.',
+        },
+      },
+      required: ['command'],
+    },
+    examples: [
+      {
+        command: {
+          platform: 'google',
+          ad_account_id: '1234567890',
+          type: 'google.campaign.set_status',
+          campaign_id: '111',
+          status: 'PAUSED',
+        },
+      },
+      {
+        command: {
+          platform: 'meta',
+          ad_account_id: 'act_1234567890',
+          type: 'meta.adset.set_daily_budget',
+          adset_id: '120200000000000',
+          daily_budget: 40,
+        },
+      },
+    ],
+  },
+  {
     type: 'contact_create',
     kind: 'action',
     description:

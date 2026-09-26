@@ -50,12 +50,15 @@ const g = (type: string, fields: Record<string, unknown>) =>
 // ─── capabilities() ─────────────────────────────────────────────────────────────
 
 describe('capabilities', () => {
-  it('lists all 25 implemented Google command types, and nothing unimplemented', () => {
+  it('lists all 28 implemented Google command types, and nothing unimplemented', () => {
     const caps = googleAdapter.capabilities()
     const types = caps.map((c) => c.type)
-    expect(types).toHaveLength(25)
+    expect(types).toHaveLength(28)
     expect(types).toContain('google.campaign.add_location')
     expect(types).toContain('google.campaign.set_conversion_goal_biddable')
+    expect(types).toContain('google.campaign.create_search')
+    expect(types).toContain('google.ad_group.create')
+    expect(types).toContain('google.ad.create_responsive_search')
     expect(new Set(types).size).toBe(types.length) // no duplicates
   })
 })
