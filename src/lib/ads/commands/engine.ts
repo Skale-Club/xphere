@@ -30,6 +30,10 @@ import {
   listChangeRows,
   staleApprovals,
   stuckChanges,
+  recentAccountFailures,
+  changesToReconcile,
+  hasLaterChange,
+  updateReconciliation,
   transition,
   type ChangeFilters,
   type ChangeRow,
@@ -40,6 +44,13 @@ import { TERMINAL_STATUSES } from './types'
 import type { Json } from '@/types/database'
 
 export const MAX_ATTEMPTS = 5
+
+/**
+ * Circuit breaker: after this many transient failures on one ad account in the
+ * window, executions for that account pause instead of adding to the storm.
+ */
+export const CIRCUIT_THRESHOLD = 5
+export const CIRCUIT_WINDOW_MINUTES = 10
 
 // ─── Public shapes ────────────────────────────────────────────────────────────
 
@@ -76,6 +87,10 @@ export type ChangeView = {
   created_at: string
   executed_at: string | null
   completed_at: string | null
+  /** Set when the platform no longer matches what this change applied (edited outside Xphere). */
+  external_drift: unknown
+  external_drift_detected_at: string | null
+  last_reconciled_at: string | null
 }
 
 export type EngineFailure = {
@@ -136,6 +151,9 @@ export function toChangeView(row: ChangeRow): ChangeView {
     created_at: row.created_at,
     executed_at: row.executed_at,
     completed_at: row.completed_at,
+    external_drift: row.external_drift,
+    external_drift_detected_at: row.external_drift_detected_at,
+    last_reconciled_at: row.last_reconciled_at,
   }
 }
 
@@ -168,9 +186,13 @@ export async function previewChange(input: PreviewInput): Promise<PreviewSuccess
   const command = parsed.command
   const entry = COMMAND_CATALOG[command.type]
 
+  const adapter = getAdapter(command.platform)
+  if (!adapter.capabilities().some((c) => c.type === command.type)) {
+    return fail('unsupported_command', `${command.type} is not implemented for ${command.platform} yet.`)
+  }
+
   const conn = await loadAdapterContext(orgId, command.platform, command.ad_account_id)
   if (!conn.ok) return fail(conn.code, conn.message)
-  const adapter = getAdapter(command.platform)
 
   let before: ResourceSnapshot | null
   try {
@@ -183,6 +205,7 @@ export async function previewChange(input: PreviewInput): Promise<PreviewSuccess
   }
 
   const plan = adapter.plan(command, before)
+  if (!plan) return fail('unsupported_command', `${command.type} is not implemented for ${command.platform} yet.`)
   if (!plan.ok) return fail(plan.code, plan.message)
 
   const policy = await loadEffectivePolicy(orgId, command.platform, command.ad_account_id)
@@ -452,6 +475,30 @@ export async function executeChange(params: { orgId: string; changeId: string; a
     return fail(conn.code, conn.message, { change: toChangeView(row) })
   }
 
+  // ── Circuit breaker: an account already failing repeatedly waits it out.
+  const recentFailures = await recentAccountFailures(orgId, command.platform, command.ad_account_id, CIRCUIT_WINDOW_MINUTES)
+  if (recentFailures >= CIRCUIT_THRESHOLD) {
+    const row = await transition({
+      orgId,
+      changeId,
+      from: ['executing'],
+      to: 'queued',
+      patch: {
+        // This attempt never reached the platform — don't spend a retry on it.
+        attempt_count: claimed.attempt_count - 1,
+        next_attempt_at: new Date(Date.now() + CIRCUIT_WINDOW_MINUTES * 60_000).toISOString(),
+      },
+      actor: ev,
+      eventType: 'circuit_open',
+      detail: { recent_failures: recentFailures, window_minutes: CIRCUIT_WINDOW_MINUTES },
+    })
+    return fail(
+      'circuit_open',
+      `${command.platform} account ${command.ad_account_id} had ${recentFailures} temporary failures in the last ${CIRCUIT_WINDOW_MINUTES} minutes; this change will run in ${CIRCUIT_WINDOW_MINUTES} minutes.`,
+      { change: row ? toChangeView(row) : undefined },
+    )
+  }
+
   // ── Optimistic concurrency: the world must still look like the preview.
   let now: ResourceSnapshot | null
   try {
@@ -683,15 +730,111 @@ export async function listChanges(orgId: string, filters: ChangeFilters = {}): P
   return (await listChangeRows(orgId, filters)).map(toChangeView)
 }
 
+// ─── Batches ──────────────────────────────────────────────────────────────────
+
+/**
+ * Approve every pending change of a batch, one at a time (providers
+ * rate-limit per account). Each change keeps its own policy check, conflict
+ * check and verification; one failure never stops the rest.
+ */
+export async function approveBatch(params: {
+  orgId: string
+  batchId: string
+  actor: AdsActor
+  /** Machine actors: change_id → confirmation token from the preview. */
+  confirmationTokens?: Record<string, string>
+}): Promise<{ results: Array<ExecutionSuccess | (EngineFailure & { change_id: string })> }> {
+  const pending = await listChangeRows(params.orgId, { batchId: params.batchId, status: ['awaiting_approval'], limit: 200 })
+  const results: Array<ExecutionSuccess | (EngineFailure & { change_id: string })> = []
+  for (const row of [...pending].reverse()) {
+    const result = await approveChange({
+      orgId: params.orgId,
+      changeId: row.id,
+      actor: params.actor,
+      confirmationToken: params.confirmationTokens?.[row.id],
+    })
+    results.push(result.ok ? result : { ...result, change_id: row.id })
+  }
+  return { results }
+}
+
+// ─── Reconciliation (external drift) ──────────────────────────────────────────
+
+/**
+ * Re-read recently applied changes and flag the ones whose effect is no longer
+ * on the platform — edited or reverted outside Xphere. Status stays
+ * `succeeded` (it did apply); the drift is recorded next to it and in the
+ * event log, and shows up for the operator and the AI.
+ */
+export async function reconcileAppliedChanges(opts: { limit?: number; maxAgeDays?: number; everyHours?: number } = {}): Promise<{
+  checked: number
+  drifted: number
+  errors: number
+}> {
+  const rows = await changesToReconcile(opts.limit ?? 10, opts.maxAgeDays ?? 7, opts.everyHours ?? 6)
+  let drifted = 0
+  let errors = 0
+  for (const row of rows) {
+    const now = new Date().toISOString()
+    try {
+      if (await hasLaterChange(row)) {
+        await updateReconciliation(row.org_id, row.id, { last_reconciled_at: now })
+        continue
+      }
+      const command = row.payload as unknown as AdsCommand
+      const conn = await loadAdapterContext(row.org_id, command.platform, command.ad_account_id)
+      if (!conn.ok) {
+        await updateReconciliation(row.org_id, row.id, { last_reconciled_at: now })
+        continue
+      }
+      const verdict = await getAdapter(command.platform).verify(
+        conn.ctx,
+        command,
+        (row.intended_state ?? {}) as Record<string, unknown>,
+        row.provider_ref,
+      )
+      if (!verdict.ok && !row.external_drift_detected_at) {
+        drifted++
+        const drift = { mismatches: verdict.mismatches, observed: verdict.observed }
+        await updateReconciliation(row.org_id, row.id, {
+          last_reconciled_at: now,
+          external_drift: drift as unknown as Json,
+          external_drift_detected_at: now,
+        })
+        await appendEvent({
+          orgId: row.org_id,
+          changeId: row.id,
+          eventType: 'external_change_detected',
+          actor: SYSTEM_ACTOR,
+          detail: drift,
+        })
+      } else {
+        await updateReconciliation(row.org_id, row.id, { last_reconciled_at: now })
+      }
+    } catch {
+      errors++
+      // A failed read is not evidence of drift; try again next cycle.
+      await updateReconciliation(row.org_id, row.id, { last_reconciled_at: now }).catch(() => {})
+    }
+  }
+  return { checked: rows.length, drifted, errors }
+}
+
 // ─── Worker (cron) ────────────────────────────────────────────────────────────
 
-export async function processChangeQueue(opts: { limit?: number } = {}): Promise<{
+export async function processChangeQueue(opts: { limit?: number; budgetMs?: number } = {}): Promise<{
   expired: number
   executed: number
   failed: number
   stuck: Array<{ id: string; org_id: string; status: string }>
+  reconciliation: { checked: number; drifted: number; errors: number }
 }> {
   const limit = opts.limit ?? 25
+  // xphere.app sits behind Cloudflare, which cuts a request at 100s. Stop
+  // starting new work well before that; whatever is left runs next tick.
+  const startedAt = Date.now()
+  const budgetMs = opts.budgetMs ?? 60_000
+  const timeLeft = () => budgetMs - (Date.now() - startedAt)
   let expired = 0
   for (const stale of await staleApprovals(100)) {
     const row = await transition({
@@ -710,10 +853,13 @@ export async function processChangeQueue(opts: { limit?: number } = {}): Promise
   // Sequential on purpose: providers rate-limit per account, and a retry
   // storm is how a transient 429 becomes an outage.
   for (const due of await dueQueuedChanges(limit)) {
+    if (timeLeft() < 10_000) break
     const result = await executeChange({ orgId: due.org_id, changeId: due.id, actor: SYSTEM_ACTOR })
     if (result.ok) executed++
-    else if (result.code !== 'retry_scheduled' && result.code !== 'invalid_state') failed++
+    else if (!['retry_scheduled', 'invalid_state', 'circuit_open'].includes(result.code)) failed++
   }
 
-  return { expired, executed, failed, stuck: await stuckChanges(15, 50) }
+  const reconciliation =
+    timeLeft() > 25_000 ? await reconcileAppliedChanges({ limit: 10 }) : { checked: 0, drifted: 0, errors: 0 }
+  return { expired, executed, failed, stuck: await stuckChanges(15, 50), reconciliation }
 }

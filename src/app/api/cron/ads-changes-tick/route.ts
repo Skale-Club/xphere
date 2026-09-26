@@ -4,6 +4,7 @@
 //   - executes queued changes whose retry time has come (transient provider
 //     errors back off 1, 2, 4, 8 min; after 5 attempts → failed/retries_exhausted)
 //   - expires approvals past their deadline
+//   - re-reads recently applied changes and flags ones edited outside Xphere
 //   - reports changes stuck in executing/verifying (never auto-retried: whether
 //     the provider write landed is unknown — an operator decides)
 //
@@ -11,7 +12,7 @@
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120
+export const maxDuration = 240
 
 import { captureApiError } from '@/lib/api-error'
 import { processChangeQueue } from '@/lib/ads/commands/engine'

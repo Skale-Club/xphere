@@ -355,3 +355,65 @@ export async function updateObject(
     body: opts.validateOnly ? { ...fields, execution_options: ['validate_only'] } : fields,
   })
 }
+
+/**
+ * POST /{object-id}/copies — Meta's campaign/ad-set/ad duplication endpoint.
+ * Copies are always requested with `status_option: 'PAUSED'` by the caller
+ * (see meta-adapter.ts's buildCopyBody); this function just forwards whatever
+ * body it is given. Unlike `updateObject`, this endpoint does not document
+ * `execution_options: ['validate_only']` support, so there is no validate-only
+ * variant here — the adapter's `validate()` does a read-only sanity check
+ * instead (source + target still exist in the account) right before calling
+ * this.
+ */
+export async function copyObject(
+  objectId: string,
+  body: Record<string, unknown>,
+  accessToken: string,
+): Promise<{ copied_campaign_id?: string; copied_adset_id?: string; copied_ad_id?: string; ad_object_ids?: string[] }> {
+  return graphRequest<{ copied_campaign_id?: string; copied_adset_id?: string; copied_ad_id?: string; ad_object_ids?: string[] }>(
+    `${objectId}/copies`,
+    accessToken,
+    { method: 'POST', body },
+  )
+}
+
+export type MetaCustomAudience = {
+  id: string
+  name?: string
+  approximate_count_lower_bound?: number
+  operation_status?: { code: number; description: string }
+}
+
+/**
+ * Custom/lookalike audiences in one ad account — scoped by the `act_x/customaudiences`
+ * edge itself, so any id returned here is guaranteed to belong to that account.
+ * Used both by the MCP read tool (so an agent can pick an id) and by the
+ * adapter's snapshot for `meta.adset.update_targeting` (so an unknown or
+ * cross-account audience id is rejected at plan time, not left for Meta to
+ * reject after approval).
+ */
+export async function listCustomAudiences(adAccountId: string, accessToken: string): Promise<MetaCustomAudience[]> {
+  return graphRequestAll<MetaCustomAudience>(
+    `${adAccountId}/customaudiences?fields=id,name,approximate_count_lower_bound,operation_status&limit=200`,
+    accessToken,
+  )
+}
+
+export type MetaCreative = {
+  id: string
+  name?: string
+  title?: string
+  body?: string
+  thumbnail_url?: string
+  account_id?: string
+  object_story_spec?: Record<string, unknown>
+}
+
+/** Ad creatives in one ad account, for picking a `creative_id` for `meta.ad.set_creative`. */
+export async function listCreatives(adAccountId: string, accessToken: string): Promise<MetaCreative[]> {
+  return graphRequestAll<MetaCreative>(
+    `${adAccountId}/adcreatives?fields=id,name,title,body,thumbnail_url,object_story_spec&limit=100`,
+    accessToken,
+  )
+}

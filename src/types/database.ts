@@ -8121,8 +8121,11 @@ export interface Database {
           error_code: string | null
           error_message: string | null
           executed_at: string | null
+          external_drift: Json | null
+          external_drift_detected_at: string | null
           id: string
           idempotency_key: string
+          last_reconciled_at: string | null
           intended_state: Json | null
           next_attempt_at: string | null
           org_id: string
@@ -8164,8 +8167,11 @@ export interface Database {
           error_code?: string | null
           error_message?: string | null
           executed_at?: string | null
+          external_drift?: Json | null
+          external_drift_detected_at?: string | null
           id?: string
           idempotency_key: string
+          last_reconciled_at?: string | null
           intended_state?: Json | null
           next_attempt_at?: string | null
           org_id: string
@@ -8207,8 +8213,11 @@ export interface Database {
           error_code?: string | null
           error_message?: string | null
           executed_at?: string | null
+          external_drift?: Json | null
+          external_drift_detected_at?: string | null
           id?: string
           idempotency_key?: string
+          last_reconciled_at?: string | null
           intended_state?: Json | null
           next_attempt_at?: string | null
           org_id?: string

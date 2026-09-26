@@ -446,6 +446,9 @@ export type GAdsMutateService =
   | 'adGroupAds'
   | 'adGroupCriteria'
   | 'campaignCriteria'
+  | 'ads'
+  | 'campaignConversionGoals'
+  | 'conversionActions'
 
 export type GAdsMutateResponse = {
   results?: Array<{ resourceName?: string }>
@@ -509,4 +512,42 @@ export async function uploadClickConversions(
     refreshToken,
     { method: 'POST', body },
   )
+}
+
+// ─── Geo target constant lookup ────────────────────────────────────────────────
+
+export type GeoTargetConstantSuggestion = {
+  geoTargetConstant: {
+    id?: string
+    name?: string
+    countryCode?: string
+    targetType?: string
+    canonicalName?: string
+    status?: string
+  }
+}
+
+/**
+ * `geoTargetConstants:suggest` resolves free-text place names (e.g. "Lisbon")
+ * to the numeric geo target constant ids `google.campaign.add_location`
+ * needs. Unlike every other call in this module it is NOT scoped under
+ * `customers/{id}` — Google resolves location names globally — so it needs
+ * no customer id and no login-customer-id header, only the developer token
+ * and an access token like any other call.
+ */
+export async function suggestGeoTargetConstants(
+  refreshToken: string,
+  params: { locale: string; countryCode?: string; locationNames: string[] },
+): Promise<GeoTargetConstantSuggestion[]> {
+  const body: Record<string, unknown> = {
+    locale: params.locale,
+    locationNames: { names: params.locationNames },
+  }
+  if (params.countryCode) body.countryCode = params.countryCode
+  const res = await gadsRequest<{ geoTargetConstantSuggestions?: GeoTargetConstantSuggestion[] }>(
+    'geoTargetConstants:suggest',
+    refreshToken,
+    { method: 'POST', body },
+  )
+  return res.geoTargetConstantSuggestions ?? []
 }

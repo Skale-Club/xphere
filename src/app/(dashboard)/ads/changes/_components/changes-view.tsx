@@ -18,6 +18,7 @@ import { ChangeDetailSheet } from './change-detail-sheet'
 import { ApproveDialog } from './approve-dialog'
 import { CancelDialog } from './cancel-dialog'
 import { PoliciesPanel } from './policies-panel'
+import { BatchBar } from './batch-bar'
 
 type Tab = 'pending' | 'in_progress' | 'history'
 
@@ -34,6 +35,33 @@ const TAB_LABELS: Record<Tab, string> = {
 }
 
 type EngineActionResponse = { ok: boolean; error?: string; code?: string; change?: ChangeView }
+
+/**
+ * Pending batches (2+ changes sharing a batch_id) get their own card with an
+ * "Approve all" bar; everything else stays in one list, in the API's order.
+ */
+function groupByBatch(changes: ChangeView[], groupBatches: boolean) {
+  if (!groupBatches) return [{ key: 'all', batchId: null as string | null, changes }]
+  const counts = new Map<string, number>()
+  for (const c of changes) if (c.batch_id) counts.set(c.batch_id, (counts.get(c.batch_id) ?? 0) + 1)
+  const groups: Array<{ key: string; batchId: string | null; changes: ChangeView[] }> = []
+  const loose: ChangeView[] = []
+  const byBatch = new Map<string, ChangeView[]>()
+  for (const c of changes) {
+    if (c.batch_id && (counts.get(c.batch_id) ?? 0) > 1) {
+      if (!byBatch.has(c.batch_id)) {
+        const list: ChangeView[] = []
+        byBatch.set(c.batch_id, list)
+        groups.push({ key: c.batch_id, batchId: c.batch_id, changes: list })
+      }
+      byBatch.get(c.batch_id)!.push(c)
+    } else {
+      loose.push(c)
+    }
+  }
+  if (loose.length) groups.push({ key: 'loose', batchId: null, changes: loose })
+  return groups
+}
 
 export function ChangesView({
   initialChanges,
@@ -177,18 +205,23 @@ export function ChangesView({
           {tab === 'history' && 'No completed changes yet.'}
         </div>
       ) : (
-        <div className="rounded-xl border border-border-subtle overflow-hidden">
-          {changes.map((change) => (
-            <ChangeRow
-              key={change.id}
-              change={change}
-              busy={mutatingId === change.id}
-              onOpenDetail={() => setDetailId(change.id)}
-              onApprove={() => setApproveTarget(change)}
-              onCancel={() => setCancelTarget(change)}
-              onRetry={() => void postAction(change, 'retry')}
-              onRollback={() => void postAction(change, 'rollback')}
-            />
+        <div className="space-y-3">
+          {groupByBatch(changes, tab === 'pending').map((group) => (
+            <div key={group.key} className="rounded-xl border border-border-subtle overflow-hidden">
+              {group.batchId && <BatchBar batchId={group.batchId} changes={group.changes} onDone={refresh} />}
+              {group.changes.map((change) => (
+                <ChangeRow
+                  key={change.id}
+                  change={change}
+                  busy={mutatingId === change.id}
+                  onOpenDetail={() => setDetailId(change.id)}
+                  onApprove={() => setApproveTarget(change)}
+                  onCancel={() => setCancelTarget(change)}
+                  onRetry={() => void postAction(change, 'retry')}
+                  onRollback={() => void postAction(change, 'rollback')}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

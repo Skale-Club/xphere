@@ -11,12 +11,18 @@ const ledger = vi.hoisted(() => ({
   rows: new Map<string, Record<string, unknown>>(),
   events: [] as Array<Record<string, unknown>>,
   seq: 0,
+  accountFailures: 0,
+  reconcile: [] as Array<Record<string, unknown>>,
+  laterChange: false,
 }))
 
 function resetLedger() {
   ledger.rows.clear()
   ledger.events = []
   ledger.seq = 0
+  ledger.accountFailures = 0
+  ledger.reconcile = []
+  ledger.laterChange = false
 }
 
 vi.mock('@/lib/ads/commands/store', () => {
@@ -75,7 +81,14 @@ vi.mock('@/lib/ads/commands/store', () => {
     appendEvent: vi.fn(async (params: Record<string, unknown>) => {
       ledger.events.push(params)
     }),
-    listChangeRows: vi.fn(async (orgId: string) => [...ledger.rows.values()].filter((r) => r.org_id === orgId)),
+    listChangeRows: vi.fn(async (orgId: string, filters: { batchId?: string; status?: string[] } = {}) =>
+      [...ledger.rows.values()].filter(
+        (r) =>
+          r.org_id === orgId &&
+          (!filters.batchId || r.batch_id === filters.batchId) &&
+          (!filters.status || filters.status.includes(r.status as string)),
+      ),
+    ),
     listChangeEvents: vi.fn(async (orgId: string, changeId: string) =>
       ledger.events.filter((e) => e.changeId === changeId),
     ),
@@ -92,6 +105,13 @@ vi.mock('@/lib/ads/commands/store', () => {
         .map((r) => ({ id: r.id as string, org_id: r.org_id as string })),
     ),
     stuckChanges: vi.fn(async () => []),
+    recentAccountFailures: vi.fn(async () => ledger.accountFailures),
+    changesToReconcile: vi.fn(async () => ledger.reconcile),
+    hasLaterChange: vi.fn(async () => ledger.laterChange),
+    updateReconciliation: vi.fn(async (_orgId: string, changeId: string, patch: Record<string, unknown>) => {
+      const row = ledger.rows.get(changeId)
+      if (row) ledger.rows.set(changeId, { ...row, ...patch })
+    }),
   }
 })
 
@@ -102,7 +122,7 @@ vi.mock('@/lib/ads/commands/store', () => {
 
 const fakeAdapter = vi.hoisted(() => ({
   platform: 'google' as const,
-  capabilities: vi.fn(() => []),
+  capabilities: vi.fn(() => [{ type: 'google.campaign.set_status' }, { type: 'google.keyword.set_cpc_bid' }]),
   snapshot: vi.fn(),
   plan: vi.fn(),
   validate: vi.fn(async () => {}),
@@ -139,9 +159,11 @@ vi.mock('@/lib/ads/cache', () => ({ invalidateAccountReports: invalidateMock }))
 vi.mock('@/lib/ads/connection-health', () => ({ markConnectionError: markConnectionErrorMock }))
 
 import {
+  approveBatch,
   approveChange,
   cancelChange,
   executeChange,
+  reconcileAppliedChanges,
   previewChange,
   processChangeQueue,
   retryChange,
@@ -211,6 +233,7 @@ beforeEach(() => {
   fakeAdapter.execute.mockResolvedValue({ providerRef: 'ref-1', raw: {} })
   fakeAdapter.verify.mockResolvedValue({ ok: true, mismatches: [], observed: { status: 'ENABLED' } })
   fakeAdapter.buildRollback.mockReturnValue(null)
+  fakeAdapter.capabilities.mockReturnValue([{ type: 'google.campaign.set_status' }, { type: 'google.keyword.set_cpc_bid' }])
 })
 
 // ─── Human, self-approvable, risk requiring approval ────────────────────────────
@@ -633,5 +656,130 @@ describe('processChangeQueue', () => {
     if (!stalePreview.ok) return
     const expiredRow = ledger.rows.get(stalePreview.change.id)
     expect(expiredRow?.status).toBe('expired')
+  })
+})
+
+// ─── Round 2: unsupported commands, circuit breaker, batches, reconciliation ──
+
+describe('previewChange — command the adapter does not implement', () => {
+  it('refuses it as unsupported instead of calling the adapter', async () => {
+    // A catalog entry without an adapter implementation must never reach a
+    // provider call that would return undefined and crash mid-lifecycle.
+    fakeAdapter.capabilities.mockReturnValue([])
+    const result = await previewChange({ orgId: ORG, actor: human(), command: RISK1_COMMAND })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('unsupported_command')
+    expect(fakeAdapter.snapshot).not.toHaveBeenCalled()
+    expect(ledger.rows.size).toBe(0)
+  })
+})
+
+describe('executeChange — circuit breaker', () => {
+  it('re-queues without spending an attempt or touching the platform when the account keeps failing', async () => {
+    const preview = await previewChange({ orgId: ORG, actor: human({ canApprove: true }), command: RISK1_COMMAND })
+    expect(preview.ok).toBe(true)
+    if (!preview.ok) return
+    ledger.accountFailures = 5
+
+    const result = await approveChange({ orgId: ORG, changeId: preview.change.id, actor: human({ canApprove: true }) })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('circuit_open')
+    expect(fakeAdapter.execute).not.toHaveBeenCalled()
+    const row = ledger.rows.get(preview.change.id)!
+    expect(row.status).toBe('queued')
+    expect(row.attempt_count).toBe(0)
+    expect(Date.parse(row.next_attempt_at as string)).toBeGreaterThan(Date.now() + 5 * 60_000)
+    expect(ledger.events.some((e) => e.eventType === 'circuit_open')).toBe(true)
+  })
+
+  it('runs normally below the threshold', async () => {
+    ledger.accountFailures = 4
+    const result = await submitChange({ orgId: ORG, actor: human({ canApprove: true }), command: RISK1_COMMAND })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.change.status).toBe('succeeded')
+  })
+})
+
+describe('approveBatch', () => {
+  it('applies every pending change of the batch and reports each outcome', async () => {
+    const a = await previewChange({ orgId: ORG, actor: human(), command: RISK1_COMMAND, batchId: 'batch-1', batchSize: 2 })
+    const b = await previewChange({ orgId: ORG, actor: human(), command: RISK3_COMMAND, batchId: 'batch-1', batchSize: 2 })
+    expect(a.ok && b.ok).toBe(true)
+
+    const { results } = await approveBatch({ orgId: ORG, batchId: 'batch-1', actor: human({ canApprove: true }) })
+
+    expect(results).toHaveLength(2)
+    expect(results.every((r) => r.ok)).toBe(true)
+    expect(fakeAdapter.execute).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps going after one change fails', async () => {
+    await previewChange({ orgId: ORG, actor: human(), command: RISK1_COMMAND, batchId: 'batch-2', batchSize: 2 })
+    await previewChange({ orgId: ORG, actor: human(), command: RISK3_COMMAND, batchId: 'batch-2', batchSize: 2 })
+    fakeAdapter.execute.mockRejectedValueOnce(new Error('rejected')).mockResolvedValueOnce({ providerRef: 'ref-2', raw: {} })
+
+    const { results } = await approveBatch({ orgId: ORG, batchId: 'batch-2', actor: human({ canApprove: true }) })
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1)
+    expect(results.filter((r) => !r.ok)).toHaveLength(1)
+    expect(fakeAdapter.execute).toHaveBeenCalledTimes(2)
+  })
+
+  it('requires a matching token per change for an AI actor', async () => {
+    loadEffectivePolicyMock.mockResolvedValue({ ...defaultPolicy(), aiMode: 'execute_with_confirmation' })
+    const p = await previewChange({ orgId: ORG, actor: ai(), command: RISK1_COMMAND, batchId: 'batch-3', batchSize: 1 })
+    expect(p.ok).toBe(true)
+    if (!p.ok) return
+
+    const wrong = await approveBatch({ orgId: ORG, batchId: 'batch-3', actor: ai(), confirmationTokens: { [p.change.id]: 'adsc_wrong_token_value' } })
+    expect(wrong.results[0].ok).toBe(false)
+
+    const right = await approveBatch({ orgId: ORG, batchId: 'batch-3', actor: ai(), confirmationTokens: { [p.change.id]: p.confirmationToken! } })
+    expect(right.results[0].ok).toBe(true)
+  })
+})
+
+describe('reconcileAppliedChanges', () => {
+  async function applied() {
+    const r = await submitChange({ orgId: ORG, actor: human({ canApprove: true }), command: RISK1_COMMAND })
+    if (!r.ok) throw new Error('setup failed')
+    const row = ledger.rows.get(r.change.id)!
+    ledger.reconcile = [row]
+    return row
+  }
+
+  it('flags a change the platform no longer reflects, without rewriting its status', async () => {
+    const row = await applied()
+    fakeAdapter.verify.mockResolvedValue({ ok: false, mismatches: [{ field: 'status', expected: 'ENABLED', actual: 'PAUSED' }], observed: { status: 'PAUSED' } })
+
+    const result = await reconcileAppliedChanges()
+
+    expect(result).toMatchObject({ checked: 1, drifted: 1 })
+    const updated = ledger.rows.get(row.id as string)!
+    expect(updated.status).toBe('succeeded')
+    expect(updated.external_drift_detected_at).toBeTruthy()
+    expect(ledger.events.some((e) => e.eventType === 'external_change_detected')).toBe(true)
+  })
+
+  it('does not flag drift when a later Xphere change touched the same resource', async () => {
+    await applied()
+    ledger.laterChange = true
+    fakeAdapter.verify.mockResolvedValue({ ok: false, mismatches: [{ field: 'status', expected: 'ENABLED', actual: 'PAUSED' }], observed: {} })
+
+    const result = await reconcileAppliedChanges()
+
+    expect(result.drifted).toBe(0)
+    expect(ledger.events.some((e) => e.eventType === 'external_change_detected')).toBe(false)
+  })
+
+  it('treats a failed read as unknown, not as drift', async () => {
+    const row = await applied()
+    fakeAdapter.verify.mockRejectedValue(new Error('timeout'))
+
+    const result = await reconcileAppliedChanges()
+
+    expect(result).toMatchObject({ drifted: 0, errors: 1 })
+    expect(ledger.rows.get(row.id as string)!.external_drift_detected_at).toBeFalsy()
   })
 })

@@ -5,6 +5,7 @@ import type { EngineFailure, ExecutionSuccess, PreviewSuccess } from './engine'
 const STATUS_BY_CODE: Record<string, number> = {
   invalid_command: 400,
   invalid_input: 400,
+  unsupported_command: 422,
   forbidden: 403,
   missing_permission: 403,
   approval_requires_human: 403,
@@ -30,6 +31,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   connection_error: 424,
   retry_scheduled: 202,
   provider_unavailable: 503,
+  circuit_open: 503,
   retries_exhausted: 502,
 }
 

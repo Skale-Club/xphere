@@ -222,3 +222,151 @@ export async function listAds(params: {
     ...metrics(r.metrics),
   }))
 }
+
+// ─── Campaign targeting (locations, languages, ad schedules) ──────────────────
+
+export type CampaignLocationCriterion = {
+  criterion_id: string
+  geo_target_constant_id: string
+  negative: boolean
+  bid_modifier: number | null
+}
+export type CampaignLanguageCriterion = {
+  criterion_id: string
+  language_constant_id: string
+  bid_modifier: number | null
+}
+export type CampaignAdScheduleCriterion = {
+  criterion_id: string
+  day_of_week: string
+  start_hour: number
+  start_minute: string
+  end_hour: number
+  end_minute: string
+  bid_modifier: number | null
+}
+
+/**
+ * Every location, language and ad-schedule criterion on a campaign, with the
+ * criterion ids `google.campaign.remove_*` needs. `campaign_criterion.location
+ * .geo_target_constant` / `.language.language_constant` come back as resource
+ * names ("geoTargetConstants/2620") — only the trailing numeric id is kept.
+ */
+export async function listCampaignTargeting(params: {
+  customerId: string
+  refreshToken: string
+  campaignId: string
+}): Promise<{
+  locations: CampaignLocationCriterion[]
+  languages: CampaignLanguageCriterion[]
+  adSchedules: CampaignAdScheduleCriterion[]
+}> {
+  type Row = {
+    campaignCriterion: {
+      criterionId: string
+      type?: string
+      negative?: boolean
+      bidModifier?: number
+      location?: { geoTargetConstant?: string }
+      language?: { languageConstant?: string }
+      adSchedule?: { dayOfWeek?: string; startHour?: number; startMinute?: string; endHour?: number; endMinute?: string }
+    }
+  }
+  const rows = await runGaqlQuery<Row>(
+    params.customerId,
+    params.refreshToken,
+    `SELECT campaign_criterion.criterion_id, campaign_criterion.type, campaign_criterion.negative,
+            campaign_criterion.bid_modifier, campaign_criterion.location.geo_target_constant,
+            campaign_criterion.language.language_constant, campaign_criterion.ad_schedule.day_of_week,
+            campaign_criterion.ad_schedule.start_hour, campaign_criterion.ad_schedule.start_minute,
+            campaign_criterion.ad_schedule.end_hour, campaign_criterion.ad_schedule.end_minute
+     FROM campaign_criterion
+     WHERE campaign.id = ${assertNumericId(params.campaignId, 'campaign_id')}
+       AND campaign_criterion.type IN ('LOCATION', 'LANGUAGE', 'AD_SCHEDULE')
+       AND campaign_criterion.status != 'REMOVED'`,
+  )
+  const trailingId = (resourceName: string | undefined) => resourceName?.match(/\/(\d+)$/)?.[1] ?? ''
+  return {
+    locations: rows
+      .filter((r) => r.campaignCriterion.type === 'LOCATION')
+      .map((r) => ({
+        criterion_id: r.campaignCriterion.criterionId,
+        geo_target_constant_id: trailingId(r.campaignCriterion.location?.geoTargetConstant),
+        negative: Boolean(r.campaignCriterion.negative),
+        bid_modifier: r.campaignCriterion.bidModifier ?? null,
+      })),
+    languages: rows
+      .filter((r) => r.campaignCriterion.type === 'LANGUAGE')
+      .map((r) => ({
+        criterion_id: r.campaignCriterion.criterionId,
+        language_constant_id: trailingId(r.campaignCriterion.language?.languageConstant),
+        bid_modifier: r.campaignCriterion.bidModifier ?? null,
+      })),
+    adSchedules: rows
+      .filter((r) => r.campaignCriterion.type === 'AD_SCHEDULE')
+      .map((r) => ({
+        criterion_id: r.campaignCriterion.criterionId,
+        day_of_week: r.campaignCriterion.adSchedule?.dayOfWeek ?? '',
+        start_hour: r.campaignCriterion.adSchedule?.startHour ?? 0,
+        start_minute: r.campaignCriterion.adSchedule?.startMinute ?? 'ZERO',
+        end_hour: r.campaignCriterion.adSchedule?.endHour ?? 0,
+        end_minute: r.campaignCriterion.adSchedule?.endMinute ?? 'ZERO',
+        bid_modifier: r.campaignCriterion.bidModifier ?? null,
+      })),
+  }
+}
+
+// ─── Conversion actions & campaign conversion goals ────────────────────────────
+
+export async function listConversionActions(params: {
+  customerId: string
+  refreshToken: string
+  /** Narrow to one conversion action (the adapter's snapshot read). Omit to list the account. */
+  conversionActionId?: string
+}) {
+  type Row = {
+    conversionAction: {
+      id: string
+      name: string
+      status: string
+      category?: string
+      type?: string
+      primaryForGoal?: boolean
+    }
+  }
+  const filter = params.conversionActionId
+    ? ` WHERE conversion_action.id = ${assertNumericId(params.conversionActionId, 'conversion_action_id')}`
+    : ''
+  const rows = await runGaqlQuery<Row>(
+    params.customerId,
+    params.refreshToken,
+    `SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.category,
+            conversion_action.type, conversion_action.primary_for_goal
+     FROM conversion_action${filter}
+     ORDER BY conversion_action.name`,
+  )
+  return rows.map((r) => ({
+    conversion_action_id: r.conversionAction.id,
+    name: r.conversionAction.name,
+    status: r.conversionAction.status,
+    category: r.conversionAction.category ?? null,
+    type: r.conversionAction.type ?? null,
+    primary_for_goal: Boolean(r.conversionAction.primaryForGoal),
+  }))
+}
+
+export async function listCampaignConversionGoals(params: { customerId: string; refreshToken: string; campaignId: string }) {
+  type Row = { campaignConversionGoal: { category: string; origin: string; biddable: boolean } }
+  const rows = await runGaqlQuery<Row>(
+    params.customerId,
+    params.refreshToken,
+    `SELECT campaign_conversion_goal.category, campaign_conversion_goal.origin, campaign_conversion_goal.biddable
+     FROM campaign_conversion_goal
+     WHERE campaign.id = ${assertNumericId(params.campaignId, 'campaign_id')}`,
+  )
+  return rows.map((r) => ({
+    category: r.campaignConversionGoal.category,
+    origin: r.campaignConversionGoal.origin,
+    biddable: Boolean(r.campaignConversionGoal.biddable),
+  }))
+}
