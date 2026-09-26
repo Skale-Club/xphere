@@ -6,6 +6,7 @@ import { Pause, Play, Pencil, Loader2, AlertCircle, ArrowLeft } from 'lucide-rea
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { handleEngineResponse } from './change-response'
 
 type Campaign = {
   id: string
@@ -90,38 +91,34 @@ export function GoogleAdsCampaigns({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_status', customer_id: activeCustomerId, campaign_id: campaign.id, status: newStatus }),
       })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { error?: string }).error ?? 'Failed to update status')
+      const applied = await handleEngineResponse(res, `Campaign ${newStatus === 'ENABLED' ? 'enabled' : 'paused'}.`)
+      if (applied) {
+        setCampaigns((prev) => prev.map((c) => c.id === campaign.id ? { ...c, status: newStatus } : c))
       }
-      toast.success(`Campaign ${newStatus === 'ENABLED' ? 'enabled' : 'paused'}.`)
-      setCampaigns((prev) => prev.map((c) => c.id === campaign.id ? { ...c, status: newStatus } : c))
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update campaign')
+    } catch {
+      toast.error('Failed to update campaign')
     } finally {
       setMutating(null)
     }
   }
 
   async function saveBudget(campaign: Campaign) {
-    const usd = parseFloat(newBudget)
-    if (isNaN(usd) || usd <= 0) { toast.error('Enter a valid budget amount'); return }
+    const amount = parseFloat(newBudget)
+    if (isNaN(amount) || amount <= 0) { toast.error('Enter a valid budget amount'); return }
     setMutating(campaign.id)
     try {
       const res = await fetch('/api/ads/google/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_budget', customer_id: activeCustomerId, campaign_id: campaign.id, budget_id: campaign.budgetId, daily_budget_usd: usd }),
+        // Major units of the account currency — the engine resolves the
+        // campaign's budget resource itself, budget_id is no longer needed.
+        body: JSON.stringify({ action: 'set_budget', customer_id: activeCustomerId, campaign_id: campaign.id, daily_budget: amount }),
       })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { error?: string }).error ?? 'Failed to update budget')
-      }
-      toast.success('Daily budget updated.')
+      const applied = await handleEngineResponse(res, 'Daily budget updated.')
       setEditingBudget(null)
-      await fetchCampaigns()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update budget')
+      if (applied) await fetchCampaigns()
+    } catch {
+      toast.error('Failed to update budget')
     } finally {
       setMutating(null)
     }

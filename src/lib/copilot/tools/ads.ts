@@ -24,6 +24,9 @@ import {
 } from '@/lib/ads/google-api'
 import { getCustomerInfo, refreshAccessToken } from '@/lib/ads/google-oauth'
 import { compareAdsPeriods, describeComparison } from '@/lib/ads/snapshot'
+import { copilotActor } from '@/lib/ads/commands/actors'
+import { COMMAND_CATALOG } from '@/lib/ads/commands/catalog'
+import { listChanges, previewChange } from '@/lib/ads/commands/engine'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -321,6 +324,62 @@ async function createAdsPlan(input: Record<string, unknown>, ctx: ToolContext): 
   return { success: true, data: { id: data.id } }
 }
 
+// ─── Write: propose a change through the Ads Command Engine ───────────────────
+// The Copilot never applies a change itself. It previews one — Xphere snapshots
+// the resource, computes the diff, checks the account policy and asks the
+// platform to validate — and the operator approves it in Ads → Changes.
+async function proposeAdsChange(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+  const result = await previewChange({ orgId: ctx.orgId, actor: copilotActor(ctx.userId), command: input.command })
+  if (!result.ok) {
+    return {
+      success: false,
+      error: `${result.code}: ${result.message}${result.violations?.length ? ` (${result.violations.map((v) => v.message).join(' ')})` : ''}`,
+    }
+  }
+  const c = result.change
+  return {
+    success: true,
+    data: {
+      change_id: c.id,
+      status: c.status,
+      action: c.label,
+      resource: c.resource_name ?? c.resource_id,
+      diff: c.diff.map((d) => `${d.label}: ${d.beforeDisplay} → ${d.afterDisplay}`),
+      warnings: c.warnings,
+      approval_reasons: c.approval_reasons.map((r) => r.message),
+      review_url: '/ads/changes',
+      next_step: 'Tell the operator the change is ready for review in Ads → Changes and summarise the diff and warnings. Do not claim it was applied.',
+    },
+  }
+}
+
+async function listAdsChanges(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+  const changes = await listChanges(ctx.orgId, {
+    platform: input.platform === 'meta' || input.platform === 'google' ? input.platform : undefined,
+    campaignId: typeof input.campaign_id === 'string' ? input.campaign_id : undefined,
+    limit: Math.min(Number(input.limit ?? 20), 50),
+  })
+  return {
+    success: true,
+    data: changes.map((c) => ({
+      change_id: c.id,
+      status: c.status,
+      platform: c.platform,
+      action: c.label,
+      resource: c.resource_name ?? c.resource_id,
+      diff: c.diff.map((d) => `${d.label}: ${d.beforeDisplay} → ${d.afterDisplay}`),
+      by: c.actor_label,
+      approved_by: c.approved_by_label,
+      error: c.error_message,
+      created_at: c.created_at,
+    })),
+  }
+}
+
+const COMMAND_TYPES_DOC = Object.entries(COMMAND_CATALOG)
+  .map(([type, e]) => `${type} (risk ${e.risk})`)
+  .join('; ')
+
 const PLATFORM_PROP = { type: 'string', enum: ['meta', 'google'], description: 'Ad platform (omit for cross-platform)' }
 const MEMORY_TYPE_PROP = { type: 'string', enum: ['insight', 'decision', 'plan', 'risk', 'observation', 'result', 'goal'] }
 
@@ -437,6 +496,31 @@ export const adsTools: CopilotToolRegistry = {
       input_schema: { type: 'object', properties: { type: MEMORY_TYPE_PROP, title: { type: 'string' }, content: { type: 'string' }, platform: PLATFORM_PROP, campaign_name: { type: 'string' }, confidence: { type: 'number', description: '1-5' } }, required: ['type', 'title', 'content'] },
     },
     handler: (input, ctx) => writeMemory(input, ctx, true),
+  },
+  propose_ads_change: {
+    mode: 'write',
+    definition: {
+      name: 'propose_ads_change',
+      description:
+        'Propose ONE change to a Google Ads or Meta Ads account for the operator to approve in Ads → Changes. Nothing is applied by this tool. The command object always has platform ("google"|"meta"), ad_account_id (Google customer id digits, or Meta "act_…"), type, and the fields for that type. Money is in major units of the account currency. Types: ' +
+        COMMAND_TYPES_DOC +
+        '. Field names: campaign_id, ad_group_id, ad_id, adset_id, criterion_id, status (Google ENABLED|PAUSED, Meta ACTIVE|PAUSED), daily_budget, name, cpc_bid, bid_amount, spend_cap, end_time (ISO), text + match_type (EXACT|PHRASE|BROAD) for keywords, level (campaign|ad_group) for negative keywords, age_min/age_max/genders([1,2])/countries/publisher_platforms for targeting. A validation error names the offending field — fix it and call again.',
+      input_schema: {
+        type: 'object',
+        properties: { command: { type: 'object', description: 'The typed command, e.g. {"platform":"google","ad_account_id":"1234567890","type":"google.negative_keyword.add","level":"campaign","campaign_id":"111","text":"gratis","match_type":"PHRASE"}' } },
+        required: ['command'],
+      },
+    },
+    handler: proposeAdsChange,
+  },
+  list_ads_changes: {
+    mode: 'read',
+    definition: {
+      name: 'list_ads_changes',
+      description: 'Recent ad changes (applied, pending approval, failed) with who made them and the before→after diff. Use to answer "what changed?" before diagnosing a performance shift.',
+      input_schema: { type: 'object', properties: { platform: PLATFORM_PROP, campaign_id: { type: 'string' }, limit: { type: 'number', description: 'default 20, max 50' } } },
+    },
+    handler: listAdsChanges,
   },
   create_ads_plan: {
     mode: 'write',

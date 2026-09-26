@@ -154,6 +154,12 @@ export async function recordMutationExecution(params: {
   executedByAi?: boolean
   /** The acting user, when a human triggered it. */
   actorId?: string
+  /** Explicit timeline title/type, for command-engine changes beyond pause/enable/budget. */
+  title?: string
+  executionType?: 'campaign_pause' | 'campaign_enable' | 'budget_increase' | 'budget_decrease' | 'audience_change' | 'creative_change' | 'manual'
+  description?: string
+  /** ads_change_requests row that produced this entry. */
+  changeRequestId?: string
 }): Promise<void> {
   try {
     const journey = await getOrCreateJourney(params.orgId)
@@ -185,6 +191,8 @@ export async function recordMutationExecution(params: {
         type = 'manual'
         title = `Action executed: ${params.toolName}`
     }
+    if (params.executionType) type = params.executionType
+    if (params.title) title = params.title
 
     await db().from('ads_executions').insert({
       org_id: params.orgId,
@@ -198,6 +206,8 @@ export async function recordMutationExecution(params: {
       after_value: params.afterValue ?? null,
       executed_by_ai: params.executedByAi ?? false,
       executed_by: params.actorId ?? null,
+      description: params.description ?? null,
+      change_request_id: params.changeRequestId ?? null,
     })
   } catch (err) {
     // Non-blocking, but not invisible: a silently missing audit trail is how

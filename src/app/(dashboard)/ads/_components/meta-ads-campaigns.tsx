@@ -6,6 +6,7 @@ import { Pause, Play, Pencil, Loader2, AlertCircle, ArrowLeft, TrendingUp } from
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { handleEngineResponse } from './change-response'
 
 type Campaign = {
   id: string
@@ -101,24 +102,22 @@ export function MetaAdsCampaigns({
           status: newStatus,
         }),
       })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { error?: string }).error ?? 'Failed to update status')
+      const applied = await handleEngineResponse(res, `Campaign ${newStatus === 'ACTIVE' ? 'enabled' : 'paused'}.`)
+      if (applied) {
+        setCampaigns((prev) =>
+          prev.map((c) => c.id === campaign.id ? { ...c, effective_status: newStatus, status: newStatus } : c),
+        )
       }
-      toast.success(`Campaign ${newStatus === 'ACTIVE' ? 'enabled' : 'paused'}.`)
-      setCampaigns((prev) =>
-        prev.map((c) => c.id === campaign.id ? { ...c, effective_status: newStatus, status: newStatus } : c),
-      )
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update campaign')
+    } catch {
+      toast.error('Failed to update campaign')
     } finally {
       setMutating(null)
     }
   }
 
   async function saveBudget(campaignId: string) {
-    const usd = parseFloat(newBudget)
-    if (isNaN(usd) || usd <= 0) {
+    const amount = parseFloat(newBudget)
+    if (isNaN(amount) || amount <= 0) {
       toast.error('Enter a valid budget amount')
       return
     }
@@ -131,18 +130,15 @@ export function MetaAdsCampaigns({
           action: 'set_daily_budget',
           campaign_id: campaignId,
           ad_account_id: activeAccountId,
-          daily_budget_cents: Math.round(usd * 100),
+          // Major currency units — correct for zero-decimal currencies (JPY) too.
+          daily_budget: amount,
         }),
       })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { error?: string }).error ?? 'Failed to update budget')
-      }
-      toast.success('Daily budget updated.')
+      const applied = await handleEngineResponse(res, 'Daily budget updated.')
       setEditingBudget(null)
-      await fetchCampaigns()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update budget')
+      if (applied) await fetchCampaigns()
+    } catch {
+      toast.error('Failed to update budget')
     } finally {
       setMutating(null)
     }
