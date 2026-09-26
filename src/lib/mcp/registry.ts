@@ -25,6 +25,8 @@ import { agentsTools } from './tools/agents'
 import { bookingsTools } from './tools/bookings'
 import { adsTools } from './tools/ads'
 import { adsControlTools } from './tools/ads-control'
+import { adsGoogleReadTools } from './tools/ads-google-reads'
+import { adsMetaReadTools } from './tools/ads-meta-reads'
 import { organizationsTools } from './tools/organizations'
 import { prospectsTools } from './tools/prospects'
 import { prospectSendMessageTools } from './tools/prospect-send-message'
@@ -54,6 +56,8 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...bookingsTools,
   ...adsTools,
   ...adsControlTools,
+  ...adsGoogleReadTools,
+  ...adsMetaReadTools,
   ...organizationsTools,
   ...prospectsTools,
   ...prospectSendMessageTools,

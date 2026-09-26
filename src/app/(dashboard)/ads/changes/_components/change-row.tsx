@@ -81,6 +81,15 @@ export function ChangeRow({
           </div>
         )}
 
+        {change.external_drift_detected_at && (
+          <div className="flex items-center gap-1.5 text-[12px] text-amber-400">
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span className="truncate">
+              Changed outside Xphere after it was applied ({formatRelativeTime(change.external_drift_detected_at)}) — the platform no longer matches.
+            </span>
+          </div>
+        )}
+
         {change.error_message && (
           <div className="flex items-center gap-1.5 text-[12px] text-red-400">
             <XCircle className="h-3 w-3 shrink-0" />

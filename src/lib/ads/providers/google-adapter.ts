@@ -10,6 +10,7 @@ import { isAuthError } from '../connection-health'
 import { COMMAND_CATALOG, type AdsCommand } from '../commands/catalog'
 import type { DiffEntry, PlanResult, PolicyFacts, ResourceSnapshot } from '../commands/types'
 import { GoogleAdsError, mutateResources, parseTokens, runGaqlQuery, type GAdsMutateService } from '../google-api'
+import { listCampaignConversionGoals, listCampaignTargeting, listConversionActions } from '../google-reads'
 import { AdsValidationError } from '../validation'
 import { compareFields, diffField, diffMoney, effective } from './diff'
 import type { AdapterContext, AdsProviderAdapter, Capability, ErrorClass, ExecuteResult, VerifyResult } from './types'
@@ -28,6 +29,12 @@ function fromMicros(micros: string | number | null | undefined): number | null {
   return Number(micros) / MICROS
 }
 
+/** Google's double fields (target ROAS) come back as numbers already; this just tolerates a stringified one. */
+function numOrNull(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') return null
+  return Number(value)
+}
+
 function refreshToken(ctx: AdapterContext): string {
   return parseTokens(ctx.credential).refresh_token
 }
@@ -37,6 +44,13 @@ function isGoogle(cmd: AdsCommand): cmd is GoogleCommand {
 }
 
 const MANUAL_BIDDING = new Set(['MANUAL_CPC', 'ENHANCED_CPC', 'MANUAL_CPM', 'MANUAL_CPV'])
+
+const AD_SCHEDULE_MINUTES = { ZERO: 0, FIFTEEN: 15, THIRTY: 30, FORTY_FIVE: 45 } as const
+
+/** 'yyyy-MM-dd HH:mm:ss' in UTC — approximate stand-in for "now" in the account's time zone (see set_dates plan). */
+function nowAsGoogleDateTime(): string {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
+}
 
 // ─── GAQL readers ─────────────────────────────────────────────────────────────
 
@@ -76,7 +90,7 @@ async function readAdGroup(ctx: AdapterContext, adGroupId: string): Promise<AdGr
 }
 
 type AdRow = {
-  adGroupAd: { status: string; ad: { id: string; name?: string } }
+  adGroupAd: { status: string; ad: { id: string; name?: string; finalUrls?: string[] } }
   adGroup: { id: string; name?: string }
   campaign: { id: string }
   customer?: { currencyCode?: string }
@@ -86,9 +100,44 @@ async function readAd(ctx: AdapterContext, adGroupId: string, adId: string): Pro
   const rows = await runGaqlQuery<AdRow>(
     ctx.adAccountId,
     refreshToken(ctx),
-    `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status, ad_group.id, ad_group.name,
-            campaign.id, customer.currency_code
+    `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.ad.final_urls, ad_group_ad.status,
+            ad_group.id, ad_group.name, campaign.id, customer.currency_code
      FROM ad_group_ad WHERE ad_group.id = ${adGroupId} AND ad_group_ad.ad.id = ${adId} LIMIT 1`,
+  )
+  return rows[0] ?? null
+}
+
+type CampaignExtendedRow = {
+  campaign: {
+    id: string
+    name: string
+    status: string
+    biddingStrategyType?: string
+    /** Non-empty only when the campaign uses a portfolio (shared) bidding strategy resource. */
+    biddingStrategy?: string
+    startDateTime?: string
+    endDateTime?: string
+    trackingUrlTemplate?: string
+    finalUrlSuffix?: string
+    targetCpa?: { targetCpaMicros?: string }
+    maximizeConversions?: { targetCpaMicros?: string }
+    targetRoas?: { targetRoas?: number | string }
+    maximizeConversionValue?: { targetRoas?: number | string }
+  }
+  customer?: { currencyCode?: string }
+}
+
+/** Shared reader for dates / tracking / target CPA / target ROAS — all live on the `campaign` resource. */
+async function readCampaignExtended(ctx: AdapterContext, campaignId: string): Promise<CampaignExtendedRow | null> {
+  const rows = await runGaqlQuery<CampaignExtendedRow>(
+    ctx.adAccountId,
+    refreshToken(ctx),
+    `SELECT campaign.id, campaign.name, campaign.status, campaign.bidding_strategy_type, campaign.bidding_strategy,
+            campaign.start_date_time, campaign.end_date_time, campaign.tracking_url_template, campaign.final_url_suffix,
+            campaign.target_cpa.target_cpa_micros, campaign.maximize_conversions.target_cpa_micros,
+            campaign.target_roas.target_roas, campaign.maximize_conversion_value.target_roas,
+            customer.currency_code
+     FROM campaign WHERE campaign.id = ${campaignId} LIMIT 1`,
   )
   return rows[0] ?? null
 }
@@ -325,6 +374,197 @@ async function snapshotGoogle(ctx: AdapterContext, cmd: GoogleCommand): Promise<
         },
       }
     }
+
+    case 'google.campaign.set_dates':
+    case 'google.campaign.set_tracking':
+    case 'google.campaign.set_target_cpa':
+    case 'google.campaign.set_target_roas': {
+      const row = await readCampaignExtended(ctx, cmd.campaign_id)
+      if (!row) return null
+      const base = {
+        resourceType: 'campaign' as const,
+        resourceId: row.campaign.id,
+        resourceName: row.campaign.name,
+        campaignId: row.campaign.id,
+        currency: row.customer?.currencyCode ?? 'USD',
+      }
+      if (cmd.type === 'google.campaign.set_dates') {
+        return { ...base, fields: { start_date_time: row.campaign.startDateTime ?? null, end_date_time: row.campaign.endDateTime ?? null } }
+      }
+      if (cmd.type === 'google.campaign.set_tracking') {
+        return { ...base, fields: { tracking_url_template: row.campaign.trackingUrlTemplate ?? null, final_url_suffix: row.campaign.finalUrlSuffix ?? null } }
+      }
+      const strategy = row.campaign.biddingStrategyType ?? null
+      const isPortfolio = Boolean(row.campaign.biddingStrategy)
+      if (cmd.type === 'google.campaign.set_target_cpa') {
+        const current =
+          strategy === 'TARGET_CPA'
+            ? fromMicros(row.campaign.targetCpa?.targetCpaMicros)
+            : strategy === 'MAXIMIZE_CONVERSIONS'
+              ? fromMicros(row.campaign.maximizeConversions?.targetCpaMicros)
+              : null
+        return { ...base, fields: { bidding_strategy_type: strategy, bidding_strategy_resource: row.campaign.biddingStrategy ?? null, is_portfolio: isPortfolio, target_cpa: current } }
+      }
+      const currentRoas =
+        strategy === 'TARGET_ROAS'
+          ? numOrNull(row.campaign.targetRoas?.targetRoas)
+          : strategy === 'MAXIMIZE_CONVERSION_VALUE'
+            ? numOrNull(row.campaign.maximizeConversionValue?.targetRoas)
+            : null
+      return { ...base, fields: { bidding_strategy_type: strategy, bidding_strategy_resource: row.campaign.biddingStrategy ?? null, is_portfolio: isPortfolio, target_roas: currentRoas } }
+    }
+
+    case 'google.campaign.add_location':
+    case 'google.campaign.add_language': {
+      const campaign = await readCampaign(ctx, cmd.campaign_id)
+      if (!campaign) return null
+      const targeting = await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: cmd.campaign_id })
+      const base = {
+        campaignId: campaign.campaign.id,
+        currency: campaign.customer?.currencyCode ?? 'USD',
+      }
+      if (cmd.type === 'google.campaign.add_location') {
+        const existing = targeting.locations.find((l) => l.geo_target_constant_id === cmd.geo_target_constant_id && l.negative === cmd.negative)
+        return {
+          ...base,
+          resourceType: 'campaign_criterion',
+          resourceId: null,
+          resourceName: `${cmd.negative ? 'Exclude location' : 'Location'} ${cmd.geo_target_constant_id} → ${campaign.campaign.name}`,
+          fields: { existing_criterion_id: existing?.criterion_id ?? null },
+        }
+      }
+      const existing = targeting.languages.find((l) => l.language_constant_id === cmd.language_constant_id)
+      return {
+        ...base,
+        resourceType: 'campaign_criterion',
+        resourceId: null,
+        resourceName: `Language ${cmd.language_constant_id} → ${campaign.campaign.name}`,
+        fields: { existing_criterion_id: existing?.criterion_id ?? null },
+      }
+    }
+
+    case 'google.campaign.remove_location':
+    case 'google.campaign.remove_language': {
+      const targeting = await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: cmd.campaign_id })
+      if (cmd.type === 'google.campaign.remove_location') {
+        const found = targeting.locations.find((l) => l.criterion_id === cmd.criterion_id)
+        if (!found) return null
+        return {
+          resourceType: 'campaign_criterion',
+          resourceId: found.criterion_id,
+          resourceName: `${found.negative ? 'Excluded location' : 'Location'} ${found.geo_target_constant_id}`,
+          campaignId: cmd.campaign_id,
+          currency: 'USD',
+          fields: { geo_target_constant_id: found.geo_target_constant_id, negative: found.negative },
+        }
+      }
+      const found = targeting.languages.find((l) => l.criterion_id === cmd.criterion_id)
+      if (!found) return null
+      return {
+        resourceType: 'campaign_criterion',
+        resourceId: found.criterion_id,
+        resourceName: `Language ${found.language_constant_id}`,
+        campaignId: cmd.campaign_id,
+        currency: 'USD',
+        fields: { language_constant_id: found.language_constant_id },
+      }
+    }
+
+    case 'google.campaign.add_ad_schedule': {
+      const campaign = await readCampaign(ctx, cmd.campaign_id)
+      if (!campaign) return null
+      const targeting = await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: cmd.campaign_id })
+      const sameDay = targeting.adSchedules.filter((s) => s.day_of_week === cmd.day_of_week)
+      const newStart = cmd.start_hour * 60 + AD_SCHEDULE_MINUTES[cmd.start_minute]
+      const newEnd = cmd.end_hour * 60 + AD_SCHEDULE_MINUTES[cmd.end_minute]
+      const identical = sameDay.find(
+        (s) => s.start_hour === cmd.start_hour && s.start_minute === cmd.start_minute && s.end_hour === cmd.end_hour && s.end_minute === cmd.end_minute,
+      )
+      const overlapping = identical
+        ? undefined
+        : sameDay.find((s) => {
+            const existingStart = s.start_hour * 60 + AD_SCHEDULE_MINUTES[s.start_minute as keyof typeof AD_SCHEDULE_MINUTES]
+            const existingEnd = s.end_hour * 60 + AD_SCHEDULE_MINUTES[s.end_minute as keyof typeof AD_SCHEDULE_MINUTES]
+            return newStart < existingEnd && existingStart < newEnd
+          })
+      return {
+        resourceType: 'campaign_criterion',
+        resourceId: null,
+        resourceName: `Ad schedule ${cmd.day_of_week} ${cmd.start_hour}:00-${cmd.end_hour}:00 → ${campaign.campaign.name}`,
+        campaignId: campaign.campaign.id,
+        currency: campaign.customer?.currencyCode ?? 'USD',
+        fields: {
+          existing_criterion_id: identical?.criterion_id ?? null,
+          overlap_with: overlapping ? `${overlapping.day_of_week} ${overlapping.start_hour}:00-${overlapping.end_hour}:00 (criterion ${overlapping.criterion_id})` : null,
+        },
+      }
+    }
+
+    case 'google.campaign.remove_ad_schedule': {
+      const targeting = await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: cmd.campaign_id })
+      const found = targeting.adSchedules.find((s) => s.criterion_id === cmd.criterion_id)
+      if (!found) return null
+      return {
+        resourceType: 'campaign_criterion',
+        resourceId: found.criterion_id,
+        resourceName: `Ad schedule ${found.day_of_week} ${found.start_hour}:00-${found.end_hour}:00`,
+        campaignId: cmd.campaign_id,
+        currency: 'USD',
+        fields: {
+          day_of_week: found.day_of_week,
+          start_hour: found.start_hour,
+          start_minute: found.start_minute,
+          end_hour: found.end_hour,
+          end_minute: found.end_minute,
+          ...(found.bid_modifier != null ? { bid_modifier: found.bid_modifier } : {}),
+        },
+      }
+    }
+
+    case 'google.ad.set_final_url': {
+      const row = await readAd(ctx, cmd.ad_group_id, cmd.ad_id)
+      if (!row) return null
+      return {
+        resourceType: 'ad',
+        resourceId: `${row.adGroup.id}~${row.adGroupAd.ad.id}`,
+        resourceName: row.adGroupAd.ad.name || `Ad ${row.adGroupAd.ad.id} (${row.adGroup.name ?? row.adGroup.id})`,
+        campaignId: row.campaign.id,
+        currency: row.customer?.currencyCode ?? 'USD',
+        fields: { final_urls: row.adGroupAd.ad.finalUrls ?? [] },
+      }
+    }
+
+    case 'google.conversion_action.set_primary': {
+      const [row] = await listConversionActions({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), conversionActionId: cmd.conversion_action_id })
+      if (!row) return null
+      return {
+        resourceType: 'conversion_action',
+        resourceId: row.conversion_action_id,
+        resourceName: row.name,
+        campaignId: null,
+        currency: 'USD',
+        fields: { status: row.status, primary_for_goal: row.primary_for_goal, category: row.category },
+      }
+    }
+
+    case 'google.campaign.set_conversion_goal_biddable': {
+      const campaign = await readCampaign(ctx, cmd.campaign_id)
+      if (!campaign) return null
+      const goals = await listCampaignConversionGoals({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: cmd.campaign_id })
+      const goal = goals.find((g) => g.category === cmd.category && g.origin === cmd.origin)
+      if (!goal) return null
+      return {
+        resourceType: 'campaign',
+        resourceId: cmd.campaign_id,
+        resourceName: `${cmd.category} / ${cmd.origin} → ${campaign.campaign.name}`,
+        campaignId: campaign.campaign.id,
+        currency: campaign.customer?.currencyCode ?? 'USD',
+        fields: { biddable: goal.biddable },
+      }
+    }
+
+    default:
+      return null
   }
 }
 
@@ -421,6 +661,141 @@ function planGoogle(cmd: GoogleCommand, before: ResourceSnapshot): PlanResult {
         { exists: false },
         [diffField('negative_keyword', 'Negative keyword', `-[${f.match_type}] ${f.text}`, null)],
       )
+
+    case 'google.campaign.set_dates': {
+      const currentStart = f.start_date_time as string | null
+      const currentEnd = f.end_date_time as string | null
+      if (cmd.start_date_time !== undefined && cmd.start_date_time !== currentStart && currentStart && currentStart <= nowAsGoogleDateTime()) {
+        return {
+          ok: false,
+          code: 'campaign_already_started',
+          message: `This campaign already started (start date ${currentStart}) — the start date can't be changed once a campaign has started.`,
+        }
+      }
+      warnings.push("Campaign dates are set in the account's time zone; this check compares against UTC and is approximate.")
+      const intended: Record<string, unknown> = {}
+      const diff: DiffEntry[] = []
+      if (cmd.start_date_time !== undefined) {
+        intended.start_date_time = cmd.start_date_time
+        diff.push(diffField('start_date_time', 'Start date', currentStart, cmd.start_date_time))
+      }
+      if (cmd.end_date_time !== undefined) {
+        intended.end_date_time = cmd.end_date_time
+        diff.push(diffField('end_date_time', 'End date', currentEnd, cmd.end_date_time))
+      }
+      return done(intended, diff)
+    }
+
+    case 'google.campaign.set_target_cpa': {
+      if (f.is_portfolio) {
+        return {
+          ok: false,
+          code: 'portfolio_bidding_strategy',
+          message: `This campaign uses a shared (portfolio) bidding strategy (${f.bidding_strategy_resource}) — change the target CPA on the shared strategy, not the campaign.`,
+        }
+      }
+      const strategy = f.bidding_strategy_type as string | null
+      if (strategy !== 'TARGET_CPA' && strategy !== 'MAXIMIZE_CONVERSIONS') {
+        return { ok: false, code: 'incompatible_bidding_strategy', message: `This campaign uses ${strategy ?? 'an unknown'} bidding, which does not support a target CPA.` }
+      }
+      const beforeCpa = f.target_cpa as number | null
+      const after = Number(toMicros(cmd.target_cpa)) / MICROS
+      return done({ target_cpa: after }, [diffMoney('target_cpa', 'Target CPA', beforeCpa, after, before.currency)], { biddingChange: true })
+    }
+
+    case 'google.campaign.set_target_roas': {
+      if (f.is_portfolio) {
+        return {
+          ok: false,
+          code: 'portfolio_bidding_strategy',
+          message: `This campaign uses a shared (portfolio) bidding strategy (${f.bidding_strategy_resource}) — change the target ROAS on the shared strategy, not the campaign.`,
+        }
+      }
+      const strategy = f.bidding_strategy_type as string | null
+      if (strategy !== 'TARGET_ROAS' && strategy !== 'MAXIMIZE_CONVERSION_VALUE') {
+        return { ok: false, code: 'incompatible_bidding_strategy', message: `This campaign uses ${strategy ?? 'an unknown'} bidding, which does not support a target ROAS.` }
+      }
+      const beforeRoas = f.target_roas as number | null
+      return done({ target_roas: cmd.target_roas }, [diffField('target_roas', 'Target ROAS', beforeRoas, cmd.target_roas)], { biddingChange: true })
+    }
+
+    case 'google.campaign.set_tracking': {
+      const intended: Record<string, unknown> = {}
+      const diff: DiffEntry[] = []
+      if (cmd.tracking_url_template !== undefined) {
+        intended.tracking_url_template = cmd.tracking_url_template
+        diff.push(diffField('tracking_url_template', 'Tracking template', f.tracking_url_template, cmd.tracking_url_template))
+      }
+      if (cmd.final_url_suffix !== undefined) {
+        intended.final_url_suffix = cmd.final_url_suffix
+        diff.push(diffField('final_url_suffix', 'Final URL suffix', f.final_url_suffix, cmd.final_url_suffix))
+      }
+      return done(intended, diff)
+    }
+
+    case 'google.campaign.add_location': {
+      if (f.existing_criterion_id) {
+        return { ok: false, code: 'already_exists', message: `This location is already targeted the same way (criterion ${f.existing_criterion_id}).` }
+      }
+      return done(
+        { geo_target_constant_id: cmd.geo_target_constant_id, negative: cmd.negative },
+        [diffField('location', cmd.negative ? 'Excluded location' : 'Location', null, cmd.geo_target_constant_id)],
+      )
+    }
+
+    case 'google.campaign.remove_location':
+      return done({ exists: false }, [diffField('location', f.negative ? 'Excluded location' : 'Location', f.geo_target_constant_id, null)])
+
+    case 'google.campaign.add_language': {
+      if (f.existing_criterion_id) {
+        return { ok: false, code: 'already_exists', message: `This language is already targeted (criterion ${f.existing_criterion_id}).` }
+      }
+      return done({ language_constant_id: cmd.language_constant_id }, [diffField('language', 'Language', null, cmd.language_constant_id)])
+    }
+
+    case 'google.campaign.remove_language':
+      return done({ exists: false }, [diffField('language', 'Language', f.language_constant_id, null)])
+
+    case 'google.campaign.add_ad_schedule': {
+      if (f.overlap_with) {
+        return { ok: false, code: 'schedule_overlap', message: `This time overlaps an existing ad schedule: ${f.overlap_with}.` }
+      }
+      if (f.existing_criterion_id) {
+        return { ok: false, code: 'already_exists', message: `An identical ad schedule already exists (criterion ${f.existing_criterion_id}).` }
+      }
+      const label = `${cmd.day_of_week} ${cmd.start_hour}:${cmd.start_minute} - ${cmd.end_hour}:${cmd.end_minute}`
+      const intended: Record<string, unknown> = {
+        day_of_week: cmd.day_of_week,
+        start_hour: cmd.start_hour,
+        start_minute: cmd.start_minute,
+        end_hour: cmd.end_hour,
+        end_minute: cmd.end_minute,
+      }
+      if (cmd.bid_modifier !== undefined) intended.bid_modifier = cmd.bid_modifier
+      return done(intended, [diffField('ad_schedule', 'Ad schedule', null, label)])
+    }
+
+    case 'google.campaign.remove_ad_schedule': {
+      const label = `${f.day_of_week} ${f.start_hour}:${f.start_minute} - ${f.end_hour}:${f.end_minute}`
+      return done({ exists: false }, [diffField('ad_schedule', 'Ad schedule', label, null)])
+    }
+
+    case 'google.ad.set_final_url': {
+      const beforeUrls = (f.final_urls as string[] | undefined) ?? []
+      const afterUrls = [cmd.final_url]
+      return done({ final_urls: afterUrls }, [diffField('final_url', 'Final URL', beforeUrls[0] ?? null, cmd.final_url)])
+    }
+
+    case 'google.conversion_action.set_primary': {
+      if (f.status === 'REMOVED') return { ok: false, code: 'resource_removed', message: 'This conversion action was removed in Google Ads.' }
+      return done({ primary_for_goal: cmd.primary }, [diffField('primary_for_goal', 'Primary for goal', f.primary_for_goal, cmd.primary)])
+    }
+
+    case 'google.campaign.set_conversion_goal_biddable':
+      return done({ biddable: cmd.biddable }, [diffField('biddable', 'Biddable for this campaign', f.biddable, cmd.biddable)], { biddingChange: true })
+
+    default:
+      return { ok: false, code: 'unsupported_command', message: `${(cmd as { type: string }).type} is not implemented by the Google Ads adapter.` }
   }
 }
 
@@ -431,6 +806,13 @@ function buildOperation(cmd: GoogleCommand, before: ResourceSnapshot, customerId
   const update = (service: GAdsMutateService, resourceName: string, fields: Record<string, unknown>) => ({
     service,
     operation: { update: { resourceName, ...fields }, updateMask: Object.keys(fields).join(',') },
+  })
+  // For nested oneof fields (targetCpa.targetCpaMicros, targetRoas.targetRoas) the
+  // update mask is the dotted path, not the top-level key `update`'s Object.keys
+  // would produce.
+  const nestedUpdate = (service: GAdsMutateService, resourceName: string, fields: Record<string, unknown>, maskPaths: string[]) => ({
+    service,
+    operation: { update: { resourceName, ...fields }, updateMask: maskPaths.join(',') },
   })
 
   switch (cmd.type) {
@@ -490,14 +872,152 @@ function buildOperation(cmd: GoogleCommand, before: ResourceSnapshot, customerId
       return cmd.level === 'campaign'
         ? { service: 'campaignCriteria', operation: { remove: `${c}/campaignCriteria/${cmd.campaign_id}~${cmd.criterion_id}` } }
         : { service: 'adGroupCriteria', operation: { remove: `${c}/adGroupCriteria/${cmd.ad_group_id}~${cmd.criterion_id}` } }
+
+    case 'google.campaign.set_dates': {
+      const fields: Record<string, unknown> = {}
+      if (cmd.start_date_time !== undefined) fields.startDateTime = cmd.start_date_time
+      if (cmd.end_date_time !== undefined) fields.endDateTime = cmd.end_date_time
+      return update('campaigns', `${c}/campaigns/${cmd.campaign_id}`, fields)
+    }
+
+    case 'google.campaign.set_tracking': {
+      const fields: Record<string, unknown> = {}
+      if (cmd.tracking_url_template !== undefined) fields.trackingUrlTemplate = cmd.tracking_url_template
+      if (cmd.final_url_suffix !== undefined) fields.finalUrlSuffix = cmd.final_url_suffix
+      return update('campaigns', `${c}/campaigns/${cmd.campaign_id}`, fields)
+    }
+
+    case 'google.campaign.set_target_cpa': {
+      const strategy = before.fields.bidding_strategy_type as string | null
+      const field = strategy === 'TARGET_CPA' ? 'targetCpa' : 'maximizeConversions'
+      return nestedUpdate(
+        'campaigns',
+        `${c}/campaigns/${cmd.campaign_id}`,
+        { [field]: { targetCpaMicros: toMicros(cmd.target_cpa) } },
+        [`${field}.targetCpaMicros`],
+      )
+    }
+
+    case 'google.campaign.set_target_roas': {
+      const strategy = before.fields.bidding_strategy_type as string | null
+      const field = strategy === 'TARGET_ROAS' ? 'targetRoas' : 'maximizeConversionValue'
+      return nestedUpdate(
+        'campaigns',
+        `${c}/campaigns/${cmd.campaign_id}`,
+        { [field]: { targetRoas: cmd.target_roas } },
+        [`${field}.targetRoas`],
+      )
+    }
+
+    case 'google.campaign.add_location':
+      return {
+        service: 'campaignCriteria',
+        operation: {
+          create: {
+            campaign: `${c}/campaigns/${cmd.campaign_id}`,
+            negative: cmd.negative,
+            location: { geoTargetConstant: `geoTargetConstants/${cmd.geo_target_constant_id}` },
+          },
+        },
+      }
+
+    case 'google.campaign.remove_location':
+      return { service: 'campaignCriteria', operation: { remove: `${c}/campaignCriteria/${cmd.campaign_id}~${cmd.criterion_id}` } }
+
+    case 'google.campaign.add_language':
+      return {
+        service: 'campaignCriteria',
+        operation: {
+          create: {
+            campaign: `${c}/campaigns/${cmd.campaign_id}`,
+            language: { languageConstant: `languageConstants/${cmd.language_constant_id}` },
+          },
+        },
+      }
+
+    case 'google.campaign.remove_language':
+      return { service: 'campaignCriteria', operation: { remove: `${c}/campaignCriteria/${cmd.campaign_id}~${cmd.criterion_id}` } }
+
+    case 'google.campaign.add_ad_schedule':
+      return {
+        service: 'campaignCriteria',
+        operation: {
+          create: {
+            campaign: `${c}/campaigns/${cmd.campaign_id}`,
+            adSchedule: {
+              dayOfWeek: cmd.day_of_week,
+              startHour: cmd.start_hour,
+              startMinute: cmd.start_minute,
+              endHour: cmd.end_hour,
+              endMinute: cmd.end_minute,
+            },
+            ...(cmd.bid_modifier !== undefined ? { bidModifier: cmd.bid_modifier } : {}),
+          },
+        },
+      }
+
+    case 'google.campaign.remove_ad_schedule':
+      return { service: 'campaignCriteria', operation: { remove: `${c}/campaignCriteria/${cmd.campaign_id}~${cmd.criterion_id}` } }
+
+    case 'google.ad.set_final_url':
+      return update('ads', `${c}/ads/${cmd.ad_id}`, { finalUrls: [cmd.final_url] })
+
+    case 'google.conversion_action.set_primary':
+      return update('conversionActions', `${c}/conversionActions/${cmd.conversion_action_id}`, { primaryForGoal: cmd.primary })
+
+    case 'google.campaign.set_conversion_goal_biddable':
+      return update('campaignConversionGoals', `${c}/campaignConversionGoals/${cmd.campaign_id}~${cmd.category}~${cmd.origin}`, { biddable: cmd.biddable })
   }
 }
 
-/** "customers/1/adGroupCriteria/22~33" → "33" */
+/** "customers/1/adGroupCriteria/22~33" → "33" (also parses campaignCriteria/1~33 the same way) */
 export function criterionIdFromResourceName(resourceName: string | null): string | null {
   const match = resourceName?.match(/~(\d+)$/)
   return match ? match[1] : null
 }
+
+/**
+ * Every Google Ads command type this adapter actually implements. capabilities()
+ * filters the catalog through this so a command that's in COMMAND_CATALOG but
+ * not yet wired up here is reported as `unsupported_command` at preview time
+ * (engine.ts checks capabilities() before ever calling plan/snapshot), instead
+ * of reaching the switch statements above and silently falling through.
+ */
+const IMPLEMENTED: ReadonlySet<GoogleCommand['type']> = new Set<GoogleCommand['type']>([
+  'google.campaign.set_status',
+  'google.campaign.set_daily_budget',
+  'google.campaign.rename',
+  'google.ad_group.set_status',
+  'google.ad_group.rename',
+  'google.ad_group.set_cpc_bid',
+  'google.ad.set_status',
+  'google.keyword.add',
+  'google.keyword.set_status',
+  'google.keyword.set_cpc_bid',
+  'google.negative_keyword.add',
+  'google.negative_keyword.remove',
+  'google.campaign.set_dates',
+  'google.campaign.set_target_cpa',
+  'google.campaign.set_target_roas',
+  'google.campaign.set_tracking',
+  'google.campaign.add_location',
+  'google.campaign.remove_location',
+  'google.campaign.add_language',
+  'google.campaign.remove_language',
+  'google.campaign.add_ad_schedule',
+  'google.campaign.remove_ad_schedule',
+  'google.ad.set_final_url',
+  'google.conversion_action.set_primary',
+  'google.campaign.set_conversion_goal_biddable',
+])
+
+/** Pure removes: existence (already proven by snapshot) is the only thing to validate. */
+const SKIP_VALIDATE: ReadonlySet<GoogleCommand['type']> = new Set<GoogleCommand['type']>([
+  'google.negative_keyword.remove',
+  'google.campaign.remove_location',
+  'google.campaign.remove_language',
+  'google.campaign.remove_ad_schedule',
+])
 
 // ─── Adapter ──────────────────────────────────────────────────────────────────
 
@@ -506,7 +1026,7 @@ export const googleAdapter: AdsProviderAdapter = {
 
   capabilities(): Capability[] {
     return (Object.entries(COMMAND_CATALOG) as Array<[AdsCommand['type'], (typeof COMMAND_CATALOG)[AdsCommand['type']]]>)
-      .filter(([, entry]) => entry.platform === 'google')
+      .filter(([type, entry]) => entry.platform === 'google' && IMPLEMENTED.has(type as GoogleCommand['type']))
       .map(([type, entry]) => ({ type, label: entry.label, risk: entry.risk }))
   },
 
@@ -522,8 +1042,8 @@ export const googleAdapter: AdsProviderAdapter = {
 
   async validate(ctx, command, before) {
     if (!isGoogle(command)) throw new AdsValidationError('Not a Google Ads command')
-    // A remove has nothing to validate beyond existence, which snapshot proved.
-    if (command.type === 'google.negative_keyword.remove') return
+    // A pure remove has nothing to validate beyond existence, which snapshot proved.
+    if (SKIP_VALIDATE.has(command.type)) return
     const { service, operation } = buildOperation(command, before, ctx.adAccountId)
     await mutateResources(ctx.adAccountId, refreshToken(ctx), service, [operation], { validateOnly: true })
   },
@@ -563,6 +1083,47 @@ export const googleAdapter: AdsProviderAdapter = {
     } else if (command.type === 'google.negative_keyword.remove') {
       const snap = await snapshotGoogle(ctx, command)
       observed = { exists: Boolean(snap) }
+    } else if (
+      command.type === 'google.campaign.add_location' ||
+      command.type === 'google.campaign.add_language' ||
+      command.type === 'google.campaign.add_ad_schedule'
+    ) {
+      const criterionId = criterionIdFromResourceName(providerRef)
+      const targeting = criterionId
+        ? await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: command.campaign_id })
+        : null
+      if (command.type === 'google.campaign.add_location') {
+        const found = targeting?.locations.find((l) => l.criterion_id === criterionId)
+        observed = found ? { geo_target_constant_id: found.geo_target_constant_id, negative: found.negative } : null
+      } else if (command.type === 'google.campaign.add_language') {
+        const found = targeting?.languages.find((l) => l.criterion_id === criterionId)
+        observed = found ? { language_constant_id: found.language_constant_id } : null
+      } else {
+        const found = targeting?.adSchedules.find((s) => s.criterion_id === criterionId)
+        observed = found
+          ? {
+              day_of_week: found.day_of_week,
+              start_hour: found.start_hour,
+              start_minute: found.start_minute,
+              end_hour: found.end_hour,
+              end_minute: found.end_minute,
+              ...(found.bid_modifier != null ? { bid_modifier: found.bid_modifier } : {}),
+            }
+          : null
+      }
+    } else if (
+      command.type === 'google.campaign.remove_location' ||
+      command.type === 'google.campaign.remove_language' ||
+      command.type === 'google.campaign.remove_ad_schedule'
+    ) {
+      const targeting = await listCampaignTargeting({ customerId: ctx.adAccountId, refreshToken: refreshToken(ctx), campaignId: command.campaign_id })
+      const list =
+        command.type === 'google.campaign.remove_location'
+          ? targeting.locations
+          : command.type === 'google.campaign.remove_language'
+            ? targeting.languages
+            : targeting.adSchedules
+      observed = { exists: list.some((item) => item.criterion_id === command.criterion_id) }
     } else {
       const snap = await snapshotGoogle(ctx, command)
       observed = snap?.fields ?? null
@@ -646,6 +1207,101 @@ export const googleAdapter: AdsProviderAdapter = {
           text: String(f.text),
           match_type: (f.match_type as 'EXACT' | 'PHRASE' | 'BROAD') ?? 'EXACT',
         }
+
+      case 'google.campaign.set_dates': {
+        const rollback: Record<string, unknown> = {}
+        if (command.start_date_time !== undefined && typeof f.start_date_time === 'string') rollback.start_date_time = f.start_date_time
+        if (command.end_date_time !== undefined && typeof f.end_date_time === 'string') rollback.end_date_time = f.end_date_time
+        return Object.keys(rollback).length > 0 ? { ...base, type: command.type, campaign_id: command.campaign_id, ...rollback } : null
+      }
+
+      case 'google.campaign.set_target_cpa':
+        return typeof f.target_cpa === 'number' && f.target_cpa > 0
+          ? { ...base, type: command.type, campaign_id: command.campaign_id, target_cpa: f.target_cpa }
+          : null
+
+      case 'google.campaign.set_target_roas':
+        return typeof f.target_roas === 'number' && f.target_roas > 0
+          ? { ...base, type: command.type, campaign_id: command.campaign_id, target_roas: f.target_roas }
+          : null
+
+      case 'google.campaign.set_tracking': {
+        // Restore whatever was there before, including "unset" (cleared with '').
+        const rollback: Record<string, unknown> = {}
+        if (command.tracking_url_template !== undefined) rollback.tracking_url_template = typeof f.tracking_url_template === 'string' ? f.tracking_url_template : ''
+        if (command.final_url_suffix !== undefined) rollback.final_url_suffix = typeof f.final_url_suffix === 'string' ? f.final_url_suffix : ''
+        return Object.keys(rollback).length > 0 ? { ...base, type: command.type, campaign_id: command.campaign_id, ...rollback } : null
+      }
+
+      case 'google.campaign.add_location': {
+        const criterionId = criterionIdFromResourceName(providerRef)
+        return criterionId ? { ...base, type: 'google.campaign.remove_location', campaign_id: command.campaign_id, criterion_id: criterionId } : null
+      }
+
+      case 'google.campaign.remove_location':
+        return typeof f.geo_target_constant_id === 'string'
+          ? { ...base, type: 'google.campaign.add_location', campaign_id: command.campaign_id, geo_target_constant_id: f.geo_target_constant_id, negative: Boolean(f.negative) }
+          : null
+
+      case 'google.campaign.add_language': {
+        const criterionId = criterionIdFromResourceName(providerRef)
+        return criterionId ? { ...base, type: 'google.campaign.remove_language', campaign_id: command.campaign_id, criterion_id: criterionId } : null
+      }
+
+      case 'google.campaign.remove_language':
+        return typeof f.language_constant_id === 'string'
+          ? { ...base, type: 'google.campaign.add_language', campaign_id: command.campaign_id, language_constant_id: f.language_constant_id }
+          : null
+
+      case 'google.campaign.add_ad_schedule': {
+        const criterionId = criterionIdFromResourceName(providerRef)
+        return criterionId ? { ...base, type: 'google.campaign.remove_ad_schedule', campaign_id: command.campaign_id, criterion_id: criterionId } : null
+      }
+
+      case 'google.campaign.remove_ad_schedule': {
+        const days = new Set(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])
+        const minutes = new Set(['ZERO', 'FIFTEEN', 'THIRTY', 'FORTY_FIVE'])
+        if (
+          typeof f.day_of_week !== 'string' ||
+          !days.has(f.day_of_week) ||
+          typeof f.start_hour !== 'number' ||
+          typeof f.end_hour !== 'number' ||
+          typeof f.start_minute !== 'string' ||
+          !minutes.has(f.start_minute) ||
+          typeof f.end_minute !== 'string' ||
+          !minutes.has(f.end_minute)
+        ) {
+          return null
+        }
+        return {
+          ...base,
+          type: 'google.campaign.add_ad_schedule',
+          campaign_id: command.campaign_id,
+          day_of_week: f.day_of_week as 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY',
+          start_hour: f.start_hour,
+          start_minute: f.start_minute as 'ZERO' | 'FIFTEEN' | 'THIRTY' | 'FORTY_FIVE',
+          end_hour: f.end_hour,
+          end_minute: f.end_minute as 'ZERO' | 'FIFTEEN' | 'THIRTY' | 'FORTY_FIVE',
+          ...(typeof f.bid_modifier === 'number' ? { bid_modifier: f.bid_modifier } : {}),
+        }
+      }
+
+      case 'google.ad.set_final_url': {
+        const prevUrl = (f.final_urls as string[] | undefined)?.[0]
+        return typeof prevUrl === 'string' && prevUrl.length > 0
+          ? { ...base, type: command.type, ad_group_id: command.ad_group_id, ad_id: command.ad_id, final_url: prevUrl }
+          : null
+      }
+
+      case 'google.conversion_action.set_primary':
+        return typeof f.primary_for_goal === 'boolean'
+          ? { ...base, type: command.type, conversion_action_id: command.conversion_action_id, primary: f.primary_for_goal }
+          : null
+
+      case 'google.campaign.set_conversion_goal_biddable':
+        return typeof f.biddable === 'boolean'
+          ? { ...base, type: command.type, campaign_id: command.campaign_id, category: command.category, origin: command.origin, biddable: f.biddable }
+          : null
     }
   },
 

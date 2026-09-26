@@ -41,6 +41,14 @@ const GoogleStatus = () => z.enum(['ENABLED', 'PAUSED'])
 const MetaStatus = () => z.enum(['ACTIVE', 'PAUSED'])
 const Name = () => z.string().trim().min(1).max(255)
 const IsoDateTime = () => z.string().datetime({ offset: true })
+/** Google Ads v23+ campaign dates: 'yyyy-MM-dd HH:mm:ss' in the account's time zone. */
+const GoogleDateTime = () =>
+  z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, "Use 'yyyy-MM-dd HH:mm:ss' in the account time zone")
+const Url = () => z.string().url().max(2048).refine((v) => /^https?:\/\//.test(v), 'Must be an http(s) URL')
+const Minute = () => z.enum(['ZERO', 'FIFTEEN', 'THIRTY', 'FORTY_FIVE'])
+const Day = () => z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])
+const MetaBidStrategy = () =>
+  z.enum(['LOWEST_COST_WITHOUT_CAP', 'LOWEST_COST_WITH_BID_CAP', 'COST_CAP', 'LOWEST_COST_WITH_MIN_ROAS'])
 
 const google = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
   z.object({ platform: z.literal('google'), ad_account_id: GId(), type: z.literal(type), ...shape }).strict()
@@ -78,6 +86,60 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     ad_group_id: GId().optional(),
     criterion_id: GId(),
   }),
+  google('google.campaign.set_dates', {
+    campaign_id: GId(),
+    start_date_time: GoogleDateTime().optional(),
+    end_date_time: GoogleDateTime().optional(),
+  }),
+  google('google.campaign.set_target_cpa', { campaign_id: GId(), target_cpa: Money() }),
+  /** Ratio: 3.5 = 350% return on ad spend. */
+  google('google.campaign.set_target_roas', { campaign_id: GId(), target_roas: z.number().positive().max(1000) }),
+  google('google.campaign.set_tracking', {
+    campaign_id: GId(),
+    /** Empty string clears it. Must contain {lpurl} or a ValueTrack URL when set. */
+    tracking_url_template: z.string().max(2048).optional(),
+    /** Empty string clears it. e.g. "utm_source=google&utm_medium=cpc" */
+    final_url_suffix: z.string().max(2048).optional(),
+  }),
+  google('google.campaign.add_location', {
+    campaign_id: GId(),
+    /** Geo target constant id, e.g. 2620 = Portugal (see ads_google_suggest_locations). */
+    geo_target_constant_id: GId(),
+    /** true = exclude this location. */
+    negative: z.boolean().default(false),
+  }),
+  google('google.campaign.remove_location', { campaign_id: GId(), criterion_id: GId() }),
+  google('google.campaign.add_language', {
+    campaign_id: GId(),
+    /** Language constant id, e.g. 1014 = Portuguese, 1000 = English. */
+    language_constant_id: GId(),
+  }),
+  google('google.campaign.remove_language', { campaign_id: GId(), criterion_id: GId() }),
+  google('google.campaign.add_ad_schedule', {
+    campaign_id: GId(),
+    day_of_week: Day(),
+    start_hour: z.number().int().min(0).max(23),
+    start_minute: Minute().default('ZERO'),
+    end_hour: z.number().int().min(0).max(24),
+    end_minute: Minute().default('ZERO'),
+    /** Optional bid adjustment for this slot: 1.2 = +20%, 0.8 = -20%. */
+    bid_modifier: z.number().min(0.1).max(10).optional(),
+  }),
+  google('google.campaign.remove_ad_schedule', { campaign_id: GId(), criterion_id: GId() }),
+  google('google.ad.set_final_url', { ad_group_id: GId(), ad_id: GId(), final_url: Url() }),
+  google('google.conversion_action.set_primary', {
+    conversion_action_id: GId(),
+    /** Primary actions count in the Conversions column and are used for bidding. */
+    primary: z.boolean(),
+  }),
+  google('google.campaign.set_conversion_goal_biddable', {
+    campaign_id: GId(),
+    /** ConversionActionCategory, e.g. PURCHASE, SUBMIT_LEAD_FORM, BOOK_APPOINTMENT, PHONE_CALL_LEAD, CONTACT. */
+    category: z.string().regex(/^[A-Z_]+$/),
+    /** ConversionOrigin, e.g. WEBSITE, CALL_FROM_ADS, GOOGLE_HOSTED, APP, STORE. */
+    origin: z.string().regex(/^[A-Z_]+$/),
+    biddable: z.boolean(),
+  }),
 
   // ─── Meta Ads ───────────────────────────────────────────────────────────────
   meta('meta.campaign.set_status', { campaign_id: MId(), status: MetaStatus() }),
@@ -101,9 +163,46 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
       .array(z.enum(['facebook', 'instagram', 'audience_network', 'messenger', 'threads']))
       .min(1)
       .optional(),
+    /** e.g. feed, story, facebook_reels, marketplace, video_feeds, search, right_hand_column. Replaces the list. */
+    facebook_positions: z.array(z.string().regex(/^[a-z_]+$/)).min(1).max(20).optional(),
+    /** e.g. stream, story, reels, explore, explore_home, profile_feed. Replaces the list. */
+    instagram_positions: z.array(z.string().regex(/^[a-z_]+$/)).min(1).max(20).optional(),
+    /** Custom/lookalike audience ids to include. Replaces the list; [] removes all. */
+    custom_audience_ids: z.array(MId()).max(100).optional(),
+    /** Custom/lookalike audience ids to exclude. Replaces the list; [] removes all. */
+    excluded_custom_audience_ids: z.array(MId()).max(100).optional(),
+  }),
+  meta('meta.campaign.set_bid_strategy', { campaign_id: MId(), bid_strategy: MetaBidStrategy() }),
+  meta('meta.adset.set_bid_strategy', {
+    adset_id: MId(),
+    bid_strategy: MetaBidStrategy(),
+    /** Required by bid cap / cost cap, major units. */
+    bid_amount: Money().optional(),
+    /** Required by LOWEST_COST_WITH_MIN_ROAS: 2.5 = 250%. */
+    roas_floor: z.number().positive().max(1000).optional(),
   }),
   meta('meta.ad.set_status', { ad_id: MId(), status: MetaStatus() }),
   meta('meta.ad.rename', { ad_id: MId(), name: Name() }),
+  /** Point the ad at an existing creative (built in Ads Manager or via the API). */
+  meta('meta.ad.set_creative', { ad_id: MId(), creative_id: MId() }),
+  /** Copies are always created PAUSED. deep_copy also copies ad sets/ads beneath. */
+  meta('meta.campaign.duplicate', {
+    campaign_id: MId(),
+    deep_copy: z.boolean().default(false),
+    rename_suffix: z.string().max(60).optional(),
+  }),
+  meta('meta.adset.duplicate', {
+    adset_id: MId(),
+    deep_copy: z.boolean().default(false),
+    /** Copy into another campaign (same account). Defaults to the original campaign. */
+    target_campaign_id: MId().optional(),
+    rename_suffix: z.string().max(60).optional(),
+  }),
+  meta('meta.ad.duplicate', {
+    ad_id: MId(),
+    target_adset_id: MId().optional(),
+    rename_suffix: z.string().max(60).optional(),
+  }),
 ])
 
 export type AdsCommand = z.infer<typeof AdsCommandSchema>
@@ -143,6 +242,25 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'meta.adset.update_targeting': { platform: 'meta', resourceType: 'adset', risk: 2, label: 'Update ad set targeting' },
   'meta.ad.set_status': { platform: 'meta', resourceType: 'ad', risk: 1, label: 'Set ad status' },
   'meta.ad.rename': { platform: 'meta', resourceType: 'ad', risk: 1, label: 'Rename ad' },
+  'google.campaign.set_dates': { platform: 'google', resourceType: 'campaign', risk: 1, label: 'Set campaign start/end date' },
+  'google.campaign.set_target_cpa': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Set campaign target CPA' },
+  'google.campaign.set_target_roas': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Set campaign target ROAS' },
+  'google.campaign.set_tracking': { platform: 'google', resourceType: 'campaign', risk: 1, label: 'Set campaign tracking template / URL suffix' },
+  'google.campaign.add_location': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Add location targeting' },
+  'google.campaign.remove_location': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Remove location targeting' },
+  'google.campaign.add_language': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Add language targeting' },
+  'google.campaign.remove_language': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Remove language targeting' },
+  'google.campaign.add_ad_schedule': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Add ad schedule' },
+  'google.campaign.remove_ad_schedule': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Remove ad schedule' },
+  'google.ad.set_final_url': { platform: 'google', resourceType: 'ad', risk: 2, label: 'Set ad final URL' },
+  'google.conversion_action.set_primary': { platform: 'google', resourceType: 'conversion_action', risk: 3, label: 'Set conversion action primary/secondary' },
+  'google.campaign.set_conversion_goal_biddable': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Set campaign conversion goal for bidding' },
+  'meta.campaign.set_bid_strategy': { platform: 'meta', resourceType: 'campaign', risk: 3, label: 'Set campaign bid strategy' },
+  'meta.adset.set_bid_strategy': { platform: 'meta', resourceType: 'adset', risk: 3, label: 'Set ad set bid strategy' },
+  'meta.ad.set_creative': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Replace ad creative' },
+  'meta.campaign.duplicate': { platform: 'meta', resourceType: 'campaign', risk: 4, label: 'Duplicate campaign (paused)' },
+  'meta.adset.duplicate': { platform: 'meta', resourceType: 'adset', risk: 4, label: 'Duplicate ad set (paused)' },
+  'meta.ad.duplicate': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Duplicate ad (paused)' },
 }
 
 /**
@@ -156,13 +274,39 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
   }
   if (cmd.type === 'meta.adset.update_targeting') {
     const { age_min, age_max, genders, countries, publisher_platforms } = cmd
-    if ([age_min, age_max, genders, countries, publisher_platforms].every((v) => v === undefined)) {
+    const extra = [cmd.facebook_positions, cmd.instagram_positions, cmd.custom_audience_ids, cmd.excluded_custom_audience_ids]
+    if ([age_min, age_max, genders, countries, publisher_platforms, ...extra].every((v) => v === undefined)) {
       return 'Provide at least one targeting field to change'
     }
     if (age_min !== undefined && age_max !== undefined && age_min > age_max) return 'age_min must be <= age_max'
   }
+  if (cmd.type === 'google.campaign.set_dates') {
+    if (!cmd.start_date_time && !cmd.end_date_time) return 'Provide start_date_time and/or end_date_time'
+    if (cmd.start_date_time && cmd.end_date_time && cmd.start_date_time >= cmd.end_date_time) {
+      return 'end_date_time must be after start_date_time'
+    }
+  }
+  if (cmd.type === 'google.campaign.set_tracking' && cmd.tracking_url_template === undefined && cmd.final_url_suffix === undefined) {
+    return 'Provide tracking_url_template and/or final_url_suffix'
+  }
+  if (cmd.type === 'google.campaign.add_ad_schedule') {
+    if (cmd.end_hour === 24 && cmd.end_minute !== 'ZERO') return 'end_hour 24 only allows end_minute ZERO'
+    const start = cmd.start_hour * 60 + MINUTES[cmd.start_minute]
+    const end = cmd.end_hour * 60 + MINUTES[cmd.end_minute]
+    if (end <= start) return 'The ad schedule must end after it starts (same day)'
+  }
+  if (cmd.type === 'meta.adset.set_bid_strategy') {
+    if ((cmd.bid_strategy === 'LOWEST_COST_WITH_BID_CAP' || cmd.bid_strategy === 'COST_CAP') && cmd.bid_amount === undefined) {
+      return `${cmd.bid_strategy} requires bid_amount`
+    }
+    if (cmd.bid_strategy === 'LOWEST_COST_WITH_MIN_ROAS' && cmd.roas_floor === undefined) {
+      return 'LOWEST_COST_WITH_MIN_ROAS requires roas_floor'
+    }
+  }
   return null
 }
+
+const MINUTES = { ZERO: 0, FIFTEEN: 15, THIRTY: 30, FORTY_FIVE: 45 } as const
 
 /** Parse untrusted input into a command, with the cross-field checks applied. */
 export function parseCommand(input: unknown): { ok: true; command: AdsCommand } | { ok: false; message: string } {
@@ -177,39 +321,16 @@ export function parseCommand(input: unknown): { ok: true; command: AdsCommand } 
   return { ok: true, command: parsed.data }
 }
 
-/** The id of the resource a command targets, for history rows. */
+/** The id of the resource a command targets, for history rows (most specific id wins). */
 export function targetResourceId(cmd: AdsCommand): string | null {
-  switch (cmd.type) {
-    case 'google.campaign.set_status':
-    case 'google.campaign.set_daily_budget':
-    case 'google.campaign.rename':
-    case 'meta.campaign.set_status':
-    case 'meta.campaign.set_daily_budget':
-    case 'meta.campaign.rename':
-    case 'meta.campaign.set_spend_cap':
-      return cmd.campaign_id
-    case 'google.ad_group.set_status':
-    case 'google.ad_group.rename':
-    case 'google.ad_group.set_cpc_bid':
-      return cmd.ad_group_id
-    case 'google.ad.set_status':
-      return `${cmd.ad_group_id}~${cmd.ad_id}`
-    case 'google.keyword.set_status':
-    case 'google.keyword.set_cpc_bid':
-    case 'google.negative_keyword.remove':
-      return cmd.criterion_id
-    case 'google.keyword.add':
-    case 'google.negative_keyword.add':
-      return null
-    case 'meta.adset.set_status':
-    case 'meta.adset.set_daily_budget':
-    case 'meta.adset.rename':
-    case 'meta.adset.set_bid_amount':
-    case 'meta.adset.set_end_time':
-    case 'meta.adset.update_targeting':
-      return cmd.adset_id
-    case 'meta.ad.set_status':
-    case 'meta.ad.rename':
-      return cmd.ad_id
-  }
+  const c = cmd as Record<string, unknown>
+  if (typeof c.criterion_id === 'string') return c.criterion_id
+  if (typeof c.ad_id === 'string') return typeof c.ad_group_id === 'string' ? `${c.ad_group_id}~${c.ad_id}` : c.ad_id
+  if (typeof c.conversion_action_id === 'string') return c.conversion_action_id
+  if (typeof c.adset_id === 'string') return c.adset_id
+  // Creates have no id until the platform assigns one.
+  if (cmd.type === 'google.keyword.add' || cmd.type === 'google.negative_keyword.add' || cmd.type.includes('.add_')) return null
+  if (typeof c.ad_group_id === 'string') return c.ad_group_id
+  if (typeof c.campaign_id === 'string') return c.campaign_id
+  return null
 }

@@ -62,6 +62,8 @@ export type ResourceType =
   | 'keyword'
   | 'negative_keyword'
   | 'adset'
+  | 'campaign_criterion'
+  | 'conversion_action'
 
 /** The provider's view of a resource right before a change. */
 export type ResourceSnapshot = {

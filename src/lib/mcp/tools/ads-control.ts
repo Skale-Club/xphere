@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { mcpActor } from '@/lib/ads/commands/actors'
 import { AdsCommandSchema, COMMAND_CATALOG } from '@/lib/ads/commands/catalog'
 import {
+  approveBatch,
   approveChange,
   cancelChange,
   getChange,
@@ -70,6 +71,9 @@ function compact(change: ChangeView) {
     batch_id: change.batch_id,
     created_at: change.created_at,
     completed_at: change.completed_at,
+    external_drift: change.external_drift_detected_at
+      ? { detected_at: change.external_drift_detected_at, detail: change.external_drift, note: 'The platform no longer matches this change — it was edited outside Xphere after being applied.' }
+      : null,
   }
 }
 
@@ -459,6 +463,34 @@ export const adsControlTools: McpToolDef[] = [
         confirmationToken: confirmation_token,
       })
       return executionResponse(result)
+    },
+  },
+  {
+    name: 'ads_approve_changes',
+    title: 'Approve and apply a batch of ads changes',
+    description:
+      'Apply every pending change of a batch returned by ads_preview_changes, AFTER the operator explicitly confirmed the whole list. Pass the batch_id and a map of change_id → confirmation_token from the preview. Changes run one by one; each keeps its own policy, conflict and read-back checks, and one failure does not stop the rest. Same ai_mode rule as ads_approve_change.',
+    area: 'general_xphere',
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    inputSchema: z
+      .object({
+        batch_id: z.string().uuid(),
+        confirmation_tokens: z.record(z.string().uuid(), z.string().min(10)),
+      })
+      .strict(),
+    handler: async ({ batch_id, confirmation_tokens }, { auth }) => {
+      const { results } = await approveBatch({
+        orgId: auth.orgId,
+        batchId: batch_id,
+        actor: mcpActor(auth),
+        confirmationTokens: confirmation_tokens,
+      })
+      return {
+        batch_id,
+        total: results.length,
+        applied: results.filter((r) => r.ok && r.change.status === 'succeeded').length,
+        results: results.map((r) => (r.ok ? executionResponse(r) : { change_id: r.change_id, ...failure(r) })),
+      }
     },
   },
   {

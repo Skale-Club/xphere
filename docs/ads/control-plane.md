@@ -61,6 +61,16 @@ large batches; today preview is synchronous and rows start at
   immediately — never retried.
 - **Stuck rows** (`executing`/`verifying` for 15+ min) are reported by the
   worker, never auto-retried: whether the provider write landed is unknown.
+- **Circuit breaker.** When an ad account has 5+ transient failures in 10
+  minutes, further executions for that account re-queue for 10 minutes
+  (`circuit_open`) without spending an attempt or calling the platform.
+- **External drift.** The worker re-reads changes applied in the last 7 days
+  (each at most every 6 h) and, when the platform no longer matches what Xphere
+  set and no later Xphere change touched the same resource, records
+  `external_drift` + an `external_change_detected` event (migration 1306). The
+  change stays `succeeded` — it did apply; the drift is a separate fact, shown
+  in Ads → Changes and in the MCP change views. A failed read is never treated
+  as drift.
 - **Rollback** builds the inverse command from `before_state` and previews it
   as a *new* change with `rollback_of` — history is never rewritten. Adding a
   keyword rolls back to *pausing* it (removal is irreversible in Google Ads).
@@ -84,6 +94,20 @@ Money is always in **major units of the account currency** (50 = R$50). Risk:
 | `google.keyword.set_cpc_bid` | 3 | `meta.adset.update_targeting` (age, genders, countries, platforms) | 2 |
 | `google.negative_keyword.add` (campaign / ad group) | 2 | `meta.ad.set_status` | 1 |
 | `google.negative_keyword.remove` | 2 | `meta.ad.rename` | 1 |
+| `google.campaign.set_dates` (`yyyy-MM-dd HH:mm:ss`, account TZ) | 1 | `meta.adset.update_targeting` also: `facebook_positions`, `instagram_positions`, `custom_audience_ids`, `excluded_custom_audience_ids` | 2 |
+| `google.campaign.set_tracking` (template / final URL suffix) | 1 | `meta.campaign.set_bid_strategy` (CBO only) | 3 |
+| `google.campaign.add_location` / `remove_location` (incl. exclusions) | 2 | `meta.adset.set_bid_strategy` (+ bid_amount / roas_floor) | 3 |
+| `google.campaign.add_language` / `remove_language` | 2 | `meta.ad.set_creative` (existing creative, same account) | 4 |
+| `google.campaign.add_ad_schedule` / `remove_ad_schedule` (overlap-checked) | 2 | `meta.campaign.duplicate` / `meta.adset.duplicate` / `meta.ad.duplicate` (copies always PAUSED) | 4 |
+| `google.ad.set_final_url` | 2 | | |
+| `google.campaign.set_target_cpa` / `set_target_roas` (TARGET_* or MAXIMIZE_* strategies; portfolio → error) | 3 | | |
+| `google.conversion_action.set_primary` | 3 | | |
+| `google.campaign.set_conversion_goal_biddable` | 3 | | |
+
+Each adapter lists the commands it implements (`capabilities()` from an
+explicit `IMPLEMENTED` set); a catalog entry without an implementation is
+refused at preview as `unsupported_command`. Duplicates have no automatic
+rollback (the copy is created paused — pause/archive it if unwanted).
 
 Adding a capability = a schema + catalog entry here and the snapshot / plan /
 operation / verify / rollback branches in the platform adapter. The adapter
@@ -121,6 +145,7 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
 - **Dashboard API** — `POST /api/ads/changes {command, mode: preview|submit}`
   (or `{commands:[…]}` for a batch), `GET /api/ads/changes`,
   `GET|POST /api/ads/changes/:id {action: approve|cancel|rollback|retry}`,
+  `POST /api/ads/changes/batches/:batchId {action: approve|cancel}`,
   `GET|PUT /api/ads/policies`. The legacy
   `/api/ads/{google,meta}/campaigns` routes are thin wrappers that submit a
   command.
@@ -128,7 +153,12 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   reads (`ads_google_search_terms`, `ads_google_list_keywords`,
   `ads_google_list_negative_keywords`, `ads_google_list_ad_groups`,
   `ads_google_list_ads`, `ads_meta_list_adsets`, `ads_meta_list_ads`), and the
+  Google targeting/conversion reads (`ads_google_suggest_locations`,
+  `ads_google_list_campaign_targeting`, `ads_google_list_conversion_actions`,
+  `ads_google_list_conversion_goals`), Meta asset reads
+  (`ads_meta_list_custom_audiences`, `ads_meta_list_creatives`), and the
   lifecycle (`ads_preview_change`, `ads_preview_changes`, `ads_approve_change`,
+  `ads_approve_changes`,
   `ads_get_change_status`, `ads_list_changes`, `ads_cancel_change`,
   `ads_rollback_change`). Every tool accepts `org_id`, so one MCP connection
   serves every client org the token's user belongs to.
@@ -141,16 +171,18 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
 ## Operations
 
 - Worker: `GET /api/cron/ads-changes-tick` (Bearer `CRON_SECRET`) — executes
-  due retries, expires stale approvals, reports stuck rows. Schedule it every
-  1–2 minutes in skale-cron:
-  `tick.sh XPHERE ads-changes-tick https://xphere.app/api/cron/ads-changes-tick 120 60`
+  due retries, expires stale approvals, reconciles recently applied changes,
+  reports stuck rows. It stops starting new work after ~60 s (Cloudflare cuts
+  proxied requests at 100 s); schedule it every 1–2 minutes in skale-cron
+  against the origin host:
+  `tick.sh XPHERE ads-changes-tick https://origin.xphere.app/api/cron/ads-changes-tick 120 90`
 - Apply the migration with `npx supabase db push` (never the MCP / SQL editor).
 
 ## Not yet built (next phases)
 
-- Google: geo/language/ad-schedule targeting, Target CPA/ROAS, conversion
-  goals, campaign dates, ad URL/tracking edits.
-- Meta: custom/lookalike audiences, detailed placements, creative
-  replacement, duplication (risk 4).
-- Drift reconciliation from Google `change_event` / Meta activity log;
-  per-account circuit breaker; batch approval in one click.
+- Google: creating campaigns / ad groups / responsive search ads, shared
+  negative lists, audience segments, device bid modifiers.
+- Meta: creating creatives from assets, lookalike creation, Advantage+
+  shopping specifics, dynamic creative.
+- Workflows: an allowlisted "submit ads command" action (runs as a `workflow`
+  actor, always needs confirmation).

@@ -186,3 +186,68 @@ export async function stuckChanges(olderThanMinutes: number, limit: number): Pro
     .limit(limit)
   return data ?? []
 }
+
+/**
+ * Transient failures recorded for one account in the last `minutes` — the
+ * circuit breaker's input. Counts rows re-queued after a platform error plus
+ * rows that ran out of retries.
+ */
+export async function recentAccountFailures(
+  orgId: string,
+  platform: string,
+  adAccountId: string,
+  minutes: number,
+): Promise<number> {
+  const since = new Date(Date.now() - minutes * 60_000).toISOString()
+  const { count } = await db()
+    .from('ads_change_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .eq('platform', platform)
+    .eq('ad_account_id', adAccountId)
+    .gte('updated_at', since)
+    .or('and(status.eq.queued,attempt_count.gt.0),error_code.eq.retries_exhausted')
+    .not('error_code', 'is', null)
+  return count ?? 0
+}
+
+/** Applied changes due for an external-drift check (cron only, all orgs). */
+export async function changesToReconcile(limit: number, maxAgeDays: number, everyHours: number): Promise<ChangeRow[]> {
+  const oldest = new Date(Date.now() - maxAgeDays * 86_400_000).toISOString()
+  const staleBefore = new Date(Date.now() - everyHours * 3_600_000).toISOString()
+  const { data } = await db()
+    .from('ads_change_requests')
+    .select('*')
+    .eq('status', 'succeeded')
+    .gte('completed_at', oldest)
+    .or(`last_reconciled_at.is.null,last_reconciled_at.lt.${staleBefore}`)
+    .order('last_reconciled_at', { ascending: true, nullsFirst: true })
+    .limit(limit)
+  return data ?? []
+}
+
+/**
+ * Was the same resource changed again by a later applied change? Then drift
+ * against this (older) change is expected, not external.
+ */
+export async function hasLaterChange(row: ChangeRow): Promise<boolean> {
+  if (!row.resource_id || !row.completed_at) return false
+  const { count } = await db()
+    .from('ads_change_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', row.org_id)
+    .eq('platform', row.platform)
+    .eq('command_type', row.command_type)
+    .eq('resource_id', row.resource_id)
+    .in('status', ['succeeded', 'drifted'])
+    .gt('completed_at', row.completed_at)
+  return (count ?? 0) > 0
+}
+
+export async function updateReconciliation(
+  orgId: string,
+  changeId: string,
+  patch: Pick<ChangeUpdate, 'last_reconciled_at' | 'external_drift' | 'external_drift_detected_at'>,
+): Promise<void> {
+  await db().from('ads_change_requests').update(patch).eq('org_id', orgId).eq('id', changeId)
+}
