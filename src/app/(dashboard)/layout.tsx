@@ -34,6 +34,7 @@ import { resolveCreditsVisibility } from '@/lib/billing/credits'
 import { shouldBlockForBilling } from '@/lib/billing/guards'
 import { PLAN_CATALOG } from '@/lib/billing/catalog'
 import { BillingPaywall } from '@/components/billing/billing-paywall'
+import { loadDashboardTourEligibility } from '@/lib/onboarding/tour-state'
 
 /*
  * PERFORMANCE CONTRACT FOR THIS LAYOUT
@@ -230,6 +231,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     copilot,
     orgSettings,
     initialOrgs,
+    dashboardTourEligible,
   ] = await Promise.all([
     loadBranding(activeOrgId),
     // Fallback to platform favicon when the org has no custom logo set.
@@ -253,6 +255,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // Preload the org-switcher dropdown list server-side so it opens instantly
     // instead of lazy-fetching on first click.
     getUserOrgs(),
+    loadDashboardTourEligibility(user.id),
   ])
 
   const effectiveLogoUrl = branding.logoUrl ?? platformFaviconUrl
@@ -332,7 +335,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   {copilotEnabled && <CopilotPanel hasProvider={hasCopilotProvider} />}
                 </div>
               </div>
-              <OnboardingTour />
+              <OnboardingTour eligible={dashboardTourEligible} />
               <Suspense fallback={null}>
                 <InviteResultToast />
               </Suspense>

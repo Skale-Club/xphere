@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation'
 import { ArrowRight, Sparkles, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { completeDashboardTour } from '@/app/(dashboard)/onboarding/actions'
+import { DASHBOARD_TOUR_COOKIE } from '@/lib/onboarding/constants'
 import { cn } from '@/lib/utils'
-
-const COOKIE = 'vo_tour_dismissed'
 
 interface Step {
   /** CSS selector to anchor the tooltip to. If null, renders centered. */
@@ -63,18 +63,22 @@ function setCookie(name: string, value: string, days = 365) {
   document.cookie = `${name}=${encodeURIComponent(value)}; expires=${exp}; path=/; SameSite=Lax`
 }
 
-export function OnboardingTour() {
+export function OnboardingTour({ eligible }: { eligible: boolean }) {
   const pathname = usePathname()
   const [active, setActive] = React.useState(false)
   const [step, setStep] = React.useState(0)
   const [rect, setRect] = React.useState<DOMRect | null>(null)
 
   React.useEffect(() => {
+    if (!eligible) {
+      setCookie(DASHBOARD_TOUR_COOKIE, '1')
+      return
+    }
     if (pathname !== '/dashboard') return
-    if (readCookie(COOKIE) === '1') return
+    if (readCookie(DASHBOARD_TOUR_COOKIE) === '1') return
     const id = window.setTimeout(() => setActive(true), 600)
     return () => window.clearTimeout(id)
-  }, [pathname])
+  }, [eligible, pathname])
 
   React.useEffect(() => {
     if (!active) return
@@ -112,7 +116,8 @@ export function OnboardingTour() {
 
   function dismiss() {
     setActive(false)
-    setCookie(COOKIE, '1')
+    setCookie(DASHBOARD_TOUR_COOKIE, '1')
+    void completeDashboardTour()
   }
 
   function next() {

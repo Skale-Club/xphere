@@ -1169,6 +1169,24 @@ export interface Database {
           }
         ]
       }
+      user_tour_progress: {
+        Row: {
+          user_id: string
+          tour_key: string
+          completed_at: string
+        }
+        Insert: {
+          user_id: string
+          tour_key: string
+          completed_at?: string
+        }
+        Update: {
+          user_id?: string
+          tour_key?: string
+          completed_at?: string
+        }
+        Relationships: []
+      }
       user_active_org: {
         Row: {
           user_id: string
