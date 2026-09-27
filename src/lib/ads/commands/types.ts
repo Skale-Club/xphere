@@ -64,6 +64,9 @@ export type ResourceType =
   | 'adset'
   | 'campaign_criterion'
   | 'conversion_action'
+  | 'asset'
+  | 'user_list'
+  | 'media'
 
 /** The provider's view of a resource right before a change. */
 export type ResourceSnapshot = {

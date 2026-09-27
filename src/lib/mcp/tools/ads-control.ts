@@ -426,10 +426,16 @@ export const adsControlTools: McpToolDef[] = [
     name: 'ads_preview_changes',
     title: 'Preview a batch of ads changes',
     description:
-      'Propose several changes at once (max 20), e.g. a list of negative keywords from a search-terms review. Each command becomes its own change (one bad item never blocks the rest), grouped by batch_id. Same rules as ads_preview_change: show the operator every diff and get an explicit yes before approving.',
+      'Propose several changes at once (max 20), e.g. a list of negative keywords from a search-terms review. Each item uses exactly the `command` shape of ads_preview_change. Each command becomes its own change (one bad item never blocks the rest), grouped by batch_id. Same rules as ads_preview_change: show the operator every diff and get an explicit yes before approving.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    inputSchema: z.object({ commands: z.array(AdsCommandSchema).min(1).max(20) }).strict(),
+    // Each item has exactly the shape of ads_preview_change's `command`. The full
+    // 79-variant schema is published once (on ads_preview_change) rather than
+    // twice — it is ~45 KB of JSON Schema in every client's context. Items are
+    // validated by the same parser inside previewChange, with per-item errors.
+    inputSchema: z
+      .object({ commands: z.array(z.record(z.string(), z.unknown())).min(1).max(20) })
+      .strict(),
     handler: async ({ commands }, { auth }) => {
       const actor = mcpActor(auth)
       const batchId = randomUUID()

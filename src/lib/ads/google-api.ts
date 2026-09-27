@@ -1,7 +1,7 @@
 import { refreshAccessToken, type GoogleAdsTokens, GOOGLE_ADS_API_BASE } from './google-oauth'
 import { getCachedAccessToken, setCachedAccessToken, clearCachedAccessToken } from './cache'
 import { resolveNonNativeGoogleRange } from './date-range'
-import { assertIsoDate, assertNumericId } from './validation'
+import { AdsValidationError, assertIsoDate, assertNumericId } from './validation'
 
 // See GOOGLE_ADS_API_VERSION in google-oauth.ts — single source of truth,
 // shared with listAccessibleCustomers/getCustomerInfo there.
@@ -438,6 +438,23 @@ export async function listAdGroups(
 
 // ─── Mutations ─────────────────────────────────────────────────────────────────
 
+/**
+ * Escape hatch for command handlers that need an endpoint without a
+ * `:mutate` shape (e.g. offlineUserDataJobs:create / :addOperations / :run).
+ * Same auth, retry-on-401 and error parsing as every other call. `path` is
+ * relative to the API version root, e.g. `customers/123/offlineUserDataJobs:create`.
+ */
+export async function googleAdsRequest<T>(
+  path: string,
+  refreshToken: string,
+  options: { method?: 'GET' | 'POST'; body?: unknown } = {},
+): Promise<T> {
+  if (!/^(customers\/\d+|geoTargetConstants)[/:]/.test(path)) {
+    throw new AdsValidationError(`Refusing Google Ads path ${path}`)
+  }
+  return gadsRequest<T>(path, refreshToken, { method: options.method ?? 'POST', body: options.body })
+}
+
 /** Google Ads services the command engine writes through. */
 export type GAdsMutateService =
   | 'campaigns'
@@ -449,6 +466,10 @@ export type GAdsMutateService =
   | 'ads'
   | 'campaignConversionGoals'
   | 'conversionActions'
+  | 'assets'
+  | 'campaignAssets'
+  | 'adGroupAssets'
+  | 'userLists'
 
 export type GAdsMutateResponse = {
   results?: Array<{ resourceName?: string }>

@@ -1233,6 +1233,9 @@ function buildOperation(cmd: GoogleCommand, before: ResourceSnapshot, customerId
       // Built as a multi-service googleAds:mutate batch (buildCreateSearchOperations),
       // not a single-service :mutate — never reaches this function.
       throw new Error('google.campaign.create_search does not use buildOperation')
+    default:
+      // Handled by a CommandHandler module (providers/google/*), never by this adapter.
+      throw new AdsValidationError(`${cmd.type} is not handled by the base Google adapter`)
   }
 }
 
@@ -1678,6 +1681,9 @@ export const googleAdapter: AdsProviderAdapter = {
       case 'google.campaign.create_search':
       case 'google.ad_group.create':
       case 'google.ad.create_responsive_search':
+        return null
+      default:
+        // Handled by a CommandHandler module (providers/google/*), never by this adapter.
         return null
     }
   },

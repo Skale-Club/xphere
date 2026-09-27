@@ -739,6 +739,9 @@ function buildUpdate(cmd: MetaCommand, before: ResourceSnapshot): { id: string; 
       // buildCreateBody() / createObject() instead (a POST to a collection
       // edge, not an update of an existing object id).
       throw new AdsValidationError(`${cmd.type} does not use buildUpdate; it is a create command`)
+    default:
+      // Handled by a CommandHandler module (providers/meta/*), never by this adapter.
+      throw new AdsValidationError(`${cmd.type} is not handled by the base Meta adapter`)
   }
 }
 
