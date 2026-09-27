@@ -743,3 +743,12 @@ describe('suggestGeoTargetConstants', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('formatAdSchedule', () => {
+  it('renders Google minute enums as clock time, not raw enum names', async () => {
+    const { formatAdSchedule } = await import('@/lib/ads/providers/google-adapter')
+    expect(
+      formatAdSchedule({ day_of_week: 'SUNDAY', start_hour: 3, start_minute: 'ZERO', end_hour: 14, end_minute: 'FORTY_FIVE' }),
+    ).toBe('SUNDAY 03:00–14:45')
+  })
+})
