@@ -47,6 +47,13 @@ const GoogleDateTime = () =>
 const Url = () => z.string().url().max(2048).refine((v) => /^https?:\/\//.test(v), 'Must be an http(s) URL')
 const Minute = () => z.enum(['ZERO', 'FIFTEEN', 'THIRTY', 'FORTY_FIVE'])
 const Day = () => z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])
+const Sha256 = () => z.string().regex(/^[a-f0-9]{64}$/, 'Must be a lowercase hex SHA-256 digest')
+const Consent = () => z.enum(['GRANTED', 'DENIED', 'UNSPECIFIED'])
+const Level = () => z.enum(['campaign', 'ad_group'])
+const UpperSnake = () => z.string().regex(/^[A-Z][A-Z0-9_]*$/, 'Use the platform enum value, e.g. LEAD_GENERATION')
+const JsonObject = () => z.record(z.string(), z.unknown())
+const MetaRegionalCategory = () =>
+  z.enum(['TAIWAN_FINSERV', 'AUSTRALIA_FINSERV', 'INDIA_FINSERV', 'TAIWAN_UNIVERSAL', 'SINGAPORE_UNIVERSAL', 'THAILAND_UNIVERSAL', 'BRAZIL_REGULATION'])
 const MetaBidStrategy = () =>
   z.enum(['LOWEST_COST_WITHOUT_CAP', 'LOWEST_COST_WITH_BID_CAP', 'COST_CAP', 'LOWEST_COST_WITH_MIN_ROAS'])
 
@@ -174,6 +181,105 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     path2: z.string().trim().max(15).optional(),
   }),
 
+  // ─── Round 4: bidding, budgets, proximity, keyword removal, Display ─────────
+  google('google.campaign.set_bidding_strategy', {
+    campaign_id: GId(),
+    strategy: z.enum(['MANUAL_CPC', 'MAXIMIZE_CLICKS', 'MAXIMIZE_CONVERSIONS', 'MAXIMIZE_CONVERSION_VALUE']),
+    /** Only with MAXIMIZE_CONVERSIONS (this is Google's "Target CPA"). */
+    target_cpa: Money().optional(),
+    /** Only with MAXIMIZE_CONVERSION_VALUE (Google's "Target ROAS"); 3.5 = 350%. */
+    target_roas: z.number().positive().max(1000).optional(),
+    /** Only with MAXIMIZE_CLICKS. */
+    cpc_bid_ceiling: Money().optional(),
+  }),
+  google('google.campaign.set_cpc_bid_ceiling', { campaign_id: GId(), cpc_bid_ceiling: Money() }),
+  /** Total (campaign-lifetime) budget; the campaign needs an end date. */
+  google('google.campaign.set_total_budget', { campaign_id: GId(), total_budget: Money() }),
+  google('google.campaign.add_proximity', {
+    campaign_id: GId(),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    radius: z.number().positive().max(800),
+    radius_units: z.enum(['KILOMETERS', 'MILES']).default('KILOMETERS'),
+  }),
+  google('google.campaign.remove_proximity', { campaign_id: GId(), criterion_id: GId() }),
+  /** Irreversible in Google Ads; rollback re-adds a keyword with the same text and match type (new id). */
+  google('google.keyword.remove', { ad_group_id: GId(), criterion_id: GId() }),
+  google('google.campaign.create_display', {
+    name: Name(),
+    daily_budget: Money(),
+    bidding: z.enum(['MAXIMIZE_CONVERSIONS', 'MAXIMIZE_CLICKS', 'MANUAL_CPC']),
+    target_cpa: Money().optional(),
+    start_date_time: GoogleDateTime().optional(),
+    end_date_time: GoogleDateTime().optional(),
+    location_ids: z.array(GId()).min(1).max(50),
+    language_ids: z.array(GId()).max(20).default([]),
+  }),
+  google('google.ad_group.create_display', { campaign_id: GId(), name: Name(), cpc_bid: Money().optional() }),
+
+  // ─── Round 4: ad assets (extensions) ────────────────────────────────────────
+  google('google.asset.add_sitelink', {
+    level: Level(),
+    campaign_id: GId().optional(),
+    ad_group_id: GId().optional(),
+    link_text: z.string().trim().min(1).max(25),
+    final_url: Url(),
+    description1: z.string().trim().max(35).optional(),
+    description2: z.string().trim().max(35).optional(),
+  }),
+  google('google.asset.add_callout', {
+    level: Level(),
+    campaign_id: GId().optional(),
+    ad_group_id: GId().optional(),
+    text: z.string().trim().min(1).max(25),
+  }),
+  google('google.asset.add_structured_snippet', {
+    level: Level(),
+    campaign_id: GId().optional(),
+    ad_group_id: GId().optional(),
+    /** Google's predefined header, e.g. "Services", "Brands", "Types", "Amenities". */
+    header: z.string().trim().min(1).max(50),
+    values: z.array(z.string().trim().min(1).max(25)).min(3).max(10),
+  }),
+  google('google.asset.add_call', {
+    level: Level(),
+    campaign_id: GId().optional(),
+    ad_group_id: GId().optional(),
+    country_code: z.string().regex(/^[A-Z]{2}$/),
+    phone_number: z.string().trim().min(4).max(30),
+  }),
+  google('google.asset.unlink', {
+    level: Level(),
+    campaign_id: GId().optional(),
+    ad_group_id: GId().optional(),
+    asset_id: GId(),
+    field_type: z.enum(['SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'CALL']),
+  }),
+
+  // ─── Round 4: Customer Match ────────────────────────────────────────────────
+  google('google.user_list.create', {
+    name: Name(),
+    description: z.string().trim().max(500).optional(),
+    membership_life_span_days: z.number().int().min(1).max(540).default(540),
+  }),
+  google('google.user_list.rename', { user_list_id: GId(), name: Name() }),
+  /** Permanent. Detaches the list from every ad group/campaign using it. */
+  google('google.user_list.remove', { user_list_id: GId() }),
+  /**
+   * Hashes only — normalise (trim, lowercase; phones E.164) then SHA-256.
+   * The MCP tool and dashboard hash raw contacts server-side; raw PII is
+   * never accepted here, so it never reaches the change ledger.
+   */
+  google('google.user_list.upload', {
+    user_list_id: GId(),
+    hashed_emails: z.array(Sha256()).max(10_000).default([]),
+    hashed_phones: z.array(Sha256()).max(10_000).default([]),
+    consent_ad_user_data: Consent().default('UNSPECIFIED'),
+    consent_ad_personalization: Consent().default('UNSPECIFIED'),
+  }),
+  google('google.user_list.attach', { ad_group_id: GId(), user_list_id: GId(), exclude: z.boolean().default(false) }),
+  google('google.user_list.detach', { ad_group_id: GId(), criterion_id: GId() }),
+
   // ─── Meta Ads ───────────────────────────────────────────────────────────────
   meta('meta.campaign.set_status', { campaign_id: MId(), status: MetaStatus() }),
   meta('meta.campaign.set_daily_budget', { campaign_id: MId(), daily_budget: Money() }),
@@ -248,6 +354,99 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     /** An existing creative of the same ad account (see ads_meta_list_creatives). */
     creative_id: MId(),
   }),
+
+  // ─── Round 4: ad sets, lifetime budgets, settings ───────────────────────────
+  meta('meta.adset.create', {
+    campaign_id: MId(),
+    name: Name(),
+    /** e.g. LEAD_GENERATION, OFFSITE_CONVERSIONS, LINK_CLICKS, LANDING_PAGE_VIEWS, REACH, CONVERSATIONS, POST_ENGAGEMENT. */
+    optimization_goal: UpperSnake(),
+    /** Usually IMPRESSIONS. */
+    billing_event: UpperSnake().default('IMPRESSIONS'),
+    /** Full Meta targeting spec, e.g. {"geo_locations":{"countries":["PT"]},"age_min":25}. */
+    targeting: JsonObject(),
+    daily_budget: Money().optional(),
+    lifetime_budget: Money().optional(),
+    start_time: IsoDateTime().optional(),
+    end_time: IsoDateTime().optional(),
+    bid_strategy: MetaBidStrategy().optional(),
+    bid_amount: Money().optional(),
+    /** e.g. {"pixel_id":"…","custom_event_type":"LEAD"} or {"page_id":"…"}. */
+    promoted_object: JsonObject().optional(),
+    /** e.g. WEBSITE, ON_AD, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, ON_POST. */
+    destination_type: UpperSnake().optional(),
+    /** Required for ads delivered in the EU. */
+    dsa_beneficiary: z.string().trim().max(512).optional(),
+    dsa_payor: z.string().trim().max(512).optional(),
+    regional_regulated_categories: z.array(MetaRegionalCategory()).optional(),
+    regional_regulation_identities: z.record(z.string(), z.string()).optional(),
+  }),
+  meta('meta.campaign.set_lifetime_budget', { campaign_id: MId(), lifetime_budget: Money() }),
+  meta('meta.adset.set_lifetime_budget', { adset_id: MId(), lifetime_budget: Money(), end_time: IsoDateTime().optional() }),
+  meta('meta.adset.update_settings', {
+    adset_id: MId(),
+    optimization_goal: UpperSnake().optional(),
+    destination_type: UpperSnake().optional(),
+    dsa_beneficiary: z.string().trim().max(512).optional(),
+    dsa_payor: z.string().trim().max(512).optional(),
+    regional_regulated_categories: z.array(MetaRegionalCategory()).optional(),
+    regional_regulation_identities: z.record(z.string(), z.string()).optional(),
+    /** e.g. [{"event_type":"CLICK_THROUGH","window_days":7}]. */
+    attribution_spec: z.array(JsonObject()).max(10).optional(),
+  }),
+  /** Replaces the whole targeting spec (interests, locations, languages, audiences...). */
+  meta('meta.adset.replace_targeting', { adset_id: MId(), targeting: JsonObject() }),
+  meta('meta.campaign.update_settings', {
+    campaign_id: MId(),
+    special_ad_categories: z.array(z.enum(['HOUSING', 'EMPLOYMENT', 'CREDIT', 'ISSUES_ELECTIONS_POLITICS', 'FINANCIAL_PRODUCTS_SERVICES'])),
+  }),
+
+  // ─── Round 4: media, creatives, boosts ──────────────────────────────────────
+  /** Fetched server-side (https, public hosts only, ≤ 30 MB) and uploaded to the ad account's image library. */
+  meta('meta.media.upload_image', { image_url: Url(), name: z.string().trim().max(100).optional() }),
+  /** Meta fetches the file itself; the command waits until the video is ready. */
+  meta('meta.media.upload_video', { video_url: Url(), name: Name() }),
+  meta('meta.ad.create_with_creative', {
+    adset_id: MId(),
+    name: Name(),
+    page_id: MId(),
+    /** Destination URL; omit for click-to-message ads (set messaging_destination). */
+    link: Url().optional(),
+    message: z.string().trim().max(2000).optional(),
+    headline: z.string().trim().max(255).optional(),
+    description: z.string().trim().max(255).optional(),
+    /** From meta.media.upload_image. */
+    image_hash: z.string().regex(/^[a-f0-9]{32}$/).optional(),
+    /** From meta.media.upload_video; needs image_hash as thumbnail. */
+    video_id: MId().optional(),
+    /** e.g. LEARN_MORE, SIGN_UP, BOOK_NOW, CONTACT_US, WHATSAPP_MESSAGE, SEND_MESSAGE. */
+    call_to_action_type: UpperSnake().optional(),
+    messaging_destination: z.enum(['MESSENGER', 'INSTAGRAM_DIRECT', 'WHATSAPP']).optional(),
+    instagram_user_id: MId().optional(),
+  }),
+  /** Creatives are immutable: builds a copy with the changes and repoints the ad. Rollback repoints to the old creative. */
+  meta('meta.ad.update_creative', {
+    ad_id: MId(),
+    message: z.string().trim().max(2000).optional(),
+    headline: z.string().trim().max(255).optional(),
+    description: z.string().trim().max(255).optional(),
+    link: Url().optional(),
+    image_hash: z.string().regex(/^[a-f0-9]{32}$/).optional(),
+    call_to_action_type: UpperSnake().optional(),
+    /** e.g. "utm_source=facebook&utm_medium=paid"; "" clears it. */
+    url_tags: z.string().max(1024).optional(),
+    /** Carousel: which card (0-based) headline/description/link/image apply to. */
+    card_index: z.number().int().min(0).max(9).optional(),
+  }),
+  /** Promote an existing organic post ("{page_id}_{post_id}") as an ad in an engagement ad set. */
+  meta('meta.post.boost', {
+    adset_id: MId(),
+    post_id: z.string().regex(/^\d+_\d+$/, 'Use the full "{page_id}_{post_id}" id'),
+    name: Name(),
+    call_to_action_type: UpperSnake().optional(),
+  }),
+  /** Click-to-message ads: greeting shown when the conversation opens. */
+  meta('meta.ad.set_welcome_message', { ad_id: MId(), welcome_message: z.string().trim().min(1).max(300) }),
   meta('meta.ad.duplicate', {
     ad_id: MId(),
     target_adset_id: MId().optional(),
@@ -316,6 +515,37 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'google.ad.create_responsive_search': { platform: 'google', resourceType: 'ad', risk: 4, label: 'Create responsive search ad (paused)' },
   'meta.campaign.create': { platform: 'meta', resourceType: 'campaign', risk: 4, label: 'Create campaign (paused)' },
   'meta.ad.create': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad from creative (paused)' },
+  'google.campaign.set_bidding_strategy': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Change campaign bidding strategy' },
+  'google.campaign.set_cpc_bid_ceiling': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Set Maximize Clicks CPC ceiling' },
+  'google.campaign.set_total_budget': { platform: 'google', resourceType: 'campaign', risk: 2, label: 'Set campaign total budget' },
+  'google.campaign.add_proximity': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Add radius targeting' },
+  'google.campaign.remove_proximity': { platform: 'google', resourceType: 'campaign_criterion', risk: 2, label: 'Remove radius targeting' },
+  'google.keyword.remove': { platform: 'google', resourceType: 'keyword', risk: 2, label: 'Remove keyword' },
+  'google.campaign.create_display': { platform: 'google', resourceType: 'campaign', risk: 4, label: 'Create Display campaign (paused)' },
+  'google.ad_group.create_display': { platform: 'google', resourceType: 'ad_group', risk: 4, label: 'Create Display ad group (paused)' },
+  'google.asset.add_sitelink': { platform: 'google', resourceType: 'asset', risk: 2, label: 'Add sitelink' },
+  'google.asset.add_callout': { platform: 'google', resourceType: 'asset', risk: 2, label: 'Add callout' },
+  'google.asset.add_structured_snippet': { platform: 'google', resourceType: 'asset', risk: 2, label: 'Add structured snippet' },
+  'google.asset.add_call': { platform: 'google', resourceType: 'asset', risk: 2, label: 'Add call asset' },
+  'google.asset.unlink': { platform: 'google', resourceType: 'asset', risk: 2, label: 'Remove asset from campaign/ad group' },
+  'google.user_list.create': { platform: 'google', resourceType: 'user_list', risk: 2, label: 'Create Customer Match list' },
+  'google.user_list.rename': { platform: 'google', resourceType: 'user_list', risk: 1, label: 'Rename Customer Match list' },
+  'google.user_list.remove': { platform: 'google', resourceType: 'user_list', risk: 4, label: 'Delete Customer Match list' },
+  'google.user_list.upload': { platform: 'google', resourceType: 'user_list', risk: 3, label: 'Upload contacts to Customer Match list' },
+  'google.user_list.attach': { platform: 'google', resourceType: 'ad_group', risk: 2, label: 'Target/exclude Customer Match list in ad group' },
+  'google.user_list.detach': { platform: 'google', resourceType: 'ad_group', risk: 2, label: 'Remove Customer Match list from ad group' },
+  'meta.adset.create': { platform: 'meta', resourceType: 'adset', risk: 4, label: 'Create ad set (paused)' },
+  'meta.campaign.set_lifetime_budget': { platform: 'meta', resourceType: 'campaign', risk: 2, label: 'Set campaign lifetime budget' },
+  'meta.adset.set_lifetime_budget': { platform: 'meta', resourceType: 'adset', risk: 2, label: 'Set ad set lifetime budget' },
+  'meta.adset.update_settings': { platform: 'meta', resourceType: 'adset', risk: 3, label: 'Update ad set settings' },
+  'meta.adset.replace_targeting': { platform: 'meta', resourceType: 'adset', risk: 3, label: 'Replace ad set targeting' },
+  'meta.campaign.update_settings': { platform: 'meta', resourceType: 'campaign', risk: 2, label: 'Update campaign special ad categories' },
+  'meta.media.upload_image': { platform: 'meta', resourceType: 'media', risk: 1, label: 'Upload ad image' },
+  'meta.media.upload_video': { platform: 'meta', resourceType: 'media', risk: 1, label: 'Upload ad video' },
+  'meta.ad.create_with_creative': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad with new creative (paused)' },
+  'meta.ad.update_creative': { platform: 'meta', resourceType: 'ad', risk: 3, label: 'Edit ad creative' },
+  'meta.post.boost': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Boost post (paused)' },
+  'meta.ad.set_welcome_message': { platform: 'meta', resourceType: 'ad', risk: 2, label: 'Set click-to-message welcome message' },
 }
 
 /**
@@ -358,6 +588,47 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
     if (new Set(cmd.headlines.map((h) => h.toLowerCase())).size !== cmd.headlines.length) return 'Headlines must be unique'
     if (new Set(cmd.descriptions.map((d) => d.toLowerCase())).size !== cmd.descriptions.length) return 'Descriptions must be unique'
     if (cmd.path2 && !cmd.path1) return 'path2 requires path1'
+  }
+  if (
+    cmd.type === 'google.asset.add_sitelink' || cmd.type === 'google.asset.add_callout' ||
+    cmd.type === 'google.asset.add_structured_snippet' || cmd.type === 'google.asset.add_call' ||
+    cmd.type === 'google.asset.unlink'
+  ) {
+    if (cmd.level === 'campaign' && !cmd.campaign_id) return 'campaign_id is required for a campaign-level asset'
+    if (cmd.level === 'ad_group' && !cmd.ad_group_id) return 'ad_group_id is required for an ad-group-level asset'
+  }
+  if (cmd.type === 'google.campaign.set_bidding_strategy') {
+    if (cmd.target_cpa !== undefined && cmd.strategy !== 'MAXIMIZE_CONVERSIONS') return 'target_cpa only applies to MAXIMIZE_CONVERSIONS'
+    if (cmd.target_roas !== undefined && cmd.strategy !== 'MAXIMIZE_CONVERSION_VALUE') return 'target_roas only applies to MAXIMIZE_CONVERSION_VALUE'
+    if (cmd.cpc_bid_ceiling !== undefined && cmd.strategy !== 'MAXIMIZE_CLICKS') return 'cpc_bid_ceiling only applies to MAXIMIZE_CLICKS'
+  }
+  if (cmd.type === 'google.campaign.create_display') {
+    if (cmd.target_cpa !== undefined && cmd.bidding !== 'MAXIMIZE_CONVERSIONS') return 'target_cpa only applies to MAXIMIZE_CONVERSIONS'
+    if (cmd.start_date_time && cmd.end_date_time && cmd.start_date_time >= cmd.end_date_time) return 'end_date_time must be after start_date_time'
+  }
+  if (cmd.type === 'google.user_list.upload' && cmd.hashed_emails.length + cmd.hashed_phones.length === 0) {
+    return 'Provide hashed_emails and/or hashed_phones'
+  }
+  if (cmd.type === 'meta.adset.create') {
+    if (cmd.daily_budget !== undefined && cmd.lifetime_budget !== undefined) return 'Provide daily_budget or lifetime_budget, not both'
+    if (cmd.lifetime_budget !== undefined && !cmd.end_time) return 'lifetime_budget requires end_time'
+    if ((cmd.bid_strategy === 'LOWEST_COST_WITH_BID_CAP' || cmd.bid_strategy === 'COST_CAP') && cmd.bid_amount === undefined) {
+      return `${cmd.bid_strategy} requires bid_amount`
+    }
+    if (cmd.start_time && cmd.end_time && cmd.start_time >= cmd.end_time) return 'end_time must be after start_time'
+  }
+  if (cmd.type === 'meta.adset.update_settings') {
+    const { adset_id: _id, platform: _p, ad_account_id: _a, type: _t, ...fields } = cmd
+    if (Object.values(fields).every((v) => v === undefined)) return 'Provide at least one setting to change'
+  }
+  if (cmd.type === 'meta.ad.update_creative') {
+    const { ad_id: _id, platform: _p, ad_account_id: _a, type: _t, card_index: _c, ...fields } = cmd
+    if (Object.values(fields).every((v) => v === undefined)) return 'Provide at least one creative field to change'
+  }
+  if (cmd.type === 'meta.ad.create_with_creative') {
+    if (!cmd.link && !cmd.messaging_destination) return 'Provide link, or messaging_destination for a click-to-message ad'
+    if (cmd.video_id && !cmd.image_hash) return 'A video ad needs image_hash as its thumbnail'
+    if (!cmd.video_id && !cmd.image_hash && !cmd.messaging_destination) return 'Provide image_hash (or video_id + image_hash)'
   }
   if (cmd.type === 'meta.adset.set_bid_strategy') {
     if ((cmd.bid_strategy === 'LOWEST_COST_WITH_BID_CAP' || cmd.bid_strategy === 'COST_CAP') && cmd.bid_amount === undefined) {

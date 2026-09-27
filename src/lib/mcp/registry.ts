@@ -27,6 +27,9 @@ import { adsTools } from './tools/ads'
 import { adsControlTools } from './tools/ads-control'
 import { adsGoogleReadTools } from './tools/ads-google-reads'
 import { adsMetaReadTools } from './tools/ads-meta-reads'
+import { adsGoogleAssetReadTools } from './tools/ads-google-asset-reads'
+import { adsGoogleCustomerMatchTools } from './tools/ads-google-customer-match'
+import { adsGoogleBiddingReadTools } from './tools/ads-google-bidding-reads'
 import { organizationsTools } from './tools/organizations'
 import { prospectsTools } from './tools/prospects'
 import { prospectSendMessageTools } from './tools/prospect-send-message'
@@ -58,6 +61,9 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...adsControlTools,
   ...adsGoogleReadTools,
   ...adsMetaReadTools,
+  ...adsGoogleAssetReadTools,
+  ...adsGoogleCustomerMatchTools,
+  ...adsGoogleBiddingReadTools,
   ...organizationsTools,
   ...prospectsTools,
   ...prospectSendMessageTools,

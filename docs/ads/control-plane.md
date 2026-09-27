@@ -107,6 +107,42 @@ Money is always in **major units of the account currency** (50 = R$50). Risk:
 | `google.ad_group.create` | 4 | `meta.ad.create` (existing creative, same account) | 4 |
 | `google.ad.create_responsive_search` (3–15 headlines, 2–4 descriptions) | 4 | | |
 
+### Round 4 — Windsor parity (handler modules)
+
+New capabilities live in `src/lib/ads/providers/{google,meta}/*.ts` as
+`CommandHandler`s (`providers/handlers.ts`), composed over the base adapters
+by `withHandlers` in `providers/index.ts`. A command type claimed twice, or by
+the wrong platform, fails at module load.
+
+| Google | Risk | Meta | Risk |
+|---|---|---|---|
+| `google.campaign.set_bidding_strategy` (manual CPC, max clicks, max conversions [+tCPA], max conversion value [+tROAS]; rollback to the previous strategy) | 3 | `meta.adset.create` (targeting, optimization, billing, budget, bid, promoted object — copied from a sibling ad set with the same goal when omitted —, destination, DSA / regional) | 4 |
+| `google.campaign.set_cpc_bid_ceiling` | 3 | `meta.campaign.set_lifetime_budget`, `meta.adset.set_lifetime_budget` | 2 |
+| `google.campaign.set_total_budget` (needs an end date) | 2 | `meta.adset.update_settings` (optimization goal, destination, DSA, regional, attribution) | 3 |
+| `google.campaign.add_proximity` / `remove_proximity` | 2 | `meta.adset.replace_targeting` (full spec) | 3 |
+| `google.keyword.remove` (rollback re-adds text + match type) | 2 | `meta.campaign.update_settings` (special ad categories) | 2 |
+| `google.campaign.create_display`, `google.ad_group.create_display` | 4 | `meta.media.upload_image` (server fetch, https + public hosts only), `meta.media.upload_video` | 1 |
+| `google.asset.add_sitelink` / `add_callout` / `add_structured_snippet` / `add_call`, `google.asset.unlink` | 2 | `meta.ad.create_with_creative` (link / video / click-to-message) | 4 |
+| `google.user_list.create` / `rename` / `remove` (4) / `upload` (3) / `attach` / `detach` | 1–4 | `meta.ad.update_creative` (copy, headline, description, link, image, CTA, url_tags, carousel card; rollback repoints to the old creative) | 3 |
+| | | `meta.post.boost`, `meta.ad.set_welcome_message` | 4 / 2 |
+
+Pre-checks that turn Meta/Google rejections into clear preview errors:
+lowest-cost CBO campaigns need one optimization goal across ad sets; goals
+like OFFSITE_CONVERSIONS / LEAD_GENERATION need a promoted object; CBO vs ad
+set budgets; structured-snippet headers must be Google's predefined ones;
+copied Meta creatives drop Meta's derived `image_url`/`picture` next to an
+`image_hash` (Meta rejects both).
+
+**Customer Match privacy.** `google.user_list.upload` accepts SHA-256 digests
+only, so raw contacts never reach the ledger. The MCP tool
+`ads_google_prepare_customer_match_upload` takes raw emails/phones or a CRM
+tag, normalises (emails lower-cased, phones strict E.164) and hashes on the
+server, skips contacts with DND `all`, and returns counts only.
+
+**Media URLs.** `meta.media.upload_image` fetches through
+`src/lib/ads/safe-fetch.ts`: https only, every redirect hop re-checked,
+private/loopback/link-local/CGNAT addresses refused, 30 MB cap.
+
 **Creates are always PAUSED.** Nothing starts spending until a separate
 `set_status` command activates it (which the `allow_enable` policy governs),
 and creates have no automatic rollback — pause or remove the new object.
@@ -167,7 +203,10 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   `ads_google_list_conversion_goals`), Meta asset reads
   (`ads_meta_list_custom_audiences`, `ads_meta_list_creatives`), and the
   lifecycle (`ads_preview_change`, `ads_preview_changes`, `ads_approve_change`,
-  `ads_approve_changes`,
+  `ads_approve_changes`, plus round-4 reads `ads_google_list_assets`,
+  `ads_google_list_user_lists`, `ads_google_user_list_upload_status`,
+  `ads_google_list_campaign_proximities` and the
+  `ads_google_prepare_customer_match_upload` helper,
   `ads_get_change_status`, `ads_list_changes`, `ads_cancel_change`,
   `ads_rollback_change`). Every tool accepts `org_id`, so one MCP connection
   serves every client org the token's user belongs to.
@@ -189,9 +228,9 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   `tick.sh XPHERE ads-changes-tick https://origin.xphere.app/api/cron/ads-changes-tick 120 90`
 - Apply the migration with `npx supabase db push` (never the MCP / SQL editor).
 
-## Not yet built (next phases)
+## Not yet built
 
-- Google: creating campaigns / ad groups / responsive search ads, shared
-  negative lists, audience segments, device bid modifiers.
-- Meta: creating creatives from assets, lookalike creation, Advantage+
-  shopping specifics, dynamic creative.
+Everything Windsor.ai exposes as a write action for Google Ads and Meta Ads
+(checked 2026-09-27) has an equivalent here. Not covered by either: Google
+Performance Max / Demand Gen / Video campaigns, shopping feeds, Meta catalog
+(Advantage+ shopping) and lookalike audience creation.

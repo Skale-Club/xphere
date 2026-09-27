@@ -228,6 +228,7 @@ export type MetaAdSetDetailed = MetaAdSet & {
   start_time?: string
   end_time?: string
   targeting?: Record<string, unknown>
+  promoted_object?: Record<string, unknown>
 }
 
 /**
@@ -241,7 +242,7 @@ export async function listAdSetsDetailed(
 ): Promise<MetaAdSetDetailed[]> {
   const params = new URLSearchParams({
     fields:
-      'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,bid_strategy,bid_amount,optimization_goal,billing_event,start_time,end_time,targeting,created_time,updated_time',
+      'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,bid_strategy,bid_amount,optimization_goal,billing_event,promoted_object,start_time,end_time,targeting,created_time,updated_time',
     limit: '100',
   })
   const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
@@ -332,6 +333,17 @@ export async function getAdAccountInfo(
 }
 
 // ─── Generic object read / update (command engine) ────────────────────────────
+
+/**
+ * GET an edge with its own query parameters (e.g. `act_1/adimages` with
+ * `hashes` and `fields`). getObject only knows `?fields=`, so appending a
+ * second query to its id produced a URL with two `?`. Params are encoded
+ * here; the access token is added by graphRequest.
+ */
+export async function getEdge<T>(path: string, params: Record<string, string>, accessToken: string): Promise<T> {
+  const query = new URLSearchParams(params).toString()
+  return graphRequest<T>(query ? `${path}?${query}` : path, accessToken)
+}
 
 /** Read one Graph object. Unlike getCampaign this throws, so callers can tell "not found" from "failed". */
 export async function getObject<T>(objectId: string, fields: string, accessToken: string): Promise<T> {
