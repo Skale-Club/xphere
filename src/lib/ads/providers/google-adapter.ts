@@ -54,6 +54,13 @@ const MANUAL_BIDDING = new Set(['MANUAL_CPC', 'ENHANCED_CPC', 'MANUAL_CPM', 'MAN
 
 const AD_SCHEDULE_MINUTES = { ZERO: 0, FIFTEEN: 15, THIRTY: 30, FORTY_FIVE: 45 } as const
 
+/** "SUNDAY 03:00–04:00" instead of Google's raw enum ("SUNDAY 3:ZERO - 4:ZERO"). */
+export function formatAdSchedule(s: Record<string, unknown>): string {
+  const hhmm = (hour: unknown, minute: unknown) =>
+    `${String(hour).padStart(2, '0')}:${String(AD_SCHEDULE_MINUTES[minute as keyof typeof AD_SCHEDULE_MINUTES] ?? 0).padStart(2, '0')}`
+  return `${s.day_of_week} ${hhmm(s.start_hour, s.start_minute)}–${hhmm(s.end_hour, s.end_minute)}`
+}
+
 /** 'yyyy-MM-dd HH:mm:ss' in UTC — approximate stand-in for "now" in the account's time zone (see set_dates plan). */
 function nowAsGoogleDateTime(): string {
   return new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -917,7 +924,7 @@ function planGoogle(cmd: GoogleCommand, before: ResourceSnapshot): PlanResult {
       if (f.existing_criterion_id) {
         return { ok: false, code: 'already_exists', message: `An identical ad schedule already exists (criterion ${f.existing_criterion_id}).` }
       }
-      const label = `${cmd.day_of_week} ${cmd.start_hour}:${cmd.start_minute} - ${cmd.end_hour}:${cmd.end_minute}`
+      const label = formatAdSchedule(cmd)
       const intended: Record<string, unknown> = {
         day_of_week: cmd.day_of_week,
         start_hour: cmd.start_hour,
@@ -930,7 +937,7 @@ function planGoogle(cmd: GoogleCommand, before: ResourceSnapshot): PlanResult {
     }
 
     case 'google.campaign.remove_ad_schedule': {
-      const label = `${f.day_of_week} ${f.start_hour}:${f.start_minute} - ${f.end_hour}:${f.end_minute}`
+      const label = formatAdSchedule(f)
       return done({ exists: false }, [diffField('ad_schedule', 'Ad schedule', label, null)])
     }
 
