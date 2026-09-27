@@ -1,0 +1,66 @@
+# Skale Club — tell the team someone left a message with the receptionist.
+#
+# Replaces the version that listened to contact.created. That event fires only
+# when a contact row is inserted, and save_caller_message (contact_create)
+# deduplicates by the caller's number: anyone already in the CRM — an existing
+# customer calling about a problem, a lead calling back — had their message
+# appended to their notes and nobody was told. contact.captured fires on every
+# save, and capture.notes is what they said on THIS call (contact.notes holds
+# the whole history).
+#
+# Import with (replaces the live workflow of the same name):
+#   npx tsx --env-file=.env.local scripts/import-org-workflow.ts b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 \
+#     .planning/clients/skale-club/receptionist-notify-team.yaml --apply
+
+name: Receptionist — notify team of a call message
+description: |
+  Every time the phone receptionist saves a caller's message — new caller or
+  someone already in the CRM — opens a call-back task and emails and Telegrams
+  the team with what they said on this call.
+trigger:
+  type: event
+  event: contact.captured
+
+nodes:
+  - id: is_call
+    kind: condition
+    expression: "capture.source == 'voice_call'"
+
+  - id: task
+    kind: create_task
+    title: "Call back {{contact.name}}"
+    priority: high
+    entity_type: contact
+    entity_id: "{{contact.id}}"
+    description: |
+      Call to the AI receptionist.
+      Phone: {{contact.phone}}
+
+      What they want to talk about:
+      {{capture.notes}}
+
+  - id: email
+    kind: send_tenant_email
+    to: skale.club@gmail.com
+    subject: "New call — {{contact.name}}"
+    body: >-
+      <h2>Someone called Skale Club</h2>
+      <p><b>Name:</b> {{contact.name}}<br><b>Phone:</b> {{contact.phone}}</p>
+      <p><b>What they want to talk about:</b><br>{{capture.notes}}</p>
+      <p>The assistant told them a team member would get back to them shortly.</p>
+
+  - id: telegram
+    kind: send_telegram_notification
+    parse_mode: HTML
+    text: "📞 <b>New call</b>\n👤 {{contact.name}}\n📱 {{contact.phone}}\n\n💬 {{capture.notes}}"
+
+edges:
+  - from: trigger
+    to: is_call
+  - from: is_call
+    to: task
+    handle: "true"
+  - from: task
+    to: email
+  - from: email
+    to: telegram

@@ -34,6 +34,15 @@ const CONTACT_GROUP: VariableGroup = {
   ],
 }
 
+const CAPTURE_GROUP: VariableGroup = {
+  label: 'Message',
+  items: [
+    v('capture.notes', 'What they said this time'),
+    v('capture.source', 'Where it came from (e.g. voice_call)'),
+    v('capture.is_new', 'New contact? (true/false)'),
+  ],
+}
+
 const LEAD_GROUP: VariableGroup = {
   label: 'Lead',
   items: [
@@ -113,6 +122,7 @@ export function variablesForTrigger(eventType: string | undefined): VariableGrou
 
   if (e === 'lead.captured') return [LEAD_GROUP, CONTACT_GROUP, TRIGGER_GROUP]
   if (e === 'contact.created') return [CONTACT_GROUP, TRIGGER_GROUP]
+  if (e === 'contact.captured') return [CAPTURE_GROUP, CONTACT_GROUP, TRIGGER_GROUP]
 
   if (e === 'booking.created' || e.startsWith('meeting.')) {
     return [MEETING_GROUP, TRIGGER_GROUP]

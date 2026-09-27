@@ -12,7 +12,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { normalizeInbound } from '@/lib/messaging/normalize-inbound'
 import { storeMediaFromUrl } from '@/lib/chat/store-media'
 import { runAgent } from '@/lib/agent-runtime/run-agent'
-import { loadHistoryWindow } from '@/lib/agent-runtime/load-history'
+import { loadHistoryWindow, mediaPlaceholderForAgent } from '@/lib/agent-runtime/load-history'
 import { findByChannelIdentity, attachChannelIdentity, backfillContactPhone } from '@/lib/contacts/server'
 import { storeContactAvatarFromUrl } from '@/lib/contacts/store-avatar'
 import { sendZernioDm } from './send-dm'
@@ -25,7 +25,8 @@ import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { normalisePhone } from '@/lib/contacts/zod-schemas'
 import { resolveInboundAgent, agentSenderMetadata, HUMAN_SENDER_METADATA } from '@/lib/agent-runtime/inbound-agent'
 import { applyMessageLabel } from '@/lib/agent-runtime/conversation-routing'
-import { markHumanTakeover } from '@/lib/agent-runtime/human-takeover'
+import { markHumanTakeover, requestHumanHandoff } from '@/lib/agent-runtime/human-takeover'
+import { coalesceInbound } from '@/lib/agent-runtime/coalesce'
 import type {
   ZernioCommentReceivedPayload,
   ZernioWebhookMessage,
@@ -606,7 +607,11 @@ async function processMessageReceived(
     orgId,
     channel,
     conversationId: norm.conversationId,
-    userMessage: messageText,
+    // A caption-less voice note or photo still reaches an engaged agent, as a
+    // placeholder it can answer ("can you type it?") instead of silence.
+    userMessage:
+      messageText || mediaPlaceholderForAgent(messageTypeForAttachments('', msg.attachments)) || '',
+    inboundSentAt: sentAt,
     reply: (text, apiKey) => sendZernioDm(zernioConversationId, zernioAccountId, text, apiKey),
     recordDm: { zernioConversationId, accountId: zernioAccountId, platform },
   })
@@ -726,11 +731,16 @@ async function processOutgoingMessage(
     return
   }
 
-  // Zernio does not say whether an echo came from the WhatsApp app or from an
-  // automation, so it only counts as a human taking over while an agent is
-  // actively holding the conversation. Automated openers sent before that (a
-  // campaign message) stay plain echoes — and can engage the agent on reply.
-  const humanTookOver = await isAgentEngaged(supabase, conversationId as string)
+  // Zernio does not say whether an echo came from the app or from an
+  // automation. On WhatsApp nothing in Xphere sends through Zernio without a
+  // stored row (inbox and agent replies are matched above), so an unmatched
+  // echo is someone typing in the WhatsApp Business app: a human, whether or
+  // not an agent holds the conversation. Otherwise a lead mentioning
+  // "chaveiro" in a chat the owner is handling from the phone pulls the
+  // keychain bot in over them. Instagram/Facebook keep the old rule, because
+  // the comment-to-DM action (send_zernio_dm) sends there without a row.
+  const humanTookOver =
+    platform === 'whatsapp' || (await isAgentEngaged(supabase, conversationId as string))
 
   const media = await buildZernioMedia({
     supabase,
@@ -961,6 +971,7 @@ async function maybeRunAgentAndReply({
   channel,
   conversationId,
   userMessage,
+  inboundSentAt,
   reply,
   recordDm,
 }: {
@@ -969,6 +980,8 @@ async function maybeRunAgentAndReply({
   channel: string
   conversationId: string
   userMessage: string
+  /** created_at of the inbound row; a newer inbound in the burst answers instead. */
+  inboundSentAt?: string
   reply: (text: string, apiKey: string) => Promise<{ messageId?: string } | void>
   /**
    * DM replies only: store the agent's reply ourselves, before sending, so its
@@ -984,12 +997,23 @@ async function maybeRunAgentAndReply({
   const agentChannel = conversationChannelToAgentChannel(channel)
   if (!agentChannel) return
 
+  // People type in bursts ("quanto custa o chaveiro?" / "uns 50"). Only the
+  // last message of a burst answers, routed on the whole burst's text, with the
+  // earlier messages already in its history. See coalesce.ts for why the wait
+  // comes before the routing decision.
+  let routingText = userMessage
+  if (inboundSentAt) {
+    const burst = await coalesceInbound({ supabase, conversationId, sentAt: inboundSentAt, text: userMessage })
+    if (!burst.latest) return
+    routingText = burst.routingText
+  }
+
   const route = await resolveInboundAgent({
     supabase,
     orgId,
     conversationId,
     channel: agentChannel,
-    text: userMessage,
+    text: routingText,
   })
   if (!route) return
 
@@ -1075,6 +1099,18 @@ async function maybeRunAgentAndReply({
         .from('conversations')
         .update({ last_message: text, last_message_at: nowIso, updated_at: nowIso } as never)
         .eq('id', conversationId)
+    }
+
+    // The turn failed (model error, timeout) and what went out was the agent's
+    // fallback_message — "someone from the team will follow up". Make it true:
+    // pause the bot and alert the team, or the customer waits on nobody.
+    if (result.status === 'error' || result.status === 'aborted') {
+      await requestHumanHandoff({
+        supabase,
+        orgId,
+        conversationId,
+        reason: `The assistant could not answer (${result.status}); the customer got the fallback message.`,
+      })
     }
   } catch (err) {
     console.error('[zernio/process] runAgent/send error:', err)

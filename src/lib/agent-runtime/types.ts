@@ -63,6 +63,11 @@ export type AgentRunOptions = {
   maxSteps?: number
   /** Extra instructions appended to the system prompt for this invocation only (workflow agent node). */
   extraInstructions?: string
+  /**
+   * Playground only: run this prompt instead of the published one, to rehearse
+   * an edit before publishing it. Ignored in production mode.
+   */
+  draftSystemPrompt?: string
   // Internal fields set by Phase 38 recursive delegation (not for external callers):
   _depth?: number
   parentInvocationId?: string

@@ -33,12 +33,27 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { decrypt } from '../src/lib/crypto'
+import { DEFAULT_VOICE } from '../src/lib/vapi/voice-options'
 import type { Database } from '../src/types/database'
 
 const SKALE_CLUB_ORG_ID = 'b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5'
 const CALLS_SERVER_URL = 'https://xphere.app/api/vapi/calls'
 /** The only Vapi-native number the org owns; it is the caller id for both campaigns. */
 const CALLER_ID_E164 = '+13128780637'
+
+/**
+ * Every Skale Club persona speaks with the platform default voice, named
+ * explicitly so the push replaces whatever the assistant carries. The reception
+ * assistant kept a hand-picked ElevenLabs voice from its legacy config
+ * (`OYTbf65…` on the English-only `eleven_flash_v2`), and the push keeps an
+ * operator's voice verbatim. The last call anyone completed on that line was on
+ * 2026-01-19; every inbound call after it died in the first second with
+ * `pipeline-error-eleven-labs-voice-failed` (the last on 2026-08-01), and
+ * nobody heard a word. `sarah` on
+ * `eleven_flash_v2_5` is multilingual and is the voice Cuts & Culture's
+ * reception answers real calls with.
+ */
+const SKY_VOICE = { ...DEFAULT_VOICE }
 
 /** Same model the other tenant's live phone assistant runs on. */
 const MODEL = { provider: 'openrouter', model: 'openai/gpt-5.1' }
@@ -107,7 +122,10 @@ const PERSONAS: VoicePersona[] = [
     timezone: 'America/Sao_Paulo',
     language: 'pt',
     persona: 'Sky',
-    firstMessage: 'Oi! Aqui é a {{business_name}}, sobre o pedido de chaveiros que você fez agora há pouco.',
+    // An AI placing the call says so in its first sentence: the customer did
+    // not choose to talk to a robot, unlike someone who dials our number.
+    firstMessage:
+      'Oi! Aqui é a Sky, assistente virtual da {{business_name}}, sobre o pedido de chaveiros que você fez agora há pouco.',
     idleMessages: ['Estou aqui quando você quiser continuar.'],
     keyterms: ['chaveiro', 'chaveiros', 'NFC', 'logo', 'arte', 'frete', 'pedido', 'entrega', 'Skale Club'],
     analysisOutcomes: CALLBACK_OUTCOMES,
@@ -130,7 +148,8 @@ const PERSONAS: VoicePersona[] = [
     timezone: 'America/New_York',
     language: 'en',
     persona: 'Sky',
-    firstMessage: 'Hi! This is {{business_name}}, calling about the keychain order you just placed.',
+    firstMessage:
+      "Hi! This is Sky, {{business_name}}'s virtual assistant, calling about the keychain order you just placed.",
     idleMessages: ["Take your time — I'm here when you're ready."],
     keyterms: ['keychain', 'keychains', 'NFC', 'logo', 'artwork', 'shipping', 'order', 'Skale Club'],
     analysisOutcomes: CALLBACK_OUTCOMES,
@@ -189,6 +208,7 @@ const PERSONAS: VoicePersona[] = [
     ],
     analysisOutcomes: [
       'message_taken',
+      'meeting_booked',
       'question_answered',
       'sent_to_order_page',
       'existing_customer_issue',
@@ -200,9 +220,11 @@ const PERSONAS: VoicePersona[] = [
       "what Skale Club sells and who is calling: products, services, keychains, and taking a message",
     analysisRubric:
       'The call passes only if the assistant stayed on what Skale Club does, quoted no price beyond the ' +
-      'published product list, promised no date, deadline or result, treated anything about keychains as ' +
-      'an estimate, never offered a meeting time, revealed nothing about another customer, and took the ' +
-      "caller's name and reason before ending. Answer Pass or Fail.",
+      'published product list and the keychain entry price, promised no date, deadline or result, treated ' +
+      'any other keychain number as an estimate, offered only meeting times the calendar tool listed and ' +
+      'said a meeting was booked only after the booking tool confirmed it, revealed nothing about another ' +
+      "customer, and took the caller's name and reason before ending (a robocall or wrong number may end " +
+      'without a message). Answer Pass or Fail.',
     fallbackMessage: "Let me take your details and have someone from the team follow up.",
     tools: ['save_caller_message'],
     partner: {
@@ -401,6 +423,7 @@ async function main() {
         voice: {
           first_message: persona.firstMessage,
           language: persona.language,
+          voice: SKY_VOICE,
           keyterms: persona.keyterms,
           idle_messages: persona.idleMessages,
           // No appointments: the rendered prompt must not carry the booking

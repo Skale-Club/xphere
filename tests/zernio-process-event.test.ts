@@ -49,8 +49,10 @@ vi.mock('@/lib/agent-runtime/inbound-agent', () => ({
   HUMAN_SENDER_METADATA: { sender_type: 'human' },
 }))
 const markHumanTakeoverMock = vi.fn().mockResolvedValue(undefined)
+const requestHumanHandoffMock = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/lib/agent-runtime/human-takeover', () => ({
   markHumanTakeover: (...args: unknown[]) => markHumanTakeoverMock(...args),
+  requestHumanHandoff: (...args: unknown[]) => requestHumanHandoffMock(...args),
 }))
 
 vi.mock('@/lib/integrations/get-provider-key', () => ({
@@ -487,6 +489,56 @@ describe('processZernioEvent', () => {
     })
   })
 
+  it('a failed turn that sent the fallback message hands the conversation to a human', async () => {
+    const db = makeSupabase({ agentDefault: { agent_id: 'agent-1' } })
+    createServiceRoleClientMock.mockReturnValue(db)
+    runAgentMock.mockResolvedValueOnce({ status: 'error', text: 'Já chamo alguém da equipe.' })
+    requestHumanHandoffMock.mockClear()
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent({ ...messagePayload, id: 'evt-fail-1' } as never, 'org-1')
+
+    expect(sendZernioDmMock).toHaveBeenCalledWith('conv-1', 'acct-1', 'Já chamo alguém da equipe.', 'ze_key')
+    expect(requestHumanHandoffMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1', conversationId: 'xphere-conv-1' }),
+    )
+  })
+
+  it('a successful turn does not hand off', async () => {
+    const db = makeSupabase({ agentDefault: { agent_id: 'agent-1' } })
+    createServiceRoleClientMock.mockReturnValue(db)
+    requestHumanHandoffMock.mockClear()
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent({ ...messagePayload, id: 'evt-ok-1' } as never, 'org-1')
+
+    expect(requestHumanHandoffMock).not.toHaveBeenCalled()
+  })
+
+  it('a caption-less voice note reaches the agent as a placeholder instead of silence', async () => {
+    const db = makeSupabase({ agentDefault: { agent_id: 'agent-1' } })
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(
+      {
+        ...messagePayload,
+        id: 'evt-audio-1',
+        message: {
+          ...messagePayload.message,
+          id: 'zmsg-audio-1',
+          text: '',
+          attachments: [{ type: 'audio', url: 'https://cdn.example/a.ogg' }],
+        },
+      } as never,
+      'org-1',
+    )
+
+    expect(runAgentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: expect.stringContaining('áudio') }),
+    )
+  })
+
   it('maps comment.received into a comment thread and can reply through comments API', async () => {
     const db = makeSupabase({ agentDefault: { agent_id: 'agent-1' } })
     createServiceRoleClientMock.mockReturnValue(db)
@@ -642,7 +694,7 @@ describe('processZernioEvent', () => {
     )
   })
 
-  it('an echo with no agent engaged (e.g. a campaign opener) does not pause the bot', async () => {
+  it('a WhatsApp app echo is a human even with no agent engaged (no bot talks over the owner)', async () => {
     const db = makeSupabase({
       existingConversation: {
         id: 'xphere-conv-1',
@@ -654,7 +706,39 @@ describe('processZernioEvent', () => {
     createServiceRoleClientMock.mockReturnValue(db)
 
     const { processZernioEvent } = await import('@/lib/zernio/process-event')
-    await processZernioEvent(outgoingEcho('Oi! Quer saber dos nossos chaveiros NFC?'), 'org-1')
+    await processZernioEvent(outgoingEcho('Oi João, sobre os chaveiros NFC que você pediu...'), 'org-1')
+
+    expect(db.messageInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ source: 'zernio_echo', sender_type: 'human' }),
+      }),
+    )
+    expect(markHumanTakeoverMock).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'xphere-conv-1' }),
+    )
+  })
+
+  it('an Instagram echo with no agent engaged (e.g. a comment-to-DM automation) does not pause the bot', async () => {
+    const db = makeSupabase({
+      existingConversation: {
+        id: 'xphere-conv-1',
+        contact_id: 'contact-1',
+        last_message_at: '2026-06-05T17:00:00.000Z',
+        engaged_agent_id: null,
+      },
+    })
+    createServiceRoleClientMock.mockReturnValue(db)
+
+    const echo = outgoingEcho('Oi! Quer saber dos nossos chaveiros NFC?')
+    const { processZernioEvent } = await import('@/lib/zernio/process-event')
+    await processZernioEvent(
+      {
+        ...echo,
+        account: { id: 'acct-ig-1', platform: 'instagram', username: 'skale.club' },
+        message: { ...echo.message, platform: 'instagram' },
+      } as never,
+      'org-1',
+    )
 
     expect(db.messageInsert).toHaveBeenCalledWith(
       expect.objectContaining({

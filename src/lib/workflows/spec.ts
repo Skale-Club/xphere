@@ -77,6 +77,15 @@ export const TRIGGERS: TriggerSpec[] = [
     description: 'A new contact row was inserted.',
     variables: ['contact.*', 'trigger.fired_at'],
   },
+  {
+    type: 'event:contact.captured',
+    description:
+      'An agent took someone’s details and message with contact_create — a new contact or one ' +
+      'already in the CRM (contact.created only fires for the first). capture.notes is this ' +
+      'message alone; capture.source is where it came from (e.g. voice_call); capture.is_new ' +
+      'says whether the contact was just created. Use it to tell the team someone left a message.',
+    variables: ['contact.*', 'capture.*', 'trigger.fired_at'],
+  },
 
   // ─── Commerce events (Phase 136). Pushed from the connected Medusa store via
   // POST /api/v1/commerce/events and dispatched by emitCommerceEvent.
@@ -863,7 +872,8 @@ export const NODES: NodeSpec[] = [
     kind: 'action',
     description:
       "Create or update a contact in Xphere's own CRM. Deduplicates by phone, then email. " +
-      'Emits contact.created on a real insert. Needs no integration — use this instead of ' +
+      'Emits contact.created on a real insert, and contact.captured on every call (new or known ' +
+      'contact). Needs no integration — use this instead of ' +
       'create_contact when the org has no external CRM connected.',
     params_schema: {
       type: 'object',

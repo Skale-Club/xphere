@@ -51,17 +51,22 @@ export function normalizeForKeywordMatch(text: string): string {
     .trim()
 }
 
+// Links are not conversation: "https://loja.com/nfc-tag" normalises to
+// "... nfc tag" and would engage a keychain agent over a pasted URL.
+const URL_TOKEN = /(?:https?:\/\/|www\.)\S+|\b[\w-]+(?:\.[\w-]+)+\/\S*/gi
+
 /**
  * Returns the first keyword found in `text` as a whole word/phrase (after
  * normalisation), or null. "chaveiro" matches "Chaveiro!" and "chavêiro", but
- * not "chaveiroso"; list plurals explicitly ("chaveiros").
+ * not "chaveiroso"; list plurals explicitly ("chaveiros"). Words inside a URL
+ * never match.
  */
 export function matchActivationKeyword(
   text: string | null | undefined,
   keywords: readonly string[] | null | undefined,
 ): string | null {
   if (!text || !keywords || keywords.length === 0) return null
-  const haystack = ` ${normalizeForKeywordMatch(text)} `
+  const haystack = ` ${normalizeForKeywordMatch(text.replace(URL_TOKEN, ' '))} `
   if (haystack.trim().length === 0) return null
   for (const keyword of keywords) {
     const needle = normalizeForKeywordMatch(keyword)

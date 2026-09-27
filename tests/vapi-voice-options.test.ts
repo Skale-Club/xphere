@@ -20,6 +20,7 @@ import {
   buildAnalysisPlan,
   buildMessagePlan,
   buildTranscriber,
+  ensureVoiceSpeaksLanguage,
   resolveVoiceOptions,
 } from '@/lib/vapi/voice-options'
 
@@ -188,5 +189,28 @@ describe('the summary plan an operator wrote', () => {
     expect(buildAnalysisPlan(NO_OVERRIDES)).not.toHaveProperty('summaryPlan')
     expect(buildAnalysisPlan(NO_OVERRIDES, undefined)).not.toHaveProperty('summaryPlan')
     expect(buildAnalysisPlan(NO_OVERRIDES, 'not an object')).not.toHaveProperty('summaryPlan')
+  })
+})
+
+describe('ensureVoiceSpeaksLanguage', () => {
+  const legacy = { provider: '11labs', voiceId: 'OYTbf65OHHFELVut7v2H', model: 'eleven_flash_v2', stability: 0.5 }
+
+  it('moves an English-only ElevenLabs model to its multilingual twin on a bilingual line', () => {
+    expect(ensureVoiceSpeaksLanguage(legacy, 'multi')).toEqual({ ...legacy, model: 'eleven_flash_v2_5' })
+    expect(ensureVoiceSpeaksLanguage({ ...legacy, model: 'eleven_turbo_v2' }, 'pt').model).toBe('eleven_turbo_v2_5')
+    expect(ensureVoiceSpeaksLanguage({ ...legacy, model: 'eleven_monolingual_v1' }, 'pt-BR').model).toBe(
+      'eleven_multilingual_v2',
+    )
+  })
+
+  it('leaves an English line, a multilingual model and other providers exactly as they are', () => {
+    expect(ensureVoiceSpeaksLanguage(legacy, 'en')).toBe(legacy)
+    expect(ensureVoiceSpeaksLanguage(legacy, 'en-US')).toBe(legacy)
+    // What Cuts & Culture answers with today: a push must not touch it.
+    expect(ensureVoiceSpeaksLanguage(DEFAULT_VOICE, 'en')).toBe(DEFAULT_VOICE)
+    expect(ensureVoiceSpeaksLanguage(DEFAULT_VOICE, 'multi')).toBe(DEFAULT_VOICE)
+    const vapi = { provider: 'vapi', voiceId: 'Elliot' }
+    expect(ensureVoiceSpeaksLanguage(vapi, 'pt')).toBe(vapi)
+    expect(ensureVoiceSpeaksLanguage(undefined, 'pt')).toBeUndefined()
   })
 })

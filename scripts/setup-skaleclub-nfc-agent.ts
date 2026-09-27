@@ -11,7 +11,8 @@
 //   NFC_AGENT_ORG_ID    org to install into (default: Skale Club)
 //   NFC_PERSONA_NAME    the name the bot introduces itself with. Default: the
 //                       name of the org's current WhatsApp agent, so customers
-//                       keep talking to the same "person".
+//                       keep talking to the same "person"; with none (Skale Club
+//                       has none), Sky, the name the phone line answers with.
 //
 // What it configures — all platform features, nothing Skale-Club-specific in
 // the runtime (see .planning/research/nfc-keychain-whatsapp-agent.md):
@@ -34,7 +35,9 @@ import { NFC_ACTIVATION_KEYWORDS } from './skaleclub-nfc-agent/keywords'
 const SKALE_CLUB_ORG_ID = 'b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5'
 const AGENT_SLUG = 'chaveiros-nfc'
 const AGENT_NAME = 'Chaveiros NFC'
-const FALLBACK_PERSONA = 'Assistente Skale Club'
+// The phone receptionist and the order-confirmation calls are Sky too
+// (scripts/setup-skaleclub-voice.ts): one assistant, whichever channel.
+const FALLBACK_PERSONA = 'Sky'
 
 
 // Seeded default names ("Main Agent", "Assistant") make poor personas.
@@ -80,7 +83,7 @@ async function main() {
   const config = {
     name: AGENT_NAME,
     description:
-      'Atende no WhatsApp quem fala de chaveiros NFC: tira dúvidas, passa o preço do modelo liso, ' +
+      'Atende no WhatsApp quem fala de chaveiros NFC: tira dúvidas, passa o preço do modelo chapado, ' +
       'manda o formulário de pedido e chama a equipe no resto. Só entra na conversa por palavra-chave.',
     model: 'anthropic/claude-sonnet-4-6',
     temperature: 0.3,

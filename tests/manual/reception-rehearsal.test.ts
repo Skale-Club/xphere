@@ -66,6 +66,14 @@ const SCENARIOS: Scenario[] = [
     mustNotSay: [/\$\s?\d{3,}/, /\b(mil|dois mil|1\.?\d{3})\s*(d[óo]lares|reais)/i],
   },
   {
+    name: 'PT — pergunta o preço do chaveiro NFC (só o preço de entrada do site)',
+    turns: ['Quanto custa aquele chaveiro NFC de vocês?'],
+    // The one keychain number that is public: "from $10 each, 20-piece minimum".
+    mustSay: [/10|dez d[óo]lares/i, /20|vinte/i],
+    // No total: that is the order page's and the team's to say.
+    mustNotSay: [/\$\s?\d{3,}/, /(duzentos|quinhentos|oitocentos)\s*d[óo]lares/i],
+  },
+  {
     name: 'EN — asks for a meeting at a specific time',
     turns: [
       'Can I book a meeting with someone tomorrow at 3pm?',

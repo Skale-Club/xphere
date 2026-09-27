@@ -37,6 +37,23 @@ import { stripMessageLabel } from './conversation-routing'
 
 export const HUMAN_TURN_PREFIX = '[Mensagem de um atendente humano da equipe] '
 
+const MEDIA_PLACEHOLDERS: Record<string, string> = {
+  audio: '[O cliente mandou um áudio. Você não consegue ouvir áudios.]',
+  image: '[O cliente mandou uma imagem. Você não consegue ver imagens.]',
+  video: '[O cliente mandou um vídeo. Você não consegue assistir vídeos.]',
+  document: '[O cliente mandou um arquivo. Você não consegue abrir arquivos.]',
+}
+
+/**
+ * What the model reads for a customer message that is only media (a voice
+ * note, a photo of their logo). Without it the message is invisible: the reply
+ * path skips an empty text and history drops the row, so an engaged customer
+ * who sends audio gets silence. Null for plain text rows.
+ */
+export function mediaPlaceholderForAgent(messageType: string | null | undefined): string | null {
+  return (messageType && MEDIA_PLACEHOLDERS[messageType]) || null
+}
+
 type HistoryTurn = { role: 'user' | 'assistant'; content: string }
 
 export async function loadHistoryWindow(params: {
@@ -57,7 +74,7 @@ export async function loadHistoryWindow(params: {
     // enough turns to fill the window.
     const { data, error } = await supabase
       .from('conversation_messages')
-      .select('role, content, metadata, created_at')
+      .select('role, content, metadata, created_at, message_type')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .limit(limit + 5)
@@ -71,7 +88,11 @@ export async function loadHistoryWindow(params: {
     const turns: HistoryTurn[] = []
     for (const row of chronological) {
       const role = (row as { role: string }).role
-      const content = (row as { content: string | null }).content
+      const stored = (row as { content: string | null }).content
+      const content =
+        role === 'user' && !stored
+          ? mediaPlaceholderForAgent((row as { message_type?: string | null }).message_type)
+          : stored
       if (role !== 'user' && role !== 'assistant') continue
       if (typeof content !== 'string' || content.length === 0) continue
       if (role === 'assistant') {

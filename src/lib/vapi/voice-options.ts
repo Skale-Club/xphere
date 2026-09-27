@@ -175,6 +175,31 @@ export function resolveVoiceOptions(channelOverrides: unknown): VoiceOptions {
   }
 }
 
+// ElevenLabs models that only speak English, and the multilingual model that
+// replaces each. The reception line at Skale Club answered a bilingual prompt
+// on `eleven_flash_v2`, so a Portuguese caller would have heard Portuguese read
+// by an English-only voice model.
+const ELEVENLABS_MULTILINGUAL: Record<string, string> = {
+  eleven_flash_v2: 'eleven_flash_v2_5',
+  eleven_turbo_v2: 'eleven_turbo_v2_5',
+  eleven_monolingual_v1: 'eleven_multilingual_v2',
+}
+
+/**
+ * A kept voice on an English-only ElevenLabs model, on a line that is not
+ * English-only, moves to the same voice on the multilingual model. Anything
+ * else comes back unchanged (same object).
+ */
+export function ensureVoiceSpeaksLanguage<T extends { provider?: string; model?: string } | undefined>(
+  voice: T,
+  language: string,
+): T {
+  if (!voice || voice.provider !== '11labs' || !voice.model) return voice
+  if (language === 'en' || language.startsWith('en-')) return voice
+  const multilingual = ELEVENLABS_MULTILINGUAL[voice.model]
+  return multilingual ? { ...voice, model: multilingual } : voice
+}
+
 export function buildMessagePlan(options: VoiceOptions) {
   return {
     idleMessages: options.idleMessages,

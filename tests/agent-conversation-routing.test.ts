@@ -26,6 +26,7 @@ describe('matchActivationKeyword', () => {
     ['How much are the keychains?', 'keychains'],
     ['do you make a key-chain?', 'key chain'], // punctuation collapses to spaces
     ['Vi o anúncio do NFC!', 'nfc'],
+    ['vi no site https://skale.club/br e quero chaveiros', 'chaveiros'], // a link beside the keyword is fine
   ])('matches %j', (text, expected) => {
     expect(matchActivationKeyword(text, NFC_KEYWORDS)).toBe(expected)
   })
@@ -35,6 +36,9 @@ describe('matchActivationKeyword', () => {
     'chaveiroso', // not a whole word
     'nfcx',
     '',
+    'olha isso https://loja.example.com/nfc-tag', // words inside a link are not conversation
+    'www.example.com/chaveiros-promo',
+    'confere example.com/nfc',
   ])('does not match %j', (text) => {
     expect(matchActivationKeyword(text, NFC_KEYWORDS)).toBeNull()
   })

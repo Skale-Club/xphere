@@ -33,6 +33,7 @@ import {
   buildAnalysisPlan,
   buildMessagePlan,
   buildTranscriber,
+  ensureVoiceSpeaksLanguage,
   resolveVoiceOptions,
 } from './voice-options'
 import {
@@ -662,14 +663,16 @@ export async function pushAssistantConfig(
     // every assistant on the next push. Anything else is kept verbatim.
     const platformProvisioned =
       currentVoice?.provider === DEFAULT_VOICE.provider && currentVoice?.voiceId === DEFAULT_VOICE.voiceId
-    const voice =
+    const voice = ensureVoiceSpeaksLanguage(
       // A voice the agent names is a deliberate choice made HERE, where the
       // next push can see it; it outranks whatever the assistant carries.
       voiceOptions.voiceIsExplicit
         ? voiceOptions.voice
         : currentVoice && currentVoice.provider && currentVoice.provider !== 'vapi' && !platformProvisioned
           ? currentVoice
-          : voiceOptions.voice
+          : voiceOptions.voice,
+      voiceOptions.language,
+    )
     const patch = {
       model,
       // Vapi speaks `firstMessage` itself, the instant the call connects — no

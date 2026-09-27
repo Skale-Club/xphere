@@ -37,7 +37,9 @@ it, and what is still not ready.
 | Campaign — PT | `NFC callback — PT`, timezone `America/Sao_Paulo` |
 | Campaign — EN | `NFC callback — EN`, timezone `America/New_York` |
 | Caller id | `+1 312 878-0637` (the same number that answers) |
-| Workflow | `Skale Club — NFC keychain order callback` |
+| Workflow | `Skale Club — NFC keychain order callback` (`nfc-order-callback.yaml`) |
+| Workflow | `Skale Club — NFC callback result to the team` (`nfc-callback-result.yaml`): task + email + Telegram with each callback's summary |
+| Workflow | `Receptionist — notify team of a call message` (`receptionist-notify-team.yaml`): on `contact.captured`, so known callers are reported too |
 
 Both campaigns are **evergreen**: they stay open waiting for orders instead of
 completing themselves when the queue empties. Window: 09:00–18:00, Monday to
@@ -75,7 +77,9 @@ phone number, it looks up the contact that owns that number before deciding.
 
 `+1 312 878-0637` is answered by the bilingual receptionist: it replies in the
 caller's language, knows the catalogue, may quote the **published** product
-prices and nothing beyond them, treats any keychain figure as an estimate, and
+prices and nothing beyond them, may say the keychain entry price the site
+publishes ("from $10 each, 20-piece minimum") and treats every other keychain
+figure as an estimate, and
 logs the call with `save_caller_message` — which opens a task, an email and a
 Telegram message through the automation that already existed.
 
@@ -111,8 +115,71 @@ is what a caller would produce.
 VOICE_REHEARSAL_ORG_ID=b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 npx vitest run --config vitest.manual.config.ts tests/manual/callback-rehearsal.test.ts
 ```
 
+## Review of 2026-09-27
+
+What the whole bot looked like in production, and what changed.
+
+- **The phone line had not answered anyone since January.** The last completed
+  call was on 2026-01-19; every inbound call after it (22, the last on
+  2026-08-01) died in the first second with
+  `pipeline-error-eleven-labs-voice-failed`. The receptionist kept a legacy,
+  hand-picked ElevenLabs voice on the English-only `eleven_flash_v2`, and the
+  push keeps an operator's voice verbatim — so every "Push Config to Vapi"
+  carried the broken voice forward. All Skale Club personas now name `sarah` on
+  `eleven_flash_v2_5` explicitly (the voice Cuts & Culture answers real calls
+  with), and the push moves any kept English-only ElevenLabs model to its
+  multilingual twin on a non-English line.
+- **A known caller's message reached nobody.** `save_caller_message` dedups by
+  the caller's number and `contact.created` fires only on an insert, so an
+  existing customer who called with a problem had it appended to their notes
+  and nobody was told. `contact_create` now also emits `contact.captured` on
+  every save (with `capture.notes` = this call's message), and the notify flow
+  listens to that.
+- **Order-confirmation calls reported to nobody.** A correction said on the
+  phone lived only in the `calls` row. `nfc-callback-result.yaml` sends the
+  summary to the team after each one. The callback robots now say they are a
+  virtual assistant in their first sentence (the customer did not choose to talk
+  to a robot), leave a short voicemail without order details, and confirm only
+  the city of the address.
+- **The reception rubric failed good calls.** It still said "never offered a
+  meeting time" after the receptionist learned to book. Fixed, with a
+  `meeting_booked` outcome.
+- **WhatsApp:** the keychain agent had never answered a real customer (99
+  invocations, all battery). Five platform fixes before it does: a reply
+  typed in the WhatsApp Business app now counts as a human even when no agent
+  is engaged (before, a lead saying "chaveiro" in a chat the owner was handling
+  from the phone pulled the bot in over them); a caption-less voice note or
+  photo reaches an engaged agent as a placeholder instead of silence; a burst of
+  messages gets one reply (6 s quiet window, `AGENT_REPLY_COALESCE_MS`); words
+  inside a pasted link no longer trigger keywords; and a turn that fails (model
+  error, timeout) and sends the fallback "someone from the team will follow up"
+  now actually hands off, instead of promising a person nobody was told about.
+  Prompt v4: the site's own
+  terms ("chapado", "a partir de US$ 10"), what to do with audio and images,
+  never contradict the team, persona Sky — the same name the phone uses.
+- **The site chat (skaleclub repo) is off** (`chat_settings.enabled = false`)
+  and should stay off as it is: its prompt sells "mentoria de marketing" and its
+  six FAQs are template text that contradicts the keychain policy (PIX, a 24h
+  cancellation fee, "100% satisfaction guarantee", "região metropolitana").
+  WhatsApp is the chat channel.
+
 ## What is still not ready
 
+- **The WhatsApp button is not on the site yet.** It is
+  [Skale-Club/skaleclub#3](https://github.com/Skale-Club/skaleclub/pull/3)
+  (merges cleanly); until it ships, the keychain agent only wakes when someone
+  types a keyword on their own.
+- **Outbound callbacks have no voicemail detection** (not set on the Vapi
+  assistants, and the push does not manage it). A voicemail pickup counts as
+  answered, so it is never retried; the prompt now keeps order details out of
+  the message. Turning on Vapi's `voicemailDetection` for the two callback
+  assistants is what makes `planRetry` see `voicemail`.
+- **No call can be ended by the robot**: `endCallFunctionEnabled` is unset, so a
+  robocall runs until silence or the caller hangs up. Costs minutes, not
+  customers.
+- **Two dead assistants still mapped**: `Skale Club | AI Assistant | ES` and
+  `| BR` (gpt-4o-mini, the BR one greets as "Isqueio Club") are on no number but
+  their `assistant_mappings` rows are active.
 - **The site does not offer booking yet** (`booking_enabled: false` in
   `xphere_settings`), so somebody arriving through the form does not see the
   same calendar the robot uses.

@@ -813,6 +813,16 @@ export function runAgent(opts: AgentRunOptions): ReadableStream<Uint8Array> | Pr
 // runAgentBlocking | blocking path (generateText) | Phase 34, unchanged
 // ---------------------------------------------------------------------------
 
+/**
+ * The published prompt, or — in playground mode only — a draft the caller
+ * passed, so a prompt edit can be rehearsed before it is published. Production
+ * traffic can never run an unpublished prompt.
+ */
+export function promptFor(opts: Pick<AgentRunOptions, 'draftSystemPrompt'>, mode: string, published: string): string {
+  const draft = mode === 'playground' ? opts.draftSystemPrompt?.trim() : undefined
+  return draft || published
+}
+
 async function runAgentBlocking(opts: InternalAgentRunOptions): Promise<AgentRunResult> {
   const {
     orgId,
@@ -975,7 +985,7 @@ async function runAgentBlocking(opts: InternalAgentRunOptions): Promise<AgentRun
   // rich context rather than a pre-synthesised summary.
   // Phase 132 (KNOW-01/KNOW-02): kbScope comes ONLY from resolveAgent()'s
   // output — never from a handoff payload or channel/ingress metadata.
-  let systemPrompt = `${resolvedAgent.systemPrompt}
+  let systemPrompt = `${promptFor(opts, mode, resolvedAgent.systemPrompt)}
 
 ${await todayLine(orgId, createServiceRoleClient())}`
   const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
@@ -1729,7 +1739,7 @@ function runAgentStreaming(
         // Q5: rawMode=true — inject full chunks with citations for richer LLM context.
         // Phase 132 (KNOW-01/KNOW-02): kbScope comes ONLY from resolveAgent()'s
         // output — never from a handoff payload or channel/ingress metadata.
-        let systemPrompt = `${resolvedAgent.systemPrompt}
+        let systemPrompt = `${promptFor(opts, mode, resolvedAgent.systemPrompt)}
 
 ${await todayLine(orgId, createServiceRoleClient())}`
         const FALLBACK_KB_RESPONSE = "I don't have information about that in my knowledge base."
