@@ -85,6 +85,23 @@ describe('sendSms: permanent Twilio rejections become SmsUndeliverableError', ()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('an empty To (contact without a phone) → no_recipient, never calls Twilio', async () => {
+    const { supabase } = makeSupabase(HEALTHY)
+    const err = await sendSms({ to: '', body: 'hi' }, { organizationId: 'org-1', supabase } as never).catch((e) => e)
+    expect(err).toBeInstanceOf(SmsUndeliverableError)
+    expect((err as SmsUndeliverableError).kind).toBe('no_recipient')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('an org with no Twilio integration → not_connected, never calls Twilio', async () => {
+    const { supabase } = makeSupabase(null as never)
+    const err = await sendSms({ to: '+15551234567', body: 'hi' }, { organizationId: 'org-1', supabase } as never).catch((e) => e)
+    expect(err).toBeInstanceOf(SmsUndeliverableError)
+    expect((err as SmsUndeliverableError).kind).toBe('not_connected')
+    expect((err as SmsUndeliverableError).accountConfig).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('21211 (invalid To) → invalid_number, not an account problem', async () => {
     const { supabase } = makeSupabase(HEALTHY)
     fetchMock.mockResolvedValueOnce(

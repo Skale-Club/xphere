@@ -51,6 +51,13 @@ export interface ResolveTwilioCredentialsOptions {
  *  - opted_out           Twilio 21610 | the recipient replied STOP to this From number
  *  - not_mobile          Twilio 21614 | landline / cannot receive SMS
  *  - unreachable         Twilio 21612/21214 | no route from this From number to the To number
+ *  - no_recipient        the resolved To is empty (e.g. the meeting attendee has no phone)
+ *  - not_connected       the org has no active Twilio integration at all
+ *
+ * The last two never reach Twilio. They matter because platform-default
+ * workflows (booking reminders, cancellation, review request) ship to every
+ * org: an org without Twilio, or a booking without a phone, used to fail the
+ * run on every calendar event and flood the "workflow runs failing" alert.
  */
 export type SmsUndeliverableKind =
   | 'invalid_number'
@@ -58,6 +65,8 @@ export type SmsUndeliverableKind =
   | 'opted_out'
   | 'not_mobile'
   | 'unreachable'
+  | 'no_recipient'
+  | 'not_connected'
 
 export class SmsUndeliverableError extends Error {
   readonly kind: SmsUndeliverableKind
@@ -87,6 +96,18 @@ export class SmsUndeliverableError extends Error {
     this.twilioCode = params.twilioCode ?? null
     this.hint = params.hint
     this.accountConfig = params.accountConfig ?? false
+  }
+}
+
+/**
+ * Thrown by resolveTwilioCredentials when the org has no active Twilio row.
+ * Same message as before, so callers that just surface the error are
+ * unchanged; sendSms turns it into a `not_connected` skip.
+ */
+export class TwilioNotConnectedError extends Error {
+  constructor() {
+    super('Twilio not connected for this org. Add a Twilio integration in /integrations.')
+    this.name = 'TwilioNotConnectedError'
   }
 }
 
@@ -193,7 +214,7 @@ export async function resolveTwilioCredentials(
     .single()
 
   if (error || !row) {
-    throw new Error('Twilio not connected for this org. Add a Twilio integration in /integrations.')
+    throw new TwilioNotConnectedError()
   }
 
   const blob = JSON.parse(await decrypt(row.encrypted_api_key)) as {
@@ -326,7 +347,14 @@ export async function sendSms(
       )
     : []
 
-  if (!to) throw new Error('send_sms requires a "to" phone number parameter.')
+  if (!to) {
+    throw new SmsUndeliverableError({
+      kind: 'no_recipient',
+      to: '',
+      message: 'SMS not sent: no "to" phone number (the contact has no phone on file).',
+      hint: 'Add a phone number to the contact, or map "to" to a field that is always set.',
+    })
+  }
   if (!body && mediaUrls.length === 0) {
     throw new Error('send_sms requires a "body" message or at least one media URL.')
   }
@@ -342,7 +370,18 @@ export async function sendSms(
     })
   }
 
-  const creds = await resolveTwilioCredentials(ctx, { fromNumberId: phoneNumberIdParam })
+  let creds: TwilioCredentials
+  try {
+    creds = await resolveTwilioCredentials(ctx, { fromNumberId: phoneNumberIdParam })
+  } catch (err) {
+    if (!(err instanceof TwilioNotConnectedError)) throw err
+    throw new SmsUndeliverableError({
+      kind: 'not_connected',
+      to,
+      message: 'SMS not sent: Twilio is not connected for this org.',
+      hint: 'Add a Twilio integration in /integrations, or turn off the workflows that send SMS.',
+    })
+  }
 
   const basicAuth = btoa(`${creds.accountSid}:${creds.authToken}`)
   const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Messages.json`

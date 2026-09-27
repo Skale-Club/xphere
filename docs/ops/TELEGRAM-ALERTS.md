@@ -54,6 +54,7 @@ purpose — see below.
 | 🔴 Cron heartbeat stale | in-app cron | every 3h while stale |
 | 🔴 Error spike | in-app, in-process | ≥10 errors in 5 min, then 30 min quiet |
 | ⚠️ Disk / memory / swap / container down on the host | on-box watchdog | every 10 min, once per 6h while it persists |
+| ⚠️ One container eating the host (≥35% of RAM, or +50% in 24h) | on-box watchdog | every 10 min, once per 6h per container |
 
 ## Why the monitoring lives in four places
 
@@ -90,6 +91,18 @@ that the box collects far more than it alerts on: Netdata has no alarms wired
 and its diskspace plugin does not even expose `/`, and `skale-disk-sampler.sh`
 ships disk numbers to the apps dashboard and stops there. See that repo's
 `RUNBOOK.md` → _On-box watchdog_.
+
+**An aggregate number tells you the wrong thing, though.** The xtimator leak on
+2026-09-05 is the cautionary tale: it grew from 681MB to 3.9GB over six days and
+the only signal that ever fired was host swap crossing 50%, on day five, saying
+"the host is under memory pressure" — the machine's name, not the app's. Turning
+that into "xtimator is leaking" took an SSH session. The watchdog now also reads
+**per-container** memory from cgroup v2 (resident + already-swapped) and alerts
+on a single container holding ≥35% of host RAM, or growing ≥50% inside a 24h
+window. The growth check would have fired on day one. Containers also have
+memory ceilings now, so a leak reaches its own limit and restarts instead of
+dragging six other apps into swap thrash — see that repo's `RUNBOOK.md` →
+_Container resource limits_.
 
 **The probe also cannot see the product.** A workflow that fails on every run,
 a token that quietly expires, cost climbing toward the cap — none of that
