@@ -38,7 +38,7 @@ describe('dashboard onboarding tour migration', () => {
     const sql = readFileSync(
       resolve(
         process.cwd(),
-        'supabase/migrations/1303_user_tour_progress.sql',
+        'supabase/migrations/1307_user_tour_progress.sql',
       ),
       'utf8',
     )
