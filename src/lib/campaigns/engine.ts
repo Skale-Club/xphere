@@ -5,10 +5,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, CampaignContactStatus } from '@/types/database'
 import { createOutboundCall } from '@/lib/campaigns/outbound'
+import { isWithinDialWindow, nextDialWindowOpen, parseDialWindow } from '@/lib/campaigns/dial-window'
 import { isDemoOrg } from '@/lib/demo/config'
 import { createLogger } from '@/lib/obs/logger'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
+
+export interface CampaignBatchResult {
+  fired: number
+  errors: number
+  /** The batch did nothing because the campaign is outside its dialling window. */
+  skippedDialWindow?: boolean
+}
 
 export function mapEndedReasonToStatus(reason: string | null | undefined): CampaignContactStatus {
   if (!reason) return 'failed'
@@ -25,11 +33,13 @@ export async function startCampaignBatch(
   campaignId: string,
   supabase: SupabaseClient<Database>,
   vapiApiKey: string
-): Promise<{ fired: number; errors: number }> {
+): Promise<CampaignBatchResult> {
   // Fetch campaign | verify it is still in_progress (optimistic guard)
   const { data: campaign, error: campaignErr } = await supabase
     .from('campaigns')
-    .select('id, organization_id, status, vapi_assistant_id, vapi_phone_number_id, calls_per_minute')
+    .select(
+      'id, organization_id, status, vapi_assistant_id, vapi_phone_number_id, calls_per_minute, dial_window, is_evergreen'
+    )
     .eq('id', campaignId)
     .single()
 
@@ -43,6 +53,22 @@ export async function startCampaignBatch(
   if (campaign.status !== 'in_progress') {
     log.info('campaign_skipped_not_in_progress', { status: campaign.status })
     return { fired: 0, errors: 0 }
+  }
+
+  // Business hours, before anything else is read.
+  //
+  // Placement is load-bearing: returning HERE means checkAndCompleteCampaign()
+  // is never reached, so a campaign waiting for its window cannot complete
+  // itself while its queue happens to be empty. Check it after the candidate
+  // fetch instead and an evergreen campaign outside hours quietly finishes,
+  // and the next enrolment lands in a campaign the tick no longer selects.
+  const dialWindow = parseDialWindow(campaign.dial_window)
+  if (!isWithinDialWindow(dialWindow, new Date())) {
+    log.info('campaign_skipped_dial_window', {
+      timezone: dialWindow?.timezone,
+      nextOpen: nextDialWindowOpen(dialWindow, new Date())?.toISOString() ?? null,
+    })
+    return { fired: 0, errors: 0, skippedDialWindow: true }
   }
 
   // Demo safety invariant: the demo org never fires real outbound calls.
@@ -65,6 +91,9 @@ export async function startCampaignBatch(
     .select('id')
     .eq('campaign_id', campaignId)
     .eq('status', 'pending')
+    // A contact queued for a retry is pending but not yet due. NULL is every
+    // row written before migration 1303, and means due now.
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${new Date().toISOString()}`)
     .limit(batchSize)
 
   if (contactsErr) {
@@ -73,7 +102,7 @@ export async function startCampaignBatch(
   }
   if (!candidates || candidates.length === 0) {
     // No more pending | check if campaign is complete
-    await checkAndCompleteCampaign(campaignId, supabase)
+    await checkAndCompleteCampaign(campaignId, supabase, campaign.is_evergreen === true)
     return { fired: 0, errors: 0 }
   }
 
@@ -167,8 +196,14 @@ async function fireContactCall(
 
 async function checkAndCompleteCampaign(
   campaignId: string,
-  supabase: SupabaseClient<Database>
+  supabase: SupabaseClient<Database>,
+  isEvergreen = false
 ): Promise<void> {
+  // An evergreen campaign is a standing queue that a workflow enrols into. An
+  // empty queue means "nobody ordered in the last five minutes", not "this
+  // campaign is over" -- completing it would make the tick stop selecting it.
+  if (isEvergreen) return
+
   // Count contacts still in pending or calling state
   const { count } = await supabase
     .from('campaign_contacts')

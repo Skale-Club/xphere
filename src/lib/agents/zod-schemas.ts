@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AVAILABLE_MODELS } from './models'
 import { AGENT_CHANNELS } from './channels'
+import { voiceOverrideSchema } from '@/lib/vapi/voice-options'
 
 /**
  * Per-channel override shape. Empty/undefined fields are STRIPPED so the
@@ -16,6 +17,13 @@ export const channelOverrideSchema = z
     // Extended-thinking budget in tokens (0 = off). Widens the turn timeout
     // and forces temperature=1 at runtime when > 0.
     thinking_budget_tokens: z.number().int().min(0).max(32000).optional(),
+    /**
+     * Voice-only: how this agent's persona SOUNDS on a phone line — greeting,
+     * spoken language, voice, transcriber keyterms, post-call rubric. Read by
+     * the Vapi push (src/lib/vapi/voice-options.ts), never by the chat
+     * runtime, so it is carried through rather than interpreted here.
+     */
+    voice: voiceOverrideSchema.optional(),
   })
   .transform((v) => {
     const out: Record<string, unknown> = {}
@@ -29,6 +37,12 @@ export const channelOverrideSchema = z
     if (v.thinking_budget_tokens !== undefined) {
       out.thinking_budget_tokens = v.thinking_budget_tokens
     }
+    // Carried through verbatim. This transform rebuilds the object from a
+    // whitelist, so a key it forgets is DELETED on the next save of the agent
+    // settings form — which for `voice` would silently put an English
+    // barbershop greeting back on a Portuguese phone line, with no error
+    // anywhere. tests/agents-channel-overrides-voice.test.ts pins it.
+    if (v.voice !== undefined) out.voice = v.voice
     return out
   })
 

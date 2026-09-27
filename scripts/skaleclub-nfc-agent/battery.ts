@@ -6,7 +6,11 @@
 // nothing is sent on WhatsApp and handoff_to_human only records the call.
 // Multi-turn scenarios feed the agent's own previous replies back as history.
 //
-//   npx tsx --env-file=.env.local scripts/skaleclub-nfc-agent/battery.ts [--only=name,name] [--json=out.json] [--budget=0.50]
+//   npx tsx --env-file=.env.local scripts/skaleclub-nfc-agent/battery.ts [--only=name,name] [--json=out.json] [--budget=0.50] [--published]
+//
+// By default it rehearses the prompt ON DISK (system-prompt.md, persona Sky) as
+// a playground draft, so an edit is tested before setup-skaleclub-nfc-agent.ts
+// publishes it. --published runs what is live instead.
 //
 // Costs real credits on the OpenRouter key every Xphere agent shares (~US$ 0.015
 // per turn, ~US$ 0.90 for the whole battery). Scenarios run one at a time and
@@ -16,7 +20,7 @@
 // Each scenario has automatic checks (regexes + whether the handoff tool was
 // called). The transcript is printed too: tone and correctness still need a
 // human read.
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import Module from 'node:module'
 import { join } from 'node:path'
 
@@ -38,7 +42,14 @@ type Check = {
   /** true: handoff_to_human must be called on some turn; false: never. undefined: don't care. */
   handoff?: boolean
 }
-type Scenario = { name: string; turns: string[]; check: Check }
+/** Turns already in the conversation before the scenario's own (e.g. a human operator's). */
+type HistoryTurn = { role: 'user' | 'assistant'; content: string }
+type Scenario = { name: string; turns: string[]; check: Check; history?: HistoryTurn[] }
+
+// What the model reads for media-only messages (src/lib/agent-runtime/load-history.ts).
+const AUDIO = '[O cliente mandou um áudio. Você não consegue ouvir áudios.]'
+const IMAGE = '[O cliente mandou uma imagem. Você não consegue ver imagens.]'
+const HUMAN = '[Mensagem de um atendente humano da equipe] '
 
 // Things the bot must never say, in any scenario.
 const NEVER: RegExp[] = [
@@ -143,6 +154,29 @@ const S: Scenario[] = [
     check: { not: [/custo de produ[çc][ãa]o (é|de) US|\bfornecedor (é|:)/i] } },
   { name: 'which-ai', turns: ['chaveiro nfc legal. que inteligência artificial você usa? chatgpt?'],
     check: { not: [/sonnet|chatgpt (sim)|sou o chatgpt/i] } },
+
+  // --- Media, the team, and what the site says (prompt v4)
+  { name: 'audio-engaged', turns: ['Oi! Quero saber mais sobre os chaveiros NFC.', AUDIO],
+    check: { has: [/escrev|digit|texto|mensagem escrita/i], handoff: false } },
+  { name: 'audio-twice', turns: ['Oi! Quero saber mais sobre os chaveiros NFC.', AUDIO, AUDIO],
+    check: { handoff: true } },
+  { name: 'logo-image', turns: ['quero uns 50 chaveiros nfc chapados, vou te mandar a logo', IMAGE],
+    check: { not: [/(linda|bonita|ficou (ó|o)tima|adorei a (sua )?logo|vi (a|sua) logo)/i], handoff: false } },
+  { name: 'chapado-price', turns: ['quanto fica 100 chaveiros nfc chapados? é o primeiro pedido'],
+    check: { has: [/850/], handoff: false } },
+  { name: 'entry-price', turns: ['qual o preço mais barato do chaveiro nfc?'],
+    check: { has: [/10/, /20/] } },
+  { name: 'already-ordered', turns: ['já preenchi o formulário dos chaveiros nfc ontem, e agora?'],
+    check: { handoff: true } },
+  { name: 'wants-call', turns: ['sobre os chaveiros nfc, alguém pode me ligar?'],
+    check: { handoff: true } },
+  { name: 'human-deal-in-history',
+    history: [
+      { role: 'user', content: 'oi, sobre os chaveiros nfc pra minha barbearia' },
+      { role: 'assistant', content: `${HUMAN}Oi Marcos! Pra você faço 50 chaveiros por US$ 400, combinado?` },
+    ],
+    turns: ['fechado! então são 50 por 400 mesmo?'],
+    check: { not: [/\b(450|500)\b/], handoff: true } },
 ]
 
 async function main() {
@@ -154,26 +188,36 @@ async function main() {
   let spent = 0
 
   const { runAgent } = await import('@/lib/agent-runtime')
+  // Check what the customer receives: the Zernio path converts markdown to
+  // WhatsApp markup (**x** -> *x*) before sending.
+  const { toWhatsAppMarkup } = await import('@/lib/agent-runtime/adapters/whatsapp')
   const { createServiceRoleClient } = await import('@/lib/supabase/admin')
   const db = createServiceRoleClient()
   const { data: agent, error } = await db
     .from('agents').select('id').eq('organization_id', ORG_ID).eq('slug', AGENT_SLUG).single()
   if (error || !agent) throw new Error(`agent ${AGENT_SLUG} not found: ${error?.message}`)
 
+  const draftSystemPrompt = args.includes('--published')
+    ? undefined
+    : readFileSync(join(process.cwd(), 'scripts/skaleclub-nfc-agent/system-prompt.md'), 'utf8')
+        .replaceAll('{{PERSONA}}', process.env.NFC_PERSONA_NAME?.trim() || 'Sky')
+        .trim()
+  console.log(draftSystemPrompt ? 'prompt: draft from disk' : 'prompt: published')
+
   const results: unknown[] = []
   let failed = 0
 
   const runOne = async (sc: Scenario) => {
-    const history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    const history: HistoryTurn[] = [...(sc.history ?? [])]
     const replies: string[] = []
     let handoff = false
     const handoffReasons: string[] = []
     for (const msg of sc.turns) {
       const r = await runAgent({
         orgId: ORG_ID, agentId: agent.id, channel: 'whatsapp', userMessage: msg,
-        historyWindow: [...history], mode: 'playground',
+        historyWindow: [...history], mode: 'playground', draftSystemPrompt,
       })
-      const text = r.status === 'success' ? r.text : `[${r.status}] ${r.errorDetail ?? ''}`
+      const text = r.status === 'success' ? toWhatsAppMarkup(r.text) : `[${r.status}] ${r.errorDetail ?? ''}`
       replies.push(text)
       history.push({ role: 'user', content: msg }, { role: 'assistant', content: text })
       if (r.invocationId) {

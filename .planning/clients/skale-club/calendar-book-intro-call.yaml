@@ -1,0 +1,72 @@
+# Skale Club — book the intro call
+#
+# The write half. On a phone call this one is gated: the caller has to have
+# heard the day, the time and their own name read back, and agreed, before the
+# booking happens. That gate is enforced in the executor from the call
+# transcript — a `confirmed: true` the model asserts on its own does nothing.
+#
+# The email is not optional. It is where the invite and the video link go, and
+# a meeting nobody can join is worse than no meeting.
+#
+# After importing, set require_voice_confirmation on this workflow's tool
+# config so the gate applies (see the setup script).
+
+name: Calendar — book the intro call
+description: |
+  Books the 30-minute intro video call on the Xphere calendar. On a phone call,
+  only after the details have been read back and the caller has agreed.
+trigger:
+  type: tool_call
+  config:
+    tool_name: book_meeting
+    input_schema:
+      date:
+        type: string
+        description: "YYYY-MM-DD in the host's timezone, from the times check_meeting_times listed."
+        required: true
+      time:
+        type: string
+        description: 'HH:MM, 24-hour, exactly one of the times that were offered.'
+        required: true
+      name:
+        type: string
+        description: 'Who the meeting is with.'
+        required: true
+      email:
+        type: string
+        description: 'Where the invite and the video link go. Read it back before booking.'
+        required: true
+      notes:
+        type: string
+        description: "What they want to talk about, in their own words."
+      confirmed:
+        type: boolean
+        description: 'True only after the caller heard the read-back and agreed.'
+      confirmationToken:
+        type: string
+        description: 'Copy the token from the previous unconfirmed response, with the details unchanged.'
+
+nodes:
+  - id: book
+    kind: calendar_book_meeting
+    event_type: conversa-inicial
+    date: "{{input.date}}"
+    time: "{{input.time}}"
+    name: "{{input.name}}"
+    email: "{{input.email}}"
+    notes: "{{input.notes}}"
+    confirmed: "{{input.confirmed}}"
+    confirmationToken: "{{input.confirmationToken}}"
+    # The gate: on a phone call, check the transcript before writing anything.
+    require_voice_confirmation: true
+    # Said out loud if the booking throws. It must not sound like a
+    # confirmation: nothing was written. Both languages — see calendar-open-times.
+    fallback_message: >-
+      Say this in the language the caller has been using, and nothing else.
+      Whichever you say, it must not sound like the meeting was booked, because it was not.
+      PT: "Não consegui marcar agora. Nada ficou agendado — vou passar para o time confirmar com você."
+      EN: "I couldn't book that just now — nothing has been scheduled. I'll pass this to the team to confirm with you."
+
+edges:
+  - from: trigger
+    to: book

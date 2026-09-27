@@ -1,0 +1,72 @@
+# Skale Club — what happened on each NFC order confirmation call.
+#
+# The callback robots (NFC callback — PT / EN) cannot change an order: when the
+# customer corrects the quantity or the address, asks for a person, or says no,
+# the prompt tells them the team fixes it on WhatsApp. Until now that promise
+# lived only in the `calls` row — nothing told the team the call had happened.
+#
+# The only outbound calls this org makes are those two campaigns, so every
+# outbound call that ends is one of them.
+#
+# Import with:
+#   npx tsx --env-file=.env.local scripts/import-org-workflow.ts b27e99cf-efcb-4b6b-a369-5a0d3ca7ffe5 \
+#     .planning/clients/skale-club/nfc-callback-result.yaml --apply
+
+name: Skale Club — NFC callback result to the team
+description: |
+  When an NFC order confirmation call ends, opens a task and emails and
+  Telegrams the team the call summary and
+  how it ended, so a correction, a "call me later" or a "no" said on the phone
+  is followed up on WhatsApp.
+trigger:
+  type: event
+  event: vapi.call.ended
+
+nodes:
+  - id: is_outbound
+    kind: condition
+    expression: "call.direction == 'outbound'"
+
+  - id: task
+    kind: create_task
+    title: "NFC order call — {{call.customer_name}}"
+    priority: high
+    entity_type: contact
+    entity_id: "{{contact.id}}"
+    description: |
+      Order confirmation call to {{call.customer_name}} ({{call.customer_number}}).
+      Ended: {{call.ended_reason}} after {{call.duration_seconds}}s. Evaluation: {{call.success_evaluation}}
+
+      Summary:
+      {{call.summary}}
+
+      Recording: {{call.recording_url}}
+
+  - id: email
+    kind: send_tenant_email
+    to: skale.club@gmail.com
+    subject: "NFC order call — {{call.customer_name}} ({{call.ended_reason}})"
+    body: >-
+      <h2>NFC order confirmation call</h2>
+      <p><b>Customer:</b> {{call.customer_name}}<br><b>Phone:</b> {{call.customer_number}}<br>
+      <b>Ended:</b> {{call.ended_reason}} after {{call.duration_seconds}}s<br>
+      <b>Evaluation:</b> {{call.success_evaluation}}</p>
+      <p><b>Summary:</b><br>{{call.summary}}</p>
+      <p><a href="{{call.recording_url}}">Recording</a></p>
+      <p>Anything they corrected or asked for is followed up on WhatsApp.</p>
+
+  - id: telegram
+    kind: send_telegram_notification
+    parse_mode: HTML
+    text: "☎️ <b>NFC order call</b>\n👤 {{call.customer_name}}\n📱 {{call.customer_number}}\n⏹ {{call.ended_reason}} ({{call.duration_seconds}}s)\n\n{{call.summary}}"
+
+edges:
+  - from: trigger
+    to: is_outbound
+  - from: is_outbound
+    to: task
+    handle: "true"
+  - from: task
+    to: email
+  - from: email
+    to: telegram

@@ -3,7 +3,14 @@ import { META_ADS_GRAPH_VERSION } from './meta-oauth'
 const GRAPH_BASE = `https://graph.facebook.com/${META_ADS_GRAPH_VERSION}`
 
 type MetaErrorPayload = {
-  error?: { message?: string; type?: string; code?: number; error_subcode?: number }
+  error?: {
+    message?: string
+    type?: string
+    code?: number
+    error_subcode?: number
+    error_user_title?: string
+    error_user_msg?: string
+  }
 }
 
 export class MetaAdsError extends Error {
@@ -11,6 +18,10 @@ export class MetaAdsError extends Error {
     message: string,
     public readonly code?: number,
     public readonly subcode?: number,
+    /** HTTP status of the failed call, when there was one. */
+    public readonly httpStatus?: number,
+    /** Meta's user-facing explanation (error_user_msg), often more precise than message. */
+    public readonly userMessage?: string,
   ) {
     super(message)
     this.name = 'MetaAdsError'
@@ -47,13 +58,15 @@ async function graphRequest<T>(
     let msg = `Meta API error ${res.status}`
     let code: number | undefined
     let subcode: number | undefined
+    let userMessage: string | undefined
     try {
       const body = (await res.json()) as MetaErrorPayload
       msg = body.error?.message ?? msg
       code = body.error?.code
       subcode = body.error?.error_subcode
+      userMessage = body.error?.error_user_msg
     } catch { /* ignore parse error */ }
-    throw new MetaAdsError(msg, code, subcode)
+    throw new MetaAdsError(msg, code, subcode, res.status, userMessage)
   }
   return res.json() as Promise<T>
 }
@@ -190,28 +203,6 @@ export async function getCampaign(
   }
 }
 
-export async function updateCampaignStatus(
-  campaignId: string,
-  status: 'ACTIVE' | 'PAUSED',
-  accessToken: string,
-): Promise<{ success: boolean }> {
-  return graphRequest<{ success: boolean }>(campaignId, accessToken, {
-    method: 'POST',
-    body: { status },
-  })
-}
-
-export async function updateCampaignDailyBudget(
-  campaignId: string,
-  dailyBudgetCents: number,
-  accessToken: string,
-): Promise<{ success: boolean }> {
-  return graphRequest<{ success: boolean }>(campaignId, accessToken, {
-    method: 'POST',
-    body: { daily_budget: String(dailyBudgetCents) },
-  })
-}
-
 // ─── Ad Sets ──────────────────────────────────────────────────────────────────
 
 export async function listAdSets(
@@ -227,6 +218,35 @@ export async function listAdSets(
   // scoped to it (the account /adsets edge ignores a campaign_id param).
   const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
   return graphRequestAll<MetaAdSet>(`${node}?${params.toString()}`, accessToken)
+}
+
+export type MetaAdSetDetailed = MetaAdSet & {
+  bid_strategy?: string
+  bid_amount?: string | number
+  optimization_goal?: string
+  billing_event?: string
+  start_time?: string
+  end_time?: string
+  targeting?: Record<string, unknown>
+  promoted_object?: Record<string, unknown>
+}
+
+/**
+ * Ad sets with the fields an operator (or the AI) needs before proposing an
+ * edit: bidding, optimization, schedule and the full targeting spec.
+ */
+export async function listAdSetsDetailed(
+  adAccountId: string,
+  accessToken: string,
+  campaignId?: string,
+): Promise<MetaAdSetDetailed[]> {
+  const params = new URLSearchParams({
+    fields:
+      'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,bid_strategy,bid_amount,optimization_goal,billing_event,promoted_object,start_time,end_time,targeting,created_time,updated_time',
+    limit: '100',
+  })
+  const node = campaignId ? `${campaignId}/adsets` : `${adAccountId}/adsets`
+  return graphRequestAll<MetaAdSetDetailed>(`${node}?${params.toString()}`, accessToken)
 }
 
 export type MetaAd = {
@@ -308,6 +328,123 @@ export async function getAdAccountInfo(
 ): Promise<{ id: string; name: string; currency: string; account_status: number }> {
   return graphRequest<{ id: string; name: string; currency: string; account_status: number }>(
     `${adAccountId}?fields=id,name,currency,account_status`,
+    accessToken,
+  )
+}
+
+// ─── Generic object read / update (command engine) ────────────────────────────
+
+/**
+ * GET an edge with its own query parameters (e.g. `act_1/adimages` with
+ * `hashes` and `fields`). getObject only knows `?fields=`, so appending a
+ * second query to its id produced a URL with two `?`. Params are encoded
+ * here; the access token is added by graphRequest.
+ */
+export async function getEdge<T>(path: string, params: Record<string, string>, accessToken: string): Promise<T> {
+  const query = new URLSearchParams(params).toString()
+  return graphRequest<T>(query ? `${path}?${query}` : path, accessToken)
+}
+
+/** Read one Graph object. Unlike getCampaign this throws, so callers can tell "not found" from "failed". */
+export async function getObject<T>(objectId: string, fields: string, accessToken: string): Promise<T> {
+  return graphRequest<T>(`${objectId}?fields=${encodeURIComponent(fields)}`, accessToken)
+}
+
+/**
+ * POST /{object-id} with the given fields. With `validateOnly`, Meta runs the
+ * full validation (budget minimums, CBO/ABO conflicts, targeting rules) and
+ * writes nothing — used at preview time so a doomed change is rejected before
+ * anyone approves it.
+ */
+export async function updateObject(
+  objectId: string,
+  fields: Record<string, unknown>,
+  accessToken: string,
+  opts: { validateOnly?: boolean } = {},
+): Promise<{ success?: boolean }> {
+  return graphRequest<{ success?: boolean }>(objectId, accessToken, {
+    method: 'POST',
+    body: opts.validateOnly ? { ...fields, execution_options: ['validate_only'] } : fields,
+  })
+}
+
+/**
+ * POST /{edge-path} — create a new object on an edge (e.g. `act_123/campaigns`,
+ * `act_123/ads`). With `validateOnly`, Meta runs full validation and creates
+ * nothing — used at preview time, same as `updateObject`'s validate-only mode.
+ * The response is `{ id }` for these edges (unlike `/copies`, which returns a
+ * `copied_*_id` field instead).
+ */
+export async function createObject(
+  edgePath: string,
+  body: Record<string, unknown>,
+  accessToken: string,
+  opts: { validateOnly?: boolean } = {},
+): Promise<{ id: string }> {
+  return graphRequest<{ id: string }>(edgePath, accessToken, {
+    method: 'POST',
+    body: opts.validateOnly ? { ...body, execution_options: ['validate_only'] } : body,
+  })
+}
+
+/**
+ * POST /{object-id}/copies — Meta's campaign/ad-set/ad duplication endpoint.
+ * Copies are always requested with `status_option: 'PAUSED'` by the caller
+ * (see meta-adapter.ts's buildCopyBody); this function just forwards whatever
+ * body it is given. Unlike `updateObject`, this endpoint does not document
+ * `execution_options: ['validate_only']` support, so there is no validate-only
+ * variant here — the adapter's `validate()` does a read-only sanity check
+ * instead (source + target still exist in the account) right before calling
+ * this.
+ */
+export async function copyObject(
+  objectId: string,
+  body: Record<string, unknown>,
+  accessToken: string,
+): Promise<{ copied_campaign_id?: string; copied_adset_id?: string; copied_ad_id?: string; ad_object_ids?: string[] }> {
+  return graphRequest<{ copied_campaign_id?: string; copied_adset_id?: string; copied_ad_id?: string; ad_object_ids?: string[] }>(
+    `${objectId}/copies`,
+    accessToken,
+    { method: 'POST', body },
+  )
+}
+
+export type MetaCustomAudience = {
+  id: string
+  name?: string
+  approximate_count_lower_bound?: number
+  operation_status?: { code: number; description: string }
+}
+
+/**
+ * Custom/lookalike audiences in one ad account — scoped by the `act_x/customaudiences`
+ * edge itself, so any id returned here is guaranteed to belong to that account.
+ * Used both by the MCP read tool (so an agent can pick an id) and by the
+ * adapter's snapshot for `meta.adset.update_targeting` (so an unknown or
+ * cross-account audience id is rejected at plan time, not left for Meta to
+ * reject after approval).
+ */
+export async function listCustomAudiences(adAccountId: string, accessToken: string): Promise<MetaCustomAudience[]> {
+  return graphRequestAll<MetaCustomAudience>(
+    `${adAccountId}/customaudiences?fields=id,name,approximate_count_lower_bound,operation_status&limit=200`,
+    accessToken,
+  )
+}
+
+export type MetaCreative = {
+  id: string
+  name?: string
+  title?: string
+  body?: string
+  thumbnail_url?: string
+  account_id?: string
+  object_story_spec?: Record<string, unknown>
+}
+
+/** Ad creatives in one ad account, for picking a `creative_id` for `meta.ad.set_creative`. */
+export async function listCreatives(adAccountId: string, accessToken: string): Promise<MetaCreative[]> {
+  return graphRequestAll<MetaCreative>(
+    `${adAccountId}/adcreatives?fields=id,name,title,body,thumbnail_url,object_story_spec&limit=100`,
     accessToken,
   )
 }

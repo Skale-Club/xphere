@@ -53,6 +53,7 @@ import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import { emitXkeduleBookingCreatedEvents } from '@/lib/action-engine/executors/xkedule-booking-events'
+import { executeAdsProposeChange } from './executors/ads-propose-change'
 import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
 import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booking'
 import { getXkeduleQuote } from '@/lib/xkedule/actions/quote'
@@ -257,6 +258,15 @@ async function _executeActionInner(
       throw new Error('contact_add_tag requires ctx.organizationId and ctx.supabase')
     }
     return executeContactAddTag(params, ctx)
+  }
+
+  // Ads Control Plane: propose (never apply) an ad change for human approval.
+  // Not in the action_type DB enum — same pattern as contact_create.
+  if ((actionType as string) === 'ads_propose_change') {
+    if (!ctx?.organizationId) {
+      throw new Error('ads_propose_change requires ctx.organizationId')
+    }
+    return executeAdsProposeChange(params, { organizationId: ctx.organizationId })
   }
 
   // Native CRM contact create/update | not in the action_type DB enum either.
@@ -495,6 +505,72 @@ async function _executeActionInner(
       })
       if (!result.ok) throw new Error(result.error ?? 'send_telegram_notification failed')
       return `Telegram sent. Message IDs: ${result.messageIds.join(', ')}`
+    }
+    case 'calendar_list_slots': {
+      if (!ctx?.organizationId) throw new Error('calendar_list_slots requires ctx.organizationId')
+      const { executeCalendarListSlots } = await import('./executors/calendar-slots')
+      // Which event type is the operator's decision, fixed on the workflow
+      // node; the model only ever picks a date. Args win only so a flow can
+      // pass one through deliberately.
+      const cfg = (ctx.toolConfig ?? {}) as Record<string, unknown>
+      return executeCalendarListSlots({
+        orgId: ctx.organizationId,
+        eventType: String(params.event_type ?? cfg.event_type ?? ''),
+        date: String(params.date ?? ''),
+        limit:
+          typeof params.limit === 'number'
+            ? params.limit
+            : typeof cfg.limit === 'number'
+              ? cfg.limit
+              : undefined,
+      })
+    }
+    case 'calendar_book_meeting': {
+      if (!ctx?.organizationId) throw new Error('calendar_book_meeting requires ctx.organizationId')
+      const { executeCalendarBookMeeting } = await import('./executors/calendar-book-meeting')
+      const bookCfg = (ctx.toolConfig ?? {}) as Record<string, unknown>
+      return executeCalendarBookMeeting({
+        orgId: ctx.organizationId,
+        eventType: String(params.event_type ?? bookCfg.event_type ?? ''),
+        startAt: typeof params.start_at === 'string' ? params.start_at : undefined,
+        date: typeof params.date === 'string' ? params.date : undefined,
+        time: typeof params.time === 'string' ? params.time : undefined,
+        name: String(params.name ?? ''),
+        email: String(params.email ?? ''),
+        phone: typeof params.phone === 'string' ? params.phone : undefined,
+        notes: typeof params.notes === 'string' ? params.notes : undefined,
+        confirmed: params.confirmed === true,
+        confirmationToken:
+          typeof params.confirmationToken === 'string' ? params.confirmationToken : undefined,
+        // Same opt-in as the other booking writes: the spoken-consent gate
+        // applies when the tool asked for it and the call carried a transcript.
+        voiceBooking: voiceGateFor(ctx),
+      })
+    }
+    case 'campaign_enroll_call': {
+      if (!ctx?.organizationId) {
+        throw new Error('campaign_enroll_call requires ctx.organizationId')
+      }
+      const { executeCampaignEnrollCall } = await import('./executors/campaign-enroll-call')
+      const onDuplicate = params.on_duplicate === 'requeue' ? 'requeue' : 'skip'
+      const result = await executeCampaignEnrollCall({
+        orgId: ctx.organizationId,
+        campaignId: typeof params.campaign_id === 'string' ? params.campaign_id : undefined,
+        campaignName: typeof params.campaign_name === 'string' ? params.campaign_name : undefined,
+        phone: String(params.phone ?? ''),
+        name: typeof params.name === 'string' ? params.name : null,
+        contactId: typeof params.contact_id === 'string' ? params.contact_id : null,
+        variables:
+          params.variables && typeof params.variables === 'object' && !Array.isArray(params.variables)
+            ? (params.variables as Record<string, unknown>)
+            : undefined,
+        onDuplicate,
+      })
+      // A skip is an outcome, not a failure: someone on do-not-disturb, or
+      // already in the queue, is exactly what the guards are for. Only a real
+      // misconfiguration throws.
+      if (!result.ok) throw new Error(result.error ?? 'campaign_enroll_call failed')
+      return `Callback ${result.status}${result.campaignContactId ? ` (${result.campaignContactId})` : ''}.`
     }
     case 'pipeline_move_opportunity':
       return executePipelineMoveOpportunity(params as unknown as Parameters<typeof executePipelineMoveOpportunity>[0], ctx)

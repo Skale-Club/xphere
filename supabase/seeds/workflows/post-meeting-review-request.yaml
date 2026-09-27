@@ -1,10 +1,10 @@
 # Platform-default workflow — ships to every org.
 # 1 hour after a meeting is marked complete, sends a review request via SMS.
 
-name: Solicitação de avaliação pós-reunião
+name: Post-meeting review request
 description: |
-  Platform-default. Uma hora após a conclusão da reunião, envia um SMS
-  solicitando uma avaliação ao participante.
+  Platform-default. An hour after a meeting is completed, sends the attendee an
+  SMS asking for a quick review.
 trigger:
   type: event
   event: meeting.completed
@@ -18,7 +18,7 @@ nodes:
     kind: send_sms
     integration: twilio
     to: "{{meeting.attendee_contact.phone}}"
-    body: "Olá {{meeting.attendee_contact.name}}, obrigado pela reunião! Poderia nos deixar uma avaliação rápida? Sua opinião é muito importante para nós."
+    body: "Hi {{meeting.attendee_contact.name}}, thanks for meeting with us! Would you mind leaving a quick review? It really helps."
 
 edges:
   - from: trigger

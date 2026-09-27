@@ -126,6 +126,14 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     group: 'General',
   },
   {
+    key: 'contact.captured',
+    label: 'Contact left a message',
+    description: 'An agent saved someone’s details and message (new or existing contact)',
+    icon: UserPlus,
+    iconClass: 'bg-rose-500/15 text-rose-300',
+    group: 'General',
+  },
+  {
     key: 'lead.captured',
     label: 'Lead captured',
     description: 'A unique inbound lead submission was accepted',

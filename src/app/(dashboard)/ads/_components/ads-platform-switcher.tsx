@@ -12,8 +12,9 @@ const PLATFORM_TABS = [
 
 const JOURNEY_TAB = { label: 'Journey', href: '/ads/journey', value: 'journey' }
 const CAPI_TAB = { label: 'CAPI', href: '/ads/capi', value: 'capi' }
+const CHANGES_TAB = { label: 'Changes', href: '/ads/changes', value: 'changes' }
 
-export function AdsPlatformSwitcher() {
+export function AdsPlatformSwitcher({ pendingChangesCount = 0 }: { pendingChangesCount?: number }) {
   const pathname = usePathname()
 
   const activeValue = pathname.startsWith('/ads/google')
@@ -22,6 +23,8 @@ export function AdsPlatformSwitcher() {
     ? 'journey'
     : pathname.startsWith('/ads/capi')
     ? 'capi'
+    : pathname.startsWith('/ads/changes')
+    ? 'changes'
     : 'meta'
 
   function tabClass(isActive: boolean) {
@@ -59,9 +62,20 @@ export function AdsPlatformSwitcher() {
           >
             {CAPI_TAB.label}
           </Link>
+          <Link
+            href={CHANGES_TAB.href}
+            className={cn(tabClass(CHANGES_TAB.value === activeValue), 'relative')}
+          >
+            {CHANGES_TAB.label}
+            {pendingChangesCount > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-white">
+                {pendingChangesCount > 99 ? '99+' : pendingChangesCount}
+              </span>
+            )}
+          </Link>
         </div>
 
-        {activeValue !== 'journey' && (
+        {activeValue !== 'journey' && activeValue !== 'changes' && (
           <ManageAccountsButton platform={activeValue as 'meta' | 'google'} />
         )}
       </div>

@@ -360,3 +360,34 @@ Conteúdo (Skale Club):
    "chaveiros NFC" (PT) ou "NFC keychains" (EN): a resposta do lead a ela já ativa o agente.
 5. Quando o preço mudar em `skaleclub/shared/nfc-pricing.ts`, atualizar a tabela do prompt
    e rodar o script de novo.
+
+## 13. Revisão de 2026-09-27
+
+Estado real antes da revisão: o agente nunca tinha atendido um cliente (99 execuções, todas
+da bateria) e ninguém tinha falado de chaveiro/NFC no WhatsApp nos 45 dias anteriores. A
+porta principal (botão na landing) ainda é o PR aberto
+[Skale-Club/skaleclub#3](https://github.com/Skale-Club/skaleclub/pull/3).
+
+Mudanças de plataforma (Zernio; valem para qualquer org):
+- **Eco do app do WhatsApp é sempre humano.** Antes, só contava como humano com um agente
+  engajado; um lead que dizia "chaveiro" numa conversa que o dono tocava pelo celular puxava
+  o robô por cima dele. No WhatsApp, nada do Xphere envia pelo Zernio sem gravar a
+  mensagem antes (inbox e agente já são reconhecidos), então eco sem par = alguém no app.
+  Instagram/Facebook mantêm a regra antiga por causa do `send_zernio_dm` (comentário → DM).
+  **Consequência:** a "porta de saída" (seção 4.1) só funciona com mensagem mandada pelo
+  Xphere; uma abertura mandada do celular ou pelo broadcast do Zernio conta como humano e o
+  robô fica fora.
+- **Áudio/imagem sem legenda** chegam ao agente engajado como nota entre colchetes
+  (`mediaPlaceholderForAgent`) — antes era silêncio total. Não há transcrição de áudio.
+- **Rajada de mensagens:** cada resposta espera 6 s e só a última mensagem da rajada
+  responde, com as anteriores no histórico (`AGENT_REPLY_COALESCE_MS`).
+- **Palavra-chave dentro de link não conta** ("loja.com/nfc-tag").
+- **Rascunho no playground:** `runAgent({ mode: 'playground', draftSystemPrompt })` roda um
+  prompt não publicado; a bateria usa o arquivo do disco por padrão (`--published` para o
+  que está no ar).
+
+Conteúdo (prompt v4): termos do site ("chapado", "a partir de US$ 10 por chaveiro, mínimo
+de 20"), áudio → pede para escrever (2º áudio → humano), imagem → agradece sem descrever,
+nunca contradizer mensagem da equipe, "já preenchi o formulário" e "me liga" → humano,
+persona **Sky** (mesmo nome do telefone). Rótulo: `🤖 Sky (assistente virtual)`.
+

@@ -2,7 +2,7 @@
 // agent reply labels are stripped (migration 1302).
 
 import { describe, it, expect, vi } from 'vitest'
-import { loadHistoryWindow, HUMAN_TURN_PREFIX } from '@/lib/agent-runtime/load-history'
+import { loadHistoryWindow, HUMAN_TURN_PREFIX, mediaPlaceholderForAgent } from '@/lib/agent-runtime/load-history'
 
 function supabaseWith(rowsNewestFirst: Array<Record<string, unknown>>) {
   const chain = {
@@ -41,5 +41,27 @@ describe('loadHistoryWindow', () => {
       { role: 'assistant', content: '20 peças saem por US$ 200.' },
       { role: 'assistant', content: `${HUMAN_TURN_PREFIX}Oi, aqui é o Vanildo!` },
     ])
+  })
+
+  it('replays a media-only customer message as a placeholder, and drops it when it is the current one', async () => {
+    const audio = mediaPlaceholderForAgent('audio')!
+    const supabase = supabaseWith([
+      { role: 'user', content: '', message_type: 'audio', metadata: {} },
+      { role: 'user', content: '', message_type: 'image', metadata: {} },
+      { role: 'user', content: 'segue a logo', metadata: {} },
+    ])
+
+    const turns = await loadHistoryWindow({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: supabase as any,
+      conversationId: 'conv-1',
+      currentUserMessage: audio,
+    })
+
+    expect(turns).toEqual([
+      { role: 'user', content: 'segue a logo' },
+      { role: 'user', content: mediaPlaceholderForAgent('image') },
+    ])
+    expect(mediaPlaceholderForAgent('text')).toBeNull()
   })
 })

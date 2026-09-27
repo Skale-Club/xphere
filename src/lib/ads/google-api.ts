@@ -1,7 +1,7 @@
 import { refreshAccessToken, type GoogleAdsTokens, GOOGLE_ADS_API_BASE } from './google-oauth'
 import { getCachedAccessToken, setCachedAccessToken, clearCachedAccessToken } from './cache'
 import { resolveNonNativeGoogleRange } from './date-range'
-import { assertIsoDate, assertNumericId } from './validation'
+import { AdsValidationError, assertIsoDate, assertNumericId } from './validation'
 
 // See GOOGLE_ADS_API_VERSION in google-oauth.ts — single source of truth,
 // shared with listAccessibleCustomers/getCustomerInfo there.
@@ -14,6 +14,10 @@ export class GoogleAdsError extends Error {
   constructor(
     message: string,
     public readonly code?: string,
+    /** HTTP status of the failed call, when there was one. */
+    public readonly httpStatus?: number,
+    /** Google's per-operation error code, e.g. "criterionError: KEYWORD_HAS_INVALID_CHARS". */
+    public readonly detailCode?: string,
   ) {
     super(message)
     this.name = 'GoogleAdsError'
@@ -85,16 +89,29 @@ async function gadsRequest<T>(
 
     let msg = `Google Ads API error ${res.status}`
     let code: string | undefined
+    let detailCode: string | undefined
     try {
       const body = (await res.json()) as {
-        error?: { message?: string; status?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string> }> }> }
+        error?: {
+          message?: string
+          status?: string
+          details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }>
+        }
       }
       msg = body.error?.message ?? msg
       code = body.error?.status
+      // The top-level message is usually just "Request contains an invalid
+      // argument." — the actionable reason lives in the first GoogleAdsFailure.
+      const first = body.error?.details?.flatMap((d) => d.errors ?? [])[0]
+      if (first) {
+        const [kind, value] = Object.entries(first.errorCode ?? {})[0] ?? []
+        if (kind) detailCode = `${kind}: ${value}`
+        if (first.message) msg = `${first.message}${detailCode ? ` (${detailCode})` : ''}`
+      }
     } catch { /* ignore */ }
     if (res.status === 401) code ??= 'UNAUTHENTICATED'
     if (res.status === 403) code ??= 'PERMISSION_DENIED'
-    throw new GoogleAdsError(msg, code)
+    throw new GoogleAdsError(msg, code, res.status, detailCode)
   }
 
   return res.json() as Promise<T>
@@ -421,57 +438,112 @@ export async function listAdGroups(
 
 // ─── Mutations ─────────────────────────────────────────────────────────────────
 
-export async function updateCampaignStatus(
-  customerId: string,
-  campaignId: string,
-  status: 'ENABLED' | 'PAUSED',
+/**
+ * Escape hatch for command handlers that need an endpoint without a
+ * `:mutate` shape (e.g. offlineUserDataJobs:create / :addOperations / :run).
+ * Same auth, retry-on-401 and error parsing as every other call. `path` is
+ * relative to the API version root, e.g. `customers/123/offlineUserDataJobs:create`.
+ */
+export async function googleAdsRequest<T>(
+  path: string,
   refreshToken: string,
-): Promise<void> {
+  options: { method?: 'GET' | 'POST'; body?: unknown } = {},
+): Promise<T> {
+  if (!/^(customers\/\d+|geoTargetConstants)[/:]/.test(path)) {
+    throw new AdsValidationError(`Refusing Google Ads path ${path}`)
+  }
+  return gadsRequest<T>(path, refreshToken, { method: options.method ?? 'POST', body: options.body })
+}
+
+/** Google Ads services the command engine writes through. */
+export type GAdsMutateService =
+  | 'campaigns'
+  | 'campaignBudgets'
+  | 'adGroups'
+  | 'adGroupAds'
+  | 'adGroupCriteria'
+  | 'campaignCriteria'
+  | 'ads'
+  | 'campaignConversionGoals'
+  | 'conversionActions'
+  | 'assets'
+  | 'campaignAssets'
+  | 'adGroupAssets'
+  | 'userLists'
+
+export type GAdsMutateResponse = {
+  results?: Array<{ resourceName?: string }>
+  partialFailureError?: { message?: string; details?: unknown }
+}
+
+/**
+ * Generic `customers/{id}/{service}:mutate`. `validateOnly` asks Google to run
+ * every check without writing — the engine calls it at preview time so a bad
+ * keyword or an out-of-range bid is rejected before anyone approves it.
+ * Operations are atomic by default (partialFailure false): either all apply or
+ * none, which is what a single reviewed diff should mean.
+ */
+export async function mutateResources(
+  customerId: string,
+  refreshToken: string,
+  service: GAdsMutateService,
+  operations: unknown[],
+  opts: { validateOnly?: boolean; partialFailure?: boolean } = {},
+): Promise<GAdsMutateResponse> {
   const safeCustomerId = assertNumericId(customerId, 'customer_id')
-  const safeCampaignId = assertNumericId(campaignId, 'campaign_id')
-  await gadsRequest(
-    `customers/${safeCustomerId}/campaigns:mutate`,
+  return gadsRequest<GAdsMutateResponse>(
+    `customers/${safeCustomerId}/${service}:mutate`,
     refreshToken,
     {
       method: 'POST',
       body: {
-        operations: [
-          {
-            update: {
-              resourceName: `customers/${safeCustomerId}/campaigns/${safeCampaignId}`,
-              status,
-            },
-            updateMask: 'status',
-          },
-        ],
+        operations,
+        ...(opts.validateOnly ? { validateOnly: true } : {}),
+        ...(opts.partialFailure ? { partialFailure: true } : {}),
       },
     },
   )
 }
 
-export async function updateCampaignBudget(
+export type GAdsBatchMutateOperationResult = {
+  campaignBudgetResult?: { resourceName?: string }
+  campaignResult?: { resourceName?: string }
+  campaignCriterionResult?: { resourceName?: string }
+  adGroupResult?: { resourceName?: string }
+  adGroupAdResult?: { resourceName?: string }
+}
+
+export type GAdsBatchMutateResponse = {
+  mutateOperationResponses?: GAdsBatchMutateOperationResult[]
+  partialFailureError?: { message?: string; details?: unknown }
+}
+
+/**
+ * `customers/{id}/googleAds:mutate` — a single atomic request spanning
+ * multiple services (budget + campaign + criteria), keyed by temporary
+ * negative resource ids so a later operation in the same batch can reference
+ * one created earlier (e.g. the campaign referencing the new budget). Used to
+ * create a Search campaign (budget + campaign + location/language criteria)
+ * in one round trip: either everything applies or nothing does. Unlike
+ * mutateResources (single-service :mutate, operations are bare `{create}` /
+ * `{update}` / `{remove}`), each entry here is wrapped by its service's
+ * operation key, e.g. `{ campaignOperation: { create: {...} } }`.
+ */
+export async function googleAdsMutate(
   customerId: string,
-  budgetId: string,
-  amountMicros: number,
   refreshToken: string,
-): Promise<void> {
+  mutateOperations: unknown[],
+  opts: { validateOnly?: boolean } = {},
+): Promise<GAdsBatchMutateResponse> {
   const safeCustomerId = assertNumericId(customerId, 'customer_id')
-  const safeBudgetId = assertNumericId(budgetId, 'budget_id')
-  await gadsRequest(
-    `customers/${safeCustomerId}/campaignBudgets:mutate`,
+  return gadsRequest<GAdsBatchMutateResponse>(
+    `customers/${safeCustomerId}/googleAds:mutate`,
     refreshToken,
     {
       method: 'POST',
       body: {
-        operations: [
-          {
-            update: {
-              resourceName: `customers/${safeCustomerId}/campaignBudgets/${safeBudgetId}`,
-              amountMicros: String(amountMicros),
-            },
-            updateMask: 'amount_micros',
-          },
-        ],
+        mutateOperations,
+        ...(opts.validateOnly ? { validateOnly: true } : {}),
       },
     },
   )
@@ -507,36 +579,40 @@ export async function uploadClickConversions(
   )
 }
 
+// ─── Geo target constant lookup ────────────────────────────────────────────────
+
+export type GeoTargetConstantSuggestion = {
+  geoTargetConstant: {
+    id?: string
+    name?: string
+    countryCode?: string
+    targetType?: string
+    canonicalName?: string
+    status?: string
+  }
+}
+
 /**
- * Current name / status / budget for one campaign — the "before" half of an
- * audit record, captured before a mutation overwrites it.
+ * `geoTargetConstants:suggest` resolves free-text place names (e.g. "Lisbon")
+ * to the numeric geo target constant ids `google.campaign.add_location`
+ * needs. Unlike every other call in this module it is NOT scoped under
+ * `customers/{id}` — Google resolves location names globally — so it needs
+ * no customer id and no login-customer-id header, only the developer token
+ * and an access token like any other call.
  */
-export async function getCampaignSnapshot(
-  customerId: string,
-  campaignId: string,
+export async function suggestGeoTargetConstants(
   refreshToken: string,
-): Promise<{ name: string; status: string; budgetAmountMicros: string; currency: string } | null> {
-  type Row = {
-    campaign: { id: string; name: string; status: string }
-    campaignBudget?: { amountMicros?: string }
-    customer?: { currencyCode?: string }
+  params: { locale: string; countryCode?: string; locationNames: string[] },
+): Promise<GeoTargetConstantSuggestion[]> {
+  const body: Record<string, unknown> = {
+    locale: params.locale,
+    locationNames: { names: params.locationNames },
   }
-  const safeCampaignId = assertNumericId(campaignId, 'campaign_id')
-  const rows = await gaqlSearch<Row>(
-    customerId,
+  if (params.countryCode) body.countryCode = params.countryCode
+  const res = await gadsRequest<{ geoTargetConstantSuggestions?: GeoTargetConstantSuggestion[] }>(
+    'geoTargetConstants:suggest',
     refreshToken,
-    `SELECT campaign.id, campaign.name, campaign.status,
-            campaign_budget.amount_micros, customer.currency_code
-     FROM campaign
-     WHERE campaign.id = ${safeCampaignId}
-     LIMIT 1`,
+    { method: 'POST', body },
   )
-  const row = rows[0]
-  if (!row) return null
-  return {
-    name: row.campaign.name,
-    status: row.campaign.status,
-    budgetAmountMicros: row.campaignBudget?.amountMicros ?? '0',
-    currency: row.customer?.currencyCode ?? 'USD',
-  }
+  return res.geoTargetConstantSuggestions ?? []
 }

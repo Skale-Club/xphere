@@ -77,6 +77,15 @@ export const TRIGGERS: TriggerSpec[] = [
     description: 'A new contact row was inserted.',
     variables: ['contact.*', 'trigger.fired_at'],
   },
+  {
+    type: 'event:contact.captured',
+    description:
+      'An agent took someone’s details and message with contact_create — a new contact or one ' +
+      'already in the CRM (contact.created only fires for the first). capture.notes is this ' +
+      'message alone; capture.source is where it came from (e.g. voice_call); capture.is_new ' +
+      'says whether the contact was just created. Use it to tell the team someone left a message.',
+    variables: ['contact.*', 'capture.*', 'trigger.fired_at'],
+  },
 
   // ─── Commerce events (Phase 136). Pushed from the connected Medusa store via
   // POST /api/v1/commerce/events and dispatched by emitCommerceEvent.
@@ -671,6 +680,126 @@ export const NODES: NodeSpec[] = [
     ],
   },
 
+  // ─── Action | this platform's own calendar (/book)
+  {
+    type: 'calendar_list_slots',
+    kind: 'action',
+    description:
+      "Free times on this organization's own booking calendar, for one event type on one date. " +
+      'Answers in a sentence an assistant can read aloud, in the host timezone. Needs no integration.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        event_type: {
+          type: 'string',
+          description: "The event type's slug (e.g. 'conversa-inicial') or its id.",
+        },
+        date: { type: 'string', description: 'YYYY-MM-DD. Resolve "next Tuesday" to a full date first.' },
+        limit: { type: 'number', description: 'How many times to offer. Default 4, max 8.' },
+      },
+      required: ['event_type', 'date'],
+    },
+    examples: [{ event_type: 'conversa-inicial', date: '2026-10-01' }],
+  },
+  {
+    type: 'calendar_book_meeting',
+    kind: 'action',
+    description:
+      "Book one slot on this organization's own calendar. Revalidates the slot, links or creates the " +
+      'contact, and sends the confirmation with the video link. On a phone call the caller must have ' +
+      'heard the details read back and agreed first. Needs no integration.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        event_type: { type: 'string', description: "The event type's slug or id." },
+        date: { type: 'string', description: 'YYYY-MM-DD, host timezone.' },
+        time: { type: 'string', description: 'HH:MM, 24h, host timezone.' },
+        start_at: { type: 'string', description: 'ISO 8601 instant, instead of date + time.' },
+        name: { type: 'string', description: 'Who the meeting is with.' },
+        email: {
+          type: 'string',
+          description: 'Where the invite and the video link go. Required — read it back before booking.',
+        },
+        phone: { type: 'string' },
+        notes: { type: 'string', description: 'What they want to talk about, in their own words.' },
+        confirmed: { type: 'boolean', description: 'Voice only: true after the caller agreed to the read-back.' },
+        confirmationToken: {
+          type: 'string',
+          description: 'Voice only: copy the token from the previous unconfirmed response, unchanged.',
+        },
+        require_voice_confirmation: {
+          type: 'boolean',
+          description:
+            'Set on the workflow node, not by the model: when true, a booking made during a phone call ' +
+            'is checked against the call transcript — the caller must have heard the day, the time and ' +
+            'their name read back, and agreed.',
+        },
+      },
+      required: ['event_type', 'name', 'email'],
+    },
+    examples: [
+      {
+        event_type: 'conversa-inicial',
+        date: '2026-10-01',
+        time: '14:00',
+        name: '{{input.name}}',
+        email: '{{input.email}}',
+        notes: '{{input.reason}}',
+      },
+    ],
+  },
+
+  // ─── Action | outbound voice
+  {
+    type: 'campaign_enroll_call',
+    kind: 'action',
+    description:
+      'Queue a phone callback: put someone in the queue of an existing voice campaign. ' +
+      'This never dials — the campaign engine places the call inside that campaign\'s ' +
+      'business-hours window, at its own pace. Honours do-not-disturb and skips someone ' +
+      'already in the queue.',
+    integration_required: ['vapi'],
+    params_schema: {
+      type: 'object',
+      properties: {
+        campaign_name: {
+          type: 'string',
+          description: 'Name of an existing calls campaign in this organization, exactly as it appears in Outbound.',
+        },
+        campaign_id: { type: 'string', description: 'The campaign id. Takes precedence over campaign_name.' },
+        phone: { type: 'string', description: 'E.164 number to call, e.g. {{contact.phone}}' },
+        name: { type: 'string', description: 'Who to greet, e.g. {{contact.name}}' },
+        contact_id: { type: 'string', description: 'contacts.id, so do-not-disturb is honoured. {{contact.id}}' },
+        variables: {
+          type: 'object',
+          description:
+            'Facts the robot should have on the call — order total, quantity, address. Flat string map; ' +
+            'each key is readable in the assistant prompt as {{key}}.',
+        },
+        on_duplicate: {
+          type: 'string',
+          enum: ['skip', 'requeue'],
+          description: 'What to do when this number is already in that campaign. Default skip.',
+        },
+      },
+      required: ['phone'],
+    },
+    examples: [
+      {
+        campaign_name: 'NFC callback — PT',
+        phone: '{{contact.phone}}',
+        name: '{{contact.name}}',
+        contact_id: '{{contact.id}}',
+        on_duplicate: 'requeue',
+        variables: {
+          company_name: '{{lead.answers.nomeEmpresa}}',
+          quantity: '{{lead.answers.nfcQuantity}}',
+          quoted_total: '{{lead.answers.nfcTotal}}',
+        },
+      },
+    ],
+  },
+
   // ─── Action | Xphere
   {
     type: 'create_contact',
@@ -688,11 +817,63 @@ export const NODES: NodeSpec[] = [
     },
   },
   {
+    type: 'ads_propose_change',
+    kind: 'action',
+    description:
+      'Propose a change to a connected Google Ads or Meta Ads account (pause/enable, daily budget, name, dates, ' +
+      'keywords, negative keywords, targeting — risk ≤ 2 only). Nothing is applied: the change is validated and ' +
+      'waits in Ads → Changes for a human with ads.approve. Returns change_id. A change already at the target ' +
+      'value returns {skipped:true} instead of failing, so re-running on the same condition is safe. Budget ' +
+      'values are in major units of the account currency.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        command: {
+          type: 'object',
+          description:
+            'Typed Ads command: {platform, ad_account_id, type, ...fields}. Types allowed from workflows: ' +
+            'google.campaign.set_status, google.campaign.set_daily_budget, google.campaign.rename, ' +
+            'google.campaign.set_dates, google.campaign.set_tracking, google.ad_group.set_status, google.ad.set_status, ' +
+            'google.keyword.add, google.keyword.set_status, google.negative_keyword.add, google.negative_keyword.remove, ' +
+            'google.campaign.add_location, google.campaign.add_ad_schedule, meta.campaign.set_status, ' +
+            'meta.campaign.set_daily_budget, meta.adset.set_status, meta.adset.set_daily_budget, meta.adset.set_end_time, ' +
+            'meta.adset.update_targeting, meta.ad.set_status (full list: docs/ads/control-plane.md, risk ≤ 2).',
+        },
+        idempotency_key: {
+          type: 'string',
+          description: 'Optional stable key (≥ 8 chars) so a retried run never proposes the same change twice.',
+        },
+      },
+      required: ['command'],
+    },
+    examples: [
+      {
+        command: {
+          platform: 'google',
+          ad_account_id: '1234567890',
+          type: 'google.campaign.set_status',
+          campaign_id: '111',
+          status: 'PAUSED',
+        },
+      },
+      {
+        command: {
+          platform: 'meta',
+          ad_account_id: 'act_1234567890',
+          type: 'meta.adset.set_daily_budget',
+          adset_id: '120200000000000',
+          daily_budget: 40,
+        },
+      },
+    ],
+  },
+  {
     type: 'contact_create',
     kind: 'action',
     description:
       "Create or update a contact in Xphere's own CRM. Deduplicates by phone, then email. " +
-      'Emits contact.created on a real insert. Needs no integration — use this instead of ' +
+      'Emits contact.created on a real insert, and contact.captured on every call (new or known ' +
+      'contact). Needs no integration — use this instead of ' +
       'create_contact when the org has no external CRM connected.',
     params_schema: {
       type: 'object',

@@ -6,9 +6,11 @@
 //   2. Record an audit row in event_dispatches.
 //   3. Build the contact scope and dispatch each workflow via runFlowSync.
 //
-// Currently emits `contact.created`. The trigger is declared in the workflow
-// spec (src/lib/workflows/spec.ts → 'event:contact.created') and exposes the
-// `contact.*` namespace to downstream nodes.
+// Emits `contact.created` (a row was inserted) and `contact.captured` (an agent
+// took this person's details and message through contact_create — new contact
+// or one we already had). Both are declared in the workflow spec
+// (src/lib/workflows/spec.ts) and expose the `contact.*` namespace;
+// `contact.captured` adds `capture.*` with what was said this time.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -19,7 +21,7 @@ import type { FlowDefinition } from '@/lib/flows/schema'
 import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import { enqueueLead } from '@/lib/meta/capi-enqueue'
 
-export type ContactEventType = 'contact.created'
+export type ContactEventType = 'contact.created' | 'contact.captured'
 
 /** Fields exposed to workflows under the `contact.*` namespace. */
 interface ContactScope {
@@ -81,7 +83,11 @@ export async function emitContactEvent(
   orgId: string,
   eventType: ContactEventType,
   contactId: string,
-  options: { supabase?: SupabaseClient<Database> } = {},
+  options: {
+    supabase?: SupabaseClient<Database>
+    /** Extra top-level trigger variables, e.g. `capture` for contact.captured. */
+    payload?: Record<string, unknown>
+  } = {},
 ): Promise<{ dispatched: number; dispatch_id: string | null }> {
   try {
     const supabase = options.supabase ?? createServiceRoleClient()
@@ -116,7 +122,7 @@ export async function emitContactEvent(
 
     const contact = await buildContactScope(supabase, contactId)
 
-    const triggerInput: Record<string, unknown> = { contact, event: eventType }
+    const triggerInput: Record<string, unknown> = { ...(options.payload ?? {}), contact, event: eventType }
 
     // Resume runs suspended on a wait node this event satisfies (by contact).
     void resumeMatchingWaits(supabase, {

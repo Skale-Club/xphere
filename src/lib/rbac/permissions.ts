@@ -241,6 +241,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       { key: 'ads.view', label: 'View ads' },
       { key: 'ads.manage', label: 'View & manage ads' },
+      { key: 'ads.approve', label: 'Approve ad changes (high-risk and AI-proposed)' },
+      { key: 'ads.admin', label: 'Manage ad account policies' },
     ],
   },
   {

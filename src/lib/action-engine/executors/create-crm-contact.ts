@@ -127,6 +127,11 @@ export async function executeCreateCrmContact(
     const { error } = await supabase.from('contacts').update(patch).eq('id', existingId)
     if (error) throw new Error(`contact_create failed: ${error.message}`)
 
+    // A known contact calling back is still someone waiting on the team. Only
+    // contact.created fired before, so an existing customer who phoned with a
+    // problem was written into their notes and nobody was told.
+    await emitCaptured(orgId, existingId, { notes, source, isNew: false }, supabase)
+
     return `Contact updated: ${name ?? phone ?? email} (${existingId})`
   }
 
@@ -162,6 +167,31 @@ export async function executeCreateCrmContact(
       err instanceof Error ? err.message : 'unknown error',
     )
   }
+  await emitCaptured(orgId, data.id, { notes, source, isNew: true }, supabase)
 
   return `Contact created: ${name ?? phone ?? email} (${data.id})`
+}
+
+/**
+ * `contact.captured` fires on every capture, new contact or known one, with
+ * this capture's own message in `capture.notes` (contact.notes holds the whole
+ * history). Never fails the capture: the agent is waiting on this call.
+ */
+async function emitCaptured(
+  orgId: string,
+  contactId: string,
+  capture: { notes: string | null; source: string | null; isNew: boolean },
+  supabase: ReturnType<typeof createServiceRoleClient>,
+): Promise<void> {
+  try {
+    await emitContactEvent(orgId, 'contact.captured', contactId, {
+      supabase,
+      payload: { capture: { notes: capture.notes, source: capture.source, is_new: capture.isNew } },
+    })
+  } catch (err) {
+    console.error(
+      '[contact_create] emit contact.captured failed:',
+      err instanceof Error ? err.message : 'unknown error',
+    )
+  }
 }

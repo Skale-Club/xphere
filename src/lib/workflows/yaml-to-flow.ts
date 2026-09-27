@@ -80,7 +80,12 @@ export function yamlToFlow(definition: WorkflowDefinition, _options: ConvertOpti
         },
       })
     } else {
-      const { id: _id, kind: _k, label, ...config } = yamlNode
+      // `fallback_message` is node metadata, not an action parameter: it is
+      // what the assistant SAYS when the executor throws. Leaving it inside
+      // `config` means resolveWorkflowAsTool() finds nothing there and the
+      // tool answers with an empty string — on a phone call, that is the robot
+      // going silent mid-sentence, which is how this was found.
+      const { id: _id, kind: _k, label, fallback_message: fallbackMessage, ...config } = yamlNode
       void _id; void _k
       nodes.push({
         id,
@@ -91,6 +96,9 @@ export function yamlToFlow(definition: WorkflowDefinition, _options: ConvertOpti
           action_type: kind,
           config,
           label: label ?? id,
+          ...(typeof fallbackMessage === 'string' && fallbackMessage.trim()
+            ? { fallback_message: fallbackMessage.trim() }
+            : {}),
         },
       })
     }

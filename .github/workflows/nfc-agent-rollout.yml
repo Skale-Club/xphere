@@ -3,7 +3,7 @@ name: NFC agent rollout
 # Ops workflow for the keyword-activated agents release
 # (.planning/research/nfc-keychain-whatsapp-agent.md §12). Never runs on an
 # ordinary push: it starts from the Actions tab (workflow_dispatch) or when
-# .github/rollout/nfc-agent.step changes on main — the file's content is the
+# .github/rollout/nfc-agent.step (or this file) changes on main — the step file's content is the
 # step to run, so an integration that cannot dispatch workflows can still
 # request one through a reviewed commit.
 #
@@ -35,6 +35,7 @@ on:
     branches: [main]
     paths:
       - '.github/rollout/nfc-agent.step'
+      - '.github/workflows/nfc-agent-rollout.yml'
 
 concurrency:
   group: nfc-agent-rollout
@@ -66,7 +67,8 @@ jobs:
       - name: Rollout
         env:
           STEP_INPUT: ${{ inputs.step }}
-          MIGRATION_DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # SUPABASE_DB_URL when set, else DATABASE_URL (the one release-gate uses).
+          MIGRATION_DATABASE_URL: ${{ secrets.SUPABASE_DB_URL || secrets.DATABASE_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
@@ -86,7 +88,7 @@ jobs:
           echo "Running step: $STEP"
 
           if [ "$STEP" = plan ] || [ "$STEP" = migrate ] || [ "$STEP" = all ]; then
-            if [ -z "$MIGRATION_DATABASE_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+            if [ -z "$MIGRATION_DATABASE_URL" ]; then echo "::error::Neither SUPABASE_DB_URL nor DATABASE_URL secret is set"; exit 1; fi
             node scripts/apply-migrations.mjs 2>&1 | tee plan.txt
             grep -oE '^  · [0-9]+_[A-Za-z0-9_]+\.sql' plan.txt | sed 's/^  · //' | sort -u > pending.txt || true
             echo "Pending migrations:"; cat pending.txt

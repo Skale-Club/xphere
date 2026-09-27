@@ -632,6 +632,8 @@ export interface Database {
           address_country: string | null
           timezone: string
           settings: Json
+          /** Migration 1303: window a new campaign seeds its dial_window from. */
+          default_dial_window: Json
           trial_ends_at: string | null
           plan_override: string | null
           created_at: string
@@ -674,6 +676,7 @@ export interface Database {
           address_country?: string | null
           timezone?: string
           settings?: Json
+          default_dial_window?: Json
           trial_ends_at?: string | null
           plan_override?: string | null
           created_at?: string
@@ -1410,7 +1413,7 @@ export interface Database {
           organization_id: string
           integration_id: string | null
           tool_name: string
-          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'xkedule_cancel_booking' | 'xkedule_reschedule_booking' | 'xkedule_quote' | 'xkedule_lookup_customer' | 'xkedule_business_info' | 'send_zernio_dm' | 'medusa_search_products' | 'medusa_get_product' | 'medusa_get_cart' | 'medusa_add_to_cart' | 'medusa_update_cart_item' | 'medusa_wishlist_add' | 'medusa_wishlist_remove' | 'medusa_wishlist_list' | 'medusa_get_order_status'
+          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'campaign_enroll_call' | 'calendar_list_slots' | 'calendar_book_meeting' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'xkedule_cancel_booking' | 'xkedule_reschedule_booking' | 'xkedule_quote' | 'xkedule_lookup_customer' | 'xkedule_business_info' | 'send_zernio_dm' | 'medusa_search_products' | 'medusa_get_product' | 'medusa_get_cart' | 'medusa_add_to_cart' | 'medusa_update_cart_item' | 'medusa_wishlist_add' | 'medusa_wishlist_remove' | 'medusa_wishlist_list' | 'medusa_get_order_status'
           config: Json
           fallback_message: string
           is_active: boolean
@@ -1424,7 +1427,7 @@ export interface Database {
           organization_id: string
           integration_id?: string | null
           tool_name: string
-          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
+          action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'campaign_enroll_call' | 'calendar_list_slots' | 'calendar_book_meeting' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email'
           config?: Json
           fallback_message: string
           is_active?: boolean
@@ -1436,7 +1439,7 @@ export interface Database {
         Update: {
           integration_id?: string | null
           tool_name?: string
-          action_type?: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking'
+          action_type?: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'campaign_enroll_call' | 'calendar_list_slots' | 'calendar_book_meeting' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking'
           config?: Json
           fallback_message?: string
           is_active?: boolean
@@ -4612,6 +4615,10 @@ export interface Database {
           // migration 1100: WhatsApp Cloud template
           whatsapp_template_id: string | null
           whatsapp_variable_mapping: Json | null
+          // migration 1303: dialling window, redial policy, standing queue
+          dial_window: Json
+          retry_policy: Json
+          is_evergreen: boolean
           created_at: string
           updated_at: string
         }
@@ -4643,6 +4650,9 @@ export interface Database {
           sms_body?: string | null
           whatsapp_template_id?: string | null
           whatsapp_variable_mapping?: Json | null
+          dial_window?: Json
+          retry_policy?: Json
+          is_evergreen?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -4650,6 +4660,9 @@ export interface Database {
           name?: string
           description?: string | null
           channel?: CampaignChannel
+          dial_window?: Json
+          retry_policy?: Json
+          is_evergreen?: boolean
           campaign_type?: CampaignType
           vapi_campaign_id?: string | null
           status?: CampaignStatus
@@ -4753,6 +4766,8 @@ export interface Database {
           called_at: string | null
           completed_at: string | null
           retry_count: number
+          // migration 1303: earliest this pending row may be dialled (NULL = now)
+          next_attempt_at: string | null
           created_at: string
           updated_at: string
         }
@@ -4769,16 +4784,20 @@ export interface Database {
           called_at?: string | null
           completed_at?: string | null
           retry_count?: number
+          next_attempt_at?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
+          name?: string | null
+          custom_data?: Json
           status?: CampaignContactStatus
           vapi_call_id?: string | null
           error_detail?: string | null
           called_at?: string | null
           completed_at?: string | null
           retry_count?: number
+          next_attempt_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7974,6 +7993,284 @@ export interface Database {
         }
         Relationships: []
       }
+      ads_account_policies: {
+        Row: {
+          ad_account_id: string | null
+          ai_mode: string | null
+          allow_bidding_changes: boolean | null
+          allow_bulk: boolean | null
+          allow_enable: boolean | null
+          approval_ttl_minutes: number | null
+          created_at: string
+          id: string
+          max_budget_increase_pct: number | null
+          max_daily_budget: number | null
+          org_id: string
+          platform: string | null
+          protected_campaign_ids: string[]
+          require_approval_min_risk: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ai_mode?: string | null
+          allow_bidding_changes?: boolean | null
+          allow_bulk?: boolean | null
+          allow_enable?: boolean | null
+          approval_ttl_minutes?: number | null
+          created_at?: string
+          id?: string
+          max_budget_increase_pct?: number | null
+          max_daily_budget?: number | null
+          org_id: string
+          platform?: string | null
+          protected_campaign_ids?: string[]
+          require_approval_min_risk?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          ai_mode?: string | null
+          allow_bidding_changes?: boolean | null
+          allow_bulk?: boolean | null
+          allow_enable?: boolean | null
+          approval_ttl_minutes?: number | null
+          created_at?: string
+          id?: string
+          max_budget_increase_pct?: number | null
+          max_daily_budget?: number | null
+          org_id?: string
+          platform?: string | null
+          protected_campaign_ids?: string[]
+          require_approval_min_risk?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_account_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_change_events: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          actor_type: string
+          change_request_id: string
+          created_at: string
+          detail: Json
+          event_type: string
+          from_status: string | null
+          id: string
+          org_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type: string
+          change_request_id: string
+          created_at?: string
+          detail?: Json
+          event_type: string
+          from_status?: string | null
+          id?: string
+          org_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type?: string
+          change_request_id?: string
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          org_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_change_events_change_request_id_fkey"
+            columns: ["change_request_id"]
+            isOneToOne: false
+            referencedRelation: "ads_change_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_change_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads_change_requests: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          actor_type: string
+          ad_account_id: string
+          approval_expires_at: string | null
+          approval_required: boolean
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_label: string | null
+          attempt_count: number
+          batch_id: string | null
+          before_hash: string | null
+          before_state: Json | null
+          campaign_id: string | null
+          command_type: string
+          completed_at: string | null
+          confirmation_hash: string | null
+          created_at: string
+          diff: Json
+          error_code: string | null
+          error_message: string | null
+          executed_at: string | null
+          external_drift: Json | null
+          external_drift_detected_at: string | null
+          id: string
+          idempotency_key: string
+          last_reconciled_at: string | null
+          intended_state: Json | null
+          next_attempt_at: string | null
+          org_id: string
+          payload: Json
+          platform: string
+          policy_verdict: Json
+          provider_ref: string | null
+          provider_result: Json | null
+          resource_id: string | null
+          resource_name: string | null
+          resource_type: string
+          risk_level: number
+          rollback_of: string | null
+          status: string
+          updated_at: string
+          verification: Json | null
+          warnings: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type: string
+          ad_account_id: string
+          approval_expires_at?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_label?: string | null
+          attempt_count?: number
+          batch_id?: string | null
+          before_hash?: string | null
+          before_state?: Json | null
+          campaign_id?: string | null
+          command_type: string
+          completed_at?: string | null
+          confirmation_hash?: string | null
+          created_at?: string
+          diff?: Json
+          error_code?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          external_drift?: Json | null
+          external_drift_detected_at?: string | null
+          id?: string
+          idempotency_key: string
+          last_reconciled_at?: string | null
+          intended_state?: Json | null
+          next_attempt_at?: string | null
+          org_id: string
+          payload: Json
+          platform: string
+          policy_verdict?: Json
+          provider_ref?: string | null
+          provider_result?: Json | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type: string
+          risk_level: number
+          rollback_of?: string | null
+          status?: string
+          updated_at?: string
+          verification?: Json | null
+          warnings?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_type?: string
+          ad_account_id?: string
+          approval_expires_at?: string | null
+          approval_required?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_label?: string | null
+          attempt_count?: number
+          batch_id?: string | null
+          before_hash?: string | null
+          before_state?: Json | null
+          campaign_id?: string | null
+          command_type?: string
+          completed_at?: string | null
+          confirmation_hash?: string | null
+          created_at?: string
+          diff?: Json
+          error_code?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          external_drift?: Json | null
+          external_drift_detected_at?: string | null
+          id?: string
+          idempotency_key?: string
+          last_reconciled_at?: string | null
+          intended_state?: Json | null
+          next_attempt_at?: string | null
+          org_id?: string
+          payload?: Json
+          platform?: string
+          policy_verdict?: Json
+          provider_ref?: string | null
+          provider_result?: Json | null
+          resource_id?: string | null
+          resource_name?: string | null
+          resource_type?: string
+          risk_level?: number
+          rollback_of?: string | null
+          status?: string
+          updated_at?: string
+          verification?: Json | null
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_change_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_change_requests_rollback_of_fkey"
+            columns: ["rollback_of"]
+            isOneToOne: false
+            referencedRelation: "ads_change_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ads_connections: {
         Row: {
           ad_account_id: string
@@ -8048,6 +8345,7 @@ export interface Database {
           before_value: string | null
           campaign_id: string | null
           campaign_name: string | null
+          change_request_id: string | null
           created_at: string
           description: string | null
           executed_at: string
@@ -8066,6 +8364,7 @@ export interface Database {
           before_value?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
+          change_request_id?: string | null
           created_at?: string
           description?: string | null
           executed_at?: string
@@ -8084,6 +8383,7 @@ export interface Database {
           before_value?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
+          change_request_id?: string | null
           created_at?: string
           description?: string | null
           executed_at?: string
@@ -8917,7 +9217,7 @@ export interface Database {
     }
     Enums: {
       user_role: UserRole
-      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'xkedule_cancel_booking' | 'xkedule_reschedule_booking' | 'xkedule_quote' | 'xkedule_lookup_customer' | 'xkedule_business_info' | 'send_zernio_dm' | 'medusa_search_products' | 'medusa_get_product' | 'medusa_get_cart' | 'medusa_add_to_cart' | 'medusa_update_cart_item' | 'medusa_wishlist_add' | 'medusa_wishlist_remove' | 'medusa_wishlist_list' | 'medusa_get_order_status'
+      action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'campaign_enroll_call' | 'calendar_list_slots' | 'calendar_book_meeting' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'xkedule_cancel_booking' | 'xkedule_reschedule_booking' | 'xkedule_quote' | 'xkedule_lookup_customer' | 'xkedule_business_info' | 'send_zernio_dm' | 'medusa_search_products' | 'medusa_get_product' | 'medusa_get_cart' | 'medusa_add_to_cart' | 'medusa_update_cart_item' | 'medusa_wishlist_add' | 'medusa_wishlist_remove' | 'medusa_wishlist_list' | 'medusa_get_order_status'
       integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa'
       // v2.0 (Phase 33) | agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel

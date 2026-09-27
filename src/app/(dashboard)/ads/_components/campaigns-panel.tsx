@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { handleEngineResponse } from './change-response'
 import { useCampaignsPanel } from './ads-campaigns-context'
 
 type Insights = {
@@ -150,11 +151,12 @@ export function CampaignsPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_status', campaign_id: row.id, ad_account_id: adAccountId, status: newStatus }),
       })
-      if (!res.ok) throw new Error('Failed to update status')
-      toast.success(`Campaign ${newStatus === 'ACTIVE' ? 'enabled' : 'paused'}.`)
-      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, effective_status: newStatus, status: newStatus } : r))
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update')
+      const applied = await handleEngineResponse(res, `Campaign ${newStatus === 'ACTIVE' ? 'enabled' : 'paused'}.`)
+      if (applied) {
+        setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, effective_status: newStatus, status: newStatus } : r))
+      }
+    } catch {
+      toast.error('Failed to update')
     } finally {
       setMutating(null)
     }
@@ -168,14 +170,14 @@ export function CampaignsPanel() {
       const res = await fetch('/api/ads/meta/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_daily_budget', campaign_id: id, ad_account_id: adAccountId, daily_budget_cents: Math.round(amount * 100) }),
+        // Major currency units — correct for zero-decimal currencies (JPY) too.
+        body: JSON.stringify({ action: 'set_daily_budget', campaign_id: id, ad_account_id: adAccountId, daily_budget: amount }),
       })
-      if (!res.ok) throw new Error('Failed to update budget')
-      toast.success('Daily budget updated.')
+      const applied = await handleEngineResponse(res, 'Daily budget updated.')
       setEditingBudget(null)
-      await fetchRows()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update budget')
+      if (applied) await fetchRows()
+    } catch {
+      toast.error('Failed to update budget')
     } finally {
       setMutating(null)
     }
