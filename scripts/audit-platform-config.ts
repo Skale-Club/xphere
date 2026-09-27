@@ -319,9 +319,26 @@ async function main() {
       if (toolCount > 0 && Array.isArray(a.serverMessages) && !a.serverMessages.includes('tool-calls')) {
         add('HIGH', 'voice', O, `assistant "${a.name}" has ${toolCount} tool(s) but serverMessages is narrowed to ${JSON.stringify(a.serverMessages)}`, 'the only configuration with real calls behind it is Vapi\'s default')
       }
+      // The platform pushes tools INLINE (model.tools). Anything left in
+      // model.toolIds on an assistant it manages is a leftover from the Vapi
+      // dashboard days — and on 2026-09-26 one of those was a second
+      // save_caller_message, so the model saw two definitions with one name.
+      // Neither the push diff nor this audit looked at toolIds that resolve.
+      const inlineNames = new Set((a.model?.tools ?? []).map((t) => (t as { function?: { name?: string } }).function?.name))
+      const platformManaged = Boolean(m.entry_agent_id)
       for (const tid of a.model?.toolIds ?? []) {
         const r = await fetch(`https://api.vapi.ai/tool/${tid}`, { headers: { Authorization: `Bearer ${a.key}` } })
-        if (r.status === 404) add('CRITICAL', 'voice', O, `assistant "${a.name}" references tool ${tid.slice(0, 8)}… which returns 404`, 'the prompt describes a tool the robot cannot call')
+        if (r.status === 404) {
+          add('CRITICAL', 'voice', O, `assistant "${a.name}" references tool ${tid.slice(0, 8)}… which returns 404`, 'the prompt describes a tool the robot cannot call')
+          continue
+        }
+        const tool = (await r.json()) as { function?: { name?: string } }
+        const name = tool.function?.name ?? '(unnamed)'
+        if (inlineNames.has(name)) {
+          add('HIGH', 'voice', O, `assistant "${a.name}" has "${name}" both inline and by toolId ${tid.slice(0, 8)}…`, 'two definitions with one name — the model picks either, and the by-id one is not what the push manages')
+        } else if (platformManaged) {
+          add('MEDIUM', 'voice', O, `assistant "${a.name}" carries toolId ${tid.slice(0, 8)}… ("${name}") that the platform does not manage`, 'a dashboard-era leftover; the push cannot update or remove it')
+        }
       }
       const sys = a.model?.messages?.find((x) => x.role === 'system')?.content ?? ''
       const bad = sys.match(/\{\{\s*(PERSONA|now|timezone)\s*\}\}/)
