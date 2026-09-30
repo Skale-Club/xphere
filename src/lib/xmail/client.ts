@@ -81,7 +81,21 @@ export interface XmailLead {
 }
 
 export type XmailCampaign = { id: string; name: string; status: string }
-export type XmailEmailAccount = { id: string; email: string; displayName: string | null }
+export type XmailEmailAccount = {
+  id: string
+  email: string
+  displayName: string | null
+  /**
+   * Whether Xmail will accept this account as a campaign sender (added by
+   * Xmail alongside this field, Item 2, 2026-09-30 — a work inbox like
+   * info@ is a real account but Xmail rejects it as a campaign sender with
+   * 422). Optional and three-valued in practice: `true`/`false` from a
+   * current Xmail, or entirely absent from an older one — callers picking
+   * an inbox automatically must treat "absent" as "unknown, don't guess",
+   * never coerce it to either boolean.
+   */
+  campaignSenderEligible?: boolean
+}
 
 /**
  * Bulk-import outreach leads into Xmail (idempotent: upserts by org + email).
@@ -129,7 +143,12 @@ export async function xmailListEmailAccounts(): Promise<
       : []
   return {
     ok: true,
-    accounts: raw.map((a) => ({ id: a.id as string, email: (a.email as string) ?? '', displayName: (a.displayName as string | null) ?? null })),
+    accounts: raw.map((a) => ({
+      id: a.id as string,
+      email: (a.email as string) ?? '',
+      displayName: (a.displayName as string | null) ?? null,
+      campaignSenderEligible: typeof a.campaignSenderEligible === 'boolean' ? a.campaignSenderEligible : undefined,
+    })),
   }
 }
 

@@ -910,11 +910,47 @@ export const prospectsTools: McpToolDef[] = [
         }
       }
 
-      // Resolve a sending inbox if none was provided (Xmail requires one to activate).
+      // Resolve a sending inbox if none was provided (Xmail requires one to
+      // activate) — Item 2 (2026-09-30): "the first available inbox" used to
+      // mean literally the first row Xmail returned, which could be a work
+      // inbox (e.g. info@) that Xmail itself refuses as a campaign sender
+      // with 422. Xmail now reports `campaignSenderEligible` per account;
+      // only choose among accounts where that is exactly `true` — never
+      // guess when it's absent (older Xmail) or when nothing qualifies.
       let inboxId = email_account_id
       if (!inboxId) {
         const accts = await xmailListEmailAccounts()
-        if (accts.ok && accts.accounts.length > 0) inboxId = accts.accounts[0].id
+        if (!accts.ok) {
+          return { error: `Could not list Xmail email accounts to pick a sending inbox: ${accts.error}` }
+        }
+        const eligible = accts.accounts.filter((a) => a.campaignSenderEligible === true)
+        if (eligible.length === 0) {
+          const fieldReported = accts.accounts.some((a) => a.campaignSenderEligible !== undefined)
+          return {
+            error: 'no_eligible_sending_inbox',
+            detail: fieldReported
+              ? "None of this org's email accounts are eligible campaign senders (campaignSenderEligible=false for all of them). Pass email_account_id explicitly once one is eligible."
+              : "Xmail did not report campaignSenderEligible for any account (older Xmail?) — cannot safely auto-pick a sending inbox. Pass email_account_id explicitly.",
+            email_accounts: accts.accounts.map((a) => ({ id: a.id, email: a.email, campaignSenderEligible: a.campaignSenderEligible })),
+          }
+        }
+        inboxId = eligible[0].id
+      } else {
+        // email_account_id was given explicitly — refuse up front if Xmail
+        // already knows it's not eligible, instead of letting Xmail's own
+        // 422 surface later. Best-effort: if the list call itself fails,
+        // proceed with the id as given rather than blocking on an unrelated
+        // read failure.
+        const accts = await xmailListEmailAccounts()
+        if (accts.ok) {
+          const chosen = accts.accounts.find((a) => a.id === inboxId)
+          if (chosen?.campaignSenderEligible === false) {
+            return {
+              error: 'email_account_not_campaign_eligible',
+              detail: `email_account_id ${inboxId} (${chosen.email}) is not eligible to send campaigns (campaignSenderEligible=false) — Xmail would reject this with 422. Pick a different email_account_id.`,
+            }
+          }
+        }
       }
 
       const service = db()
