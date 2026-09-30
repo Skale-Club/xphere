@@ -100,7 +100,12 @@ async function backfillTable(
   let scanned = 0
   let fixed = 0
   let noAddress = 0
-  let from = 0
+  // Keyset pagination (id > last seen id), NOT offset pagination. The filter below selects rows
+  // WITHOUT a city, and live mode fills cities in as it goes — so fixed rows drop out of the set
+  // being paged. With `.range(from, from + PAGE - 1)` and `from += PAGE`, page 2 would start PAGE
+  // rows into a set that already shrank, silently skipping rows (caught on review, 2026-09-30:
+  // dry-run can't show it because it writes nothing). Walking by id is immune to the set changing.
+  let lastId: string | null = null
   for (;;) {
     let query = supabase
       .from(table)
@@ -109,7 +114,9 @@ async function backfillTable(
       // NULL/absent city, narrowed server-side so we don't page through
       // every already-fixed prospect on every run.
       .is('custom_fields->city', null)
-      .range(from, from + PAGE - 1)
+      .order('id', { ascending: true })
+      .limit(PAGE)
+    if (lastId) query = query.gt('id', lastId)
     if (orgId) query = query.eq('org_id', orgId)
     const { data, error } = await query
     if (error) throw new Error(`${table} read failed: ${error.message}`)
@@ -152,8 +159,8 @@ async function backfillTable(
     fixed += patches.length
     log(`  ${table}: scanned ${scanned}, fixed ${fixed} so far (this page: ${data.length} rows)`)
 
+    lastId = (data as Row[])[data.length - 1].id
     if (data.length < PAGE) break
-    from += PAGE
   }
   return { scanned, fixed, noAddress }
 }
