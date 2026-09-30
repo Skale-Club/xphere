@@ -794,7 +794,7 @@ async function pushCappedToXmail(
   orgId: string,
   capped: ResolvedProspect[],
   externalRunId: string | undefined,
-): Promise<{ error: string } | { imported: number }> {
+): Promise<{ error: string } | { imported: number; retainedPlatformEmail: number }> {
   const service = db()
   const websiteInsights = await loadWebsiteInsightsForAccounts(
     service,
@@ -823,13 +823,23 @@ async function pushCappedToXmail(
   const imp = await xmailBulkImportLeads(leads)
   if (!imp.ok) return { error: `Xmail lead import failed: ${imp.error}` }
 
+  // Item 4 (2026-09-30): xmail_imported_at used to get stamped on every
+  // submitted prospect, INCLUDING the ones Xmail itself rejected as a
+  // platform email (skippedPlatformEmails) — marking a prospect "imported"
+  // when Xmail never actually accepted it. Only stamp the ones Xmail
+  // accepted or already had (leads[i] <-> capped[i] by index; Xmail
+  // lowercases at its boundary, so compare case-insensitively).
+  const skippedPlatform = new Set(imp.skippedPlatformEmails.map((email) => email.toLowerCase()))
+  const accepted = capped.filter((p, i) => !skippedPlatform.has(leads[i].email.toLowerCase()))
+  const retainedPlatformEmail = capped.length - accepted.length
+
   const nowIso = new Date().toISOString()
-  const contactIds = capped.filter((p) => p.kind === 'person').map((p) => p.id)
-  const accountIds = capped.filter((p) => p.kind === 'company').map((p) => p.id)
+  const contactIds = accepted.filter((p) => p.kind === 'person').map((p) => p.id)
+  const accountIds = accepted.filter((p) => p.kind === 'company').map((p) => p.id)
   if (contactIds.length) await service.from('contacts').update({ xmail_imported_at: nowIso }).in('id', contactIds)
   if (accountIds.length) await service.from('accounts').update({ xmail_imported_at: nowIso }).in('id', accountIds)
 
-  return { imported: imp.imported }
+  return { imported: imp.imported, retainedPlatformEmail }
 }
 
 /**
@@ -877,11 +887,20 @@ export async function importVerifiedProspectsToXmail(
   const pushed = await pushCappedToXmail(orgId, capped, opts.externalRunId)
   if ('error' in pushed) return { error: pushed.error, ...summary }
 
+  // Item 4 (2026-09-30): a submitted prospect Xmail itself rejected as a
+  // platform email is retained (no xmail_imported_at) rather than counted
+  // as imported — reported here the same way catch_all/unknown are, never
+  // silently folded into `imported`.
+  const platformSuffix = pushed.retainedPlatformEmail > 0
+    ? ` ${pushed.retainedPlatformEmail} retained as platform_email (Xmail rejected the address) — held back, not counted as imported.`
+    : ''
+
   return {
     imported: pushed.imported,
     ...summary,
+    ...(pushed.retainedPlatformEmail > 0 ? { retained_platform_email: pushed.retainedPlatformEmail } : {}),
     message:
-      `Imported ${pushed.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next (with its own confirmed:true) to start outreach.${heldBackSuffix}`,
+      `Imported ${pushed.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next (with its own confirmed:true) to start outreach.${heldBackSuffix}${platformSuffix}`,
   }
 }
 

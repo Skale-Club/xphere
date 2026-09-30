@@ -154,7 +154,7 @@ describe('prospects_import_to_xmail handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isXmailConfigured.mockReturnValue(true)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
   })
 
   it('returns external_run_not_found when external_run_id matches no prospect_sources row', async () => {
@@ -206,7 +206,7 @@ describe('prospects_import_to_xmail handler', () => {
       accounts: [],
     })
     createServiceRoleClient.mockReturnValue(db)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-ok'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-ok'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
 
     const input = tool().inputSchema.parse({ external_run_id: 'run-1', confirmed: true })
     const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
@@ -260,7 +260,7 @@ describe('prospects_import_to_xmail handler', () => {
       accounts: [],
     })
     createServiceRoleClient.mockReturnValue(db)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-new'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-new'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
 
     const input = tool().inputSchema.parse({ external_run_id: 'run-1', confirmed: true })
     const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
@@ -305,7 +305,7 @@ describe('prospects_import_to_xmail handler', () => {
       ],
     })
     createServiceRoleClient.mockReturnValue(db)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-acct-1'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-acct-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
 
     const input = tool().inputSchema.parse({ external_run_id: 'run-1', confirmed: true })
     await tool().handler(input, { auth: { orgId: 'org-1' } } as never)
@@ -329,7 +329,7 @@ describe('prospects_import_to_xmail handler', () => {
       accounts: [],
     })
     createServiceRoleClient.mockReturnValue(db)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
 
     const input = tool().inputSchema.parse({ source_type: 'xcraper', confirmed: true })
     await tool().handler(input, { auth: { orgId: 'org-1' } } as never)

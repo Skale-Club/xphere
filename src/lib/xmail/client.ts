@@ -99,13 +99,28 @@ export type XmailEmailAccount = {
 
 /**
  * Bulk-import outreach leads into Xmail (idempotent: upserts by org + email).
- * Returns the resolved Xmail lead ids for every submitted email (newly inserted
- * + pre-existing), so the caller can enroll the full set in a campaign.
+ * Returns the resolved Xmail lead ids for every submitted email Xmail
+ * actually accepted (newly inserted + pre-existing) so the caller can enroll
+ * the full set in a campaign.
+ *
+ * `skippedPlatformEmails` (Item 4, 2026-09-30) — the submitted addresses
+ * Xmail dropped as scheduling/marketplace platform emails (see its
+ * `POST /bulk-import` handler in xmail's src/server/routes/outreach/
+ * leads.ts) — and `duplicatesInPayload`, the count collapsed because the
+ * SAME email appeared more than once in this submission. Both always come
+ * back as their real values (an empty array / 0 when nothing was skipped),
+ * never omitted, so a caller can tell "nothing to report" apart from "field
+ * missing" — see prospects.ts's pushCappedToXmail, which uses
+ * skippedPlatformEmails to decide which submitted prospects were actually
+ * accepted before stamping xmail_imported_at.
  */
 export async function xmailBulkImportLeads(
   leads: XmailLead[],
-): Promise<{ ok: true; imported: number; leadIds: string[] } | { ok: false; error: string }> {
-  if (leads.length === 0) return { ok: true, imported: 0, leadIds: [] }
+): Promise<
+  | { ok: true; imported: number; leadIds: string[]; skippedPlatformEmails: string[]; duplicatesInPayload: number }
+  | { ok: false; error: string }
+> {
+  if (leads.length === 0) return { ok: true, imported: 0, leadIds: [], skippedPlatformEmails: [], duplicatesInPayload: 0 }
   const res = await xmailFetch('/api/outreach/leads/bulk-import', {
     method: 'POST',
     query: { organizationId: XMAIL_ORG_ID },
@@ -114,7 +129,9 @@ export async function xmailBulkImportLeads(
   if (!res.ok) return res
   const leadIds = Array.isArray(res.data.leadIds) ? (res.data.leadIds as string[]) : []
   const imported = (res.data.imported as number) ?? 0
-  return { ok: true, imported, leadIds }
+  const skippedPlatformEmails = Array.isArray(res.data.skippedPlatformEmails) ? (res.data.skippedPlatformEmails as string[]) : []
+  const duplicatesInPayload = (res.data.duplicatesInPayload as number) ?? 0
+  return { ok: true, imported, leadIds, skippedPlatformEmails, duplicatesInPayload }
 }
 
 /** List the org's outreach campaigns (id, name, status). */

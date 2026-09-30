@@ -125,7 +125,7 @@ describe('prospects_enroll_in_campaign — campaignSenderEligible inbox gate (It
       results: [{ kind: 'contact', id: 'c-ok', email: 'ada@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: true }, sendable: true }],
       aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
     })
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
     xmailAddLeadsToCampaign.mockResolvedValue({ ok: true, added: 1 })
     // Deliberately not ok — keeps markEnrolled's DB insert out of scope for
     // these tests, which only care about which emailAccountId was chosen.

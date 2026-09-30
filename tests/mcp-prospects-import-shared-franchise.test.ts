@@ -120,7 +120,7 @@ describe('prospects_import_to_xmail — shared_email + franchise retention (Item
   beforeEach(() => {
     vi.clearAllMocks()
     isXmailConfigured.mockReturnValue(true)
-    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
   })
 
   it('Booksy ×11 -> shared_email; Sport Clips -> franchise; Roslindale ×2 (same business) imports normally', async () => {

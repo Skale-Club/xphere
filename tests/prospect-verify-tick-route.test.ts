@@ -361,7 +361,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     // AFTER importRoute(), never before, or configuring it here is a no-op.
     const { GET } = await importRoute({ PROSPECTING_AUTO_VERIFY: '1' })
     const xmailBulkImportLeadsMock = (await import('@/lib/xmail/client')).xmailBulkImportLeads as ReturnType<typeof vi.fn>
-    xmailBulkImportLeadsMock.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+    xmailBulkImportLeadsMock.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
 
     const res = await GET(makeRequest())
     const body = await res.json()
