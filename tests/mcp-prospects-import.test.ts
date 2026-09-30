@@ -244,7 +244,7 @@ describe('prospects_import_to_xmail handler', () => {
     const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
 
     expect(result.imported).toBe(0)
-    expect(result.held_back).toEqual({ catch_all: 1, unknown: 0, unverified: 1, invalid: 0 })
+    expect(result.held_back).toEqual({ catch_all: 1, unknown: 0, unverified: 1, invalid: 0, shared_email: 0, franchise: 0 })
     expect(xmailBulkImportLeads).not.toHaveBeenCalled()
     expect(db.updateCalls).toHaveLength(0)
   })

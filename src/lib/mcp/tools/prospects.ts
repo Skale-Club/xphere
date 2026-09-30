@@ -24,6 +24,7 @@ import {
 import { loadWebsiteInsightsForAccounts } from '@/lib/xmail/website-insights'
 import { loadSourceRunIdsForEntities } from '@/lib/xmail/source-runs'
 import { isDndBlocked, loadEmailSuppressions, normalizeOutreachEmail } from '@/lib/prospects/outreach-eligibility'
+import { matchesFranchiseBrand } from '@/lib/prospects/franchise-brands'
 import type { WebsiteInsights } from '@/services/website-analyzer/outreach-insights'
 import {
   verifyProspectsBatch,
@@ -542,7 +543,24 @@ export function resolveVerificationProvider(results: Array<{ result: VerifyEmail
 // are held back and counted (never silently dropped), and an already-staged
 // prospect (xmail_imported_at set) is skipped.
 
-type HeldBack = { catch_all: number; unknown: number; unverified: number; invalid: number }
+type HeldBack = {
+  catch_all: number
+  unknown: number
+  unverified: number
+  invalid: number
+  /** Item 3(a), 2026-09-30. */
+  shared_email: number
+  /** Item 3(b), 2026-09-30. */
+  franchise: number
+}
+
+type RetainedForReview = {
+  name: string | null
+  email: string
+  reason: 'shared_email' | 'franchise'
+  matched_brand?: string
+  distinct_businesses?: number
+}
 
 type ImportCandidates = {
   matched: ResolvedProspect[]
@@ -550,6 +568,99 @@ type ImportCandidates = {
   importable: ResolvedProspect[]
   heldBack: HeldBack
   capped: ResolvedProspect[]
+  retained: RetainedForReview[]
+}
+
+// ── Item 3(a): shared_email — retain a platform/franchise-style support
+// address used by 3+ distinct businesses ─────────────────────────────────
+//
+// Measured (2026-09-30): help.us@booksy.com was recorded as the contact
+// email of 11 DIFFERENT scraped barbershops (already blocked as a platform
+// domain elsewhere in the pipeline — Xmail's bulk-import platform-email
+// filter and Xcraper's own filter both catch booksy.com support addresses —
+// but the underlying "one email, many businesses" pattern isn't specific to
+// booksy.com; a self-hosted shared address, e.g. a franchisor's or a
+// management company's, would slip past a domain-based filter entirely).
+// Threshold is 3, not 2, because two DIFFERENT listings for the SAME
+// business must not count as two distinct businesses: "ATM (Roslindale
+// Barbershop)" and "Roslindale Barbershop" are one shop recorded twice under
+// slightly different names, both sharing roslindalebarbershop@live.com — at
+// a threshold of 2 that single business would itself trip the "shared"
+// flag and get blocked from ever importing normally. 3 is the smallest
+// threshold clear of that false positive while still catching genuinely
+// shared addresses.
+//
+// businessIdentityKey() is what makes the Roslindale case collapse to one
+// business: it prefers the site/domain (most reliable) and only falls back
+// to a normalized name — with a preference for whatever is inside
+// parentheses, since Google Maps listings sometimes record a business as
+// "OLD NAME (CURRENT NAME)" — when neither record has a site on file, which
+// is the common case for these small businesses (see `no_owned_website` in
+// prospects_list's web_presence filter).
+
+function normalizeBusinessName(raw: string | null): string {
+  if (!raw) return ''
+  const paren = raw.match(/\(([^)]+)\)/)
+  const core = paren ? paren[1] : raw
+  return core.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function normalizeSite(site: string | null): string {
+  if (!site) return ''
+  return site
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*$/, '')
+}
+
+/** Identifies a "business" for shared-email counting: same site/domain (when
+ *  either record has one) always wins over name text, so differently-spelled
+ *  listings of the same shop collapse into one. Falls back to the normalized
+ *  (parenthetical-preferring) name only when neither has a site on file. */
+function businessIdentityKey(name: string | null, site: string | null): string {
+  const normalizedSite = normalizeSite(site)
+  return normalizedSite ? `site:${normalizedSite}` : `name:${normalizeBusinessName(name)}`
+}
+
+/**
+ * Counts, for each candidate email (lowercased), how many DISTINCT businesses
+ * in this org have that email on file — scoped to company (account)
+ * prospects, since the measured pattern (Booksy, franchise HQs) is a
+ * business-support address, not a person's. Looks at every company prospect
+ * in the org, not just the current filtered batch: a shared address can
+ * appear across many different scrape runs, so counting only within one
+ * run's batch would undercount it (exactly the Booksy case — no single run
+ * scraped all 11 shops at once). Returns only the emails whose count meets
+ * the >=3 threshold — see the comment above this function for why.
+ */
+async function detectSharedEmailCounts(orgId: string, candidateEmails: string[]): Promise<Map<string, number>> {
+  const candidateSet = new Set(candidateEmails.map((email) => email.toLowerCase()))
+  if (candidateSet.size === 0) return new Map()
+
+  const { data } = await db()
+    .from('accounts')
+    .select('name, website, domain, custom_fields')
+    .eq('org_id', orgId)
+    .eq('lifecycle_stage', 'prospect')
+
+  const businessKeysByEmail = new Map<string, Set<string>>()
+  for (const row of (data ?? []) as Array<{ name: string | null; website: string | null; domain: string | null; custom_fields: unknown }>) {
+    const email = emailFromCustomFields(row.custom_fields)
+    if (!email) continue
+    const normalizedEmail = email.toLowerCase()
+    if (!candidateSet.has(normalizedEmail)) continue
+    const key = businessIdentityKey(row.name, row.domain ?? row.website)
+    const keys = businessKeysByEmail.get(normalizedEmail) ?? new Set<string>()
+    keys.add(key)
+    businessKeysByEmail.set(normalizedEmail, keys)
+  }
+
+  const result = new Map<string, number>()
+  for (const [email, keys] of businessKeysByEmail) {
+    if (keys.size >= 3) result.set(email, keys.size)
+  }
+  return result
 }
 
 /** Resolves the matched/held-back/importable/capped sets for one import call — no
@@ -573,12 +684,41 @@ async function resolveImportCandidates(
   // is not worth staging as a lead either.
   const matched = await resolveProspects(orgId, filters, { requireEmail: true, cap: 2000, sourceIds })
 
-  const heldBack: HeldBack = { catch_all: 0, unknown: 0, unverified: 0, invalid: 0 }
+  const heldBack: HeldBack = { catch_all: 0, unknown: 0, unverified: 0, invalid: 0, shared_email: 0, franchise: 0 }
   const alreadyImported: ResolvedProspect[] = []
-  const importable: ResolvedProspect[] = []
+  const retained: RetainedForReview[] = []
+
+  // Pass 1: franchise recognition (company-kind only, no query) — cheaper
+  // than the shared-email query below, so it runs first and franchise
+  // matches never also occupy a shared-email slot.
+  const afterFranchise: ResolvedProspect[] = []
   for (const p of matched) {
     if (p.xmail_imported_at) {
       alreadyImported.push(p)
+      continue
+    }
+    const brand = p.kind === 'company' ? matchesFranchiseBrand(p.name, p.email, p.website) : null
+    if (brand) {
+      heldBack.franchise++
+      retained.push({ name: p.name, email: p.email as string, reason: 'franchise', matched_brand: brand })
+      continue
+    }
+    afterFranchise.push(p)
+  }
+
+  // Pass 2: shared-email recognition (company-kind only, one query for the
+  // whole batch — see detectSharedEmailCounts).
+  const companyEmails = afterFranchise
+    .filter((p): p is ResolvedProspect & { email: string } => p.kind === 'company' && Boolean(p.email))
+    .map((p) => p.email)
+  const sharedEmailCounts = await detectSharedEmailCounts(orgId, companyEmails)
+
+  const importable: ResolvedProspect[] = []
+  for (const p of afterFranchise) {
+    const sharedCount = p.kind === 'company' && p.email ? sharedEmailCounts.get(p.email.toLowerCase()) : undefined
+    if (sharedCount) {
+      heldBack.shared_email++
+      retained.push({ name: p.name, email: p.email as string, reason: 'shared_email', distinct_businesses: sharedCount })
       continue
     }
     switch (p.email_status) {
@@ -603,14 +743,14 @@ async function resolveImportCandidates(
   }
 
   const capped = importable.slice(0, cap)
-  return { matched, alreadyImported, importable, heldBack, capped }
+  return { matched, alreadyImported, importable, heldBack, capped, retained }
 }
 
 /** Shapes the resolveImportCandidates result into the response `summary` fields
  *  (matched/already_imported/importable/held_back/capped/sample) shared by the
  *  dry-run and confirmed responses, plus the held-back note appended to messages. */
 function buildImportSummary(candidates: ImportCandidates, cap: number) {
-  const { matched, alreadyImported, importable, heldBack, capped: cappedList } = candidates
+  const { matched, alreadyImported, importable, heldBack, capped: cappedList, retained } = candidates
   const heldBackNotes: string[] = []
   if (heldBack.catch_all || heldBack.unknown) {
     heldBackNotes.push(`${heldBack.catch_all} catch_all and ${heldBack.unknown} unknown held back for a human decision`)
@@ -620,6 +760,12 @@ function buildImportSummary(candidates: ImportCandidates, cap: number) {
   }
   if (heldBack.invalid) {
     heldBackNotes.push(`${heldBack.invalid} invalid/disposable/bounced excluded`)
+  }
+  if (heldBack.shared_email) {
+    heldBackNotes.push(`${heldBack.shared_email} shared_email (same address on 3+ distinct businesses) held back for a human decision — see retained_for_review`)
+  }
+  if (heldBack.franchise) {
+    heldBackNotes.push(`${heldBack.franchise} franchise location(s) held back — see retained_for_review`)
   }
   const heldBackSuffix = heldBackNotes.length ? ` ${heldBackNotes.join('; ')}.` : ''
   return {
@@ -633,6 +779,9 @@ function buildImportSummary(candidates: ImportCandidates, cap: number) {
           ? { total_importable: importable.length, cap, remaining: importable.length - cap }
           : undefined,
       sample: cappedList.slice(0, 5).map((p) => ({ name: p.name, email: p.email, score: p.score, email_status: p.email_status })),
+      // Item 3, 2026-09-30: never a silent drop, same as catch_all/unknown —
+      // capped so a large shared-email/franchise batch doesn't blow up the response.
+      retained_for_review: retained.length > 0 ? retained.slice(0, 10) : undefined,
     },
     heldBackSuffix,
   }
