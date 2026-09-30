@@ -1,7 +1,18 @@
 // src/lib/request-ip.ts
 // Shared client-IP extraction for public routes behind the reverse proxy.
-// First hop of x-forwarded-for is the client (Traefik appends, client-supplied
-// values are leftmost — good enough for rate-limit keying, not for auth).
+//
+// The LEFT end of x-forwarded-for is whatever the client sent, so reading it
+// let anyone pick their own rate-limit bucket (and, with IP bans, frame someone
+// else). resolveClientIp walks the chain from the right instead, skipping our
+// own proxy hops, and trusts CF-Connecting-IP only when the peer really is a
+// Cloudflare edge — hosts are not guaranteed to sit behind Cloudflare.
+import { clientIpFromHeaders } from '@/lib/security/bot-defense'
+
 export function getClientIp(request: Request): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  return clientIpFromHeaders(request.headers) ?? 'unknown'
+}
+
+/** Same resolution for code that only has a Headers-like object (server actions). */
+export function getClientIpFromHeaders(headers: { get(name: string): string | null }): string {
+  return clientIpFromHeaders(headers) ?? 'unknown'
 }

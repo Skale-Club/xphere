@@ -3,6 +3,7 @@ export const runtime = 'nodejs'
 import { processIngest } from '@/lib/analytics/ingest'
 import type { IngestPayload } from '@/lib/analytics/types'
 import { rateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-ip'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,7 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const ip = getClientIp(request)
     const rl = await rateLimit(`analytics:ingest:${ip}`, RL_LIMIT, RL_WINDOW)
     if (!rl.allowed) {
       return Response.json({ ok: true }, { headers: CORS_HEADERS })

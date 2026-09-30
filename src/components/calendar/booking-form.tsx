@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useRef, useTransition } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { createBooking } from '@/app/(dashboard)/calendar/_actions/bookings'
 import type { TimeSlot } from '@/lib/calendar/slots'
+import { HoneypotField } from '@/components/security/honeypot-field'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -60,6 +61,7 @@ export function BookingForm({
   prefill,
 }: BookingFormProps) {
   const [isPending, startTransition] = useTransition()
+  const honeypotRef = useRef<HTMLInputElement>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -83,6 +85,7 @@ export function BookingForm({
         booker_timezone: timezone,
         notes: values.notes,
         location_kind: selectedLocationKind,
+        hp_extra: honeypotRef.current?.value ?? '',
       })
 
       if (!result.ok) {
@@ -104,7 +107,7 @@ export function BookingForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="relative space-y-4">
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>Your name</FormLabel>
@@ -161,6 +164,8 @@ export function BookingForm({
         <Button type="submit" disabled={isPending} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
           {isPending ? 'Confirming…' : 'Confirm booking'}
         </Button>
+        {/* Last child: an extra first child would shift space-y margins. */}
+        <HoneypotField ref={honeypotRef} />
       </form>
     </Form>
   )

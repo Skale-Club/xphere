@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, unstable_rethrow } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -30,6 +30,7 @@ import {
 import { mapSupabaseError, authErrorCodeToMessage } from '@/lib/auth/errors'
 import { signInWithEmail, signUpWithEmail } from '@/actions/auth'
 import { trackEvent } from '@/lib/tracking/events'
+import { HoneypotField } from '@/components/security/honeypot-field'
 
 export type AuthMode = 'signin' | 'signup'
 export type AuthView = 'step1' | 'step2' | 'reset'
@@ -429,6 +430,7 @@ function SignUpForm({
   onError: (msg: string | null) => void
 }) {
   const router = useRouter()
+  const honeypotRef = useRef<HTMLInputElement>(null)
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     mode: 'onSubmit',
@@ -444,6 +446,7 @@ function SignUpForm({
         email: values.email,
         password: values.password,
         emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
+        hp_extra: honeypotRef.current?.value ?? '',
       })
       if (!result.ok) {
         onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
@@ -469,7 +472,7 @@ function SignUpForm({
       <GoogleButton disabled={busy} onStart={onNavigating} onError={(m) => onError(m)} />
       <Divider />
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="space-y-4">
+        <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="relative space-y-4">
           <FormField
             control={form.control}
             name="email"
@@ -526,6 +529,8 @@ function SignUpForm({
               </>
             )}
           </Button>
+          {/* Last child: an extra first child would shift space-y margins. */}
+          <HoneypotField ref={honeypotRef} />
         </form>
       </Form>
     </>

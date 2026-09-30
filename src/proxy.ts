@@ -1,5 +1,31 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getClientIp } from '@/lib/request-ip'
+import { banRemainingMs, checkTrap } from '@/lib/security/bot-defense'
+
+/**
+ * Bot defense, ahead of everything else (pages + the anonymous public APIs):
+ * a banned IP gets 403, a scanner probing a trap path (/.env, /.git/,
+ * xmlrpc.php, …) gets 404 and an escalating ban. Pure in-memory work — no
+ * network, no database. /api/health is never blocked so the Coolify health
+ * check cannot be locked out. See src/lib/security/bot-defense.ts.
+ */
+function botDefense(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl
+  if (pathname === '/api/health') return null
+  const ip = getClientIp(request)
+  const remaining = banRemainingMs(ip)
+  if (remaining > 0) {
+    return new NextResponse('Forbidden', {
+      status: 403,
+      headers: { 'Cache-Control': 'no-store', 'Retry-After': String(Math.ceil(remaining / 1000)) },
+    })
+  }
+  if (checkTrap(pathname, ip, request.headers.get('user-agent')).trapped) {
+    return new NextResponse('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } })
+  }
+  return null
+}
 
 /**
  * Session-refresh proxy (Next.js 16's successor to `middleware.ts`, required by
@@ -30,6 +56,12 @@ import { NextResponse, type NextRequest } from 'next/server'
  * in getUser() at the gate.
  */
 export async function proxy(request: NextRequest) {
+  const blocked = botDefense(request)
+  if (blocked) return blocked
+  // API routes only needed the bot check: webhooks and the public API carry no
+  // user session, and refreshing one would cost an Auth call per webhook hit.
+  if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next()
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -64,11 +96,16 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api routes (webhooks/public API have no user session; avoids an auth
-     *   network call on every webhook hit)
+     * - api routes (webhooks/public API have no user session; also keeps
+     *   large upload bodies out of the proxy, which buffers request bodies)
      * - Next.js internals and static assets
      * - the service worker and PWA manifest
      */
     '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    // Public, anonymous, small-JSON endpoints: bot defense only (proxy()
+    // returns before the session refresh for /api/*).
+    '/api/chat/:path*',
+    '/api/widget/:path*',
+    '/api/analytics/:path*',
   ],
 }

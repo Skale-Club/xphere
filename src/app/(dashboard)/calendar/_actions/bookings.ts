@@ -12,6 +12,8 @@ import { lookBusyConfigFor } from '@/lib/calendar/look-busy'
 import { fetchBusyTimes } from '@/lib/calendar/google-calendar'
 import { resolveAndValidateSlot } from '@/lib/calendar/booking-validation'
 import { rateLimit } from '@/lib/rate-limit'
+import { getClientIpFromHeaders } from '@/lib/request-ip'
+import { isBotSubmission } from '@/lib/security/bot-defense'
 import { resolveLiveContactId } from '@/lib/contacts/server'
 import {
   sendBookingConfirmation,
@@ -110,21 +112,17 @@ async function resolveHostName(userId: string): Promise<string> {
   }
 }
 
-// Extract the client IP from the incoming request headers. Vercel + most
-// reverse proxies populate x-forwarded-for (comma-separated). We take the
-// first entry. Falls back to x-real-ip, then 'unknown' so rate limiting
-// degrades to a single shared bucket rather than crashing.
+// Client IP for rate limiting and bot defense. Resolved right-to-left through
+// our proxy chain (see src/lib/request-ip.ts) — the leftmost x-forwarded-for
+// entry is client-controlled and must never key a rate limit. Falls back to
+// 'unknown' so rate limiting degrades to a shared bucket rather than crashing.
 async function getClientIp(): Promise<string> {
   try {
-    const h = await headers()
-    const xff = h.get('x-forwarded-for')
-    if (xff) return xff.split(',')[0].trim()
-    const xri = h.get('x-real-ip')
-    if (xri) return xri.trim()
+    return getClientIpFromHeaders(await headers())
   } catch {
     // headers() throws outside a request context | treat as unknown.
+    return 'unknown'
   }
-  return 'unknown'
 }
 
 type ActionResult<T = void> =
@@ -531,6 +529,9 @@ const createBookingSchema = z.object({
   booker_timezone: z.string().default('UTC'),
   notes: z.string().max(2000).optional(),
   location_kind: z.string().optional(),
+  // Honeypot: rendered off-screen on the public booking form, never filled by
+  // a person. Checked on the raw input before validation (see createBooking).
+  hp_extra: z.string().optional(),
 })
 
 export type CreateBookingInput = z.input<typeof createBookingSchema>
@@ -538,12 +539,19 @@ export type CreateBookingInput = z.input<typeof createBookingSchema>
 export async function createBooking(
   input: CreateBookingInput,
 ): Promise<ActionResult<{ id: string; cancel_token: string }>> {
+  // Bot trap first: a filled honeypot gets a normal-looking success with
+  // throwaway ids and nothing is written, so the bot learns nothing. No fill-
+  // time check here — the form can be prefilled from the query string.
+  const ip = await getClientIp()
+  if (isBotSubmission(input, { source: 'xphere:booking', checkElapsed: false, ip })) {
+    return { ok: true, data: { id: crypto.randomUUID(), cancel_token: crypto.randomUUID() } }
+  }
+
   const parsed = createBookingSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'validation_error' }
 
   // Rate limit per (IP, event_type) | 5 bookings per hour. Fails open if
   // Redis is unreachable so we never block legitimate traffic on infra hiccups.
-  const ip = await getClientIp()
   const rl = await rateLimit(
     `booking:${ip}:${parsed.data.event_type_id}`,
     5,

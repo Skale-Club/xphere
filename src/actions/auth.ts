@@ -1,8 +1,10 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { mapSupabaseError, type AuthErrorCode } from '@/lib/auth/errors'
+import { getClientIpFromHeaders } from '@/lib/request-ip'
+import { isBotSubmission } from '@/lib/security/bot-defense'
 
 /**
  * Mirrors the cookie written by /auth/callback/route.ts so that email-based
@@ -52,6 +54,8 @@ interface EmailPasswordInput {
 
 interface SignUpInput extends EmailPasswordInput {
   emailRedirectTo?: string
+  /** Honeypot — must be empty. See HoneypotField. */
+  hp_extra?: string
 }
 
 export async function signInWithEmail(
@@ -82,6 +86,11 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   input: SignUpInput,
 ): Promise<AuthActionResult> {
+  // Bot trap: a filled honeypot looks like "check your email" and creates
+  // nothing, so signup spam never reaches Supabase Auth or its email quota.
+  if (isBotSubmission(input, { source: 'xphere:signup', checkElapsed: false, ip: getClientIpFromHeaders(await headers()) })) {
+    return { ok: true, hasSession: false }
+  }
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
