@@ -18,6 +18,22 @@
 // per run, exactly like a manual `prospects_verify` call would produce), and
 // two safety rails a human would otherwise have to apply by hand.
 //
+// ── Auto-import of the verified 'ok' ones (Item 1, 2026-09-30) ─────────────
+// Before this, verification and import were two separate manual steps —
+// `prospects_verify` (or this tick) would leave freshly-verified
+// email_status='ok' prospects sitting in Xphere until a human ran
+// `prospects_import_to_xmail` by hand. After each run group is verified and
+// Xmail is notified below, this tick also calls
+// `importVerifiedProspectsToXmail` (src/lib/mcp/tools/prospects.ts) for that
+// same external_run_id — the exact same function `prospects_import_to_xmail`
+// itself calls, so the rules are identical: only email_status='ok' is ever
+// imported, catch_all/unknown/unverified/invalid are retained for a human,
+// and nothing is ever enrolled in a campaign or activated. Gated by the same
+// PROSPECTING_AUTO_VERIFY flag as the rest of this tick — disabled means no
+// verification AND no import, not one without the other. Import failures
+// are logged and reported per-run but never abort the tick (the verification
+// + notification for that run already succeeded and stands on its own).
+//
 // ── OFF BY DEFAULT (this is deliberate) ─────────────────────────────────────
 // This is the first automation in the codebase that can spend real money
 // (MillionVerifier/NeverBounce credits) with nobody in the loop. It does
@@ -66,7 +82,12 @@ import {
 } from '@/lib/email-verification/verify'
 import { getMillionVerifierCredits, getVerificationCreditStatus, type VerificationCreditStatus } from '@/lib/email-verification/credits'
 import { isXmailConfigured, xmailNotifyVerificationComplete } from '@/lib/xmail/client'
-import { emailFromCustomFields, verifyOutputCounts, resolveVerificationProvider } from '@/lib/mcp/tools/prospects'
+import {
+  emailFromCustomFields,
+  verifyOutputCounts,
+  resolveVerificationProvider,
+  importVerifiedProspectsToXmail,
+} from '@/lib/mcp/tools/prospects'
 import { captureApiError } from '@/lib/api-error'
 import { createLogger } from '@/lib/obs/logger'
 
@@ -401,6 +422,7 @@ export async function GET(request: Request): Promise<Response> {
   let creditsUsedTotal: number | null = 0
   let stoppedReason: 'no_credits' | null = null
   let processedCount = 0
+  let importedToXmailTotal = 0
   const runResults: Array<Record<string, unknown>> = []
 
   for (const group of groups) {
@@ -468,6 +490,31 @@ export async function GET(request: Request): Promise<Response> {
       xmailError = 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID / XMAIL_SERVICE_KEY not set).'
     }
 
+    // Item 1 (2026-09-30): import whatever just landed on email_status='ok' for
+    // this run — the exact same function prospects_import_to_xmail itself calls,
+    // so the rules are identical (only 'ok', never enrolls/activates). Attempted
+    // even when the notify call above failed: the verification already
+    // persisted, and importing is independently useful.
+    let importedToXmail = 0
+    let importError: string | undefined
+    if (isXmailConfigured()) {
+      try {
+        const importResult = await importVerifiedProspectsToXmail(group.orgId, {}, { externalRunId: group.externalRunId })
+        if (typeof importResult.imported === 'number') {
+          importedToXmail = importResult.imported
+        } else if (importResult.error) {
+          importError = String(importResult.error)
+          log.error('prospect_verify_tick_import_failed', { externalRunId: group.externalRunId, error: importResult.error })
+        }
+      } catch (err) {
+        importError = err instanceof Error ? err.message : String(err)
+        log.error('prospect_verify_tick_import_threw', { externalRunId: group.externalRunId, error: err })
+      }
+    } else {
+      importError = 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID / XMAIL_SERVICE_KEY not set).'
+    }
+    importedToXmailTotal += importedToXmail
+
     runResults.push({
       external_run_id: group.externalRunId,
       checked: group.candidates.length,
@@ -476,6 +523,8 @@ export async function GET(request: Request): Promise<Response> {
       verification_provider: verificationProvider,
       xmail_notified: xmailNotified,
       ...(xmailError ? { xmail_error: xmailError } : {}),
+      imported_to_xmail: importedToXmail,
+      ...(importError ? { import_error: importError } : {}),
     })
 
     if (batch.aggregate.blocked > 0) {
@@ -493,6 +542,7 @@ export async function GET(request: Request): Promise<Response> {
     groupsFound: groups.length,
     groupsProcessed: runResults.length,
     processed: processedCount,
+    importedToXmailTotal,
     skippedNoExternalRun,
     unlinkable,
     stoppedReason,
@@ -518,6 +568,7 @@ export async function GET(request: Request): Promise<Response> {
     // that collision (they carry no top-level `ok` of their own).
     totals: verifyOutputCounts(totals),
     credits_used: creditsUsedTotal,
+    imported_to_xmail: importedToXmailTotal,
     credit_status: creditStatus,
     stopped_reason: stoppedReason,
     runs: runResults,

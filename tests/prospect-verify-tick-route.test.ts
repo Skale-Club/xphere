@@ -86,10 +86,14 @@ function matchRow(row: Record<string, unknown>, filters: Filter[]): boolean {
 /** A chainable Supabase query-builder stub good enough for this route's own
  *  filter/order/limit/count usage — same spirit as mcp-prospects-verify.test.ts's
  *  makeDb, extended with is/not/gte/count-mode since this route uses all of them. */
-function makeQuery(rows: Array<Record<string, unknown>>) {
+function makeQuery(
+  rows: Array<Record<string, unknown>>,
+  onUpdate?: (data: Record<string, unknown>, ids: unknown[]) => void,
+) {
   let countMode = false
   let limitN: number | null = null
   let orderSpec: { col: string; ascending: boolean } | null = null
+  let pendingUpdate: Record<string, unknown> | undefined
   const filters: Filter[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const q: any = {}
@@ -115,7 +119,25 @@ function makeQuery(rows: Array<Record<string, unknown>>) {
     filters.push({ type: 'gte', col, val })
     return q
   }
+  // .update(data) stages a write; the following .in(col, ids) (Item 1's
+  // xmail_imported_at stamp, via pushCappedToXmail) applies it in place to
+  // the matching rows and resolves immediately instead of collecting a
+  // read-time filter — mirrors makeDb's update/in capture in
+  // tests/mcp-prospects-import.test.ts.
+  q.update = (data: Record<string, unknown>) => {
+    pendingUpdate = data
+    return q
+  }
   q.in = (col: string, vals: unknown[]) => {
+    if (pendingUpdate) {
+      const data = pendingUpdate
+      pendingUpdate = undefined
+      for (const row of rows) {
+        if (vals.includes(row.id)) Object.assign(row, data)
+      }
+      onUpdate?.(data, vals)
+      return Promise.resolve({ data: null, error: null })
+    }
     filters.push({ type: 'in', col, vals })
     return q
   }
@@ -148,7 +170,13 @@ function makeQuery(rows: Array<Record<string, unknown>>) {
 }
 
 function fakeDb(rowsByTable: Record<string, Array<Record<string, unknown>>>) {
-  return { from: vi.fn((table: string) => makeQuery(rowsByTable[table] ?? [])) }
+  const updateCalls: Array<{ table: string; data: Record<string, unknown>; ids: unknown[] }> = []
+  return {
+    from: vi.fn((table: string) =>
+      makeQuery(rowsByTable[table] ?? [], (data, ids) => updateCalls.push({ table, data, ids })),
+    ),
+    updateCalls,
+  }
 }
 
 function makeRequest(): Request {
@@ -298,6 +326,89 @@ describe('GET /api/cron/prospect-verify-tick', () => {
       expect.objectContaining({ external_run_id: 'run-42', checked: 1, ok: 1, credits_used: 1, xmail_notified: true }),
     ])
     expect(body.stopped_reason).toBeNull()
+  })
+
+  it('Item 1 (2026-09-30): imports the run\'s email_status="ok" prospect into Xmail after verifying/notifying, and stamps xmail_imported_at', async () => {
+    // Starts email_status: null so loadCandidates() (which filters on exactly
+    // that) picks it up for verification, same as any never-checked prospect.
+    const contactFixture = { id: 'c1', org_id: 'org-1', email: 'alice@example.com', created_at: '2026-09-29T00:00:00.000Z', prospect_source_id: 'src-1', email_status: null as string | null, lifecycle_stage: 'prospect', xmail_imported_at: null }
+    const db = fakeDb({
+      contacts: [contactFixture],
+      accounts: [],
+      prospect_sources: [{ id: 'src-1', org_id: 'org-1', external_run_id: 'run-42' }],
+    })
+    createServiceRoleClient.mockReturnValue(db)
+    getVerificationCreditStatus.mockResolvedValue(okCreditStatus)
+    getMillionVerifierCredits.mockResolvedValueOnce({ configured: true, credits: 500, ok: true }).mockResolvedValueOnce({ configured: true, credits: 499, ok: true })
+    // verifyProspectsBatch is mocked (not the real verify engine), so it
+    // never touches the DB on its own — this mutates the SAME fixture object
+    // the fake DB reads from, standing in for verifyProspectEmail's real
+    // persistence, so the import step re-reading contacts afterward sees the
+    // 'ok' status exactly like it would against the real engine.
+    verifyProspectsBatch.mockImplementation(async () => {
+      contactFixture.email_status = 'ok'
+      return {
+        results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
+        aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      }
+    })
+    xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'xmail-run-1', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
+
+    // importRoute() calls vi.resetModules(), which re-evaluates the
+    // '@/lib/xmail/client' mock factory and creates a FRESH xmailBulkImportLeads
+    // vi.fn() (it isn't one of the vi.hoisted() shared references above) — the
+    // reference route.ts's fresh import graph actually uses must be grabbed
+    // AFTER importRoute(), never before, or configuring it here is a no-op.
+    const { GET } = await importRoute({ PROSPECTING_AUTO_VERIFY: '1' })
+    const xmailBulkImportLeadsMock = (await import('@/lib/xmail/client')).xmailBulkImportLeads as ReturnType<typeof vi.fn>
+    xmailBulkImportLeadsMock.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'] })
+
+    const res = await GET(makeRequest())
+    const body = await res.json()
+
+    expect(xmailBulkImportLeadsMock).toHaveBeenCalledTimes(1)
+    const leads = xmailBulkImportLeadsMock.mock.calls[0][0] as Array<{ email: string }>
+    expect(leads).toHaveLength(1)
+    expect(leads[0].email).toBe('alice@example.com')
+
+    expect(body.runs).toEqual([
+      expect.objectContaining({ external_run_id: 'run-42', imported_to_xmail: 1 }),
+    ])
+    expect(body.imported_to_xmail).toBe(1)
+    expect(db.updateCalls).toContainEqual(
+      expect.objectContaining({ table: 'contacts', ids: ['c1'] }),
+    )
+    expect(contactFixture.xmail_imported_at).not.toBeNull()
+  })
+
+  it('never calls Xmail bulk-import when nothing in the run is email_status="ok" yet', async () => {
+    const db = fakeDb({
+      contacts: [
+        { id: 'c1', org_id: 'org-1', email: 'alice@example.com', created_at: '2026-09-29T00:00:00.000Z', prospect_source_id: 'src-1', email_status: null, lifecycle_stage: 'prospect' },
+      ],
+      accounts: [],
+      prospect_sources: [{ id: 'src-1', org_id: 'org-1', external_run_id: 'run-42' }],
+    })
+    createServiceRoleClient.mockReturnValue(db)
+    getVerificationCreditStatus.mockResolvedValue(okCreditStatus)
+    getMillionVerifierCredits.mockResolvedValueOnce({ configured: true, credits: 500, ok: true }).mockResolvedValueOnce({ configured: true, credits: 499, ok: true })
+    // Simulates a catch_all outcome — verified, but deliberately not imported.
+    verifyProspectsBatch.mockResolvedValue({
+      results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'catch_all', risk: 'medium', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
+      aggregate: { ok: 0, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+    })
+    xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'xmail-run-1', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
+
+    const { GET } = await importRoute({ PROSPECTING_AUTO_VERIFY: '1' })
+    const xmailBulkImportLeadsMock = (await import('@/lib/xmail/client')).xmailBulkImportLeads as ReturnType<typeof vi.fn>
+    const res = await GET(makeRequest())
+    const body = await res.json()
+
+    expect(xmailBulkImportLeadsMock).not.toHaveBeenCalled()
+    expect(body.imported_to_xmail).toBe(0)
+    expect(body.runs).toEqual([
+      expect.objectContaining({ external_run_id: 'run-42', imported_to_xmail: 0 }),
+    ])
   })
 
   it('groups two candidates from two different runs into two separate Xmail notifications', async () => {

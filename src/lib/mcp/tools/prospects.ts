@@ -532,6 +532,210 @@ export function resolveVerificationProvider(results: Array<{ result: VerifyEmail
   return 'mixed'
 }
 
+// ── prospects_import_to_xmail core (Fase 37, extracted for reuse) ──────────
+//
+// Factored out of the tool handler so src/app/api/cron/prospect-verify-tick's
+// auto-import step (Item 1, 2026-09-30: verified prospects were sitting in
+// Xphere with email_status='ok' waiting for someone to run this tool by
+// hand) calls the SAME rules instead of re-implementing them: only
+// email_status='ok' is ever imported, catch_all/unknown/unverified/invalid
+// are held back and counted (never silently dropped), and an already-staged
+// prospect (xmail_imported_at set) is skipped.
+
+type HeldBack = { catch_all: number; unknown: number; unverified: number; invalid: number }
+
+type ImportCandidates = {
+  matched: ResolvedProspect[]
+  alreadyImported: ResolvedProspect[]
+  importable: ResolvedProspect[]
+  heldBack: HeldBack
+  capped: ResolvedProspect[]
+}
+
+/** Resolves the matched/held-back/importable/capped sets for one import call — no
+ *  Xmail call, no DB write. Shared by the dry-run preview, the confirmed handler
+ *  branch, and importVerifiedProspectsToXmail below. */
+async function resolveImportCandidates(
+  orgId: string,
+  filters: Filters,
+  externalRunId: string | undefined,
+  cap: number,
+): Promise<ImportCandidates | { notFound: true }> {
+  let sourceIds: string[] | null = null
+  if (externalRunId) {
+    const sources = await resolveProspectSources(orgId, externalRunId, filters.source_type)
+    if (!sources) return { notFound: true }
+    sourceIds = sources.map((row) => row.id)
+  }
+
+  // requireEmail: true reuses the same DND/suppression exclusion prospects_
+  // enroll_in_campaign relies on for outreach — a suppressed/DND'd address
+  // is not worth staging as a lead either.
+  const matched = await resolveProspects(orgId, filters, { requireEmail: true, cap: 2000, sourceIds })
+
+  const heldBack: HeldBack = { catch_all: 0, unknown: 0, unverified: 0, invalid: 0 }
+  const alreadyImported: ResolvedProspect[] = []
+  const importable: ResolvedProspect[] = []
+  for (const p of matched) {
+    if (p.xmail_imported_at) {
+      alreadyImported.push(p)
+      continue
+    }
+    switch (p.email_status) {
+      case 'ok':
+        importable.push(p)
+        break
+      case 'catch_all':
+        heldBack.catch_all++
+        break
+      case 'unknown':
+        heldBack.unknown++
+        break
+      case 'invalid':
+      case 'disposable':
+      case 'bounced':
+        heldBack.invalid++
+        break
+      default:
+        // null/undefined: never verified.
+        heldBack.unverified++
+    }
+  }
+
+  const capped = importable.slice(0, cap)
+  return { matched, alreadyImported, importable, heldBack, capped }
+}
+
+/** Shapes the resolveImportCandidates result into the response `summary` fields
+ *  (matched/already_imported/importable/held_back/capped/sample) shared by the
+ *  dry-run and confirmed responses, plus the held-back note appended to messages. */
+function buildImportSummary(candidates: ImportCandidates, cap: number) {
+  const { matched, alreadyImported, importable, heldBack, capped: cappedList } = candidates
+  const heldBackNotes: string[] = []
+  if (heldBack.catch_all || heldBack.unknown) {
+    heldBackNotes.push(`${heldBack.catch_all} catch_all and ${heldBack.unknown} unknown held back for a human decision`)
+  }
+  if (heldBack.unverified) {
+    heldBackNotes.push(`${heldBack.unverified} never verified — run prospects_verify first`)
+  }
+  if (heldBack.invalid) {
+    heldBackNotes.push(`${heldBack.invalid} invalid/disposable/bounced excluded`)
+  }
+  const heldBackSuffix = heldBackNotes.length ? ` ${heldBackNotes.join('; ')}.` : ''
+  return {
+    summary: {
+      matched: matched.length,
+      already_imported: alreadyImported.length,
+      importable: importable.length,
+      held_back: heldBack,
+      capped:
+        importable.length > cap
+          ? { total_importable: importable.length, cap, remaining: importable.length - cap }
+          : undefined,
+      sample: cappedList.slice(0, 5).map((p) => ({ name: p.name, email: p.email, score: p.score, email_status: p.email_status })),
+    },
+    heldBackSuffix,
+  }
+}
+
+/** Pushes an already-resolved, already-capped set of email_status='ok' prospects to
+ *  Xmail and stamps xmail_imported_at on the affected rows. Never enrols, never
+ *  activates a campaign. */
+async function pushCappedToXmail(
+  orgId: string,
+  capped: ResolvedProspect[],
+  externalRunId: string | undefined,
+): Promise<{ error: string } | { imported: number }> {
+  const service = db()
+  const websiteInsights = await loadWebsiteInsightsForAccounts(
+    service,
+    orgId,
+    capped.filter((p) => p.kind === 'company').map((p) => p.id),
+  )
+  // When filtering by a specific external_run_id, that IS the source run
+  // for every prospect returned — more reliable than the indirect
+  // event-based join, and skips a query. Only fall back to the indirect
+  // lookup when filtering by source_type alone (many runs possible).
+  const sourceRunIds = externalRunId
+    ? new Map(capped.map((p) => [p.id, externalRunId] as const))
+    : await loadSourceRunIdsForEntities(service, orgId, capped.map((p) => p.id))
+
+  const leads = capped.map((p) => {
+    const verification: EmailVerified = {
+      status: (p.email_status as EmailStatus) ?? 'ok',
+      risk: (p.email_risk as EmailRisk) ?? riskForStatus('ok'),
+      provider: (p.email_verification_provider as VerificationProvider) ?? 'millionverifier',
+      verifiedAt: p.email_verified_at ?? new Date().toISOString(),
+      cached: true,
+    }
+    return toXmailLead(p, verification, websiteInsights.get(p.id), sourceRunIds.get(p.id))
+  })
+
+  const imp = await xmailBulkImportLeads(leads)
+  if (!imp.ok) return { error: `Xmail lead import failed: ${imp.error}` }
+
+  const nowIso = new Date().toISOString()
+  const contactIds = capped.filter((p) => p.kind === 'person').map((p) => p.id)
+  const accountIds = capped.filter((p) => p.kind === 'company').map((p) => p.id)
+  if (contactIds.length) await service.from('contacts').update({ xmail_imported_at: nowIso }).in('id', contactIds)
+  if (accountIds.length) await service.from('accounts').update({ xmail_imported_at: nowIso }).in('id', accountIds)
+
+  return { imported: imp.imported }
+}
+
+/**
+ * The confirmed-import core of prospects_import_to_xmail — resolves candidates,
+ * pushes the email_status='ok' ones to Xmail, and stamps xmail_imported_at.
+ * Exported so src/app/api/cron/prospect-verify-tick/route.ts can call it right
+ * after verifying a run (Item 1, 2026-09-30) with the exact same rules the MCP
+ * tool enforces: only 'ok' is imported automatically, catch_all/unknown are
+ * always retained for a human, and nothing is ever enrolled or activated here.
+ */
+export async function importVerifiedProspectsToXmail(
+  orgId: string,
+  filters: Filters,
+  opts: { externalRunId?: string; max?: number } = {},
+): Promise<Record<string, unknown>> {
+  const cap = Math.min(opts.max ?? DEFAULT_MAX, HARD_MAX)
+  const resolved = await resolveImportCandidates(orgId, filters, opts.externalRunId, cap)
+  if ('notFound' in resolved) {
+    return {
+      error: 'external_run_not_found',
+      detail:
+        `No prospect_sources row matches external_run_id "${opts.externalRunId}"` +
+        (filters.source_type ? ` with source_type "${filters.source_type}"` : '') +
+        ' in this org.',
+    }
+  }
+  const { matched, capped } = resolved
+  const { summary, heldBackSuffix } = buildImportSummary(resolved, cap)
+
+  if (capped.length === 0) {
+    return {
+      imported: 0,
+      ...summary,
+      message:
+        matched.length === 0
+          ? 'No prospects matched these filters.'
+          : `Nothing to import: no prospects in this selection have email_status="ok".${heldBackSuffix}`,
+    }
+  }
+
+  if (!isXmailConfigured()) {
+    return { error: 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID / XMAIL_SERVICE_KEY not set).' }
+  }
+
+  const pushed = await pushCappedToXmail(orgId, capped, opts.externalRunId)
+  if ('error' in pushed) return { error: pushed.error, ...summary }
+
+  return {
+    imported: pushed.imported,
+    ...summary,
+    message:
+      `Imported ${pushed.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next (with its own confirmed:true) to start outreach.${heldBackSuffix}`,
+  }
+}
+
 export const prospectsTools: McpToolDef[] = [
   {
     name: 'prospects_list',
@@ -779,6 +983,13 @@ export const prospectsTools: McpToolDef[] = [
   // email_status='ok' (verified, persisted by prospects_verify or a prior
   // enroll dry run — never re-verified here), never enrols, never touches
   // campaign state, and is a no-op for anything already staged.
+  //
+  // The actual matching/import logic lives in resolveImportCandidates /
+  // buildImportSummary / pushCappedToXmail / importVerifiedProspectsToXmail
+  // above the tools array — extracted so the auto-import step of
+  // src/app/api/cron/prospect-verify-tick/route.ts (which verifies a run and
+  // then must import whatever came back 'ok') reuses the exact same rules
+  // instead of re-implementing them.
   {
     name: 'prospects_import_to_xmail',
     title: 'Stage verified prospects as Xmail leads (imports nothing to a campaign, sends nothing)',
@@ -803,10 +1014,9 @@ export const prospectsTools: McpToolDef[] = [
       const { external_run_id: externalRunId, max, confirmed, ...filters } = input
       const cap = Math.min(max ?? DEFAULT_MAX, HARD_MAX)
 
-      let sourceIds: string[] | null = null
-      if (externalRunId) {
-        const sources = await resolveProspectSources(auth.orgId, externalRunId, filters.source_type)
-        if (!sources) {
+      if (!confirmed) {
+        const resolved = await resolveImportCandidates(auth.orgId, filters, externalRunId, cap)
+        if ('notFound' in resolved) {
           return {
             error: 'external_run_not_found',
             detail:
@@ -815,69 +1025,8 @@ export const prospectsTools: McpToolDef[] = [
               ' in this org.',
           }
         }
-        sourceIds = sources.map((row) => row.id)
-      }
-
-      // requireEmail: true reuses the same DND/suppression exclusion prospects_
-      // enroll_in_campaign relies on for outreach — a suppressed/DND'd address
-      // is not worth staging as a lead either.
-      const matched = await resolveProspects(auth.orgId, filters, { requireEmail: true, cap: 2000, sourceIds })
-
-      const heldBack = { catch_all: 0, unknown: 0, unverified: 0, invalid: 0 }
-      const alreadyImported: ResolvedProspect[] = []
-      const importable: ResolvedProspect[] = []
-      for (const p of matched) {
-        if (p.xmail_imported_at) {
-          alreadyImported.push(p)
-          continue
-        }
-        switch (p.email_status) {
-          case 'ok':
-            importable.push(p)
-            break
-          case 'catch_all':
-            heldBack.catch_all++
-            break
-          case 'unknown':
-            heldBack.unknown++
-            break
-          case 'invalid':
-          case 'disposable':
-          case 'bounced':
-            heldBack.invalid++
-            break
-          default:
-            // null/undefined: never verified.
-            heldBack.unverified++
-        }
-      }
-
-      const capped = importable.slice(0, cap)
-      const heldBackNotes: string[] = []
-      if (heldBack.catch_all || heldBack.unknown) {
-        heldBackNotes.push(`${heldBack.catch_all} catch_all and ${heldBack.unknown} unknown held back for a human decision`)
-      }
-      if (heldBack.unverified) {
-        heldBackNotes.push(`${heldBack.unverified} never verified — run prospects_verify first`)
-      }
-      if (heldBack.invalid) {
-        heldBackNotes.push(`${heldBack.invalid} invalid/disposable/bounced excluded`)
-      }
-      const heldBackSuffix = heldBackNotes.length ? ` ${heldBackNotes.join('; ')}.` : ''
-
-      const summary = {
-        matched: matched.length,
-        already_imported: alreadyImported.length,
-        importable: importable.length,
-        held_back: heldBack,
-        capped:
-          importable.length > cap
-            ? { total_importable: importable.length, cap, remaining: importable.length - cap }
-            : undefined,
-        sample: capped.slice(0, 5).map((p) => ({ name: p.name, email: p.email, score: p.score, email_status: p.email_status })),
-      }
-
-      if (!confirmed) {
+        const { matched, capped } = resolved
+        const { summary, heldBackSuffix } = buildImportSummary(resolved, cap)
         return {
           dry_run: true,
           would_import: capped.length,
@@ -891,61 +1040,7 @@ export const prospectsTools: McpToolDef[] = [
         }
       }
 
-      if (capped.length === 0) {
-        return {
-          imported: 0,
-          ...summary,
-          message:
-            matched.length === 0
-              ? 'No prospects matched these filters.'
-              : `Nothing to import: no prospects in this selection have email_status="ok".${heldBackSuffix}`,
-        }
-      }
-
-      if (!isXmailConfigured()) {
-        return { error: 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID / XMAIL_SERVICE_KEY not set).' }
-      }
-
-      const service = db()
-      const websiteInsights = await loadWebsiteInsightsForAccounts(
-        service,
-        auth.orgId,
-        capped.filter((p) => p.kind === 'company').map((p) => p.id),
-      )
-      // When filtering by a specific external_run_id, that IS the source run
-      // for every prospect returned — more reliable than the indirect
-      // event-based join, and skips a query. Only fall back to the indirect
-      // lookup when filtering by source_type alone (many runs possible).
-      const sourceRunIds = externalRunId
-        ? new Map(capped.map((p) => [p.id, externalRunId] as const))
-        : await loadSourceRunIdsForEntities(service, auth.orgId, capped.map((p) => p.id))
-
-      const leads = capped.map((p) => {
-        const verification: EmailVerified = {
-          status: (p.email_status as EmailStatus) ?? 'ok',
-          risk: (p.email_risk as EmailRisk) ?? riskForStatus('ok'),
-          provider: (p.email_verification_provider as VerificationProvider) ?? 'millionverifier',
-          verifiedAt: p.email_verified_at ?? new Date().toISOString(),
-          cached: true,
-        }
-        return toXmailLead(p, verification, websiteInsights.get(p.id), sourceRunIds.get(p.id))
-      })
-
-      const imp = await xmailBulkImportLeads(leads)
-      if (!imp.ok) return { error: `Xmail lead import failed: ${imp.error}`, ...summary }
-
-      const nowIso = new Date().toISOString()
-      const contactIds = capped.filter((p) => p.kind === 'person').map((p) => p.id)
-      const accountIds = capped.filter((p) => p.kind === 'company').map((p) => p.id)
-      if (contactIds.length) await service.from('contacts').update({ xmail_imported_at: nowIso }).in('id', contactIds)
-      if (accountIds.length) await service.from('accounts').update({ xmail_imported_at: nowIso }).in('id', accountIds)
-
-      return {
-        imported: imp.imported,
-        ...summary,
-        message:
-          `Imported ${imp.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next (with its own confirmed:true) to start outreach.${heldBackSuffix}`,
-      }
+      return importVerifiedProspectsToXmail(auth.orgId, filters, { externalRunId, max })
     },
   },
   {
