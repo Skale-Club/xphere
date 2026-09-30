@@ -5,9 +5,9 @@ import * as bd from '@/lib/security/bot-defense'
 test('normalizeIp', () => {
   assert.equal(bd.normalizeIp('::ffff:1.2.3.4'), '1.2.3.4')
   assert.equal(bd.normalizeIp('1.2.3.4:5678'), '1.2.3.4')
-  assert.equal(bd.normalizeIp('[2606:4700::1]:443'), '2606:4700:0:0:0:0:0:1')
-  assert.equal(bd.normalizeIp('2001:db8::'), '2001:db8:0:0:0:0:0:0')
-  assert.equal(bd.normalizeIp('::1'), '0:0:0:0:0:0:0:1')
+  assert.equal(bd.normalizeIp('[2606:4700::1]:443'), '2606:4700::1')
+  assert.equal(bd.normalizeIp('2001:DB8::'), '2001:db8::')
+  assert.equal(bd.normalizeIp('::1'), '::1')
   assert.equal(bd.normalizeIp('garbage'), null)
   assert.equal(bd.normalizeIp('999.1.1.1'), null)
   assert.equal(bd.normalizeIp('unknown'), null)
@@ -19,7 +19,7 @@ test('cloudflare / internal matching', () => {
   assert.ok(bd.isCloudflareIp('2a06:98c7::1'))
   assert.ok(!bd.isCloudflareIp('8.8.8.8'))
   assert.ok(bd.isInternalIp('172.18.0.5'))
-  assert.ok(bd.isInternalIp('0:0:0:0:0:0:0:1'))
+  assert.ok(bd.isInternalIp('::1'))
   assert.ok(!bd.isInternalIp('172.64.0.1'))
 })
 
@@ -35,6 +35,12 @@ test('resolveClientIp: spoofed CF-Connecting-IP ignored when not from Cloudflare
 test('resolveClientIp: via Cloudflare', () => {
   assert.equal(bd.resolveClientIp({ forwardedFor: '198.51.100.7, 162.158.1.2', cfConnectingIp: '198.51.100.7', remoteAddress: '172.18.0.2' }), '198.51.100.7')
   assert.equal(bd.resolveClientIp({ forwardedFor: '198.51.100.7, 162.158.1.2', remoteAddress: '127.0.0.1' }), '198.51.100.7')
+})
+test('resolveClientIp: malformed hops never fall through to client-controlled entries', () => {
+  assert.equal(bd.resolveClientIp({ forwardedFor: '198.51.100.1, garbage' }), null)
+  assert.equal(bd.resolveClientIp({ forwardedFor: 'garbage' }), null)
+  assert.equal(bd.resolveClientIp({ forwardedFor: '  198.51.100.1  ,  203.0.113.9  ,  ' }), '203.0.113.9')
+  assert.equal(bd.resolveClientIp({ forwardedFor: '2001:db8::1' }), '2001:db8::1')
 })
 test('resolveClientIp: no headers', () => {
   assert.equal(bd.resolveClientIp({ remoteAddress: '::ffff:203.0.113.4' }), '203.0.113.4')

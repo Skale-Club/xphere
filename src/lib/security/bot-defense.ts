@@ -126,7 +126,9 @@ export function normalizeIp(raw: string | null | undefined): string | null {
   if (v6.slice(0, 5).every((g) => g === 0) && v6[5] === 0xffff) {
     return [v6[6] >> 8, v6[6] & 255, v6[7] >> 8, v6[7] & 255].join('.')
   }
-  return v6.map((g) => g.toString(16)).join(':')
+  // Keep the literal as written (lowercased) so it round-trips into logs and
+  // Postgres inet columns unchanged; matching parses it separately anyway.
+  return s.toLowerCase()
 }
 
 function parse(ip: string): ParsedIp | null {
@@ -218,17 +220,24 @@ function first(v: string | string[] | null | undefined): string | undefined {
  *    the client and are ignored, which is what makes spoofing useless.
  */
 export function resolveClientIp(input: ClientIpInput): string | null {
-  const chain = (first(input.forwardedFor) ?? '')
+  const chain: Array<string | null> = (first(input.forwardedFor) ?? '')
     .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
     .map((s) => normalizeIp(s))
-    .filter((s): s is string => !!s)
   const remote = normalizeIp(input.remoteAddress ?? null)
   if (remote) chain.push(remote)
 
   let sawCloudflare = false
+  let lastInternal: string | null = null
   for (let i = chain.length - 1; i >= 0; i--) {
     const hop = chain[i]
-    if (isInternalIp(hop)) continue
+    // A malformed hop means everything further left is untrusted noise.
+    if (!hop) return lastInternal
+    if (isInternalIp(hop)) {
+      lastInternal = lastInternal ?? hop
+      continue
+    }
     if (isCloudflareIp(hop)) {
       if (!sawCloudflare) {
         sawCloudflare = true
@@ -240,7 +249,7 @@ export function resolveClientIp(input: ClientIpInput): string | null {
     return hop
   }
   // Only internal hops (local dev, health checks from inside the network).
-  return chain.length ? chain[chain.length - 1] : null
+  return lastInternal
 }
 
 /** Convenience for Fetch-API style requests (Next.js route handlers, proxy). */
