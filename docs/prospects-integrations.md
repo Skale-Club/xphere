@@ -82,6 +82,36 @@ closed, so an unavailable consent check cannot turn into a send.
 `anyAvailable`/`lowCredit`) and a breakdown of the org's prospects by
 `email_status`. Poll this on a schedule to alert on low credits.
 
+**Automated verification trigger** (`/api/cron/prospect-verify-tick`, added
+2026-09-30): `prospects_verify` (the MCP tool above) only runs when Hermes is
+dispatched with MCP access — and Hermes has had none since 2026-08-30, so the
+daily Xmail → Xcraper prospecting engine kept creating prospects with an
+email that nothing ever verified (measured: 121 of 219 emailed prospects,
+never checked). This cron closes that gap by reusing the exact same engine
+(`verifyProspectsBatch`) and the exact same Xmail notification call
+(`xmailNotifyVerificationComplete`) `prospects_verify` uses — it does not
+reimplement verification, only the discovery/grouping around it.
+
+- **Off by default.** No-ops (no query, no provider call) unless
+  `PROSPECTING_AUTO_VERIFY=1` is set.
+- **Daily spend cap**: `PROSPECTING_AUTO_VERIFY_MAX_PER_DAY` (default 100 —
+  see the route file's header for the measured volume/cost this is sized
+  against). Counted against ALL of today's `email_verified_at` stamps, not
+  just this cron's own — see the route for why that is the more conservative
+  reading of a shared-balance spend cap, given there is no per-caller
+  attribution column and none is being added for this.
+- **No credits**: stops before spending anything and reports
+  `stopped_reason: 'no_credits'` loudly (error log + captured exception) —
+  same "never guess a status" posture as `verifyEmail()` above. Also stops
+  mid-tick if a batch comes back partially blocked.
+- Discovers never-verified prospects (`email_status IS NULL`) across every
+  org that have a linked `prospect_sources.external_run_id` (same
+  `prospect_source_id` indirection `prospects_verify` and
+  `src/lib/xmail/source-runs.ts` use), groups them by that run, and calls the
+  shared verify+notify path once per run — so Xmail's Journey sees exactly
+  the notifications a manual `prospects_verify` call would have produced.
+  Prospects with no linked run are skipped and counted, never guessed at.
+
 **Bounce feedback loop**: `/api/integrations/xmail/events` already logs
 `bounced` events to the timeline; it now also stamps the prospect's
 `email_status='bounced'`, `email_risk='high'`, `email_verified_at=now()`,

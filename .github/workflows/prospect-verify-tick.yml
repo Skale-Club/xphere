@@ -1,0 +1,55 @@
+name: Prospect Verify Tick
+
+# Fires /api/cron/prospect-verify-tick, which auto-verifies never-checked
+# prospect emails (see src/app/api/cron/prospect-verify-tick/route.ts for the
+# full diagnosis: the daily Xmail -> Xcraper prospecting engine creates new
+# prospects every day, but nothing used to call email verification
+# automatically once Hermes lost MCP access on 2026-08-30).
+#
+# OFF BY DEFAULT: the endpoint itself no-ops (no query, no provider call,
+# 200 OK) unless PROSPECTING_AUTO_VERIFY=1 is set on the app container. This
+# workflow firing on a schedule is therefore safe to enable before that flag
+# is ever turned on — the owner controls spend at the app-env level, not
+# here.
+#
+# Registration: same pattern as campaign-tick.yml / calendar-tick.yml /
+# twilio-sms-reconcile.yml / website-analyzer.yml — this repo only defines
+# workflow_dispatch (manual/emergency trigger). The real recurring schedule
+# runs from the `skale-cron` service on the Coolify VPS (outside this repo;
+# see docs/ops/TELEGRAM-ALERTS.md and .planning/clients/skale-club/README.md
+# for what that service is), because GitHub Actions throttled `*/5` (and
+# similar tight) schedules into 28-37 minute gaps in practice while still
+# billing a full runner-minute per curl. Adding this tick to the skale-cron
+# crontab on the VPS is a manual step outside this repo — it is NOT done by
+# merging this file. Suggested cadence once registered: every 30-60 minutes
+# (this is a catch-up job over a slow daily trickle of new prospects, not a
+# latency-sensitive tick — unlike campaign-tick's dial pacing, there is no
+# downside to it running less often).
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: prospect-verify-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Fire prospect-verify-tick endpoint
+        run: |
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --connect-timeout 15 --max-time 120 \
+            --retry 2 --retry-delay 20 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/prospect-verify-tick")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "prospect-verify-tick failed with status $STATUS" >&2
+            exit 1
+          fi
