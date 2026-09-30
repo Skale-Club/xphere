@@ -58,7 +58,7 @@ export function deriveLocationFromAddress(address: string | null | undefined): D
  * check `result === input` if useful.
  */
 export function withDerivedLocation<T extends Record<string, unknown>>(customFields: T | null | undefined): T | Record<string, unknown> {
-  const cf = customFields ?? {}
+  const cf: Record<string, unknown> = customFields ?? {}
   if (typeof cf.city === 'string' && cf.city.trim()) return cf
 
   const addressSource =
