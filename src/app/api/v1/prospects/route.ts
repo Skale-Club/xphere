@@ -33,6 +33,7 @@ import {
 } from '@/lib/prospects/recommended-channel'
 import { runAnalysis } from '@/services/website-analyzer'
 import { mergePresentJson, mergeProspectCustomFields } from '@/lib/prospects/web-presence-merge'
+import { withDerivedLocation } from '@/lib/prospects/location-from-address'
 import { registerExternalRunWithXmail } from '@/lib/xmail/external-run-mapping'
 import { DEFAULT_STALE_MINUTES, isAnalysisRowStale } from '@/services/website-analyzer/staleness'
 import type { Json } from '@/types/database'
@@ -518,7 +519,11 @@ async function ingestPerson(
       // record lands on this row instead of creating a second one.
       ...(sourceId ? { external_source: sourceType, external_id: sourceId } : {}),
       source_payload: (p.source_payload ?? {}) as Json,
-      custom_fields: (p.custom_fields ?? {}) as Record<string, unknown>,
+      // Item 5, 2026-09-30: prospect_rows reads city from custom_fields.city
+      // (no dedicated column) — fill it from custom_fields.address/location
+      // when the caller sent an address but no structured city, instead of
+      // leaving it permanently NULL.
+      custom_fields: withDerivedLocation((p.custom_fields ?? {}) as Record<string, unknown>),
     })
     .select('id')
     .single()
@@ -604,7 +609,7 @@ async function ingestCompany(
     if (p.intent_level) patch.intent_level = p.intent_level
     if (p.qualification_status) patch.qualification_status = p.qualification_status
     if (p.score !== undefined) patch.score = p.score
-    patch.custom_fields = mergeProspectCustomFields(existing.custom_fields, p.custom_fields)
+    patch.custom_fields = withDerivedLocation(mergeProspectCustomFields(existing.custom_fields, p.custom_fields))
     patch.source_payload = mergePresentJson(existing.source_payload, p.source_payload)
 
     // Fill the channel only when it is still empty, so a re-import can heal a row
@@ -669,7 +674,7 @@ async function ingestCompany(
       // record lands on this row instead of creating a second one.
       ...(sourceId ? { external_source: sourceType, external_id: sourceId } : {}),
       source_payload: (p.source_payload ?? {}) as Json,
-      custom_fields: (p.custom_fields ?? {}) as Record<string, unknown>,
+      custom_fields: withDerivedLocation((p.custom_fields ?? {}) as Record<string, unknown>),
     })
     .select('id')
     .single()
