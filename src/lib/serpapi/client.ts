@@ -146,15 +146,19 @@ export class SerpApiClient {
     location?: string,
     opts: { hl?: string; gl?: string } = {}
   ): Promise<SerpApiMapsSearchPlace[]> {
+    // The location is folded into the query instead of being sent as SerpAPI's
+    // `location` param: on the google_maps engine that param is rejected with a
+    // 400 unless `z`/`m` is also set, and it only accepts SerpAPI's canonical
+    // location names ("Hingham,Massachusetts,United States"), not free text.
+    const trimmedLocation = location?.trim()
     const params = new URLSearchParams({
       engine: 'google_maps',
-      q: query,
+      q: trimmedLocation ? `${query} ${trimmedLocation}` : query,
       api_key: this.apiKey,
       type: 'search',
     })
     if (opts.hl) params.set('hl', opts.hl)
     if (opts.gl) params.set('gl', opts.gl)
-    if (location) params.set('location', location)
 
     const url = `${SERPAPI_BASE}?${params.toString()}`
     const res = await fetch(url, { method: 'GET' })
@@ -166,9 +170,10 @@ export class SerpApiClient {
       throw <SerpApiError>{ status: 'quota_exceeded', message: 'SerpAPI quota exceeded.', httpStatus: 429 }
     }
     if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null
       throw <SerpApiError>{
         status: 'http_error',
-        message: `SerpAPI returned ${res.status}`,
+        message: body?.error ? `SerpAPI returned ${res.status}: ${body.error}` : `SerpAPI returned ${res.status}`,
         httpStatus: res.status,
       }
     }
