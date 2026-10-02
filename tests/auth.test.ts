@@ -18,6 +18,7 @@ const cookieJar = { set: vi.fn() }
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => cookieJar),
+  headers: vi.fn(async () => new Headers()),
 }))
 
 const mockSupabase = {
