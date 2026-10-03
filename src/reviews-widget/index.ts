@@ -40,6 +40,7 @@ interface ApiPayload {
     limit?: number
     showHero?: boolean
     heroStyle?: HeroStyle
+    cardShape?: CardShape
     equalHeight?: boolean
     footerCta?: boolean
     showOwnerResponse?: boolean
@@ -70,6 +71,7 @@ type Layout = 'grid' | 'list' | 'carousel'
 type Theme = 'light' | 'dark'
 type Sort = 'recent' | 'rating_high' | 'helpful'
 type HeroStyle = 'full' | 'lite'
+type CardShape = 'rounded' | 'square'
 
 interface WidgetConfig {
   token: string
@@ -81,6 +83,7 @@ interface WidgetConfig {
   apiBase: string
   showHero: boolean
   heroStyle: HeroStyle
+  cardShape: CardShape
   equalHeight: boolean
   footerCta: boolean
   showOwnerResponse: boolean
@@ -96,6 +99,7 @@ const DEFAULTS: Omit<WidgetConfig, 'token'> = {
   apiBase: '',
   showHero: true,
   heroStyle: 'full',
+  cardShape: 'rounded',
   equalHeight: true,
   footerCta: false,
   showOwnerResponse: true,
@@ -191,6 +195,13 @@ const CSS = `
    is nothing to pull up, and the document must instead END 48px lower so the
    shadow still has somewhere to paint inside the iframe. */
 .orw-carousel-wrap:has(+ .orw-footer-cta) { margin-bottom: -48px; }
+/* Same idea on top: the viewport carries 24px of headroom for the upward half
+   of the shadow (0 10px 30px reaches 20px up; hover 0 16px 40px + the -2px
+   lift reaches 26px). After a header, pull it back so the hero->card gap stays
+   20px — the hero's 20px margin and this -24px collapse to -4px, + 24px of
+   padding = 20px. With no header the headroom simply sits above the cards,
+   which is what keeps the shadow from being sliced flat inside an iframe. */
+.orw-hero + .orw-carousel-wrap { margin-top: -24px; }
 .orw-carousel-viewport {
   overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
   -webkit-overflow-scrolling: touch; cursor: grab;
@@ -216,7 +227,7 @@ const CSS = `
      document and give the iframe a horizontal scrollbar. The left edge already
      covers 16 of the 30px, and the right edge is where cards scroll out of view,
      so the visible cost is small — fixing it properly needs root padding. */
-  padding: 0 0 56px 16px;
+  padding: 24px 0 56px 16px;
   scroll-padding-left: 16px;
   user-select: none; -webkit-user-select: none;
 }
@@ -229,6 +240,8 @@ const CSS = `
 .orw-eqh .orw-grid .orw-card,
 .orw-eqh .orw-carousel-track .orw-card { height: 100%; }
 .orw-carousel-btn {
+  /* top is set from JS to the middle of the CARD ROW (see centerArrows): 50% of
+     the wrap would include the 24px/56px shadow padding and sit ~16px low. */
   position: absolute; top: 50%; transform: translateY(-50%);
   z-index: 10; width: 38px; height: 38px; border-radius: 50%;
   border: 1px solid var(--orw-border); background: var(--orw-card); color: var(--orw-text);
@@ -240,8 +253,11 @@ const CSS = `
 }
 .orw-carousel-btn:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.18); transform: translateY(-50%) scale(1.08); }
 .orw-carousel-btn[disabled] { opacity: 0.35; pointer-events: none; }
-.orw-carousel-prev { left: 6px; }
-.orw-carousel-next { right: 6px; }
+/* 16px, not 6px: hosts often full-bleed the widget with 100vw, which includes
+   the page scrollbar, so ~8px of each side sits off-screen and a 6px inset
+   sliced the arrows in half. */
+.orw-carousel-prev { left: 16px; }
+.orw-carousel-next { right: 16px; }
 
 .orw-card {
   background: var(--orw-card);
@@ -333,6 +349,15 @@ const CSS = `
   position: absolute; top: 18px; right: 18px; background: white; color: black;
   border: 0; border-radius: 999px; width: 36px; height: 36px; font-size: 20px; cursor: pointer;
 }
+
+/* Square ("reta") variant: straight corners on every box. Avatars stay round —
+   they're faces, not cards. */
+.orw-root.orw-square { --orw-radius: 0; }
+.orw-square .orw-photo,
+.orw-square .orw-owner,
+.orw-square .orw-write-btn,
+.orw-square .orw-carousel-btn,
+.orw-square .orw-lightbox img { border-radius: 0; }
 
 .orw-google-badge { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; }
 
@@ -431,6 +456,7 @@ function getConfig(): WidgetConfig | null {
       apiBase: sp.get('api') ?? window.location.origin,
       showHero: sp.get('hero') !== '0',
       heroStyle: sp.get('hero_style') === 'lite' ? 'lite' : DEFAULTS.heroStyle,
+      cardShape: sp.get('shape') === 'square' ? 'square' : DEFAULTS.cardShape,
       equalHeight: sp.get('eqh') !== '0',
       footerCta: sp.get('cta') === '1',
       showOwnerResponse: DEFAULTS.showOwnerResponse,
@@ -451,6 +477,7 @@ function getConfig(): WidgetConfig | null {
     apiBase: host.dataset.api ?? new URL((document.currentScript as HTMLScriptElement | null)?.src ?? window.location.href).origin,
     showHero: host.dataset.hero !== '0',
     heroStyle: host.dataset.heroStyle === 'lite' ? 'lite' : DEFAULTS.heroStyle,
+    cardShape: host.dataset.shape === 'square' ? 'square' : DEFAULTS.cardShape,
     equalHeight: host.dataset.equalHeight !== '0',
     footerCta: host.dataset.footerCta === '1',
     showOwnerResponse: DEFAULTS.showOwnerResponse,
@@ -468,6 +495,7 @@ function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings'
     limit: settings.limit ?? config.limit,
     showHero: settings.showHero ?? config.showHero,
     heroStyle: settings.heroStyle ?? config.heroStyle,
+    cardShape: settings.cardShape ?? config.cardShape,
     equalHeight: settings.equalHeight ?? config.equalHeight,
     footerCta: settings.footerCta ?? config.footerCta,
     showOwnerResponse: settings.showOwnerResponse ?? config.showOwnerResponse,
@@ -608,7 +636,9 @@ function renderShell(config: WidgetConfig, payload: ApiPayload): string {
     : ''
   const accent = isHexColor(payload.brand?.accent) ? payload.brand.accent : '#6366F1'
   const brandStyle = ` style="--orw-brand:${escapeHtml(accent)};--orw-brand-soft:${escapeHtml(hexToRgba(accent, config.theme === 'dark' ? 0.22 : 0.12))};"`
-  const rootClass = config.equalHeight ? 'orw-root orw-eqh' : 'orw-root'
+  const rootClass = ['orw-root', config.equalHeight && 'orw-eqh', config.cardShape === 'square' && 'orw-square']
+    .filter(Boolean)
+    .join(' ')
 
   if (empty) return `<div class="${rootClass}" data-theme="${config.theme}"${brandStyle}>${heroHtml}${empty}</div>`
 
@@ -702,6 +732,19 @@ function wireCarousel(root: HTMLElement): void {
   next.innerHTML = '&#8250;'
   wrap.appendChild(prev)
   wrap.appendChild(next)
+
+  // Centre the arrows on the cards themselves. The wrap also contains the
+  // viewport's shadow padding (24px top, 56px bottom), so a plain top:50% sits
+  // below the card centre. The track's offsetParent is the (relative) wrap.
+  const centerArrows = (): void => {
+    const y = `${track.offsetTop + track.offsetHeight / 2}px`
+    prev.style.top = y
+    next.style.top = y
+  }
+  centerArrows()
+  window.addEventListener('resize', centerArrows)
+  // Card heights change after images load or a "Read more" expands.
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(centerArrows).observe(track)
   prev.addEventListener('click', () => viewport.scrollBy({ left: -getStep(), behavior: 'smooth' }))
   next.addEventListener('click', () => viewport.scrollBy({ left: getStep(), behavior: 'smooth' }))
 

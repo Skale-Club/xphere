@@ -31,6 +31,7 @@ type WidgetSettingsPayload = {
   limit: number
   showHero: boolean
   heroStyle: 'full' | 'lite'
+  cardShape: 'rounded' | 'square'
   equalHeight: boolean
   footerCta: boolean
   maxChars: number
@@ -149,6 +150,7 @@ function normalizeWidgetSettings(raw: unknown): WidgetSettingsPayload {
     limit: limit === 'all' ? 500 : clampInt(limit ?? null, 1, 500, 12),
     showHero: readBooleanSetting(source, 'showHero', true),
     heroStyle: readStringSetting(source, 'heroStyle') === 'lite' ? 'lite' : 'full',
+    cardShape: readStringSetting(source, 'cardShape') === 'square' ? 'square' : 'rounded',
     equalHeight: readBooleanSetting(source, 'equalHeight', true),
     footerCta: readBooleanSetting(source, 'footerCta', false),
     maxChars: clampInt(readStringSetting(source, 'maxChars') ?? null, 50, 2000, 220),

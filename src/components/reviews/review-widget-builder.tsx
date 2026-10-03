@@ -31,6 +31,7 @@ type Theme = 'light' | 'dark'
 type EmbedMode = 'iframe' | 'script'
 type SortOrder = 'quality' | 'recent'
 type HeroStyle = 'full' | 'lite'
+type CardShape = 'rounded' | 'square'
 
 export type ReviewWidgetPreviewReview = {
   id: string
@@ -158,6 +159,7 @@ function PreviewCard({
   fill = false,
   maxChars = 220,
   showOwnerResponse = true,
+  square = false,
 }: {
   review: ReviewWidgetPreviewReview
   theme: Theme
@@ -166,6 +168,7 @@ function PreviewCard({
   fill?: boolean
   maxChars?: number
   showOwnerResponse?: boolean
+  square?: boolean
 }) {
   const [textExpanded, setTextExpanded] = useState(false)
   const [responseExpanded, setResponseExpanded] = useState(false)
@@ -183,7 +186,8 @@ function PreviewCard({
   return (
     <article
       className={cn(
-        'min-w-0 rounded-[14px] border p-4 shadow-sm',
+        'min-w-0 border p-4 shadow-sm',
+        square ? 'rounded-none' : 'rounded-[14px]',
         fill && 'h-full',
         theme === 'dark'
           ? 'border-white/10 bg-zinc-900 text-zinc-50 shadow-black/30'
@@ -247,7 +251,7 @@ function PreviewCard({
               key={`${photo.url}-${index}`}
               src={photo.url}
               alt=""
-              className="h-14 w-14 rounded-[8px] object-cover"
+              className={cn('h-14 w-14 object-cover', square ? 'rounded-none' : 'rounded-[8px]')}
               loading="lazy"
             />
           ))}
@@ -257,7 +261,8 @@ function PreviewCard({
       {showOwnerResponse && review.ownerResponse ? (
         <div
           className={cn(
-            'mt-3 rounded-[10px] border-l-2 px-3 py-2',
+            'mt-3 border-l-2 px-3 py-2',
+            square ? 'rounded-none' : 'rounded-[10px]',
             theme === 'dark' ? 'text-zinc-200' : 'text-zinc-700',
           )}
           style={{ backgroundColor: brandSoft, borderLeftColor: brandAccent }}
@@ -289,6 +294,7 @@ function PreviewCarousel({
   equalHeight,
   maxChars,
   showOwnerResponse,
+  square,
 }: {
   reviews: ReviewWidgetPreviewReview[]
   theme: Theme
@@ -296,6 +302,7 @@ function PreviewCarousel({
   equalHeight: boolean
   maxChars: number
   showOwnerResponse: boolean
+  square: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState(false)
@@ -373,7 +380,8 @@ function PreviewCarousel({
   }
 
   const btnClass = cn(
-    'absolute top-1/2 z-10 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border text-lg shadow-sm transition hover:scale-105',
+    'absolute top-1/2 z-10 -translate-y-1/2 flex h-8 w-8 items-center justify-center border text-lg shadow-sm transition hover:scale-105',
+    square ? 'rounded-none' : 'rounded-full',
     theme === 'dark'
       ? 'border-white/10 bg-zinc-800 text-zinc-200'
       : 'border-zinc-200 bg-white text-zinc-700',
@@ -407,7 +415,7 @@ function PreviewCarousel({
         <div className="grid auto-cols-[minmax(280px,70%)] grid-flow-col items-stretch gap-3">
           {[...reviews, ...reviews, ...reviews].map((review, i) => (
             <div key={`${review.id}-${i}`} data-card aria-hidden={(i < reviews.length || i >= reviews.length * 2) || undefined} className={cn(equalHeight && 'h-full')} style={{ scrollSnapAlign: 'start' }}>
-              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} />
+              <PreviewCard review={review} theme={theme} brandAccent={brandAccent} compact fill={equalHeight} maxChars={maxChars} showOwnerResponse={showOwnerResponse} square={square} />
             </div>
           ))}
         </div>
@@ -435,6 +443,7 @@ export function ReviewWidgetBuilder({
   const [sort, setSort] = useState<SortOrder>((savedSettings?.sort as SortOrder) ?? 'quality')
   const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
   const [heroStyle, setHeroStyle] = useState<HeroStyle>(savedSettings?.heroStyle === 'lite' ? 'lite' : 'full')
+  const [cardShape, setCardShape] = useState<CardShape>(savedSettings?.cardShape === 'square' ? 'square' : 'rounded')
   const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
   const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
   const [maxChars, setMaxChars] = useState(savedSettings?.maxChars ?? '220')
@@ -452,6 +461,7 @@ export function ReviewWidgetBuilder({
     sort: (savedSettings?.sort as SortOrder) ?? 'quality',
     showHero: savedSettings?.showHero ?? true,
     heroStyle: (savedSettings?.heroStyle === 'lite' ? 'lite' : 'full') as HeroStyle,
+    cardShape: (savedSettings?.cardShape === 'square' ? 'square' : 'rounded') as CardShape,
     equalHeight: savedSettings?.equalHeight ?? true,
     footerCta: savedSettings?.footerCta ?? false,
     maxChars: savedSettings?.maxChars ?? '220',
@@ -466,6 +476,7 @@ export function ReviewWidgetBuilder({
     sort !== lastSaved.sort ||
     showHero !== lastSaved.showHero ||
     heroStyle !== lastSaved.heroStyle ||
+    cardShape !== lastSaved.cardShape ||
     equalHeight !== lastSaved.equalHeight ||
     footerCta !== lastSaved.footerCta ||
     maxChars !== lastSaved.maxChars ||
@@ -557,8 +568,8 @@ export function ReviewWidgetBuilder({
     if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
-      await onSave({ layout, theme, minRating, limit, sort, showHero, heroStyle, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
-      setLastSaved({ layout, theme, minRating, limit, sort, showHero, heroStyle, equalHeight, footerCta, maxChars, showOwnerResponse, embedMode })
+      await onSave({ layout, theme, minRating, limit, sort, showHero, heroStyle, cardShape, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
+      setLastSaved({ layout, theme, minRating, limit, sort, showHero, heroStyle, cardShape, equalHeight, footerCta, maxChars, showOwnerResponse, embedMode })
       setSaveState('saved')
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
@@ -706,6 +717,32 @@ export function ReviewWidgetBuilder({
                   ))}
                 </div>
               ) : null}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <span className="text-[12px] font-medium text-text-secondary">Card corners</span>
+              <div className="grid grid-cols-2 overflow-hidden rounded-[7px] border border-border bg-bg-primary/40 p-0.5" role="radiogroup" aria-label="Card corners">
+                {([
+                  { id: 'rounded', label: 'Rounded' },
+                  { id: 'square', label: 'Square' },
+                ] as const).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={cardShape === item.id}
+                    onClick={() => setCardShape(item.id)}
+                    className={cn(
+                      'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-colors',
+                      cardShape === item.id
+                        ? 'bg-bg-tertiary text-text-primary shadow-sm'
+                        : 'text-text-tertiary hover:text-text-primary',
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
@@ -879,7 +916,7 @@ export function ReviewWidgetBuilder({
                     href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                    className={cn('inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85', cardShape === 'square' ? 'rounded-none' : 'rounded-full')}
                     style={{ backgroundColor: accent }}
                   >
                     ★ Write a review
@@ -889,7 +926,8 @@ export function ReviewWidgetBuilder({
             ) : showHero ? (
               <section
                 className={cn(
-                  'mx-4 mb-4 select-none rounded-[16px] border p-5',
+                  'mx-4 mb-4 select-none border p-5',
+                  cardShape === 'square' ? 'rounded-none' : 'rounded-[16px]',
                   theme === 'dark'
                     ? 'border-white/10 text-zinc-50'
                     : 'border-zinc-200 text-zinc-950',
@@ -922,7 +960,7 @@ export function ReviewWidgetBuilder({
                         href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                        className={cn('mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85', cardShape === 'square' ? 'rounded-none' : 'rounded-full')}
                         style={{ backgroundColor: accent }}
                       >
                         ★ Write a review
@@ -958,7 +996,8 @@ export function ReviewWidgetBuilder({
             {visibleReviews.length === 0 ? (
               <div
                 className={cn(
-                  'rounded-[14px] border border-dashed p-10 text-center text-sm',
+                  'border border-dashed p-10 text-center text-sm',
+                  cardShape === 'square' ? 'rounded-none' : 'rounded-[14px]',
                   theme === 'dark' ? 'border-white/10 text-zinc-400' : 'border-zinc-300 text-zinc-500',
                 )}
               >
@@ -967,15 +1006,15 @@ export function ReviewWidgetBuilder({
             ) : layout === 'list' ? (
               <div className="space-y-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} square={cardShape === 'square'} />
                 ))}
               </div>
             ) : layout === 'carousel' ? (
-              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
+              <PreviewCarousel reviews={visibleReviews} theme={theme} brandAccent={accent} equalHeight={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} square={cardShape === 'square'} />
             ) : (
               <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {visibleReviews.map((review) => (
-                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} />
+                  <PreviewCard key={review.id} review={review} theme={theme} brandAccent={accent} compact fill={equalHeight} maxChars={Number(maxChars)} showOwnerResponse={showOwnerResponse} square={cardShape === 'square'} />
                 ))}
               </div>
             )}
@@ -986,7 +1025,7 @@ export function ReviewWidgetBuilder({
                   href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                  className={cn('inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85', cardShape === 'square' ? 'rounded-none' : 'rounded-full')}
                   style={{ backgroundColor: accent }}
                 >
                   ★ Write a review
