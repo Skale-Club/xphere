@@ -39,6 +39,7 @@ interface ApiPayload {
     minRating?: number
     limit?: number
     showHero?: boolean
+    heroStyle?: HeroStyle
     equalHeight?: boolean
     footerCta?: boolean
     showOwnerResponse?: boolean
@@ -68,6 +69,7 @@ interface ReviewItem {
 type Layout = 'grid' | 'list' | 'carousel'
 type Theme = 'light' | 'dark'
 type Sort = 'recent' | 'rating_high' | 'helpful'
+type HeroStyle = 'full' | 'lite'
 
 interface WidgetConfig {
   token: string
@@ -78,6 +80,7 @@ interface WidgetConfig {
   limit: number
   apiBase: string
   showHero: boolean
+  heroStyle: HeroStyle
   equalHeight: boolean
   footerCta: boolean
   showOwnerResponse: boolean
@@ -92,6 +95,7 @@ const DEFAULTS: Omit<WidgetConfig, 'token'> = {
   limit: 12,
   apiBase: '',
   showHero: true,
+  heroStyle: 'full',
   equalHeight: true,
   footerCta: false,
   showOwnerResponse: true,
@@ -134,7 +138,9 @@ const CSS = `
   border-radius: var(--orw-radius);
   background: linear-gradient(135deg, var(--orw-brand-soft), #ffffff 80%);
   border: 1px solid var(--orw-border);
-  margin-bottom: 20px;
+  /* Side inset = the carousel's 16px left gutter, so the header lines up with
+     the first card instead of running edge-to-edge past it. */
+  margin: 0 16px 20px;
   user-select: none; -webkit-user-select: none;
 }
 .orw-root[data-theme="dark"] .orw-hero {
@@ -148,12 +154,30 @@ const CSS = `
 .orw-hero-meta { font-size: 13px; color: var(--orw-muted); }
 .orw-hero-name { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
 .orw-hero-text { flex: 1; min-width: 220px; }
+.orw-hero-address { font-size: 13px; color: var(--orw-muted); margin: 0 0 14px; }
+
+/* Lite header: rating only, centred, in a narrower box. */
+.orw-hero-lite {
+  flex-direction: column; justify-content: center; gap: 6px;
+  text-align: center;
+  padding: 20px 24px;
+  width: calc(100% - 32px); max-width: 520px;
+  margin: 0 auto 20px;
+}
+.orw-hero-lite-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--orw-muted);
+}
+.orw-hero-lite-rating { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.orw-hero-lite-rating .orw-hero-rating-num { font-size: 40px; }
+.orw-hero-lite-rating .orw-star { width: 20px; height: 20px; }
+.orw-hero-lite .orw-write-btn { margin-top: 8px; }
 
 .orw-dist { display: flex; flex-direction: column; gap: 6px; min-width: 240px; flex: 1; }
 .orw-dist-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
 .orw-dist-label { width: 32px; color: var(--orw-muted); display: inline-flex; align-items: center; gap: 2px; }
 .orw-dist-bar { flex: 1; height: 8px; background: var(--orw-border); border-radius: 999px; overflow: hidden; }
-.orw-dist-fill { height: 100%; background: var(--orw-brand); border-radius: 999px; transition: width 600ms ease; }
+.orw-dist-fill { display: block; height: 100%; background: var(--orw-brand); border-radius: 999px; transition: width 600ms ease; }
 .orw-dist-count { width: 40px; text-align: right; color: var(--orw-muted); font-variant-numeric: tabular-nums; }
 
 .orw-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
@@ -403,6 +427,7 @@ function getConfig(): WidgetConfig | null {
       limit: Number.parseInt(sp.get('limit') ?? '12', 10) || DEFAULTS.limit,
       apiBase: sp.get('api') ?? window.location.origin,
       showHero: sp.get('hero') !== '0',
+      heroStyle: sp.get('hero_style') === 'lite' ? 'lite' : DEFAULTS.heroStyle,
       equalHeight: sp.get('eqh') !== '0',
       footerCta: sp.get('cta') === '1',
       showOwnerResponse: DEFAULTS.showOwnerResponse,
@@ -422,6 +447,7 @@ function getConfig(): WidgetConfig | null {
     limit: Number.parseInt(host.dataset.limit ?? '12', 10) || DEFAULTS.limit,
     apiBase: host.dataset.api ?? new URL((document.currentScript as HTMLScriptElement | null)?.src ?? window.location.href).origin,
     showHero: host.dataset.hero !== '0',
+    heroStyle: host.dataset.heroStyle === 'lite' ? 'lite' : DEFAULTS.heroStyle,
     equalHeight: host.dataset.equalHeight !== '0',
     footerCta: host.dataset.footerCta === '1',
     showOwnerResponse: DEFAULTS.showOwnerResponse,
@@ -438,6 +464,7 @@ function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings'
     minRating: settings.minRating ?? config.minRating,
     limit: settings.limit ?? config.limit,
     showHero: settings.showHero ?? config.showHero,
+    heroStyle: settings.heroStyle ?? config.heroStyle,
     equalHeight: settings.equalHeight ?? config.equalHeight,
     footerCta: settings.footerCta ?? config.footerCta,
     showOwnerResponse: settings.showOwnerResponse ?? config.showOwnerResponse,
@@ -445,17 +472,36 @@ function withSavedSettings(config: WidgetConfig, settings: ApiPayload['settings'
   }
 }
 
-function renderHero(p: ApiPayload): string {
+function renderHero(p: ApiPayload, style: HeroStyle): string {
   const avg = p.business.averageRating ?? 0
   const total = p.business.totalReviewsCount ?? p.distribution.reduce((s, d) => s + d.count, 0)
   const max = Math.max(...p.distribution.map((d) => d.count), 1)
   const writeUrl = p.business.placeId
     ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(p.business.placeId)}`
     : null
+  const writeBtn = writeUrl
+    ? `<a href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer" class="orw-write-btn">&#9733; Write a review</a>`
+    : ''
+
+  if (style === 'lite') {
+    return `
+    <section class="orw-hero orw-hero-lite">
+      <div class="orw-hero-lite-label">${GOOGLE_G_SVG}<span>Google Reviews</span></div>
+      <div class="orw-hero-lite-rating">
+        <span class="orw-hero-rating-num">${avg.toFixed(1)}</span>
+        ${stars(avg)}
+      </div>
+      <div class="orw-hero-meta">Based on ${total} reviews</div>
+      ${writeBtn}
+    </section>
+  `
+  }
+
   return `
     <section class="orw-hero">
       <div class="orw-hero-text">
         ${p.business.name ? `<h2 class="orw-hero-name">${escapeHtml(p.business.name)}</h2>` : ''}
+        ${p.business.address ? `<p class="orw-hero-address">${escapeHtml(p.business.address)}</p>` : ''}
         <div class="orw-hero-rating">
           <span class="orw-hero-rating-num">${avg.toFixed(1)}</span>
           <div>
@@ -463,7 +509,7 @@ function renderHero(p: ApiPayload): string {
             <div class="orw-hero-meta">${total} reviews</div>
           </div>
         </div>
-        ${writeUrl ? `<a href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer" class="orw-write-btn">&#9733; Write a review</a>` : ''}
+        ${writeBtn}
       </div>
       <div class="orw-dist" aria-label="Rating distribution">
         ${p.distribution.map((d) => `
@@ -552,7 +598,7 @@ function renderFooterCta(config: WidgetConfig, p: ApiPayload): string {
 
 function renderShell(config: WidgetConfig, payload: ApiPayload): string {
   const cards = payload.reviews.map((r) => renderReview(r, config)).join('')
-  const heroHtml = config.showHero ? renderHero(payload) : ''
+  const heroHtml = config.showHero ? renderHero(payload, config.heroStyle) : ''
   const footerHtml = renderFooterCta(config, payload)
   const empty = payload.reviews.length === 0
     ? `<div class="orw-empty">No reviews yet.</div>`

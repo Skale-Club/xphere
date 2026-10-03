@@ -30,6 +30,7 @@ type WidgetSettingsPayload = {
   minRating: number
   limit: number
   showHero: boolean
+  heroStyle: 'full' | 'lite'
   equalHeight: boolean
   footerCta: boolean
   maxChars: number
@@ -147,6 +148,7 @@ function normalizeWidgetSettings(raw: unknown): WidgetSettingsPayload {
     minRating: clampInt(readStringSetting(source, 'minRating') ?? null, 1, 5, 4),
     limit: limit === 'all' ? 500 : clampInt(limit ?? null, 1, 500, 12),
     showHero: readBooleanSetting(source, 'showHero', true),
+    heroStyle: readStringSetting(source, 'heroStyle') === 'lite' ? 'lite' : 'full',
     equalHeight: readBooleanSetting(source, 'equalHeight', true),
     footerCta: readBooleanSetting(source, 'footerCta', false),
     maxChars: clampInt(readStringSetting(source, 'maxChars') ?? null, 50, 2000, 220),

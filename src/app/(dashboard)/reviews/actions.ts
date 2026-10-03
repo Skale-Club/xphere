@@ -10,6 +10,7 @@ export type SavedWidgetSettings = {
   limit?: string
   sort?: string
   showHero?: boolean
+  heroStyle?: string
   equalHeight?: boolean
   footerCta?: boolean
   embedMode?: string

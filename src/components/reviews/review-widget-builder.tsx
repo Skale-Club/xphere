@@ -30,6 +30,7 @@ type Layout = 'grid' | 'list' | 'carousel'
 type Theme = 'light' | 'dark'
 type EmbedMode = 'iframe' | 'script'
 type SortOrder = 'quality' | 'recent'
+type HeroStyle = 'full' | 'lite'
 
 export type ReviewWidgetPreviewReview = {
   id: string
@@ -131,10 +132,12 @@ function hexBlendSolid(hex: string, alpha: number, baseR: number, baseG: number,
   return `rgb(${r}, ${g}, ${b})`
 }
 
-function iframeHeight(layout: Layout, showHero: boolean): number {
-  if (layout === 'carousel') return showHero ? 500 : 360
-  if (layout === 'list') return showHero ? 720 : 560
-  return showHero ? 760 : 620
+function iframeHeight(layout: Layout, showHero: boolean, heroStyle: HeroStyle): number {
+  // The lite header drops the distribution bars + address, ~60px shorter.
+  const heroOffset = showHero && heroStyle === 'lite' ? 60 : 0
+  if (layout === 'carousel') return (showHero ? 500 : 360) - heroOffset
+  if (layout === 'list') return (showHero ? 720 : 560) - heroOffset
+  return (showHero ? 760 : 620) - heroOffset
 }
 
 function buildWidgetUrl({
@@ -431,6 +434,7 @@ export function ReviewWidgetBuilder({
   const [limit, setLimit] = useState(savedSettings?.limit ?? '12')
   const [sort, setSort] = useState<SortOrder>((savedSettings?.sort as SortOrder) ?? 'quality')
   const [showHero, setShowHero] = useState(savedSettings?.showHero ?? true)
+  const [heroStyle, setHeroStyle] = useState<HeroStyle>(savedSettings?.heroStyle === 'lite' ? 'lite' : 'full')
   const [equalHeight, setEqualHeight] = useState(savedSettings?.equalHeight ?? true)
   const [footerCta, setFooterCta] = useState(savedSettings?.footerCta ?? false)
   const [maxChars, setMaxChars] = useState(savedSettings?.maxChars ?? '220')
@@ -447,6 +451,7 @@ export function ReviewWidgetBuilder({
     limit: savedSettings?.limit ?? '12',
     sort: (savedSettings?.sort as SortOrder) ?? 'quality',
     showHero: savedSettings?.showHero ?? true,
+    heroStyle: (savedSettings?.heroStyle === 'lite' ? 'lite' : 'full') as HeroStyle,
     equalHeight: savedSettings?.equalHeight ?? true,
     footerCta: savedSettings?.footerCta ?? false,
     maxChars: savedSettings?.maxChars ?? '220',
@@ -460,6 +465,7 @@ export function ReviewWidgetBuilder({
     limit !== lastSaved.limit ||
     sort !== lastSaved.sort ||
     showHero !== lastSaved.showHero ||
+    heroStyle !== lastSaved.heroStyle ||
     equalHeight !== lastSaved.equalHeight ||
     footerCta !== lastSaved.footerCta ||
     maxChars !== lastSaved.maxChars ||
@@ -485,7 +491,7 @@ export function ReviewWidgetBuilder({
     baseUrl,
     widgetToken,
   })
-  const height = iframeHeight(layout, showHero)
+  const height = iframeHeight(layout, showHero, heroStyle)
   const title = `${business.name ?? 'Google'} reviews`
   const safeTitle = escapeAttribute(title)
   const embedOrigin = (() => {
@@ -551,8 +557,8 @@ export function ReviewWidgetBuilder({
     if (!onSave || saveState === 'saving') return
     setSaveState('saving')
     try {
-      await onSave({ layout, theme, minRating, limit, sort, showHero, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
-      setLastSaved({ layout, theme, minRating, limit, sort, showHero, equalHeight, footerCta, maxChars, showOwnerResponse, embedMode })
+      await onSave({ layout, theme, minRating, limit, sort, showHero, heroStyle, equalHeight, footerCta, embedMode, maxChars, showOwnerResponse })
+      setLastSaved({ layout, theme, minRating, limit, sort, showHero, heroStyle, equalHeight, footerCta, maxChars, showOwnerResponse, embedMode })
       setSaveState('saved')
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => setSaveState('idle'), 2000)
@@ -669,11 +675,37 @@ export function ReviewWidgetBuilder({
               </Select>
             </div>
 
-            <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
-              <Label htmlFor="reviews-widget-hero" className="text-[12px] font-medium text-text-secondary">
-                Summary header
-              </Label>
-              <Switch id="reviews-widget-hero" checked={showHero} onCheckedChange={setShowHero} />
+            <div className="rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="reviews-widget-hero" className="text-[12px] font-medium text-text-secondary">
+                  Summary header
+                </Label>
+                <Switch id="reviews-widget-hero" checked={showHero} onCheckedChange={setShowHero} />
+              </div>
+              {showHero ? (
+                <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-[7px] border border-border bg-bg-primary/40 p-0.5" role="radiogroup" aria-label="Summary header style">
+                  {([
+                    { id: 'full', label: 'Full' },
+                    { id: 'lite', label: 'Lite' },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={heroStyle === item.id}
+                      onClick={() => setHeroStyle(item.id)}
+                      className={cn(
+                        'rounded-[5px] px-2.5 py-1 text-[11.5px] font-medium transition-colors',
+                        heroStyle === item.id
+                          ? 'bg-bg-tertiary text-text-primary shadow-sm'
+                          : 'text-text-tertiary hover:text-text-primary',
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-between rounded-[8px] border border-border bg-bg-tertiary/50 px-3 py-2">
@@ -827,10 +859,47 @@ export function ReviewWidgetBuilder({
               backgroundSize: '16px 16px',
             }}
           >
-            {showHero ? (
+            {showHero && heroStyle === 'lite' ? (
               <section
                 className={cn(
-                  'mb-4 select-none rounded-[16px] border p-5',
+                  'mx-auto mb-4 flex w-[calc(100%-32px)] max-w-[520px] select-none flex-col items-center gap-1.5 rounded-[16px] border px-6 py-5 text-center',
+                  theme === 'dark'
+                    ? 'border-white/10 text-zinc-50'
+                    : 'border-zinc-200 text-zinc-950',
+                )}
+                style={{
+                  background: `linear-gradient(135deg, ${heroSolidStart}, ${heroSolidEnd} 80%)`,
+                }}
+              >
+                <p className={cn('flex items-center gap-1.5 text-[13px] font-semibold', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
+                  <GoogleIcon />
+                  Google Reviews
+                </p>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums">
+                    {(business.averageRating ?? 0).toFixed(1)}
+                  </span>
+                  <StarRating rating={business.averageRating ?? 0} size="md" />
+                </div>
+                <p className={cn('text-[12px]', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
+                  Based on {business.totalReviewsCount ?? reviews.length} reviews
+                </p>
+                {business.placeId ? (
+                  <a
+                    href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                    style={{ backgroundColor: accent }}
+                  >
+                    ★ Write a review
+                  </a>
+                ) : null}
+              </section>
+            ) : showHero ? (
+              <section
+                className={cn(
+                  'mx-4 mb-4 select-none rounded-[16px] border p-5',
                   theme === 'dark'
                     ? 'border-white/10 text-zinc-50'
                     : 'border-zinc-200 text-zinc-950',
