@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { cache } from 'react'
+import { ORG_HEADER, resolveRequestOrgId } from '@/lib/org/request-org'
 import type { Database } from '@/types/database'
 
 // cache() deduplicates calls within a single server-side render tree.
@@ -9,10 +10,20 @@ import type { Database } from '@/types/database'
 
 export const createClient = cache(async () => {
   const cookieStore = await cookies()
+  // The org this request's tab is pinned to (URL prefix via the proxy, the
+  // tab's fetch header, or its Referer). get_current_org_id() honours it only
+  // for a member; absent, the DB default applies. See src/lib/org/request-org.ts.
+  const headerStore = await headers()
+  const orgId = resolveRequestOrgId({
+    header: headerStore.get(ORG_HEADER),
+    referer: headerStore.get('referer'),
+    host: headerStore.get('host'),
+  })
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      ...(orgId ? { global: { headers: { [ORG_HEADER]: orgId } } } : {}),
       cookies: {
         getAll() {
           return cookieStore.getAll()

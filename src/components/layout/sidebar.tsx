@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import {

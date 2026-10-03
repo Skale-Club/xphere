@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
-export default function SettingsCallsRedirect() {
-  redirect('/calls?settings=routing')
+export default async function SettingsCallsRedirect() {
+  return orgRedirect('/calls?settings=routing')
 }

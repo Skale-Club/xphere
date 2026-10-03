@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
-export default function CopilotIndex() {
-  redirect('/copilot/conversations')
+export default async function CopilotIndex() {
+  return orgRedirect('/copilot/conversations')
 }

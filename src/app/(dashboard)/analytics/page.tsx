@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { getUser } from '@/lib/supabase/server'
 import { getOrCreateAnalyticsSetup } from './actions'
 import { SetupWizard } from './_components/setup-wizard'
@@ -10,7 +11,7 @@ export default async function AnalyticsPage() {
   if (!user) redirect('/')
 
   const setup = await getOrCreateAnalyticsSetup()
-  if (!setup) redirect('/dashboard')
+  if (!setup) return orgRedirect('/dashboard')
 
   const state = setup.verification_state
 

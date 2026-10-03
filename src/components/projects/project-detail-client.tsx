@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import Link from 'next/link'
 import { CalendarDays, Check, GanttChartSquare, KanbanSquare, List, Pencil, Plus, Plug, X } from 'lucide-react'
 import { toast } from 'sonner'

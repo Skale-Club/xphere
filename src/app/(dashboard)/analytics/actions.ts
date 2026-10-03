@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { createClient, getUser } from '@/lib/supabase/server'
 import {
   getDashboardMetrics,
@@ -21,7 +22,7 @@ async function getOrgAndClient() {
   if (!user) redirect('/')
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) redirect('/organizations')
+  if (!orgId) return orgRedirect('/organizations')
   return { supabase, orgId: orgId as string, user }
 }
 

@@ -14,7 +14,8 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { findNavItemForPath, sectionRootForPath } from '@/components/layout/nav-items'
 import { Button } from '@/components/ui/button'
 

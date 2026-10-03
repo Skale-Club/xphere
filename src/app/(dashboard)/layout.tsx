@@ -35,6 +35,7 @@ import { shouldBlockForBilling } from '@/lib/billing/guards'
 import { PLAN_CATALOG } from '@/lib/billing/catalog'
 import { BillingPaywall } from '@/components/billing/billing-paywall'
 import { loadDashboardTourEligibility } from '@/lib/onboarding/tour-state'
+import { OrgTabSync } from '@/components/org/org-tab-sync'
 
 /*
  * PERFORMANCE CONTRACT FOR THIS LAYOUT
@@ -278,6 +279,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <BreadcrumbOverrideProvider>
+      <OrgTabSync orgId={activeOrgId} />
       <OrgSettingsProvider value={{ timezone: orgSettings.timezone, currency: orgSettings.currency }}>
       <SidebarStateProvider>
         <CommandPaletteProvider>

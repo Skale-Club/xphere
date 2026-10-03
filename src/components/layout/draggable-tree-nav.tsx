@@ -10,7 +10,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { toast } from 'sonner'
 import {
   Check,

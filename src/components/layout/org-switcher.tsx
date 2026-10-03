@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown, Plus, Loader2, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { switchOrganization, createOrganization, getUserOrgs } from '@/app/(dashboard)/organizations/actions'
 import { sectionRootForPath } from '@/components/layout/nav-items'
+import { usePathname } from '@/lib/org/navigation'
+import { orgPath } from '@/lib/org/request-org'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -93,7 +95,8 @@ function CreateOrgDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       }
       // Creating an org switches the active org. Hard reload to the section root
       // so the whole tab re-renders under the new org (coherent, no stale cache).
-      window.location.assign(sectionRootForPath(pathname))
+      const section = sectionRootForPath(pathname)
+      window.location.assign(result?.orgId ? orgPath(result.orgId, section) : section)
     })
   }
 
@@ -163,10 +166,11 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
         toast.error(result.error)
         return
       }
-      // Hard reload to the section root so the ENTIRE tab re-renders under the
-      // new org resolved from the DB (topbar, theme, data, RLS all coherent) —
-      // no stale Router/ISR cache, no split-brain, and no 404 on deep routes.
-      window.location.assign(sectionRootForPath(pathname))
+      // Hard reload to the section root, pinned to the new org in the URL, so
+      // the ENTIRE tab re-renders under it (topbar, theme, data, RLS all
+      // coherent) — no stale Router cache, no split-brain, no 404 on deep
+      // routes. Other tabs keep their own org.
+      window.location.assign(orgPath(orgId, sectionRootForPath(pathname)))
     })
   }
 
@@ -210,16 +214,23 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, currentOrgLogo, coll
             </div>
           ) : (
             (orgs ?? []).map(org => (
-              <DropdownMenuItem
-                key={org.id}
-                onClick={() => handleSwitch(org.id)}
-                className="cursor-pointer gap-2"
-              >
-                <OrgAvatar name={org.name} logo={org.logo_url} size={20} />
-                <span className="flex-1 truncate">{org.name}</span>
-                <Check
-                  className={`h-3.5 w-3.5 shrink-0 ${org.id === currentOrgId ? 'opacity-100 text-accent' : 'opacity-0'}`}
-                />
+              // A real link, so Ctrl/Cmd/middle-click (or "Open in new tab")
+              // opens the org in its own tab — each tab keeps its own org.
+              <DropdownMenuItem key={org.id} asChild className="cursor-pointer gap-2">
+                <a
+                  href={orgPath(org.id, sectionRootForPath(pathname))}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+                    e.preventDefault()
+                    handleSwitch(org.id)
+                  }}
+                >
+                  <OrgAvatar name={org.name} logo={org.logo_url} size={20} />
+                  <span className="flex-1 truncate">{org.name}</span>
+                  <Check
+                    className={`h-3.5 w-3.5 shrink-0 ${org.id === currentOrgId ? 'opacity-100 text-accent' : 'opacity-0'}`}
+                  />
+                </a>
               </DropdownMenuItem>
             ))
           )}

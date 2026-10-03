@@ -29,7 +29,7 @@ export async function getUserOrgs(): Promise<{ id: string; name: string; logo_ur
     .filter((o): o is { id: string; name: string; logo_url: string | null } => o !== null)
 }
 
-export async function createOrganization(data: { name: string }): Promise<{ error?: string } | void> {
+export async function createOrganization(data: { name: string }): Promise<{ error?: string; orgId?: string } | void> {
   const user = await getUser()
   if (!user) return { error: 'Not authenticated.' }
   const supabase = await createClient()
@@ -85,6 +85,7 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
 
   // Seed platform-default workflows for the new org (fire-and-forget).
   void seedOrgWorkflows(org.id).catch(() => {})
+  return { orgId: org.id }
 }
 
 export async function switchOrganization(organizationId: string): Promise<{ error?: string }> {

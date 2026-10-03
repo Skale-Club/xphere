@@ -16,7 +16,8 @@
  */
 
 import * as React from 'react'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { CalendarRange } from 'lucide-react'
 
 import {

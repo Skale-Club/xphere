@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 // Canonical location is now /settings/email-templates so it renders inside
 // the Settings SubSidebarLayout. Redirect for backwards-compat.
-export default function EmailTemplatesRedirect() {
-  redirect('/settings/email-templates')
+export default async function EmailTemplatesRedirect() {
+  return orgRedirect('/settings/email-templates')
 }

@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { Megaphone, Settings2, Smartphone } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'

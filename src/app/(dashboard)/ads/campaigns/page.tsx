@@ -1,5 +1,6 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { MetaAdsCampaigns } from '../_components/meta-ads-campaigns'
 
 export default async function AdsAdCampaignsPage() {
@@ -14,7 +15,7 @@ export default async function AdsAdCampaignsPage() {
     .eq('usable', true)
     .order('created_at', { ascending: true })
 
-  if (!connections?.length) redirect('/ads')
+  if (!connections?.length) return orgRedirect('/ads')
 
   const primary = connections[0]
   return (

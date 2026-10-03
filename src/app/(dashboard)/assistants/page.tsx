@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
-export default function AssistantsPage() {
-  redirect('/calls?settings=assistants')
+export default async function AssistantsPage() {
+  return orgRedirect('/calls?settings=assistants')
 }

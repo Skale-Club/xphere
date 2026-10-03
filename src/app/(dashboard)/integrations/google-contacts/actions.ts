@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import {
@@ -57,7 +58,7 @@ export async function connectGoogleContacts(): Promise<never> {
   const { data: orgId } = await supabase.rpc('get_current_org_id') // D-09: always resolve from session
 
   if (!orgId) {
-    redirect('/integrations/google-contacts?error=no_org')
+    return orgRedirect('/integrations/google-contacts?error=no_org')
   }
 
   const state = crypto.randomUUID()

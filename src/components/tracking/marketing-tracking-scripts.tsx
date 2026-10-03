@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import Script from 'next/script'
 import type { TrackingConfig } from '@/lib/tracking/config'
 

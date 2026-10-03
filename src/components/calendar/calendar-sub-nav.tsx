@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import {
   BookOpen,
   CalendarDays,

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { LandingPage } from '@/components/landing/landing-page'
 import { getFaviconUrl, getSeoMetadataConfig } from '@/lib/seo'
 import { getLandingPublicConfig } from '@/lib/landing/public-config'
@@ -100,7 +101,7 @@ export default async function RootPage({
   // Redirect them straight to the dashboard — this also breaks the
   // "double-login" loop where a timing edge-case sends an authenticated
   // user back to "/" after the OAuth callback.
-  if (user) redirect('/dashboard')
+  if (user) return orgRedirect('/dashboard')
 
   return (
     <>

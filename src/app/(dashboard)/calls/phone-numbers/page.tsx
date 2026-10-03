@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 // Phone numbers now live in the Voice Settings modal on the Calls page.
-export default function CallsPhoneNumbersRedirect() {
-  redirect('/calls?settings=numbers')
+export default async function CallsPhoneNumbersRedirect() {
+  return orgRedirect('/calls?settings=numbers')
 }

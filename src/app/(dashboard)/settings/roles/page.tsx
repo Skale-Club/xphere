@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { ShieldCheck } from 'lucide-react'
 
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
@@ -8,7 +9,7 @@ import { getOwnRolesConfig } from './actions'
 export default async function RolesSettingsPage() {
   const { error, config } = await getOwnRolesConfig()
   if (error === 'Not authenticated') redirect('/')
-  if (error === 'No active organization') redirect('/organizations')
+  if (error === 'No active organization') return orgRedirect('/organizations')
 
   return (
     <PageContainer size="wide">

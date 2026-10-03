@@ -6,6 +6,7 @@
 import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { resolveNotionAccessToken } from '@/lib/notion/connection'
@@ -20,7 +21,7 @@ export type GlobalKnowledgePlatform = 'meta' | 'google' | 'global'
 async function assertPlatformAdmin(): Promise<{ userId: string }> {
   const user = await getUser()
   if (!user) redirect('/')
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) redirect('/dashboard')
+  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return orgRedirect('/dashboard')
   return { userId: user.id }
 }
 

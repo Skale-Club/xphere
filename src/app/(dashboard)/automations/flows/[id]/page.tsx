@@ -1,9 +1,9 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 export default async function FlowEditorLegacyRedirect({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  redirect(`/workflows/flows/${id}`)
+  return orgRedirect(`/workflows/flows/${id}`)
 }

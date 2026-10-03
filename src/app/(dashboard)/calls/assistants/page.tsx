@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 // Voice assistants now live in the Voice Settings modal on the Calls page.
-export default function CallsAssistantsRedirect() {
-  redirect('/calls?settings=assistants')
+export default async function CallsAssistantsRedirect() {
+  return orgRedirect('/calls?settings=assistants')
 }

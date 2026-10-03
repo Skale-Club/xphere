@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
-export default function OutboundPage() {
-  redirect('/campaigns?channel=calls')
+export default async function OutboundPage() {
+  return orgRedirect('/campaigns?channel=calls')
 }

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
@@ -25,7 +26,7 @@ export default async function CustomFieldsSettingsPage({ searchParams }: CustomF
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) redirect('/organizations')
+  if (!orgId) return orgRedirect('/organizations')
 
   const sp = await searchParams
   const rawEntity = typeof sp.entity === 'string' ? sp.entity : 'contact'

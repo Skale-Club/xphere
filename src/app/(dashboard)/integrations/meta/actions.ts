@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import {
@@ -30,7 +31,7 @@ export async function connectMeta(): Promise<never> {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
 
   if (!orgId) {
-    redirect('/integrations/meta?error=no_org')
+    return orgRedirect('/integrations/meta?error=no_org')
   }
 
   const state = crypto.randomUUID()

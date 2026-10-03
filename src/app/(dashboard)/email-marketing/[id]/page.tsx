@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 // Deprecated: the legacy /email-marketing system has been retired in favor
 // of the block-based builder. See
@@ -9,5 +9,5 @@ export default async function EmailTemplatePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  redirect(`/settings/email-templates/${id}`)
+  return orgRedirect(`/settings/email-templates/${id}`)
 }

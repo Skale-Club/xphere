@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 export default async function PhoneRedirect({
   searchParams,
@@ -7,7 +7,7 @@ export default async function PhoneRedirect({
 }) {
   const params = await searchParams
   const tab = params.tab as string | undefined
-  if (tab === 'campaigns') redirect('/campaigns?channel=calls')
-  if (tab === 'assistants') redirect('/calls?settings=assistants')
-  redirect('/calls')
+  if (tab === 'campaigns') return orgRedirect('/campaigns?channel=calls')
+  if (tab === 'assistants') return orgRedirect('/calls?settings=assistants')
+  return orgRedirect('/calls')
 }

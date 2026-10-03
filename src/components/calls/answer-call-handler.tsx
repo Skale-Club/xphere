@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { toast } from 'sonner'
 
 /**

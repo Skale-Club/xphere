@@ -143,7 +143,7 @@ added `event_types.look_busy_*`; 1268 dropped them) is still **applied** — its
 DDL ran. Marking it `reverted` would make `db push` re-run it and reintroduce
 what 1268 deliberately removed.
 
-**Active org:** Stored in `user_active_org` plus the `vo_active_org` cookie. `get_current_org_id()` prefers the explicit selection and falls back to the first membership.
+**Active org is per browser tab:** dashboard URLs carry `/o/<org-id>/…`. `src/proxy.ts` strips the prefix and forwards the org in the `x-xphere-org` header, the server Supabase client passes it to PostgREST, and `get_current_org_id()` honours it only for a member (migration 1308). Without it, `user_active_org` (the last focused tab's org) and then the first membership apply. In dashboard code use `usePathname` from `@/lib/org/navigation` (prefix stripped), `return orgRedirect(...)` from `@/lib/org/redirect` for server redirects to dashboard routes, and `window.location.assign(orgPath(id, …))` to switch org. Realtime has no request headers: org-scoped tables published to `supabase_realtime` need the `CASE WHEN is_realtime_rls_check()` policy form from migration 1309. Rationale and pitfalls live in `src/lib/org/request-org.ts` and the 1308/1309 headers.
 
 ## File Structure
 

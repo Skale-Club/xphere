@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
-export default function AutomationsLegacyRedirect() {
-  redirect('/workflows')
+import { orgRedirect } from '@/lib/org/redirect'
+export default async function AutomationsLegacyRedirect() {
+  return orgRedirect('/workflows')
 }

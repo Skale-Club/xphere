@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 export default async function VoiceDetailRedirect({
   params,
@@ -6,5 +6,5 @@ export default async function VoiceDetailRedirect({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  redirect(`/calls?call=${encodeURIComponent(id)}`)
+  return orgRedirect(`/calls?call=${encodeURIComponent(id)}`)
 }

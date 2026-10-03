@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -6,5 +6,5 @@ interface Props {
 
 export default async function SettingsPhoneNumberDetailRedirect({ params }: Props) {
   await params
-  redirect('/calls?settings=numbers')
+  return orgRedirect('/calls?settings=numbers')
 }

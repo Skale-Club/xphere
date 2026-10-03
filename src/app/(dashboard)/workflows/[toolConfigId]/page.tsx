@@ -1,4 +1,5 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { format } from 'date-fns'
 import { Wrench } from 'lucide-react'
 
@@ -131,7 +132,7 @@ export default async function ToolDetailPage({
       .eq('id', toolConfigId)
       .maybeSingle()
     if (flow?.kind === 'flow') {
-      redirect(`/workflows/flows/${flow.id}`)
+      return orgRedirect(`/workflows/flows/${flow.id}`)
     }
     notFound()
   }

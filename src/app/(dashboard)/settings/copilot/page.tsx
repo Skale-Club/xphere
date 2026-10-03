@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { Bot } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -12,7 +13,7 @@ export default async function CopilotSettingsPage() {
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) redirect('/organizations')
+  if (!orgId) return orgRedirect('/organizations')
 
   const [orgResult, providerResult] = await Promise.all([
     supabase

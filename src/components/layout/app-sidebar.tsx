@@ -1,6 +1,7 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import Link from 'next/link'
 import {
   Zap,

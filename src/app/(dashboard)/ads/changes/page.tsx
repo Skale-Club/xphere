@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { listChanges } from '@/lib/ads/commands/engine'
 import { can } from '@/lib/rbac/server'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -10,7 +11,7 @@ export default async function AdsChangesPage() {
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) redirect('/ads')
+  if (!orgId) return orgRedirect('/ads')
 
   const [initialChanges, canAdmin, { data: accountRows }] = await Promise.all([
     listChanges(orgId as string, { status: ['awaiting_approval'], limit: 50 }),

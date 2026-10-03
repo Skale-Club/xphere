@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'

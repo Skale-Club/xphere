@@ -1,6 +1,6 @@
 // Admin chat | Inbox
 // Auth: handled by (dashboard)/layout.tsx
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
 import { ChatLayout } from '@/components/chat/chat-layout'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -13,7 +13,7 @@ export default async function ChatPage({
   searchParams: Promise<{ tab?: string; conversation?: string; contact?: string }>
 }) {
   const params = await searchParams
-  if (params.tab === 'playground') redirect('/agents')
+  if (params.tab === 'playground') return orgRedirect('/agents')
 
   // Resolve active org for Realtime subscription filter (defense-in-depth alongside RLS)
   const supabase = await createClient()

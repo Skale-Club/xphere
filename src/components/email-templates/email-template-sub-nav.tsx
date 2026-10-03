@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import { toast } from 'sonner'
 import { Mail, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'

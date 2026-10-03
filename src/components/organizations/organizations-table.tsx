@@ -15,6 +15,7 @@ import { Building2, MoreHorizontal, ArrowUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
 import { switchOrganization, toggleOrganizationStatus } from '@/app/(dashboard)/organizations/actions'
+import { orgPath } from '@/lib/org/request-org'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -101,8 +102,9 @@ export function OrganizationsTable({ organizations: initialOrganizations }: Orga
         return
       }
       toast.success(`Switched to ${org.name}.`)
-      router.push('/dashboard')
-      router.refresh()
+      // Full load pinned to the org in the URL — this tab's requests carry its
+      // current org, so a soft push would keep showing the old one.
+      window.location.assign(orgPath(org.id, '/dashboard'))
     })
   }
 

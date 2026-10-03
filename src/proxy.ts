@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getClientIp } from '@/lib/request-ip'
 import { banRemainingMs, checkTrap } from '@/lib/security/bot-defense'
+import { ORG_HEADER, orgPath, resolveRequestOrgId, splitOrgPath } from '@/lib/org/request-org'
 
 /**
  * Bot defense, ahead of everything else (pages + the anonymous public APIs):
@@ -58,11 +59,46 @@ function botDefense(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const blocked = botDefense(request)
   if (blocked) return blocked
+
+  // Per-tab org (see src/lib/org/request-org.ts). `/o/<org-id>/<route>` is
+  // rewritten to `/<route>` with the org forwarded in a request header; the
+  // server Supabase client hands it to get_current_org_id(), which honours it
+  // only for a member. Unprefixed requests keep an org from the header/Referer
+  // when they come from an org-pinned tab.
+  const pinned = splitOrgPath(request.nextUrl.pathname)
+  if (pinned && (pinned.rest === '' || pinned.rest === '/')) {
+    const url = request.nextUrl.clone()
+    url.pathname = orgPath(pinned.orgId, '/dashboard')
+    return NextResponse.redirect(url)
+  }
+  const orgId =
+    pinned?.orgId ??
+    resolveRequestOrgId({
+      header: request.headers.get(ORG_HEADER),
+      referer: request.headers.get('referer'),
+      host: request.headers.get('host'),
+    })
+  const rewriteUrl = pinned ? request.nextUrl.clone() : null
+  if (rewriteUrl && pinned) rewriteUrl.pathname = pinned.rest
+
+  // Built lazily: the session refresh below rewrites request cookies, and the
+  // forwarded headers must carry them.
+  const forward = () => {
+    const headers = new Headers(request.headers)
+    if (orgId) headers.set(ORG_HEADER, orgId)
+    else headers.delete(ORG_HEADER)
+    return rewriteUrl
+      ? NextResponse.rewrite(rewriteUrl, { request: { headers } })
+      : NextResponse.next({ request: { headers } })
+  }
+
   // API routes only needed the bot check: webhooks and the public API carry no
   // user session, and refreshing one would cost an Auth call per webhook hit.
-  if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next()
+  if ((pinned?.rest ?? request.nextUrl.pathname).startsWith('/api/')) {
+    return pinned ? forward() : NextResponse.next()
+  }
 
-  let response = NextResponse.next({ request })
+  let response = forward()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,7 +110,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+          response = forward()
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           )

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 
-export default function VoiceRedirect() {
-  redirect('/calls')
+export default async function VoiceRedirect() {
+  return orgRedirect('/calls')
 }

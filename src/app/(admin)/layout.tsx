@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
@@ -8,7 +9,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
   if (!user) redirect('/')
-  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) redirect('/dashboard')
+  if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return orgRedirect('/dashboard')
 
   return (
     <div className="flex min-h-screen bg-bg-primary text-text-primary">

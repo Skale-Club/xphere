@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { Palette } from 'lucide-react'
 
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -14,7 +15,7 @@ export default async function WorkspaceSettingsPage() {
 
   const supabase = await createClient()
   const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) redirect('/organizations')
+  if (!orgId) return orgRedirect('/organizations')
 
   const { data: org } = await supabase
     .from('organizations')
@@ -24,7 +25,7 @@ export default async function WorkspaceSettingsPage() {
     .eq('id', orgId as string)
     .single()
 
-  if (!org) redirect('/organizations')
+  if (!org) return orgRedirect('/organizations')
 
   return (
     <PageContainer size="narrow">

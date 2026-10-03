@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { AlertTriangle, Bug, CheckCircle2, Clock3, Database, Search, XCircle } from 'lucide-react'
 import { getUser } from '@/lib/supabase/server'
 import {
@@ -163,7 +164,7 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
   const user = await getUser()
   if (!user) redirect('/')
   if (!process.env.PLATFORM_ADMIN_EMAIL || user.email !== process.env.PLATFORM_ADMIN_EMAIL) {
-    redirect('/dashboard')
+    return orgRedirect('/dashboard')
   }
 
   const rawParams = await searchParams

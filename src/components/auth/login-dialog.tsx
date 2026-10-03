@@ -31,6 +31,7 @@ import { mapSupabaseError, authErrorCodeToMessage } from '@/lib/auth/errors'
 import { signInWithEmail, signUpWithEmail } from '@/actions/auth'
 import { trackEvent } from '@/lib/tracking/events'
 import { HoneypotField } from '@/components/security/honeypot-field'
+import { stripOrgPrefix } from '@/lib/org/request-org'
 
 export type AuthMode = 'signin' | 'signup'
 export type AuthView = 'step1' | 'step2' | 'reset'
@@ -115,7 +116,8 @@ const NAVIGATION_FALLBACK_MS = 10_000
 function goToDashboard(router: ReturnType<typeof useRouter>) {
   router.replace('/dashboard')
   window.setTimeout(() => {
-    if (window.location.pathname !== '/dashboard') {
+    // The dashboard re-pins the URL to `/o/<org-id>/dashboard` once it renders.
+    if (stripOrgPrefix(window.location.pathname) !== '/dashboard') {
       window.location.assign('/dashboard')
     }
   }, NAVIGATION_FALLBACK_MS)

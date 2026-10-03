@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ManageAccountsButton } from './manage-accounts-button'

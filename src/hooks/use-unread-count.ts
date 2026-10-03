@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getTabOrgId } from '@/lib/org/tab-org'
 
 async function fetchUnreadCount(): Promise<number> {
   try {
@@ -33,6 +34,10 @@ export function useUnreadCount(userId: string | null | undefined, initialCount =
 
     const supabase = createClient()
     const id = instanceId.current
+    // Realtime sees conversations from every org the user belongs to
+    // (migration 1309) — only this tab's org affects its badge.
+    const tabOrgId = getTabOrgId()
+    const orgFilter = tabOrgId ? { filter: `org_id=eq.${tabOrgId}` } : {}
 
     // Refetch on any conversation_reads change (mark read/unread)
     // or on new messages arriving (conversations UPDATE with new last_message_at)
@@ -45,12 +50,12 @@ export function useUnreadCount(userId: string | null | undefined, initialCount =
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversations' },
+        { event: 'INSERT', schema: 'public', table: 'conversations', ...orgFilter },
         () => { fetchUnreadCount().then(setCount) },
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        { event: 'UPDATE', schema: 'public', table: 'conversations', ...orgFilter },
         () => { fetchUnreadCount().then(setCount) },
       )
       .subscribe()

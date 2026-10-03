@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/lib/org/navigation'
 
 type SubSidebarMode = 'expanded' | 'collapsed'
 

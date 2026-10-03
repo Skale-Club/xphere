@@ -54,6 +54,7 @@ import {
   type OrgTemplateStatus,
 } from '@/lib/org-templates/types'
 import { switchOrganization } from '@/app/(dashboard)/organizations/actions'
+import { orgPath } from '@/lib/org/request-org'
 import {
   createTemplateFromCurrentOrg,
   updateOrgTemplate,
@@ -567,7 +568,6 @@ function InstallResultDialog({
   result: { summary: InstallSummary; orgId: string; orgName: string }
   onClose: () => void
 }) {
-  const router = useRouter()
   const [pending, startTransition] = React.useTransition()
   const { counts, checklist } = result.summary
 
@@ -586,10 +586,8 @@ function InstallResultDialog({
     startTransition(async () => {
       const res = await switchOrganization(result.orgId)
       if (res?.error) toast.error(res.error)
-      else {
-        router.push('/settings')
-        router.refresh()
-      }
+      // Full load pinned to the new org in the URL (see org-switcher).
+      else window.location.assign(orgPath(result.orgId, '/settings'))
     })
   }
 

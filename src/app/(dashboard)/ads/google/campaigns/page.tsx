@@ -1,5 +1,6 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { orgRedirect } from '@/lib/org/redirect'
 import { GoogleAdsCampaigns } from '../../_components/google-ads-campaigns'
 
 export default async function GoogleAdsCampaignsPage() {
@@ -14,7 +15,7 @@ export default async function GoogleAdsCampaignsPage() {
     .eq('usable', true)
     .order('created_at', { ascending: true })
 
-  if (!connections?.length) redirect('/ads/google')
+  if (!connections?.length) return orgRedirect('/ads/google')
 
   const primary = connections[0]
   return (

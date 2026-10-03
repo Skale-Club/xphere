@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { NotificationList } from './notification-list'
 import { createClient } from '@/lib/supabase/client'
+import { getTabOrgId } from '@/lib/org/tab-org'
 import { toast } from 'sonner'
 import {
   fetchNotifications,
@@ -93,6 +94,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
       },
       (payload) => {
         const newRow = payload.new as NotificationRow
+        // Realtime delivers this user's notifications from every org they
+        // belong to (migration 1309); this tab shows only its own org's.
+        const tabOrgId = getTabOrgId()
+        if (tabOrgId && newRow.org_id !== tabOrgId) return
         setNotifications((prev) => [newRow, ...prev])
 
         if (newRow.type === 'incoming_call') {
