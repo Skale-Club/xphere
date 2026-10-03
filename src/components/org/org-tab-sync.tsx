@@ -11,6 +11,8 @@ installTabOrgFetch()
 
 const DEFAULT_SYNC_KEY = 'xph_default_org'
 const DEFAULT_SYNC_TTL_MS = 5 * 60 * 1000
+const RECOVER_KEY = 'xph_org_recover'
+const RECOVER_MAX_ATTEMPTS = 2
 
 /**
  * Pins this browser tab to the org it is rendering (`orgId` comes from the
@@ -28,6 +30,38 @@ export function OrgTabSync({ orgId }: { orgId: string | null }) {
   // During render, before any child effect can fire a request.
   setTabOrgId(orgId)
   const rawPathname = useRawPathname()
+
+  // The server rendered no org although the URL pins one. That happens when
+  // the render's database calls went out without the user's token — e.g. a
+  // transient Supabase Auth error (503) while refreshing an expiring session —
+  // and shows up as "Select organization". Reload, like a user would.
+  useEffect(() => {
+    if (orgId) {
+      try {
+        sessionStorage.removeItem(RECOVER_KEY)
+      } catch {
+        // Storage blocked: nothing to reset.
+      }
+      return
+    }
+    if (!splitOrgPath(window.location.pathname)) return
+    let attempts = 0
+    try {
+      attempts = Number(sessionStorage.getItem(RECOVER_KEY) ?? 0) || 0
+    } catch {
+      // Storage blocked: allow a single attempt.
+    }
+    if (attempts >= RECOVER_MAX_ATTEMPTS) return
+    const timer = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(RECOVER_KEY, String(attempts + 1))
+      } catch {
+        // Storage blocked: the attempt cap cannot persist; reload anyway.
+      }
+      window.location.reload()
+    }, 1500 * (attempts + 1))
+    return () => window.clearTimeout(timer)
+  }, [orgId])
 
   useEffect(() => {
     if (!orgId) return

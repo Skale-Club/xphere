@@ -19,7 +19,15 @@ import { createClient } from '@/lib/supabase/server'
 export const getActiveOrg = cache(async (): Promise<{ id: string; name: string } | null> => {
   try {
     const supabase = await createClient()
-    const { data: orgId } = await supabase.rpc('get_current_org_id')
+    let { data: orgId } = await supabase.rpc('get_current_org_id')
+    if (!orgId) {
+      // A null here for a signed-in user almost always means the call went out
+      // without their token (Supabase Auth briefly failing to refresh an
+      // expiring session falls back to the anon key). One short retry rides out
+      // most of those blips; <OrgTabSync> reloads the tab if it persists.
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      ;({ data: orgId } = await supabase.rpc('get_current_org_id'))
+    }
     if (!orgId) return null
     const { data: org } = await supabase
       .from('organizations')
