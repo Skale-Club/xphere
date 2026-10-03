@@ -10,18 +10,53 @@ declare global {
   var _redisClient: RedisClientType | undefined
 }
 
+// A refused connection to a host that resolves to both IPv4 and IPv6 (e.g.
+// `localhost`) surfaces as an AggregateError whose own `.message` is empty —
+// which is how production logged hundreds of bare `[redis] error:` lines.
+// Spell out the code/address of each underlying error instead.
+export function describeRedisError(err: unknown): string {
+  if (err instanceof AggregateError && err.errors.length > 0) {
+    return err.errors.map(describeRedisError).join('; ')
+  }
+  if (err instanceof Error) {
+    const e = err as NodeJS.ErrnoException & { address?: string; port?: number }
+    const where = e.address ? ` ${e.address}${e.port ? `:${e.port}` : ''}` : ''
+    const parts = [e.code, err.message].filter(Boolean).join(' ')
+    return `${err.name}${parts ? `: ${parts}` : ''}${where}`
+  }
+  return String(err)
+}
+
 function buildClient(): RedisClientType {
-  const client = createClient({
-    url: process.env.REDIS_URL,
-  }) as RedisClientType
+  const url = process.env.REDIS_URL
+
+  const client = createClient({ url }) as RedisClientType
+
+  // Without REDIS_URL the client would default to localhost:6379 and retry
+  // forever, flooding the log. Leave it unconnected instead: `isReady` stays
+  // false, which every caller already treats as "Redis unavailable".
+  if (!url) {
+    console.warn('[redis] REDIS_URL is not set; Redis features are disabled')
+    return client
+  }
 
   // D-07: Log errors but do not crash the app. Callers check redis.isReady before use.
-  client.on('error', (err: Error) => {
-    console.error('[redis] error:', err.message)
+  // The client emits an error on every reconnect attempt, so repeat messages
+  // are suppressed until the connection recovers.
+  let lastError = ''
+  client.on('error', (err: unknown) => {
+    const message = describeRedisError(err)
+    if (message === lastError) return
+    lastError = message
+    console.error('[redis] error:', message)
+  })
+  client.on('ready', () => {
+    if (lastError) console.info('[redis] connection recovered')
+    lastError = ''
   })
 
-  void client.connect().catch((err: Error) => {
-    console.error('[redis] connect failed:', err.message)
+  void client.connect().catch((err: unknown) => {
+    console.error('[redis] connect failed:', describeRedisError(err))
   })
 
   return client
