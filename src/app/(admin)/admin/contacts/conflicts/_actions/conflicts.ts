@@ -74,7 +74,8 @@ export async function markAsSeparate(orgId: string, contactIds: string[]): Promi
  */
 export async function refreshAudit(): Promise<void> {
   await assertAdmin()
-  const supabase = await createClient()
+  // Service role: EXECUTE is revoked from API roles (migration 1311).
+  const supabase = createServiceRoleClient()
   const { error } = await supabase.rpc('refresh_contact_duplicate_audit')
   if (error) throw new Error(`Refresh failed: ${error.message}`)
   revalidatePath('/admin/contacts/conflicts')
