@@ -133,8 +133,8 @@ function hexBlendSolid(hex: string, alpha: number, baseR: number, baseG: number,
 }
 
 function iframeHeight(layout: Layout, showHero: boolean, heroStyle: HeroStyle): number {
-  // The lite header drops the distribution bars + address, ~60px shorter.
-  const heroOffset = showHero && heroStyle === 'lite' ? 60 : 0
+  // The lite header is two lines with no card around it, ~110px shorter.
+  const heroOffset = showHero && heroStyle === 'lite' ? 110 : 0
   if (layout === 'carousel') return (showHero ? 500 : 360) - heroOffset
   if (layout === 'list') return (showHero ? 720 : 560) - heroOffset
   return (showHero ? 760 : 620) - heroOffset
@@ -862,34 +862,24 @@ export function ReviewWidgetBuilder({
             {showHero && heroStyle === 'lite' ? (
               <section
                 className={cn(
-                  'mx-auto mb-4 flex w-[calc(100%-32px)] max-w-[520px] select-none flex-col items-center gap-1.5 rounded-[16px] border px-6 py-5 text-center',
-                  theme === 'dark'
-                    ? 'border-white/10 text-zinc-50'
-                    : 'border-zinc-200 text-zinc-950',
+                  'mb-4 flex select-none flex-col items-center gap-3 px-4 pt-4 text-center',
+                  theme === 'dark' ? 'text-zinc-50' : 'text-zinc-950',
                 )}
-                style={{
-                  background: `linear-gradient(135deg, ${heroSolidStart}, ${heroSolidEnd} 80%)`,
-                }}
               >
-                <p className={cn('flex items-center gap-1.5 text-[13px] font-semibold', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
+                <div className={cn('flex flex-wrap items-center justify-center gap-2 text-[14px]', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
                   <GoogleIcon />
-                  Google Reviews
-                </p>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[40px] font-semibold leading-none tracking-tight tabular-nums">
+                  <span className={cn('text-[22px] font-bold leading-none tabular-nums', theme === 'dark' ? 'text-zinc-50' : 'text-zinc-950')}>
                     {(business.averageRating ?? 0).toFixed(1)}
                   </span>
                   <StarRating rating={business.averageRating ?? 0} size="md" />
+                  <span>{business.totalReviewsCount ?? reviews.length} Google reviews</span>
                 </div>
-                <p className={cn('text-[12px]', theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500')}>
-                  Based on {business.totalReviewsCount ?? reviews.length} reviews
-                </p>
                 {business.placeId ? (
                   <a
                     href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.placeId)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
+                    className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-85"
                     style={{ backgroundColor: accent }}
                   >
                     ★ Write a review

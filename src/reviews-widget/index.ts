@@ -156,22 +156,25 @@ const CSS = `
 .orw-hero-text { flex: 1; min-width: 220px; }
 .orw-hero-address { font-size: 13px; color: var(--orw-muted); margin: 0 0 14px; }
 
-/* Lite header: rating only, centred, in a narrower box. */
-.orw-hero-lite {
-  flex-direction: column; justify-content: center; gap: 6px;
+/* Lite header: two centred lines (rating row + CTA), no card behind it.
+   Selector carries [data-theme] so it outranks the dark-theme gradient rule. */
+.orw-root[data-theme] .orw-hero.orw-hero-lite {
+  flex-direction: column; justify-content: center; gap: 12px;
   text-align: center;
-  padding: 20px 24px;
-  width: calc(100% - 32px); max-width: 520px;
-  margin: 0 auto 20px;
+  padding: 4px 16px 0;
+  margin: 0 0 20px;
+  background: none; border: 0; border-radius: 0;
 }
-.orw-hero-lite-label {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 600; color: var(--orw-muted);
+.orw-hero-lite-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 8px; font-size: 14px; color: var(--orw-muted);
 }
-.orw-hero-lite-rating { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.orw-hero-lite-rating .orw-hero-rating-num { font-size: 40px; }
-.orw-hero-lite-rating .orw-star { width: 20px; height: 20px; }
-.orw-hero-lite .orw-write-btn { margin-top: 8px; }
+.orw-hero-lite-num {
+  font-size: 22px; font-weight: 700; line-height: 1; color: var(--orw-text);
+  font-variant-numeric: tabular-nums;
+}
+.orw-hero-lite-row .orw-star { width: 18px; height: 18px; }
+.orw-hero-lite .orw-write-btn { margin-top: 0; }
 
 .orw-dist { display: flex; flex-direction: column; gap: 6px; min-width: 240px; flex: 1; }
 .orw-dist-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
@@ -486,12 +489,12 @@ function renderHero(p: ApiPayload, style: HeroStyle): string {
   if (style === 'lite') {
     return `
     <section class="orw-hero orw-hero-lite">
-      <div class="orw-hero-lite-label">${GOOGLE_G_SVG}<span>Google Reviews</span></div>
-      <div class="orw-hero-lite-rating">
-        <span class="orw-hero-rating-num">${avg.toFixed(1)}</span>
+      <div class="orw-hero-lite-row">
+        ${GOOGLE_G_SVG}
+        <span class="orw-hero-lite-num">${avg.toFixed(1)}</span>
         ${stars(avg)}
+        <span>${total} Google reviews</span>
       </div>
-      <div class="orw-hero-meta">Based on ${total} reviews</div>
       ${writeBtn}
     </section>
   `
