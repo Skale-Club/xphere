@@ -54,6 +54,7 @@ import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availabili
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import { emitXkeduleBookingCreatedEvents } from '@/lib/action-engine/executors/xkedule-booking-events'
 import { executeAdsProposeChange } from './executors/ads-propose-change'
+import { executeSeoRunAudit } from './executors/seo-run-audit'
 import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
 import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booking'
 import { getXkeduleQuote } from '@/lib/xkedule/actions/quote'
@@ -267,6 +268,15 @@ async function _executeActionInner(
       throw new Error('ads_propose_change requires ctx.organizationId')
     }
     return executeAdsProposeChange(params, { organizationId: ctx.organizationId })
+  }
+
+  // SEO module: queue an audit (async; completion fires event:seo.audit_completed).
+  // Not in the action_type DB enum — same pattern as ads_propose_change.
+  if ((actionType as string) === 'seo_run_audit') {
+    if (!ctx?.organizationId) {
+      throw new Error('seo_run_audit requires ctx.organizationId')
+    }
+    return executeSeoRunAudit(params, { organizationId: ctx.organizationId, supabase: ctx.supabase })
   }
 
   // Native CRM contact create/update | not in the action_type DB enum either.

@@ -20,7 +20,7 @@ import {
   type InputSchemaMap,
 } from '@/lib/workflows/derive-input-schema'
 
-export const SPEC_VERSION = '2026.05.20'
+export const SPEC_VERSION = '2026.10.05'
 
 // ─── Trigger types ────────────────────────────────────────────────────────────
 
@@ -98,6 +98,21 @@ export const TRIGGERS: TriggerSpec[] = [
     type: 'event:commerce.customer.created',
     description: 'A new Medusa customer was created and pushed from the connected store.',
     variables: ['customer.*', 'contact.*', 'trigger.fired_at'],
+  },
+  // SEO module — emitted by the audit engine (src/lib/seo/events.ts) when an audit completes.
+  {
+    type: 'event:seo.audit_completed',
+    description:
+      'A technical SEO audit of a site finished. Exposes the health score (and the previous one), issue counts by ' +
+      'severity, pages crawled and a link to the report.',
+    variables: ['seo.*', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:seo.critical_issue_new',
+    description:
+      'An SEO audit found error-severity issues the previous audit of the site did not have (broken pages, ' +
+      'noindex in sitemap, mixed content…). Never fires on a site\'s first audit. seo.new_issues lists them.',
+    variables: ['seo.*', 'trigger.fired_at'],
   },
   {
     type: 'event:workflow.run.failed',
@@ -868,6 +883,23 @@ export const NODES: NodeSpec[] = [
     ],
   },
   {
+    type: 'seo_run_audit',
+    kind: 'action',
+    description:
+      'Queue a technical SEO audit (crawl + checks + health score) of a site tracked in the SEO module. Runs ' +
+      'asynchronously: it starts within a minute and fires event:seo.audit_completed when done. If an audit is ' +
+      'already running for the site, returns it ({already_running:true}) instead of starting another. ' +
+      'Returns audit_id.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        site: { type: 'string', description: 'SEO site id, host (example.com) or URL of a site added in SEO.' },
+      },
+      required: ['site'],
+    },
+    examples: [{ site: 'example.com' }],
+  },
+  {
     type: 'contact_create',
     kind: 'action',
     description:
@@ -1373,6 +1405,10 @@ export const VARIABLE_NAMESPACES = {
   customer:
     'Medusa customer fields for event:commerce.customer.created. Exposes customer_id, ' +
     'email, first_name, last_name.',
+  seo:
+    'SEO audit fields for event:seo.audit_completed / event:seo.critical_issue_new. Exposes site_id, site_name, ' +
+    'host, audit_id, url (report link), health_score, previous_health_score, errors, warnings, notices, ' +
+    'pages_crawled, new_issue_count, new_issues ([{code, title, url}]).',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

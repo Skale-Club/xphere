@@ -16,6 +16,7 @@ export type IntegrationCategory =
   | 'ai'
   | 'calendar'
   | 'reviews'
+  | 'seo'
 
 export type PanelType =
   | 'api_key' // generic field form + Test + Save + Activate
@@ -103,6 +104,7 @@ import { TwilioPanel } from '@/components/integrations/panels/twilio-panel'
 import { OpenRouterPanel } from '@/components/integrations/panels/openrouter-panel'
 import { GoogleContactsOAuthPanel } from '@/components/integrations/google-contacts-oauth-panel'
 import { GoogleCalendarOAuthPanel } from '@/components/integrations/google-calendar-oauth-panel'
+import { GoogleSearchConsoleOAuthPanel } from '@/components/integrations/google-search-console-oauth-panel'
 
 export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   // ── Messaging ─────────────────────────────────────────────────────────────
@@ -452,6 +454,19 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     testable: false,
     oauthHref: '/integrations/google-reviews',
   },
+
+  // ── SEO ───────────────────────────────────────────────────────────────────
+  {
+    id: 'google_search_console',
+    name: 'Google Search Console',
+    description: 'Clicks, impressions, CTR and rankings from Google Search, synced daily into the SEO module.',
+    category: 'seo',
+    logo: { letter: 'G', color: 'bg-emerald-600' },
+    panelType: 'custom',
+    CustomPanel: GoogleSearchConsoleOAuthPanel,
+    canActivate: true,
+    testable: false,
+  },
 ]
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [
@@ -462,6 +477,7 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
   'ai',
   'calendar',
   'reviews',
+  'seo',
 ]
 
 export const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
@@ -472,6 +488,7 @@ export const CATEGORY_LABEL: Record<IntegrationCategory, string> = {
   ai: 'AI',
   calendar: 'Calendar',
   reviews: 'Reviews',
+  seo: 'SEO',
 }
 
 export function getDefinitionByProvider(
@@ -492,6 +509,7 @@ export function getDefinitionsByCategory(): Record<
     ai: [],
     calendar: [],
     reviews: [],
+    seo: [],
   }
   for (const def of INTEGRATION_REGISTRY) {
     out[def.category].push(def)

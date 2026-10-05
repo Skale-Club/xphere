@@ -179,6 +179,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [{ key: 'analytics.view', label: 'View analytics' }],
   },
   {
+    key: 'seo',
+    label: 'SEO',
+    icon: 'SearchCheck',
+    permissions: [
+      { key: 'seo.view', label: 'View SEO audits' },
+      { key: 'seo.manage', label: 'Manage sites & run audits' },
+    ],
+  },
+  {
     key: 'knowledge',
     label: 'Knowledge',
     icon: 'BookOpen',

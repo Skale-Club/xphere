@@ -42,6 +42,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   zernio: 'Zernio',
   xkedule: 'Xkedule',
   medusa: 'Medusa',
+  google_search_console: 'Google Search Console',
 }
 
 const integrationSchema = z.object({

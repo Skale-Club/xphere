@@ -108,6 +108,25 @@ const CALL_GROUP: VariableGroup = {
   ],
 }
 
+const SEO_GROUP: VariableGroup = {
+  label: 'SEO audit',
+  items: [
+    v('seo.site_name', 'Site name'),
+    v('seo.host', 'Site host'),
+    v('seo.health_score', 'Health score (0-100)'),
+    v('seo.previous_health_score', 'Previous health score'),
+    v('seo.errors', 'Errors'),
+    v('seo.warnings', 'Warnings'),
+    v('seo.notices', 'Notices'),
+    v('seo.pages_crawled', 'Pages crawled'),
+    v('seo.new_issue_count', 'New critical issues'),
+    v('seo.new_issues', 'New critical issues (list)'),
+    v('seo.url', 'Report link'),
+    v('seo.site_id', 'Site ID'),
+    v('seo.audit_id', 'Audit ID'),
+  ],
+}
+
 const TRIGGER_GROUP: VariableGroup = {
   label: 'Trigger',
   items: [v('trigger.fired_at', 'Fired at (timestamp)')],
@@ -131,6 +150,8 @@ export function variablesForTrigger(eventType: string | undefined): VariableGrou
   if (e.startsWith('opportunity.')) {
     return [OPPORTUNITY_GROUP, CONTACT_GROUP, TRIGGER_GROUP]
   }
+
+  if (e.startsWith('seo.')) return [SEO_GROUP, TRIGGER_GROUP]
 
   if (e.startsWith('inbound_') || e === 'inbound_sms_to_number' || e === 'inbound_call_to_number') {
     return [PHONE_GROUP, CONTACT_GROUP, TRIGGER_GROUP]

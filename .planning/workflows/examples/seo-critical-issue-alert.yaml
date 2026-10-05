@@ -1,0 +1,24 @@
+# Canonical example — alert the team when an SEO audit finds NEW critical issues.
+# Trigger: seo.critical_issue_new fires when an audit has error-severity issues
+#          the previous audit of the same site did not have (never on a first audit).
+# Scope:   seo.* (site_name, host, health_score, previous_health_score,
+#          new_issue_count, new_issues, url).
+
+name: seo-critical-issue-alert
+description: |
+  Posts to Telegram when an SEO audit finds new broken pages, noindex pages in
+  the sitemap, mixed content or other errors, with a link to the report.
+trigger:
+  type: event
+  event: seo.critical_issue_new
+
+nodes:
+  - id: alert_team
+    kind: send_telegram_notification
+    integration: telegram
+    parse_mode: HTML
+    text: "⚠️ <b>{{seo.site_name}}</b>: {{seo.new_issue_count}} new SEO error(s). Health score {{seo.previous_health_score}} → {{seo.health_score}}.\n{{seo.url}}"
+
+edges:
+  - from: trigger
+    to: alert_team

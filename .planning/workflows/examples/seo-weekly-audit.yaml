@@ -1,0 +1,19 @@
+# Canonical example — audit a site on a custom schedule from a workflow.
+# Sites already have a built-in weekly/monthly schedule in SEO → site settings;
+# use a workflow when the audit should follow your own timing or another event.
+# seo_run_audit only queues the audit; react to the result with an
+# event:seo.audit_completed workflow.
+
+name: seo-monday-audit
+description: Queues an SEO audit of the main site every Monday at 06:00.
+trigger:
+  type: schedule
+  config:
+    cron: "0 6 * * 1"
+nodes:
+  - id: audit_site
+    kind: seo_run_audit
+    site: example.com
+edges:
+  - from: trigger
+    to: audit_site

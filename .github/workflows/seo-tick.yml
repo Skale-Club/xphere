@@ -1,0 +1,35 @@
+name: SEO Tick
+
+# Advances SEO site audits (crawl → checks → score) in ~50s slices.
+#
+# The schedule runs from the skale-cron service on the Coolify VPS (every
+# minute), like the other ticks: GitHub Actions throttles frequent schedules
+# into 30-minute gaps and bills a runner minute per curl. This workflow is the
+# manual/emergency trigger for when the VPS cron is down.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: seo-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fire seo-tick endpoint
+        run: |
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --connect-timeout 15 --max-time 95 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/seo-tick")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "seo-tick failed with status $STATUS" >&2
+            exit 1
+          fi
