@@ -21,10 +21,12 @@ import { RunAuditButton } from '@/components/seo/run-audit-button'
 import { ScoreBadge } from '@/components/seo/score-badge'
 import { ScoreHistoryChart } from '@/components/seo/score-history-chart'
 import { SiteSettingsDialog } from '@/components/seo/site-settings-dialog'
+import { PerformanceTab, RANGES, type RangeDays } from './performance'
 
 export const dynamic = 'force-dynamic'
 
-type Tab = 'overview' | 'issues' | 'pages'
+type Tab = 'overview' | 'performance' | 'issues' | 'pages'
+const TABS: Tab[] = ['overview', 'performance', 'issues', 'pages']
 type Summary = {
   by_severity?: Partial<Record<IssueSeverity, number>>
   by_code?: Record<string, number>
@@ -45,7 +47,9 @@ export default async function SeoSitePage({
   const sp = await searchParams
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
   const tabParam = one(sp.tab)
-  const tab: Tab = tabParam === 'issues' || tabParam === 'pages' ? tabParam : 'overview'
+  const tab: Tab = TABS.includes(tabParam as Tab) ? (tabParam as Tab) : 'overview'
+  const rangeParam = Number(one(sp.range))
+  const range: RangeDays = (RANGES as readonly number[]).includes(rangeParam) ? (rangeParam as RangeDays) : 28
   const issueParam = one(sp.issue)
   const pageParam = one(sp.page)
 
@@ -129,7 +133,32 @@ export default async function SeoSitePage({
         </div>
       )}
 
-      {!latest ? (
+      <nav className="flex gap-1 overflow-x-auto border-b border-border-subtle">
+        {TABS.map((t) => (
+          <Link
+            key={t}
+            href={t === 'overview' ? base : `${base}?tab=${t}`}
+            scroll={false}
+            className={cn(
+              '-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm capitalize transition-colors',
+              tab === t ? 'border-accent font-medium text-text-primary' : 'border-transparent text-text-secondary hover:text-text-primary',
+            )}
+          >
+            {t}
+            {t === 'issues' && summary?.total ? <span className="ml-1.5 text-xs text-text-tertiary">{summary.total}</span> : null}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === 'performance' ? (
+        <PerformanceTab
+          site={site}
+          range={range}
+          canManage={canManage}
+          latestAuditId={latest?.id ?? null}
+          gscError={one(sp.gsc_error) ?? null}
+        />
+      ) : !latest ? (
         <Card className="border-dashed">
           <CardContent className="py-14 text-center text-sm text-text-secondary">
             {active ? 'The first audit is running — results appear here when it finishes.' : 'No completed audit yet.'}
@@ -137,38 +166,14 @@ export default async function SeoSitePage({
         </Card>
       ) : (
         <>
-          <nav className="flex gap-1 border-b border-border-subtle">
-            {(['overview', 'issues', 'pages'] as Tab[]).map((t) => (
-              <Link
-                key={t}
-                href={t === 'overview' ? base : `${base}?tab=${t}`}
-                scroll={false}
-                className={cn(
-                  '-mb-px border-b-2 px-3 py-2 text-sm capitalize transition-colors',
-                  tab === t ? 'border-accent font-medium text-text-primary' : 'border-transparent text-text-secondary hover:text-text-primary',
-                )}
-              >
-                {t}
-                {t === 'issues' && summary?.total ? <span className="ml-1.5 text-xs text-text-tertiary">{summary.total}</span> : null}
-              </Link>
-            ))}
-          </nav>
-
-          {tab === 'overview' && (
-            <Overview
-              audit={latest}
-              summary={summary}
-              history={history}
-              base={base}
-            />
-          )}
+          {tab === 'overview' && <Overview audit={latest} summary={summary} history={history} base={base} />}
           {tab === 'issues' && <IssueGroups summary={summary} base={base} />}
           {tab === 'pages' && <PagesTab auditId={latest.id} base={base} />}
-
-          {issueParam && <IssueSheet auditId={latest.id} code={issueParam} />}
-          {pageParam && <PageSheet auditId={latest.id} pageId={pageParam} />}
         </>
       )}
+
+      {latest && issueParam && <IssueSheet auditId={latest.id} code={issueParam} />}
+      {latest && pageParam && <PageSheet auditId={latest.id} pageId={pageParam} />}
     </PageContainer>
   )
 }

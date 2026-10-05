@@ -190,7 +190,32 @@ Catálogo em `catalog.ts`: `code`, severidade, peso no score, título e "como co
 **Pronto quando:** um site real (ex. o site da Skale Club) é auditado de ponta a ponta sobrevivendo a um
 deploy no meio do crawl, a UI lista as issues com as páginas afetadas e `npm run build` passa.
 
-## Fase 2: Google Search Console
+## Fase 2: Google Search Console ✅ BUILT 2026-10-05 (aguarda `db push` da 1313 + config no Google Cloud)
+
+**Entregue:** migration 1313 (enum `google_search_console`, colunas `gsc_*` em `seo_sites`, `seo_gsc_daily`,
+`seo_gsc_top`, RPCs `claim_gsc_syncs` e `prune_seo_gsc_top`); OAuth em `/api/google/search-console/{connect,callback}`
+reaproveitando `GOOGLE_CLIENT_ID` (D2); card "Google Search Console" em Integrations (categoria nova "SEO"); sync
+diário dentro do `seo-tick` (até 3 sites por tick, backfill de 16 meses na primeira vez, re-sync dos últimos 5 dias,
+snapshot semanal do top 500 de queries e páginas); aba **Performance** em `/seo/[siteId]` (conectar → escolher
+propriedade → KPIs com comparação de período, gráfico, top queries/páginas e três listas de oportunidades: "quase
+na página 1", "CTR baixo para a posição" e "corrigir primeiro: páginas com tráfego e issues"); cliques de 30 dias
+nos cards de `/seo`; banner de reconexão quando o grant morre (`invalid_grant` → `health_status='disconnected'`).
+Testes: `tests/seo-gsc.test.ts` e `tests/seo-gsc-sync.test.ts` (backfill → incremental, snapshot semanal, grant
+desconectado). SQL validado em PGlite.
+
+**Desvios / decisões de implementação:**
+- **Uma conexão GSC por org** (`integrations` é único por org+provider). Para a agência, conectar uma conta Google
+  com acesso a todas as propriedades dos clientes; cada site escolhe a sua.
+- O callback do Google volta sem o org da aba: a org é capturada no `/connect` e guardada junto ao state CSRF;
+  o callback usa `createClientForOrg()` (novo, em `src/lib/supabase/server.ts`) e confere que o usuário é membro.
+- O seletor de propriedade fica na própria aba Performance (não no modal de configurações).
+- **Adiado:** drill-down ao vivo com cache no Redis, URL Inspection API e o comparativo de período nas tabelas de
+  top (as tabelas mostram o snapshot de 28 dias). Nós GSC de workflow ficam para a Fase 4.
+
+**Pendências operacionais:** `npx supabase db push` (1313) e os 4 passos da D2 no Google Cloud Console (ativar a
+Search Console API, adicionar o escopo `webmasters.readonly`, cadastrar o redirect
+`https://xphere.app/api/google/search-console/callback`, conferir o status de publicação/verificação).
+
 
 - **Migration:** `ALTER TYPE integration_provider ADD VALUE IF NOT EXISTS 'google_search_console'` (a
   1253 mostra o callback falhando calado sem isso). Atualizar a union em `src/types/database.ts` e em

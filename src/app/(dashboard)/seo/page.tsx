@@ -9,6 +9,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AddSiteDialog } from '@/components/seo/add-site-dialog'
 import { AuditProgress } from '@/components/seo/audit-progress'
 import { ScoreBadge } from '@/components/seo/score-badge'
+import { selectAll } from '@/lib/seo/select-all'
+import { addDays, isoDate } from '@/lib/seo/gsc/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +19,7 @@ type Summary = { by_severity?: { error?: number; warning?: number; notice?: numb
 export default async function SeoPage() {
   const supabase = await createClient()
   const [{ data: sites }, canManage] = await Promise.all([
-    supabase.from('seo_sites').select('id, name, root_url, host, audit_schedule').order('created_at', { ascending: true }),
+    supabase.from('seo_sites').select('id, name, root_url, host, audit_schedule, gsc_property').order('created_at', { ascending: true }),
     can('seo.manage'),
   ])
 
@@ -52,6 +54,14 @@ export default async function SeoPage() {
     .order('created_at', { ascending: false })
     .limit(siteIds.length * 12)
 
+  // Search Console clicks over the last 30 days (GSC data lags ~2 days).
+  const since = addDays(isoDate(new Date()), -30)
+  const gscRows = await selectAll<{ site_id: string; clicks: number }>((from, to) =>
+    supabase.from('seo_gsc_daily').select('site_id, clicks').in('site_id', siteIds).gte('date', since).order('date').range(from, to),
+  )
+  const clicks28 = new Map<string, number>()
+  for (const r of gscRows) clicks28.set(r.site_id, (clicks28.get(r.site_id) ?? 0) + r.clicks)
+
   const latestCompleted = new Map<string, NonNullable<typeof audits>[number]>()
   const previousCompleted = new Map<string, number | null>()
   const active = new Map<string, NonNullable<typeof audits>[number]>()
@@ -81,6 +91,9 @@ export default async function SeoPage() {
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate font-semibold text-text-primary">{site.name}</h3>
                       <p className="truncate text-xs text-text-tertiary">{site.host}</p>
+                      {site.gsc_property && clicks28.has(site.id) && (
+                        <p className="text-xs text-text-secondary">{clicks28.get(site.id)!.toLocaleString()} clicks · last 30 days</p>
+                      )}
                       {delta !== null && delta !== 0 && (
                         <p className={delta > 0 ? 'text-xs text-success' : 'text-xs text-danger'}>
                           {delta > 0 ? '▲' : '▼'} {Math.abs(delta)} since last audit
