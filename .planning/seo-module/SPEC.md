@@ -61,7 +61,35 @@ Hoje não existe nada de SEO de verdade no app. O que encosta no tema:
 - [ ] Criar `GOOGLE_PSI_API_KEY` (PageSpeed Insights) e subir via `coolify-set-envs.yml`. **Não rodar isso
       durante um deploy do build-deploy**, porque a var é gravada mas o container não reinicia.
 
-## Fase 1: Fundação + auditoria técnica (o "Site Audit")
+## Fase 1: Fundação + auditoria técnica (o "Site Audit") ✅ BUILT 2026-10-05 (aguarda `db push` + QA em prod)
+
+**Entregue:** migration 1312, motor em `src/lib/seo/` (crawler, ~40 checks, PSI, score), `/api/cron/seo-tick`,
+telas `/seo` e `/seo/[siteId]` (Visão geral · Issues com sheet `?issue=` · Páginas com sheet `?page=`), modal de
+configurações, permissões `seo.view`/`seo.manage`, feature `seo`. Testes: `tests/seo-*.test.ts` (47), incluindo
+um teste ponta a ponta do motor contra banco em memória (setup → crawl → finalize, retomada entre ticks sem
+duplicar issues, limite de páginas, bloqueio por WAF). SQL validado em PGlite (idempotência, claim/lease,
+enqueue, retenção, grants).
+
+**Desvios do plano abaixo:**
+- Sem RPC `reclaim_stale_seo_audits`: `claim_seo_audits` usa lease (`lease_expires_at`, 150s). Lease vencido é o
+  reclaim. Falha num tick → `attempts++` com backoff 1/5/15/60 min; na 5ª vira `failed`.
+- Proteção de SSRF em duas camadas: `assertPublicHttpUrl` por hop **e** `lookup` validado no próprio socket
+  (undici `Agent`), o que fecha DNS rebinding. `undici` virou dependência direta (já vinha via cheerio).
+- `user_agent_mode` (`googlebot_like`) **não** foi implementado: fingir ser o Googlebot contradiz "não há tentativa
+  de contornar". `gsc_property` fica para a migration da Fase 2.
+- `stage` (`setup|crawl|finalize|done`) em `seo_audits`; `source` (`page|final`) em `seo_audit_issues` para
+  re-finalização idempotente; `links text[]` em `seo_audit_pages` guarda o grafo de links.
+- Limite de páginas por auditoria: opções 50/100/200/500 na UI (o banco aceita até 5000) até a D4.
+- `'seo'` entrou no plano **Pro** (e Enterprise via `ALL_FEATURES`) como default provisório até a D4.
+- `custom-role-dialog.tsx` não existe; o ícone foi adicionado só em `role-matrix.tsx`.
+
+**Pendências operacionais (fora do repo):**
+1. `npx supabase db push` (aplica a 1312; este ambiente não tem credenciais).
+2. Adicionar `/api/cron/seo-tick` ao crontab do **skale-cron** a cada 1 min (com heartbeat, como os outros).
+   `.github/workflows/seo-tick.yml` é só o disparo manual.
+3. `GOOGLE_PSI_API_KEY` via `coolify-set-envs.yml` (sem ela o PSI usa a cota anônima, que é pequena).
+4. QA: auditar o site da Skale Club ponta a ponta e fazer um deploy no meio do crawl.
+
 
 ### 1a. Schema (`1312_seo_module.sql`)
 

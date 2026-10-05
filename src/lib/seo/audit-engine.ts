@@ -25,6 +25,7 @@ import { checkSite, emptySiteChecks, type CoreWebVitals, type SiteChecks } from 
 import { issueDefinition, type IssueFinding } from './checks/catalog'
 import { runPageSpeed } from './pagespeed'
 import { healthScore, summarizeIssues } from './score'
+import { selectAll } from './select-all'
 
 type Sb = SupabaseClient<Database>
 type AuditRow = Database['public']['Tables']['seo_audits']['Row']
@@ -46,7 +47,6 @@ const PSI_PAGES = 5
 const MIN_FINALIZE_BUDGET_MS = 45_000
 const ROBOTS_MAX_CHARS = 64_000
 const POLITE_DELAY_MS = 250
-const PAGE_SIZE = 1000
 const INSERT_CHUNK = 500
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -575,19 +575,6 @@ async function runFinalize(sb: Sb, audit: AuditRow, site: SiteRow, deadline: num
 // ───────────────────────────────────────────────────────────────────────────
 // Helpers
 // ───────────────────────────────────────────────────────────────────────────
-
-/** Page through a PostgREST select (default max 1000 rows per request). */
-async function selectAll<T>(
-  query: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const out: T[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await query(from, from + PAGE_SIZE - 1)
-    if (error) throw new Error(error.message)
-    out.push(...((data ?? []) as T[]))
-    if (!data || data.length < PAGE_SIZE) return out
-  }
-}
 
 async function insertChunked(
   sb: Sb,
