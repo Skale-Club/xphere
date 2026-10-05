@@ -26,6 +26,7 @@ import { issueDefinition, type IssueFinding } from './checks/catalog'
 import { runPageSpeed } from './pagespeed'
 import { healthScore, summarizeIssues } from './score'
 import { selectAll } from './select-all'
+import { runGscSyncs, type GscSyncResult } from './gsc/sync'
 
 type Sb = SupabaseClient<Database>
 type AuditRow = Database['public']['Tables']['seo_audits']['Row']
@@ -58,10 +59,20 @@ export interface TickResult {
   claimed: number
   audits: Array<{ id: string; stage: string; status: string; crawled?: number; error?: string }>
   pruned: number
+  gsc: GscSyncResult
 }
 
 export async function runSeoTick(sb: Sb, budgetMs: number): Promise<TickResult> {
   const deadline = Date.now() + budgetMs
+
+  // Search Console first: a few small API calls per site, so it never waits
+  // behind a long crawl. Failures are recorded per site and never stop audits.
+  let gsc: GscSyncResult = { claimed: 0, synced: [], failed: [] }
+  try {
+    gsc = await runGscSyncs(sb)
+  } catch (err) {
+    console.error('[seo-tick] gsc sync failed:', err instanceof Error ? err.message : err)
+  }
 
   const { data: enqueued, error: enqueueError } = await sb.rpc('enqueue_due_seo_audits')
   if (enqueueError) console.error('[seo-tick] enqueue failed:', enqueueError.message)
@@ -92,7 +103,7 @@ export async function runSeoTick(sb: Sb, budgetMs: number): Promise<TickResult> 
   if (pruneError) console.error('[seo-tick] prune failed:', pruneError.message)
   else pruned = prunedCount ?? 0
 
-  return { enqueued: enqueued ?? 0, claimed: audits.length, audits: results, pruned }
+  return { enqueued: enqueued ?? 0, claimed: audits.length, audits: results, pruned, gsc }
 }
 
 async function recordFailure(sb: Sb, audit: AuditRow, message: string) {
